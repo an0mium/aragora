@@ -173,10 +173,7 @@ class CrossProposalAnalyzer:
         corroboration = self._calculate_corroboration(shared, len(proposals))
 
         # Per-agent coverage
-        coverage = {
-            agent: score.overall_quality
-            for agent, score in quality_scores.items()
-        }
+        coverage = {agent: score.overall_quality for agent, score in quality_scores.items()}
 
         weakest = min(coverage, key=lambda k: coverage[k]) if coverage else None
 
@@ -270,8 +267,7 @@ class CrossProposalAnalyzer:
             claims = [
                 s.strip()
                 for s in sentences
-                if len(s.strip()) > 20
-                and not s.strip().startswith(("?", "What", "How", "Why"))
+                if len(s.strip()) > 20 and not s.strip().startswith(("?", "What", "How", "Why"))
             ]
             agent_claims[agent] = claims
 
@@ -290,9 +286,7 @@ class CrossProposalAnalyzer:
                                     topic=topic,
                                     evidence1=c1[:200],
                                     evidence2=c2[:200],
-                                    description=(
-                                        f"{a1} and {a2} have opposing views on {topic}"
-                                    ),
+                                    description=(f"{a1} and {a2} have opposing views on {topic}"),
                                 )
                             )
 
@@ -314,8 +308,7 @@ class CrossProposalAnalyzer:
             claims = [
                 s.strip()
                 for s in sentences
-                if len(s.strip()) > 25
-                and not s.strip().startswith(("?", "What", "How", "Why"))
+                if len(s.strip()) > 25 and not s.strip().startswith(("?", "What", "How", "Why"))
             ]
             claim_map[agent] = claims
 
@@ -426,9 +419,26 @@ class CrossProposalAnalyzer:
     @staticmethod
     def _has_negation_diff(text1: str, text2: str) -> bool:
         """Check if texts differ by negation patterns."""
-        negation_words = {"not", "no", "never", "don't", "doesn't", "shouldn't",
-                          "won't", "can't", "isn't", "aren't", "without", "lack",
-                          "avoid", "instead", "rather", "however", "but", "although"}
+        negation_words = {
+            "not",
+            "no",
+            "never",
+            "don't",
+            "doesn't",
+            "shouldn't",
+            "won't",
+            "can't",
+            "isn't",
+            "aren't",
+            "without",
+            "lack",
+            "avoid",
+            "instead",
+            "rather",
+            "however",
+            "but",
+            "although",
+        }
 
         words1 = set(text1.lower().split())
         words2 = set(text2.lower().split())

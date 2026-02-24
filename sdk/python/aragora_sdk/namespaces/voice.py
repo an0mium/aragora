@@ -64,9 +64,7 @@ class VoiceAPI:
 
         @route DELETE /api/v1/voice/sessions/{session_id}
         """
-        return self._client.request(
-            "DELETE", f"/api/v1/voice/sessions/{session_id}"
-        )
+        return self._client.request("DELETE", f"/api/v1/voice/sessions/{session_id}")
 
     # -- Twilio voice webhook endpoints ---------------------------------------
 
@@ -92,9 +90,7 @@ class VoiceAPI:
             json={"CallSid": call_sid, "CallStatus": call_status, **kwargs},
         )
 
-    def submit_gather(
-        self, call_sid: str, speech_result: str = "", confidence: float = 0.0
-    ) -> Any:
+    def submit_gather(self, call_sid: str, speech_result: str = "", confidence: float = 0.0) -> Any:
         """Submit speech gather result from a call.
 
         @route POST /api/v1/voice/gather
@@ -183,9 +179,7 @@ class AsyncVoiceAPI:
 
         @route DELETE /api/v1/voice/sessions/{session_id}
         """
-        return await self._client.request(
-            "DELETE", f"/api/v1/voice/sessions/{session_id}"
-        )
+        return await self._client.request("DELETE", f"/api/v1/voice/sessions/{session_id}")
 
     # -- Twilio voice webhook endpoints ---------------------------------------
 

@@ -57,12 +57,12 @@ _TTS_MODEL = "eleven_multilingual_v2"
 
 # Per-tentacle TTS voices — each model gets a distinct voice
 _TENTACLE_VOICES: dict[str, str] = {
-    "claude": "flHkNRp1BlvT73UL6gyz",    # Deep, measured (default Oracle voice)
-    "gpt": "pNInz6obpgDQGcFmaJgB",       # Adam - warm, authoritative
-    "grok": "ErXwobaYiN019PkySvjV",       # Antoni - sharp, direct
-    "deepseek": "VR6AewLTigWG4xSOukaG",   # Arnold - deep, deliberate
-    "gemini": "21m00Tcm4TlvDq8ikWAM",     # Rachel - clear, analytical
-    "mistral": "AZnzlk1XvdvUeBnXmlld",    # Domi - European, refined
+    "claude": "flHkNRp1BlvT73UL6gyz",  # Deep, measured (default Oracle voice)
+    "gpt": "pNInz6obpgDQGcFmaJgB",  # Adam - warm, authoritative
+    "grok": "ErXwobaYiN019PkySvjV",  # Antoni - sharp, direct
+    "deepseek": "VR6AewLTigWG4xSOukaG",  # Arnold - deep, deliberate
+    "gemini": "21m00Tcm4TlvDq8ikWAM",  # Rachel - clear, analytical
+    "mistral": "AZnzlk1XvdvUeBnXmlld",  # Domi - European, refined
 }
 
 _PHASE_TAG_REFLEX = 0x00
@@ -118,7 +118,10 @@ def _get_tentacle_models() -> list[dict[str, str]]:
 
 
 def _build_oracle_prompt(
-    mode: str, question: str, *, session_id: str | None = None,
+    mode: str,
+    question: str,
+    *,
+    session_id: str | None = None,
 ) -> str:
     """Build the full Oracle prompt with essay context."""
     try:
@@ -148,7 +151,10 @@ def _sanitize_oracle_input(question: str) -> str:
         question = re.sub(r"(?i)system\s*:\s*", "", question)
         question = question[:2000]
         question = re.sub(
-            r"</?(?:essay|system|assistant|user|instruction)[^>]*>", "", question, flags=re.IGNORECASE
+            r"</?(?:essay|system|assistant|user|instruction)[^>]*>",
+            "",
+            question,
+            flags=re.IGNORECASE,
         )
         return question.strip()
 
@@ -165,7 +171,9 @@ def _filter_oracle_response(text: str) -> str:
         return _filter(text)
     except ImportError:
         text = re.sub(r"(?:sk-|key-|Bearer\s+)[a-zA-Z0-9_-]{20,}", "[REDACTED]", text)
-        text = re.sub(r"(?i)(?:system prompt|my instructions|I was told to)", "my perspective", text)
+        text = re.sub(
+            r"(?i)(?:system prompt|my instructions|I was told to)", "my perspective", text
+        )
         return text
 
 
@@ -525,7 +533,10 @@ async def _stream_phase(
     first_audio_emitted = False
 
     async def _tts_with_latency(
-        ws: web.WebSocketResponse, text: str, tag: int, voice_id: str | None = None,
+        ws: web.WebSocketResponse,
+        text: str,
+        tag: int,
+        voice_id: str | None = None,
     ) -> None:
         nonlocal first_audio_emitted
         await _stream_tts(ws, text, tag, voice_id=voice_id)
@@ -533,7 +544,9 @@ async def _stream_phase(
             first_audio_emitted = True
             ttfa = time.monotonic() - t_start
             logger.info(
-                "[Oracle Latency] phase=%s time_to_first_audio=%.3fs", phase, ttfa,
+                "[Oracle Latency] phase=%s time_to_first_audio=%.3fs",
+                phase,
+                ttfa,
             )
 
     async for token in _call_provider_llm_stream(provider, model, prompt, max_tokens):
@@ -544,7 +557,9 @@ async def _stream_phase(
             first_token_emitted = True
             ttft = time.monotonic() - t_start
             logger.info(
-                "[Oracle Latency] phase=%s time_to_first_token=%.3fs", phase, ttft,
+                "[Oracle Latency] phase=%s time_to_first_token=%.3fs",
+                phase,
+                ttft,
             )
 
         # Send token event
@@ -730,7 +745,11 @@ async def _stream_tentacles(
         if has_tentacle_prompts:
             role = _TENTACLE_ROLE_PROMPTS[role_idx % len(_TENTACLE_ROLE_PROMPTS)]
             tent_prompt = _build_tentacle_prompt(
-                mode, question, role, source="oracle", model_name=name,
+                mode,
+                question,
+                role,
+                source="oracle",
+                model_name=name,
             )
             # Append model identity so the LLM knows which perspective it represents
             tent_prompt += f"\n\nYou are responding as the {name} model."
@@ -833,7 +852,9 @@ async def _handle_ask(
 
     # Use prebuilt prompt from interim if available, otherwise build now
     deep_prompt = session.prebuilt_prompt or _build_oracle_prompt(
-        mode, question, session_id=session_id,
+        mode,
+        question,
+        session_id=session_id,
     )
     session.prebuilt_prompt = None  # consumed
 
@@ -937,10 +958,12 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
     if not _is_oracle_streaming_enabled():
         ws = web.WebSocketResponse()
         await ws.prepare(request)
-        await ws.send_json({
-            "type": "error",
-            "message": "Oracle streaming is disabled",
-        })
+        await ws.send_json(
+            {
+                "type": "error",
+                "message": "Oracle streaming is disabled",
+            }
+        )
         await ws.close()
         return ws
 
@@ -954,10 +977,12 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
     if current >= _MAX_WS_SESSIONS_PER_IP:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
-        await ws.send_json({
-            "type": "error",
-            "message": f"Too many concurrent sessions (max {_MAX_WS_SESSIONS_PER_IP})",
-        })
+        await ws.send_json(
+            {
+                "type": "error",
+                "message": f"Too many concurrent sessions (max {_MAX_WS_SESSIONS_PER_IP})",
+            }
+        )
         await ws.close()
         return ws
 
@@ -981,9 +1006,7 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                         await ws.send_json({"type": "pong", "timestamp": time.time()})
 
                     elif msg_type == "ask":
-                        question = _sanitize_oracle_input(
-                            str(data.get("question", "")).strip()
-                        )
+                        question = _sanitize_oracle_input(str(data.get("question", "")).strip())
                         mode = str(data.get("mode", "consult"))
                         if not question:
                             await ws.send_json(
@@ -997,10 +1020,12 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                         # Per-IP rate limiting on ask messages
                         allowed, retry_after = _check_ws_rate_limit(client_ip)
                         if not allowed:
-                            await ws.send_json({
-                                "type": "error",
-                                "message": f"Rate limited. Retry in {retry_after}s",
-                            })
+                            await ws.send_json(
+                                {
+                                    "type": "error",
+                                    "message": f"Rate limited. Retry in {retry_after}s",
+                                }
+                            )
                             continue
 
                         # Cancel any running task
@@ -1019,7 +1044,10 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                         # Start new consultation
                         session.active_task = asyncio.create_task(
                             _handle_ask(
-                                ws, question, mode, session,
+                                ws,
+                                question,
+                                mode,
+                                session,
                                 session_id=session_id,
                                 summary_depth=summary_depth,
                             )

@@ -128,7 +128,9 @@ class AsyncOrchestrationAPI:
             body["knowledge_sources"] = knowledge_sources
         if output_channels:
             body["output_channels"] = output_channels
-        return await self._client.request("POST", "/api/v1/orchestration/deliberate/sync", json=body)
+        return await self._client.request(
+            "POST", "/api/v1/orchestration/deliberate/sync", json=body
+        )
 
     async def get_status(self, request_id: str) -> dict[str, Any]:
         """Get the status of a deliberation request."""

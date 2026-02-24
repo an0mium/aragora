@@ -605,8 +605,13 @@ class TestAuditReportGeneration:
         random order this class may execute first.  Seed the report with
         representative results so the assertions are order-independent.
         """
-        categories_needed = {"query_filtering", "access_prevention", "encryption",
-                             "context_isolation", "namespace_isolation"}
+        categories_needed = {
+            "query_filtering",
+            "access_prevention",
+            "encryption",
+            "context_isolation",
+            "namespace_isolation",
+        }
         existing = audit_report.categories_tested
         for cat in categories_needed - existing:
             audit_report.add_result(

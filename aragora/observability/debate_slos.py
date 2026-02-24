@@ -125,9 +125,7 @@ def get_debate_slo_definitions() -> dict[str, DebateSLODefinition]:
     )
     ws_rate = float(os.getenv("SLO_WS_RECONNECT_RATE", str(DEFAULT_WS_RECONNECT_RATE)))
     consensus = float(os.getenv("SLO_CONSENSUS_P95_S", str(DEFAULT_CONSENSUS_P95_S)))
-    dispatch = float(
-        os.getenv("SLO_DISPATCH_CONCURRENCY", str(DEFAULT_DISPATCH_CONCURRENCY))
-    )
+    dispatch = float(os.getenv("SLO_DISPATCH_CONCURRENCY", str(DEFAULT_DISPATCH_CONCURRENCY)))
 
     return {
         "time_to_first_token": DebateSLODefinition(
@@ -209,12 +207,10 @@ class _RollingWindow:
     def _prune(self) -> None:
         """Remove samples outside the window."""
         cutoff = time.time() - self._window_seconds
-        self._samples = [
-            (ts, val) for ts, val in self._samples if ts > cutoff
-        ]
+        self._samples = [(ts, val) for ts, val in self._samples if ts > cutoff]
         # Keep only max_samples most recent
         if len(self._samples) > self._max_samples:
-            self._samples = self._samples[-self._max_samples:]
+            self._samples = self._samples[-self._max_samples :]
 
     def percentile(self, pct: float) -> float:
         """Calculate a percentile from the current window.

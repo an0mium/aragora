@@ -396,15 +396,15 @@ class TestAutoExecuteLowRisk:
         pipeline_result = _mock_pipeline_result(completed=1)
 
         # Goal with low risk score
-        low_risk_goal = types.SimpleNamespace(
-            description="Fix lint warnings", risk_score=0.1
-        )
+        low_risk_goal = types.SimpleNamespace(description="Fix lint warnings", risk_score=0.1)
 
         execute_mock = AsyncMock(return_value=pipeline_result)
 
         with (
             patch.object(
-                daemon, "_assess", new_callable=AsyncMock,
+                daemon,
+                "_assess",
+                new_callable=AsyncMock,
                 side_effect=[report, after_report],
             ),
             patch.object(daemon, "_generate_goals", return_value=[low_risk_goal]),
@@ -415,9 +415,7 @@ class TestAutoExecuteLowRisk:
 
         assert result.success is True
         # Verify _execute was called with require_approval=False
-        execute_mock.assert_called_once_with(
-            "Fix lint warnings", require_approval=False
-        )
+        execute_mock.assert_called_once_with("Fix lint warnings", require_approval=False)
 
     @pytest.mark.asyncio
     async def test_high_risk_goal_keeps_approval(self):
@@ -444,7 +442,9 @@ class TestAutoExecuteLowRisk:
 
         with (
             patch.object(
-                daemon, "_assess", new_callable=AsyncMock,
+                daemon,
+                "_assess",
+                new_callable=AsyncMock,
                 side_effect=[report, after_report],
             ),
             patch.object(daemon, "_generate_goals", return_value=[high_risk_goal]),
@@ -455,9 +455,7 @@ class TestAutoExecuteLowRisk:
 
         assert result.success is True
         # Verify _execute was called with require_approval=True (not bypassed)
-        execute_mock.assert_called_once_with(
-            "Refactor core orchestrator", require_approval=True
-        )
+        execute_mock.assert_called_once_with("Refactor core orchestrator", require_approval=True)
 
     @pytest.mark.asyncio
     async def test_auto_execute_disabled_keeps_approval(self):
@@ -474,15 +472,15 @@ class TestAutoExecuteLowRisk:
         after_report = _mock_health_report(health_score=0.65)
         pipeline_result = _mock_pipeline_result(completed=1)
 
-        low_risk_goal = types.SimpleNamespace(
-            description="Fix typo", risk_score=0.05
-        )
+        low_risk_goal = types.SimpleNamespace(description="Fix typo", risk_score=0.05)
 
         execute_mock = AsyncMock(return_value=pipeline_result)
 
         with (
             patch.object(
-                daemon, "_assess", new_callable=AsyncMock,
+                daemon,
+                "_assess",
+                new_callable=AsyncMock,
                 side_effect=[report, after_report],
             ),
             patch.object(daemon, "_generate_goals", return_value=[low_risk_goal]),
@@ -492,9 +490,7 @@ class TestAutoExecuteLowRisk:
             result = await daemon.trigger_cycle()
 
         # Even though goal is low risk, feature is disabled → approval kept
-        execute_mock.assert_called_once_with(
-            "Fix typo", require_approval=True
-        )
+        execute_mock.assert_called_once_with("Fix typo", require_approval=True)
 
     @pytest.mark.asyncio
     async def test_goal_without_risk_score_uses_default_high(self):
@@ -519,7 +515,9 @@ class TestAutoExecuteLowRisk:
 
         with (
             patch.object(
-                daemon, "_assess", new_callable=AsyncMock,
+                daemon,
+                "_assess",
+                new_callable=AsyncMock,
                 side_effect=[report, after_report],
             ),
             patch.object(daemon, "_generate_goals", return_value=[goal_no_risk]),
@@ -529,9 +527,7 @@ class TestAutoExecuteLowRisk:
             result = await daemon.trigger_cycle()
 
         # No risk_score → defaults to 1.0 → approval required
-        execute_mock.assert_called_once_with(
-            "Unknown risk goal", require_approval=True
-        )
+        execute_mock.assert_called_once_with("Unknown risk goal", require_approval=True)
 
 
 class TestStartupIntegration:
@@ -544,6 +540,7 @@ class TestStartupIntegration:
         with patch.dict("os.environ", {}, clear=False):
             # Remove the env var if present
             import os
+
             os.environ.pop("ARAGORA_SELF_IMPROVE_ENABLED", None)
             result = await init_self_improvement_daemon()
         assert result is None
@@ -552,10 +549,13 @@ class TestStartupIntegration:
     async def test_daemon_disabled_during_tests(self):
         from aragora.server.startup.background import init_self_improvement_daemon
 
-        with patch.dict("os.environ", {
-            "PYTEST_CURRENT_TEST": "test_foo.py",
-            "ARAGORA_SELF_IMPROVE_ENABLED": "true",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "PYTEST_CURRENT_TEST": "test_foo.py",
+                "ARAGORA_SELF_IMPROVE_ENABLED": "true",
+            },
+        ):
             result = await init_self_improvement_daemon()
         assert result is None
 
@@ -569,10 +569,14 @@ class TestStartupIntegration:
         mock_daemon.start = AsyncMock()
 
         with (
-            patch.dict("os.environ", {
-                "ARAGORA_SELF_IMPROVE_ENABLED": "true",
-                "ARAGORA_SELF_IMPROVE_DRY_RUN": "true",
-            }, clear=False),
+            patch.dict(
+                "os.environ",
+                {
+                    "ARAGORA_SELF_IMPROVE_ENABLED": "true",
+                    "ARAGORA_SELF_IMPROVE_DRY_RUN": "true",
+                },
+                clear=False,
+            ),
             patch(
                 "aragora.nomic.daemon.SelfImprovementDaemon",
                 return_value=mock_daemon,
@@ -583,6 +587,7 @@ class TestStartupIntegration:
         ):
             # Need to remove PYTEST_CURRENT_TEST entirely
             import os
+
             os.environ.pop("PYTEST_CURRENT_TEST", None)
             result = await init_self_improvement_daemon()
 

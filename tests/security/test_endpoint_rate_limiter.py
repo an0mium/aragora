@@ -229,9 +229,7 @@ class TestRateLimitResponseHeaders:
     """Test the headers generated for rate limit results."""
 
     def test_allowed_result_headers(self) -> None:
-        result = RateLimitCheckResult(
-            allowed=True, tier=RateTier.READ, limit=120, remaining=119
-        )
+        result = RateLimitCheckResult(allowed=True, tier=RateTier.READ, limit=120, remaining=119)
         headers = result.headers()
         assert headers["X-RateLimit-Limit"] == "120"
         assert headers["X-RateLimit-Remaining"] == "119"
@@ -248,9 +246,7 @@ class TestRateLimitResponseHeaders:
         assert int(headers["Retry-After"]) >= 6  # ceil(5.3) + 1
 
     def test_remaining_never_negative(self) -> None:
-        result = RateLimitCheckResult(
-            allowed=False, tier=RateTier.WRITE, remaining=-1, limit=30
-        )
+        result = RateLimitCheckResult(allowed=False, tier=RateTier.WRITE, remaining=-1, limit=30)
         headers = result.headers()
         assert headers["X-RateLimit-Remaining"] == "0"
 

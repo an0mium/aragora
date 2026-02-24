@@ -373,7 +373,10 @@ class TestDiscordWebhookManager:
         manager.register("ch1", cfg)
 
         with patch.object(
-            DiscordIntegration, "send_error", new_callable=AsyncMock, side_effect=RuntimeError("boom")
+            DiscordIntegration,
+            "send_error",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("boom"),
         ):
             results = await manager.broadcast("send_error", error_type="Test", message="msg")
             assert results["ch1"] is False

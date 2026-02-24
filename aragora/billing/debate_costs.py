@@ -181,10 +181,7 @@ class DebateCostSummary:
             "total_tokens_out": self.total_tokens_out,
             "total_calls": self.total_calls,
             "per_agent": {k: v.to_dict() for k, v in self.per_agent.items()},
-            "per_round": {
-                str(k): v.to_dict()
-                for k, v in sorted(self.per_round.items())
-            },
+            "per_round": {str(k): v.to_dict() for k, v in sorted(self.per_round.items())},
             "model_usage": {k: v.to_dict() for k, v in self.model_usage.items()},
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,

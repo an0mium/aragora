@@ -293,9 +293,7 @@ async def list_receipts(
 
         receipts = [_to_receipt_summary(r) for r in results]
 
-        return ReceiptListResponse(
-            receipts=receipts, total=total, limit=limit, offset=offset
-        )
+        return ReceiptListResponse(receipts=receipts, total=total, limit=limit, offset=offset)
 
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error listing receipts: %s", e)
@@ -339,20 +337,14 @@ async def search_receipts(
             raw_results = store.search(query=q, **search_kwargs)
             results = list(raw_results)
             if hasattr(store, "search_count"):
-                total = store.search_count(
-                    query=q, verdict=verdict, risk_level=risk_level
-                )
+                total = store.search_count(query=q, verdict=verdict, risk_level=risk_level)
             else:
                 total = len(results)
         elif hasattr(store, "list_all"):
             all_receipts = store.list_all()
             query_lower = q.lower()
             for r in all_receipts:
-                data = (
-                    r
-                    if isinstance(r, dict)
-                    else (r.to_dict() if hasattr(r, "to_dict") else {})
-                )
+                data = r if isinstance(r, dict) else (r.to_dict() if hasattr(r, "to_dict") else {})
                 if query_lower in str(data).lower():
                     results.append(data)
             total = len(results)
@@ -537,11 +529,7 @@ async def batch_export_receipts(
                 else:
                     content = receipt.to_json()
 
-                items.append(
-                    BatchExportItem(
-                        receipt_id=rid, format=export_format, content=content
-                    )
-                )
+                items.append(BatchExportItem(receipt_id=rid, format=export_format, content=content))
 
             except (ImportError, ValueError, TypeError, KeyError, OSError) as e:
                 logger.warning("Batch export failed for %s: %s", rid, e)
@@ -712,9 +700,7 @@ async def verify_receipt(
                 if isinstance(receipt_data, dict)
                 else getattr(receipt_data, "checksum", "")
             )
-            checksum_match = (
-                receipt.checksum == stored_checksum if stored_checksum else True
-            )
+            checksum_match = receipt.checksum == stored_checksum if stored_checksum else True
 
             return VerifyResponse(
                 receipt_id=receipt_id,

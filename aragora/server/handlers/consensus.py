@@ -313,6 +313,7 @@ class ConsensusHandler(BaseHandler):
 
             # Generate a debate ID for this analysis
             import hashlib
+
             debate_id = "detect-" + hashlib.sha256(task.encode()).hexdigest()[:12]
 
             builder = ConsensusBuilder(debate_id=debate_id, task=task)
@@ -358,7 +359,9 @@ class ConsensusHandler(BaseHandler):
                             overlap = len(words_a & words_b)
                             union = len(words_a | words_b)
                             agreement_scores.append(overlap / union if union else 0.0)
-                avg_agreement = sum(agreement_scores) / len(agreement_scores) if agreement_scores else 0.0
+                avg_agreement = (
+                    sum(agreement_scores) / len(agreement_scores) if agreement_scores else 0.0
+                )
             else:
                 avg_agreement = 1.0  # Single proposal trivially agrees with itself
 
@@ -393,25 +396,27 @@ class ConsensusHandler(BaseHandler):
                 rounds=max((p.get("round", 0) for p in proposals), default=0),
             )
 
-            return json_response({
-                "data": {
-                    "debate_id": debate_id,
-                    "consensus_reached": consensus_reached,
-                    "confidence": round(confidence, 4),
-                    "threshold": threshold,
-                    "agreement_ratio": round(proof.agreement_ratio, 4),
-                    "has_strong_consensus": proof.has_strong_consensus,
-                    "final_claim": proof.final_claim,
-                    "reasoning_summary": proof.reasoning_summary,
-                    "supporting_agents": proof.supporting_agents,
-                    "dissenting_agents": proof.dissenting_agents,
-                    "claims_count": len(proof.claims),
-                    "evidence_count": len(proof.evidence_chain),
-                    "unresolved_tensions_count": len(proof.unresolved_tensions),
-                    "proof": proof.to_dict(),
-                    "checksum": proof.checksum,
+            return json_response(
+                {
+                    "data": {
+                        "debate_id": debate_id,
+                        "consensus_reached": consensus_reached,
+                        "confidence": round(confidence, 4),
+                        "threshold": threshold,
+                        "agreement_ratio": round(proof.agreement_ratio, 4),
+                        "has_strong_consensus": proof.has_strong_consensus,
+                        "final_claim": proof.final_claim,
+                        "reasoning_summary": proof.reasoning_summary,
+                        "supporting_agents": proof.supporting_agents,
+                        "dissenting_agents": proof.dissenting_agents,
+                        "claims_count": len(proof.claims),
+                        "evidence_count": len(proof.evidence_chain),
+                        "unresolved_tensions_count": len(proof.unresolved_tensions),
+                        "proof": proof.to_dict(),
+                        "checksum": proof.checksum,
+                    }
                 }
-            })
+            )
 
         except ImportError:
             return error_response("Consensus detection module not available", 503)
@@ -460,24 +465,26 @@ class ConsensusHandler(BaseHandler):
             # Build partial consensus
             partial = build_partial_consensus(debate_result)
 
-            return json_response({
-                "data": {
-                    "debate_id": debate_id,
-                    "consensus_reached": consensus_reached,
-                    "confidence": round(confidence, 4),
-                    "agreement_ratio": round(proof.agreement_ratio, 4),
-                    "has_strong_consensus": proof.has_strong_consensus,
-                    "final_claim": proof.final_claim,
-                    "supporting_agents": proof.supporting_agents,
-                    "dissenting_agents": proof.dissenting_agents,
-                    "claims_count": len(proof.claims),
-                    "dissents_count": len(proof.dissents),
-                    "unresolved_tensions_count": len(proof.unresolved_tensions),
-                    "partial_consensus": partial.to_dict(),
-                    "proof": proof.to_dict(),
-                    "checksum": proof.checksum,
+            return json_response(
+                {
+                    "data": {
+                        "debate_id": debate_id,
+                        "consensus_reached": consensus_reached,
+                        "confidence": round(confidence, 4),
+                        "agreement_ratio": round(proof.agreement_ratio, 4),
+                        "has_strong_consensus": proof.has_strong_consensus,
+                        "final_claim": proof.final_claim,
+                        "supporting_agents": proof.supporting_agents,
+                        "dissenting_agents": proof.dissenting_agents,
+                        "claims_count": len(proof.claims),
+                        "dissents_count": len(proof.dissents),
+                        "unresolved_tensions_count": len(proof.unresolved_tensions),
+                        "partial_consensus": partial.to_dict(),
+                        "proof": proof.to_dict(),
+                        "checksum": proof.checksum,
+                    }
                 }
-            })
+            )
 
         except ImportError:
             return error_response("Consensus detection module not available", 503)

@@ -194,9 +194,7 @@ class MockFederationStore:
         await asyncio.sleep(0.005 * len(items) / 100)
         return len(items)
 
-    async def pull_from_remote(
-        self, region_id: str, since: datetime | None = None
-    ) -> list[dict]:
+    async def pull_from_remote(self, region_id: str, since: datetime | None = None) -> list[dict]:
         """Simulate pulling items from remote region."""
         # Simulate network latency and return random items
         await asyncio.sleep(0.01)

@@ -42,17 +42,21 @@ class MockReceipt:
 
 class MockReceiptStore:
     def __init__(self, receipts: list | None = None):
-        self._receipts = receipts if receipts is not None else [
-            MockReceipt(id="r1", robustness_score=0.85),
-            MockReceipt(id="r2", robustness_score=0.65, dissenting_views=[]),
-            MockReceipt(
-                id="r3",
-                robustness_score=0.92,
-                dissenting_views=["View A", "View B"],
-                unresolved_tensions=["Tension 1"],
-                verified_claims=["C1", "C2", "C3"],
-            ),
-        ]
+        self._receipts = (
+            receipts
+            if receipts is not None
+            else [
+                MockReceipt(id="r1", robustness_score=0.85),
+                MockReceipt(id="r2", robustness_score=0.65, dissenting_views=[]),
+                MockReceipt(
+                    id="r3",
+                    robustness_score=0.92,
+                    dissenting_views=["View A", "View B"],
+                    unresolved_tensions=["Tension 1"],
+                    verified_claims=["C1", "C2", "C3"],
+                ),
+            ]
+        )
 
     def list_receipts(self, limit: int = 20) -> list:
         return self._receipts[:limit]
@@ -270,11 +274,13 @@ class TestVettingEndpoint:
         assert data["aggregates"]["adversarial_rate"] == 0.0
 
     def test_receipt_with_no_dissent_not_adversarial(self):
-        receipts = [MockReceipt(
-            id="clean",
-            dissenting_views=[],
-            unresolved_tensions=[],
-        )]
+        receipts = [
+            MockReceipt(
+                id="clean",
+                dissenting_views=[],
+                unresolved_tensions=[],
+            )
+        ]
         h = _make_handler(receipt_store=MockReceiptStore(receipts=receipts))
         result = h.handle("/api/v1/differentiation/vetting", {}, None)
         data = _parse_data(result)

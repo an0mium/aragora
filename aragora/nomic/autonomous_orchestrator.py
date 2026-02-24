@@ -509,9 +509,7 @@ class AutonomousOrchestrator:
                             _outcome_comparison.recommendation,
                         )
                         # Auto-replan: queue regression-fix goals for next cycle
-                        self._enqueue_regression_goals(
-                            _outcome_comparison, goal
-                        )
+                        self._enqueue_regression_goals(_outcome_comparison, goal)
                 except (
                     RuntimeError,
                     OSError,
@@ -576,9 +574,7 @@ class AutonomousOrchestrator:
                 try:
                     from aragora.nomic.cycle_telemetry import CycleRecord
 
-                    agents_used = list(
-                        {a.agent_type for a in assignments if a.agent_type}
-                    )
+                    agents_used = list({a.agent_type for a in assignments if a.agent_type})
                     quality_delta = getattr(result, "improvement_score", 0.0) or 0.0
                     cycle_record = CycleRecord(
                         cycle_id=self._orchestration_id or "",
@@ -1557,9 +1553,7 @@ class AutonomousOrchestrator:
             recommendation = getattr(comparison, "recommendation", "review")
 
             # Generate a goal for each regressed metric
-            regressed = [
-                (k, v) for k, v in metrics_delta.items() if v is not None
-            ]
+            regressed = [(k, v) for k, v in metrics_delta.items() if v is not None]
             if not regressed:
                 # No specific metrics — generate a generic regression-fix goal
                 queue.push(

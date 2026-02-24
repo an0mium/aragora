@@ -184,7 +184,6 @@ class RoutingAPI:
 
         return self._client.request("POST", "/api/v1/routing-rules", json=data)
 
-
     # =========================================================================
     # Message Bindings
     # =========================================================================

@@ -759,9 +759,7 @@ class AnalyticsDashboard:
                     )
 
             # Merge receipt findings as a secondary data source
-            receipt_findings = await self._get_receipt_findings(
-                workspace_id, time_range, offset
-            )
+            receipt_findings = await self._get_receipt_findings(workspace_id, time_range, offset)
             if receipt_findings:
                 existing_ids = {f["id"] for f in findings}
                 for rf in receipt_findings:
@@ -773,9 +771,7 @@ class AnalyticsDashboard:
         except (ImportError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
             logger.warning("Failed to get findings: %s", e)
             # Fall back to receipt-only findings
-            return await self._get_receipt_findings(
-                workspace_id, time_range, offset
-            )
+            return await self._get_receipt_findings(workspace_id, time_range, offset)
 
     async def _get_receipt_findings(
         self,
@@ -805,7 +801,11 @@ class AnalyticsDashboard:
             findings: list[dict] = []
 
             for receipt in receipts:
-                data = receipt.get("data", receipt) if isinstance(receipt, dict) else getattr(receipt, "data", {})
+                data = (
+                    receipt.get("data", receipt)
+                    if isinstance(receipt, dict)
+                    else getattr(receipt, "data", {})
+                )
                 if not isinstance(data, dict):
                     continue
 
@@ -825,11 +825,7 @@ class AnalyticsDashboard:
                             "category": detail.get("category", "gauntlet"),
                             "status": status,
                             "created_at": data.get("timestamp", ""),
-                            "resolved_at": (
-                                data.get("timestamp")
-                                if verdict == "PASS"
-                                else None
-                            ),
+                            "resolved_at": (data.get("timestamp") if verdict == "PASS" else None),
                             "source": "gauntlet_receipt",
                             "receipt_id": data.get("receipt_id", ""),
                         }

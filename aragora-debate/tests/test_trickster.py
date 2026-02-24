@@ -101,9 +101,9 @@ class TestEvidencePoweredTrickster:
     def test_intervention_on_hollow_consensus(self):
         responses = {
             "agent1": "Generally it might work in some cases. Usually this is fine. "
-                      "It depends on various factors and many considerations.",
+            "It depends on various factors and many considerations.",
             "agent2": "Typically the best approach. Common approach in most cases. "
-                      "Generally acceptable as an industry standard.",
+            "Generally acceptable as an industry standard.",
         }
         result = self.trickster.check_and_intervene(
             responses=responses,
@@ -260,12 +260,16 @@ class TestEvidencePoweredTrickster:
 
         # First check at round 1
         trickster.check_and_intervene(
-            responses=vague, convergence_similarity=0.95, round_num=1,
+            responses=vague,
+            convergence_similarity=0.95,
+            round_num=1,
         )
 
         # Round 2 should be in cooldown
         result = trickster.check_and_intervene(
-            responses=vague, convergence_similarity=0.95, round_num=2,
+            responses=vague,
+            convergence_similarity=0.95,
+            round_num=2,
         )
         # Either None (cooldown) or intervention returned but not recorded
 

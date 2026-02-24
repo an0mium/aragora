@@ -501,9 +501,7 @@ class TokenPair:
         """
         from datetime import datetime, timezone, timedelta
 
-        expires_at = (
-            datetime.now(timezone.utc) + timedelta(seconds=self.expires_in)
-        ).isoformat()
+        expires_at = (datetime.now(timezone.utc) + timedelta(seconds=self.expires_in)).isoformat()
         return {
             "access_token": self.access_token,
             "refresh_token": self.refresh_token,

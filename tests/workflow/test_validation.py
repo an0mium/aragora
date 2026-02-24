@@ -15,10 +15,17 @@ from aragora.workflow.validation import validate_workflow, ValidationResult
 # Lightweight fakes for WorkflowDefinition / StepDefinition / TransitionRule
 # ---------------------------------------------------------------------------
 
+
 class _FakeStep:
     """Minimal stub matching the attributes validation.py reads."""
 
-    def __init__(self, id: str, step_type: str = "action", next_steps: list[str] | None = None, config: dict | None = None):
+    def __init__(
+        self,
+        id: str,
+        step_type: str = "action",
+        next_steps: list[str] | None = None,
+        config: dict | None = None,
+    ):
         self.id = id
         self.step_type = step_type
         self.next_steps = next_steps or []
@@ -51,6 +58,7 @@ class _FakeDefinition:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _codes(result: ValidationResult) -> list[str]:
     return [m.code for m in result.messages]
 
@@ -71,6 +79,7 @@ def _info_codes(result: ValidationResult) -> list[str]:
 # 1. Empty / trivial definitions
 # ===========================================================================
 
+
 class TestEmptyWorkflow:
     def test_no_steps_is_error(self):
         defn = _FakeDefinition(steps=[])
@@ -89,6 +98,7 @@ class TestEmptyWorkflow:
 # 2. Entry step validation
 # ===========================================================================
 
+
 class TestEntryStep:
     def test_missing_entry_step_errors(self):
         defn = _FakeDefinition(
@@ -104,11 +114,16 @@ class TestEntryStep:
 # 3. Reachability analysis (BFS from entry)
 # ===========================================================================
 
+
 class TestReachability:
     def test_linear_chain_all_reachable(self):
         """A → B → C: all reachable from A."""
         defn = _FakeDefinition(
-            steps=[_FakeStep("a", next_steps=["b"]), _FakeStep("b", next_steps=["c"]), _FakeStep("c")],
+            steps=[
+                _FakeStep("a", next_steps=["b"]),
+                _FakeStep("b", next_steps=["c"]),
+                _FakeStep("c"),
+            ],
             entry_step="a",
         )
         result = validate_workflow(defn)
@@ -185,11 +200,16 @@ class TestReachability:
 # 4. Cycle detection (DFS back-edge)
 # ===========================================================================
 
+
 class TestCycleDetection:
     def test_no_cycle_linear(self):
         """A → B → C: no cycle."""
         defn = _FakeDefinition(
-            steps=[_FakeStep("a", next_steps=["b"]), _FakeStep("b", next_steps=["c"]), _FakeStep("c")],
+            steps=[
+                _FakeStep("a", next_steps=["b"]),
+                _FakeStep("b", next_steps=["c"]),
+                _FakeStep("c"),
+            ],
         )
         result = validate_workflow(defn)
         assert "CYCLE_DETECTED" not in _error_codes(result)
@@ -304,6 +324,7 @@ class TestCycleDetection:
 # 5. Orphan transitions
 # ===========================================================================
 
+
 class TestOrphanTransitions:
     def test_valid_transitions_no_orphans(self):
         defn = _FakeDefinition(
@@ -349,6 +370,7 @@ class TestOrphanTransitions:
 # 6. ValidationResult API
 # ===========================================================================
 
+
 class TestValidationResultAPI:
     def test_to_dict_structure(self):
         defn = _FakeDefinition(
@@ -381,6 +403,7 @@ class TestValidationResultAPI:
 # ===========================================================================
 # 7. Combined scenarios
 # ===========================================================================
+
 
 class TestCombinedScenarios:
     def test_cycle_and_orphan_together(self):

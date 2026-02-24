@@ -58,8 +58,7 @@ def _parse_period(period: str) -> timedelta:
     delta = _PERIOD_DELTAS.get(period)
     if delta is None:
         raise ValueError(
-            f"Invalid period '{period}'. "
-            f"Valid periods: {', '.join(sorted(_PERIOD_DELTAS))}"
+            f"Invalid period '{period}'. Valid periods: {', '.join(sorted(_PERIOD_DELTAS))}"
         )
     return delta
 
@@ -254,9 +253,7 @@ class OutcomeAnalytics:
 
         delta = _parse_period(period)
         da = self._get_debate_analytics()
-        leaderboard = await da.get_agent_leaderboard(
-            limit=50, days_back=delta.days or 1
-        )
+        leaderboard = await da.get_agent_leaderboard(limit=50, days_back=delta.days or 1)
 
         contributions: dict[str, AgentContribution] = {}
         for agent in leaderboard:
@@ -267,11 +264,7 @@ class OutcomeAnalytics:
             vote_score = agent.vote_ratio
 
             # Weighted combination: 30% participation, 40% consensus, 30% votes
-            score = (
-                0.3 * participation_score
-                + 0.4 * consensus_score
-                + 0.3 * vote_score
-            )
+            score = 0.3 * participation_score + 0.4 * consensus_score + 0.3 * vote_score
 
             contributions[agent.agent_id] = AgentContribution(
                 agent_id=agent.agent_id,
@@ -285,9 +278,7 @@ class OutcomeAnalytics:
         self._set_cached(cache_key, contributions)
         return contributions
 
-    async def get_decision_quality_trend(
-        self, period: str = "90d"
-    ) -> list[QualityDataPoint]:
+    async def get_decision_quality_trend(self, period: str = "90d") -> list[QualityDataPoint]:
         """Get decision quality metrics over time.
 
         Divides the period into weekly buckets and computes quality
@@ -349,9 +340,7 @@ class OutcomeAnalytics:
         self._set_cached(cache_key, points)
         return points
 
-    async def get_topic_distribution(
-        self, period: str = "30d"
-    ) -> dict[str, int]:
+    async def get_topic_distribution(self, period: str = "30d") -> dict[str, int]:
         """Get distribution of debate topics in the period.
 
         Extracts topic keywords from debate tasks and counts occurrences.

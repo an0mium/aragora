@@ -570,16 +570,19 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             queue = get_improvement_queue()
             queue.enqueue(suggestion)
 
-            return json_response({
-                "data": {
-                    "id": suggestion.debate_id,
-                    "goal": goal,
-                    "priority": priority,
-                    "source": source,
-                    "status": "pending",
-                    "createdAt": str(suggestion.created_at),
-                }
-            }, 201)
+            return json_response(
+                {
+                    "data": {
+                        "id": suggestion.debate_id,
+                        "goal": goal,
+                        "priority": priority,
+                        "source": source,
+                        "status": "pending",
+                        "createdAt": str(suggestion.created_at),
+                    }
+                },
+                201,
+            )
         except (ImportError, RuntimeError) as exc:
             logger.warning("Failed to add to improvement queue: %s", exc)
             return error_response("Improvement queue unavailable", 503)
@@ -599,7 +602,7 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             return None
 
         # Parse: /api/self-improve/improvement-queue/{id}/priority
-        remainder = path[len(self._QUEUE_ITEM_PREFIX):]
+        remainder = path[len(self._QUEUE_ITEM_PREFIX) :]
         if not remainder.endswith("/priority"):
             return None
         item_id = remainder[: -len("/priority")]
@@ -626,13 +629,15 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             if not found:
                 return error_response(f"Queue item {item_id} not found", 404)
 
-            return json_response({
-                "data": {
-                    "id": item_id,
-                    "priority": new_priority,
-                    "status": "updated",
+            return json_response(
+                {
+                    "data": {
+                        "id": item_id,
+                        "priority": new_priority,
+                        "status": "updated",
+                    }
                 }
-            })
+            )
         except (ImportError, RuntimeError) as exc:
             logger.warning("Failed to update queue priority: %s", exc)
             return error_response("Improvement queue unavailable", 503)
@@ -649,7 +654,7 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
         if not path.startswith(self._QUEUE_ITEM_PREFIX):
             return None
 
-        item_id = path[len(self._QUEUE_ITEM_PREFIX):]
+        item_id = path[len(self._QUEUE_ITEM_PREFIX) :]
         # Reject if there's a further sub-path (e.g. .../priority)
         if "/" in item_id or not item_id:
             return None
@@ -670,12 +675,14 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             if not removed:
                 return error_response(f"Queue item {item_id} not found", 404)
 
-            return json_response({
-                "data": {
-                    "id": item_id,
-                    "status": "deleted",
+            return json_response(
+                {
+                    "data": {
+                        "id": item_id,
+                        "status": "deleted",
+                    }
                 }
-            })
+            )
         except (ImportError, RuntimeError) as exc:
             logger.warning("Failed to remove from improvement queue: %s", exc)
             return error_response("Improvement queue unavailable", 503)

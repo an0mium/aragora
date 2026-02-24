@@ -19,28 +19,34 @@ from aragora.pipeline.universal_node import UniversalGraph, UniversalNode
 def _make_graph() -> UniversalGraph:
     """Create a test graph with idea and orchestration nodes."""
     graph = UniversalGraph(id="test-graph", name="Test")
-    graph.add_node(UniversalNode(
-        id="idea-1",
-        stage=PipelineStage.IDEAS,
-        node_subtype="concept",
-        label="Build a rate limiter",
-        description="Implement token bucket rate limiting",
-    ))
-    graph.add_node(UniversalNode(
-        id="orch-1",
-        stage=PipelineStage.ORCHESTRATION,
-        node_subtype="agent_task",
-        label="Execute rate limiter",
-        description="Agent task to implement rate limiter",
-        parent_ids=["idea-1"],
-    ))
-    graph.add_node(UniversalNode(
-        id="orch-2",
-        stage=PipelineStage.ORCHESTRATION,
-        node_subtype="agent_task",
-        label="Execute caching layer",
-        description="Agent task to add caching",
-    ))
+    graph.add_node(
+        UniversalNode(
+            id="idea-1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Build a rate limiter",
+            description="Implement token bucket rate limiting",
+        )
+    )
+    graph.add_node(
+        UniversalNode(
+            id="orch-1",
+            stage=PipelineStage.ORCHESTRATION,
+            node_subtype="agent_task",
+            label="Execute rate limiter",
+            description="Agent task to implement rate limiter",
+            parent_ids=["idea-1"],
+        )
+    )
+    graph.add_node(
+        UniversalNode(
+            id="orch-2",
+            stage=PipelineStage.ORCHESTRATION,
+            node_subtype="agent_task",
+            label="Execute caching layer",
+            description="Agent task to add caching",
+        )
+    )
     return graph
 
 
@@ -59,10 +65,7 @@ class TestDebateAssignment:
         coord = DAGOperationsCoordinator(graph)
 
         mock_result = MagicMock()
-        mock_result.summary = (
-            "T1: claude, gemini\n"
-            "T2: gpt, mistral\n"
-        )
+        mock_result.summary = "T1: claude, gemini\nT2: gpt, mistral\n"
 
         mock_arena_instance = MagicMock()
         mock_arena_instance.run = AsyncMock(return_value=mock_result)
@@ -155,7 +158,9 @@ class TestDebateAssignment:
 
         monkeypatch.setattr("aragora.core.Environment", MagicMock)
         monkeypatch.setattr("aragora.debate.protocol.DebateProtocol", MagicMock)
-        monkeypatch.setattr("aragora.debate.orchestrator.Arena", MagicMock(return_value=mock_arena_instance))
+        monkeypatch.setattr(
+            "aragora.debate.orchestrator.Arena", MagicMock(return_value=mock_arena_instance)
+        )
         monkeypatch.setattr("aragora.agents.create_agent", MagicMock(return_value=MagicMock()))
 
         result = await coord.debate_assignment(node_ids=None, agents=["claude", "gpt", "gemini"])
@@ -178,7 +183,9 @@ class TestDebateAssignment:
 
         monkeypatch.setattr("aragora.core.Environment", MagicMock)
         monkeypatch.setattr("aragora.debate.protocol.DebateProtocol", MagicMock)
-        monkeypatch.setattr("aragora.debate.orchestrator.Arena", MagicMock(return_value=mock_arena_instance))
+        monkeypatch.setattr(
+            "aragora.debate.orchestrator.Arena", MagicMock(return_value=mock_arena_instance)
+        )
         monkeypatch.setattr("aragora.agents.create_agent", MagicMock(return_value=MagicMock()))
 
         result = await coord.debate_assignment(
@@ -198,6 +205,7 @@ class TestDebateAssignment:
 
         # Make the import of Environment raise ImportError
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -209,7 +217,11 @@ class TestDebateAssignment:
 
         result = await coord.debate_assignment(node_ids=["orch-1"])
         assert not result.success
-        assert "not available" in result.message.lower() or "No target" in result.message or not result.success
+        assert (
+            "not available" in result.message.lower()
+            or "No target" in result.message
+            or not result.success
+        )
 
     @pytest.mark.asyncio
     async def test_runtime_error_during_debate(self, monkeypatch):
@@ -222,10 +234,14 @@ class TestDebateAssignment:
 
         monkeypatch.setattr("aragora.core.Environment", MagicMock)
         monkeypatch.setattr("aragora.debate.protocol.DebateProtocol", MagicMock)
-        monkeypatch.setattr("aragora.debate.orchestrator.Arena", MagicMock(return_value=mock_arena_instance))
+        monkeypatch.setattr(
+            "aragora.debate.orchestrator.Arena", MagicMock(return_value=mock_arena_instance)
+        )
         monkeypatch.setattr("aragora.agents.create_agent", MagicMock(return_value=MagicMock()))
 
-        result = await coord.debate_assignment(node_ids=["orch-1"], agents=["claude", "gpt", "gemini"])
+        result = await coord.debate_assignment(
+            node_ids=["orch-1"], agents=["claude", "gpt", "gemini"]
+        )
         assert not result.success
         assert "failed" in result.message.lower()
 
@@ -237,6 +253,7 @@ class TestDebateAssignment:
 
 class _FakeCoordinator:
     """Stub class so isinstance checks pass in _execute_federated."""
+
     pass
 
 
@@ -280,6 +297,7 @@ class TestExecuteFederated:
 
         # Force ImportError when importing CrossWorkspaceCoordinator
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -359,7 +377,9 @@ class TestExecuteFederated:
         mock_federation.execute_remote = AsyncMock(return_value=mock_remote_result)
 
         coord = DAGOperationsCoordinator(
-            graph, store=mock_store, federation_coordinator=mock_federation,
+            graph,
+            store=mock_store,
+            federation_coordinator=mock_federation,
         )
 
         monkeypatch.setattr(
@@ -401,7 +421,9 @@ class TestExecuteNodeViaScheduler:
         coord = DAGOperationsCoordinator(graph, control_plane=mock_cp)
 
         result = await coord.execute_node_via_scheduler(
-            "orch-1", poll_interval=0.01, max_polls=10,
+            "orch-1",
+            poll_interval=0.01,
+            max_polls=10,
         )
 
         assert result.success
@@ -425,7 +447,9 @@ class TestExecuteNodeViaScheduler:
         coord = DAGOperationsCoordinator(graph, control_plane=mock_cp)
 
         result = await coord.execute_node_via_scheduler(
-            "orch-1", poll_interval=0.01, max_polls=3,
+            "orch-1",
+            poll_interval=0.01,
+            max_polls=3,
         )
 
         assert not result.success
@@ -472,7 +496,9 @@ class TestExecuteNodeViaScheduler:
         coord = DAGOperationsCoordinator(graph, control_plane=mock_cp)
 
         result = await coord.execute_node_via_scheduler(
-            "orch-1", poll_interval=0.01, max_polls=5,
+            "orch-1",
+            poll_interval=0.01,
+            max_polls=5,
         )
 
         assert not result.success
@@ -495,7 +521,9 @@ class TestExecuteNodeViaScheduler:
         coord = DAGOperationsCoordinator(graph, control_plane=mock_cp)
 
         result = await coord.execute_node_via_scheduler(
-            "orch-1", poll_interval=0.01, max_polls=5,
+            "orch-1",
+            poll_interval=0.01,
+            max_polls=5,
         )
 
         assert not result.success
@@ -513,7 +541,9 @@ class TestExecuteNodeViaScheduler:
         coord = DAGOperationsCoordinator(graph, control_plane=mock_cp)
 
         result = await coord.execute_node_via_scheduler(
-            "orch-1", poll_interval=0.01, max_polls=5,
+            "orch-1",
+            poll_interval=0.01,
+            max_polls=5,
         )
 
         # Breaks out of loop, falls through to timeout path
@@ -531,7 +561,9 @@ class TestExecuteNodeViaScheduler:
         coord = DAGOperationsCoordinator(graph, control_plane=mock_cp)
 
         result = await coord.execute_node_via_scheduler(
-            "orch-1", poll_interval=0.01, max_polls=3,
+            "orch-1",
+            poll_interval=0.01,
+            max_polls=3,
         )
 
         assert not result.success
@@ -557,7 +589,9 @@ class TestExecuteNodeViaScheduler:
         coord = DAGOperationsCoordinator(graph, control_plane=mock_cp)
 
         result = await coord.execute_node_via_scheduler(
-            "orch-1", poll_interval=0.01, max_polls=5,
+            "orch-1",
+            poll_interval=0.01,
+            max_polls=5,
         )
 
         assert result.success
@@ -658,14 +692,16 @@ class TestAssignAgentsWithSelector:
     async def test_node_with_orch_type_data(self, monkeypatch):
         """Nodes with data.orch_type == 'agent_task' are auto-discovered."""
         graph = UniversalGraph(id="orch-data-test")
-        graph.add_node(UniversalNode(
-            id="custom-1",
-            stage=PipelineStage.ACTIONS,  # Not ORCHESTRATION stage
-            node_subtype="task",
-            label="Custom task",
-            description="Task with orch_type data",
-            data={"orch_type": "agent_task"},
-        ))
+        graph.add_node(
+            UniversalNode(
+                id="custom-1",
+                stage=PipelineStage.ACTIONS,  # Not ORCHESTRATION stage
+                node_subtype="task",
+                label="Custom task",
+                description="Task with orch_type data",
+                data={"orch_type": "agent_task"},
+            )
+        )
         coord = DAGOperationsCoordinator(graph)
 
         mock_agent = MagicMock()
@@ -715,6 +751,7 @@ class TestAssignAgentsWithSelector:
         coord = DAGOperationsCoordinator(graph)
 
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):

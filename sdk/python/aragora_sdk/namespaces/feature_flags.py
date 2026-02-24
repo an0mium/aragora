@@ -49,12 +49,8 @@ class AsyncFeatureFlagsAPI:
 
     async def list(self, **params: Any) -> dict[str, Any]:
         """List all feature flags and their current states."""
-        return await self._client.request(
-            "GET", "/api/v1/feature-flags", params=params
-        )
+        return await self._client.request("GET", "/api/v1/feature-flags", params=params)
 
     async def get(self, name: str) -> dict[str, Any]:
         """Get a specific feature flag by name."""
-        return await self._client.request(
-            "GET", f"/api/v1/feature-flags/{name}"
-        )
+        return await self._client.request("GET", f"/api/v1/feature-flags/{name}")

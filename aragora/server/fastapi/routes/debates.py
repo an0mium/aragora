@@ -119,7 +119,9 @@ class UpdateDebateRequest(BaseModel):
 
     title: str | None = Field(None, max_length=500, description="Update debate title")
     tags: list[str] | None = Field(None, max_length=50, description="Update tags")
-    status: str | None = Field(None, description="Update status (active, paused, concluded, archived)")
+    status: str | None = Field(
+        None, description="Update status (active, paused, concluded, archived)"
+    )
     metadata: dict[str, Any] | None = Field(None, description="Update custom metadata")
 
 
@@ -145,7 +147,9 @@ class CreateDebateRequest(BaseModel):
     Mirrors the legacy /api/v1/debates POST body.
     """
 
-    question: str = Field(..., min_length=1, max_length=5000, description="Topic/question to debate")
+    question: str = Field(
+        ..., min_length=1, max_length=5000, description="Topic/question to debate"
+    )
     agents: str | None = Field(None, description="Comma-separated agent list")
     rounds: int = Field(3, ge=1, le=20, description="Number of debate rounds")
     consensus: str = Field("majority", description="Consensus method")
@@ -495,8 +499,15 @@ async def get_debate_convergence(
 
 # Valid status values (internal + SDK)
 _VALID_STATUSES = {
-    "active", "paused", "concluded", "archived",  # internal
-    "pending", "running", "completed", "failed", "cancelled",  # SDK
+    "active",
+    "paused",
+    "concluded",
+    "archived",  # internal
+    "pending",
+    "running",
+    "completed",
+    "failed",
+    "cancelled",  # SDK
 }
 
 
@@ -705,7 +716,11 @@ async def create_debate(
             debate_id=response_data.get("debate_id", response.debate_id),
             status=response_data.get("status", "started"),
             message=response_data.get("message"),
-            **{k: v for k, v in response_data.items() if k not in ("debate_id", "status", "message")},
+            **{
+                k: v
+                for k, v in response_data.items()
+                if k not in ("debate_id", "status", "message")
+            },
         )
 
     except HTTPException:
@@ -754,8 +769,10 @@ async def export_debate(
 
         # JSON export returns directly
         if export_format == "json":
-            debate_data = debate if isinstance(debate, dict) else (
-                debate.__dict__ if hasattr(debate, "__dict__") else {}
+            debate_data = (
+                debate
+                if isinstance(debate, dict)
+                else (debate.__dict__ if hasattr(debate, "__dict__") else {})
             )
             return Response(
                 content=json_mod.dumps(debate_data, indent=2, default=str),
@@ -774,8 +791,10 @@ async def export_debate(
         except ImportError:
             raise HTTPException(status_code=503, detail="Export module not available")
 
-        debate_dict = debate if isinstance(debate, dict) else (
-            debate.__dict__ if hasattr(debate, "__dict__") else {}
+        debate_dict = (
+            debate
+            if isinstance(debate, dict)
+            else (debate.__dict__ if hasattr(debate, "__dict__") else {})
         )
 
         if export_format == "csv":
@@ -813,7 +832,9 @@ async def export_debate(
 @router.get("/debates/{debate_id}/argument-graph", response_model=ArgumentGraphResponse)
 async def get_argument_graph(
     debate_id: str,
-    output_format: str = Query("json", alias="format", description="Output format: json or mermaid"),
+    output_format: str = Query(
+        "json", alias="format", description="Output format: json or mermaid"
+    ),
     auth: AuthorizationContext = Depends(require_permission("analysis:read")),
 ) -> ArgumentGraphResponse:
     """

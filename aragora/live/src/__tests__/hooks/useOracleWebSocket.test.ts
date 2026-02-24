@@ -67,7 +67,12 @@ beforeAll(() => {
   (global as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
 });
 
+afterAll(() => {
+  jest.useRealTimers();
+});
+
 beforeEach(() => {
+  jest.useFakeTimers();
   MockWebSocket.instances = [];
   jest.clearAllMocks();
 });
@@ -126,5 +131,55 @@ describe('useOracleWebSocket metrics', () => {
 
     expect(result.current.timeToFirstTokenMs).toBeNull();
     expect(result.current.streamDurationMs).toBeNull();
+  });
+
+  it('marks stream stalled when first token timeout elapses', () => {
+    const { result } = renderHook(() => useOracleWebSocket());
+    const ws = latestSocket();
+
+    act(() => {
+      ws.simulateOpen();
+      result.current.ask('slow stream', 'consult');
+      ws.simulateMessage({ type: 'reflex_start' });
+    });
+
+    expect(result.current.streamStalled).toBe(false);
+    expect(result.current.stallReason).toBeNull();
+
+    act(() => {
+      jest.advanceTimersByTime(15001);
+    });
+
+    expect(result.current.streamStalled).toBe(true);
+    expect(result.current.stallReason).toBe('waiting_first_token');
+  });
+
+  it('marks stream stalled on inactivity after first token and clears on resumed activity', () => {
+    const { result } = renderHook(() => useOracleWebSocket());
+    const ws = latestSocket();
+
+    act(() => {
+      ws.simulateOpen();
+      result.current.ask('watch for stalls', 'consult');
+      ws.simulateMessage({ type: 'reflex_start' });
+      ws.simulateMessage({ type: 'token', text: 'a', phase: 'reflex' });
+    });
+
+    expect(result.current.streamStalled).toBe(false);
+    expect(result.current.stallReason).toBeNull();
+
+    act(() => {
+      jest.advanceTimersByTime(20001);
+    });
+
+    expect(result.current.streamStalled).toBe(true);
+    expect(result.current.stallReason).toBe('stream_inactive');
+
+    act(() => {
+      ws.simulateMessage({ type: 'token', text: 'b', phase: 'reflex' });
+    });
+
+    expect(result.current.streamStalled).toBe(false);
+    expect(result.current.stallReason).toBeNull();
   });
 });

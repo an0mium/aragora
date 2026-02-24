@@ -78,9 +78,7 @@ class TestComplianceParserRegistration:
         subparsers = parser.add_subparsers(dest="command")
         add_compliance_parser(subparsers)
 
-        args = parser.parse_args(
-            ["compliance", "check", "plaintext password storage", "--json"]
-        )
+        args = parser.parse_args(["compliance", "check", "plaintext password storage", "--json"])
         assert args.compliance_command == "check"
         assert any("plaintext" in c for c in args.content)
         assert args.json is True
@@ -91,11 +89,17 @@ class TestComplianceParserRegistration:
         subparsers = parser.add_subparsers(dest="command")
         add_compliance_parser(subparsers)
 
-        args = parser.parse_args([
-            "compliance", "check", "test content",
-            "--frameworks", "hipaa,gdpr",
-            "--min-severity", "high",
-        ])
+        args = parser.parse_args(
+            [
+                "compliance",
+                "check",
+                "test content",
+                "--frameworks",
+                "hipaa,gdpr",
+                "--min-severity",
+                "high",
+            ]
+        )
         assert args.frameworks == "hipaa,gdpr"
         assert args.min_severity == "high"
 
@@ -313,9 +317,7 @@ class TestComplianceReport:
     def test_report_from_file(self, capsys, tmp_path):
         """Report command reads content and generates text report."""
         test_file = tmp_path / "plan.txt"
-        test_file.write_text(
-            "This system stores patient names in plaintext without encryption."
-        )
+        test_file.write_text("This system stores patient names in plaintext without encryption.")
 
         args = argparse.Namespace(
             compliance_command="report",

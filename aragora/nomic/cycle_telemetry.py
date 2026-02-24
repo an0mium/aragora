@@ -310,9 +310,7 @@ class CycleTelemetryCollector:
         """Return the cumulative cost across all recorded cycles."""
         conn = self._get_conn()
         try:
-            row = conn.execute(
-                "SELECT COALESCE(SUM(cost_usd), 0) FROM cycle_telemetry"
-            ).fetchone()
+            row = conn.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM cycle_telemetry").fetchone()
             return row[0] or 0.0
         finally:
             self._close_conn(conn)
@@ -321,9 +319,7 @@ class CycleTelemetryCollector:
         """Return the total number of recorded cycles."""
         conn = self._get_conn()
         try:
-            row = conn.execute(
-                "SELECT COUNT(*) FROM cycle_telemetry"
-            ).fetchone()
+            row = conn.execute("SELECT COUNT(*) FROM cycle_telemetry").fetchone()
             return row[0] or 0
         finally:
             self._close_conn(conn)

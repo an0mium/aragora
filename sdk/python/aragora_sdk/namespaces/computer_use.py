@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 TaskStatus = Literal["pending", "running", "completed", "failed", "cancelled"]
 ActionType = Literal["click", "type", "screenshot", "scroll", "key"]
 
+
 class ComputerUseAPI:
     """
     Synchronous Computer Use API.
@@ -596,15 +597,11 @@ class AsyncComputerUseAPI:
         params: dict[str, Any] = {"limit": limit}
         if status:
             params["status"] = status
-        return await self._client.request(
-            "GET", "/api/v1/computer-use/approvals", params=params
-        )
+        return await self._client.request("GET", "/api/v1/computer-use/approvals", params=params)
 
     async def get_approval(self, request_id: str) -> dict[str, Any]:
         """Get an approval request. GET /api/v1/computer-use/approvals/:request_id"""
-        return await self._client.request(
-            "GET", f"/api/v1/computer-use/approvals/{request_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/computer-use/approvals/{request_id}")
 
     async def approve_approval(self, request_id: str, reason: str | None = None) -> dict[str, Any]:
         """Approve a pending approval request. POST /api/v1/computer-use/approvals/:request_id/approve"""
@@ -629,4 +626,3 @@ class AsyncComputerUseAPI:
             f"/api/v1/computer-use/approvals/{request_id}/deny",
             json=data if data else None,
         )
-

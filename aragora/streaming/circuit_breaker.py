@@ -153,9 +153,7 @@ class StreamCircuitBreaker:
 
             # Prune old failures outside the window
             cutoff = now - self._config.failure_window_seconds
-            cs.failure_timestamps = [
-                ts for ts in cs.failure_timestamps if ts > cutoff
-            ]
+            cs.failure_timestamps = [ts for ts in cs.failure_timestamps if ts > cutoff]
 
             if cs.state == StreamCircuitState.HALF_OPEN:
                 # Any failure in half-open reopens the circuit
@@ -266,9 +264,7 @@ class StreamCircuitBreaker:
             self._states[debate_id] = _DebateCircuitState()
         return self._states[debate_id]
 
-    def _can_proceed_locked(
-        self, debate_id: str, cs: _DebateCircuitState
-    ) -> bool:
+    def _can_proceed_locked(self, debate_id: str, cs: _DebateCircuitState) -> bool:
         """Check if sending is allowed (caller must hold lock)."""
         self._maybe_half_open(debate_id, cs)
 
@@ -287,9 +283,7 @@ class StreamCircuitBreaker:
         cs.total_rejected += 1
         return False
 
-    def _maybe_half_open(
-        self, debate_id: str, cs: _DebateCircuitState
-    ) -> None:
+    def _maybe_half_open(self, debate_id: str, cs: _DebateCircuitState) -> None:
         """Transition OPEN -> HALF_OPEN if cooldown has elapsed (caller holds lock)."""
         if cs.state != StreamCircuitState.OPEN:
             return
@@ -333,9 +327,7 @@ class StreamCircuitBreaker:
             try:
                 self._metrics_callback(debate_id, old_state, new_state)
             except Exception:  # noqa: BLE001 - metrics must never break callers
-                logger.debug(
-                    "[StreamCB] Metrics callback error for %s", debate_id
-                )
+                logger.debug("[StreamCB] Metrics callback error for %s", debate_id)
 
         # Also try Prometheus metrics
         try:

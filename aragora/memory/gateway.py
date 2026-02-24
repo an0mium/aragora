@@ -275,7 +275,7 @@ class MemoryGateway:
             return []
 
         results = []
-        entries = self.continuum_memory.search(query=query, limit=limit)
+        entries = self.continuum_memory.retrieve(query=query, limit=limit)
         if not entries:
             entries = []
         for entry in entries:

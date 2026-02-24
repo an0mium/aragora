@@ -47,16 +47,20 @@ def mock_agent():
     agent.last_tokens_out = 500
     # generate returns a coroutine
     agent.generate = AsyncMock(return_value="Test proposal response")
-    agent.critique = AsyncMock(return_value=MagicMock(
-        score=0.8,
-        reasoning="Good proposal",
-        suggestions=["Minor improvement"],
-    ))
-    agent.vote = AsyncMock(return_value=MagicMock(
-        choice="claude",
-        confidence=0.9,
-        reasoning="Best answer",
-    ))
+    agent.critique = AsyncMock(
+        return_value=MagicMock(
+            score=0.8,
+            reasoning="Good proposal",
+            suggestions=["Minor improvement"],
+        )
+    )
+    agent.vote = AsyncMock(
+        return_value=MagicMock(
+            choice="claude",
+            confidence=0.9,
+            reasoning="Best answer",
+        )
+    )
     return agent
 
 
@@ -70,16 +74,20 @@ def mock_gpt_agent():
     agent.last_tokens_in = 800
     agent.last_tokens_out = 400
     agent.generate = AsyncMock(return_value="GPT proposal response")
-    agent.critique = AsyncMock(return_value=MagicMock(
-        score=0.7,
-        reasoning="Needs work",
-        suggestions=["Improve clarity"],
-    ))
-    agent.vote = AsyncMock(return_value=MagicMock(
-        choice="gpt",
-        confidence=0.85,
-        reasoning="Comprehensive",
-    ))
+    agent.critique = AsyncMock(
+        return_value=MagicMock(
+            score=0.7,
+            reasoning="Needs work",
+            suggestions=["Improve clarity"],
+        )
+    )
+    agent.vote = AsyncMock(
+        return_value=MagicMock(
+            choice="gpt",
+            confidence=0.85,
+            reasoning="Comprehensive",
+        )
+    )
     return agent
 
 
@@ -272,15 +280,9 @@ class TestGenerateInlineCostRecording:
         executor = AutonomicExecutor(circuit_breaker=None)
         executor.set_debate_cost_tracker(tracker, "debate-multi")
 
-        await executor.generate(
-            mock_agent, "Prompt A", [], phase="proposal", round_num=1
-        )
-        await executor.generate(
-            mock_gpt_agent, "Prompt B", [], phase="proposal", round_num=1
-        )
-        await executor.generate(
-            mock_agent, "Prompt C", [], phase="revision", round_num=2
-        )
+        await executor.generate(mock_agent, "Prompt A", [], phase="proposal", round_num=1)
+        await executor.generate(mock_gpt_agent, "Prompt B", [], phase="proposal", round_num=1)
+        await executor.generate(mock_agent, "Prompt C", [], phase="revision", round_num=2)
 
         summary = tracker.get_debate_cost("debate-multi")
         assert summary.total_calls == 3
@@ -316,8 +318,12 @@ class TestCritiqueAndVoteCostRecording:
         executor.set_debate_cost_tracker(tracker, "debate-crit")
 
         result = await executor.critique(
-            mock_agent, "Proposal text", "Task", [],
-            phase="critique", round_num=1,
+            mock_agent,
+            "Proposal text",
+            "Task",
+            [],
+            phase="critique",
+            round_num=1,
         )
 
         assert result is not None
@@ -336,8 +342,11 @@ class TestCritiqueAndVoteCostRecording:
         executor.set_debate_cost_tracker(tracker, "debate-vote")
 
         result = await executor.vote(
-            mock_agent, {"claude": "Answer A", "gpt": "Answer B"}, "Task",
-            phase="voting", round_num=3,
+            mock_agent,
+            {"claude": "Answer A", "gpt": "Answer B"},
+            "Task",
+            phase="voting",
+            round_num=3,
         )
 
         assert result is not None
@@ -625,9 +634,7 @@ class TestDebateCostInfrastructureWiring:
             await setup_debate_infrastructure(arena, state)
 
         # Verify the tracker was wired
-        arena.autonomic.set_debate_cost_tracker.assert_called_once_with(
-            mock_tracker, "wiring-test"
-        )
+        arena.autonomic.set_debate_cost_tracker.assert_called_once_with(mock_tracker, "wiring-test")
 
     @pytest.mark.asyncio
     async def test_cleanup_clears_tracker_reference(self):

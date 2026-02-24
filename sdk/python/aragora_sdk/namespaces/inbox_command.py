@@ -229,7 +229,9 @@ class AsyncInboxCommandAPI:
 
     async def acknowledge_mention(self, mention_id: str) -> dict[str, Any]:
         """Acknowledge a mention."""
-        return await self._client.request("POST", f"/api/v1/inbox/mentions/{mention_id}/acknowledge")
+        return await self._client.request(
+            "POST", f"/api/v1/inbox/mentions/{mention_id}/acknowledge"
+        )
 
     async def list_routing_rules(self) -> dict[str, Any]:
         """List routing rules."""

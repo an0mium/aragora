@@ -32,10 +32,13 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 try:
     from aragora.rbac.decorators import require_permission
 except ImportError:  # pragma: no cover
+
     def require_permission(*_a, **_kw):  # type: ignore[misc]
         def _noop(fn):  # type: ignore[no-untyped-def]
             return fn
+
         return _noop
+
 
 logger = logging.getLogger(__name__)
 
@@ -107,18 +110,18 @@ class MemoryUnifiedHandler(BaseHandler):
         results.sort(key=lambda r: r.get("relevance", 0), reverse=True)
         results = results[:limit]
 
-        return json_response({
-            "data": {
-                "results": results,
-                "total": len(results),
-                "per_system": per_system,
-                "query": query,
+        return json_response(
+            {
+                "data": {
+                    "results": results,
+                    "total": len(results),
+                    "per_system": per_system,
+                    "query": query,
+                }
             }
-        })
+        )
 
-    def _query_system(
-        self, system: str, query: str, limit: int
-    ) -> list[dict[str, Any]]:
+    def _query_system(self, system: str, query: str, limit: int) -> list[dict[str, Any]]:
         """Query a single memory system."""
         try:
             if system == "continuum":
@@ -129,7 +132,15 @@ class MemoryUnifiedHandler(BaseHandler):
                 return self._query_supermemory(query, limit)
             elif system == "claude_mem":
                 return self._query_claude_mem(query, limit)
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+        ) as e:
             logger.warning("Memory system %s query failed: %s", system, e)
         return []
 
@@ -225,7 +236,11 @@ class MemoryUnifiedHandler(BaseHandler):
             from aragora.memory.retention_gate import RetentionGate
 
             gate = RetentionGate()
-            history = gate.get_decision_history(limit=limit) if hasattr(gate, "get_decision_history") else []
+            history = (
+                gate.get_decision_history(limit=limit)
+                if hasattr(gate, "get_decision_history")
+                else []
+            )
 
             decisions = []
             stats = {"retained": 0, "demoted": 0, "forgotten": 0, "consolidated": 0}
@@ -241,28 +256,32 @@ class MemoryUnifiedHandler(BaseHandler):
                 "consolidated": "consolidated",
             }
 
-            for d in (history or []):
+            for d in history or []:
                 action = str(getattr(d, "action", "retain")).strip().lower()
                 stats_key = action_to_stats_key.get(action, action)
                 stats[stats_key] = stats.get(stats_key, 0) + 1
-                decisions.append({
-                    "memory_id": getattr(d, "memory_id", ""),
-                    "action": action,
-                    "surprise_score": getattr(d, "surprise_score", 0.0),
-                    "reason": getattr(d, "reason", ""),
-                    "timestamp": str(getattr(d, "timestamp", "")),
-                })
+                decisions.append(
+                    {
+                        "memory_id": getattr(d, "memory_id", ""),
+                        "action": action,
+                        "surprise_score": getattr(d, "surprise_score", 0.0),
+                        "reason": getattr(d, "reason", ""),
+                        "timestamp": str(getattr(d, "timestamp", "")),
+                    }
+                )
 
             return json_response({"data": {"decisions": decisions, "stats": stats}})
         except (ImportError, AttributeError) as e:
             logger.warning("RetentionGate unavailable: %s", e)
-            return json_response({
-                "data": {
-                    "decisions": [],
-                    "stats": {"retained": 0, "demoted": 0, "forgotten": 0, "consolidated": 0},
-                    "message": "RetentionGate not configured",
+            return json_response(
+                {
+                    "data": {
+                        "decisions": [],
+                        "stats": {"retained": 0, "demoted": 0, "forgotten": 0, "consolidated": 0},
+                        "message": "RetentionGate not configured",
+                    }
                 }
-            })
+            )
 
     def _handle_dedup(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/memory/unified/dedup — Near-duplicate clusters."""
@@ -273,31 +292,41 @@ class MemoryUnifiedHandler(BaseHandler):
             clusters = engine.get_clusters() if hasattr(engine, "get_clusters") else []
 
             cluster_data = []
-            for c in (clusters or []):
-                cluster_data.append({
-                    "cluster_id": getattr(c, "cluster_id", ""),
-                    "entries": [
-                        {
-                            "content": getattr(e, "content", str(e)),
-                            "source": getattr(e, "source", ""),
-                            "similarity": getattr(e, "similarity", 0.0),
-                        }
-                        for e in getattr(c, "entries", [])
-                    ],
-                    "canonical": getattr(c, "canonical_id", ""),
-                })
+            for c in clusters or []:
+                cluster_data.append(
+                    {
+                        "cluster_id": getattr(c, "cluster_id", ""),
+                        "entries": [
+                            {
+                                "content": getattr(e, "content", str(e)),
+                                "source": getattr(e, "source", ""),
+                                "similarity": getattr(e, "similarity", 0.0),
+                            }
+                            for e in getattr(c, "entries", [])
+                        ],
+                        "canonical": getattr(c, "canonical_id", ""),
+                    }
+                )
 
-            return json_response({
-                "data": {
-                    "clusters": cluster_data,
-                    "total_duplicates": sum(len(c.get("entries", [])) for c in cluster_data),
+            return json_response(
+                {
+                    "data": {
+                        "clusters": cluster_data,
+                        "total_duplicates": sum(len(c.get("entries", [])) for c in cluster_data),
+                    }
                 }
-            })
+            )
         except (ImportError, AttributeError) as e:
             logger.warning("DedupEngine unavailable: %s", e)
-            return json_response({
-                "data": {"clusters": [], "total_duplicates": 0, "message": "DedupEngine not configured"}
-            })
+            return json_response(
+                {
+                    "data": {
+                        "clusters": [],
+                        "total_duplicates": 0,
+                        "message": "DedupEngine not configured",
+                    }
+                }
+            )
 
     def _handle_sources(self) -> HandlerResult:
         """GET /api/memory/unified/sources — Memory source breakdown."""
@@ -314,23 +343,28 @@ class MemoryUnifiedHandler(BaseHandler):
         for name, module_path, class_name in system_checks:
             try:
                 import importlib
+
                 mod = importlib.import_module(module_path)
                 cls = getattr(mod, class_name)
                 instance = cls()
                 count = getattr(instance, "count", lambda: 0)()
-                sources.append({
-                    "name": name,
-                    "entry_count": count if isinstance(count, int) else 0,
-                    "status": "active",
-                    "last_activity": datetime.now(timezone.utc).isoformat(),
-                })
+                sources.append(
+                    {
+                        "name": name,
+                        "entry_count": count if isinstance(count, int) else 0,
+                        "status": "active",
+                        "last_activity": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
             except (ImportError, AttributeError, TypeError):
-                sources.append({
-                    "name": name,
-                    "entry_count": 0,
-                    "status": "unavailable",
-                    "last_activity": None,
-                })
+                sources.append(
+                    {
+                        "name": name,
+                        "entry_count": 0,
+                        "status": "unavailable",
+                        "last_activity": None,
+                    }
+                )
 
         return json_response({"data": {"sources": sources}})
 
@@ -338,6 +372,7 @@ class MemoryUnifiedHandler(BaseHandler):
     def _get_request_body(handler: Any) -> dict[str, Any]:
         """Extract JSON body from the request handler."""
         import json
+
         try:
             if hasattr(handler, "request") and hasattr(handler.request, "body"):
                 raw = handler.request.body

@@ -146,7 +146,13 @@ def _handle_agents_list(**_: Any) -> dict[str, Any]:
 def _handle_rankings(**_: Any) -> dict[str, Any]:
     return {
         "rankings": [
-            {"rank": i + 1, "agent": a["name"], "elo": a["elo"], "wins": a["wins"], "losses": a["losses"]}
+            {
+                "rank": i + 1,
+                "agent": a["name"],
+                "elo": a["elo"],
+                "wins": a["wins"],
+                "losses": a["losses"],
+            }
             for i, a in enumerate(_DEMO_AGENTS)
         ],
         "total": len(_DEMO_AGENTS),

@@ -80,7 +80,9 @@ class AsyncTemplatesAPI:
 
     async def recommend(self, **params: Any) -> dict[str, Any]:
         """Get template recommendations."""
-        return await self._client.request("GET", "/api/v1/templates/recommend", params=params or None)
+        return await self._client.request(
+            "GET", "/api/v1/templates/recommend", params=params or None
+        )
 
     async def register(self, **kwargs: Any) -> dict[str, Any]:
         """Register a custom template."""

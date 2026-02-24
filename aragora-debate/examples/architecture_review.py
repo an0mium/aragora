@@ -136,22 +136,32 @@ class MockAgent(Agent):
         target = kw.get("target_agent", "unknown")
         if self.name == "kafka-advocate" and "RabbitMQ" in proposal:
             return Critique(
-                agent=self.name, target_agent=target, target_content=proposal,
-                issues=["Ignores replay requirements for financial compliance",
-                        "Cost comparison doesn't include incident recovery time"],
+                agent=self.name,
+                target_agent=target,
+                target_content=proposal,
+                issues=[
+                    "Ignores replay requirements for financial compliance",
+                    "Cost comparison doesn't include incident recovery time",
+                ],
                 suggestions=["Quantify the cost of a single data reconciliation incident"],
                 severity=6.0,
             )
         elif self.name == "rabbitmq-advocate" and "Kafka" in proposal:
             return Critique(
-                agent=self.name, target_agent=target, target_content=proposal,
-                issues=["Over-engineers for current scale (14 msg/sec vs millions)",
-                        "Operational complexity risk with a team of 4 engineers"],
+                agent=self.name,
+                target_agent=target,
+                target_content=proposal,
+                issues=[
+                    "Over-engineers for current scale (14 msg/sec vs millions)",
+                    "Operational complexity risk with a team of 4 engineers",
+                ],
                 suggestions=["Compare managed service costs at our actual volume"],
                 severity=7.0,
             )
         return Critique(
-            agent=self.name, target_agent=target, target_content=proposal,
+            agent=self.name,
+            target_agent=target,
+            target_content=proposal,
             issues=["Could be more specific about migration timeline"],
             suggestions=["Add concrete cost estimates"],
             severity=3.0,
@@ -159,19 +169,32 @@ class MockAgent(Agent):
 
     async def vote(self, proposals: dict[str, str], task: str) -> Vote:
         if self.name == "kafka-advocate":
-            return Vote(agent=self.name, choice="kafka-advocate",
-                       reasoning="Replay is non-negotiable for financial systems", confidence=0.8)
+            return Vote(
+                agent=self.name,
+                choice="kafka-advocate",
+                reasoning="Replay is non-negotiable for financial systems",
+                confidence=0.8,
+            )
         elif self.name == "rabbitmq-advocate":
-            return Vote(agent=self.name, choice="neutral-analyst",
-                       reasoning="The hybrid approach addresses my concerns", confidence=0.7)
+            return Vote(
+                agent=self.name,
+                choice="neutral-analyst",
+                reasoning="The hybrid approach addresses my concerns",
+                confidence=0.7,
+            )
         else:
-            return Vote(agent=self.name, choice="neutral-analyst",
-                       reasoning="Pragmatic middle ground with migration path", confidence=0.85)
+            return Vote(
+                agent=self.name,
+                choice="neutral-analyst",
+                reasoning="Pragmatic middle ground with migration path",
+                confidence=0.85,
+            )
 
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 async def main(use_mock: bool = True) -> None:
     if use_mock:
@@ -183,8 +206,7 @@ async def main(use_mock: bool = True) -> None:
     else:
         # Replace with real agent implementations
         raise NotImplementedError(
-            "Set ANTHROPIC_API_KEY / OPENAI_API_KEY and implement real agents, "
-            "or use --mock mode."
+            "Set ANTHROPIC_API_KEY / OPENAI_API_KEY and implement real agents, or use --mock mode."
         )
 
     arena = Arena(
@@ -219,7 +241,9 @@ async def main(use_mock: bool = True) -> None:
         if msg.round != current_round:
             current_round = msg.round
             print(f"\n--- Round {current_round} ---\n")
-        role_label = {"proposer": "PROPOSE", "critic": "CRITIQUE", "voter": "VOTE"}.get(msg.role, msg.role.upper())
+        role_label = {"proposer": "PROPOSE", "critic": "CRITIQUE", "voter": "VOTE"}.get(
+            msg.role, msg.role.upper()
+        )
         print(f"[{role_label}] {msg.agent}:")
         print(f"  {msg.content[:200]}{'...' if len(msg.content) > 200 else ''}")
         print()
@@ -238,9 +262,11 @@ async def main(use_mock: bool = True) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Architecture review debate demo")
-    parser.add_argument("--mock", action="store_true", default=True,
-                       help="Use mock agents (no API keys needed)")
-    parser.add_argument("--live", action="store_true",
-                       help="Use real LLM agents (requires API keys)")
+    parser.add_argument(
+        "--mock", action="store_true", default=True, help="Use mock agents (no API keys needed)"
+    )
+    parser.add_argument(
+        "--live", action="store_true", help="Use real LLM agents (requires API keys)"
+    )
     args = parser.parse_args()
     asyncio.run(main(use_mock=not args.live))

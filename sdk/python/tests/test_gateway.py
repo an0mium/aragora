@@ -16,6 +16,7 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Device Tests (Sync)
 # =============================================================================
 
+
 class TestGatewayListDevices:
     """Tests for listing devices."""
 
@@ -68,6 +69,7 @@ class TestGatewayListDevices:
             )
             client.close()
 
+
 class TestGatewayGetDevice:
     """Tests for getting device details."""
 
@@ -88,6 +90,7 @@ class TestGatewayGetDevice:
             assert result["name"] == "Kitchen Speaker"
             assert result["status"] == "online"
             client.close()
+
 
 class TestGatewayRegisterDevice:
     """Tests for device registration."""
@@ -201,6 +204,7 @@ class TestGatewayRegisterDevice:
             assert call_json["metadata"] == {"room": "conference"}
             client.close()
 
+
 class TestGatewayUnregisterDevice:
     """Tests for device unregistration."""
 
@@ -213,6 +217,7 @@ class TestGatewayUnregisterDevice:
             mock_request.assert_called_once_with("DELETE", "/api/v1/gateway/devices/dev_123")
             assert "message" in result
             client.close()
+
 
 class TestGatewayListChannels:
     """Tests for listing channels."""
@@ -234,9 +239,11 @@ class TestGatewayListChannels:
             assert result["channels"][0]["channel_id"] == "slack"
             client.close()
 
+
 # =============================================================================
 # Routing Tests (Sync)
 # =============================================================================
+
 
 class TestAsyncGatewayDevices:
     """Tests for async device management."""
@@ -332,6 +339,7 @@ class TestAsyncGatewayDevices:
             assert result["message"] == "Unregistered"
             await client.close()
 
+
 class TestAsyncGatewayChannels:
     """Tests for async channel management."""
 
@@ -348,6 +356,7 @@ class TestAsyncGatewayChannels:
             mock_request.assert_called_once_with("GET", "/api/v1/gateway/channels")
             assert result["total"] == 1
             await client.close()
+
 
 # =============================================================================
 # Async Routing Tests
@@ -396,9 +405,7 @@ class TestGatewayOpenclawActions:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"action_id": "a_1", "status": "pending"}
             client = AragoraClient(base_url="https://api.aragora.ai")
-            result = client.gateway.openclaw_actions(
-                session_id="s_1", action_type="click"
-            )
+            result = client.gateway.openclaw_actions(session_id="s_1", action_type="click")
             mock_request.assert_called_once_with(
                 "POST",
                 "/api/gateway/openclaw/actions",
@@ -416,9 +423,7 @@ class TestGatewayOpenclawCredentials:
             mock_request.return_value = {"credentials": [], "total": 0}
             client = AragoraClient(base_url="https://api.aragora.ai")
             result = client.gateway.openclaw_credentials()
-            mock_request.assert_called_once_with(
-                "GET", "/api/gateway/openclaw/credentials"
-            )
+            mock_request.assert_called_once_with("GET", "/api/gateway/openclaw/credentials")
             assert result["total"] == 0
             client.close()
 
@@ -446,9 +451,7 @@ class TestGatewayOpenclawAdmin:
             mock_request.return_value = {"status": "healthy"}
             client = AragoraClient(base_url="https://api.aragora.ai")
             result = client.gateway.openclaw_health()
-            mock_request.assert_called_once_with(
-                "GET", "/api/gateway/openclaw/health"
-            )
+            mock_request.assert_called_once_with("GET", "/api/gateway/openclaw/health")
             assert result["status"] == "healthy"
             client.close()
 
@@ -457,9 +460,7 @@ class TestGatewayOpenclawAdmin:
             mock_request.return_value = {"total_sessions": 10}
             client = AragoraClient(base_url="https://api.aragora.ai")
             result = client.gateway.openclaw_metrics()
-            mock_request.assert_called_once_with(
-                "GET", "/api/gateway/openclaw/metrics"
-            )
+            mock_request.assert_called_once_with("GET", "/api/gateway/openclaw/metrics")
             assert result["total_sessions"] == 10
             client.close()
 
@@ -468,9 +469,7 @@ class TestGatewayOpenclawAdmin:
             mock_request.return_value = {"entries": []}
             client = AragoraClient(base_url="https://api.aragora.ai")
             result = client.gateway.openclaw_audit()
-            mock_request.assert_called_once_with(
-                "GET", "/api/gateway/openclaw/audit", params=None
-            )
+            mock_request.assert_called_once_with("GET", "/api/gateway/openclaw/audit", params=None)
             assert result["entries"] == []
             client.close()
 
@@ -533,9 +532,7 @@ class TestAsyncGatewayOpenclawAdmin:
             mock_request.return_value = {"status": "healthy"}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai")
             result = await client.gateway.openclaw_health()
-            mock_request.assert_called_once_with(
-                "GET", "/api/gateway/openclaw/health"
-            )
+            mock_request.assert_called_once_with("GET", "/api/gateway/openclaw/health")
             assert result["status"] == "healthy"
             await client.close()
 
@@ -545,9 +542,7 @@ class TestAsyncGatewayOpenclawAdmin:
             mock_request.return_value = {"total_sessions": 5}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai")
             result = await client.gateway.openclaw_metrics()
-            mock_request.assert_called_once_with(
-                "GET", "/api/gateway/openclaw/metrics"
-            )
+            mock_request.assert_called_once_with("GET", "/api/gateway/openclaw/metrics")
             assert result["total_sessions"] == 5
             await client.close()
 
@@ -557,9 +552,6 @@ class TestAsyncGatewayOpenclawAdmin:
             mock_request.return_value = {"entries": []}
             client = AragoraAsyncClient(base_url="https://api.aragora.ai")
             result = await client.gateway.openclaw_audit()
-            mock_request.assert_called_once_with(
-                "GET", "/api/gateway/openclaw/audit", params=None
-            )
+            mock_request.assert_called_once_with("GET", "/api/gateway/openclaw/audit", params=None)
             assert result["entries"] == []
             await client.close()
-

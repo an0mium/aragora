@@ -90,7 +90,8 @@ class TestConvergenceDetector:
 
     def test_check_trend_second_round(self):
         self.detector.check_trend(
-            {"a": "initial proposal A", "b": "initial proposal B"}, round_num=1,
+            {"a": "initial proposal A", "b": "initial proposal B"},
+            round_num=1,
         )
         result = self.detector.check_trend(
             {"a": "initial proposal A revised", "b": "initial proposal B revised"},

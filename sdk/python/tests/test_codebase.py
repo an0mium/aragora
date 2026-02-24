@@ -73,6 +73,7 @@ class TestCodebaseDependencies:
             )
             client.close()
 
+
 class TestCodebaseAudit:
     """Tests for audit operations."""
 
@@ -90,6 +91,7 @@ class TestCodebaseAudit:
                 json={"repo": "myorg/myrepo"},
             )
             client.close()
+
 
 class TestAsyncCodebase:
     """Tests for async codebase API."""

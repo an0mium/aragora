@@ -118,7 +118,10 @@ class Arena:
 
         logger.info(
             "Starting debate %s: %r with %d agents, %d rounds",
-            debate_id, self.question, len(self.agents), self.config.rounds,
+            debate_id,
+            self.question,
+            len(self.agents),
+            self.config.rounds,
         )
 
         await self._emitter.emit(
@@ -179,12 +182,14 @@ class Arena:
                         },
                     )
                     # Inject challenge as a trickster message
-                    self._messages.append(Message(
-                        role="trickster",
-                        agent="trickster",
-                        content=intervention.challenge_text,
-                        round=round_num,
-                    ))
+                    self._messages.append(
+                        Message(
+                            role="trickster",
+                            agent="trickster",
+                            content=intervention.challenge_text,
+                            round=round_num,
+                        )
+                    )
 
             # Phase 2: Critique
             await self._run_critique(round_num)
@@ -204,7 +209,11 @@ class Arena:
 
             await self._emitter.emit(EventType.ROUND_END, round_num=round_num)
 
-            if consensus.reached and self.config.early_stopping and round_num >= self.config.min_rounds:
+            if (
+                consensus.reached
+                and self.config.early_stopping
+                and round_num >= self.config.min_rounds
+            ):
                 logger.info("Consensus reached in round %d", round_num)
                 break
 
@@ -224,7 +233,9 @@ class Arena:
             adjusted_confidence = max(0.10, raw_confidence - penalty)
             logger.info(
                 "Trickster confidence adjustment: %.3f -> %.3f (%d interventions)",
-                raw_confidence, adjusted_confidence, trickster_interventions,
+                raw_confidence,
+                adjusted_confidence,
+                trickster_interventions,
             )
         else:
             adjusted_confidence = raw_confidence
@@ -272,7 +283,10 @@ class Arena:
 
         logger.info(
             "Debate %s complete: %s (%.1fs, %d rounds)",
-            debate_id, result.status, duration, rounds_used,
+            debate_id,
+            result.status,
+            duration,
+            rounds_used,
         )
         return result
 
@@ -298,12 +312,14 @@ class Arena:
                 logger.warning("Agent proposal failed: %s", result)
                 continue
             self._proposals[result.agent] = result
-            self._messages.append(Message(
-                role="proposer",
-                agent=result.agent,
-                content=result.content,
-                round=round_num,
-            ))
+            self._messages.append(
+                Message(
+                    role="proposer",
+                    agent=result.agent,
+                    content=result.content,
+                    round=round_num,
+                )
+            )
 
     async def _run_critique(self, round_num: int) -> None:
         """Each agent critiques every other agent's proposal."""
@@ -314,9 +330,11 @@ class Arena:
             for target_name, proposal in self._proposals.items():
                 if target_name == agent.name:
                     continue  # don't self-critique
-                tasks.append(asyncio.ensure_future(
-                    self._safe_critique(agent, target_name, proposal.content, round_num)
-                ))
+                tasks.append(
+                    asyncio.ensure_future(
+                        self._safe_critique(agent, target_name, proposal.content, round_num)
+                    )
+                )
 
         critiques = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -325,15 +343,21 @@ class Arena:
                 logger.warning("Critique failed: %s", result)
                 continue
             self._critiques.append(result)
-            self._messages.append(Message(
-                role="critic",
-                agent=result.agent,
-                content=result.content,
-                round=round_num,
-            ))
+            self._messages.append(
+                Message(
+                    role="critic",
+                    agent=result.agent,
+                    content=result.content,
+                    round=round_num,
+                )
+            )
 
     async def _safe_critique(
-        self, agent: Agent, target: str, proposal_content: str, round_num: int,
+        self,
+        agent: Agent,
+        target: str,
+        proposal_content: str,
+        round_num: int,
     ) -> Critique:
         return await agent.critique(
             proposal=proposal_content,
@@ -361,12 +385,14 @@ class Arena:
                 continue
             votes.append(result)
             self._votes.append(result)
-            self._messages.append(Message(
-                role="voter",
-                agent=result.agent,
-                content=f"Voted for {result.choice}: {result.reasoning}",
-                round=round_num,
-            ))
+            self._messages.append(
+                Message(
+                    role="voter",
+                    agent=result.agent,
+                    content=f"Voted for {result.choice}: {result.reasoning}",
+                    round=round_num,
+                )
+            )
 
         return votes
 
@@ -375,7 +401,9 @@ class Arena:
     # ------------------------------------------------------------------
 
     def _evaluate_consensus(
-        self, votes: list[Vote], agent_names: list[str],
+        self,
+        votes: list[Vote],
+        agent_names: list[str],
     ) -> Consensus:
         """Evaluate whether consensus has been reached."""
         assert self.config is not None
@@ -383,8 +411,11 @@ class Arena:
 
         if not votes:
             return Consensus(
-                reached=False, method=method, confidence=0.0,
-                supporting_agents=[], dissenting_agents=agent_names,
+                reached=False,
+                method=method,
+                confidence=0.0,
+                supporting_agents=[],
+                dissenting_agents=agent_names,
             )
 
         # Tally votes (weighted by confidence)
@@ -397,8 +428,11 @@ class Arena:
         total_weight = sum(tally.values())
         if total_weight == 0:
             return Consensus(
-                reached=False, method=method, confidence=0.0,
-                supporting_agents=[], dissenting_agents=agent_names,
+                reached=False,
+                method=method,
+                confidence=0.0,
+                supporting_agents=[],
+                dissenting_agents=agent_names,
             )
 
         # Find the leading choice
@@ -424,11 +458,13 @@ class Arena:
         dissents: list[DissentRecord] = []
         for v in votes:
             if v.choice != leading_choice:
-                dissents.append(DissentRecord(
-                    agent=v.agent,
-                    reasons=[v.reasoning] if v.reasoning else ["Voted differently"],
-                    alternative_view=f"Preferred: {v.choice}",
-                ))
+                dissents.append(
+                    DissentRecord(
+                        agent=v.agent,
+                        reasons=[v.reasoning] if v.reasoning else ["Voted differently"],
+                        alternative_view=f"Preferred: {v.choice}",
+                    )
+                )
 
         return Consensus(
             reached=reached,
@@ -437,7 +473,9 @@ class Arena:
             supporting_agents=supporting,
             dissenting_agents=dissenting,
             dissents=dissents,
-            statement=self._proposals.get(leading_choice, Proposal(agent="", content="")).content[:500],
+            statement=self._proposals.get(leading_choice, Proposal(agent="", content="")).content[
+                :500
+            ],
         )
 
     def _pick_winner(self, consensus: Consensus | None) -> str:

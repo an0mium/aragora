@@ -203,9 +203,7 @@ class TestExplainabilityEntry:
 
     def test_from_decision_with_task_override(self, sample_decision):
         """Test that task parameter overrides decision.task."""
-        entry = ExplainabilityEntry.from_decision(
-            sample_decision, task="Custom task override"
-        )
+        entry = ExplainabilityEntry.from_decision(sample_decision, task="Custom task override")
         assert entry.task == "Custom task override"
 
 

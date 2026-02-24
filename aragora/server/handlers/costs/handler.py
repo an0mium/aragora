@@ -1724,9 +1724,7 @@ class CostHandler:
         """
         try:
             workspace_id = request.query.get("workspace_id", "default")
-            limit = safe_query_int(
-                request.query, "limit", default=20, min_val=1, max_val=100
-            )
+            limit = safe_query_int(request.query, "limit", default=20, min_val=1, max_val=100)
 
             from aragora.billing.spend_analytics import get_spend_analytics
 

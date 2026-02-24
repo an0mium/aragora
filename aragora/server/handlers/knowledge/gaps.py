@@ -25,10 +25,13 @@ from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
 try:
     from aragora.rbac.decorators import require_permission
 except ImportError:  # pragma: no cover
+
     def require_permission(*_a, **_kw):  # type: ignore[misc]
         def _noop(fn):  # type: ignore[no-untyped-def]
             return fn
+
         return _noop
+
 
 logger = logging.getLogger(__name__)
 
@@ -147,13 +150,15 @@ class KnowledgeGapHandler(BaseHandler):
                 limit=limit,
             )
 
-            return json_response({
-                "data": {
-                    "recommendations": [r.to_dict() for r in recommendations],
-                    "count": len(recommendations),
-                    "workspace_id": workspace_id,
+            return json_response(
+                {
+                    "data": {
+                        "recommendations": [r.to_dict() for r in recommendations],
+                        "count": len(recommendations),
+                        "workspace_id": workspace_id,
+                    }
                 }
-            })
+            )
 
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Failed to get recommendations: %s", e)
@@ -168,14 +173,16 @@ class KnowledgeGapHandler(BaseHandler):
         try:
             detector = self._create_detector(workspace_id)
             if detector is None:
-                return json_response({
-                    "data": {
-                        "domains": [],
-                        "overall_score": 0.0,
-                        "workspace_id": workspace_id,
-                        "status": "knowledge_mound_unavailable",
+                return json_response(
+                    {
+                        "data": {
+                            "domains": [],
+                            "overall_score": 0.0,
+                            "workspace_id": workspace_id,
+                            "status": "knowledge_mound_unavailable",
+                        }
                     }
-                })
+                )
 
             coverage_map = await detector.get_coverage_map()
 
@@ -187,14 +194,16 @@ class KnowledgeGapHandler(BaseHandler):
             else:
                 overall_score = 0.0
 
-            return json_response({
-                "data": {
-                    "domains": [e.to_dict() for e in coverage_map],
-                    "overall_score": overall_score,
-                    "domain_count": len(coverage_map),
-                    "workspace_id": workspace_id,
+            return json_response(
+                {
+                    "data": {
+                        "domains": [e.to_dict() for e in coverage_map],
+                        "overall_score": overall_score,
+                        "domain_count": len(coverage_map),
+                        "workspace_id": workspace_id,
+                    }
                 }
-            })
+            )
 
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Failed to get coverage map: %s", e)
@@ -217,13 +226,15 @@ class KnowledgeGapHandler(BaseHandler):
 
             score = await detector.get_coverage_score(domain)
 
-            return json_response({
-                "data": {
-                    "domain": domain,
-                    "coverage_score": score,
-                    "workspace_id": workspace_id,
+            return json_response(
+                {
+                    "data": {
+                        "domain": domain,
+                        "coverage_score": score,
+                        "workspace_id": workspace_id,
+                    }
                 }
-            })
+            )
 
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Failed to get coverage score: %s", e)
@@ -247,17 +258,19 @@ class KnowledgeGapHandler(BaseHandler):
 
     def _unavailable_response(self, workspace_id: str) -> HandlerResult:
         """Return a response indicating KM is unavailable."""
-        return json_response({
-            "data": {
-                "coverage_gaps": [],
-                "stale_entries": [],
-                "stale_count": 0,
-                "contradictions": [],
-                "contradiction_count": 0,
-                "workspace_id": workspace_id,
-                "status": "knowledge_mound_unavailable",
+        return json_response(
+            {
+                "data": {
+                    "coverage_gaps": [],
+                    "stale_entries": [],
+                    "stale_count": 0,
+                    "contradictions": [],
+                    "contradiction_count": 0,
+                    "workspace_id": workspace_id,
+                    "status": "knowledge_mound_unavailable",
+                }
             }
-        })
+        )
 
 
 __all__ = ["KnowledgeGapHandler"]

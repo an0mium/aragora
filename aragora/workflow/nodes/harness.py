@@ -144,11 +144,14 @@ class HarnessStep(BaseStep):
                     logger.debug("Audit adaptation failed: %s", e)
 
             # Emit event if callback available
-            context.emit_event("harness_analysis_complete", {
-                "harness": harness_type,
-                "findings_count": len(result.findings),
-                "success": result.success,
-            })
+            context.emit_event(
+                "harness_analysis_complete",
+                {
+                    "harness": harness_type,
+                    "findings_count": len(result.findings),
+                    "success": result.success,
+                },
+            )
 
             return output
 
@@ -162,9 +165,7 @@ class HarnessStep(BaseStep):
                 "duration_seconds": time.time() - start_time,
             }
 
-    async def _create_harness(
-        self, harness_type: str, config: dict[str, Any]
-    ) -> Any | None:
+    async def _create_harness(self, harness_type: str, config: dict[str, Any]) -> Any | None:
         """Create harness instance by type name."""
         registry_entry = _HARNESS_REGISTRY.get(harness_type)
         if registry_entry is None:

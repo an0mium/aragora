@@ -260,9 +260,7 @@ class TestSSOCallbackNewUser:
         fake_tokens = FakeTokenPair()
 
         with (
-            patch(
-                "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-            ) as mock_state_store,
+            patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_state_store,
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider"
             ) as mock_get_provider,
@@ -310,9 +308,7 @@ class TestSSOCallbackNewUser:
         fake_tokens = FakeTokenPair()
 
         with (
-            patch(
-                "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-            ) as mock_state_store,
+            patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_state_store,
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider"
             ) as mock_get_provider,
@@ -362,9 +358,7 @@ class TestSSOCallbackExistingUser:
         fake_tokens = FakeTokenPair()
 
         with (
-            patch(
-                "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-            ) as mock_state_store,
+            patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_state_store,
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider"
             ) as mock_get_provider,
@@ -416,9 +410,7 @@ class TestSSOCallbackAccountLinking:
         fake_tokens = FakeTokenPair()
 
         with (
-            patch(
-                "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-            ) as mock_state_store,
+            patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_state_store,
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider"
             ) as mock_get_provider,
@@ -467,9 +459,7 @@ class TestSSOCallbackPostLoginRedirect:
         fake_tokens = FakeTokenPair()
 
         with (
-            patch(
-                "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-            ) as mock_state_store,
+            patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_state_store,
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider"
             ) as mock_get_provider,
@@ -511,9 +501,7 @@ class TestSSOCallbackPostLoginRedirect:
         fake_tokens = FakeTokenPair()
 
         with (
-            patch(
-                "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-            ) as mock_state_store,
+            patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_state_store,
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider"
             ) as mock_get_provider,
@@ -615,9 +603,7 @@ class TestSSOCallbackSessionBinding:
         mock_session_manager = MagicMock()
 
         with (
-            patch(
-                "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-            ) as mock_state_store,
+            patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_state_store,
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider"
             ) as mock_get_provider,
@@ -656,9 +642,7 @@ class TestSSOCallbackSessionBinding:
         call_kwargs = mock_session_manager.create_session.call_args
         assert call_kwargs.kwargs["token_jti"] is not None
         # Verify JTI is derived from token hash
-        expected_jti = hashlib.sha256(
-            fake_tokens.access_token.encode()
-        ).hexdigest()[:32]
+        expected_jti = hashlib.sha256(fake_tokens.access_token.encode()).hexdigest()[:32]
         assert call_kwargs.kwargs["token_jti"] == expected_jti
 
 
@@ -671,9 +655,7 @@ class TestSSOCallbackExpiredToken:
         from aragora.server.handlers.auth.sso_handlers import handle_sso_callback
 
         with (
-            patch(
-                "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-            ) as mock_state_store,
+            patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_state_store,
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider"
             ) as mock_get_provider,
@@ -705,9 +687,7 @@ class TestSSOCallbackProviderUnavailable:
         from aragora.server.handlers.auth.sso_handlers import handle_sso_callback
 
         with (
-            patch(
-                "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-            ) as mock_state_store,
+            patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_state_store,
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
                 return_value=None,
@@ -748,9 +728,7 @@ class TestSSOLoginFlow:
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
                 return_value=mock_provider,
             ),
-            patch(
-                "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-            ) as mock_state_store,
+            patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_state_store,
         ):
             mock_store = MagicMock()
             mock_store.generate.return_value = "state-token-abc"
@@ -779,9 +757,7 @@ class TestSSOLoginFlow:
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
                 return_value=mock_provider,
             ),
-            patch(
-                "aragora.server.handlers.auth.sso_handlers._sso_state_store"
-            ) as mock_state_store,
+            patch("aragora.server.handlers.auth.sso_handlers._sso_state_store") as mock_state_store,
         ):
             mock_store = MagicMock()
             mock_store.generate.return_value = "state-token"
@@ -943,9 +919,7 @@ class TestOAuthHandlerRedirect:
 
         handler = OAuthHandler(ctx={})
 
-        with patch(
-            "aragora.server.handlers._oauth.base._impl"
-        ) as mock_impl:
+        with patch("aragora.server.handlers._oauth.base._impl") as mock_impl:
             mock_impl()._get_oauth_error_url.return_value = "https://app.example.com/auth/error"
             result = handler._redirect_with_error("Something went wrong")
 
@@ -988,9 +962,7 @@ class TestOAuthHandlerSessionBinding:
                 "aragora.billing.auth.sessions.get_session_manager",
                 return_value=mock_session_manager,
             ),
-            patch(
-                "aragora.server.handlers._oauth.base._impl"
-            ) as mock_impl,
+            patch("aragora.server.handlers._oauth.base._impl") as mock_impl,
         ):
             mock_impl()._get_oauth_success_url.return_value = "/auth/callback"
 

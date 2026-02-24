@@ -75,7 +75,9 @@ class TestCreditsHandlerMFA:
         mock_tx.to_dict.return_value = {"id": "txn-1", "amount_cents": 100}
         mock_manager.issue_credit = AsyncMock(return_value=mock_tx)
         mock_manager.adjust_balance = AsyncMock(return_value=mock_tx)
-        with patch("aragora.server.handlers.admin.credits.get_credit_manager", return_value=mock_manager):
+        with patch(
+            "aragora.server.handlers.admin.credits.get_credit_manager", return_value=mock_manager
+        ):
             yield
 
     @pytest.mark.usefixtures("_patch_settings")

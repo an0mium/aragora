@@ -75,11 +75,11 @@ class _HandlerProtocol(Protocol):
 
     ctx: dict[str, Any]
 
-    def read_json_body(self, handler: Any, max_size: int | None = None) -> dict[str, Any] | None:
-        ...
+    def read_json_body(
+        self, handler: Any, max_size: int | None = None
+    ) -> dict[str, Any] | None: ...
 
-    def get_current_user(self, handler: Any) -> Any:
-        ...
+    def get_current_user(self, handler: Any) -> Any: ...
 
 
 class DebateInterventionsHandler(BaseHandler):
@@ -105,8 +105,12 @@ class DebateInterventionsHandler(BaseHandler):
         """Check if this handler can process the given path."""
         normalized = _strip_version_prefix(path)
         suffixes = (
-            "/pause", "/resume", "/nudge",
-            "/challenge", "/inject-evidence", "/intervention-log",
+            "/pause",
+            "/resume",
+            "/nudge",
+            "/challenge",
+            "/inject-evidence",
+            "/intervention-log",
         )
         if normalized.startswith("/api/debates/"):
             return any(normalized.endswith(s) for s in suffixes)
@@ -116,9 +120,7 @@ class DebateInterventionsHandler(BaseHandler):
     # GET handler
     # ------------------------------------------------------------------
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests."""
         normalized = _strip_version_prefix(path)
         if normalized.endswith("/intervention-log"):
@@ -184,12 +186,14 @@ class DebateInterventionsHandler(BaseHandler):
         except ValueError as exc:
             return error_response(str(exc), 400)
 
-        return json_response({
-            "success": True,
-            "debate_id": debate_id,
-            "state": "paused",
-            "intervention": entry.to_dict(),
-        })
+        return json_response(
+            {
+                "success": True,
+                "debate_id": debate_id,
+                "state": "paused",
+                "intervention": entry.to_dict(),
+            }
+        )
 
     @api_endpoint(
         method="POST",
@@ -221,12 +225,14 @@ class DebateInterventionsHandler(BaseHandler):
         except ValueError as exc:
             return error_response(str(exc), 400)
 
-        return json_response({
-            "success": True,
-            "debate_id": debate_id,
-            "state": "running",
-            "intervention": entry.to_dict(),
-        })
+        return json_response(
+            {
+                "success": True,
+                "debate_id": debate_id,
+                "state": "running",
+                "intervention": entry.to_dict(),
+            }
+        )
 
     @api_endpoint(
         method="POST",
@@ -271,11 +277,13 @@ class DebateInterventionsHandler(BaseHandler):
         except ValueError as exc:
             return error_response(str(exc), 400)
 
-        return json_response({
-            "success": True,
-            "debate_id": debate_id,
-            "intervention": entry.to_dict(),
-        })
+        return json_response(
+            {
+                "success": True,
+                "debate_id": debate_id,
+                "intervention": entry.to_dict(),
+            }
+        )
 
     @api_endpoint(
         method="POST",
@@ -318,11 +326,13 @@ class DebateInterventionsHandler(BaseHandler):
         except ValueError as exc:
             return error_response(str(exc), 400)
 
-        return json_response({
-            "success": True,
-            "debate_id": debate_id,
-            "intervention": entry.to_dict(),
-        })
+        return json_response(
+            {
+                "success": True,
+                "debate_id": debate_id,
+                "intervention": entry.to_dict(),
+            }
+        )
 
     @api_endpoint(
         method="POST",
@@ -367,11 +377,13 @@ class DebateInterventionsHandler(BaseHandler):
         except ValueError as exc:
             return error_response(str(exc), 400)
 
-        return json_response({
-            "success": True,
-            "debate_id": debate_id,
-            "intervention": entry.to_dict(),
-        })
+        return json_response(
+            {
+                "success": True,
+                "debate_id": debate_id,
+                "intervention": entry.to_dict(),
+            }
+        )
 
     @api_endpoint(
         method="GET",
@@ -396,12 +408,14 @@ class DebateInterventionsHandler(BaseHandler):
         manager = get_intervention_manager(debate_id, create=False)
         if manager is None:
             # No interventions yet -- return empty log
-            return json_response({
-                "debate_id": debate_id,
-                "state": "unknown",
-                "entry_count": 0,
-                "entries": [],
-            })
+            return json_response(
+                {
+                    "debate_id": debate_id,
+                    "state": "unknown",
+                    "entry_count": 0,
+                    "entries": [],
+                }
+            )
 
         log = manager.get_log()
         result = log.to_dict()

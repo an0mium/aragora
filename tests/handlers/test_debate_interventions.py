@@ -114,7 +114,10 @@ class TestCanHandle:
 class TestPauseEndpoint:
     """POST /api/v1/debates/{id}/pause."""
 
-    @patch("aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id", return_value="user-1")
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
     def test_pause_success(self, mock_uid, handler_instance):
         mock_handler = _make_handler()
         result = handler_instance._pause_debate("/api/v1/debates/test-debate/pause", mock_handler)
@@ -124,7 +127,10 @@ class TestPauseEndpoint:
         assert data["state"] == "paused"
         assert data["debate_id"] == "test-debate"
 
-    @patch("aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id", return_value="user-1")
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
     def test_double_pause_returns_400(self, mock_uid, handler_instance):
         mock_handler = _make_handler()
         handler_instance._pause_debate("/api/v1/debates/test-debate/pause", mock_handler)
@@ -140,7 +146,10 @@ class TestPauseEndpoint:
 class TestResumeEndpoint:
     """POST /api/v1/debates/{id}/resume."""
 
-    @patch("aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id", return_value="user-1")
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
     def test_resume_after_pause(self, mock_uid, handler_instance):
         mock_handler = _make_handler()
         handler_instance._pause_debate("/api/v1/debates/test-debate/pause", mock_handler)
@@ -150,7 +159,10 @@ class TestResumeEndpoint:
         assert data["success"] is True
         assert data["state"] == "running"
 
-    @patch("aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id", return_value="user-1")
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
     def test_resume_without_pause_returns_400(self, mock_uid, handler_instance):
         mock_handler = _make_handler()
         result = handler_instance._resume_debate("/api/v1/debates/test-debate/resume", mock_handler)
@@ -166,7 +178,10 @@ class TestResumeEndpoint:
 class TestNudgeEndpoint:
     """POST /api/v1/debates/{id}/nudge."""
 
-    @patch("aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id", return_value="user-1")
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
     def test_nudge_success(self, mock_uid, handler_instance):
         mock_handler = _make_handler({"message": "Think about costs"})
         result = handler_instance._nudge_debate("/api/v1/debates/test-debate/nudge", mock_handler)
@@ -175,7 +190,10 @@ class TestNudgeEndpoint:
         assert data["success"] is True
         assert data["intervention"]["message"] == "Think about costs"
 
-    @patch("aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id", return_value="user-1")
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
     def test_nudge_with_target_agent(self, mock_uid, handler_instance):
         mock_handler = _make_handler({"message": "Focus", "target_agent": "claude"})
         result = handler_instance._nudge_debate("/api/v1/debates/test-debate/nudge", mock_handler)
@@ -196,10 +214,15 @@ class TestNudgeEndpoint:
 class TestChallengeEndpoint:
     """POST /api/v1/debates/{id}/challenge."""
 
-    @patch("aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id", return_value="user-1")
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
     def test_challenge_success(self, mock_uid, handler_instance):
         mock_handler = _make_handler({"challenge": "What about privacy?"})
-        result = handler_instance._challenge_debate("/api/v1/debates/test-debate/challenge", mock_handler)
+        result = handler_instance._challenge_debate(
+            "/api/v1/debates/test-debate/challenge", mock_handler
+        )
         data = _parse(result)
         assert result.status_code == 200
         assert data["success"] is True
@@ -207,7 +230,9 @@ class TestChallengeEndpoint:
 
     def test_challenge_missing_text_returns_400(self, handler_instance):
         mock_handler = _make_handler({})
-        result = handler_instance._challenge_debate("/api/v1/debates/test-debate/challenge", mock_handler)
+        result = handler_instance._challenge_debate(
+            "/api/v1/debates/test-debate/challenge", mock_handler
+        )
         assert result.status_code == 400
 
 
@@ -219,10 +244,17 @@ class TestChallengeEndpoint:
 class TestInjectEvidenceEndpoint:
     """POST /api/v1/debates/{id}/inject-evidence."""
 
-    @patch("aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id", return_value="user-1")
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
     def test_inject_evidence_success(self, mock_uid, handler_instance):
-        mock_handler = _make_handler({"evidence": "Studies show...", "source": "https://example.com"})
-        result = handler_instance._inject_evidence("/api/v1/debates/test-debate/inject-evidence", mock_handler)
+        mock_handler = _make_handler(
+            {"evidence": "Studies show...", "source": "https://example.com"}
+        )
+        result = handler_instance._inject_evidence(
+            "/api/v1/debates/test-debate/inject-evidence", mock_handler
+        )
         data = _parse(result)
         assert result.status_code == 200
         assert data["success"] is True
@@ -230,7 +262,9 @@ class TestInjectEvidenceEndpoint:
 
     def test_inject_evidence_missing_text_returns_400(self, handler_instance):
         mock_handler = _make_handler({"source": "src"})
-        result = handler_instance._inject_evidence("/api/v1/debates/test-debate/inject-evidence", mock_handler)
+        result = handler_instance._inject_evidence(
+            "/api/v1/debates/test-debate/inject-evidence", mock_handler
+        )
         assert result.status_code == 400
 
 
@@ -252,7 +286,10 @@ class TestInterventionLogEndpoint:
         assert data["entry_count"] == 0
         assert data["entries"] == []
 
-    @patch("aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id", return_value="user-1")
+    @patch(
+        "aragora.server.handlers.debates.interventions.DebateInterventionsHandler._extract_user_id",
+        return_value="user-1",
+    )
     def test_log_reflects_interventions(self, mock_uid, handler_instance):
         mock_handler = _make_handler({"message": "hint"})
         handler_instance._nudge_debate("/api/v1/debates/test-debate/nudge", mock_handler)

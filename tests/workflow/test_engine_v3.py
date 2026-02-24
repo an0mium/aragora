@@ -257,7 +257,9 @@ class TestEngineConstruction:
 
 class TestWorkflowExecution:
     @pytest.mark.asyncio
-    async def test_single_step_execution(self, engine: WorkflowEngine, simple_def: WorkflowDefinition):
+    async def test_single_step_execution(
+        self, engine: WorkflowEngine, simple_def: WorkflowDefinition
+    ):
         """Single step workflow should succeed with output."""
         result = await engine.execute(simple_def)
         assert result.success is True
@@ -567,9 +569,7 @@ class TestConditionalTransitions:
             entry_step="s1",
         )
         # Add the never step so validation doesn't fail
-        wf.steps.append(
-            StepDefinition(id="s_never", name="Never", step_type="echo")
-        )
+        wf.steps.append(StepDefinition(id="s_never", name="Never", step_type="echo"))
 
         result = await engine.execute(wf)
         step_ids = [s.step_id for s in result.steps]
@@ -926,9 +926,7 @@ class TestConditionalStepUnit:
     async def test_invalid_condition_defaults_to_false(self):
         """Invalid condition expression should default to skip (False)."""
         wrapped = EchoStep(name="inner")
-        cond = ConditionalStep(
-            name="cond", wrapped_step=wrapped, condition="__import__('os')"
-        )
+        cond = ConditionalStep(name="cond", wrapped_step=wrapped, condition="__import__('os')")
         ctx = WorkflowContext(workflow_id="w1", definition_id="d1")
         result = await cond.execute(ctx)
         assert result["skipped"] is True

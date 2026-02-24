@@ -32,6 +32,7 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Entry and Report Operations (OpenAPI-aligned)
 # =========================================================================
 
+
 class TestAuditEntriesAndReport:
     """Tests for entries and report methods."""
 
@@ -72,9 +73,11 @@ class TestAuditEntriesAndReport:
             assert result["valid"] is True
             client.close()
 
+
 # =========================================================================
 # Session Operations
 # =========================================================================
+
 
 class TestAuditSessions:
     """Tests for audit session operations."""
@@ -164,14 +167,17 @@ class TestAuditSessions:
             client.audit.get_session_findings("sess_123")
 
             mock_request.assert_called_once_with(
-                "GET", "/api/v1/audit/sessions/sess_123/findings",
+                "GET",
+                "/api/v1/audit/sessions/sess_123/findings",
                 params={"limit": 100, "offset": 0},
             )
             client.close()
 
+
 # =========================================================================
 # Session Lifecycle Operations
 # =========================================================================
+
 
 class TestAuditSessionLifecycle:
     """Tests for audit session lifecycle operations."""
@@ -220,7 +226,9 @@ class TestAuditSessionLifecycle:
             client = AragoraClient(base_url="https://api.aragora.ai")
             result = client.audit.cancel_session("sess_123")
 
-            mock_request.assert_called_once_with("POST", "/api/v1/audit/sessions/sess_123/cancel", json={})
+            mock_request.assert_called_once_with(
+                "POST", "/api/v1/audit/sessions/sess_123/cancel", json={}
+            )
             assert result["status"] == "cancelled"
             client.close()
 
@@ -240,9 +248,11 @@ class TestAuditSessionLifecycle:
             assert result["intervention"] == "recorded"
             client.close()
 
+
 # =========================================================================
 # Async Tests
 # =========================================================================
+
 
 class TestAsyncAudit:
     """Tests for async Audit API."""

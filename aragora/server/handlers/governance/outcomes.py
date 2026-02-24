@@ -91,9 +91,7 @@ class OutcomeHandler(BaseHandler):
         return False
 
     @require_permission("outcomes:read")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests to appropriate handler methods."""
         if "/outcomes/search" in path:
             return self._handle_search_outcomes(query_params)

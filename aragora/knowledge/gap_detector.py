@@ -566,8 +566,12 @@ class KnowledgeGapDetector:
         else:
             debate_id = getattr(receipt, "debate_id", getattr(receipt, "id", ""))
             topic = getattr(receipt, "topic", getattr(receipt, "task", ""))
-            confidence = float(getattr(receipt, "confidence", getattr(receipt, "consensus_confidence", 1.0)))
-            consensus_score = float(getattr(receipt, "consensus_score", getattr(receipt, "agreement", 1.0)))
+            confidence = float(
+                getattr(receipt, "confidence", getattr(receipt, "consensus_confidence", 1.0))
+            )
+            consensus_score = float(
+                getattr(receipt, "consensus_score", getattr(receipt, "agreement", 1.0))
+            )
             domain = getattr(receipt, "domain", "general")
             question = getattr(receipt, "question", getattr(receipt, "task", topic))
 
@@ -593,7 +597,10 @@ class KnowledgeGapDetector:
         self._debate_insights.append(insight)
         logger.info(
             "Debate gap signal: debate=%s domain=%s confidence=%.2f disagreement=%.2f",
-            debate_id, domain, confidence, disagreement_score,
+            debate_id,
+            domain,
+            confidence,
+            disagreement_score,
         )
         return insight
 
@@ -613,6 +620,7 @@ class KnowledgeGapDetector:
 
         try:
             from aragora.knowledge.mound.taxonomy import DOMAIN_KEYWORDS
+
             best_domain = "general"
             best_score = 0
             for domain_path, keywords in DOMAIN_KEYWORDS.items():
@@ -787,7 +795,9 @@ class KnowledgeGapDetector:
         """
         insights = self._debate_insights
         if domain:
-            insights = [i for i in insights if i.domain == domain or i.domain.startswith(f"{domain}/")]
+            insights = [
+                i for i in insights if i.domain == domain or i.domain.startswith(f"{domain}/")
+            ]
         if min_disagreement > 0:
             insights = [i for i in insights if i.disagreement_score >= min_disagreement]
 
@@ -845,7 +855,9 @@ class KnowledgeGapDetector:
             try:
                 now = datetime.now()
                 for item in items:
-                    updated_at = getattr(item, "updated_at", None) or getattr(item, "created_at", None)
+                    updated_at = getattr(item, "updated_at", None) or getattr(
+                        item, "created_at", None
+                    )
                     if updated_at is None:
                         continue
                     if isinstance(updated_at, str):
@@ -904,8 +916,10 @@ class KnowledgeGapDetector:
             try:
                 gaps = await self.detect_coverage_gaps(d)
                 for gap in gaps:
-                    priority = Priority.HIGH if gap.severity > 0.7 else (
-                        Priority.MEDIUM if gap.severity > 0.4 else Priority.LOW
+                    priority = (
+                        Priority.HIGH
+                        if gap.severity > 0.7
+                        else (Priority.MEDIUM if gap.severity > 0.4 else Priority.LOW)
                     )
                     recommendations.append(
                         Recommendation(
@@ -914,8 +928,11 @@ class KnowledgeGapDetector:
                             description=f"Add knowledge for {gap.topic}: {gap.description}",
                             domain=gap.domain,
                             impact_score=gap.severity,
-                            metadata={"gap_type": "coverage", "actual": gap.actual_items,
-                                      "expected": gap.expected_items},
+                            metadata={
+                                "gap_type": "coverage",
+                                "actual": gap.actual_items,
+                                "expected": gap.expected_items,
+                            },
                         )
                     )
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
@@ -925,8 +942,10 @@ class KnowledgeGapDetector:
         try:
             stale = await self.detect_staleness()
             for entry in stale[:limit]:
-                priority = Priority.HIGH if entry.staleness_score > 0.8 else (
-                    Priority.MEDIUM if entry.staleness_score > 0.5 else Priority.LOW
+                priority = (
+                    Priority.HIGH
+                    if entry.staleness_score > 0.8
+                    else (Priority.MEDIUM if entry.staleness_score > 0.5 else Priority.LOW)
                 )
                 action = (
                     RecommendedAction.ARCHIVE
@@ -954,8 +973,10 @@ class KnowledgeGapDetector:
         try:
             contras = await self.detect_contradictions()
             for c in contras[:limit]:
-                priority = Priority.HIGH if c.conflict_score > 0.7 else (
-                    Priority.MEDIUM if c.conflict_score > 0.4 else Priority.LOW
+                priority = (
+                    Priority.HIGH
+                    if c.conflict_score > 0.7
+                    else (Priority.MEDIUM if c.conflict_score > 0.4 else Priority.LOW)
                 )
                 recommendations.append(
                     Recommendation(
@@ -978,8 +999,10 @@ class KnowledgeGapDetector:
         for insight in insights[:limit]:
             # Low confidence in a debate means the domain needs more knowledge
             impact = max(0.0, 1.0 - insight.confidence) * 0.5 + insight.disagreement_score * 0.5
-            priority = Priority.HIGH if impact > 0.7 else (
-                Priority.MEDIUM if impact > 0.4 else Priority.LOW
+            priority = (
+                Priority.HIGH
+                if impact > 0.7
+                else (Priority.MEDIUM if impact > 0.4 else Priority.LOW)
             )
             recommendations.append(
                 Recommendation(
@@ -1005,8 +1028,10 @@ class KnowledgeGapDetector:
         try:
             faq_gaps = self.get_frequently_asked_gaps()
             for faq in faq_gaps[:limit]:
-                priority = Priority.HIGH if faq.gap_severity > 0.7 else (
-                    Priority.MEDIUM if faq.gap_severity > 0.4 else Priority.LOW
+                priority = (
+                    Priority.HIGH
+                    if faq.gap_severity > 0.7
+                    else (Priority.MEDIUM if faq.gap_severity > 0.4 else Priority.LOW)
                 )
                 recommendations.append(
                     Recommendation(
@@ -1097,11 +1122,7 @@ class KnowledgeGapDetector:
             freshness_factor = 0.5
 
         # Weighted combination
-        score = (
-            depth_factor * 0.4
-            + confidence_factor * 0.35
-            + freshness_factor * 0.25
-        )
+        score = depth_factor * 0.4 + confidence_factor * 0.35 + freshness_factor * 0.25
         return round(min(1.0, max(0.0, score)), 3)
 
 

@@ -121,9 +121,7 @@ class TestIncidentUpdate:
 
     def test_creation(self):
         now = datetime.now(timezone.utc)
-        update = IncidentUpdate(
-            timestamp=now, message="Looking into it", status="investigating"
-        )
+        update = IncidentUpdate(timestamp=now, message="Looking into it", status="investigating")
         assert update.timestamp == now
         assert update.message == "Looking into it"
         assert update.status == "investigating"
@@ -423,9 +421,7 @@ class TestStatusPageUptime:
 
         with page._lock:
             # All healthy recently
-            page._uptime_records["svc"] = [
-                (now - timedelta(hours=i), True) for i in range(24)
-            ]
+            page._uptime_records["svc"] = [(now - timedelta(hours=i), True) for i in range(24)]
             # Add old unhealthy records outside the 1-day window
             page._uptime_records["svc"].extend(
                 [(now - timedelta(days=5, hours=i), False) for i in range(24)]

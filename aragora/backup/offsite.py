@@ -139,9 +139,7 @@ class RestoreDrillResult:
             backup_id=data["backup_id"],
             started_at=datetime.fromisoformat(data["started_at"]),
             completed_at=(
-                datetime.fromisoformat(data["completed_at"])
-                if data.get("completed_at")
-                else None
+                datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None
             ),
             success=data.get("success", False),
             duration_seconds=data.get("duration_seconds", 0.0),
@@ -285,8 +283,7 @@ class OffsiteBackupManager:
         backup_id = str(uuid4())[:12]
         timestamp = datetime.now(timezone.utc)
         remote_key = (
-            f"{self._config.prefix}/{timestamp.strftime('%Y/%m/%d')}"
-            f"/{backup_id}_{source.name}"
+            f"{self._config.prefix}/{timestamp.strftime('%Y/%m/%d')}/{backup_id}_{source.name}"
         )
 
         size_bytes = source.stat().st_size
@@ -417,16 +414,13 @@ class OffsiteBackupManager:
                 local_checksum = self._compute_checksum(downloaded)
                 if local_checksum != record.checksum:
                     errors.append(
-                        f"Checksum mismatch: expected {record.checksum}, "
-                        f"got {local_checksum}"
+                        f"Checksum mismatch: expected {record.checksum}, got {local_checksum}"
                     )
 
                 # Step 3: Attempt SQLite restore verification
                 db_path = self._prepare_for_verification(downloaded, tmp_path)
                 if db_path is not None:
-                    tables_verified, rows_verified, db_errors = (
-                        self._verify_database(db_path)
-                    )
+                    tables_verified, rows_verified, db_errors = self._verify_database(db_path)
                     errors.extend(db_errors)
 
         except Exception as e:
@@ -453,8 +447,7 @@ class OffsiteBackupManager:
         self._save_state()
 
         logger.info(
-            "Restore drill %s for backup %s: success=%s, tables=%d, rows=%d, "
-            "duration=%.2fs",
+            "Restore drill %s for backup %s: success=%s, tables=%d, rows=%d, duration=%.2fs",
             drill_id,
             backup_id,
             success,
@@ -500,18 +493,14 @@ class OffsiteBackupManager:
                 actual_size = tmp_file.stat().st_size
                 size_match = actual_size == record.size_bytes
                 if not size_match:
-                    errors.append(
-                        f"Size mismatch: expected {record.size_bytes}, "
-                        f"got {actual_size}"
-                    )
+                    errors.append(f"Size mismatch: expected {record.size_bytes}, got {actual_size}")
 
                 # Check checksum
                 actual_checksum = self._compute_checksum(tmp_file)
                 checksum_match = actual_checksum == record.checksum
                 if not checksum_match:
                     errors.append(
-                        f"Checksum mismatch: expected {record.checksum}, "
-                        f"got {actual_checksum}"
+                        f"Checksum mismatch: expected {record.checksum}, got {actual_checksum}"
                     )
 
         except Exception as e:
@@ -674,9 +663,7 @@ class OffsiteBackupManager:
                     errors.append(f"Integrity error: {row[0]}")
 
             # Count tables and rows
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = [row[0] for row in cursor.fetchall()]
             tables_verified = len(tables)
 
@@ -701,10 +688,7 @@ class OffsiteBackupManager:
             try:
                 with open(self._records_path) as f:
                     data = json.load(f)
-                self._records = {
-                    k: OffsiteBackupRecord.from_dict(v)
-                    for k, v in data.items()
-                }
+                self._records = {k: OffsiteBackupRecord.from_dict(v) for k, v in data.items()}
             except (OSError, ValueError, KeyError) as e:
                 logger.warning("Failed to load offsite records: %s", e)
                 self._records = {}
@@ -713,9 +697,7 @@ class OffsiteBackupManager:
             try:
                 with open(self._drills_path) as f:
                     data = json.load(f)
-                self._drill_history = [
-                    RestoreDrillResult.from_dict(d) for d in data
-                ]
+                self._drill_history = [RestoreDrillResult.from_dict(d) for d in data]
             except (OSError, ValueError, KeyError) as e:
                 logger.warning("Failed to load drill history: %s", e)
                 self._drill_history = []

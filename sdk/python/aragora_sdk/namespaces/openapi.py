@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class OpenApiAPI:
     def __init__(self, client: AragoraClient):
         self._client = client
@@ -5302,6 +5303,7 @@ class OpenApiAPI:
 
     def request_get_status(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/status", params=params)
+
 
 class AsyncOpenApiAPI:
     def __init__(self, client: AragoraAsyncClient):

@@ -114,9 +114,7 @@ class CrashTelemetryHandler(SecureHandler):
 
     @handle_errors("crash telemetry read")
     @rate_limit(requests_per_minute=30)
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         path = strip_version_prefix(path)
 
         if path == "/api/observability/crashes/stats":
@@ -160,10 +158,9 @@ class CrashTelemetryHandler(SecureHandler):
             addr = handler.client_address
             client_ip = addr[0] if isinstance(addr, (tuple, list)) else str(addr)
         elif hasattr(handler, "headers"):
-            client_ip = (
-                handler.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-                or handler.headers.get("X-Real-IP", "unknown")
-            )
+            client_ip = handler.headers.get("X-Forwarded-For", "").split(",")[
+                0
+            ].strip() or handler.headers.get("X-Real-IP", "unknown")
 
         if not _check_ip_rate_limit(client_ip):
             _rate_limited_count += 1
@@ -174,9 +171,7 @@ class CrashTelemetryHandler(SecureHandler):
             return error_response("'reports' must be a list", 400)
 
         if len(reports) > MAX_REPORTS_PER_BATCH:
-            return error_response(
-                f"Batch too large (max {MAX_REPORTS_PER_BATCH})", 400
-            )
+            return error_response(f"Batch too large (max {MAX_REPORTS_PER_BATCH})", 400)
 
         accepted = 0
         duplicates = 0
@@ -192,9 +187,7 @@ class CrashTelemetryHandler(SecureHandler):
             else:
                 stack = None
 
-            fingerprint = report.get("fingerprint") or _compute_fingerprint(
-                message, stack
-            )
+            fingerprint = report.get("fingerprint") or _compute_fingerprint(message, stack)
 
             # Deduplicate
             if fingerprint in _seen_fingerprints:
@@ -247,9 +240,7 @@ class CrashTelemetryHandler(SecureHandler):
     # List (admin)
     # ------------------------------------------------------------------
 
-    def _list_crashes(
-        self, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult:
+    def _list_crashes(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         # Admin check
         _user, err = self.require_admin_or_error(handler)
         if err:
@@ -283,30 +274,20 @@ class CrashTelemetryHandler(SecureHandler):
 
         now = time.time()
         # Count crashes in last hour / last 24h
-        last_hour = sum(
-            1
-            for c in _crash_store
-            if now - c.get("received_at", 0) < 3600
-        )
-        last_24h = sum(
-            1
-            for c in _crash_store
-            if now - c.get("received_at", 0) < 86400
-        )
+        last_hour = sum(1 for c in _crash_store if now - c.get("received_at", 0) < 3600)
+        last_24h = sum(1 for c in _crash_store if now - c.get("received_at", 0) < 86400)
 
         # Top fingerprints by occurrence count
-        top_fingerprints = sorted(
-            _seen_fingerprints.items(), key=lambda kv: kv[1], reverse=True
-        )[:10]
+        top_fingerprints = sorted(_seen_fingerprints.items(), key=lambda kv: kv[1], reverse=True)[
+            :10
+        ]
 
         # Top components
         component_counts: dict[str, int] = {}
         for crash in _crash_store:
             comp = crash.get("component_name") or "unknown"
             component_counts[comp] = component_counts.get(comp, 0) + 1
-        top_components = sorted(
-            component_counts.items(), key=lambda kv: kv[1], reverse=True
-        )[:10]
+        top_components = sorted(component_counts.items(), key=lambda kv: kv[1], reverse=True)[:10]
 
         return json_response(
             {
@@ -321,8 +302,7 @@ class CrashTelemetryHandler(SecureHandler):
                     {"fingerprint": fp, "count": cnt} for fp, cnt in top_fingerprints
                 ],
                 "top_components": [
-                    {"component": comp, "count": cnt}
-                    for comp, cnt in top_components
+                    {"component": comp, "count": cnt} for comp, cnt in top_components
                 ],
             }
         )

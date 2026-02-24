@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 QuickStartProfile = Literal["developer", "security", "executive", "product", "compliance", "sme"]
 FlowAction = Literal["next", "previous", "complete", "skip"]
 
+
 class OnboardingAPI:
     """
     Synchronous Onboarding API.
@@ -235,6 +236,7 @@ class OnboardingAPI:
         if organization_id:
             params["organization_id"] = organization_id
         return self._client.request("GET", "/api/v1/onboarding/analytics", params=params or None)
+
 
 class AsyncOnboardingAPI:
     """

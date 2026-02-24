@@ -81,6 +81,7 @@ class TestWebhookCRUD:
             )
             client.close()
 
+
 class TestWebhookActions:
     """Tests for rotate secret, test, and get events."""
 
@@ -97,6 +98,7 @@ class TestWebhookActions:
             mock_request.assert_called_once_with("GET", "/api/v1/webhooks/events")
             assert len(result["events"]) == 2
             client.close()
+
 
 class TestAsyncWebhooks:
     """Tests for async webhook methods."""
@@ -134,4 +136,3 @@ class TestAsyncWebhooks:
             )
             assert result["total"] == 1
             await client.close()
-

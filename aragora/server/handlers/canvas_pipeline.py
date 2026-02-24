@@ -60,10 +60,15 @@ def _spectate_pipeline(event_type: str, pipeline_id: str, data: dict[str, Any]) 
         from aragora.spectate.stream import SpectatorStream
 
         stream = SpectatorStream(enabled=True)
-        stream.emit(event_type=event_type, details=json.dumps({
-            "pipeline_id": pipeline_id,
-            **data,
-        }))
+        stream.emit(
+            event_type=event_type,
+            details=json.dumps(
+                {
+                    "pipeline_id": pipeline_id,
+                    **data,
+                }
+            ),
+        )
     except (ImportError, TypeError):
         pass
 
@@ -1169,16 +1174,16 @@ class CanvasPipelineHandler:
 
             # Collect theme labels from output
             extracted_themes = [
-                n.label
-                for n in canvas.nodes.values()
-                if n.data.get("principle_type") == "theme"
+                n.label for n in canvas.nodes.values() if n.data.get("principle_type") == "theme"
             ]
 
-            return json_response({
-                "principles_canvas": rf_data,
-                "principle_count": len(canvas.nodes),
-                "themes": extracted_themes,
-            })
+            return json_response(
+                {
+                    "principles_canvas": rf_data,
+                    "principle_count": len(canvas.nodes),
+                    "themes": extracted_themes,
+                }
+            )
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Principles extraction failed: %s", e)
             return error_response("Principles extraction failed", 500)
@@ -1222,11 +1227,13 @@ class CanvasPipelineHandler:
             )
             _pipeline_tasks[pipeline_id] = task
 
-            return json_response({
-                "pipeline_id": pipeline_id,
-                "automation_level": automation_level,
-                "status": "started",
-            })
+            return json_response(
+                {
+                    "pipeline_id": pipeline_id,
+                    "automation_level": automation_level,
+                    "status": "started",
+                }
+            )
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("Auto-run pipeline failed: %s", e)
             return error_response("Auto-run pipeline failed", 500)
@@ -1275,10 +1282,14 @@ class CanvasPipelineHandler:
         try:
             from aragora.spectate.events import SpectatorEvents
 
-            _spectate_pipeline(SpectatorEvents.APPROVAL_GRANTED, pipeline_id, {
-                "agent_id": agent_id,
-                "notes": notes,
-            })
+            _spectate_pipeline(
+                SpectatorEvents.APPROVAL_GRANTED,
+                pipeline_id,
+                {
+                    "agent_id": agent_id,
+                    "notes": notes,
+                },
+            )
         except ImportError:
             pass
         return json_response({"status": "approved", "agent_id": agent_id})
@@ -1294,10 +1305,14 @@ class CanvasPipelineHandler:
         try:
             from aragora.spectate.events import SpectatorEvents
 
-            _spectate_pipeline(SpectatorEvents.APPROVAL_REJECTED, pipeline_id, {
-                "agent_id": agent_id,
-                "feedback": feedback,
-            })
+            _spectate_pipeline(
+                SpectatorEvents.APPROVAL_REJECTED,
+                pipeline_id,
+                {
+                    "agent_id": agent_id,
+                    "feedback": feedback,
+                },
+            )
         except ImportError:
             pass
         return json_response({"status": "rejected", "agent_id": agent_id})
@@ -1322,11 +1337,13 @@ class CanvasPipelineHandler:
             for goal in goals:
                 gid = getattr(goal, "id", "")
                 confidence = getattr(goal, "confidence", 0.5)
-                beliefs.append({
-                    "node_id": gid,
-                    "confidence": confidence,
-                    "is_crux": confidence < 0.4,
-                })
+                beliefs.append(
+                    {
+                        "node_id": gid,
+                        "confidence": confidence,
+                        "is_crux": confidence < 0.4,
+                    }
+                )
 
             # Query KM for precedents
             try:
@@ -1336,10 +1353,12 @@ class CanvasPipelineHandler:
                 if bridge.available and result.goal_graph:
                     prec = bridge.query_similar_goals(result.goal_graph)
                     for goal_id, matches in prec.items():
-                        precedents.append({
-                            "node_id": goal_id,
-                            "matches": matches,
-                        })
+                        precedents.append(
+                            {
+                                "node_id": goal_id,
+                                "matches": matches,
+                            }
+                        )
             except (ImportError, AttributeError):
                 logger.debug("KM bridge unavailable for intelligence")
 
@@ -1351,25 +1370,34 @@ class CanvasPipelineHandler:
                 builder = ExplanationBuilder()
                 for goal in goals:
                     gid = getattr(goal, "id", "")
-                    decision = run_async(builder.build(
-                        result=getattr(goal, "title", ""),
-                        context=getattr(goal, "description", ""),
-                    ))
+                    decision = run_async(
+                        builder.build(
+                            result=getattr(goal, "title", ""),
+                            context=getattr(goal, "description", ""),
+                        )
+                    )
                     if decision:
                         factors_list = getattr(decision, "confidence_attribution", [])
-                        explanations.append({
-                            "node_id": gid,
-                            "factors": [f.to_dict() if hasattr(f, "to_dict") else f for f in factors_list],
-                        })
+                        explanations.append(
+                            {
+                                "node_id": gid,
+                                "factors": [
+                                    f.to_dict() if hasattr(f, "to_dict") else f
+                                    for f in factors_list
+                                ],
+                            }
+                        )
             except (ImportError, AttributeError, TypeError):
                 logger.debug("ExplanationBuilder unavailable for intelligence")
 
-        return json_response({
-            "pipeline_id": pipeline_id,
-            "beliefs": beliefs,
-            "explanations": explanations,
-            "precedents": precedents,
-        })
+        return json_response(
+            {
+                "pipeline_id": pipeline_id,
+                "beliefs": beliefs,
+                "explanations": explanations,
+                "precedents": precedents,
+            }
+        )
 
     async def handle_beliefs(self, pipeline_id: str) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}/beliefs"""
@@ -1385,11 +1413,13 @@ class CanvasPipelineHandler:
                 for goal in goals:
                     gid = getattr(goal, "id", "")
                     confidence = getattr(goal, "confidence", 0.5)
-                    beliefs.append({
-                        "node_id": gid,
-                        "confidence": confidence,
-                        "is_crux": confidence < 0.4,
-                    })
+                    beliefs.append(
+                        {
+                            "node_id": gid,
+                            "confidence": confidence,
+                            "is_crux": confidence < 0.4,
+                        }
+                    )
             except (ImportError, AttributeError):
                 pass
 
@@ -1436,11 +1466,13 @@ class CanvasPipelineHandler:
             )
             _pipeline_objects[pipeline_id] = result
 
-            return json_response({
-                "pipeline_id": pipeline_id,
-                "ideas_count": len(result.ideas_canvas.nodes) if result.ideas_canvas else 0,
-                "status": "created",
-            })
+            return json_response(
+                {
+                    "pipeline_id": pipeline_id,
+                    "ideas_count": len(result.ideas_canvas.nodes) if result.ideas_canvas else 0,
+                    "status": "created",
+                }
+            )
         except (ImportError, ValueError, TypeError) as e:
             logger.warning("System metrics pipeline failed: %s", e)
             return error_response("System metrics pipeline failed", 500)
@@ -1630,41 +1662,51 @@ class CanvasPipelineHandler:
         run_id = f"si-{_uuid.uuid4().hex[:8]}"
 
         if dry_run:
-            return json_response({
-                "data": {
-                    "run_id": run_id,
-                    "status": "preview",
-                    "goal": goal,
-                    "pipeline_id": pipeline_id,
-                    "budget_limit": budget_limit,
-                    "require_approval": require_approval,
+            return json_response(
+                {
+                    "data": {
+                        "run_id": run_id,
+                        "status": "preview",
+                        "goal": goal,
+                        "pipeline_id": pipeline_id,
+                        "budget_limit": budget_limit,
+                        "require_approval": require_approval,
+                    }
                 }
-            })
+            )
 
         # Trigger self-improvement asynchronously
         try:
             # Store the run config for status polling
-            store.save(f"self-improve-{run_id}", {
-                "run_id": run_id,
-                "goal": goal,
-                "pipeline_id": pipeline_id,
-                "status": "started",
-                "budget_limit": budget_limit,
-            })
+            store.save(
+                f"self-improve-{run_id}",
+                {
+                    "run_id": run_id,
+                    "goal": goal,
+                    "pipeline_id": pipeline_id,
+                    "status": "started",
+                    "budget_limit": budget_limit,
+                },
+            )
 
             logger.info(
                 "Self-improve triggered from pipeline %s: %s (budget=%s)",
-                pipeline_id, goal, budget_limit,
+                pipeline_id,
+                goal,
+                budget_limit,
             )
 
-            return json_response({
-                "data": {
-                    "run_id": run_id,
-                    "status": "started",
-                    "goal": goal,
-                    "pipeline_id": pipeline_id,
-                }
-            }, 201)
+            return json_response(
+                {
+                    "data": {
+                        "run_id": run_id,
+                        "status": "started",
+                        "goal": goal,
+                        "pipeline_id": pipeline_id,
+                    }
+                },
+                201,
+            )
         except (ImportError, Exception) as e:
             logger.warning("Self-improve trigger failed: %s", e)
             return error_response("Self-improvement system unavailable", 503)
@@ -1761,7 +1803,11 @@ class CanvasPipelineHandler:
                 synced_workflow = sync_canvas_to_workflow(pipeline_graph)
                 existing["synced_workflow"] = synced_workflow
                 store.save(pipeline_id, existing)
-                logger.info("Synced canvas to workflow for pipeline %s: %d steps", pipeline_id, len(synced_workflow.get("steps", [])))
+                logger.info(
+                    "Synced canvas to workflow for pipeline %s: %d steps",
+                    pipeline_id,
+                    len(synced_workflow.get("steps", [])),
+                )
         except (ImportError, RuntimeError, TypeError, ValueError) as exc:
             logger.debug("Canvas-to-workflow sync skipped: %s", exc)
 

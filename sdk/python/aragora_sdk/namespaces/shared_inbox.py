@@ -257,9 +257,7 @@ class AsyncSharedInboxAPI:
 
     async def oauth_gmail(self, **kwargs: Any) -> dict[str, Any]:
         """Initiate Gmail OAuth flow."""
-        return await self._client.request(
-            "GET", "/api/v1/inbox/oauth/gmail", params=kwargs or None
-        )
+        return await self._client.request("GET", "/api/v1/inbox/oauth/gmail", params=kwargs or None)
 
     async def oauth_outlook(self, **kwargs: Any) -> dict[str, Any]:
         """Initiate Outlook OAuth flow."""
@@ -307,9 +305,7 @@ class AsyncSharedInboxAPI:
 
     async def get_trends(self, **kwargs: Any) -> dict[str, Any]:
         """Get inbox trends over time."""
-        return await self._client.request(
-            "GET", "/api/v1/inbox/trends", params=kwargs or None
-        )
+        return await self._client.request("GET", "/api/v1/inbox/trends", params=kwargs or None)
 
     async def triage(self, **kwargs: Any) -> dict[str, Any]:
         """AI-powered inbox triage."""

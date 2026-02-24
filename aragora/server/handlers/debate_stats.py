@@ -102,7 +102,9 @@ class DebateStatsHandler(BaseHandler):
             agents = _resolve(service.get_agent_leaderboard(limit=limit))
             return json_response(
                 {
-                    "agents": [a.to_dict() if hasattr(a, "to_dict") else a for a in agents] if agents else [],
+                    "agents": [a.to_dict() if hasattr(a, "to_dict") else a for a in agents]
+                    if agents
+                    else [],
                     "count": len(agents),
                 }
             )

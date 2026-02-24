@@ -298,9 +298,7 @@ class AsyncMarketplaceAPI:
 
     async def get_deployment_status(self, deployment_id: str) -> dict[str, Any]:
         """Get deployment status."""
-        return await self._client.request(
-            "GET", f"/api/v1/marketplace/deployments/{deployment_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/marketplace/deployments/{deployment_id}")
 
     async def list_categories(self) -> dict[str, Any]:
         """List available template categories."""

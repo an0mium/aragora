@@ -49,14 +49,8 @@ class TestStyledMockAgentStyles:
     def test_critical_severity_higher_than_supportive(self):
         critical = StyledMockAgent("c", style="critical")
         supportive = StyledMockAgent("s", style="supportive")
-        crits_c = [
-            asyncio.run(critical.critique("x", "t", target_agent="a"))
-            for _ in range(10)
-        ]
-        crits_s = [
-            asyncio.run(supportive.critique("x", "t", target_agent="a"))
-            for _ in range(10)
-        ]
+        crits_c = [asyncio.run(critical.critique("x", "t", target_agent="a")) for _ in range(10)]
+        crits_s = [asyncio.run(supportive.critique("x", "t", target_agent="a")) for _ in range(10)]
         avg_c = sum(c.severity for c in crits_c) / len(crits_c)
         avg_s = sum(c.severity for c in crits_s) / len(crits_s)
         assert avg_c > avg_s
@@ -140,14 +134,17 @@ class TestMainModule:
 
     def test_main_function_exists(self):
         from aragora_debate.__main__ import main
+
         assert callable(main)
 
     def test_run_demo_completes(self):
         from aragora_debate.__main__ import _run_demo
+
         asyncio.run(_run_demo("Test question?", 1))
 
     def test_cli_help(self):
         import subprocess
+
         result = subprocess.run(
             [sys.executable, "-m", "aragora_debate", "--help"],
             capture_output=True,
@@ -160,11 +157,16 @@ class TestMainModule:
 
     def test_cli_custom_topic(self):
         import subprocess
+
         result = subprocess.run(
             [
-                sys.executable, "-m", "aragora_debate",
-                "--topic", "Is Python good?",
-                "--rounds", "1",
+                sys.executable,
+                "-m",
+                "aragora_debate",
+                "--topic",
+                "Is Python good?",
+                "--rounds",
+                "1",
             ],
             capture_output=True,
             text=True,

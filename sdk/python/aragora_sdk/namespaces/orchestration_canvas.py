@@ -338,9 +338,7 @@ class AsyncOrchestrationCanvasAPI:
 
     async def export_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Export a canvas as React Flow JSON."""
-        return await self._client.request(
-            "GET", f"/api/v1/orchestration/canvas/{canvas_id}/export"
-        )
+        return await self._client.request("GET", f"/api/v1/orchestration/canvas/{canvas_id}/export")
 
     async def execute_pipeline(self, canvas_id: str) -> dict[str, Any]:
         """Execute the orchestration pipeline defined by this canvas."""

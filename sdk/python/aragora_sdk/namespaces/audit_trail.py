@@ -93,7 +93,9 @@ class AuditTrailAPI:
 
     def intervene_session(self, session_id: str, **kwargs: Any) -> dict[str, Any]:
         """Intervene in an audit session."""
-        return self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/intervene", json=kwargs)
+        return self._client.request(
+            "POST", f"/api/v1/audit/sessions/{session_id}/intervene", json=kwargs
+        )
 
     def get_session_events(self, session_id: str) -> dict[str, Any]:
         """Get events for an audit session."""
@@ -188,7 +190,9 @@ class AsyncAuditTrailAPI:
 
     async def intervene_session(self, session_id: str, **kwargs: Any) -> dict[str, Any]:
         """Intervene in an audit session."""
-        return await self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/intervene", json=kwargs)
+        return await self._client.request(
+            "POST", f"/api/v1/audit/sessions/{session_id}/intervene", json=kwargs
+        )
 
     async def get_session_events(self, session_id: str) -> dict[str, Any]:
         """Get events for an audit session."""

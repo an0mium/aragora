@@ -159,7 +159,9 @@ class AsyncDisasterRecoveryAPI:
 
     async def verify_comprehensive(self, backup_id: str) -> dict[str, Any]:
         """Run comprehensive backup verification."""
-        return await self._client.request("POST", f"/api/v1/backups/{backup_id}/verify-comprehensive")
+        return await self._client.request(
+            "POST", f"/api/v1/backups/{backup_id}/verify-comprehensive"
+        )
 
     async def restore_test(self, backup_id: str) -> dict[str, Any]:
         """Run a restore test on a backup."""

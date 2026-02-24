@@ -22,10 +22,13 @@ from aragora.server.versioning.compat import strip_version_prefix
 try:
     from aragora.rbac.decorators import require_permission
 except ImportError:  # pragma: no cover
+
     def require_permission(*_a, **_kw):  # type: ignore[misc]
         def _noop(fn):  # type: ignore[no-untyped-def]
             return fn
+
         return _noop
+
 
 from .base import (
     BaseHandler,
@@ -84,10 +87,7 @@ class DifferentiationHandler(BaseHandler):
         total_decisions = len(receipts)
 
         # Count receipts with dissenting views preserved
-        dissent_count = sum(
-            1 for r in receipts
-            if getattr(r, "dissenting_views", None)
-        )
+        dissent_count = sum(1 for r in receipts if getattr(r, "dissenting_views", None))
 
         # Average robustness score
         robustness_scores = [
@@ -96,9 +96,7 @@ class DifferentiationHandler(BaseHandler):
             if getattr(r, "robustness_score", None) is not None
         ]
         avg_robustness = (
-            sum(robustness_scores) / len(robustness_scores)
-            if robustness_scores
-            else 0.0
+            sum(robustness_scores) / len(robustness_scores) if robustness_scores else 0.0
         )
 
         # Calibration from ELO
@@ -123,19 +121,21 @@ class DifferentiationHandler(BaseHandler):
             except (AttributeError, TypeError):
                 pass
 
-        return json_response({
-            "data": {
-                "total_decisions": total_decisions,
-                "dissent_preserved_rate": (
-                    dissent_count / total_decisions if total_decisions > 0 else 0.0
-                ),
-                "avg_robustness_score": round(avg_robustness, 3),
-                "avg_calibration_error": round(avg_ece, 4),
-                "active_agent_count": agent_count,
-                "adversarial_vetting_enabled": True,
-                "multi_model_consensus": agent_count >= 3,
+        return json_response(
+            {
+                "data": {
+                    "total_decisions": total_decisions,
+                    "dissent_preserved_rate": (
+                        dissent_count / total_decisions if total_decisions > 0 else 0.0
+                    ),
+                    "avg_robustness_score": round(avg_robustness, 3),
+                    "avg_calibration_error": round(avg_ece, 4),
+                    "active_agent_count": agent_count,
+                    "adversarial_vetting_enabled": True,
+                    "multi_model_consensus": agent_count >= 3,
+                }
             }
-        })
+        )
 
     @handle_errors("get vetting evidence")
     def _get_vetting(self, query_params: dict[str, Any]) -> HandlerResult:
@@ -153,38 +153,44 @@ class DifferentiationHandler(BaseHandler):
             robustness = getattr(r, "robustness_score", None)
             question = getattr(r, "question", "") or getattr(r, "topic", "")
 
-            vetting_evidence.append({
-                "receipt_id": str(receipt_id),
-                "question": str(question)[:200],
-                "dissenting_views_count": len(dissenting),
-                "unresolved_tensions_count": len(tensions),
-                "verified_claims_count": len(verified),
-                "robustness_score": robustness,
-                "has_adversarial_challenge": len(dissenting) > 0 or len(tensions) > 0,
-            })
+            vetting_evidence.append(
+                {
+                    "receipt_id": str(receipt_id),
+                    "question": str(question)[:200],
+                    "dissenting_views_count": len(dissenting),
+                    "unresolved_tensions_count": len(tensions),
+                    "verified_claims_count": len(verified),
+                    "robustness_score": robustness,
+                    "has_adversarial_challenge": len(dissenting) > 0 or len(tensions) > 0,
+                }
+            )
 
         # Aggregates
         total = len(vetting_evidence)
         adversarially_vetted = sum(1 for v in vetting_evidence if v["has_adversarial_challenge"])
 
-        return json_response({
-            "data": {
-                "evidence": vetting_evidence,
-                "aggregates": {
-                    "total_decisions": total,
-                    "adversarially_vetted": adversarially_vetted,
-                    "adversarial_rate": adversarially_vetted / total if total > 0 else 0.0,
-                    "avg_dissenting_views": (
-                        sum(v["dissenting_views_count"] for v in vetting_evidence) / total
-                        if total > 0 else 0.0
-                    ),
-                    "avg_verified_claims": (
-                        sum(v["verified_claims_count"] for v in vetting_evidence) / total
-                        if total > 0 else 0.0
-                    ),
-                },
+        return json_response(
+            {
+                "data": {
+                    "evidence": vetting_evidence,
+                    "aggregates": {
+                        "total_decisions": total,
+                        "adversarially_vetted": adversarially_vetted,
+                        "adversarial_rate": adversarially_vetted / total if total > 0 else 0.0,
+                        "avg_dissenting_views": (
+                            sum(v["dissenting_views_count"] for v in vetting_evidence) / total
+                            if total > 0
+                            else 0.0
+                        ),
+                        "avg_verified_claims": (
+                            sum(v["verified_claims_count"] for v in vetting_evidence) / total
+                            if total > 0
+                            else 0.0
+                        ),
+                    },
+                }
             }
-        })
+        )
 
     @handle_errors("get calibration data")
     def _get_calibration(self, query_params: dict[str, Any]) -> HandlerResult:
@@ -210,12 +216,14 @@ class DifferentiationHandler(BaseHandler):
                         total_games = wins + losses
                         win_rate = wins / total_games if total_games > 0 else 0.5
 
-                        agents.append({
-                            "agent_id": agent_id,
-                            "elo": round(elo, 1),
-                            "win_rate": round(win_rate, 3),
-                            "games_played": total_games,
-                        })
+                        agents.append(
+                            {
+                                "agent_id": agent_id,
+                                "elo": round(elo, 1),
+                                "win_rate": round(win_rate, 3),
+                                "games_played": total_games,
+                            }
+                        )
             except (AttributeError, TypeError):
                 pass
 
@@ -223,24 +231,24 @@ class DifferentiationHandler(BaseHandler):
 
         # Compute ensemble calibration (consensus of multiple agents is better calibrated)
         single_best_elo = agents[0]["elo"] if agents else 1500
-        ensemble_avg_elo = (
-            sum(a["elo"] for a in agents) / len(agents) if agents else 1500
-        )
+        ensemble_avg_elo = sum(a["elo"] for a in agents) / len(agents) if agents else 1500
 
-        return json_response({
-            "data": {
-                "agents": agents[:20],
-                "ensemble_metrics": {
-                    "agent_count": len(agents),
-                    "best_single_elo": round(single_best_elo, 1),
-                    "ensemble_avg_elo": round(ensemble_avg_elo, 1),
-                    "elo_spread": round(
-                        (agents[0]["elo"] - agents[-1]["elo"]) if len(agents) >= 2 else 0, 1
-                    ),
-                    "diversity_score": min(1.0, len(agents) / 10.0),
-                },
+        return json_response(
+            {
+                "data": {
+                    "agents": agents[:20],
+                    "ensemble_metrics": {
+                        "agent_count": len(agents),
+                        "best_single_elo": round(single_best_elo, 1),
+                        "ensemble_avg_elo": round(ensemble_avg_elo, 1),
+                        "elo_spread": round(
+                            (agents[0]["elo"] - agents[-1]["elo"]) if len(agents) >= 2 else 0, 1
+                        ),
+                        "diversity_score": min(1.0, len(agents) / 10.0),
+                    },
+                }
             }
-        })
+        )
 
     @handle_errors("get memory data")
     def _get_memory(self, query_params: dict[str, Any]) -> HandlerResult:
@@ -250,6 +258,7 @@ class DifferentiationHandler(BaseHandler):
         # Try to get memory stats from context
         try:
             from aragora.memory.continuum import ContinuumMemory
+
             memory = self.ctx.get("continuum_memory")
             if memory and isinstance(memory, ContinuumMemory):
                 stats_fn = getattr(memory, "get_stats", None)
@@ -269,27 +278,29 @@ class DifferentiationHandler(BaseHandler):
         except (ImportError, AttributeError):
             pass
 
-        return json_response({
-            "data": {
-                "memory": {
-                    "total_entries": memory_stats.get("total_entries", 0),
-                    "fast_tier": memory_stats.get("fast_count", 0),
-                    "medium_tier": memory_stats.get("medium_count", 0),
-                    "slow_tier": memory_stats.get("slow_count", 0),
-                    "glacial_tier": memory_stats.get("glacial_count", 0),
-                },
-                "knowledge_mound": {
-                    "total_artifacts": km_stats.get("total_artifacts", 0),
-                    "adapter_count": km_stats.get("adapter_count", 34),
-                    "cross_debate_links": km_stats.get("cross_debate_links", 0),
-                },
-                "learning_indicators": {
-                    "decisions_informing_future": memory_stats.get("reuse_count", 0),
-                    "knowledge_reuse_rate": memory_stats.get("reuse_rate", 0.0),
-                    "memory_quality_score": memory_stats.get("quality_score", 0.0),
-                },
+        return json_response(
+            {
+                "data": {
+                    "memory": {
+                        "total_entries": memory_stats.get("total_entries", 0),
+                        "fast_tier": memory_stats.get("fast_count", 0),
+                        "medium_tier": memory_stats.get("medium_count", 0),
+                        "slow_tier": memory_stats.get("slow_count", 0),
+                        "glacial_tier": memory_stats.get("glacial_count", 0),
+                    },
+                    "knowledge_mound": {
+                        "total_artifacts": km_stats.get("total_artifacts", 0),
+                        "adapter_count": km_stats.get("adapter_count", 34),
+                        "cross_debate_links": km_stats.get("cross_debate_links", 0),
+                    },
+                    "learning_indicators": {
+                        "decisions_informing_future": memory_stats.get("reuse_count", 0),
+                        "knowledge_reuse_rate": memory_stats.get("reuse_rate", 0.0),
+                        "memory_quality_score": memory_stats.get("quality_score", 0.0),
+                    },
+                }
             }
-        })
+        )
 
     @handle_errors("get benchmark comparison")
     def _get_benchmarks(self, query_params: dict[str, Any]) -> HandlerResult:
@@ -298,6 +309,7 @@ class DifferentiationHandler(BaseHandler):
 
         try:
             from aragora.analytics.benchmarking import BenchmarkAggregator
+
             aggregator = self.ctx.get("benchmark_aggregator")
             if aggregator is None:
                 aggregator = BenchmarkAggregator()
@@ -308,15 +320,20 @@ class DifferentiationHandler(BaseHandler):
         except (ImportError, AttributeError):
             items = []
 
-        return json_response({
-            "data": {
-                "category": category,
-                "benchmarks": items,
-                "available_categories": [
-                    "healthcare", "financial", "legal", "technology",
-                ],
+        return json_response(
+            {
+                "data": {
+                    "category": category,
+                    "benchmarks": items,
+                    "available_categories": [
+                        "healthcare",
+                        "financial",
+                        "legal",
+                        "technology",
+                    ],
+                }
             }
-        })
+        )
 
     def _get_receipt_store(self) -> Any:
         """Get receipt store from context."""
@@ -324,6 +341,7 @@ class DifferentiationHandler(BaseHandler):
         if store is None:
             try:
                 from aragora.gauntlet.receipts import ReceiptStore
+
                 store = ReceiptStore()
                 self.ctx["receipt_store"] = store
             except (ImportError, AttributeError):
@@ -336,6 +354,7 @@ class DifferentiationHandler(BaseHandler):
         if elo is None:
             try:
                 from aragora.ranking.elo import EloSystem
+
                 elo = EloSystem()
                 self.ctx["elo_system"] = elo
             except (ImportError, AttributeError):

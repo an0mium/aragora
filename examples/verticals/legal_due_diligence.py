@@ -87,8 +87,10 @@ def main() -> None:
             Still above Meridian's 18% hurdle rate.
         """),
         vote_for="Jennifer Park (M&A Lead Counsel)",
-        critique_issues=["IP training data risk may expand beyond current DMCA claims",
-                         "Unlimited liability contracts could deter future acquirers"],
+        critique_issues=[
+            "IP training data risk may expand beyond current DMCA claims",
+            "Unlimited liability contracts could deter future acquirers",
+        ],
     )
 
     ip_specialist = create_agent(
@@ -126,8 +128,10 @@ def main() -> None:
             Deal should not close without items 1 and 2 above completed.
         """),
         vote_for="Robert Liu (IP & Technology Counsel)",
-        critique_issues=["Pre-closing remediation adds timeline risk",
-                         "Escrow alone may not cover IP claims that mature post-close"],
+        critique_issues=[
+            "Pre-closing remediation adds timeline risk",
+            "Escrow alone may not cover IP claims that mature post-close",
+        ],
     )
 
     privacy_counsel = create_agent(
@@ -168,8 +172,10 @@ def main() -> None:
             Closing should be conditioned on SCC execution (Item 1a above).
         """),
         vote_for="Robert Liu (IP & Technology Counsel)",
-        critique_issues=["Privacy remediation is expensive but predictable",
-                         "Regulatory risk is binary — either compliant or exposed"],
+        critique_issues=[
+            "Privacy remediation is expensive but predictable",
+            "Regulatory risk is binary — either compliant or exposed",
+        ],
     )
 
     # ── Run the debate ─────────────────────────────────────────────────
@@ -201,7 +207,9 @@ def main() -> None:
     print(f"  Transaction:    DataVault SaaS Inc. acquisition")
     print(f"  Verdict:        {receipt.verdict.value if receipt.verdict else 'N/A'}")
     print(f"  Confidence:     {receipt.confidence:.0%}")
-    print(f"  Consensus:      {'Reached' if receipt.consensus.reached else 'Not reached'} ({receipt.consensus.method.value})")
+    print(
+        f"  Consensus:      {'Reached' if receipt.consensus.reached else 'Not reached'} ({receipt.consensus.method.value})"
+    )
     print(f"  Counsel:        {len(receipt.agents)}")
     print(f"  Rounds:         {receipt.rounds_used}")
     print()

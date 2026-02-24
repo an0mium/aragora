@@ -578,7 +578,11 @@ class ConsensusPhase:
                     )
                 )
                 # Store explanation in result metadata for audit trail
-                if ctx.result and hasattr(ctx.result, "metadata") and isinstance(ctx.result.metadata, dict):
+                if (
+                    ctx.result
+                    and hasattr(ctx.result, "metadata")
+                    and isinstance(ctx.result.metadata, dict)
+                ):
                     ctx.result.metadata["adaptive_threshold_explanation"] = explanation
                 logger.info(
                     "adaptive_consensus_threshold=%.4f for %d agents",

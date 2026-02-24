@@ -210,7 +210,10 @@ class PostDebateCoordinator:
         # Step 6: Persist receipt to Knowledge Mound (the flywheel)
         if self.config.auto_persist_receipt:
             result.receipt_persisted = self._step_persist_receipt(
-                debate_id, debate_result, task, confidence,
+                debate_id,
+                debate_result,
+                task,
+                confidence,
                 cost_breakdown=result.cost_breakdown,
             )
 

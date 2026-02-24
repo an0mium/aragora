@@ -299,8 +299,7 @@ async def run_single_debate(
     """
     metrics = DebateMetrics(debate_id=debate_id)
     agents = [
-        MockStreamingAgent(f"agent_{i}", latency_range=(0.005, 0.03))
-        for i in range(num_agents)
+        MockStreamingAgent(f"agent_{i}", latency_range=(0.005, 0.03)) for i in range(num_agents)
     ]
 
     # Simulate rare infrastructure failure
@@ -339,8 +338,7 @@ async def run_single_debate(
         for round_num in range(num_rounds):
             # Critiques
             critique_tasks = [
-                agent.critique(f"Proposal from round {round_num}")
-                for agent in agents
+                agent.critique(f"Proposal from round {round_num}") for agent in agents
             ]
             critiques = await asyncio.gather(*critique_tasks, return_exceptions=True)
             total_messages += sum(1 for c in critiques if isinstance(c, str))
@@ -431,9 +429,7 @@ class BaselineResult:
             "results": {
                 "completed_debates": len(completed),
                 "failed_debates": len(failed),
-                "success_rate": round(
-                    len(completed) / max(len(self.debate_metrics), 1), 4
-                ),
+                "success_rate": round(len(completed) / max(len(self.debate_metrics), 1), 4),
             },
             "metrics": {
                 "first_byte_latency_ms": {
@@ -452,7 +448,8 @@ class BaselineResult:
                     "total_attempts": total_reconnect_attempts,
                     "total_successes": total_reconnect_successes,
                     "success_rate": round(
-                        1.0 if total_reconnect_attempts == 0
+                        1.0
+                        if total_reconnect_attempts == 0
                         else total_reconnect_successes / total_reconnect_attempts,
                         4,
                     ),
@@ -466,8 +463,7 @@ class BaselineResult:
                 },
             },
             "slo_validation": {
-                slo_id: result.to_dict()
-                for slo_id, result in self.slo_results.items()
+                slo_id: result.to_dict() for slo_id, result in self.slo_results.items()
             },
             "all_slos_passed": self.all_slos_passed,
             "errors": [m.error for m in failed if m.error][:20],
@@ -566,17 +562,13 @@ def evaluate_all_slos(
     # SLO 1: First byte latency p95 < 500ms
     first_byte_values = [m.first_byte_ms for m in completed]
     first_byte_p95 = percentile(first_byte_values, 95)
-    results["first_byte_latency"] = evaluate_slo(
-        slos["first_byte_latency"], first_byte_p95
-    )
+    results["first_byte_latency"] = evaluate_slo(slos["first_byte_latency"], first_byte_p95)
 
     # SLO 2: Message throughput >= 10 messages/sec/debate (use p5 as floor)
     throughput_values = [m.messages_per_sec for m in completed]
     # Use p5 (5th percentile) as the effective floor - 95% of debates must meet this
     throughput_p5 = percentile(throughput_values, 5)
-    results["message_throughput"] = evaluate_slo(
-        slos["message_throughput"], throughput_p5
-    )
+    results["message_throughput"] = evaluate_slo(slos["message_throughput"], throughput_p5)
 
     # SLO 3: Reconnection success rate >= 99%
     total_attempts = sum(m.reconnect_attempts for m in debate_metrics)
@@ -590,9 +582,7 @@ def evaluate_all_slos(
     # SLO 4: End-to-end debate completion p99 < 30s
     duration_values = [m.duration_s for m in completed]
     completion_p99 = percentile(duration_values, 99)
-    results["debate_completion"] = evaluate_slo(
-        slos["debate_completion"], completion_p99
-    )
+    results["debate_completion"] = evaluate_slo(slos["debate_completion"], completion_p99)
 
     return results
 
@@ -659,10 +649,12 @@ def format_report(result: BaselineResult) -> str:
         )
 
     overall = "ALL PASSED" if report["all_slos_passed"] else "FAILED"
-    lines.extend([
-        "",
-        f"  Overall: {overall}",
-    ])
+    lines.extend(
+        [
+            "",
+            f"  Overall: {overall}",
+        ]
+    )
 
     if report["errors"]:
         lines.extend(["", "  Errors (first 20):"])
@@ -742,8 +734,7 @@ def main() -> None:
     )
 
     logger.info(
-        "Starting streaming SLO baseline: %ds duration, %d concurrency, "
-        "%d agents, %d rounds",
+        "Starting streaming SLO baseline: %ds duration, %d concurrency, %d agents, %d rounds",
         args.duration,
         args.concurrency,
         args.agents,
@@ -776,9 +767,7 @@ def main() -> None:
 
     # Exit code
     if args.strict and not result.all_slos_passed:
-        failed_slos = [
-            r.name for r in result.slo_results.values() if not r.passed
-        ]
+        failed_slos = [r.name for r in result.slo_results.values() if not r.passed]
         logger.warning("SLO validation failed: %s", ", ".join(failed_slos))
         sys.exit(1)
 

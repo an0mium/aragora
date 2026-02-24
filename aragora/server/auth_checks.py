@@ -438,6 +438,7 @@ class AuthChecksMixin:
             MFAEnforcementPolicy,
             MFAEnforcementResult,
         )
+
         settings = get_settings()
 
         # Check if MFA enforcement is enabled

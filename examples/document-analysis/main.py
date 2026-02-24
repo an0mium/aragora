@@ -72,6 +72,7 @@ logger = logging.getLogger("document-analysis")
 # Document Ingestion
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Document:
     """A document loaded into the analysis pipeline."""
@@ -364,6 +365,7 @@ def load_demo_corpus() -> DocumentCorpus:
 # Document-Grounded Debate
 # ---------------------------------------------------------------------------
 
+
 def build_document_context(corpus: DocumentCorpus, max_chars: int = 12000) -> str:
     """Build a context string from the corpus for the debate prompt.
 
@@ -418,10 +420,7 @@ async def run_document_debate(
             logger.warning("Could not create %s agent: %s", agent_type, exc)
 
     if len(agents) < 2:
-        logger.warning(
-            "Need at least 2 agents for debate. "
-            "Returning single-agent analysis."
-        )
+        logger.warning("Need at least 2 agents for debate. Returning single-agent analysis.")
         return _build_demo_analysis(corpus, question)
 
     doc_context = build_document_context(corpus)
@@ -537,6 +536,7 @@ def _build_demo_analysis(
 # Output Formatting
 # ---------------------------------------------------------------------------
 
+
 def print_analysis(analysis: dict[str, Any]) -> None:
     """Print the analysis results in a readable format."""
     border = "=" * 70
@@ -555,9 +555,7 @@ def print_analysis(analysis: dict[str, Any]) -> None:
             f"{analysis['rounds_used']} rounds)"
         )
     else:
-        print(
-            f"\n  Consensus: NO (confidence {analysis['confidence']:.0%})"
-        )
+        print(f"\n  Consensus: NO (confidence {analysis['confidence']:.0%})")
 
     print(f"  Analysts: {', '.join(analysis['participants'])}")
 
@@ -577,6 +575,7 @@ def print_analysis(analysis: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # Interactive Q&A Loop
 # ---------------------------------------------------------------------------
+
 
 async def interactive_qa(corpus: DocumentCorpus, rounds: int = 2) -> None:
     """Run an interactive question-and-answer loop over the document corpus.
@@ -608,6 +607,7 @@ async def interactive_qa(corpus: DocumentCorpus, rounds: int = 2) -> None:
 # ---------------------------------------------------------------------------
 # Main Entry Point
 # ---------------------------------------------------------------------------
+
 
 async def main() -> None:
     """Run the document analysis pipeline."""

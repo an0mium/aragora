@@ -32,7 +32,10 @@ class MockAgent(Agent):
         return self._proposal
 
     async def critique(
-        self, proposal: str, task: str, context: list[Message] | None = None,
+        self,
+        proposal: str,
+        task: str,
+        context: list[Message] | None = None,
         target_agent: str | None = None,
     ) -> Critique:
         return Critique(
@@ -200,7 +203,9 @@ class TestConsensusEvaluation:
 
     def test_weighted_confidence(self):
         arena = self._make_arena()
-        arena.config = DebateConfig(consensus_method=ConsensusMethod.WEIGHTED, consensus_threshold=0.7)
+        arena.config = DebateConfig(
+            consensus_method=ConsensusMethod.WEIGHTED, consensus_threshold=0.7
+        )
         votes = [
             Vote(agent="a", choice="plan_a", confidence=0.9),
             Vote(agent="b", choice="plan_a", confidence=0.8),

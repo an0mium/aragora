@@ -63,17 +63,13 @@ def mock_elo():
 @pytest.fixture
 def handler_with_storage(mock_storage):
     """Create a handler with mock storage."""
-    return ObservabilityDashboardHandler(
-        server_context={"storage": mock_storage}
-    )
+    return ObservabilityDashboardHandler(server_context={"storage": mock_storage})
 
 
 @pytest.fixture
 def handler_with_elo(mock_elo):
     """Create a handler with mock ELO system."""
-    return ObservabilityDashboardHandler(
-        server_context={"elo_system": mock_elo}
-    )
+    return ObservabilityDashboardHandler(server_context={"elo_system": mock_elo})
 
 
 @pytest.fixture
@@ -113,16 +109,12 @@ class TestInit:
         assert h._storage is None
 
     def test_init_with_storage(self, mock_storage):
-        h = ObservabilityDashboardHandler(
-            server_context={"storage": mock_storage}
-        )
+        h = ObservabilityDashboardHandler(server_context={"storage": mock_storage})
         assert h._storage is mock_storage
         assert h._elo is None
 
     def test_init_with_elo(self, mock_elo):
-        h = ObservabilityDashboardHandler(
-            server_context={"elo_system": mock_elo}
-        )
+        h = ObservabilityDashboardHandler(server_context={"elo_system": mock_elo})
         assert h._elo is mock_elo
         assert h._storage is None
 
@@ -204,17 +196,13 @@ class TestDashboardEndpoint:
 
     @pytest.mark.asyncio
     async def test_returns_200(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/observability/dashboard", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/observability/dashboard", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_returns_json_with_all_sections(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/observability/dashboard", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/observability/dashboard", {}, mock_http_handler)
         body = result[0]
         assert "timestamp" in body
         assert "debate_metrics" in body
@@ -228,27 +216,21 @@ class TestDashboardEndpoint:
     @pytest.mark.asyncio
     async def test_timestamp_is_reasonable(self, handler, mock_http_handler):
         before = time.time()
-        result = await handler.handle(
-            "/api/observability/dashboard", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/observability/dashboard", {}, mock_http_handler)
         after = time.time()
         body = result[0]
         assert before <= body["timestamp"] <= after
 
     @pytest.mark.asyncio
     async def test_collection_time_is_non_negative(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/observability/dashboard", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/observability/dashboard", {}, mock_http_handler)
         body = result[0]
         assert body["collection_time_ms"] >= 0
 
     @pytest.mark.asyncio
     async def test_metrics_alias_route(self, handler, mock_http_handler):
         """GET /api/observability/metrics returns the same dashboard data."""
-        result = await handler.handle(
-            "/api/observability/metrics", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/observability/metrics", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
         body = result[0]
@@ -258,18 +240,14 @@ class TestDashboardEndpoint:
     @pytest.mark.asyncio
     async def test_versioned_path(self, handler, mock_http_handler):
         """Versioned path /api/v1/observability/dashboard also works."""
-        result = await handler.handle(
-            "/api/v1/observability/dashboard", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/v1/observability/dashboard", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_unmatched_path_returns_none(self, handler, mock_http_handler):
         """An unmatched path returns None."""
-        result = await handler.handle(
-            "/api/observability/unknown", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/observability/unknown", {}, mock_http_handler)
         assert result is None
 
 
@@ -682,7 +660,12 @@ class TestSelfImprove:
     def test_with_dict_runs(self, handler):
         """Dict-format runs are properly counted."""
         runs = [
-            {"id": "r1", "goal": "improve tests", "status": "completed", "started_at": "2026-02-01"},
+            {
+                "id": "r1",
+                "goal": "improve tests",
+                "status": "completed",
+                "started_at": "2026-02-01",
+            },
             {"id": "r2", "goal": "refactor", "status": "failed", "started_at": "2026-02-02"},
             {"id": "r3", "goal": "add feature", "status": "completed", "started_at": "2026-02-03"},
             {"id": "r4", "goal": "fix bugs", "status": "running", "started_at": "2026-02-04"},
@@ -703,7 +686,12 @@ class TestSelfImprove:
     def test_recent_runs_limited_to_5(self, handler):
         """Only the last 5 runs appear in recent_runs."""
         runs = [
-            {"id": f"r{i}", "goal": f"goal_{i}", "status": "completed", "started_at": f"2026-02-{i:02d}"}
+            {
+                "id": f"r{i}",
+                "goal": f"goal_{i}",
+                "status": "completed",
+                "started_at": f"2026-02-{i:02d}",
+            }
             for i in range(1, 9)  # 8 runs
         ]
         mock_store = MagicMock()
@@ -723,7 +711,12 @@ class TestSelfImprove:
     def test_recent_runs_dict_format(self, handler):
         """Dict runs have expected fields in recent_runs."""
         runs = [
-            {"id": "run-1", "goal": "test goal", "status": "completed", "started_at": "2026-02-01T00:00:00"},
+            {
+                "id": "run-1",
+                "goal": "test goal",
+                "status": "completed",
+                "started_at": "2026-02-01T00:00:00",
+            },
         ]
         mock_store = MagicMock()
         mock_store.list_runs.return_value = runs
@@ -799,6 +792,7 @@ class TestSystemHealth:
 
         with patch.dict("sys.modules", {"psutil": MagicMock()}):
             import sys
+
             mock_psutil = sys.modules["psutil"]
             mock_psutil.virtual_memory.return_value = mock_mem
             mock_psutil.cpu_percent.return_value = 12.3
@@ -846,15 +840,22 @@ class TestErrorRates:
 
     def test_with_metrics_available(self, handler):
         """When observability metrics are available, returns rates."""
+        # Build a fake Prometheus metric family with samples
+        sample_200 = SimpleNamespace(value=975, labels={"method": "GET", "endpoint": "/api/test", "status": "200"})
+        sample_500 = SimpleNamespace(value=25, labels={"method": "GET", "endpoint": "/api/test", "status": "500"})
+        metric_family = SimpleNamespace(samples=[sample_200, sample_500])
+
+        mock_counter = MagicMock()
+        mock_counter.collect.return_value = [metric_family]
+
         with patch(
-            "aragora.observability.metrics.server.get_request_total_count",
+            "aragora.server.handlers.observability.dashboard.REQUEST_COUNT",
+            new=mock_counter,
             create=True,
-            return_value=1000,
         ):
             with patch(
-                "aragora.observability.metrics.server.get_request_error_count",
+                "aragora.server.handlers.observability.dashboard._ensure_init",
                 create=True,
-                return_value=25,
             ):
                 result = handler._collect_error_rates()
                 assert result["available"] is True
@@ -915,21 +916,45 @@ class TestGracefulDegradation:
     async def test_all_subsystems_unavailable(self, handler, mock_http_handler):
         """When no subsystems are configured, all sections show available=False."""
         # Patch circuit breakers and self-improve to also be unavailable
-        with patch.object(handler, "_collect_circuit_breakers", return_value={
-            "breakers": [], "available": False,
-        }):
-            with patch.object(handler, "_collect_self_improve", return_value={
-                "total_cycles": 0, "successful": 0, "failed": 0,
-                "recent_runs": [], "available": False,
-            }):
-                with patch.object(handler, "_collect_error_rates", return_value={
-                    "total_requests": 0, "total_errors": 0,
-                    "error_rate": 0, "available": False,
-                }):
-                    with patch.object(handler, "_collect_system_health", return_value={
-                        "memory_percent": None, "cpu_percent": None,
-                        "pid": os.getpid(), "available": False,
-                    }):
+        with patch.object(
+            handler,
+            "_collect_circuit_breakers",
+            return_value={
+                "breakers": [],
+                "available": False,
+            },
+        ):
+            with patch.object(
+                handler,
+                "_collect_self_improve",
+                return_value={
+                    "total_cycles": 0,
+                    "successful": 0,
+                    "failed": 0,
+                    "recent_runs": [],
+                    "available": False,
+                },
+            ):
+                with patch.object(
+                    handler,
+                    "_collect_error_rates",
+                    return_value={
+                        "total_requests": 0,
+                        "total_errors": 0,
+                        "error_rate": 0,
+                        "available": False,
+                    },
+                ):
+                    with patch.object(
+                        handler,
+                        "_collect_system_health",
+                        return_value={
+                            "memory_percent": None,
+                            "cpu_percent": None,
+                            "pid": os.getpid(),
+                            "available": False,
+                        },
+                    ):
                         result = await handler.handle(
                             "/api/observability/dashboard", {}, mock_http_handler
                         )
@@ -942,23 +967,41 @@ class TestGracefulDegradation:
                         assert body["error_rates"]["available"] is False
 
     @pytest.mark.asyncio
-    async def test_partial_subsystem_availability(self, handler_with_storage, mock_http_handler, mock_storage):
+    async def test_partial_subsystem_availability(
+        self, handler_with_storage, mock_http_handler, mock_storage
+    ):
         """Some subsystems available, others not -- still returns 200."""
-        mock_storage.list_debates.return_value = [
-            {"duration": 5.0, "consensus_reached": True}
-        ]
+        mock_storage.list_debates.return_value = [{"duration": 5.0, "consensus_reached": True}]
 
-        with patch.object(handler_with_storage, "_collect_circuit_breakers", return_value={
-            "breakers": [], "available": False,
-        }):
-            with patch.object(handler_with_storage, "_collect_self_improve", return_value={
-                "total_cycles": 0, "successful": 0, "failed": 0,
-                "recent_runs": [], "available": False,
-            }):
-                with patch.object(handler_with_storage, "_collect_error_rates", return_value={
-                    "total_requests": 0, "total_errors": 0,
-                    "error_rate": 0, "available": False,
-                }):
+        with patch.object(
+            handler_with_storage,
+            "_collect_circuit_breakers",
+            return_value={
+                "breakers": [],
+                "available": False,
+            },
+        ):
+            with patch.object(
+                handler_with_storage,
+                "_collect_self_improve",
+                return_value={
+                    "total_cycles": 0,
+                    "successful": 0,
+                    "failed": 0,
+                    "recent_runs": [],
+                    "available": False,
+                },
+            ):
+                with patch.object(
+                    handler_with_storage,
+                    "_collect_error_rates",
+                    return_value={
+                        "total_requests": 0,
+                        "total_errors": 0,
+                        "error_rate": 0,
+                        "available": False,
+                    },
+                ):
                     result = await handler_with_storage.handle(
                         "/api/observability/dashboard", {}, mock_http_handler
                     )
@@ -980,7 +1023,9 @@ class TestFullDashboard:
     """Integration tests with all subsystems mocked."""
 
     @pytest.mark.asyncio
-    async def test_full_dashboard_response(self, handler_full, mock_http_handler, mock_storage, mock_elo):
+    async def test_full_dashboard_response(
+        self, handler_full, mock_http_handler, mock_storage, mock_elo
+    ):
         """Full response has all sections populated."""
         mock_storage.list_debates.return_value = [
             {"duration": 10.0, "consensus_reached": True},
@@ -990,18 +1035,37 @@ class TestFullDashboard:
             {"agent": "claude", "rating": 1600, "matches": 50, "win_rate": 0.72},
         ]
 
-        with patch.object(handler_full, "_collect_circuit_breakers", return_value={
-            "breakers": [{"name": "api", "state": "closed", "failure_count": 0, "success_count": 100}],
-            "available": True,
-        }):
-            with patch.object(handler_full, "_collect_self_improve", return_value={
-                "total_cycles": 5, "successful": 4, "failed": 1,
-                "recent_runs": [], "available": True,
-            }):
-                with patch.object(handler_full, "_collect_error_rates", return_value={
-                    "total_requests": 1000, "total_errors": 10,
-                    "error_rate": 0.01, "available": True,
-                }):
+        with patch.object(
+            handler_full,
+            "_collect_circuit_breakers",
+            return_value={
+                "breakers": [
+                    {"name": "api", "state": "closed", "failure_count": 0, "success_count": 100}
+                ],
+                "available": True,
+            },
+        ):
+            with patch.object(
+                handler_full,
+                "_collect_self_improve",
+                return_value={
+                    "total_cycles": 5,
+                    "successful": 4,
+                    "failed": 1,
+                    "recent_runs": [],
+                    "available": True,
+                },
+            ):
+                with patch.object(
+                    handler_full,
+                    "_collect_error_rates",
+                    return_value={
+                        "total_requests": 1000,
+                        "total_errors": 10,
+                        "error_rate": 0.01,
+                        "available": True,
+                    },
+                ):
                     result = await handler_full.handle(
                         "/api/observability/dashboard", {}, mock_http_handler
                     )

@@ -103,15 +103,21 @@ class AsyncNotificationsAPI:
 
     async def add_email_recipient(self, **kwargs: Any) -> dict[str, Any]:
         """Add an email notification recipient."""
-        return await self._client.request("POST", "/api/v1/notifications/email/recipient", json=kwargs)
+        return await self._client.request(
+            "POST", "/api/v1/notifications/email/recipient", json=kwargs
+        )
 
     async def remove_email_recipient(self, **kwargs: Any) -> dict[str, Any]:
         """Remove an email notification recipient."""
-        return await self._client.request("DELETE", "/api/v1/notifications/email/recipient", json=kwargs)
+        return await self._client.request(
+            "DELETE", "/api/v1/notifications/email/recipient", json=kwargs
+        )
 
     async def configure_telegram(self, **kwargs: Any) -> dict[str, Any]:
         """Configure Telegram notifications."""
-        return await self._client.request("POST", "/api/v1/notifications/telegram/config", json=kwargs)
+        return await self._client.request(
+            "POST", "/api/v1/notifications/telegram/config", json=kwargs
+        )
 
     async def test(self, **kwargs: Any) -> dict[str, Any]:
         """Send a test notification."""

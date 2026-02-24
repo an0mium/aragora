@@ -109,9 +109,15 @@ async def handle_pause_debate(debate_id: str, context: AuthorizationContext) -> 
     state["paused_at"] = datetime.now().isoformat()
 
     log_intervention(debate_id, "pause", {"paused_at": state["paused_at"]}, context.user_id)
-    _emit_intervention_event(debate_id, "INTERVENTION_PAUSE", {
-        "is_paused": True, "paused_at": state["paused_at"], "user_id": context.user_id,
-    })
+    _emit_intervention_event(
+        debate_id,
+        "INTERVENTION_PAUSE",
+        {
+            "is_paused": True,
+            "paused_at": state["paused_at"],
+            "user_id": context.user_id,
+        },
+    )
 
     return json_response(
         {
@@ -161,10 +167,16 @@ async def handle_resume_debate(debate_id: str, context: AuthorizationContext) ->
         {"resumed_at": state["resumed_at"], "pause_duration_seconds": pause_duration},
         context.user_id,
     )
-    _emit_intervention_event(debate_id, "INTERVENTION_RESUME", {
-        "is_paused": False, "resumed_at": state["resumed_at"],
-        "pause_duration_seconds": pause_duration, "user_id": context.user_id,
-    })
+    _emit_intervention_event(
+        debate_id,
+        "INTERVENTION_RESUME",
+        {
+            "is_paused": False,
+            "resumed_at": state["resumed_at"],
+            "pause_duration_seconds": pause_duration,
+            "user_id": context.user_id,
+        },
+    )
 
     return json_response(
         {
@@ -235,10 +247,16 @@ async def handle_inject_argument(
         },
         user_id or context.user_id,
     )
-    _emit_intervention_event(debate_id, "INTERVENTION_INJECT", {
-        "injection_id": injection["id"], "type": injection_type,
-        "content_preview": content[:100], "user_id": user_id or context.user_id,
-    })
+    _emit_intervention_event(
+        debate_id,
+        "INTERVENTION_INJECT",
+        {
+            "injection_id": injection["id"],
+            "type": injection_type,
+            "content_preview": content[:100],
+            "user_id": user_id or context.user_id,
+        },
+    )
 
     return json_response(
         {
@@ -295,10 +313,16 @@ async def handle_update_weights(
         },
         user_id or context.user_id,
     )
-    _emit_intervention_event(debate_id, "INTERVENTION_WEIGHT", {
-        "agent": agent, "old_weight": old_weight, "new_weight": weight,
-        "user_id": user_id or context.user_id,
-    })
+    _emit_intervention_event(
+        debate_id,
+        "INTERVENTION_WEIGHT",
+        {
+            "agent": agent,
+            "old_weight": old_weight,
+            "new_weight": weight,
+            "user_id": user_id or context.user_id,
+        },
+    )
 
     return json_response(
         {
@@ -352,10 +376,15 @@ async def handle_update_threshold(
         },
         user_id or context.user_id,
     )
-    _emit_intervention_event(debate_id, "INTERVENTION_THRESHOLD", {
-        "old_threshold": old_threshold, "new_threshold": threshold,
-        "user_id": user_id or context.user_id,
-    })
+    _emit_intervention_event(
+        debate_id,
+        "INTERVENTION_THRESHOLD",
+        {
+            "old_threshold": old_threshold,
+            "new_threshold": threshold,
+            "user_id": user_id or context.user_id,
+        },
+    )
 
     return json_response(
         {

@@ -52,7 +52,12 @@ def disable_stopping_rule_goal_scans(monkeypatch):
     monkeypatch.setattr(
         StoppingRuleEngine,
         "should_stop",
-        lambda self, telemetry=None, budget=None, config=None, goal_proposer=None, start_time=None: (
+        lambda self,
+        telemetry=None,
+        budget=None,
+        config=None,
+        goal_proposer=None,
+        start_time=None: (
             False,
             "",
         ),

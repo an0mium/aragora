@@ -148,11 +148,7 @@ class ReceiptBuilder:
         for d in receipt.consensus.dissents:
             reasons = "<br>".join(esc(r) for r in d.reasons)
             alt = esc(d.alternative_view or "")
-            dissent_rows += (
-                f"<tr><td>{esc(d.agent)}</td>"
-                f"<td>{reasons}</td>"
-                f"<td>{alt}</td></tr>\n"
-            )
+            dissent_rows += f"<tr><td>{esc(d.agent)}</td><td>{reasons}</td><td>{alt}</td></tr>\n"
 
         dissent_section = ""
         if dissent_rows:
@@ -184,19 +180,19 @@ class ReceiptBuilder:
 <body>
   <h1>Decision Receipt {esc(receipt.receipt_id)}</h1>
   <p><strong>Question:</strong> {esc(receipt.question)}</p>
-  <p class="verdict verdict-{'approved' if 'approved' in receipt.verdict.value else 'rejected' if receipt.verdict == Verdict.REJECTED else 'review'}">
-    Verdict: {esc(receipt.verdict.value.replace('_', ' ').title())}
+  <p class="verdict verdict-{"approved" if "approved" in receipt.verdict.value else "rejected" if receipt.verdict == Verdict.REJECTED else "review"}">
+    Verdict: {esc(receipt.verdict.value.replace("_", " ").title())}
   </p>
   <table>
     <tr><td><strong>Confidence</strong></td><td>{receipt.confidence:.0%}</td></tr>
-    <tr><td><strong>Consensus</strong></td><td>{'Reached' if receipt.consensus.reached else 'Not reached'} ({esc(receipt.consensus.method.value)})</td></tr>
+    <tr><td><strong>Consensus</strong></td><td>{"Reached" if receipt.consensus.reached else "Not reached"} ({esc(receipt.consensus.method.value)})</td></tr>
     <tr><td><strong>Agreement</strong></td><td>{receipt.consensus.agreement_ratio:.0%}</td></tr>
-    <tr><td><strong>Agents</strong></td><td>{esc(', '.join(receipt.agents))}</td></tr>
+    <tr><td><strong>Agents</strong></td><td>{esc(", ".join(receipt.agents))}</td></tr>
     <tr><td><strong>Rounds</strong></td><td>{receipt.rounds_used}</td></tr>
   </table>
   {dissent_section}
   <p class="meta">Generated {esc(receipt.timestamp)}</p>
-  {f'<p class="meta">Signature ({esc(receipt.signature_algorithm or "")}): <code>{esc((receipt.signature or "")[:32])}...</code></p>' if receipt.signature else ''}
+  {f'<p class="meta">Signature ({esc(receipt.signature_algorithm or "")}): <code>{esc((receipt.signature or "")[:32])}...</code></p>' if receipt.signature else ""}
 </body>
 </html>"""
 

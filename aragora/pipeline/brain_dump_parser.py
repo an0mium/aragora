@@ -31,7 +31,10 @@ _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 _URGENCY_PATTERNS = [
     re.compile(r"\b(urgent|asap|immediately|critical|blocker|showstopper|p0|p1)\b", re.IGNORECASE),
     re.compile(r"\b(must|need to|have to|required|mandatory)\b", re.IGNORECASE),
-    re.compile(r"\b(deadline|due date|by (?:end of|eod|eow|monday|tuesday|wednesday|thursday|friday))\b", re.IGNORECASE),
+    re.compile(
+        r"\b(deadline|due date|by (?:end of|eod|eow|monday|tuesday|wednesday|thursday|friday))\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"!{2,}"),  # Multiple exclamation marks
 ]
 
@@ -45,10 +48,45 @@ _ENTITY_RE = re.compile(
 
 # Theme keyword groups for detection
 _THEME_KEYWORDS: dict[str, list[str]] = {
-    "performance": ["fast", "slow", "latency", "throughput", "optimize", "cache", "speed", "performance"],
-    "security": ["auth", "security", "encrypt", "permission", "access", "vulnerability", "token", "ssl"],
-    "ux": ["user experience", "ui", "ux", "interface", "design", "usability", "accessibility", "responsive"],
-    "reliability": ["reliable", "uptime", "resilient", "failover", "backup", "redundant", "availability"],
+    "performance": [
+        "fast",
+        "slow",
+        "latency",
+        "throughput",
+        "optimize",
+        "cache",
+        "speed",
+        "performance",
+    ],
+    "security": [
+        "auth",
+        "security",
+        "encrypt",
+        "permission",
+        "access",
+        "vulnerability",
+        "token",
+        "ssl",
+    ],
+    "ux": [
+        "user experience",
+        "ui",
+        "ux",
+        "interface",
+        "design",
+        "usability",
+        "accessibility",
+        "responsive",
+    ],
+    "reliability": [
+        "reliable",
+        "uptime",
+        "resilient",
+        "failover",
+        "backup",
+        "redundant",
+        "availability",
+    ],
     "scalability": ["scale", "scalable", "horizontal", "vertical", "load", "capacity", "shard"],
     "testing": ["test", "coverage", "qa", "quality", "regression", "integration test", "unit test"],
     "documentation": ["doc", "document", "readme", "guide", "tutorial", "api doc"],

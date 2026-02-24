@@ -73,9 +73,7 @@ class AuditAPI:
         Returns:
             Dict with session details including status, progress, and config.
         """
-        return self._client.request(
-            "GET", f"/api/v1/audit/sessions/{session_id}"
-        )
+        return self._client.request("GET", f"/api/v1/audit/sessions/{session_id}")
 
     def delete_session(self, session_id: str) -> dict[str, Any]:
         """Delete an audit session.
@@ -88,9 +86,7 @@ class AuditAPI:
         Returns:
             Dict with deletion confirmation.
         """
-        return self._client.request(
-            "DELETE", f"/api/v1/audit/sessions/{session_id}"
-        )
+        return self._client.request("DELETE", f"/api/v1/audit/sessions/{session_id}")
 
     def start_session(self, session_id: str) -> dict[str, Any]:
         """Start a pending or paused audit session.
@@ -101,9 +97,7 @@ class AuditAPI:
         Returns:
             Dict with updated session details.
         """
-        return self._client.request(
-            "POST", f"/api/v1/audit/sessions/{session_id}/start"
-        )
+        return self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/start")
 
     def pause_session(self, session_id: str) -> dict[str, Any]:
         """Pause a running audit session.
@@ -114,9 +108,7 @@ class AuditAPI:
         Returns:
             Dict with updated session details.
         """
-        return self._client.request(
-            "POST", f"/api/v1/audit/sessions/{session_id}/pause"
-        )
+        return self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/pause")
 
     def resume_session(self, session_id: str) -> dict[str, Any]:
         """Resume a paused audit session.
@@ -127,13 +119,9 @@ class AuditAPI:
         Returns:
             Dict with updated session details.
         """
-        return self._client.request(
-            "POST", f"/api/v1/audit/sessions/{session_id}/resume"
-        )
+        return self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/resume")
 
-    def cancel_session(
-        self, session_id: str, reason: str | None = None
-    ) -> dict[str, Any]:
+    def cancel_session(self, session_id: str, reason: str | None = None) -> dict[str, Any]:
         """Cancel an audit session.
 
         Args:
@@ -195,9 +183,7 @@ class AuditAPI:
         Returns:
             Dict with SSE event stream connection info.
         """
-        return self._client.request(
-            "GET", f"/api/v1/audit/sessions/{session_id}/events"
-        )
+        return self._client.request("GET", f"/api/v1/audit/sessions/{session_id}/events")
 
     def intervene_session(
         self,
@@ -313,13 +299,9 @@ class AuditAPI:
         Returns:
             Dict with confirmation.
         """
-        return self._client.request(
-            "POST", f"/api/v1/audit/findings/{finding_id}/unassign"
-        )
+        return self._client.request("POST", f"/api/v1/audit/findings/{finding_id}/unassign")
 
-    def add_finding_comment(
-        self, finding_id: str, text: str
-    ) -> dict[str, Any]:
+    def add_finding_comment(self, finding_id: str, text: str) -> dict[str, Any]:
         """Add a comment to a finding.
 
         Args:
@@ -344,13 +326,9 @@ class AuditAPI:
         Returns:
             Dict with history entries (status changes, assignments, comments).
         """
-        return self._client.request(
-            "GET", f"/api/v1/audit/findings/{finding_id}/history"
-        )
+        return self._client.request("GET", f"/api/v1/audit/findings/{finding_id}/history")
 
-    def set_finding_priority(
-        self, finding_id: str, priority: str
-    ) -> dict[str, Any]:
+    def set_finding_priority(self, finding_id: str, priority: str) -> dict[str, Any]:
         """Set the priority of a finding.
 
         Args:
@@ -366,9 +344,7 @@ class AuditAPI:
             json={"priority": priority},
         )
 
-    def set_finding_due_date(
-        self, finding_id: str, due_date: str
-    ) -> dict[str, Any]:
+    def set_finding_due_date(self, finding_id: str, due_date: str) -> dict[str, Any]:
         """Set the due date for a finding.
 
         Args:
@@ -403,9 +379,7 @@ class AuditAPI:
             json={"target_finding_id": target_finding_id, "link_type": link_type},
         )
 
-    def mark_finding_duplicate(
-        self, finding_id: str, duplicate_of: str
-    ) -> dict[str, Any]:
+    def mark_finding_duplicate(self, finding_id: str, duplicate_of: str) -> dict[str, Any]:
         """Mark a finding as a duplicate of another finding.
 
         Args:
@@ -507,9 +481,7 @@ class AsyncAuditAPI:
         Returns:
             Dict with session details including status, progress, and config.
         """
-        return await self._client.request(
-            "GET", f"/api/v1/audit/sessions/{session_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/audit/sessions/{session_id}")
 
     async def delete_session(self, session_id: str) -> dict[str, Any]:
         """Delete an audit session.
@@ -522,9 +494,7 @@ class AsyncAuditAPI:
         Returns:
             Dict with deletion confirmation.
         """
-        return await self._client.request(
-            "DELETE", f"/api/v1/audit/sessions/{session_id}"
-        )
+        return await self._client.request("DELETE", f"/api/v1/audit/sessions/{session_id}")
 
     async def start_session(self, session_id: str) -> dict[str, Any]:
         """Start a pending or paused audit session.
@@ -535,9 +505,7 @@ class AsyncAuditAPI:
         Returns:
             Dict with updated session details.
         """
-        return await self._client.request(
-            "POST", f"/api/v1/audit/sessions/{session_id}/start"
-        )
+        return await self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/start")
 
     async def pause_session(self, session_id: str) -> dict[str, Any]:
         """Pause a running audit session.
@@ -548,9 +516,7 @@ class AsyncAuditAPI:
         Returns:
             Dict with updated session details.
         """
-        return await self._client.request(
-            "POST", f"/api/v1/audit/sessions/{session_id}/pause"
-        )
+        return await self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/pause")
 
     async def resume_session(self, session_id: str) -> dict[str, Any]:
         """Resume a paused audit session.
@@ -561,13 +527,9 @@ class AsyncAuditAPI:
         Returns:
             Dict with updated session details.
         """
-        return await self._client.request(
-            "POST", f"/api/v1/audit/sessions/{session_id}/resume"
-        )
+        return await self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/resume")
 
-    async def cancel_session(
-        self, session_id: str, reason: str | None = None
-    ) -> dict[str, Any]:
+    async def cancel_session(self, session_id: str, reason: str | None = None) -> dict[str, Any]:
         """Cancel an audit session.
 
         Args:
@@ -629,9 +591,7 @@ class AsyncAuditAPI:
         Returns:
             Dict with SSE event stream connection info.
         """
-        return await self._client.request(
-            "GET", f"/api/v1/audit/sessions/{session_id}/events"
-        )
+        return await self._client.request("GET", f"/api/v1/audit/sessions/{session_id}/events")
 
     async def intervene_session(
         self,
@@ -747,13 +707,9 @@ class AsyncAuditAPI:
         Returns:
             Dict with confirmation.
         """
-        return await self._client.request(
-            "POST", f"/api/v1/audit/findings/{finding_id}/unassign"
-        )
+        return await self._client.request("POST", f"/api/v1/audit/findings/{finding_id}/unassign")
 
-    async def add_finding_comment(
-        self, finding_id: str, text: str
-    ) -> dict[str, Any]:
+    async def add_finding_comment(self, finding_id: str, text: str) -> dict[str, Any]:
         """Add a comment to a finding.
 
         Args:
@@ -778,13 +734,9 @@ class AsyncAuditAPI:
         Returns:
             Dict with history entries (status changes, assignments, comments).
         """
-        return await self._client.request(
-            "GET", f"/api/v1/audit/findings/{finding_id}/history"
-        )
+        return await self._client.request("GET", f"/api/v1/audit/findings/{finding_id}/history")
 
-    async def set_finding_priority(
-        self, finding_id: str, priority: str
-    ) -> dict[str, Any]:
+    async def set_finding_priority(self, finding_id: str, priority: str) -> dict[str, Any]:
         """Set the priority of a finding.
 
         Args:
@@ -800,9 +752,7 @@ class AsyncAuditAPI:
             json={"priority": priority},
         )
 
-    async def set_finding_due_date(
-        self, finding_id: str, due_date: str
-    ) -> dict[str, Any]:
+    async def set_finding_due_date(self, finding_id: str, due_date: str) -> dict[str, Any]:
         """Set the due date for a finding.
 
         Args:
@@ -837,9 +787,7 @@ class AsyncAuditAPI:
             json={"target_finding_id": target_finding_id, "link_type": link_type},
         )
 
-    async def mark_finding_duplicate(
-        self, finding_id: str, duplicate_of: str
-    ) -> dict[str, Any]:
+    async def mark_finding_duplicate(self, finding_id: str, duplicate_of: str) -> dict[str, Any]:
         """Mark a finding as a duplicate of another finding.
 
         Args:
@@ -861,7 +809,9 @@ class AsyncAuditAPI:
 
     async def list_security_debates(self, **kwargs: Any) -> dict[str, Any]:
         """List security audit debates. GET /api/v1/audit/security/debate"""
-        return await self._client.request("GET", "/api/v1/audit/security/debate", params=kwargs or None)
+        return await self._client.request(
+            "GET", "/api/v1/audit/security/debate", params=kwargs or None
+        )
 
     async def get_security_debate(self, debate_id: str) -> dict[str, Any]:
         """Get a specific security audit debate. GET /api/v1/audit/security/debate/:id"""

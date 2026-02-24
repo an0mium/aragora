@@ -281,9 +281,7 @@ class FeedbackAnalyzer:
         except ImportError:
             import os
 
-            data_dir = os.environ.get(
-                "ARAGORA_DATA_DIR", str(Path.home() / ".aragora")
-            )
+            data_dir = os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))
             return os.path.join(data_dir, "feedback.db")
 
     def _get_improvement_queue(self) -> Any:
@@ -322,9 +320,7 @@ class FeedbackAnalyzer:
             try:
                 self._process_one(item, queue, existing_goals, result)
             except (sqlite3.Error, OSError, ValueError, TypeError, KeyError) as exc:
-                logger.warning(
-                    "feedback_analyzer_item_failed id=%s: %s", item.id, exc
-                )
+                logger.warning("feedback_analyzer_item_failed id=%s: %s", item.id, exc)
                 result.errors.append(f"item_{item.id}: {type(exc).__name__}")
 
         logger.info(
@@ -349,9 +345,7 @@ class FeedbackAnalyzer:
 
         # Skip empty/invalid feedback
         if not item.comment and item.score is None:
-            self._state.mark_processed(
-                item.id, skipped=True, reason="empty_feedback"
-            )
+            self._state.mark_processed(item.id, skipped=True, reason="empty_feedback")
             return
 
         # Categorize
@@ -359,25 +353,19 @@ class FeedbackAnalyzer:
         goal_description = self._build_goal_description(item, category)
 
         if not goal_description:
-            self._state.mark_processed(
-                item.id, skipped=True, reason="no_description"
-            )
+            self._state.mark_processed(item.id, skipped=True, reason="no_description")
             return
 
         # Deduplicate against existing goals
         if self._is_duplicate(goal_description, existing_goals):
-            self._state.mark_processed(
-                item.id, skipped=True, reason="duplicate"
-            )
+            self._state.mark_processed(item.id, skipped=True, reason="duplicate")
             result.duplicates_skipped += 1
             return
 
         # Build and push the improvement goal
         from aragora.nomic.feedback_orchestrator import ImprovementGoal
 
-        priority_float = self._priority_to_float(
-            _CATEGORY_PRIORITY.get(category, 5)
-        )
+        priority_float = self._priority_to_float(_CATEGORY_PRIORITY.get(category, 5))
         goal_id = self._make_goal_id(item)
 
         goal = ImprovementGoal(
@@ -519,9 +507,7 @@ class FeedbackAnalyzer:
 
         return ""
 
-    def _is_duplicate(
-        self, description: str, existing: list[str]
-    ) -> bool:
+    def _is_duplicate(self, description: str, existing: list[str]) -> bool:
         """Check if a goal description is too similar to an existing one."""
         for existing_desc in existing:
             ratio = SequenceMatcher(None, description.lower(), existing_desc.lower()).ratio()

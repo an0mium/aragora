@@ -83,8 +83,13 @@ def test_validate_runtime_env_file_validates_jwt_and_warns_on_strict_mode(tmp_pa
     errors, warnings = module._validate_runtime_env_file(env_file)
 
     assert any("ARAGORA_JWT_SECRET must be at least 32 characters" in error for error in errors)
-    assert any("ARAGORA_ENCRYPTION_KEY should be 64 hex characters" in warning for warning in warnings)
-    assert any("ARAGORA_SECRETS_STRICT=true may fail local runtime checks" in warning for warning in warnings)
+    assert any(
+        "ARAGORA_ENCRYPTION_KEY should be 64 hex characters" in warning for warning in warnings
+    )
+    assert any(
+        "ARAGORA_SECRETS_STRICT=true may fail local runtime checks" in warning
+        for warning in warnings
+    )
 
 
 def test_validate_runtime_env_file_accepts_valid_values(tmp_path: Path) -> None:

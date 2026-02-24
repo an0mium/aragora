@@ -19,13 +19,58 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 
-_STOP_WORDS = frozenset({
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "have",
-    "has", "had", "do", "does", "did", "will", "would", "could", "should",
-    "to", "of", "in", "for", "on", "with", "at", "by", "from", "as",
-    "and", "but", "or", "not", "this", "that", "it", "its", "we", "they",
-    "you", "he", "she", "my", "your", "our", "their", "can", "may",
-})
+_STOP_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "and",
+        "but",
+        "or",
+        "not",
+        "this",
+        "that",
+        "it",
+        "its",
+        "we",
+        "they",
+        "you",
+        "he",
+        "she",
+        "my",
+        "your",
+        "our",
+        "their",
+        "can",
+        "may",
+    }
+)
 
 _WORD_RE = re.compile(r"[a-zA-Z0-9]+")
 
@@ -50,9 +95,7 @@ class ClusterResult:
 def _tokenize(text: str) -> list[str]:
     """Tokenize text into lowercase words, removing stop words."""
     return [
-        w.lower()
-        for w in _WORD_RE.findall(text)
-        if len(w) > 1 and w.lower() not in _STOP_WORDS
+        w.lower() for w in _WORD_RE.findall(text) if len(w) > 1 and w.lower() not in _STOP_WORDS
     ]
 
 

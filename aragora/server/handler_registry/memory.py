@@ -42,9 +42,7 @@ KnowledgeVelocityHandler = _safe_import(
 )
 
 # KM gap detection handler
-KnowledgeGapHandler = _safe_import(
-    "aragora.server.handlers.knowledge.gaps", "KnowledgeGapHandler"
-)
+KnowledgeGapHandler = _safe_import("aragora.server.handlers.knowledge.gaps", "KnowledgeGapHandler")
 
 # =============================================================================
 # Knowledge Handler Imports

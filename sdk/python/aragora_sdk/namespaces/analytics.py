@@ -782,7 +782,9 @@ class AsyncAnalyticsAPI:
             params["workspace_id"] = workspace_id
         if time_range:
             params["time_range"] = time_range
-        return await self._client.request("GET", "/api/analytics/cost/breakdown", params=params or None)
+        return await self._client.request(
+            "GET", "/api/analytics/cost/breakdown", params=params or None
+        )
 
     # ===========================================================================
     # Flip Detection

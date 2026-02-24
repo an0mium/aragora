@@ -31,6 +31,7 @@ import sys
 
 # --- API key check -------------------------------------------------------
 
+
 def _check_api_keys() -> None:
     """Exit early with a helpful message if no API keys are configured."""
     keys = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY")
@@ -45,6 +46,7 @@ def _check_api_keys() -> None:
 
 
 # --- Workflow definition --------------------------------------------------
+
 
 def build_workflow(topic: str, rounds: int = 3):
     """Build a 3-step gather-debate-report workflow definition.
@@ -145,6 +147,7 @@ def build_workflow(topic: str, rounds: int = 3):
 
 # --- Event callback -------------------------------------------------------
 
+
 def on_workflow_event(event_type: str, payload: dict) -> None:
     """Log workflow events to stderr for visibility."""
     step_name = payload.get("step_name", "")
@@ -161,6 +164,7 @@ def on_workflow_event(event_type: str, payload: dict) -> None:
 
 
 # --- Execution ------------------------------------------------------------
+
 
 async def run_workflow(topic: str, rounds: int = 3) -> dict:
     """Build and execute the gather-debate-report workflow."""
@@ -205,9 +209,7 @@ async def run_workflow(topic: str, rounds: int = 3) -> dict:
                 "name": step.step_name,
                 "status": step.status.value,
                 "duration_ms": step.duration_ms,
-                "output_preview": (
-                    str(step.output)[:300] if step.output else None
-                ),
+                "output_preview": (str(step.output)[:300] if step.output else None),
             }
             for step in result.steps
         ],
@@ -219,6 +221,7 @@ async def run_workflow(topic: str, rounds: int = 3) -> dict:
 
 
 # --- CLI entry point ------------------------------------------------------
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -254,10 +257,10 @@ async def main() -> None:
     else:
         status = "SUCCESS" if result["success"] else "FAILED"
         duration = result["total_duration_ms"] / 1000
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"  Workflow: {status} ({duration:.1f}s)")
         print(f"  Topic: {args.topic}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         for step in result["steps"]:
             icon = "[OK]" if step["status"] == "completed" else "[!!]"

@@ -255,23 +255,27 @@ async def get_compliance_status(
         raw_controls = status_data.get("controls", [])
         for ctrl in raw_controls:
             if isinstance(ctrl, dict):
-                controls.append(ControlStatus(
-                    control_id=ctrl.get("control_id", ctrl.get("id", "")),
-                    name=ctrl.get("name", ""),
-                    description=ctrl.get("description", ""),
-                    status=ctrl.get("status", "not_assessed"),
-                    evidence_count=ctrl.get("evidence_count", 0),
-                    last_assessed=ctrl.get("last_assessed"),
-                ))
+                controls.append(
+                    ControlStatus(
+                        control_id=ctrl.get("control_id", ctrl.get("id", "")),
+                        name=ctrl.get("name", ""),
+                        description=ctrl.get("description", ""),
+                        status=ctrl.get("status", "not_assessed"),
+                        evidence_count=ctrl.get("evidence_count", 0),
+                        last_assessed=ctrl.get("last_assessed"),
+                    )
+                )
             else:
-                controls.append(ControlStatus(
-                    control_id=getattr(ctrl, "control_id", getattr(ctrl, "id", "")),
-                    name=getattr(ctrl, "name", ""),
-                    description=getattr(ctrl, "description", ""),
-                    status=getattr(ctrl, "status", "not_assessed"),
-                    evidence_count=getattr(ctrl, "evidence_count", 0),
-                    last_assessed=getattr(ctrl, "last_assessed", None),
-                ))
+                controls.append(
+                    ControlStatus(
+                        control_id=getattr(ctrl, "control_id", getattr(ctrl, "id", "")),
+                        name=getattr(ctrl, "name", ""),
+                        description=getattr(ctrl, "description", ""),
+                        status=getattr(ctrl, "status", "not_assessed"),
+                        evidence_count=getattr(ctrl, "evidence_count", 0),
+                        last_assessed=getattr(ctrl, "last_assessed", None),
+                    )
+                )
 
         passing = sum(1 for c in controls if c.status == "passing")
         failing = sum(1 for c in controls if c.status == "failing")
@@ -309,7 +313,9 @@ async def get_compliance_status(
 async def list_compliance_controls(
     request: Request,
     framework: str = Query("soc2", description="Compliance framework"),
-    status: str | None = Query(None, description="Filter by status (passing, failing, not_assessed)"),
+    status: str | None = Query(
+        None, description="Filter by status (passing, failing, not_assessed)"
+    ),
     limit: int = Query(50, ge=1, le=200, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     fw=Depends(get_compliance_framework),
@@ -322,7 +328,11 @@ async def list_compliance_controls(
     """
     if not fw:
         return ControlListResponse(
-            controls=[], total=0, framework=framework, limit=limit, offset=offset,
+            controls=[],
+            total=0,
+            framework=framework,
+            limit=limit,
+            offset=offset,
         )
 
     try:
@@ -345,29 +355,33 @@ async def list_compliance_controls(
                 ctrl_status = ctrl.get("status", "not_assessed")
                 if status and ctrl_status != status:
                     continue
-                controls.append(ControlStatus(
-                    control_id=ctrl.get("control_id", ctrl.get("id", "")),
-                    name=ctrl.get("name", ""),
-                    description=ctrl.get("description", ""),
-                    status=ctrl_status,
-                    evidence_count=ctrl.get("evidence_count", 0),
-                    last_assessed=ctrl.get("last_assessed"),
-                ))
+                controls.append(
+                    ControlStatus(
+                        control_id=ctrl.get("control_id", ctrl.get("id", "")),
+                        name=ctrl.get("name", ""),
+                        description=ctrl.get("description", ""),
+                        status=ctrl_status,
+                        evidence_count=ctrl.get("evidence_count", 0),
+                        last_assessed=ctrl.get("last_assessed"),
+                    )
+                )
             else:
                 ctrl_status = getattr(ctrl, "status", "not_assessed")
                 if status and ctrl_status != status:
                     continue
-                controls.append(ControlStatus(
-                    control_id=getattr(ctrl, "control_id", getattr(ctrl, "id", "")),
-                    name=getattr(ctrl, "name", ""),
-                    description=getattr(ctrl, "description", ""),
-                    status=ctrl_status,
-                    evidence_count=getattr(ctrl, "evidence_count", 0),
-                    last_assessed=getattr(ctrl, "last_assessed", None),
-                ))
+                controls.append(
+                    ControlStatus(
+                        control_id=getattr(ctrl, "control_id", getattr(ctrl, "id", "")),
+                        name=getattr(ctrl, "name", ""),
+                        description=getattr(ctrl, "description", ""),
+                        status=ctrl_status,
+                        evidence_count=getattr(ctrl, "evidence_count", 0),
+                        last_assessed=getattr(ctrl, "last_assessed", None),
+                    )
+                )
 
         total = len(controls)
-        paginated = controls[offset: offset + limit]
+        paginated = controls[offset : offset + limit]
 
         return ControlListResponse(
             controls=paginated,
@@ -404,23 +418,28 @@ async def list_policies(
 
         if hasattr(fw, "list_policies"):
             policies_raw = fw.list_policies(
-                limit=limit, offset=offset, framework=framework, status=status,
+                limit=limit,
+                offset=offset,
+                framework=framework,
+                status=status,
             )
         elif hasattr(fw, "get_policies"):
             all_policies = fw.get_policies()
             if framework:
                 all_policies = [
-                    p for p in all_policies
+                    p
+                    for p in all_policies
                     if (p.get("framework") if isinstance(p, dict) else getattr(p, "framework", ""))
                     == framework
                 ]
             if status:
                 all_policies = [
-                    p for p in all_policies
+                    p
+                    for p in all_policies
                     if (p.get("status") if isinstance(p, dict) else getattr(p, "status", ""))
                     == status
                 ]
-            policies_raw = all_policies[offset: offset + limit]
+            policies_raw = all_policies[offset : offset + limit]
 
         # Get total count
         if hasattr(fw, "count_policies"):
@@ -432,29 +451,35 @@ async def list_policies(
         policies: list[PolicySummary] = []
         for p in policies_raw:
             if isinstance(p, dict):
-                policies.append(PolicySummary(
-                    id=p.get("id", p.get("policy_id", "")),
-                    name=p.get("name", ""),
-                    description=p.get("description", ""),
-                    framework=p.get("framework", ""),
-                    status=p.get("status", "active"),
-                    enforcement=p.get("enforcement", "enforced"),
-                    created_at=p.get("created_at"),
-                    updated_at=p.get("updated_at"),
-                ))
+                policies.append(
+                    PolicySummary(
+                        id=p.get("id", p.get("policy_id", "")),
+                        name=p.get("name", ""),
+                        description=p.get("description", ""),
+                        framework=p.get("framework", ""),
+                        status=p.get("status", "active"),
+                        enforcement=p.get("enforcement", "enforced"),
+                        created_at=p.get("created_at"),
+                        updated_at=p.get("updated_at"),
+                    )
+                )
             else:
-                policies.append(PolicySummary(
-                    id=getattr(p, "id", getattr(p, "policy_id", "")),
-                    name=getattr(p, "name", ""),
-                    description=getattr(p, "description", ""),
-                    framework=getattr(p, "framework", ""),
-                    status=getattr(p, "status", "active"),
-                    enforcement=getattr(p, "enforcement", "enforced"),
-                    created_at=str(getattr(p, "created_at", ""))
-                    if hasattr(p, "created_at") else None,
-                    updated_at=str(getattr(p, "updated_at", ""))
-                    if hasattr(p, "updated_at") else None,
-                ))
+                policies.append(
+                    PolicySummary(
+                        id=getattr(p, "id", getattr(p, "policy_id", "")),
+                        name=getattr(p, "name", ""),
+                        description=getattr(p, "description", ""),
+                        framework=getattr(p, "framework", ""),
+                        status=getattr(p, "status", "active"),
+                        enforcement=getattr(p, "enforcement", "enforced"),
+                        created_at=str(getattr(p, "created_at", ""))
+                        if hasattr(p, "created_at")
+                        else None,
+                        updated_at=str(getattr(p, "updated_at", ""))
+                        if hasattr(p, "updated_at")
+                        else None,
+                    )
+                )
 
         return PolicyListResponse(
             policies=policies,
@@ -538,7 +563,9 @@ async def generate_compliance_artifact(
 
         logger.info(
             "Generated compliance artifact: %s (framework=%s, type=%s)",
-            artifact_id, body.framework, body.artifact_type,
+            artifact_id,
+            body.framework,
+            body.artifact_type,
         )
 
         return GenerateArtifactResponse(
@@ -598,23 +625,29 @@ async def query_audit_log(
             # Apply filters
             if action:
                 all_entries = [
-                    e for e in all_entries
+                    e
+                    for e in all_entries
                     if (e.get("action") if isinstance(e, dict) else getattr(e, "action", ""))
                     == action
                 ]
             if actor:
                 all_entries = [
-                    e for e in all_entries
-                    if (e.get("actor") if isinstance(e, dict) else getattr(e, "actor", ""))
-                    == actor
+                    e
+                    for e in all_entries
+                    if (e.get("actor") if isinstance(e, dict) else getattr(e, "actor", "")) == actor
                 ]
             if resource_type:
                 all_entries = [
-                    e for e in all_entries
-                    if (e.get("resource_type") if isinstance(e, dict) else getattr(e, "resource_type", ""))
+                    e
+                    for e in all_entries
+                    if (
+                        e.get("resource_type")
+                        if isinstance(e, dict)
+                        else getattr(e, "resource_type", "")
+                    )
                     == resource_type
                 ]
-            entries_raw = all_entries[offset: offset + limit]
+            entries_raw = all_entries[offset : offset + limit]
 
         # Get total count
         if hasattr(store, "count"):
@@ -626,25 +659,29 @@ async def query_audit_log(
         entries: list[AuditLogEntry] = []
         for entry in entries_raw:
             if isinstance(entry, dict):
-                entries.append(AuditLogEntry(
-                    id=entry.get("id", entry.get("entry_id", "")),
-                    timestamp=entry.get("timestamp", ""),
-                    action=entry.get("action", ""),
-                    actor=entry.get("actor", ""),
-                    resource_type=entry.get("resource_type", ""),
-                    resource_id=entry.get("resource_id", ""),
-                    details=entry.get("details", {}),
-                ))
+                entries.append(
+                    AuditLogEntry(
+                        id=entry.get("id", entry.get("entry_id", "")),
+                        timestamp=entry.get("timestamp", ""),
+                        action=entry.get("action", ""),
+                        actor=entry.get("actor", ""),
+                        resource_type=entry.get("resource_type", ""),
+                        resource_id=entry.get("resource_id", ""),
+                        details=entry.get("details", {}),
+                    )
+                )
             else:
-                entries.append(AuditLogEntry(
-                    id=getattr(entry, "id", getattr(entry, "entry_id", "")),
-                    timestamp=str(getattr(entry, "timestamp", "")),
-                    action=getattr(entry, "action", ""),
-                    actor=getattr(entry, "actor", ""),
-                    resource_type=getattr(entry, "resource_type", ""),
-                    resource_id=getattr(entry, "resource_id", ""),
-                    details=getattr(entry, "details", {}),
-                ))
+                entries.append(
+                    AuditLogEntry(
+                        id=getattr(entry, "id", getattr(entry, "entry_id", "")),
+                        timestamp=str(getattr(entry, "timestamp", "")),
+                        action=getattr(entry, "action", ""),
+                        actor=getattr(entry, "actor", ""),
+                        resource_type=getattr(entry, "resource_type", ""),
+                        resource_id=getattr(entry, "resource_id", ""),
+                        details=getattr(entry, "details", {}),
+                    )
+                )
 
         return AuditLogResponse(
             entries=entries,
@@ -690,9 +727,7 @@ class ComplianceCheckRequest(BaseModel):
     """Request body for POST /compliance/check."""
 
     content: str = Field(..., min_length=1, description="Content to check for compliance")
-    frameworks: list[str] | None = Field(
-        None, description="Framework IDs to check (None = all)"
-    )
+    frameworks: list[str] | None = Field(None, description="Framework IDs to check (None = all)")
     min_severity: str = Field("low", description="Minimum severity to report")
 
 
@@ -793,25 +828,29 @@ async def list_frameworks(
         raw_frameworks = mgr.list_frameworks()
         for f in raw_frameworks:
             if isinstance(f, dict):
-                frameworks.append(FrameworkDetail(
-                    id=f.get("id", ""),
-                    name=f.get("name", ""),
-                    description=f.get("description", ""),
-                    version=f.get("version", ""),
-                    category=f.get("category", ""),
-                    rule_count=f.get("rule_count", 0),
-                    applicable_verticals=f.get("applicable_verticals", []),
-                ))
+                frameworks.append(
+                    FrameworkDetail(
+                        id=f.get("id", ""),
+                        name=f.get("name", ""),
+                        description=f.get("description", ""),
+                        version=f.get("version", ""),
+                        category=f.get("category", ""),
+                        rule_count=f.get("rule_count", 0),
+                        applicable_verticals=f.get("applicable_verticals", []),
+                    )
+                )
             else:
-                frameworks.append(FrameworkDetail(
-                    id=getattr(f, "id", ""),
-                    name=getattr(f, "name", ""),
-                    description=getattr(f, "description", ""),
-                    version=getattr(f, "version", ""),
-                    category=getattr(f, "category", ""),
-                    rule_count=len(getattr(f, "rules", [])),
-                    applicable_verticals=getattr(f, "applicable_verticals", []),
-                ))
+                frameworks.append(
+                    FrameworkDetail(
+                        id=getattr(f, "id", ""),
+                        name=getattr(f, "name", ""),
+                        description=getattr(f, "description", ""),
+                        version=getattr(f, "version", ""),
+                        category=getattr(f, "category", ""),
+                        rule_count=len(getattr(f, "rules", [])),
+                        applicable_verticals=getattr(f, "applicable_verticals", []),
+                    )
+                )
 
         return FrameworkListResponse(frameworks=frameworks, total=len(frameworks))
 
@@ -820,9 +859,7 @@ async def list_frameworks(
         raise HTTPException(status_code=500, detail="Failed to list frameworks")
 
 
-@router.get(
-    "/compliance/frameworks/{framework_id}", response_model=FrameworkDetail
-)
+@router.get("/compliance/frameworks/{framework_id}", response_model=FrameworkDetail)
 async def get_framework_detail(
     framework_id: str,
     fw=Depends(get_compliance_framework),
@@ -979,64 +1016,59 @@ async def list_violations(
         violations: list[ViolationEntry] = []
         for v in raw_violations:
             if isinstance(v, dict):
-                violations.append(ViolationEntry(
-                    id=v.get("id", v.get("violation_id", "")),
-                    framework=v.get("framework", ""),
-                    rule_id=v.get("rule_id", ""),
-                    severity=v.get("severity", ""),
-                    description=v.get("description", ""),
-                    resource_type=v.get("resource_type", ""),
-                    resource_id=v.get("resource_id", ""),
-                    detected_at=v.get("detected_at"),
-                    status=v.get("status", "active"),
-                ))
+                violations.append(
+                    ViolationEntry(
+                        id=v.get("id", v.get("violation_id", "")),
+                        framework=v.get("framework", ""),
+                        rule_id=v.get("rule_id", ""),
+                        severity=v.get("severity", ""),
+                        description=v.get("description", ""),
+                        resource_type=v.get("resource_type", ""),
+                        resource_id=v.get("resource_id", ""),
+                        detected_at=v.get("detected_at"),
+                        status=v.get("status", "active"),
+                    )
+                )
             else:
                 sev = getattr(v, "severity", "")
-                violations.append(ViolationEntry(
-                    id=getattr(v, "id", getattr(v, "violation_id", "")),
-                    framework=getattr(v, "framework", ""),
-                    rule_id=getattr(v, "rule_id", ""),
-                    severity=sev.value if hasattr(sev, "value") else str(sev),
-                    description=getattr(v, "description", ""),
-                    resource_type=getattr(v, "resource_type", ""),
-                    resource_id=getattr(v, "resource_id", ""),
-                    detected_at=str(getattr(v, "detected_at", ""))
-                    if hasattr(v, "detected_at") else None,
-                    status=getattr(v, "status", "active"),
-                ))
+                violations.append(
+                    ViolationEntry(
+                        id=getattr(v, "id", getattr(v, "violation_id", "")),
+                        framework=getattr(v, "framework", ""),
+                        rule_id=getattr(v, "rule_id", ""),
+                        severity=sev.value if hasattr(sev, "value") else str(sev),
+                        description=getattr(v, "description", ""),
+                        resource_type=getattr(v, "resource_type", ""),
+                        resource_id=getattr(v, "resource_id", ""),
+                        detected_at=str(getattr(v, "detected_at", ""))
+                        if hasattr(v, "detected_at")
+                        else None,
+                        status=getattr(v, "status", "active"),
+                    )
+                )
 
         total = len(violations)
         if hasattr(fw, "count_violations"):
-            total = fw.count_violations(
-                framework=framework, severity=severity, status=status
-            )
+            total = fw.count_violations(framework=framework, severity=severity, status=status)
 
-        return ViolationsResponse(
-            violations=violations, total=total, limit=limit, offset=offset
-        )
+        return ViolationsResponse(violations=violations, total=total, limit=limit, offset=offset)
 
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error listing violations: %s", e)
         raise HTTPException(status_code=500, detail="Failed to list violations")
 
 
-@router.get(
-    "/compliance/report/{debate_id}", response_model=ComplianceReportResponse
-)
+@router.get("/compliance/report/{debate_id}", response_model=ComplianceReportResponse)
 async def get_compliance_report(
     debate_id: str,
-    frameworks: str | None = Query(
-        None, description="Comma-separated framework IDs to assess"
-    ),
+    frameworks: str | None = Query(None, description="Comma-separated framework IDs to assess"),
     fw=Depends(get_compliance_framework),
 ) -> ComplianceReportResponse:
     """Generate a compliance report for a specific debate."""
     from datetime import datetime, timezone
 
     try:
-        framework_list = (
-            [f.strip() for f in frameworks.split(",")] if frameworks else None
-        )
+        framework_list = [f.strip() for f in frameworks.split(",")] if frameworks else None
 
         debate_content = ""
         try:
@@ -1046,9 +1078,7 @@ async def get_compliance_report(
             debate_data = storage.get(debate_id)
             if debate_data:
                 if isinstance(debate_data, dict):
-                    debate_content = str(
-                        debate_data.get("result", debate_data.get("task", ""))
-                    )
+                    debate_content = str(debate_data.get("result", debate_data.get("task", "")))
                 elif hasattr(debate_data, "result"):
                     debate_content = str(getattr(debate_data, "result", ""))
         except (ImportError, RuntimeError, OSError, ValueError, TypeError) as e:
@@ -1064,21 +1094,21 @@ async def get_compliance_report(
             issues: list[ComplianceIssueDetail] = []
             for i in getattr(result, "issues", []):
                 sev = getattr(i, "severity", "")
-                issues.append(ComplianceIssueDetail(
-                    framework=getattr(i, "framework", ""),
-                    rule_id=getattr(i, "rule_id", ""),
-                    severity=sev.value if hasattr(sev, "value") else str(sev),
-                    description=getattr(i, "description", ""),
-                    recommendation=getattr(i, "recommendation", ""),
-                    matched_text=getattr(i, "matched_text", ""),
-                    line_number=getattr(i, "line_number", None),
-                ))
+                issues.append(
+                    ComplianceIssueDetail(
+                        framework=getattr(i, "framework", ""),
+                        rule_id=getattr(i, "rule_id", ""),
+                        severity=sev.value if hasattr(sev, "value") else str(sev),
+                        description=getattr(i, "description", ""),
+                        recommendation=getattr(i, "recommendation", ""),
+                        matched_text=getattr(i, "matched_text", ""),
+                        line_number=getattr(i, "line_number", None),
+                    )
+                )
 
             return ComplianceReportResponse(
                 debate_id=debate_id,
-                frameworks_assessed=getattr(
-                    result, "frameworks_checked", framework_list or []
-                ),
+                frameworks_assessed=getattr(result, "frameworks_checked", framework_list or []),
                 overall_compliant=getattr(result, "compliant", True),
                 score=getattr(result, "score", 1.0),
                 issue_count=len(issues),
@@ -1095,9 +1125,5 @@ async def get_compliance_report(
         )
 
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(
-            "Error generating compliance report for %s: %s", debate_id, e
-        )
-        raise HTTPException(
-            status_code=500, detail="Failed to generate compliance report"
-        )
+        logger.exception("Error generating compliance report for %s: %s", debate_id, e)
+        raise HTTPException(status_code=500, detail="Failed to generate compliance report")

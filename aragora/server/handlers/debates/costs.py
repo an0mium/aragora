@@ -21,10 +21,13 @@ from ..openapi_decorator import api_endpoint
 try:
     from aragora.rbac.decorators import require_permission
 except ImportError:  # pragma: no cover
+
     def require_permission(*_a, **_kw):  # type: ignore[misc]
         def _noop(fn):  # type: ignore[no-untyped-def]
             return fn
+
         return _noop
+
 
 logger = logging.getLogger(__name__)
 
@@ -145,18 +148,20 @@ class CostsMixin:
             logger.debug("Global CostTracker unavailable: %s", exc)
 
         # No cost data available - return empty summary
-        return json_response({
-            "data": {
-                "debate_id": debate_id,
-                "total_cost_usd": "0",
-                "total_tokens_in": 0,
-                "total_tokens_out": 0,
-                "total_calls": 0,
-                "per_agent": {},
-                "per_round": {},
-                "model_usage": {},
+        return json_response(
+            {
+                "data": {
+                    "debate_id": debate_id,
+                    "total_cost_usd": "0",
+                    "total_tokens_in": 0,
+                    "total_tokens_out": 0,
+                    "total_calls": 0,
+                    "per_agent": {},
+                    "per_round": {},
+                    "model_usage": {},
+                }
             }
-        })
+        )
 
 
 __all__ = ["CostsMixin"]

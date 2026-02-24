@@ -55,6 +55,7 @@ class TestEmailPrioritize:
             assert call_json["sender"] == "newsletter@example.com"
             client.close()
 
+
 class TestAsyncEmailDebate:
     """Tests for async email debate methods."""
 
@@ -78,4 +79,3 @@ class TestAsyncEmailDebate:
             )
             assert result["priority"] == "critical"
             await client.close()
-

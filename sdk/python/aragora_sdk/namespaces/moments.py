@@ -158,7 +158,6 @@ class MomentsAPI:
             params=params if params else None,
         )
 
-
     def get_recent(
         self,
         limit: int | None = None,

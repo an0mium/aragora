@@ -562,11 +562,7 @@ _SESSION_TTL = 1800.0  # 30 minutes in seconds
 def _cleanup_expired_sessions() -> None:
     """Remove sessions that have exceeded the TTL."""
     now = time.monotonic()
-    expired = [
-        sid
-        for sid, ts in _oracle_session_timestamps.items()
-        if now - ts > _SESSION_TTL
-    ]
+    expired = [sid for sid, ts in _oracle_session_timestamps.items() if now - ts > _SESSION_TTL]
     for sid in expired:
         _oracle_sessions.pop(sid, None)
         _oracle_session_timestamps.pop(sid, None)
@@ -587,9 +583,7 @@ def _get_session_history(session_id: str | None) -> list[dict[str, str]]:
     return _oracle_sessions.get(session_id, [])
 
 
-def _append_session_turn(
-    session_id: str | None, role: str, content: str
-) -> None:
+def _append_session_turn(session_id: str | None, role: str, content: str) -> None:
     """Append a turn to session history, pruning to max turns."""
     if not session_id:
         return
@@ -634,9 +628,7 @@ def _filter_oracle_response(text: str) -> str:
     return text
 
 
-def _build_oracle_prompt(
-    mode: str, question: str, *, session_id: str | None = None
-) -> str:
+def _build_oracle_prompt(mode: str, question: str, *, session_id: str | None = None) -> str:
     """Build the Oracle prompt server-side using focused essay excerpts.
 
     Uses ~3K tokens of essay context (thesis + P-doom + practical advice +
@@ -930,11 +922,7 @@ def _build_tentacle_prompt(
 
     # Inject model-specific essay summary if available
     summary_block = ""
-    if (
-        model_name
-        and summary_depth != "none"
-        and model_name in _MODEL_SUMMARIES
-    ):
+    if model_name and summary_depth != "none" and model_name in _MODEL_SUMMARIES:
         summary = _MODEL_SUMMARIES[model_name]
         if summary_depth == "light":
             summary = summary[:32000]  # ~8K tokens
@@ -944,11 +932,7 @@ def _build_tentacle_prompt(
             "Draw on this analysis ONLY when it genuinely illuminates the question.\n"
         )
 
-    return (
-        f"{context}{summary_block}\n\n"
-        f"YOUR ROLE: {role_prompt}\n\n"
-        f"The question: {question}"
-    )
+    return f"{context}{summary_block}\n\nYOUR ROLE: {role_prompt}\n\nThe question: {question}"
 
 
 def _try_oracle_tentacles(
@@ -1719,7 +1703,9 @@ class PlaygroundHandler(BaseHandler):
 
         if not has_api_keys:
             # Fall back to mock debate with a note
-            result = self._run_debate(topic, rounds, agent_count, question=question, mode=mode, session_id=session_id)
+            result = self._run_debate(
+                topic, rounds, agent_count, question=question, mode=mode, session_id=session_id
+            )
             if result is None:
                 return error_response("Playground unavailable", 503)
             # Inject mock fallback info into the response body
@@ -1755,7 +1741,9 @@ class PlaygroundHandler(BaseHandler):
                 "Live debate returned %d, falling back to mock debate",
                 live_result.status_code,
             )
-            mock_result = self._run_debate(topic, rounds, agent_count, question=question, mode=mode, session_id=session_id)
+            mock_result = self._run_debate(
+                topic, rounds, agent_count, question=question, mode=mode, session_id=session_id
+            )
             if mock_result is not None:
                 import json as _json
 

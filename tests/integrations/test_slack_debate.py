@@ -38,9 +38,7 @@ def _make_debate_result(**kwargs):
     result = MagicMock()
     result.debate_id = kwargs.get("debate_id", "debate-abc123")
     result.task = kwargs.get("task", "Should we adopt microservices?")
-    result.final_answer = kwargs.get(
-        "final_answer", "Yes, adopt a gradual migration strategy."
-    )
+    result.final_answer = kwargs.get("final_answer", "Yes, adopt a gradual migration strategy.")
     result.consensus_reached = kwargs.get("consensus_reached", True)
     result.confidence = kwargs.get("confidence", 0.85)
     result.rounds_used = kwargs.get("rounds_used", 3)
@@ -211,9 +209,7 @@ class TestBuildConsensusBlocks:
         assert "gemini" in str(blocks)
 
     def test_includes_final_answer_when_consensus(self):
-        result = _make_debate_result(
-            consensus_reached=True, final_answer="Use caching."
-        )
+        result = _make_debate_result(consensus_reached=True, final_answer="Use caching.")
         blocks = _build_consensus_blocks(result)
         assert "Use caching." in str(blocks)
         assert "Final Decision" in str(blocks)
@@ -224,9 +220,7 @@ class TestBuildConsensusBlocks:
         assert "Final Decision" not in str(blocks)
 
     def test_long_final_answer_truncated(self):
-        result = _make_debate_result(
-            consensus_reached=True, final_answer="a" * 600
-        )
+        result = _make_debate_result(consensus_reached=True, final_answer="a" * 600)
         blocks = _build_consensus_blocks(result)
         block_text = str(blocks)
         assert "..." in block_text
@@ -292,9 +286,7 @@ class TestPostToThread:
     async def test_slack_api_error(self, lifecycle):
         mock_resp = MagicMock()
         mock_resp.status = 200
-        mock_resp.json = AsyncMock(
-            return_value={"ok": False, "error": "channel_not_found"}
-        )
+        mock_resp.json = AsyncMock(return_value={"ok": False, "error": "channel_not_found"})
 
         lifecycle._session = _make_aiohttp_session(mock_resp)
 
@@ -325,9 +317,7 @@ class TestPostToThread:
 class TestStartDebateFromThread:
     @pytest.mark.asyncio
     async def test_returns_debate_id(self, lifecycle):
-        with patch.object(
-            lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True
-        ):
+        with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True):
             debate_id = await lifecycle.start_debate_from_thread(
                 channel_id="C01ABC",
                 thread_ts="1234567890.123456",
@@ -354,12 +344,8 @@ class TestStartDebateFromThread:
 
     @pytest.mark.asyncio
     async def test_registers_origin(self, lifecycle):
-        with patch.object(
-            lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True
-        ):
-            with patch(
-                "aragora.server.debate_origin.register_debate_origin"
-            ) as mock_register:
+        with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True):
+            with patch("aragora.server.debate_origin.register_debate_origin") as mock_register:
                 await lifecycle.start_debate_from_thread(
                     channel_id="C01ABC",
                     thread_ts="123.456",
@@ -375,9 +361,7 @@ class TestStartDebateFromThread:
 
     @pytest.mark.asyncio
     async def test_origin_registration_failure_does_not_raise(self, lifecycle):
-        with patch.object(
-            lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True
-        ):
+        with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True):
             with patch(
                 "aragora.server.debate_origin.register_debate_origin",
                 side_effect=RuntimeError("DB error"),
@@ -404,7 +388,11 @@ class TestStartDebateFromThread:
                 config=config,
             )
             # Blocks should include the custom agent list
-            call_blocks = mock_post.call_args[0][3] if len(mock_post.call_args[0]) > 3 else mock_post.call_args[1].get("blocks")
+            call_blocks = (
+                mock_post.call_args[0][3]
+                if len(mock_post.call_args[0]) > 3
+                else mock_post.call_args[1].get("blocks")
+            )
             block_text = str(call_blocks)
             assert "gemini" in block_text
 
@@ -430,9 +418,7 @@ class TestPostRoundUpdate:
 
     @pytest.mark.asyncio
     async def test_returns_false_on_failure(self, lifecycle):
-        with patch.object(
-            lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=False
-        ):
+        with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=False):
             result = await lifecycle.post_round_update(
                 channel_id="C01ABC",
                 thread_ts="123.456",
@@ -479,9 +465,7 @@ class TestPostConsensus:
 
     @pytest.mark.asyncio
     async def test_returns_false_on_failure(self, lifecycle):
-        with patch.object(
-            lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=False
-        ):
+        with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=False):
             result_obj = _make_debate_result()
             success = await lifecycle.post_consensus(
                 channel_id="C01ABC",
@@ -852,9 +836,7 @@ class TestPostReceipt:
 
     @pytest.mark.asyncio
     async def test_returns_false_on_failure(self, lifecycle):
-        with patch.object(
-            lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=False
-        ):
+        with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=False):
             receipt = _make_receipt()
             result = await lifecycle.post_receipt(
                 channel_id="C01ABC",
@@ -887,9 +869,7 @@ class TestPostError:
 
     @pytest.mark.asyncio
     async def test_returns_false_on_failure(self, lifecycle):
-        with patch.object(
-            lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=False
-        ):
+        with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=False):
             result = await lifecycle.post_error(
                 channel_id="C01ABC",
                 thread_ts="123.456",
@@ -923,15 +903,11 @@ class TestRunDebate:
 
         _mod.__getattr__ = _blocking_getattr
         try:
-            with patch.object(
-                lifecycle, "post_error", new_callable=AsyncMock
-            ) as mock_error:
+            with patch.object(lifecycle, "post_error", new_callable=AsyncMock) as mock_error:
                 with patch.object(
                     lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True
                 ):
-                    result = await lifecycle.run_debate(
-                        "C01ABC", "123.456", "d-123", "Topic"
-                    )
+                    result = await lifecycle.run_debate("C01ABC", "123.456", "d-123", "Topic")
                     assert result is None
                     mock_error.assert_called_once()
         finally:
@@ -954,9 +930,7 @@ class TestRunDebate:
             with patch.object(
                 lifecycle, "post_consensus", new_callable=AsyncMock, return_value=True
             ) as mock_consensus:
-                with patch(
-                    "aragora.Arena", return_value=mock_arena
-                ):
+                with patch("aragora.Arena", return_value=mock_arena):
                     with patch("aragora.Environment"):
                         with patch("aragora.DebateProtocol"):
                             result = await lifecycle.run_debate(
@@ -977,18 +951,16 @@ class TestRunDebate:
         mock_arena.run = AsyncMock(return_value=mock_result)
 
         with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True):
-            with patch.object(lifecycle, "post_consensus", new_callable=AsyncMock, return_value=True):
+            with patch.object(
+                lifecycle, "post_consensus", new_callable=AsyncMock, return_value=True
+            ):
                 with patch.object(
                     lifecycle, "post_receipt", new_callable=AsyncMock, return_value=True
                 ) as mock_post_receipt:
-                    with patch(
-                        "aragora.Arena", return_value=mock_arena
-                    ):
+                    with patch("aragora.Arena", return_value=mock_arena):
                         with patch("aragora.Environment"):
                             with patch("aragora.DebateProtocol"):
-                                await lifecycle.run_debate(
-                                    "C01ABC", "123.456", "d-123", "Topic"
-                                )
+                                await lifecycle.run_debate("C01ABC", "123.456", "d-123", "Topic")
                                 mock_post_receipt.assert_called_once()
 
     @pytest.mark.asyncio
@@ -1005,18 +977,16 @@ class TestRunDebate:
         mock_arena.run = AsyncMock(return_value=mock_result)
 
         with patch.object(lifecycle, "_post_to_thread", new_callable=AsyncMock, return_value=True):
-            with patch.object(lifecycle, "post_consensus", new_callable=AsyncMock, return_value=True):
+            with patch.object(
+                lifecycle, "post_consensus", new_callable=AsyncMock, return_value=True
+            ):
                 with patch.object(
                     lifecycle, "post_round_update", new_callable=AsyncMock, return_value=True
                 ) as mock_round:
-                    with patch(
-                        "aragora.Arena", return_value=mock_arena
-                    ):
+                    with patch("aragora.Arena", return_value=mock_arena):
                         with patch("aragora.Environment"):
                             with patch("aragora.DebateProtocol"):
-                                await lifecycle.run_debate(
-                                    "C01ABC", "123.456", "d-123", "Topic"
-                                )
+                                await lifecycle.run_debate("C01ABC", "123.456", "d-123", "Topic")
                                 assert mock_round.call_count == 2
 
 
@@ -1192,9 +1162,7 @@ class TestRunDebateBackground:
             new_callable=AsyncMock,
             side_effect=RuntimeError("boom"),
         ):
-            with patch.object(
-                lifecycle, "post_error", new_callable=AsyncMock
-            ) as mock_error:
+            with patch.object(lifecycle, "post_error", new_callable=AsyncMock) as mock_error:
                 await lifecycle._run_debate_background(
                     "C01ABC", "123.456", "d-err-123", "Error topic"
                 )

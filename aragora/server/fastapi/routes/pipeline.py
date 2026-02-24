@@ -37,8 +37,12 @@ router = APIRouter(prefix="/api/v2", tags=["Pipeline"])
 class PipelineRunCreate(BaseModel):
     """Request body for POST /pipeline/runs."""
 
-    idea: str = Field(..., min_length=1, max_length=5000, description="Idea or goal text to process")
-    config: dict[str, Any] | None = Field(None, description="Optional pipeline configuration overrides")
+    idea: str = Field(
+        ..., min_length=1, max_length=5000, description="Idea or goal text to process"
+    )
+    config: dict[str, Any] | None = Field(
+        None, description="Optional pipeline configuration overrides"
+    )
 
 
 class PipelineStageResponse(BaseModel):
@@ -501,8 +505,7 @@ async def approve_pipeline_stage(
 
         # Check if all stages are completed
         all_completed = all(
-            s.get("status") in ("completed", "skipped")
-            for s in run_data.get("stages", [])
+            s.get("status") in ("completed", "skipped") for s in run_data.get("stages", [])
         )
         if all_completed:
             run_data["status"] = "completed"

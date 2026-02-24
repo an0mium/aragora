@@ -285,11 +285,14 @@ class TestAragoraClientFromEnv:
 
     def test_from_env_kwargs_override_env(self) -> None:
         """Explicit kwargs override environment variables."""
-        with patch.dict(os.environ, {
-            "ARAGORA_API_URL": "https://env.aragora.ai",
-            "ARAGORA_API_KEY": "ara_env_key",
-            "ARAGORA_TIMEOUT": "60",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_API_URL": "https://env.aragora.ai",
+                "ARAGORA_API_KEY": "ara_env_key",
+                "ARAGORA_TIMEOUT": "60",
+            },
+        ):
             client = AragoraClient.from_env(
                 base_url="https://override.aragora.ai",
                 api_key="ara_override_key",

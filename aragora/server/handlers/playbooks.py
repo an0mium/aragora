@@ -58,9 +58,7 @@ class PlaybookHandler(BaseHandler):
         return normalized == "/api/playbooks" or normalized.startswith("/api/playbooks/")
 
     @require_permission("playbooks:read")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests."""
         normalized = strip_version_prefix(path)
         path_clean = normalized.rstrip("/")

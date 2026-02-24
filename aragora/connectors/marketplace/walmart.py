@@ -342,7 +342,8 @@ class WalmartConnector(ProductionConnectorMixin):
         self._access_token: str | None = None
         self._token_expires_at: datetime | None = None
         self._init_production_mixin(
-            connector_name="walmart", request_timeout=30.0,
+            connector_name="walmart",
+            request_timeout=30.0,
         )
         self._has_production_mixin = True
 

@@ -12,6 +12,7 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # List Templates Operations
 # =========================================================================
 
+
 class TestWorkflowTemplatesList:
     """Tests for list workflow templates operations."""
 
@@ -87,9 +88,11 @@ class TestWorkflowTemplatesList:
             assert params["offset"] == 10
             client.close()
 
+
 # =========================================================================
 # Get Template Operations
 # =========================================================================
+
 
 class TestWorkflowTemplatesGet:
     """Tests for get workflow template operations."""
@@ -118,9 +121,11 @@ class TestWorkflowTemplatesGet:
             assert result["pattern"] == "parallel"
             client.close()
 
+
 # =========================================================================
 # Get Template Package Operations
 # =========================================================================
+
 
 class TestWorkflowTemplatesPackage:
     """Tests for get template package operations."""
@@ -160,9 +165,11 @@ class TestWorkflowTemplatesPackage:
             assert result["dependencies"] == ["pandas", "numpy"]
             client.close()
 
+
 # =========================================================================
 # Run Template Operations
 # =========================================================================
+
 
 class TestAsyncWorkflowTemplates:
     """Tests for async Workflow Templates API."""
@@ -225,4 +232,3 @@ class TestAsyncWorkflowTemplates:
                     "GET", "/api/v1/workflow/templates/tpl_pkg/package"
                 )
                 assert "definition" in result
-

@@ -106,9 +106,7 @@ class AsyncServicesAPI:
         params: dict[str, Any] = {}
         if status:
             params["status"] = status
-        return await self._client.request(
-            "GET", "/api/v1/services", params=params or None
-        )
+        return await self._client.request("GET", "/api/v1/services", params=params or None)
 
     async def get(self, service_id: str) -> dict[str, Any]:
         """Get detailed information for a specific service."""
@@ -116,12 +114,8 @@ class AsyncServicesAPI:
 
     async def get_health(self, service_id: str) -> dict[str, Any]:
         """Get health status for a specific service."""
-        return await self._client.request(
-            "GET", f"/api/v1/services/{service_id}/health"
-        )
+        return await self._client.request("GET", f"/api/v1/services/{service_id}/health")
 
     async def get_metrics(self, service_id: str) -> dict[str, Any]:
         """Get metrics for a specific service."""
-        return await self._client.request(
-            "GET", f"/api/v1/services/{service_id}/metrics"
-        )
+        return await self._client.request("GET", f"/api/v1/services/{service_id}/metrics")

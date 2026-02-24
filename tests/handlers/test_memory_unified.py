@@ -272,9 +272,13 @@ class TestQuery:
     def test_query_fan_out_search(self, handler):
         mock_entries = [MockMemoryEntry()]
 
-        with patch.object(handler, "_query_system", return_value=[
-            {"content": "result", "source": "continuum", "relevance": 0.8, "metadata": {}}
-        ]):
+        with patch.object(
+            handler,
+            "_query_system",
+            return_value=[
+                {"content": "result", "source": "continuum", "relevance": 0.8, "metadata": {}}
+            ],
+        ):
             result = handler._handle_query({"query": "test search"})
 
         data = _get_data(result)
@@ -284,10 +288,14 @@ class TestQuery:
         assert data["query"] == "test search"
 
     def test_query_respects_limit(self, handler):
-        with patch.object(handler, "_query_system", return_value=[
-            {"content": f"result-{i}", "source": "continuum", "relevance": 0.5, "metadata": {}}
-            for i in range(30)
-        ]):
+        with patch.object(
+            handler,
+            "_query_system",
+            return_value=[
+                {"content": f"result-{i}", "source": "continuum", "relevance": 0.5, "metadata": {}}
+                for i in range(30)
+            ],
+        ):
             result = handler._handle_query({"query": "test", "limit": 5})
 
         data = _get_data(result)
@@ -343,7 +351,10 @@ class TestQuerySystem:
             return_value=mock_mem,
             create=True,
         ):
-            with patch.dict("sys.modules", {"aragora.memory.continuum": MagicMock(ContinuumMemory=lambda: mock_mem)}):
+            with patch.dict(
+                "sys.modules",
+                {"aragora.memory.continuum": MagicMock(ContinuumMemory=lambda: mock_mem)},
+            ):
                 results = handler._query_continuum("test", 10)
 
         # Should return list of dicts with source=continuum
@@ -583,7 +594,12 @@ class TestSources:
                 mock_inst = MagicMock()
                 mock_inst.count.return_value = 10
                 mock_cls.return_value = mock_inst
-                for class_name in ["ContinuumMemory", "KnowledgeMound", "SupermemoryStore", "ClaudeMemAdapter"]:
+                for class_name in [
+                    "ContinuumMemory",
+                    "KnowledgeMound",
+                    "SupermemoryStore",
+                    "ClaudeMemAdapter",
+                ]:
                     setattr(m, class_name, mock_cls)
                 return m
             raise ImportError("not available")

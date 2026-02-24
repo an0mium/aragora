@@ -31,12 +31,14 @@ def mock_km():
     km.search = MagicMock(return_value=[])
     km.get = MagicMock(return_value=None)
     km.ingest = MagicMock()
-    km.get_stats = MagicMock(return_value={
-        "total_items": 42,
-        "items_by_type": {"text": 30, "url": 12},
-        "items_by_source": {"api": 20, "debate": 22},
-        "storage_backend": "sqlite",
-    })
+    km.get_stats = MagicMock(
+        return_value={
+            "total_items": 42,
+            "items_by_type": {"text": 30, "url": 12},
+            "items_by_source": {"api": 20, "debate": 22},
+            "storage_backend": "sqlite",
+        }
+    )
     km.list_adapters = MagicMock(return_value=["debate", "consensus", "elo"])
     return km
 
@@ -574,19 +576,21 @@ class TestStalenessAnalysis:
 
     def test_staleness_with_dedicated_method(self, client, mock_km):
         """Staleness uses dedicated get_staleness when available."""
-        mock_km.get_staleness = MagicMock(return_value={
-            "total_items": 100,
-            "stale_items": 15,
-            "stale_percent": 15.0,
-            "items": [
-                {
-                    "id": "ki_stale1",
-                    "title": "Old item",
-                    "stale": True,
-                    "age_days": 45.0,
-                },
-            ],
-        })
+        mock_km.get_staleness = MagicMock(
+            return_value={
+                "total_items": 100,
+                "stale_items": 15,
+                "stale_percent": 15.0,
+                "items": [
+                    {
+                        "id": "ki_stale1",
+                        "title": "Old item",
+                        "stale": True,
+                        "age_days": 45.0,
+                    },
+                ],
+            }
+        )
 
         response = client.get("/api/v2/knowledge/staleness")
         assert response.status_code == 200

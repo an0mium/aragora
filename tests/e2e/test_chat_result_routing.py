@@ -503,10 +503,20 @@ class TestOriginCleanup:
         try:
             # Mock all persistent store paths to test in-memory cleanup only
             with (
-                patch("aragora.server.debate_origin.registry._get_sqlite_store", return_value=mock_sqlite),
-                patch("aragora.server.debate_origin.registry._load_origin_redis", return_value=None),
-                patch("aragora.server.debate_origin.registry._store_origin_redis", return_value=None),
-                patch("aragora.server.debate_origin.registry._get_postgres_store_sync", return_value=None),
+                patch(
+                    "aragora.server.debate_origin.registry._get_sqlite_store",
+                    return_value=mock_sqlite,
+                ),
+                patch(
+                    "aragora.server.debate_origin.registry._load_origin_redis", return_value=None
+                ),
+                patch(
+                    "aragora.server.debate_origin.registry._store_origin_redis", return_value=None
+                ),
+                patch(
+                    "aragora.server.debate_origin.registry._get_postgres_store_sync",
+                    return_value=None,
+                ),
             ):
                 # Create an expired origin directly in the in-memory store
                 debate_id = f"debate-{uuid.uuid4().hex[:8]}"

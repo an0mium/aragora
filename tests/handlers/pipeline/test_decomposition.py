@@ -155,9 +155,7 @@ class TestParseDecomposePath:
         assert sub is None
 
     def test_valid_path_with_tree(self):
-        pid, nid, sub = _parse_decompose_path(
-            "/api/pipeline/graph-1/decompose/node-1/tree"
-        )
+        pid, nid, sub = _parse_decompose_path("/api/pipeline/graph-1/decompose/node-1/tree")
         assert pid == "graph-1"
         assert nid == "node-1"
         assert sub == "tree"
@@ -213,9 +211,7 @@ class TestPostDecompose:
         patched_store.get.return_value = None
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graph-1/decompose/node-1", {}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graph-1/decompose/node-1", {}, http)
         assert _status(result) == 404
 
     def test_decompose_node_not_found(self, patched_store):
@@ -224,9 +220,7 @@ class TestPostDecompose:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graph-1/decompose/node-missing", {}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graph-1/decompose/node-missing", {}, http)
         assert _status(result) == 404
 
     def test_decompose_success_via_task_decomposer(self, patched_store):
@@ -254,16 +248,15 @@ class TestPostDecompose:
         h = _make_handler()
         http = _make_http_handler()
 
-        with patch(
-            "aragora.pipeline.dag_operations.DAGOperationsCoordinator",
-            side_effect=ImportError("not available"),
-        ), patch(
-            "aragora.nomic.task_decomposer.TaskDecomposer"
-        ) as MockDecomposer:
+        with (
+            patch(
+                "aragora.pipeline.dag_operations.DAGOperationsCoordinator",
+                side_effect=ImportError("not available"),
+            ),
+            patch("aragora.nomic.task_decomposer.TaskDecomposer") as MockDecomposer,
+        ):
             MockDecomposer.return_value.analyze.return_value = mock_result
-            result = h.handle_post(
-                "/api/v1/pipeline/graph-1/decompose/node-1", {}, http
-            )
+            result = h.handle_post("/api/v1/pipeline/graph-1/decompose/node-1", {}, http)
 
         assert _status(result) == 200
         body = _body(result)
@@ -283,16 +276,17 @@ class TestPostDecompose:
         h = _make_handler()
         http = _make_http_handler()
 
-        with patch(
-            "aragora.pipeline.dag_operations.DAGOperationsCoordinator",
-            side_effect=ImportError("not available"),
-        ), patch(
-            "aragora.nomic.task_decomposer.TaskDecomposer",
-            side_effect=ImportError("not available"),
+        with (
+            patch(
+                "aragora.pipeline.dag_operations.DAGOperationsCoordinator",
+                side_effect=ImportError("not available"),
+            ),
+            patch(
+                "aragora.nomic.task_decomposer.TaskDecomposer",
+                side_effect=ImportError("not available"),
+            ),
         ):
-            result = h.handle_post(
-                "/api/v1/pipeline/graph-1/decompose/node-1", {}, http
-            )
+            result = h.handle_post("/api/v1/pipeline/graph-1/decompose/node-1", {}, http)
 
         assert _status(result) == 503
 
@@ -305,17 +299,13 @@ class TestPostDecompose:
     def test_decompose_invalid_pipeline_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/<bad>/decompose/node-1", {}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/<bad>/decompose/node-1", {}, http)
         assert _status(result) == 400
 
     def test_decompose_invalid_node_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graph-1/decompose/<script>", {}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graph-1/decompose/<script>", {}, http)
         assert _status(result) == 400
 
 
@@ -331,9 +321,7 @@ class TestGetDecompositionTree:
         patched_store.get.return_value = None
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graph-1/decompose/node-1/tree", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graph-1/decompose/node-1/tree", {}, http)
         assert _status(result) == 404
 
     def test_tree_node_not_found(self, patched_store):
@@ -342,9 +330,7 @@ class TestGetDecompositionTree:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graph-1/decompose/node-missing/tree", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graph-1/decompose/node-missing/tree", {}, http)
         assert _status(result) == 404
 
     def test_tree_success_leaf_node(self, patched_store):
@@ -355,9 +341,7 @@ class TestGetDecompositionTree:
 
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graph-1/decompose/node-1/tree", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graph-1/decompose/node-1/tree", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["pipeline_id"] == "graph-1"
@@ -376,9 +360,7 @@ class TestGetDecompositionTree:
 
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graph-1/decompose/node-1/tree", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graph-1/decompose/node-1/tree", {}, http)
         body = _body(result)
         rf_nodes = body["react_flow"]["nodes"]
         assert len(rf_nodes) >= 1
@@ -406,9 +388,7 @@ class TestGetDecompositionTree:
 
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graph-1/decompose/parent/tree", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graph-1/decompose/parent/tree", {}, http)
         body = _body(result)
         tree = body["tree"]
         assert len(tree["children"]) == 1
@@ -423,9 +403,7 @@ class TestGetDecompositionTree:
     def test_tree_unrecognized_sub_returns_none(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graph-1/decompose/node-1/unknown", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graph-1/decompose/node-1/unknown", {}, http)
         assert result is None
 
 
@@ -448,9 +426,7 @@ class TestRateLimiting:
         h = _make_handler()
         http = _make_http_handler(client_ip="10.0.0.2")
         with patch.object(_decompose_limiter, "is_allowed", return_value=False):
-            result = h.handle_post(
-                "/api/v1/pipeline/graph-1/decompose/node-1", {}, http
-            )
+            result = h.handle_post("/api/v1/pipeline/graph-1/decompose/node-1", {}, http)
         assert _status(result) == 429
 
 

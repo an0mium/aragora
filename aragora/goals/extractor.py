@@ -225,17 +225,12 @@ class GoalExtractor:
             }.get(p_type, "medium")
 
             # Dependencies from constraints
-            deps = [
-                gid for gid in existing_goal_ids
-                if node_id in constraint_targets.get(gid, [])
-            ]
+            deps = [gid for gid in existing_goal_ids if node_id in constraint_targets.get(gid, [])]
 
             goal = GoalNode(
                 id=f"goal-{uuid.uuid4().hex[:8]}",
                 title=self._synthesize_goal_title(label, goal_type),
-                description=self._synthesize_goal_description(
-                    label, data, goal_type
-                ),
+                description=self._synthesize_goal_description(label, data, goal_type),
                 goal_type=goal_type,
                 priority=priority,
                 dependencies=deps,
@@ -282,9 +277,7 @@ class GoalExtractor:
             provenance=provenance_links,
             status="pending",
             confidence=sum(g.confidence for g in goals) / max(len(goals), 1),
-            ai_rationale=(
-                f"Extracted {len(goals)} goals from {len(nodes)} principle nodes"
-            ),
+            ai_rationale=(f"Extracted {len(goals)} goals from {len(nodes)} principle nodes"),
         )
 
         return GoalGraph(
@@ -764,7 +757,16 @@ class GoalExtractor:
             # Parse JSON from response
             parsed = self._parse_ai_goals(text, nodes)
             return parsed
-        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as e:
+        except (
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+            ConnectionError,
+            TimeoutError,
+        ) as e:
             logger.warning("AI goal extraction failed: %s", e)
             return None
 

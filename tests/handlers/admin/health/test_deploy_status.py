@@ -110,11 +110,14 @@ def mock_deps(mock_start_time):
             "aragora.server.build_info.get_build_info",
             create=True,
         ) as mock_build,
-        patch.dict("sys.modules", {
-            "aragora.server.build_info": _make_build_info_module(),
-            "aragora.server.degraded_mode": _make_degraded_module(False),
-            "aragora.server.unified_server": _make_server_module(True),
-        }),
+        patch.dict(
+            "sys.modules",
+            {
+                "aragora.server.build_info": _make_build_info_module(),
+                "aragora.server.degraded_mode": _make_degraded_module(False),
+                "aragora.server.unified_server": _make_server_module(True),
+            },
+        ),
     ):
         # We need to patch the import inside _deploy_status
         yield {
@@ -169,7 +172,9 @@ class TestHandleAuthentication:
             raise UnauthorizedError("No token")
 
         with patch.object(
-            DeployStatusHandler, "get_auth_context", raise_unauth,
+            DeployStatusHandler,
+            "get_auth_context",
+            raise_unauth,
         ):
             result = await handler.handle("/api/v1/deploy/status", {}, MagicMock())
 
@@ -192,10 +197,14 @@ class TestHandleAuthentication:
 
         with (
             patch.object(
-                DeployStatusHandler, "get_auth_context", raise_forbidden,
+                DeployStatusHandler,
+                "get_auth_context",
+                raise_forbidden,
             ),
             patch.object(
-                DeployStatusHandler, "check_permission", deny_permission,
+                DeployStatusHandler,
+                "check_permission",
+                deny_permission,
             ),
         ):
             result = await handler.handle("/api/v1/deploy/status", {}, MagicMock())
@@ -229,10 +238,13 @@ class TestDeployStatus:
                 return_value=MOCK_BUILD_INFO,
                 create=True,
             ),
-            patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": _make_degraded_module(False),
-                "aragora.server.unified_server": _make_server_module(True),
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.degraded_mode": _make_degraded_module(False),
+                    "aragora.server.unified_server": _make_server_module(True),
+                },
+            ),
         ):
             result = handler._deploy_status()
 
@@ -254,10 +266,13 @@ class TestDeployStatus:
                 return_value=MOCK_BUILD_INFO,
                 create=True,
             ),
-            patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": _make_degraded_module(False),
-                "aragora.server.unified_server": _make_server_module(True),
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.degraded_mode": _make_degraded_module(False),
+                    "aragora.server.unified_server": _make_server_module(True),
+                },
+            ),
         ):
             result = handler._deploy_status()
 
@@ -280,10 +295,13 @@ class TestDeployStatus:
                 return_value=MOCK_BUILD_INFO,
                 create=True,
             ),
-            patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": _make_degraded_module(False),
-                "aragora.server.unified_server": _make_server_module(True),
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.degraded_mode": _make_degraded_module(False),
+                    "aragora.server.unified_server": _make_server_module(True),
+                },
+            ),
         ):
             result = handler._deploy_status()
 
@@ -304,10 +322,13 @@ class TestDeployStatus:
                 return_value=MOCK_BUILD_INFO,
                 create=True,
             ),
-            patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": _make_degraded_module(True),
-                "aragora.server.unified_server": _make_server_module(True),
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.degraded_mode": _make_degraded_module(True),
+                    "aragora.server.unified_server": _make_server_module(True),
+                },
+            ),
         ):
             result = handler._deploy_status()
 
@@ -326,10 +347,13 @@ class TestDeployStatus:
                 return_value=MOCK_BUILD_INFO,
                 create=True,
             ),
-            patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": _make_degraded_module(False),
-                "aragora.server.unified_server": _make_server_module(False),
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.degraded_mode": _make_degraded_module(False),
+                    "aragora.server.unified_server": _make_server_module(False),
+                },
+            ),
         ):
             result = handler._deploy_status()
 
@@ -348,10 +372,13 @@ class TestDeployStatus:
                 return_value=MOCK_BUILD_INFO,
                 create=True,
             ),
-            patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": _make_degraded_module(False),
-                "aragora.server.unified_server": _make_server_module(True),
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.degraded_mode": _make_degraded_module(False),
+                    "aragora.server.unified_server": _make_server_module(True),
+                },
+            ),
         ):
             result = handler._deploy_status()
 
@@ -375,10 +402,13 @@ class TestDeployStatus:
                 return_value=MOCK_BUILD_INFO,
                 create=True,
             ),
-            patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": _make_degraded_module(False),
-                "aragora.server.unified_server": _make_server_module(True),
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.degraded_mode": _make_degraded_module(False),
+                    "aragora.server.unified_server": _make_server_module(True),
+                },
+            ),
         ):
             result = handler._deploy_status()
 
@@ -408,10 +438,13 @@ class TestImportErrorResilience:
                 return_value=MOCK_BUILD_INFO,
                 create=True,
             ),
-            patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": None,
-                "aragora.server.unified_server": _make_server_module(True),
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.degraded_mode": None,
+                    "aragora.server.unified_server": _make_server_module(True),
+                },
+            ),
         ):
             result = handler._deploy_status()
 
@@ -432,10 +465,13 @@ class TestImportErrorResilience:
                 return_value=MOCK_BUILD_INFO,
                 create=True,
             ),
-            patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": _make_degraded_module(False),
-                "aragora.server.unified_server": None,
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.degraded_mode": _make_degraded_module(False),
+                    "aragora.server.unified_server": None,
+                },
+            ),
         ):
             result = handler._deploy_status()
 
@@ -465,10 +501,13 @@ class TestHandleFullFlow:
                 return_value=MOCK_BUILD_INFO,
                 create=True,
             ),
-            patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": _make_degraded_module(False),
-                "aragora.server.unified_server": _make_server_module(True),
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.degraded_mode": _make_degraded_module(False),
+                    "aragora.server.unified_server": _make_server_module(True),
+                },
+            ),
         ):
             result = await handler.handle("/api/v1/deploy/status", {}, MagicMock())
 
@@ -489,10 +528,13 @@ class TestHandleFullFlow:
                 return_value=MOCK_BUILD_INFO,
                 create=True,
             ),
-            patch.dict("sys.modules", {
-                "aragora.server.degraded_mode": _make_degraded_module(False),
-                "aragora.server.unified_server": _make_server_module(True),
-            }),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.server.degraded_mode": _make_degraded_module(False),
+                    "aragora.server.unified_server": _make_server_module(True),
+                },
+            ),
         ):
             result = await handler.handle("/api/deploy/status", {}, MagicMock())
 

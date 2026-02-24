@@ -81,9 +81,7 @@ class ReputationAPI:
             params["agent"] = agent
         if period:
             params["period"] = period
-        return self._client.request(
-            "GET", "/api/v1/reputation/history", params=params or None
-        )
+        return self._client.request("GET", "/api/v1/reputation/history", params=params or None)
 
     def get_by_domain(self, domain: str) -> dict[str, Any]:
         """
@@ -96,9 +94,7 @@ class ReputationAPI:
         Returns:
             Dict with agents ranked by reputation in the specified domain.
         """
-        return self._client.request(
-            "GET", "/api/v1/reputation/domain", params={"domain": domain}
-        )
+        return self._client.request("GET", "/api/v1/reputation/domain", params={"domain": domain})
 
 
 class AsyncReputationAPI:

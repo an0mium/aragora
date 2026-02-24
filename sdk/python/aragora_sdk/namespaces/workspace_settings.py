@@ -47,15 +47,21 @@ class WorkspaceSettingsAPI:
 
     def create_invite(self, workspace_id: str, **kwargs: Any) -> dict[str, Any]:
         """Create an invite for a workspace."""
-        return self._client.request("POST", f"/api/v1/workspaces/{workspace_id}/invites", json=kwargs)
+        return self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/invites", json=kwargs
+        )
 
     def delete_invite(self, workspace_id: str, invite_id: str) -> dict[str, Any]:
         """Delete an invite."""
-        return self._client.request("DELETE", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}")
+        return self._client.request(
+            "DELETE", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}"
+        )
 
     def resend_invite(self, workspace_id: str, invite_id: str) -> dict[str, Any]:
         """Resend an invite."""
-        return self._client.request("POST", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}/resend")
+        return self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}/resend"
+        )
 
     def list_members(self, workspace_id: str) -> dict[str, Any]:
         """List members of a workspace."""
@@ -63,15 +69,21 @@ class WorkspaceSettingsAPI:
 
     def add_member(self, workspace_id: str, **kwargs: Any) -> dict[str, Any]:
         """Add a member to a workspace."""
-        return self._client.request("POST", f"/api/v1/workspaces/{workspace_id}/members", json=kwargs)
+        return self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/members", json=kwargs
+        )
 
     def remove_member(self, workspace_id: str, user_id: str) -> dict[str, Any]:
         """Remove a member from a workspace."""
-        return self._client.request("DELETE", f"/api/v1/workspaces/{workspace_id}/members/{user_id}")
+        return self._client.request(
+            "DELETE", f"/api/v1/workspaces/{workspace_id}/members/{user_id}"
+        )
 
     def update_member_role(self, workspace_id: str, user_id: str, role: str) -> dict[str, Any]:
         """Update a member's role."""
-        return self._client.request("PUT", f"/api/v1/workspaces/{workspace_id}/members/{user_id}/role", json={"role": role})
+        return self._client.request(
+            "PUT", f"/api/v1/workspaces/{workspace_id}/members/{user_id}/role", json={"role": role}
+        )
 
     def list_roles(self, workspace_id: str) -> dict[str, Any]:
         """List available roles for a workspace."""
@@ -110,15 +122,21 @@ class AsyncWorkspaceSettingsAPI:
 
     async def create_invite(self, workspace_id: str, **kwargs: Any) -> dict[str, Any]:
         """Create an invite for a workspace."""
-        return await self._client.request("POST", f"/api/v1/workspaces/{workspace_id}/invites", json=kwargs)
+        return await self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/invites", json=kwargs
+        )
 
     async def delete_invite(self, workspace_id: str, invite_id: str) -> dict[str, Any]:
         """Delete an invite."""
-        return await self._client.request("DELETE", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}")
+        return await self._client.request(
+            "DELETE", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}"
+        )
 
     async def resend_invite(self, workspace_id: str, invite_id: str) -> dict[str, Any]:
         """Resend an invite."""
-        return await self._client.request("POST", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}/resend")
+        return await self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/invites/{invite_id}/resend"
+        )
 
     async def list_members(self, workspace_id: str) -> dict[str, Any]:
         """List members of a workspace."""
@@ -126,15 +144,23 @@ class AsyncWorkspaceSettingsAPI:
 
     async def add_member(self, workspace_id: str, **kwargs: Any) -> dict[str, Any]:
         """Add a member to a workspace."""
-        return await self._client.request("POST", f"/api/v1/workspaces/{workspace_id}/members", json=kwargs)
+        return await self._client.request(
+            "POST", f"/api/v1/workspaces/{workspace_id}/members", json=kwargs
+        )
 
     async def remove_member(self, workspace_id: str, user_id: str) -> dict[str, Any]:
         """Remove a member from a workspace."""
-        return await self._client.request("DELETE", f"/api/v1/workspaces/{workspace_id}/members/{user_id}")
+        return await self._client.request(
+            "DELETE", f"/api/v1/workspaces/{workspace_id}/members/{user_id}"
+        )
 
-    async def update_member_role(self, workspace_id: str, user_id: str, role: str) -> dict[str, Any]:
+    async def update_member_role(
+        self, workspace_id: str, user_id: str, role: str
+    ) -> dict[str, Any]:
         """Update a member's role."""
-        return await self._client.request("PUT", f"/api/v1/workspaces/{workspace_id}/members/{user_id}/role", json={"role": role})
+        return await self._client.request(
+            "PUT", f"/api/v1/workspaces/{workspace_id}/members/{user_id}/role", json={"role": role}
+        )
 
     async def list_roles(self, workspace_id: str) -> dict[str, Any]:
         """List available roles for a workspace."""

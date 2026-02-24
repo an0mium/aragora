@@ -385,9 +385,11 @@ class TestV1IncidentsEndpoint:
             # Need to also patch the import path used in the method
             with patch.dict(
                 "sys.modules",
-                {"aragora.observability.incident_store": MagicMock(
-                    get_incident_store=MagicMock(return_value=mock_store),
-                )},
+                {
+                    "aragora.observability.incident_store": MagicMock(
+                        get_incident_store=MagicMock(return_value=mock_store),
+                    )
+                },
             ):
                 result = handler.handle("/api/v1/status/incidents", {}, Mock())
                 body = _parse_json_result(result)

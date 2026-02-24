@@ -355,7 +355,9 @@ class TestDetectStaleness:
     async def test_sorted_by_staleness_score(self, detector, mock_mound):
         """Should return entries sorted by staleness score descending."""
         items = [
-            _make_item(item_id=f"item-{i}", updated_at=datetime.now() - timedelta(days=100 + i * 30))
+            _make_item(
+                item_id=f"item-{i}", updated_at=datetime.now() - timedelta(days=100 + i * 30)
+            )
             for i in range(5)
         ]
         mock_mound.get_stale_knowledge.return_value = items
@@ -527,7 +529,9 @@ class TestGetRecommendations:
 
         create_recs = [r for r in recs if r.action == RecommendedAction.CREATE]
         assert len(create_recs) > 0
-        assert all(r.priority in (Priority.HIGH, Priority.MEDIUM, Priority.LOW) for r in create_recs)
+        assert all(
+            r.priority in (Priority.HIGH, Priority.MEDIUM, Priority.LOW) for r in create_recs
+        )
 
     @pytest.mark.asyncio
     async def test_generates_staleness_recommendations(self, detector, mock_mound):
@@ -605,9 +609,7 @@ class TestGetRecommendations:
         assert len(domains) >= 1
 
     @pytest.mark.asyncio
-    async def test_archive_recommendation_for_very_stale_low_confidence(
-        self, detector, mock_mound
-    ):
+    async def test_archive_recommendation_for_very_stale_low_confidence(self, detector, mock_mound):
         """Should recommend archive for very stale, low-confidence entries."""
         mock_mound.query.return_value = _make_query_result([_make_item()] * 25)
         very_old = _make_item(
@@ -670,14 +672,8 @@ class TestGetCoverageScore:
     @pytest.mark.asyncio
     async def test_low_confidence_lowers_score(self, detector, mock_mound):
         """Should return lower score when items have low confidence."""
-        low_conf_items = [
-            _make_item(item_id=f"item-{i}", confidence=0.2)
-            for i in range(20)
-        ]
-        high_conf_items = [
-            _make_item(item_id=f"item-{i}", confidence=0.95)
-            for i in range(20)
-        ]
+        low_conf_items = [_make_item(item_id=f"item-{i}", confidence=0.2) for i in range(20)]
+        high_conf_items = [_make_item(item_id=f"item-{i}", confidence=0.95) for i in range(20)]
 
         mock_mound.query.return_value = _make_query_result(low_conf_items)
         low_score = await detector.get_coverage_score("legal")
@@ -1002,13 +998,15 @@ class TestGetDebateInsights:
     async def test_returns_all_insights(self, detector):
         """Should return all recorded debate insights."""
         for i in range(3):
-            await detector.analyze_debate_receipt({
-                "debate_id": f"d-{i}",
-                "topic": f"topic {i}",
-                "confidence": 0.3,
-                "consensus_score": 0.4,
-                "domain": "legal",
-            })
+            await detector.analyze_debate_receipt(
+                {
+                    "debate_id": f"d-{i}",
+                    "topic": f"topic {i}",
+                    "confidence": 0.3,
+                    "consensus_score": 0.4,
+                    "domain": "legal",
+                }
+            )
 
         insights = detector.get_debate_insights()
         assert len(insights) == 3
@@ -1016,20 +1014,24 @@ class TestGetDebateInsights:
     @pytest.mark.asyncio
     async def test_filters_by_domain(self, detector):
         """Should filter insights by domain."""
-        await detector.analyze_debate_receipt({
-            "debate_id": "d-legal",
-            "topic": "legal topic",
-            "confidence": 0.3,
-            "consensus_score": 0.4,
-            "domain": "legal",
-        })
-        await detector.analyze_debate_receipt({
-            "debate_id": "d-tech",
-            "topic": "tech topic",
-            "confidence": 0.3,
-            "consensus_score": 0.4,
-            "domain": "technical",
-        })
+        await detector.analyze_debate_receipt(
+            {
+                "debate_id": "d-legal",
+                "topic": "legal topic",
+                "confidence": 0.3,
+                "consensus_score": 0.4,
+                "domain": "legal",
+            }
+        )
+        await detector.analyze_debate_receipt(
+            {
+                "debate_id": "d-tech",
+                "topic": "tech topic",
+                "confidence": 0.3,
+                "consensus_score": 0.4,
+                "domain": "technical",
+            }
+        )
 
         legal_only = detector.get_debate_insights(domain="legal")
         assert len(legal_only) == 1
@@ -1038,20 +1040,24 @@ class TestGetDebateInsights:
     @pytest.mark.asyncio
     async def test_filters_by_min_disagreement(self, detector):
         """Should filter by minimum disagreement score."""
-        await detector.analyze_debate_receipt({
-            "debate_id": "d-low",
-            "topic": "low disagreement",
-            "confidence": 0.5,
-            "consensus_score": 0.6,
-            "domain": "legal",
-        })
-        await detector.analyze_debate_receipt({
-            "debate_id": "d-high",
-            "topic": "high disagreement",
-            "confidence": 0.3,
-            "consensus_score": 0.1,
-            "domain": "legal",
-        })
+        await detector.analyze_debate_receipt(
+            {
+                "debate_id": "d-low",
+                "topic": "low disagreement",
+                "confidence": 0.5,
+                "consensus_score": 0.6,
+                "domain": "legal",
+            }
+        )
+        await detector.analyze_debate_receipt(
+            {
+                "debate_id": "d-high",
+                "topic": "high disagreement",
+                "confidence": 0.3,
+                "consensus_score": 0.1,
+                "domain": "legal",
+            }
+        )
 
         high_disagree = detector.get_debate_insights(min_disagreement=0.8)
         assert len(high_disagree) == 1
@@ -1061,13 +1067,15 @@ class TestGetDebateInsights:
     async def test_sorted_by_confidence_ascending(self, detector):
         """Should return insights sorted by confidence (lowest first)."""
         for conf in [0.5, 0.2, 0.4]:
-            await detector.analyze_debate_receipt({
-                "debate_id": f"d-{conf}",
-                "topic": "topic",
-                "confidence": conf,
-                "consensus_score": 0.3,
-                "domain": "legal",
-            })
+            await detector.analyze_debate_receipt(
+                {
+                    "debate_id": f"d-{conf}",
+                    "topic": "topic",
+                    "confidence": conf,
+                    "consensus_score": 0.3,
+                    "domain": "legal",
+                }
+            )
 
         insights = detector.get_debate_insights()
         assert insights[0].confidence == 0.2
@@ -1218,9 +1226,7 @@ class TestGetFrequentlyAskedGapsAsync:
         items = [_make_item(item_id=f"i-{i}", confidence=0.9) for i in range(15)]
         mock_mound.query.return_value = _make_query_result(items)
 
-        gaps = await detector.get_frequently_asked_gaps_async(
-            min_queries=3, max_coverage=0.5
-        )
+        gaps = await detector.get_frequently_asked_gaps_async(min_queries=3, max_coverage=0.5)
 
         # Coverage should be high enough to exclude
         assert len(gaps) == 0
@@ -1364,13 +1370,15 @@ class TestRecommendationsWithDebateAndFAQ:
         mock_mound.detect_contradictions.return_value = []
 
         # Record a low-confidence debate
-        await detector.analyze_debate_receipt({
-            "debate_id": "d-1",
-            "topic": "contract termination",
-            "confidence": 0.2,
-            "consensus_score": 0.3,
-            "domain": "legal",
-        })
+        await detector.analyze_debate_receipt(
+            {
+                "debate_id": "d-1",
+                "topic": "contract termination",
+                "confidence": 0.2,
+                "consensus_score": 0.3,
+                "domain": "legal",
+            }
+        )
 
         recs = await detector.get_recommendations(domain="legal")
 
@@ -1391,10 +1399,7 @@ class TestRecommendationsWithDebateAndFAQ:
 
         recs = await detector.get_recommendations(domain="legal")
 
-        faq_recs = [
-            r for r in recs
-            if r.metadata.get("gap_type") == "frequently_asked"
-        ]
+        faq_recs = [r for r in recs if r.metadata.get("gap_type") == "frequently_asked"]
         assert len(faq_recs) >= 1
 
     @pytest.mark.asyncio
@@ -1404,27 +1409,28 @@ class TestRecommendationsWithDebateAndFAQ:
         mock_mound.get_stale_knowledge.return_value = []
         mock_mound.detect_contradictions.return_value = []
 
-        await detector.analyze_debate_receipt({
-            "debate_id": "d-legal",
-            "topic": "legal topic",
-            "confidence": 0.2,
-            "consensus_score": 0.3,
-            "domain": "legal",
-        })
-        await detector.analyze_debate_receipt({
-            "debate_id": "d-tech",
-            "topic": "tech topic",
-            "confidence": 0.2,
-            "consensus_score": 0.3,
-            "domain": "technical",
-        })
+        await detector.analyze_debate_receipt(
+            {
+                "debate_id": "d-legal",
+                "topic": "legal topic",
+                "confidence": 0.2,
+                "consensus_score": 0.3,
+                "domain": "legal",
+            }
+        )
+        await detector.analyze_debate_receipt(
+            {
+                "debate_id": "d-tech",
+                "topic": "tech topic",
+                "confidence": 0.2,
+                "consensus_score": 0.3,
+                "domain": "technical",
+            }
+        )
 
         recs = await detector.get_recommendations(domain="legal")
 
-        debate_recs = [
-            r for r in recs
-            if r.metadata.get("gap_type") == "debate_signal"
-        ]
+        debate_recs = [r for r in recs if r.metadata.get("gap_type") == "debate_signal"]
         # Should only include the legal domain debate insight
         for r in debate_recs:
             assert r.metadata.get("debate_id") == "d-legal"

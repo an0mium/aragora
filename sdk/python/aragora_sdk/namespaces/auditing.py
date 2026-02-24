@@ -19,6 +19,7 @@ AuditDepth = Literal["shallow", "standard", "deep"]
 AttackIntensity = Literal["low", "medium", "high"]
 Severity = Literal["low", "medium", "high", "critical"]
 
+
 class AuditingAPI:
     """
     Synchronous Auditing API.
@@ -97,6 +98,7 @@ class AuditingAPI:
             with their id, name, description, and category
         """
         return self._client.request("GET", "/api/v1/redteam/attack-types")
+
 
 class AsyncAuditingAPI:
     """

@@ -80,7 +80,9 @@ class TestApprovalFlowCreation:
         assert flow.state == ApprovalState.PENDING.value
 
     @pytest.mark.asyncio
-    async def test_create_with_custom_required_approvers(self, manager: ApprovalFlowManager) -> None:
+    async def test_create_with_custom_required_approvers(
+        self, manager: ApprovalFlowManager
+    ) -> None:
         flow_id = await manager.create_approval(
             debate_id="d1",
             receipt_id="r1",
@@ -147,8 +149,11 @@ class TestSingleApproverDecisions:
     @pytest.mark.asyncio
     async def test_approve_transitions_to_approved(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         result = await manager.record_decision(flow_id, "user1", "approved")
         assert result is not None
@@ -157,18 +162,26 @@ class TestSingleApproverDecisions:
     @pytest.mark.asyncio
     async def test_reject_transitions_to_rejected(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
-        result = await manager.record_decision(flow_id, "user1", "rejected", reason="Not good enough")
+        result = await manager.record_decision(
+            flow_id, "user1", "rejected", reason="Not good enough"
+        )
         assert result is not None
         assert result.state == ApprovalState.REJECTED.value
 
     @pytest.mark.asyncio
     async def test_escalate_transitions_to_escalated(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         result = await manager.record_decision(flow_id, "user1", "escalated")
         assert result is not None
@@ -177,8 +190,11 @@ class TestSingleApproverDecisions:
     @pytest.mark.asyncio
     async def test_redebate_transitions_to_re_debate(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         result = await manager.record_decision(flow_id, "user1", "re_debate")
         assert result is not None
@@ -196,8 +212,11 @@ class TestMultiApproverWorkflow:
     @pytest.mark.asyncio
     async def test_stays_pending_until_threshold(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
             required_approvers=3,
         )
         # First approval
@@ -218,8 +237,11 @@ class TestMultiApproverWorkflow:
     @pytest.mark.asyncio
     async def test_single_rejection_rejects(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
             required_approvers=3,
         )
         # First approval
@@ -232,8 +254,11 @@ class TestMultiApproverWorkflow:
     @pytest.mark.asyncio
     async def test_approval_count_tracking(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
             required_approvers=3,
         )
         await manager.record_decision(flow_id, "user1", "approved")
@@ -254,8 +279,11 @@ class TestDuplicateVotePrevention:
     @pytest.mark.asyncio
     async def test_duplicate_vote_ignored(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
             required_approvers=2,
         )
         await manager.record_decision(flow_id, "user1", "approved")
@@ -267,8 +295,11 @@ class TestDuplicateVotePrevention:
     @pytest.mark.asyncio
     async def test_has_voted_check(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         flow = manager.get_status(flow_id)
         assert flow is not None
@@ -293,8 +324,11 @@ class TestTimeoutEscalation:
         self, short_timeout_manager: ApprovalFlowManager
     ) -> None:
         flow_id = await short_timeout_manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
             timeout_seconds=0,  # Immediate timeout
         )
 
@@ -309,8 +343,11 @@ class TestTimeoutEscalation:
     @pytest.mark.asyncio
     async def test_non_expired_flow_stays_pending(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         flow = manager.get_status(flow_id)
         assert flow is not None
@@ -356,8 +393,11 @@ class TestEventListeners:
         manager.add_event_listener(lambda et, f: events.append((et, f)))
 
         await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         assert len(events) == 1
         assert events[0][0] == "approval_created"
@@ -368,8 +408,11 @@ class TestEventListeners:
         manager.add_event_listener(lambda et, f: events.append((et, f)))
 
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         await manager.record_decision(flow_id, "user1", "approved")
         # Should have "approval_created" + "decision_recorded"
@@ -384,8 +427,11 @@ class TestEventListeners:
         manager.add_event_listener(bad_listener)
         # Should not raise
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         assert flow_id is not None
 
@@ -401,8 +447,11 @@ class TestLookupAndListing:
     @pytest.mark.asyncio
     async def test_get_by_debate_id(self, manager: ApprovalFlowManager) -> None:
         await manager.create_approval(
-            debate_id="d42", receipt_id="r42", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d42",
+            receipt_id="r42",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         flow = manager.get_status_by_debate("d42")
         assert flow is not None
@@ -421,12 +470,18 @@ class TestLookupAndListing:
     @pytest.mark.asyncio
     async def test_list_pending_returns_only_pending(self, manager: ApprovalFlowManager) -> None:
         f1 = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         f2 = await manager.create_approval(
-            debate_id="d2", receipt_id="r2", channel="slack",
-            channel_id="C02", thread_id="t2",
+            debate_id="d2",
+            receipt_id="r2",
+            channel="slack",
+            channel_id="C02",
+            thread_id="t2",
         )
         # Approve f1
         await manager.record_decision(f1, "user1", "approved")
@@ -438,12 +493,18 @@ class TestLookupAndListing:
     @pytest.mark.asyncio
     async def test_list_pending_filter_by_channel(self, manager: ApprovalFlowManager) -> None:
         await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         await manager.create_approval(
-            debate_id="d2", receipt_id="r2", channel="teams",
-            channel_id="conv-1", thread_id="m1",
+            debate_id="d2",
+            receipt_id="r2",
+            channel="teams",
+            channel_id="conv-1",
+            thread_id="m1",
         )
 
         slack_pending = manager.list_pending(channel="slack")
@@ -466,8 +527,11 @@ class TestInvalidDecisions:
     @pytest.mark.asyncio
     async def test_invalid_decision_value(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         result = await manager.record_decision(flow_id, "user1", "invalid_value")
         assert result is None
@@ -480,8 +544,11 @@ class TestInvalidDecisions:
     @pytest.mark.asyncio
     async def test_decision_on_already_decided_flow(self, manager: ApprovalFlowManager) -> None:
         flow_id = await manager.create_approval(
-            debate_id="d1", receipt_id="r1", channel="slack",
-            channel_id="C01", thread_id="t1",
+            debate_id="d1",
+            receipt_id="r1",
+            channel="slack",
+            channel_id="C01",
+            thread_id="t1",
         )
         await manager.record_decision(flow_id, "user1", "approved")
         # Try to add another decision after approval

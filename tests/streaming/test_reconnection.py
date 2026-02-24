@@ -56,10 +56,10 @@ class TestReconnectionContext:
             jitter_factor=0.0,
         )
         ctx = ReconnectionContext("d1", cfg)
-        assert ctx.next_delay() == pytest.approx(1.0)   # attempt 0: 1*2^0=1
-        assert ctx.next_delay() == pytest.approx(2.0)   # attempt 1: 1*2^1=2
-        assert ctx.next_delay() == pytest.approx(4.0)   # attempt 2: 1*2^2=4
-        assert ctx.next_delay() == pytest.approx(8.0)   # attempt 3: 1*2^3=8
+        assert ctx.next_delay() == pytest.approx(1.0)  # attempt 0: 1*2^0=1
+        assert ctx.next_delay() == pytest.approx(2.0)  # attempt 1: 1*2^1=2
+        assert ctx.next_delay() == pytest.approx(4.0)  # attempt 2: 1*2^2=4
+        assert ctx.next_delay() == pytest.approx(8.0)  # attempt 3: 1*2^3=8
 
     def test_next_delay_capped_at_max(self):
         cfg = _make_config(

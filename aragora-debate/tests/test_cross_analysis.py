@@ -76,9 +76,7 @@ class TestCrossProposalAnalysis:
         analysis = CrossProposalAnalysis(
             shared_evidence=[],
             evidence_corroboration_score=0.0,
-            contradictory_evidence=[
-                Contradiction("a", "b", "topic", "ev1", "ev2", "desc")
-            ],
+            contradictory_evidence=[Contradiction("a", "b", "topic", "ev1", "ev2", "desc")],
             evidence_gaps=[],
             redundancy_score=0.0,
             unique_evidence_sources=0,
@@ -232,16 +230,22 @@ class TestCrossProposalAnalyzer:
         assert CrossProposalAnalyzer._text_similarity("hello", "") == 0.0
 
     def test_has_negation_diff(self):
-        assert CrossProposalAnalyzer._has_negation_diff(
-            "We should use caching",
-            "We should not use caching",
-        ) is True
+        assert (
+            CrossProposalAnalyzer._has_negation_diff(
+                "We should use caching",
+                "We should not use caching",
+            )
+            is True
+        )
 
     def test_no_negation_diff(self):
-        assert CrossProposalAnalyzer._has_negation_diff(
-            "We should use caching",
-            "We should use caching for speed",
-        ) is False
+        assert (
+            CrossProposalAnalyzer._has_negation_diff(
+                "We should use caching",
+                "We should use caching for speed",
+            )
+            is False
+        )
 
     def test_extract_topic(self):
         topic = CrossProposalAnalyzer._extract_topic(
@@ -251,8 +255,10 @@ class TestCrossProposalAnalyzer:
         assert "microservices" in topic.lower() or "deployment" in topic.lower()
 
     def test_corroboration_no_shared(self):
-        analysis = self.analyzer.analyze({
-            "a": "One perspective with unique evidence from study Alpha.",
-            "b": "Different perspective with unique evidence from study Beta.",
-        })
+        analysis = self.analyzer.analyze(
+            {
+                "a": "One perspective with unique evidence from study Alpha.",
+                "b": "Different perspective with unique evidence from study Beta.",
+            }
+        )
         assert analysis.evidence_corroboration_score >= 0.0

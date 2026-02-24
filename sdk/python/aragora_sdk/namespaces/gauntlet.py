@@ -115,9 +115,7 @@ class GauntletAPI:
 
     def compare_receipts(self, receipt_id: str, other_id: str) -> dict[str, Any]:
         """Compare two gauntlet runs side-by-side."""
-        return self._client.request(
-            "GET", f"/api/v1/gauntlet/{receipt_id}/compare/{other_id}"
-        )
+        return self._client.request("GET", f"/api/v1/gauntlet/{receipt_id}/compare/{other_id}")
 
     def run_and_wait(
         self,

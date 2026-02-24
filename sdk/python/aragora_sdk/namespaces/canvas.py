@@ -200,7 +200,9 @@ class CanvasAPI:
         if context:
             payload["context"] = context
         return self._client.request(
-            "POST", "/api/v1/canvas/pipeline/from-braindump", json=payload,
+            "POST",
+            "/api/v1/canvas/pipeline/from-braindump",
+            json=payload,
         )
 
     def run_from_template(
@@ -259,7 +261,9 @@ class CanvasAPI:
         """
         params = {"category": category} if category else {}
         return self._client.request(
-            "GET", "/api/v1/canvas/pipeline/templates", params=params,
+            "GET",
+            "/api/v1/canvas/pipeline/templates",
+            params=params,
         )
 
     def get_receipt(self, pipeline_id: str) -> dict[str, Any]:
@@ -272,11 +276,15 @@ class CanvasAPI:
             Decision receipt with audit trail
         """
         return self._client.request(
-            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/receipt",
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/receipt",
         )
 
     def get_graph(
-        self, pipeline_id: str, *, stage: str | None = None,
+        self,
+        pipeline_id: str,
+        *,
+        stage: str | None = None,
     ) -> dict[str, Any]:
         """Get React Flow graph for pipeline stages.
 
@@ -289,7 +297,9 @@ class CanvasAPI:
         """
         params = {"stage": stage} if stage else {}
         return self._client.request(
-            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/graph", params=params,
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/graph",
+            params=params,
         )
 
     def get_status(self, pipeline_id: str) -> dict[str, Any]:
@@ -302,7 +312,8 @@ class CanvasAPI:
             Status for each stage including duration
         """
         return self._client.request(
-            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/status",
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/status",
         )
 
     def debate_to_pipeline(
@@ -438,7 +449,9 @@ class AsyncCanvasAPI:
         if context:
             payload["context"] = context
         return await self._client.request(
-            "POST", "/api/v1/canvas/pipeline/from-braindump", json=payload,
+            "POST",
+            "/api/v1/canvas/pipeline/from-braindump",
+            json=payload,
         )
 
     async def run_from_template(
@@ -474,28 +487,37 @@ class AsyncCanvasAPI:
         """List available pipeline templates."""
         params = {"category": category} if category else {}
         return await self._client.request(
-            "GET", "/api/v1/canvas/pipeline/templates", params=params,
+            "GET",
+            "/api/v1/canvas/pipeline/templates",
+            params=params,
         )
 
     async def get_receipt(self, pipeline_id: str) -> dict[str, Any]:
         """Get DecisionReceipt for a completed pipeline."""
         return await self._client.request(
-            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/receipt",
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/receipt",
         )
 
     async def get_graph(
-        self, pipeline_id: str, *, stage: str | None = None,
+        self,
+        pipeline_id: str,
+        *,
+        stage: str | None = None,
     ) -> dict[str, Any]:
         """Get React Flow graph for pipeline stages."""
         params = {"stage": stage} if stage else {}
         return await self._client.request(
-            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/graph", params=params,
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/graph",
+            params=params,
         )
 
     async def get_status(self, pipeline_id: str) -> dict[str, Any]:
         """Get pipeline per-stage status."""
         return await self._client.request(
-            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/status",
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/status",
         )
 
     async def debate_to_pipeline(

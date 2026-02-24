@@ -420,9 +420,7 @@ class TestServerTTSCallbacks:
         with (
             patch("aragora.server.stream.servers.VoiceStreamHandler"),
             patch("aragora.server.stream.tts_integration.TTSIntegration") as mock_tts_cls,
-            patch(
-                "aragora.server.stream.tts_integration.get_tts_integration"
-            ) as mock_get_tts,
+            patch("aragora.server.stream.tts_integration.get_tts_integration") as mock_get_tts,
             patch("aragora.server.stream.tts_integration.set_tts_integration"),
         ):
             mock_tts = MagicMock()
@@ -447,9 +445,7 @@ class TestServerTTSCallbacks:
         with (
             patch("aragora.server.stream.servers.VoiceStreamHandler"),
             patch("aragora.server.stream.tts_integration.TTSIntegration") as mock_tts_cls,
-            patch(
-                "aragora.server.stream.tts_integration.get_tts_integration"
-            ) as mock_get_tts,
+            patch("aragora.server.stream.tts_integration.get_tts_integration") as mock_get_tts,
             patch("aragora.server.stream.tts_integration.set_tts_integration"),
         ):
             mock_tts = MagicMock()
@@ -620,9 +616,7 @@ class TestBridgeCleanup:
         with (
             patch("aragora.server.stream.servers.VoiceStreamHandler"),
             patch("aragora.server.stream.tts_integration.TTSIntegration") as mock_tts_cls,
-            patch(
-                "aragora.server.stream.tts_integration.get_tts_integration"
-            ) as mock_get_tts,
+            patch("aragora.server.stream.tts_integration.get_tts_integration") as mock_get_tts,
             patch("aragora.server.stream.tts_integration.set_tts_integration"),
         ):
             mock_tts = MagicMock()

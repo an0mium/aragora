@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class CrossPollinationAPI:
     """
     Synchronous Cross-Pollination API.
@@ -176,7 +177,9 @@ class CrossPollinationAPI:
         Returns:
             Sync trigger confirmation.
         """
-        return self._client.request("POST", "/api/v1/cross-pollination/federation/sync", json=data or {})
+        return self._client.request(
+            "POST", "/api/v1/cross-pollination/federation/sync", json=data or {}
+        )
 
     def get_federation(self) -> dict[str, Any]:
         """
@@ -239,6 +242,7 @@ class CrossPollinationAPI:
         return self._client.request(
             "GET", "/api/v1/laboratory/cross-pollinations/suggest", params=params
         )
+
 
 class AsyncCrossPollinationAPI:
     """
@@ -305,12 +309,16 @@ class AsyncCrossPollinationAPI:
     async def list_conflicts(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """List cross-pollination conflicts."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client.request("GET", "/api/v1/cross-pollination/conflicts", params=params)
+        return await self._client.request(
+            "GET", "/api/v1/cross-pollination/conflicts", params=params
+        )
 
     # Federation
     async def federation_sync(self, data: dict[str, Any] | None = None) -> dict[str, Any]:
         """Trigger cross-pollination federation sync."""
-        return await self._client.request("POST", "/api/v1/cross-pollination/federation/sync", json=data or {})
+        return await self._client.request(
+            "POST", "/api/v1/cross-pollination/federation/sync", json=data or {}
+        )
 
     async def get_federation(self) -> dict[str, Any]:
         """Get cross-pollination federation status and configuration."""

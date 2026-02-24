@@ -319,7 +319,9 @@ class FeedbackPhase:
         # still intercept the call.  Uses instance method resolution so
         # unittest.mock.patch on the class attribute works correctly.
         _phase_ref = self
-        self._calibration_feedback._store_calibration_in_mound = lambda ctx_arg, deltas: _phase_ref._store_calibration_in_mound(ctx_arg, deltas)  # type: ignore[assignment,method-assign]
+        self._calibration_feedback._store_calibration_in_mound = (
+            lambda ctx_arg, deltas: _phase_ref._store_calibration_in_mound(ctx_arg, deltas)
+        )  # type: ignore[assignment,method-assign]
         self._knowledge_feedback = KnowledgeFeedback(
             knowledge_mound=knowledge_mound,
             enable_knowledge_ingestion=enable_knowledge_ingestion,
@@ -975,17 +977,11 @@ class FeedbackPhase:
                 # Fallback: build minimal cost_summary from CostTracker buffer
                 if cost_summary is None:
                     try:
-                        debate_costs = await self.cost_tracker.get_debate_cost(
-                            ctx.debate_id
-                        )
-                        if debate_costs and float(
-                            debate_costs.get("total_cost_usd", 0)
-                        ) > 0:
+                        debate_costs = await self.cost_tracker.get_debate_cost(ctx.debate_id)
+                        if debate_costs and float(debate_costs.get("total_cost_usd", 0)) > 0:
                             cost_summary = debate_costs
                     except (TypeError, ValueError, AttributeError) as e:
-                        logger.debug(
-                            "[receipt] CostTracker cost extraction failed: %s", e
-                        )
+                        logger.debug("[receipt] CostTracker cost extraction failed: %s", e)
 
             # Generate receipt from debate result
             receipt = DecisionReceipt.from_debate_result(

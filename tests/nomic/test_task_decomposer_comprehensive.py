@@ -66,9 +66,7 @@ class TestAIExtractionFunction:
             config=DecomposerConfig(complexity_threshold=1),
             extract_subtasks_fn=lambda task: extracted,
         )
-        result = decomposer.analyze(
-            "Refactor the authentication system with security checks"
-        )
+        result = decomposer.analyze("Refactor the authentication system with security checks")
 
         if result.should_decompose:
             assert any("AI Step 1" in st.title for st in result.subtasks)
@@ -98,9 +96,7 @@ class TestAIExtractionFunction:
             config=DecomposerConfig(complexity_threshold=1),
             extract_subtasks_fn=lambda task: [],
         )
-        result = decomposer.analyze(
-            "Refactor the database and security and api layers system-wide"
-        )
+        result = decomposer.analyze("Refactor the database and security and api layers system-wide")
 
         if result.should_decompose:
             # Fallback to heuristic should still generate subtasks
@@ -108,14 +104,9 @@ class TestAIExtractionFunction:
 
     def test_extract_subtasks_capped_at_max(self):
         """Extraction should respect max_subtasks config."""
-        extracted = [
-            {"title": f"Step {i}", "description": f"Desc {i}"}
-            for i in range(20)
-        ]
+        extracted = [{"title": f"Step {i}", "description": f"Desc {i}"} for i in range(20)]
         decomposer = TaskDecomposer(
-            config=DecomposerConfig(
-                complexity_threshold=1, max_subtasks=3
-            ),
+            config=DecomposerConfig(complexity_threshold=1, max_subtasks=3),
             extract_subtasks_fn=lambda task: extracted,
         )
         result = decomposer.analyze(
@@ -243,10 +234,17 @@ class TestGoalTree:
 class TestParseDebateSubtasks:
     def test_parse_json_code_block(self, decomposer: TaskDecomposer):
         """Should parse JSON from ```json code block."""
-        subtasks_json = json.dumps([
-            {"title": "Step A", "description": "Do A", "complexity": "low", "files": ["a.py"]},
-            {"title": "Step B", "description": "Do B", "complexity": "high", "dependencies": ["subtask_1"]},
-        ])
+        subtasks_json = json.dumps(
+            [
+                {"title": "Step A", "description": "Do A", "complexity": "low", "files": ["a.py"]},
+                {
+                    "title": "Step B",
+                    "description": "Do B",
+                    "complexity": "high",
+                    "dependencies": ["subtask_1"],
+                },
+            ]
+        )
         text = f"Here are the subtasks:\n```json\n{subtasks_json}\n```"
 
         result = decomposer._parse_debate_subtasks(text)
@@ -257,9 +255,11 @@ class TestParseDebateSubtasks:
 
     def test_parse_raw_json_array(self, decomposer: TaskDecomposer):
         """Should parse raw JSON array without code block."""
-        subtasks_json = json.dumps([
-            {"title": "Only Step", "description": "Single step"},
-        ])
+        subtasks_json = json.dumps(
+            [
+                {"title": "Only Step", "description": "Single step"},
+            ]
+        )
         text = f"The result is: {subtasks_json}"
 
         result = decomposer._parse_debate_subtasks(text)
@@ -404,13 +404,15 @@ class TestEnrichSubtasksFromKm:
         ]
 
         mock_adapter = AsyncMock()
-        mock_adapter.find_recurring_failures = AsyncMock(return_value=[
-            {
-                "pattern": "tests flaky on CI",
-                "affected_tracks": ["qa"],
-                "occurrences": 3,
-            }
-        ])
+        mock_adapter.find_recurring_failures = AsyncMock(
+            return_value=[
+                {
+                    "pattern": "tests flaky on CI",
+                    "affected_tracks": ["qa"],
+                    "occurrences": 3,
+                }
+            ]
+        )
         mock_adapter.find_high_roi_goal_types = AsyncMock(return_value=[])
 
         with patch(
@@ -433,13 +435,15 @@ class TestEnrichSubtasksFromKm:
 
         mock_adapter = AsyncMock()
         mock_adapter.find_recurring_failures = AsyncMock(return_value=[])
-        mock_adapter.find_high_roi_goal_types = AsyncMock(return_value=[
-            {
-                "pattern": "lint coverage",
-                "avg_improvement_score": 0.8,
-                "example_objectives": ["Run linter on all modules"],
-            }
-        ])
+        mock_adapter.find_high_roi_goal_types = AsyncMock(
+            return_value=[
+                {
+                    "pattern": "lint coverage",
+                    "avg_improvement_score": 0.8,
+                    "example_objectives": ["Run linter on all modules"],
+                }
+            ]
+        )
 
         with patch(
             "aragora.knowledge.mound.adapters.nomic_cycle_adapter.get_nomic_cycle_adapter",
@@ -458,9 +462,12 @@ class TestEnrichSubtasksFromKm:
             SubTask(id="s1", title="Test", description="Test"),
         ]
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.nomic_cycle_adapter": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter": None,
+            },
+        ):
             enriched = await decomposer.enrich_subtasks_from_km("test", subtasks)
 
         assert enriched is subtasks  # Should return the same list unchanged

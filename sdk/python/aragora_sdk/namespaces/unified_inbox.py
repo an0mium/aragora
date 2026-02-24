@@ -29,6 +29,7 @@ TriageAction = Literal[
 PriorityTier = Literal["critical", "high", "medium", "low"]
 BulkAction = Literal["archive", "mark_read", "mark_unread", "star", "delete"]
 
+
 class ConnectedAccount(TypedDict, total=False):
     """Connected email account."""
 
@@ -42,6 +43,7 @@ class ConnectedAccount(TypedDict, total=False):
     total_messages: int
     unread_count: int
     sync_errors: int
+
 
 class UnifiedMessage(TypedDict, total=False):
     """Unified message across providers."""
@@ -64,6 +66,7 @@ class UnifiedMessage(TypedDict, total=False):
     priority: dict[str, Any]
     triage: dict[str, Any] | None
 
+
 class TriageResult(TypedDict, total=False):
     """Triage result from multi-agent analysis."""
 
@@ -76,6 +79,7 @@ class TriageResult(TypedDict, total=False):
     schedule_for: str | None
     agents_involved: list[str]
     debate_summary: str | None
+
 
 class InboxStats(TypedDict, total=False):
     """Inbox health statistics."""
@@ -90,6 +94,7 @@ class InboxStats(TypedDict, total=False):
     sync_health: dict[str, Any]
     top_senders: list[dict[str, Any]]
     hourly_volume: list[dict[str, Any]]
+
 
 class UnifiedInboxAPI:
     """
@@ -118,7 +123,9 @@ class UnifiedInboxAPI:
     # =========================================================================
 
     def get_gmail_oauth_url(
-        self, redirect_uri: str, state: str | None = None,
+        self,
+        redirect_uri: str,
+        state: str | None = None,
     ) -> dict[str, Any]:
         """
         Get Gmail OAuth authorization URL.
@@ -136,7 +143,9 @@ class UnifiedInboxAPI:
         return self._client.request("GET", "/api/v1/inbox/oauth/gmail", params=params)
 
     def get_outlook_oauth_url(
-        self, redirect_uri: str, state: str | None = None,
+        self,
+        redirect_uri: str,
+        state: str | None = None,
     ) -> dict[str, Any]:
         """
         Get Outlook OAuth authorization URL.
@@ -430,7 +439,9 @@ class UnifiedInboxAPI:
             Sender profile information.
         """
         return self._client.request(
-            "GET", "/api/v1/inbox/sender-profile", params={"email": email},
+            "GET",
+            "/api/v1/inbox/sender-profile",
+            params={"email": email},
         )
 
     def get_daily_digest(self) -> dict[str, Any]:
@@ -469,7 +480,9 @@ class UnifiedInboxAPI:
     # =========================================================================
 
     def nv_get_gmail_oauth_url(
-        self, redirect_uri: str, state: str | None = None,
+        self,
+        redirect_uri: str,
+        state: str | None = None,
     ) -> dict[str, Any]:
         """Get Gmail OAuth URL (non-versioned path)."""
         params: dict[str, Any] = {"redirect_uri": redirect_uri}
@@ -478,7 +491,9 @@ class UnifiedInboxAPI:
         return self._client.request("GET", "/inbox/oauth/gmail", params=params)
 
     def nv_get_outlook_oauth_url(
-        self, redirect_uri: str, state: str | None = None,
+        self,
+        redirect_uri: str,
+        state: str | None = None,
     ) -> dict[str, Any]:
         """Get Outlook OAuth URL (non-versioned path)."""
         params: dict[str, Any] = {"redirect_uri": redirect_uri}
@@ -569,6 +584,7 @@ class UnifiedInboxAPI:
         msg: dict[str, Any] = result.get("message", result)
         return msg
 
+
 class AsyncUnifiedInboxAPI:
     """Asynchronous Unified Inbox API."""
 
@@ -580,7 +596,9 @@ class AsyncUnifiedInboxAPI:
     # =========================================================================
 
     async def get_gmail_oauth_url(
-        self, redirect_uri: str, state: str | None = None,
+        self,
+        redirect_uri: str,
+        state: str | None = None,
     ) -> dict[str, Any]:
         """Get Gmail OAuth authorization URL."""
         params: dict[str, Any] = {"redirect_uri": redirect_uri}
@@ -589,7 +607,9 @@ class AsyncUnifiedInboxAPI:
         return await self._client.request("GET", "/api/v1/inbox/oauth/gmail", params=params)
 
     async def get_outlook_oauth_url(
-        self, redirect_uri: str, state: str | None = None,
+        self,
+        redirect_uri: str,
+        state: str | None = None,
     ) -> dict[str, Any]:
         """Get Outlook OAuth authorization URL."""
         params: dict[str, Any] = {"redirect_uri": redirect_uri}
@@ -749,7 +769,9 @@ class AsyncUnifiedInboxAPI:
     async def get_sender_profile(self, email: str) -> dict[str, Any]:
         """Get profile information for a sender."""
         return await self._client.request(
-            "GET", "/api/v1/inbox/sender-profile", params={"email": email},
+            "GET",
+            "/api/v1/inbox/sender-profile",
+            params={"email": email},
         )
 
     async def get_daily_digest(self) -> dict[str, Any]:
@@ -774,7 +796,9 @@ class AsyncUnifiedInboxAPI:
     # =========================================================================
 
     async def nv_get_gmail_oauth_url(
-        self, redirect_uri: str, state: str | None = None,
+        self,
+        redirect_uri: str,
+        state: str | None = None,
     ) -> dict[str, Any]:
         """Get Gmail OAuth URL (non-versioned path)."""
         params: dict[str, Any] = {"redirect_uri": redirect_uri}
@@ -783,7 +807,9 @@ class AsyncUnifiedInboxAPI:
         return await self._client.request("GET", "/inbox/oauth/gmail", params=params)
 
     async def nv_get_outlook_oauth_url(
-        self, redirect_uri: str, state: str | None = None,
+        self,
+        redirect_uri: str,
+        state: str | None = None,
     ) -> dict[str, Any]:
         """Get Outlook OAuth URL (non-versioned path)."""
         params: dict[str, Any] = {"redirect_uri": redirect_uri}
@@ -814,7 +840,9 @@ class AsyncUnifiedInboxAPI:
         for k in ("limit", "offset", "priority", "account_id", "unread_only", "search"):
             if k in kwargs and kwargs[k] is not None:
                 params[k] = kwargs[k]
-        return await self._client.request("GET", "/inbox/messages", params=params if params else None)
+        return await self._client.request(
+            "GET", "/inbox/messages", params=params if params else None
+        )
 
     async def nv_send(
         self,
@@ -873,4 +901,3 @@ class AsyncUnifiedInboxAPI:
         result = await self.get_message(message_id)
         msg: dict[str, Any] = result.get("message", result)
         return msg
-

@@ -125,12 +125,8 @@ class TestRouting:
 class TestSummaryEndpoint:
     """Tests for GET /api/v1/analytics/spend/summary."""
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
     def test_returns_200(self, mock_tracker_fn, mock_budget_fn, handler, mock_http):
         tracker = MagicMock()
         tracker.get_workspace_stats.return_value = _make_workspace_stats()
@@ -138,29 +134,19 @@ class TestSummaryEndpoint:
         mock_tracker_fn.return_value = tracker
         mock_budget_fn.return_value = None
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/summary", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/summary", {}, mock_http)
         assert result.status_code == 200
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
-    def test_summary_returns_all_keys(
-        self, mock_tracker_fn, mock_budget_fn, handler, mock_http
-    ):
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_summary_returns_all_keys(self, mock_tracker_fn, mock_budget_fn, handler, mock_http):
         tracker = MagicMock()
         tracker.get_workspace_stats.return_value = _make_workspace_stats()
         tracker.get_dashboard_summary.return_value = {}
         mock_tracker_fn.return_value = tracker
         mock_budget_fn.return_value = None
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/summary", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/summary", {}, mock_http)
         body = _parse_body(result)
         expected_keys = {
             "total_spend_usd",
@@ -174,47 +160,29 @@ class TestSummaryEndpoint:
         }
         assert expected_keys.issubset(body.keys())
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
-    def test_summary_total_spend(
-        self, mock_tracker_fn, mock_budget_fn, handler, mock_http
-    ):
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_summary_total_spend(self, mock_tracker_fn, mock_budget_fn, handler, mock_http):
         tracker = MagicMock()
-        tracker.get_workspace_stats.return_value = _make_workspace_stats(
-            total_cost="42.50"
-        )
+        tracker.get_workspace_stats.return_value = _make_workspace_stats(total_cost="42.50")
         tracker.get_dashboard_summary.return_value = {}
         mock_tracker_fn.return_value = tracker
         mock_budget_fn.return_value = None
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/summary", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/summary", {}, mock_http)
         body = _parse_body(result)
         assert body["total_spend_usd"] == "42.50"
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
-    def test_summary_budget_utilization(
-        self, mock_tracker_fn, mock_budget_fn, handler, mock_http
-    ):
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_summary_budget_utilization(self, mock_tracker_fn, mock_budget_fn, handler, mock_http):
         tracker = MagicMock()
         tracker.get_workspace_stats.return_value = _make_workspace_stats()
         tracker.get_dashboard_summary.return_value = {}
         mock_tracker_fn.return_value = tracker
 
         budget_mgr = MagicMock()
-        budget_mgr.get_budgets_for_org.return_value = [
-            _mock_budget(500.0, 250.0)
-        ]
+        budget_mgr.get_budgets_for_org.return_value = [_mock_budget(500.0, 250.0)]
         mock_budget_fn.return_value = budget_mgr
 
         result = handler.handle(
@@ -227,49 +195,31 @@ class TestSummaryEndpoint:
         assert body["budget_limit_usd"] == 500.0
         assert body["budget_spent_usd"] == 250.0
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
-    def test_summary_no_tracker(
-        self, mock_tracker_fn, mock_budget_fn, handler, mock_http
-    ):
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_summary_no_tracker(self, mock_tracker_fn, mock_budget_fn, handler, mock_http):
         """When tracker is unavailable, defaults to zero values."""
         mock_tracker_fn.return_value = None
         mock_budget_fn.return_value = None
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/summary", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/summary", {}, mock_http)
         body = _parse_body(result)
         assert body["total_spend_usd"] == "0.00"
         assert body["total_api_calls"] == 0
         assert body["total_tokens"] == 0
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
-    def test_summary_trend_increasing(
-        self, mock_tracker_fn, mock_budget_fn, handler, mock_http
-    ):
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_summary_trend_increasing(self, mock_tracker_fn, mock_budget_fn, handler, mock_http):
         tracker = MagicMock()
-        tracker.get_workspace_stats.return_value = _make_workspace_stats(
-            total_cost="10.00"
-        )
+        tracker.get_workspace_stats.return_value = _make_workspace_stats(total_cost="10.00")
         tracker.get_dashboard_summary.return_value = {
             "projections": {"projected_monthly_usd": "20.00"}
         }
         mock_tracker_fn.return_value = tracker
         mock_budget_fn.return_value = None
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/summary", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/summary", {}, mock_http)
         body = _parse_body(result)
         assert body["trend_direction"] == "increasing"
 
@@ -282,34 +232,24 @@ class TestSummaryEndpoint:
 class TestTrendsEndpoint:
     """Tests for GET /api/v1/analytics/spend/trends."""
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
     def test_trends_returns_200(self, mock_budget_fn, handler, mock_http):
         mock_budget_fn.return_value = None
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/trends", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/trends", {}, mock_http)
         assert result.status_code == 200
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
     def test_trends_default_params(self, mock_budget_fn, handler, mock_http):
         mock_budget_fn.return_value = None
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/trends", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/trends", {}, mock_http)
         body = _parse_body(result)
         assert body["org_id"] == "default"
         assert body["period"] == "daily"
         assert body["days"] == 30
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
     def test_trends_custom_period(self, mock_budget_fn, handler, mock_http):
         mock_budget_fn.return_value = None
 
@@ -322,12 +262,8 @@ class TestTrendsEndpoint:
         assert body["period"] == "weekly"
         assert body["days"] == 7
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
-    def test_trends_invalid_period_defaults(
-        self, mock_budget_fn, handler, mock_http
-    ):
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
+    def test_trends_invalid_period_defaults(self, mock_budget_fn, handler, mock_http):
         mock_budget_fn.return_value = None
 
         result = handler.handle(
@@ -338,9 +274,7 @@ class TestTrendsEndpoint:
         body = _parse_body(result)
         assert body["period"] == "daily"
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
     def test_trends_days_clamped(self, mock_budget_fn, handler, mock_http):
         mock_budget_fn.return_value = None
 
@@ -361,39 +295,29 @@ class TestTrendsEndpoint:
 class TestByAgentEndpoint:
     """Tests for GET /api/v1/analytics/spend/by-agent."""
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
     def test_by_agent_returns_200(self, mock_tracker_fn, handler, mock_http):
         tracker = MagicMock()
         tracker.get_workspace_stats.return_value = _make_workspace_stats()
         mock_tracker_fn.return_value = tracker
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/by-agent", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/by-agent", {}, mock_http)
         assert result.status_code == 200
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
     def test_by_agent_returns_agents(self, mock_tracker_fn, handler, mock_http):
         tracker = MagicMock()
         tracker.get_workspace_stats.return_value = _make_workspace_stats()
         mock_tracker_fn.return_value = tracker
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/by-agent", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/by-agent", {}, mock_http)
         body = _parse_body(result)
         assert len(body["agents"]) == 3
         # Should be sorted by cost descending
         assert body["agents"][0]["agent_name"] == "claude"
         assert body["agents"][0]["cost_usd"] == "5.00"
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
     def test_by_agent_percentages(self, mock_tracker_fn, handler, mock_http):
         tracker = MagicMock()
         tracker.get_workspace_stats.return_value = _make_workspace_stats(
@@ -402,22 +326,16 @@ class TestByAgentEndpoint:
         )
         mock_tracker_fn.return_value = tracker
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/by-agent", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/by-agent", {}, mock_http)
         body = _parse_body(result)
         assert body["agents"][0]["percentage"] == 75.0
         assert body["agents"][1]["percentage"] == 25.0
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
     def test_by_agent_no_tracker(self, mock_tracker_fn, handler, mock_http):
         mock_tracker_fn.return_value = None
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/by-agent", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/by-agent", {}, mock_http)
         body = _parse_body(result)
         assert body["agents"] == []
         assert body["total_usd"] == "0"
@@ -431,27 +349,17 @@ class TestByAgentEndpoint:
 class TestByDecisionEndpoint:
     """Tests for GET /api/v1/analytics/spend/by-decision."""
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
-    def test_by_decision_returns_200(
-        self, mock_tracker_fn, handler, mock_http
-    ):
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_by_decision_returns_200(self, mock_tracker_fn, handler, mock_http):
         tracker = MagicMock()
         tracker._debate_costs = {}
         mock_tracker_fn.return_value = tracker
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/by-decision", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/by-decision", {}, mock_http)
         assert result.status_code == 200
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
-    def test_by_decision_returns_costs(
-        self, mock_tracker_fn, handler, mock_http
-    ):
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_by_decision_returns_costs(self, mock_tracker_fn, handler, mock_http):
         tracker = MagicMock()
         tracker._debate_costs = {
             "debate_1": Decimal("5.00"),
@@ -460,22 +368,16 @@ class TestByDecisionEndpoint:
         }
         mock_tracker_fn.return_value = tracker
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/by-decision", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/by-decision", {}, mock_http)
         body = _parse_body(result)
         assert body["count"] == 3
         # Should be sorted by cost descending
         assert body["decisions"][0]["debate_id"] == "debate_1"
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
     def test_by_decision_limit(self, mock_tracker_fn, handler, mock_http):
         tracker = MagicMock()
-        tracker._debate_costs = {
-            f"debate_{i}": Decimal(f"{i}.00") for i in range(10)
-        }
+        tracker._debate_costs = {f"debate_{i}": Decimal(f"{i}.00") for i in range(10)}
         mock_tracker_fn.return_value = tracker
 
         result = handler.handle(
@@ -486,17 +388,11 @@ class TestByDecisionEndpoint:
         body = _parse_body(result)
         assert body["count"] == 3
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker"
-    )
-    def test_by_decision_no_tracker(
-        self, mock_tracker_fn, handler, mock_http
-    ):
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_cost_tracker")
+    def test_by_decision_no_tracker(self, mock_tracker_fn, handler, mock_http):
         mock_tracker_fn.return_value = None
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/by-decision", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/by-decision", {}, mock_http)
         body = _parse_body(result)
         assert body["decisions"] == []
         assert body["count"] == 0
@@ -510,36 +406,26 @@ class TestByDecisionEndpoint:
 class TestBudgetEndpoint:
     """Tests for GET /api/v1/analytics/spend/budget."""
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
     def test_budget_returns_200(self, mock_budget_fn, handler, mock_http):
         mock_budget_fn.return_value = None
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/budget", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/budget", {}, mock_http)
         assert result.status_code == 200
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
     def test_budget_no_manager(self, mock_budget_fn, handler, mock_http):
         """When budget manager is unavailable, returns empty structure."""
         mock_budget_fn.return_value = None
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/budget", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/budget", {}, mock_http)
         body = _parse_body(result)
         assert body["budgets"] == []
         assert body["total_budget_usd"] == 0.0
         assert body["total_spent_usd"] == 0.0
         assert body["forecast_exhaustion_days"] is None
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
     def test_budget_with_data(self, mock_budget_fn, handler, mock_http):
         budget_mgr = MagicMock()
         budget_mgr.get_summary.return_value = {
@@ -556,21 +442,15 @@ class TestBudgetEndpoint:
         }
         mock_budget_fn.return_value = budget_mgr
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/budget", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/budget", {}, mock_http)
         body = _parse_body(result)
         assert body["total_budget_usd"] == 1000
         assert body["total_spent_usd"] == 400
         assert body["total_remaining_usd"] == 600
         assert body["utilization_pct"] == 40.0
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
-    def test_budget_utilization_zero_budget(
-        self, mock_budget_fn, handler, mock_http
-    ):
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
+    def test_budget_utilization_zero_budget(self, mock_budget_fn, handler, mock_http):
         budget_mgr = MagicMock()
         budget_mgr.get_summary.return_value = {
             "total_budget_usd": 0,
@@ -580,15 +460,11 @@ class TestBudgetEndpoint:
         }
         mock_budget_fn.return_value = budget_mgr
 
-        result = handler.handle(
-            "/api/v1/analytics/spend/budget", {}, mock_http
-        )
+        result = handler.handle("/api/v1/analytics/spend/budget", {}, mock_http)
         body = _parse_body(result)
         assert body["utilization_pct"] == 0.0
 
-    @patch(
-        "aragora.server.handlers.spend_analytics_dashboard._get_budget_manager"
-    )
+    @patch("aragora.server.handlers.spend_analytics_dashboard._get_budget_manager")
     def test_budget_org_id_param(self, mock_budget_fn, handler, mock_http):
         budget_mgr = MagicMock()
         budget_mgr.get_summary.return_value = {

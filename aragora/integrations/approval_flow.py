@@ -373,9 +373,7 @@ class ApprovalFlowManager:
             flow.updated_at = datetime.now(timezone.utc).isoformat()
             self._persist_flow(flow)
             self._emit_event("approval_escalated", flow)
-            logger.info(
-                "Approval flow %s auto-escalated due to timeout", flow_id
-            )
+            logger.info("Approval flow %s auto-escalated due to timeout", flow_id)
 
         return flow
 

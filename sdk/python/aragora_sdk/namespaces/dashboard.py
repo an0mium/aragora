@@ -19,6 +19,7 @@ PeriodType = Literal["day", "week", "month"]
 PriorityType = Literal["critical", "high", "medium", "low"]
 ChangeType = Literal["increase", "decrease", "neutral"]
 
+
 class DashboardAPI:
     """
     Synchronous Dashboard API.
@@ -406,9 +407,7 @@ class DashboardAPI:
         Returns:
             Dict with quality, agents, history, and calibration data.
         """
-        return self._client.request(
-            "GET", "/api/v1/outcome-dashboard", params={"period": period}
-        )
+        return self._client.request("GET", "/api/v1/outcome-dashboard", params={"period": period})
 
     def get_outcome_quality(self, period: str = "30d") -> dict[str, Any]:
         """Get decision quality score and trend.
@@ -457,9 +456,7 @@ class DashboardAPI:
             params["limit"] = limit
         if offset is not None:
             params["offset"] = offset
-        return self._client.request(
-            "GET", "/api/v1/outcome-dashboard/history", params=params
-        )
+        return self._client.request("GET", "/api/v1/outcome-dashboard/history", params=params)
 
     def get_outcome_calibration(self, period: str = "30d") -> dict[str, Any]:
         """Get calibration curve data (predicted vs actual confidence).
@@ -485,13 +482,9 @@ class DashboardAPI:
         Returns:
             Dict with usage metrics including debates, costs, and consensus rate.
         """
-        return self._client.request(
-            "GET", "/api/v1/usage/summary", params={"period": period}
-        )
+        return self._client.request("GET", "/api/v1/usage/summary", params={"period": period})
 
-    def get_usage_breakdown(
-        self, dimension: str = "agent", period: str = "30d"
-    ) -> dict[str, Any]:
+    def get_usage_breakdown(self, dimension: str = "agent", period: str = "30d") -> dict[str, Any]:
         """Get detailed usage breakdown by dimension.
 
         Args:
@@ -502,7 +495,8 @@ class DashboardAPI:
             Dict with breakdown data by the specified dimension.
         """
         return self._client.request(
-            "GET", "/api/v1/usage/breakdown",
+            "GET",
+            "/api/v1/usage/breakdown",
             params={"dimension": dimension, "period": period},
         )
 
@@ -515,13 +509,9 @@ class DashboardAPI:
         Returns:
             Dict with ROI metrics, time savings, and cost per decision.
         """
-        return self._client.request(
-            "GET", "/api/v1/usage/roi", params={"period": period}
-        )
+        return self._client.request("GET", "/api/v1/usage/roi", params={"period": period})
 
-    def export_usage(
-        self, format: str = "json", period: str = "30d"
-    ) -> dict[str, Any]:
+    def export_usage(self, format: str = "json", period: str = "30d") -> dict[str, Any]:
         """Export usage data.
 
         Args:
@@ -532,7 +522,8 @@ class DashboardAPI:
             Dict with exported data or download URL.
         """
         return self._client.request(
-            "GET", "/api/v1/usage/export",
+            "GET",
+            "/api/v1/usage/export",
             params={"format": format, "period": period},
         )
 
@@ -554,9 +545,7 @@ class DashboardAPI:
         """
         return self._client.request("GET", "/api/v1/analytics/spend/summary")
 
-    def get_spend_trends(
-        self, period: str = "30d", granularity: str = "daily"
-    ) -> dict[str, Any]:
+    def get_spend_trends(self, period: str = "30d", granularity: str = "daily") -> dict[str, Any]:
         """Get spend trends over time.
 
         Args:
@@ -567,7 +556,8 @@ class DashboardAPI:
             Dict with spend data points over time.
         """
         return self._client.request(
-            "GET", "/api/v1/analytics/spend/trends",
+            "GET",
+            "/api/v1/analytics/spend/trends",
             params={"period": period, "granularity": granularity},
         )
 
@@ -613,7 +603,9 @@ class AsyncDashboardAPI:
 
     async def get_overview_page(self, **kwargs: Any) -> dict[str, Any]:
         """Get dashboard overview page data."""
-        return await self._client.request("GET", "/api/v1/dashboard/overview", params=kwargs or None)
+        return await self._client.request(
+            "GET", "/api/v1/dashboard/overview", params=kwargs or None
+        )
 
     async def get_stats(self, period: PeriodType = "week") -> dict[str, Any]:
         """Get detailed statistics."""
@@ -883,9 +875,7 @@ class AsyncDashboardAPI:
             params["limit"] = limit
         if offset is not None:
             params["offset"] = offset
-        return await self._client.request(
-            "GET", "/api/v1/outcome-dashboard/history", params=params
-        )
+        return await self._client.request("GET", "/api/v1/outcome-dashboard/history", params=params)
 
     async def get_outcome_calibration(self, period: str = "30d") -> dict[str, Any]:
         """Get calibration curve data (predicted vs actual confidence)."""
@@ -897,31 +887,27 @@ class AsyncDashboardAPI:
 
     async def get_usage_summary(self, period: str = "30d") -> dict[str, Any]:
         """Get unified usage metrics summary."""
-        return await self._client.request(
-            "GET", "/api/v1/usage/summary", params={"period": period}
-        )
+        return await self._client.request("GET", "/api/v1/usage/summary", params={"period": period})
 
     async def get_usage_breakdown(
         self, dimension: str = "agent", period: str = "30d"
     ) -> dict[str, Any]:
         """Get detailed usage breakdown by dimension."""
         return await self._client.request(
-            "GET", "/api/v1/usage/breakdown",
+            "GET",
+            "/api/v1/usage/breakdown",
             params={"dimension": dimension, "period": period},
         )
 
     async def get_usage_roi(self, period: str = "30d") -> dict[str, Any]:
         """Get ROI analysis for usage."""
-        return await self._client.request(
-            "GET", "/api/v1/usage/roi", params={"period": period}
-        )
+        return await self._client.request("GET", "/api/v1/usage/roi", params={"period": period})
 
-    async def export_usage(
-        self, format: str = "json", period: str = "30d"
-    ) -> dict[str, Any]:
+    async def export_usage(self, format: str = "json", period: str = "30d") -> dict[str, Any]:
         """Export usage data."""
         return await self._client.request(
-            "GET", "/api/v1/usage/export",
+            "GET",
+            "/api/v1/usage/export",
             params={"format": format, "period": period},
         )
 
@@ -940,7 +926,8 @@ class AsyncDashboardAPI:
     ) -> dict[str, Any]:
         """Get spend trends over time."""
         return await self._client.request(
-            "GET", "/api/v1/analytics/spend/trends",
+            "GET",
+            "/api/v1/analytics/spend/trends",
             params={"period": period, "granularity": granularity},
         )
 

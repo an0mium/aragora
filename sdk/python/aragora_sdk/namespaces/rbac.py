@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class RBACAPI:
     """
     Synchronous RBAC API.
@@ -372,6 +373,7 @@ class RBACAPI:
     def regenerate_backup_codes(self, code: str) -> dict[str, Any]:
         """Regenerate MFA backup codes."""
         return self._client.request("POST", "/api/auth/mfa/backup-codes", json={"code": code})
+
 
 class AsyncRBACAPI:
     """

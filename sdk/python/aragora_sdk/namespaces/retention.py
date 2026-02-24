@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 RetentionAction = Literal["archive", "delete", "anonymize"]
 
+
 class RetentionAPI:
     """
     Synchronous Retention API.

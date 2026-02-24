@@ -388,10 +388,12 @@ class TestGetDomains:
 
     def test_domains_from_elo(self, client, mock_elo_system):
         """Domains returns ELO domains when available."""
-        mock_elo_system.get_domains = MagicMock(return_value=[
-            {"name": "security", "description": "Security domain", "agent_count": 5},
-            {"name": "coding", "description": "Coding domain", "agent_count": 8},
-        ])
+        mock_elo_system.get_domains = MagicMock(
+            return_value=[
+                {"name": "security", "description": "Security domain", "agent_count": 5},
+                {"name": "coding", "description": "Coding domain", "agent_count": 8},
+            ]
+        )
 
         response = client.get("/api/v2/agents/domains")
         assert response.status_code == 200
@@ -473,14 +475,16 @@ class TestGetAgentStats:
 
     def test_stats_with_extended_data(self, client, mock_elo_system):
         """Stats includes extended data from ELO."""
-        mock_elo_system.get_agent_stats = MagicMock(return_value={
-            "recent_performance": [
-                {"debate_id": "d1", "outcome": "win"},
-                {"debate_id": "d2", "outcome": "loss"},
-            ],
-            "domains": ["security", "architecture"],
-            "avg_confidence": 0.82,
-        })
+        mock_elo_system.get_agent_stats = MagicMock(
+            return_value={
+                "recent_performance": [
+                    {"debate_id": "d1", "outcome": "win"},
+                    {"debate_id": "d2", "outcome": "loss"},
+                ],
+                "domains": ["security", "architecture"],
+                "avg_confidence": 0.82,
+            }
+        )
 
         response = client.get("/api/v2/agents/claude/stats")
         assert response.status_code == 200
@@ -507,26 +511,30 @@ class TestGetAgentCalibration:
 
     def test_calibration_with_buckets(self, client, mock_elo_system):
         """Calibration returns bucket data."""
-        mock_elo_system.get_calibration_by_bucket = MagicMock(return_value=[
-            {
-                "bucket": "0.0-0.2",
-                "predicted": 0.1,
-                "actual": 0.12,
-                "count": 50,
-            },
-            {
-                "bucket": "0.2-0.4",
-                "predicted": 0.3,
-                "actual": 0.28,
-                "count": 75,
-            },
-        ])
-        mock_elo_system.get_calibration_leaderboard = MagicMock(return_value=[
-            {
-                "name": "claude",
-                "calibration_score": 0.95,
-            },
-        ])
+        mock_elo_system.get_calibration_by_bucket = MagicMock(
+            return_value=[
+                {
+                    "bucket": "0.0-0.2",
+                    "predicted": 0.1,
+                    "actual": 0.12,
+                    "count": 50,
+                },
+                {
+                    "bucket": "0.2-0.4",
+                    "predicted": 0.3,
+                    "actual": 0.28,
+                    "count": 75,
+                },
+            ]
+        )
+        mock_elo_system.get_calibration_leaderboard = MagicMock(
+            return_value=[
+                {
+                    "name": "claude",
+                    "calibration_score": 0.95,
+                },
+            ]
+        )
 
         response = client.get("/api/v2/agents/claude/calibration")
         assert response.status_code == 200
@@ -544,7 +552,8 @@ class TestGetAgentCalibration:
         response = client.get("/api/v2/agents/claude/calibration?domain=security")
         assert response.status_code == 200
         mock_elo_system.get_calibration_by_bucket.assert_called_once_with(
-            "claude", domain="security",
+            "claude",
+            domain="security",
         )
 
     def test_calibration_not_found(self, client, mock_elo_system):

@@ -339,10 +339,7 @@ class SelfImprovementDaemon:
             # Determine if approval can be bypassed for low-risk goals
             goal_risk = getattr(top_goal, "risk_score", 1.0)
             require_approval = self.config.require_approval
-            if (
-                self.config.auto_execute_low_risk
-                and goal_risk <= self.config.low_risk_threshold
-            ):
+            if self.config.auto_execute_low_risk and goal_risk <= self.config.low_risk_threshold:
                 require_approval = False
                 logger.info(
                     "daemon_auto_execute risk=%.2f threshold=%.2f goal=%s",
@@ -351,9 +348,7 @@ class SelfImprovementDaemon:
                     objective[:60],
                 )
 
-            pipeline_result = await self._execute(
-                objective, require_approval=require_approval
-            )
+            pipeline_result = await self._execute(objective, require_approval=require_approval)
 
             # Step 6: Measure health delta
             self._state = DaemonState.ASSESSING
@@ -400,9 +395,7 @@ class SelfImprovementDaemon:
         generator = GoalGenerator()
         return generator.generate_goals(report)
 
-    async def _execute(
-        self, objective: str, require_approval: bool | None = None
-    ) -> Any:
+    async def _execute(self, objective: str, require_approval: bool | None = None) -> Any:
         """Execute a self-improvement cycle via SelfImprovePipeline."""
         from aragora.nomic.self_improve import SelfImproveConfig, SelfImprovePipeline
 
@@ -410,9 +403,7 @@ class SelfImprovementDaemon:
             use_worktrees=self.config.use_worktrees,
             budget_limit_usd=self.config.budget_limit_per_cycle_usd,
             require_approval=(
-                require_approval
-                if require_approval is not None
-                else self.config.require_approval
+                require_approval if require_approval is not None else self.config.require_approval
             ),
             autonomous=self.config.autonomous,
             run_tests=self.config.run_tests,

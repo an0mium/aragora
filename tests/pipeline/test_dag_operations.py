@@ -20,28 +20,34 @@ from aragora.pipeline.universal_node import UniversalEdge, UniversalGraph, Unive
 def _make_graph() -> UniversalGraph:
     """Create a test graph with some nodes."""
     graph = UniversalGraph(id="test-graph", name="Test")
-    graph.add_node(UniversalNode(
-        id="idea-1",
-        stage=PipelineStage.IDEAS,
-        node_subtype="concept",
-        label="Build a rate limiter",
-        description="Implement token bucket rate limiting for API gateway",
-    ))
-    graph.add_node(UniversalNode(
-        id="idea-2",
-        stage=PipelineStage.IDEAS,
-        node_subtype="concept",
-        label="Add caching layer",
-        description="Add Redis caching for frequently accessed endpoints",
-    ))
-    graph.add_node(UniversalNode(
-        id="orch-1",
-        stage=PipelineStage.ORCHESTRATION,
-        node_subtype="agent_task",
-        label="Execute rate limiter",
-        description="Agent task to implement rate limiter",
-        parent_ids=["idea-1"],
-    ))
+    graph.add_node(
+        UniversalNode(
+            id="idea-1",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Build a rate limiter",
+            description="Implement token bucket rate limiting for API gateway",
+        )
+    )
+    graph.add_node(
+        UniversalNode(
+            id="idea-2",
+            stage=PipelineStage.IDEAS,
+            node_subtype="concept",
+            label="Add caching layer",
+            description="Add Redis caching for frequently accessed endpoints",
+        )
+    )
+    graph.add_node(
+        UniversalNode(
+            id="orch-1",
+            stage=PipelineStage.ORCHESTRATION,
+            node_subtype="agent_task",
+            label="Execute rate limiter",
+            description="Agent task to implement rate limiter",
+            parent_ids=["idea-1"],
+        )
+    )
     return graph
 
 
@@ -105,20 +111,19 @@ class TestDAGOperationsCoordinator:
         graph = UniversalGraph(id="cluster-test")
         coord = DAGOperationsCoordinator(graph)
 
-        result = await coord.cluster_ideas([
-            "Build a rate limiter for the API",
-            "Implement API rate limiting with tokens",
-            "Create user documentation",
-        ])
+        result = await coord.cluster_ideas(
+            [
+                "Build a rate limiter for the API",
+                "Implement API rate limiting with tokens",
+                "Create user documentation",
+            ]
+        )
         assert result.success
         assert len(result.created_nodes) >= 3  # At least 3 idea nodes
         assert result.metadata["cluster_count"] >= 1
 
         # Check nodes were added to graph
-        ideas_in_graph = [
-            n for n in graph.nodes.values()
-            if n.stage == PipelineStage.IDEAS
-        ]
+        ideas_in_graph = [n for n in graph.nodes.values() if n.stage == PipelineStage.IDEAS]
         assert len(ideas_in_graph) >= 3
 
     @pytest.mark.asyncio
@@ -181,11 +186,13 @@ class TestDAGOperationsCoordinator:
         graph = UniversalGraph(id="flow-test")
         coord = DAGOperationsCoordinator(graph)
 
-        result = await coord.auto_flow([
-            "Build a rate limiter",
-            "Add response caching",
-            "Create API documentation",
-        ])
+        result = await coord.auto_flow(
+            [
+                "Build a rate limiter",
+                "Add response caching",
+                "Create API documentation",
+            ]
+        )
         assert result.success
         assert result.metadata["ideas"] == 3
         assert result.metadata["goals"] >= 1
@@ -233,22 +240,26 @@ class TestPrioritizeChildren:
     def _graph_with_children(self) -> UniversalGraph:
         """Create a graph with a parent and 3 children."""
         graph = UniversalGraph(id="prio-test", name="Prioritization")
-        graph.add_node(UniversalNode(
-            id="parent",
-            stage=PipelineStage.GOALS,
-            node_subtype="goal",
-            label="Improve API performance",
-            description="Parent goal for performance improvements",
-        ))
+        graph.add_node(
+            UniversalNode(
+                id="parent",
+                stage=PipelineStage.GOALS,
+                node_subtype="goal",
+                label="Improve API performance",
+                description="Parent goal for performance improvements",
+            )
+        )
         for i in range(1, 4):
-            graph.add_node(UniversalNode(
-                id=f"child-{i}",
-                stage=PipelineStage.ACTIONS,
-                node_subtype="task",
-                label=f"Task {i}",
-                description=f"Subtask {i} of parent",
-                parent_ids=["parent"],
-            ))
+            graph.add_node(
+                UniversalNode(
+                    id=f"child-{i}",
+                    stage=PipelineStage.ACTIONS,
+                    node_subtype="task",
+                    label=f"Task {i}",
+                    description=f"Subtask {i} of parent",
+                    parent_ids=["parent"],
+                )
+            )
         return graph
 
     @pytest.mark.asyncio
@@ -306,6 +317,7 @@ class TestPrioritizeChildren:
         coord = DAGOperationsCoordinator(graph)
 
         import builtins
+
         real_import = builtins.__import__
 
         def _block_meta_planner(name, *args, **kwargs):
@@ -367,9 +379,9 @@ class TestPrioritizeChildren:
         result = await coord.prioritize_children("parent")
         assert result.success
         priorities = result.metadata["priorities"]
-        assert priorities[0] == 1       # From MetaPlanner
-        assert priorities[1] == 2       # Fallback index
-        assert priorities[2] == 3       # Fallback index
+        assert priorities[0] == 1  # From MetaPlanner
+        assert priorities[1] == 2  # Fallback index
+        assert priorities[2] == 3  # Fallback index
 
     @pytest.mark.asyncio
     async def test_prioritize_saves_graph(self, monkeypatch):
@@ -438,7 +450,10 @@ class TestDebateNode:
         assert "0.87" in result.message
         assert result.metadata["confidence"] == 0.87
         assert graph.nodes["idea-1"].confidence == 0.87
-        assert graph.nodes["idea-1"].metadata["debate_result"]["final_answer"] == "Token bucket algorithm is optimal"
+        assert (
+            graph.nodes["idea-1"].metadata["debate_result"]["final_answer"]
+            == "Token bucket algorithm is optimal"
+        )
 
     @pytest.mark.asyncio
     async def test_debate_no_agents_available(self, monkeypatch):
@@ -615,7 +630,8 @@ class TestExecuteNode:
         mock_federation.execute_remote = AsyncMock(return_value=mock_remote_result)
 
         coord = DAGOperationsCoordinator(
-            graph, federation_coordinator=mock_federation,
+            graph,
+            federation_coordinator=mock_federation,
         )
 
         monkeypatch.setattr(
@@ -926,9 +942,9 @@ class TestDecomposeNodeEdgeCases:
 
         # Verify edge was created
         decompose_edges = [
-            e for e in graph.edges.values()
-            if e.edge_type == StageEdgeType.DECOMPOSES_INTO
-            and e.source_id == "idea-1"
+            e
+            for e in graph.edges.values()
+            if e.edge_type == StageEdgeType.DECOMPOSES_INTO and e.source_id == "idea-1"
         ]
         assert len(decompose_edges) == 1
         assert decompose_edges[0].target_id == result.created_nodes[0]

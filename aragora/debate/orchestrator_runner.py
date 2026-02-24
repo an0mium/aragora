@@ -197,9 +197,7 @@ async def _populate_result_cost(
             total = float(debate_summary.total_cost_usd)
             if total > 0:
                 result.total_cost_usd = total
-            result.total_tokens = (
-                debate_summary.total_tokens_in + debate_summary.total_tokens_out
-            )
+            result.total_tokens = debate_summary.total_tokens_in + debate_summary.total_tokens_out
             per_agent: dict[str, float] = {}
             for name, breakdown in debate_summary.per_agent.items():
                 per_agent[name] = float(breakdown.total_cost_usd)
@@ -217,9 +215,7 @@ async def _populate_result_cost(
 
                     cost_by_agent = debate_costs.get("cost_by_agent", {})
                     if cost_by_agent:
-                        result.per_agent_cost = {
-                            str(k): float(v) for k, v in cost_by_agent.items()
-                        }
+                        result.per_agent_cost = {str(k): float(v) for k, v in cost_by_agent.items()}
 
         # Carry budget limit through to result
         budget_limit = getattr(extensions, "debate_budget_limit_usd", None)
@@ -302,9 +298,7 @@ async def initialize_debate_context(
         if culture_hints:
             arena._apply_culture_hints(culture_hints)
 
-    _gather_results = await asyncio.gather(
-        _init_km(), _init_culture(), return_exceptions=True
-    )
+    _gather_results = await asyncio.gather(_init_km(), _init_culture(), return_exceptions=True)
     # KM init (index 0) is critical – propagate its errors.
     # Culture hints (index 1) are best-effort.
     if isinstance(_gather_results[0], BaseException):
@@ -887,9 +881,7 @@ async def handle_debate_completion(
 
         _km_task = asyncio.create_task(_km_ingest_background())
         _km_task.add_done_callback(
-            lambda t: logger.warning(
-                "[km-ingest] Background ingestion error: %s", t.exception()
-            )
+            lambda t: logger.warning("[km-ingest] Background ingestion error: %s", t.exception())
             if not t.cancelled() and t.exception()
             else None
         )

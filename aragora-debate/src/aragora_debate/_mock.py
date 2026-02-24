@@ -28,7 +28,9 @@ class MockAgent(Agent):
         self._critique_issues = critique_issues or ["Needs more supporting evidence"]
 
     async def generate(
-        self, prompt: str, context: list[Message] | None = None,
+        self,
+        prompt: str,
+        context: list[Message] | None = None,
     ) -> str:
         return self._proposal
 
@@ -49,7 +51,9 @@ class MockAgent(Agent):
         )
 
     async def vote(
-        self, proposals: dict[str, str], task: str,
+        self,
+        proposals: dict[str, str],
+        task: str,
     ) -> Vote:
         choice = self._vote_for or list(proposals.keys())[0]
         return Vote(

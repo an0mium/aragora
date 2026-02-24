@@ -108,7 +108,7 @@ class ReconnectPolicy:
             delay = min(base_delay * backoff_factor^attempt, max_delay)
             if jitter: delay *= uniform(0.5, 1.0)
         """
-        delay = self.base_delay * (self.backoff_factor ** attempt)
+        delay = self.base_delay * (self.backoff_factor**attempt)
         delay = min(delay, self.max_delay)
         if self.jitter:
             delay *= random.uniform(0.5, 1.0)
@@ -320,9 +320,7 @@ class ReliableConnection:
 
             # Check circuit breaker
             if self._circuit_breaker and not self._circuit_breaker.can_proceed():
-                logger.warning(
-                    "[ReliableConnection] Circuit breaker open, stopping reconnect"
-                )
+                logger.warning("[ReliableConnection] Circuit breaker open, stopping reconnect")
                 self._set_state(ConnectionState.DISCONNECTED)
                 return False
 
@@ -458,9 +456,7 @@ class ReliableConnection:
         if old == new_state:
             return
         self._state = new_state
-        logger.debug(
-            "[ReliableConnection] State: %s -> %s", old.value, new_state.value
-        )
+        logger.debug("[ReliableConnection] State: %s -> %s", old.value, new_state.value)
 
     def _start_health_check(self) -> None:
         if self._health_task is not None and not self._health_task.done():
@@ -482,16 +478,12 @@ class ReliableConnection:
                 try:
                     healthy = await self._do_health_check()
                     if not healthy:
-                        logger.warning(
-                            "[ReliableConnection] Health check failed, reconnecting"
-                        )
+                        logger.warning("[ReliableConnection] Health check failed, reconnecting")
                         await self._fire_hook(self._on_disconnect, None)
                         await self.reconnect()
                         break
                 except Exception as exc:  # noqa: BLE001 - health check must not crash loop
-                    logger.warning(
-                        "[ReliableConnection] Health check error: %s", exc
-                    )
+                    logger.warning("[ReliableConnection] Health check error: %s", exc)
                     await self._fire_hook(self._on_disconnect, exc)
                     await self.reconnect()
                     break
@@ -670,9 +662,7 @@ class ReliableWebSocket(ReliableConnection):
     def _start_heartbeat_monitor(self) -> None:
         """Start monitoring for heartbeat timeout."""
         self._stop_heartbeat_monitor()
-        self._heartbeat_monitor_task = asyncio.ensure_future(
-            self._heartbeat_monitor_loop()
-        )
+        self._heartbeat_monitor_task = asyncio.ensure_future(self._heartbeat_monitor_loop())
 
     def _stop_heartbeat_monitor(self) -> None:
         """Stop the heartbeat monitor task."""
@@ -830,9 +820,7 @@ class ReliableKafkaConsumer(ReliableConnection):
             except StopAsyncIteration:
                 return
             except Exception as exc:  # noqa: BLE001 - reconnect on any consumer error
-                logger.warning(
-                    "[ReliableKafkaConsumer] Consume error, reconnecting: %s", exc
-                )
+                logger.warning("[ReliableKafkaConsumer] Consume error, reconnecting: %s", exc)
                 self._consumer = None
                 self._set_state(ConnectionState.DISCONNECTED)
                 success = await self.reconnect()

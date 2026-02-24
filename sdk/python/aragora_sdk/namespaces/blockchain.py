@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class BlockchainAPI:
     """Synchronous Blockchain API."""
 
@@ -65,6 +66,7 @@ class BlockchainAPI:
         """Get validation history for an agent."""
         return self._client.request("GET", f"/api/v1/blockchain/agents/{token_id}/validations")
 
+
 class AsyncBlockchainAPI:
     """Asynchronous Blockchain API."""
 
@@ -121,5 +123,6 @@ class AsyncBlockchainAPI:
 
     async def get_agent_validations(self, token_id: int) -> dict[str, Any]:
         """Get validation history for an agent."""
-        return await self._client.request("GET", f"/api/v1/blockchain/agents/{token_id}/validations")
-
+        return await self._client.request(
+            "GET", f"/api/v1/blockchain/agents/{token_id}/validations"
+        )

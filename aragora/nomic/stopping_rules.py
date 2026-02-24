@@ -140,9 +140,7 @@ class StoppingRuleEngine:
 
         # recent is ordered most-recent-first
         tail = recent[: config.consecutive_low_delta]
-        all_low = all(
-            abs(r.quality_delta) < config.min_quality_delta for r in tail
-        )
+        all_low = all(abs(r.quality_delta) < config.min_quality_delta for r in tail)
 
         if all_low:
             deltas = [r.quality_delta for r in tail]

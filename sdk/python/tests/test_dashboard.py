@@ -60,6 +60,7 @@ class TestDashboardOverview:
             assert result["cards"][0]["label"] == "Debates"
             client.close()
 
+
 class TestDashboardActivity:
     """Tests for activity and quick actions."""
 
@@ -104,6 +105,7 @@ class TestDashboardActivity:
             assert result["actions"][0]["id"] == "archive_old"
             client.close()
 
+
 class TestDashboardDebates:
     """Tests for debate listing methods."""
 
@@ -140,6 +142,7 @@ class TestDashboardDebates:
             )
             client.close()
 
+
 class TestDashboardTeamPerformance:
     """Tests for team performance methods."""
 
@@ -172,6 +175,7 @@ class TestDashboardTeamPerformance:
                 },
             )
             client.close()
+
 
 class TestDashboardEmailAnalytics:
     """Tests for email analytics methods."""
@@ -214,6 +218,7 @@ class TestDashboardEmailAnalytics:
             mock_request.assert_called_once_with("GET", "/api/v1/dashboard/labels")
             assert result["labels"][0]["name"] == "inbox"
             client.close()
+
 
 class TestDashboardUrgentItems:
     """Tests for urgent items and pending actions."""
@@ -271,6 +276,7 @@ class TestDashboardUrgentItems:
                 params={"limit": 10, "offset": 20},
             )
             client.close()
+
 
 class TestDashboardSearchExport:
     """Tests for search and export methods."""
@@ -334,6 +340,7 @@ class TestDashboardSearchExport:
                 },
             )
             client.close()
+
 
 class TestAsyncDashboard:
     """Tests for async dashboard methods."""

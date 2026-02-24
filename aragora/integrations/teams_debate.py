@@ -111,9 +111,7 @@ def get_active_debate(debate_id: str) -> TeamsActiveDebateState | None:
     return _active_debates.get(debate_id)
 
 
-def get_active_debate_for_thread(
-    channel_id: str, message_id: str
-) -> TeamsActiveDebateState | None:
+def get_active_debate_for_thread(channel_id: str, message_id: str) -> TeamsActiveDebateState | None:
     """Find the active debate for a given Teams thread.
 
     Args:
@@ -486,14 +484,10 @@ def _build_receipt_card(
     findings = getattr(receipt, "findings", []) or []
 
     critical_count = sum(
-        1
-        for f in findings
-        if getattr(f, "severity", getattr(f, "level", "")).lower() == "critical"
+        1 for f in findings if getattr(f, "severity", getattr(f, "level", "")).lower() == "critical"
     )
     high_count = sum(
-        1
-        for f in findings
-        if getattr(f, "severity", getattr(f, "level", "")).lower() == "high"
+        1 for f in findings if getattr(f, "severity", getattr(f, "level", "")).lower() == "high"
     )
 
     findings_text = f"{len(findings)} total"
@@ -565,8 +559,7 @@ def _build_receipt_card(
         {
             "type": "TextBlock",
             "text": (
-                f"Receipt {receipt_id[:12]}... | "
-                f"{datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"
+                f"Receipt {receipt_id[:12]}... | {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"
             ),
             "size": "Small",
             "isSubtle": True,
@@ -765,7 +758,7 @@ def parse_command_text(text: str) -> tuple[str, str]:
     lower = clean.lower()
     for keyword in ("debate", "decide", "stop"):
         if lower.startswith(keyword):
-            rest = clean[len(keyword):].strip().strip("\"'")
+            rest = clean[len(keyword) :].strip().strip("\"'")
             return (keyword, rest)
 
     return ("", "")
@@ -1257,9 +1250,7 @@ class TeamsDebateLifecycle:
             if isinstance(vote_data, dict):
                 position = vote_data.get("position", "abstain")
                 confidence = vote_data.get("confidence", 0.0)
-                facts.append(
-                    {"title": agent, "value": f"{position} ({confidence:.0%} confidence)"}
-                )
+                facts.append({"title": agent, "value": f"{position} ({confidence:.0%} confidence)"})
             else:
                 facts.append({"title": agent, "value": str(vote_data)})
 
@@ -1350,18 +1341,14 @@ class TeamsDebateLifecycle:
                 stopped_early = True
         except asyncio.TimeoutError:
             logger.warning("Debate %s timed out after %ss", debate_id, config.timeout_seconds)
-            await self.post_error(
-                channel_id, message_id, "Debate timed out.", debate_id
-            )
+            await self.post_error(channel_id, message_id, "Debate timed out.", debate_id)
             if state:
                 state.status = "failed"
             _active_debates.pop(debate_id, None)
             return None
         except (RuntimeError, OSError, ValueError) as exc:
             logger.error("Debate %s failed: %s", debate_id, exc)
-            await self.post_error(
-                channel_id, message_id, "Debate execution failed.", debate_id
-            )
+            await self.post_error(channel_id, message_id, "Debate execution failed.", debate_id)
             if state:
                 state.status = "failed"
             _active_debates.pop(debate_id, None)
@@ -1410,10 +1397,12 @@ class TeamsDebateLifecycle:
                 if isinstance(c, dict):
                     crit_data.append(c)
                 else:
-                    crit_data.append({
-                        "agent": getattr(c, "agent", ""),
-                        "summary": getattr(c, "summary", getattr(c, "text", "")),
-                    })
+                    crit_data.append(
+                        {
+                            "agent": getattr(c, "agent", ""),
+                            "summary": getattr(c, "summary", getattr(c, "text", "")),
+                        }
+                    )
             await self.post_critique_summary(channel_id, message_id, crit_data)
 
         # Post voting results if available
@@ -1423,9 +1412,7 @@ class TeamsDebateLifecycle:
 
         # Post user participation summary if any
         if state and (state.user_votes or state.user_suggestions):
-            summary_card = _build_vote_summary_card(
-                state.vote_summary, len(state.user_suggestions)
-            )
+            summary_card = _build_vote_summary_card(state.vote_summary, len(state.user_suggestions))
             if summary_card:
                 await self._send_card_to_thread(channel_id, message_id, summary_card)
 
@@ -1435,9 +1422,7 @@ class TeamsDebateLifecycle:
         # Post receipt if available
         receipt = getattr(result, "receipt", None)
         if receipt:
-            await self.post_receipt(
-                channel_id, message_id, receipt, debate_id=debate_id
-            )
+            await self.post_receipt(channel_id, message_id, receipt, debate_id=debate_id)
 
         # Mark result as sent via debate_origin
         try:
@@ -1517,7 +1502,7 @@ class TeamsDebateLifecycle:
         if not text.lower().startswith(self.COMMAND_PREFIX):
             return None
 
-        parts = text[len(self.COMMAND_PREFIX):].strip().split(maxsplit=1)
+        parts = text[len(self.COMMAND_PREFIX) :].strip().split(maxsplit=1)
         command = parts[0].lower() if parts else self.HELP_COMMAND
         argument = parts[1] if len(parts) > 1 else ""
 
@@ -1545,9 +1530,7 @@ class TeamsDebateLifecycle:
             return {"text": f"Debate started: {debate_id}", "debate_id": debate_id}
 
         elif command == self.STOP_COMMAND:
-            return await self._handle_stop_command(
-                argument, channel_id, message_id, user_id
-            )
+            return await self._handle_stop_command(argument, channel_id, message_id, user_id)
 
         elif command == self.STATUS_COMMAND:
             return self._get_debate_status(argument)
@@ -1560,9 +1543,7 @@ class TeamsDebateLifecycle:
                 "text": f"Unknown command: {command}. Type /aragora help for available commands.",
             }
 
-    async def handle_adaptive_card_action(
-        self, activity: dict[str, Any]
-    ) -> dict[str, Any] | None:
+    async def handle_adaptive_card_action(self, activity: dict[str, Any]) -> dict[str, Any] | None:
         """Handle an Adaptive Card action submission (e.g., vote, cancel).
 
         Args:
@@ -1581,17 +1562,13 @@ class TeamsDebateLifecycle:
             return self._handle_vote_action(value, user_id)
         elif action == "cancel_debate":
             debate_id = value.get("debate_id", "")
-            return await self._handle_stop_command(
-                debate_id, channel_id, "", user_id
-            )
+            return await self._handle_stop_command(debate_id, channel_id, "", user_id)
         elif action == "suggest":
             return self._handle_suggestion_action(value, user_id)
 
         return None
 
-    async def handle_thread_reply(
-        self, activity: dict[str, Any]
-    ) -> dict[str, Any] | None:
+    async def handle_thread_reply(self, activity: dict[str, Any]) -> dict[str, Any] | None:
         """Handle a thread reply that may contain a vote, suggestion, or stop command.
 
         This handles free-text replies in a debate thread from Teams users.
@@ -1670,9 +1647,7 @@ class TeamsDebateLifecycle:
             )
         except (RuntimeError, OSError, ValueError, asyncio.CancelledError) as exc:
             logger.error("Background debate %s failed: %s", debate_id, exc)
-            await self.post_error(
-                channel_id, message_id, "Debate execution failed.", debate_id
-            )
+            await self.post_error(channel_id, message_id, "Debate execution failed.", debate_id)
             state = _active_debates.get(debate_id)
             if state:
                 state.status = "failed"
@@ -1701,7 +1676,9 @@ class TeamsDebateLifecycle:
                 state = _active_debates.get(argument)
                 if state:
                     await self.post_stop(
-                        state.channel_id, state.message_id, argument,
+                        state.channel_id,
+                        state.message_id,
+                        argument,
                         stopped_by=user_id,
                     )
                 return {"text": f"Debate {argument} stop requested."}
@@ -1737,9 +1714,7 @@ class TeamsDebateLifecycle:
 
         return {"text": "Debate not found or already completed."}
 
-    def _handle_suggestion_action(
-        self, value: dict[str, Any], user_id: str
-    ) -> dict[str, Any]:
+    def _handle_suggestion_action(self, value: dict[str, Any], user_id: str) -> dict[str, Any]:
         """Handle a suggestion Adaptive Card action.
 
         Args:
@@ -1807,7 +1782,6 @@ class TeamsDebateLifecycle:
                 "- Reply `stop` to cancel the debate"
             ),
         }
-
 
     # -- Receipt delivery with approval flow ---------------------------------
 

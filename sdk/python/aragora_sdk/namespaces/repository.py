@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class RepositoryAPI:
     """
     Synchronous Repository API.
@@ -346,6 +347,7 @@ class RepositoryAPI:
             poll_interval_ms=poll_interval_ms,
             timeout_ms=timeout_ms,
         )
+
 
 class AsyncRepositoryAPI:
     """

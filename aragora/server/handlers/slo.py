@@ -444,9 +444,7 @@ class SLOHandler(BaseHandler):
             logger.exception("Failed to get SLO sub-route %s/%s: %s", slo_name, sub_route, e)
             return error_response("Operation failed", 500, code="SLO_SUB_ROUTE_ERROR")
 
-    def _handle_debate_slo_health(
-        self, query_params: dict, handler: Any
-    ) -> HandlerResult:
+    def _handle_debate_slo_health(self, query_params: dict, handler: Any) -> HandlerResult:
         """GET /api/health/slos - Debate SLO health with multi-window metrics.
 
         Reports green/yellow/red compliance for each of the five debate SLOs:
@@ -495,9 +493,7 @@ class SLOHandler(BaseHandler):
 
         except ImportError:
             logger.warning("Debate SLO tracker not available")
-            return error_response(
-                "Debate SLO tracking not available", 503, code="SLO_UNAVAILABLE"
-            )
+            return error_response("Debate SLO tracking not available", 503, code="SLO_UNAVAILABLE")
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Failed to get debate SLO health: %s", e)
             return error_response("Internal server error", 500, code="DEBATE_SLO_ERROR")

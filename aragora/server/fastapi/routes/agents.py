@@ -382,25 +382,33 @@ async def get_agent_domains(
                     if isinstance(d, str):
                         domains.append(DomainInfo(name=d))
                     elif isinstance(d, dict):
-                        domains.append(DomainInfo(
-                            name=d.get("name", d.get("id", "")),
-                            description=d.get("description", ""),
-                            agent_count=d.get("agent_count", 0),
-                        ))
+                        domains.append(
+                            DomainInfo(
+                                name=d.get("name", d.get("id", "")),
+                                description=d.get("description", ""),
+                                agent_count=d.get("agent_count", 0),
+                            )
+                        )
                     else:
-                        domains.append(DomainInfo(
-                            name=getattr(d, "name", str(d)),
-                            description=getattr(d, "description", ""),
-                            agent_count=getattr(d, "agent_count", 0),
-                        ))
+                        domains.append(
+                            DomainInfo(
+                                name=getattr(d, "name", str(d)),
+                                description=getattr(d, "description", ""),
+                                agent_count=getattr(d, "agent_count", 0),
+                            )
+                        )
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                 logger.debug("Could not get domains from ELO: %s", e)
 
         # Fall back to known domain categories
         if not domains:
             default_domains = [
-                "security", "architecture", "testing", "performance",
-                "compliance", "general",
+                "security",
+                "architecture",
+                "testing",
+                "performance",
+                "compliance",
+                "general",
             ]
             domains = [DomainInfo(name=d) for d in default_domains]
 
@@ -736,9 +744,7 @@ async def get_agent_stats(
         raise HTTPException(status_code=500, detail="Failed to get agent stats")
 
 
-@router.get(
-    "/agents/{agent_id}/calibration", response_model=AgentCalibrationResponse
-)
+@router.get("/agents/{agent_id}/calibration", response_model=AgentCalibrationResponse)
 async def get_agent_calibration(
     agent_id: str,
     domain: str | None = Query(None, description="Filter by domain"),
@@ -754,36 +760,28 @@ async def get_agent_calibration(
             # Try dedicated calibration methods
             try:
                 if hasattr(elo, "get_calibration_by_bucket"):
-                    raw_buckets = elo.get_calibration_by_bucket(
-                        agent_id, domain=domain
-                    )
+                    raw_buckets = elo.get_calibration_by_bucket(agent_id, domain=domain)
                     for b in raw_buckets:
                         if isinstance(b, dict):
-                            buckets.append(CalibrationBucket(
-                                bucket=b.get("bucket", ""),
-                                predicted=b.get("predicted", 0.0),
-                                actual=b.get("actual", 0.0),
-                                count=b.get("count", 0),
-                            ))
+                            buckets.append(
+                                CalibrationBucket(
+                                    bucket=b.get("bucket", ""),
+                                    predicted=b.get("predicted", 0.0),
+                                    actual=b.get("actual", 0.0),
+                                    count=b.get("count", 0),
+                                )
+                            )
                             total_predictions += b.get("count", 0)
 
                 if hasattr(elo, "get_calibration_leaderboard"):
                     cal_lb = elo.get_calibration_leaderboard(limit=500)
                     for entry in cal_lb:
-                        d = (
-                            entry
-                            if isinstance(entry, dict)
-                            else _agent_to_dict(entry)
-                        )
+                        d = entry if isinstance(entry, dict) else _agent_to_dict(entry)
                         if d.get("name") == agent_id:
-                            calibration_score = d.get(
-                                "calibration_score", d.get("score", 0.0)
-                            )
+                            calibration_score = d.get("calibration_score", d.get("score", 0.0))
                             break
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-                logger.debug(
-                    "Could not get calibration for %s: %s", agent_id, e
-                )
+                logger.debug("Could not get calibration for %s: %s", agent_id, e)
 
         # Verify agent exists
         if not buckets and calibration_score == 0.0:
@@ -810,9 +808,5 @@ async def get_agent_calibration(
     except NotFoundError:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(
-            "Error getting calibration for agent %s: %s", agent_id, e
-        )
-        raise HTTPException(
-            status_code=500, detail="Failed to get agent calibration"
-        )
+        logger.exception("Error getting calibration for agent %s: %s", agent_id, e)
+        raise HTTPException(status_code=500, detail="Failed to get agent calibration")

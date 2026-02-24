@@ -230,9 +230,7 @@ async def run_load_test(
     try:
         import aiohttp
     except ImportError:
-        logger.error(
-            "aiohttp is required for load testing. Install with: pip install aiohttp"
-        )
+        logger.error("aiohttp is required for load testing. Install with: pip install aiohttp")
         raise SystemExit(1)
 
     headers: dict[str, str] = {"Accept": "application/json"}
@@ -255,9 +253,7 @@ async def run_load_test(
     async with aiohttp.ClientSession() as session:
         # Launch workers
         workers = [
-            asyncio.create_task(
-                _worker(session, base_url, endpoints, headers, results, stop_event)
-            )
+            asyncio.create_task(_worker(session, base_url, endpoints, headers, results, stop_event))
             for _ in range(concurrency)
         ]
 
@@ -293,9 +289,7 @@ async def run_load_test(
             stats.failed_requests += 1
 
     # Build endpoint reports
-    endpoint_reports = [
-        stats.to_dict(actual_duration) for stats in stats_by_endpoint.values()
-    ]
+    endpoint_reports = [stats.to_dict(actual_duration) for stats in stats_by_endpoint.values()]
 
     # Build summary
     all_latencies = [r.latency_ms for r in results]
@@ -325,11 +319,7 @@ async def run_load_test(
             "p99": round(_percentile(all_latencies, 99), 2),
             "min": round(min(all_latencies), 2) if all_latencies else 0.0,
             "max": round(max(all_latencies), 2) if all_latencies else 0.0,
-            "avg": (
-                round(sum(all_latencies) / len(all_latencies), 2)
-                if all_latencies
-                else 0.0
-            ),
+            "avg": (round(sum(all_latencies) / len(all_latencies), 2) if all_latencies else 0.0),
         },
     }
 
@@ -345,8 +335,7 @@ async def run_load_test(
     )
 
     logger.info(
-        "Load test complete: %d requests, %.1f rps, p95=%.1fms, p99=%.1fms, "
-        "error_rate=%.4f",
+        "Load test complete: %d requests, %.1f rps, p95=%.1fms, p99=%.1fms, error_rate=%.4f",
         total_requests,
         summary["throughput_rps"],
         summary["latency_ms"]["p95"],

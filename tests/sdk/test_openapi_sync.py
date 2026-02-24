@@ -129,9 +129,7 @@ class TestOpenAPISpecStructure:
         """The spec must declare an OpenAPI version."""
         spec = _load_spec(OPENAPI_JSON)
         version = spec.get("openapi", "")
-        assert version.startswith("3."), (
-            f"OpenAPI version should be 3.x, got: {version}"
-        )
+        assert version.startswith("3."), f"OpenAPI version should be 3.x, got: {version}"
 
     def test_openapi_has_info(self):
         """The spec must have an info section with title and version."""
@@ -150,9 +148,7 @@ class TestOpenAPISpecStructure:
         """The spec should define at least one security scheme."""
         spec = _load_spec(OPENAPI_JSON)
         schemes = spec.get("components", {}).get("securitySchemes", {})
-        assert len(schemes) > 0, (
-            "OpenAPI spec should define at least one security scheme"
-        )
+        assert len(schemes) > 0, "OpenAPI spec should define at least one security scheme"
 
     def test_all_paths_start_with_api_or_system(self):
         """All paths should start with /api/ or be known system paths."""
@@ -181,9 +177,7 @@ class TestOpenAPISpecStructure:
             if any(path.startswith(prefix) for prefix in allowed_system_prefixes):
                 continue
             bad_paths.append(path)
-        assert not bad_paths, (
-            f"{len(bad_paths)} paths do not start with /api/: {bad_paths[:10]}"
-        )
+        assert not bad_paths, f"{len(bad_paths)} paths do not start with /api/: {bad_paths[:10]}"
 
 
 # ---------------------------------------------------------------------------
@@ -217,9 +211,7 @@ class TestEndpointCountSnapshot:
         """The number of unique paths should be reasonable."""
         spec = _load_spec(OPENAPI_JSON)
         path_count = len(spec.get("paths", {}))
-        assert path_count >= 200, (
-            f"OpenAPI spec has only {path_count} paths, expected >= 200"
-        )
+        assert path_count >= 200, f"OpenAPI spec has only {path_count} paths, expected >= 200"
 
 
 # ---------------------------------------------------------------------------
@@ -277,16 +269,15 @@ class TestTypeScriptSDKDrift:
 
     def test_ts_namespaces_directory_exists(self):
         """The TypeScript namespaces directory must exist."""
-        assert TS_NAMESPACES.exists(), (
-            f"TypeScript namespaces not found: {TS_NAMESPACES}"
-        )
+        assert TS_NAMESPACES.exists(), f"TypeScript namespaces not found: {TS_NAMESPACES}"
 
     def test_ts_namespace_count(self):
         """There should be a reasonable number of TypeScript namespaces."""
         if not TS_NAMESPACES.exists():
             pytest.skip("TypeScript namespaces not found")
         ns_files = [
-            p for p in TS_NAMESPACES.glob("*.ts")
+            p
+            for p in TS_NAMESPACES.glob("*.ts")
             if p.stem != "index" and not p.name.startswith("_")
         ]
         assert len(ns_files) >= 50, (
@@ -317,10 +308,7 @@ class TestTypeScriptSDKDrift:
 
         baseline = _load_baseline()
         baseline_ts = baseline.get("typescript_sdk_drift", set())
-        new_drift = [
-            (ns, m, p) for ns, m, p in ts_drift
-            if f"{m} {p}" not in baseline_ts
-        ]
+        new_drift = [(ns, m, p) for ns, m, p in ts_drift if f"{m} {p}" not in baseline_ts]
 
         assert not new_drift, (
             f"{len(new_drift)} NEW TypeScript SDK drift entries "
@@ -339,9 +327,7 @@ class TestPythonSDKDrift:
 
     def test_py_namespaces_directory_exists(self):
         """The Python namespaces directory must exist."""
-        assert PY_NAMESPACES.exists(), (
-            f"Python namespaces not found: {PY_NAMESPACES}"
-        )
+        assert PY_NAMESPACES.exists(), f"Python namespaces not found: {PY_NAMESPACES}"
 
     def test_no_new_py_drift(self):
         """No new Python SDK endpoints should drift from the OpenAPI spec."""
@@ -366,10 +352,7 @@ class TestPythonSDKDrift:
 
         baseline = _load_baseline()
         baseline_py = baseline.get("python_sdk_drift", set())
-        new_drift = [
-            (ns, m, p) for ns, m, p in py_drift
-            if f"{m} {p}" not in baseline_py
-        ]
+        new_drift = [(ns, m, p) for ns, m, p in py_drift if f"{m} {p}" not in baseline_py]
 
         assert not new_drift, (
             f"{len(new_drift)} NEW Python SDK drift entries "
@@ -396,27 +379,25 @@ class TestCrossSDKParity:
             for p in TS_NAMESPACES.glob("*.ts")
             if p.stem != "index" and not p.name.startswith("_")
         }
-        py_ns = {
-            p.stem
-            for p in PY_NAMESPACES.glob("*.py")
-            if not p.name.startswith("_")
-        }
+        py_ns = {p.stem for p in PY_NAMESPACES.glob("*.py") if not p.name.startswith("_")}
 
         # Core namespaces that must be in both SDKs
         core = {
-            "debates", "agents", "knowledge", "analytics",
-            "auth", "workflows", "memory", "consensus",
+            "debates",
+            "agents",
+            "knowledge",
+            "analytics",
+            "auth",
+            "workflows",
+            "memory",
+            "consensus",
         }
 
         ts_missing_core = core - ts_ns
         py_missing_core = core - py_ns
 
-        assert not ts_missing_core, (
-            f"TypeScript SDK missing core namespaces: {ts_missing_core}"
-        )
-        assert not py_missing_core, (
-            f"Python SDK missing core namespaces: {py_missing_core}"
-        )
+        assert not ts_missing_core, f"TypeScript SDK missing core namespaces: {ts_missing_core}"
+        assert not py_missing_core, f"Python SDK missing core namespaces: {py_missing_core}"
 
 
 # ---------------------------------------------------------------------------
@@ -435,9 +416,7 @@ class TestOpenAPISpecIntegrity:
             methods = [m for m in ops if m.lower() in HTTP_METHODS]
             if not methods:
                 empty_paths.append(path)
-        assert not empty_paths, (
-            f"{len(empty_paths)} paths have no operations: {empty_paths[:10]}"
-        )
+        assert not empty_paths, f"{len(empty_paths)} paths have no operations: {empty_paths[:10]}"
 
     def test_operations_have_responses(self):
         """Every operation should define at least one response."""

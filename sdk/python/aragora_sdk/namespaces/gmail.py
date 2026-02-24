@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class GmailAPI:
     """
     Synchronous Gmail API.
@@ -72,7 +73,6 @@ class GmailAPI:
         """
         return self._client.request("GET", "/api/v1/gmail/drafts", params=kwargs)
 
-
     # ===========================================================================
     # Gmail Ingest
     # ===========================================================================
@@ -91,7 +91,9 @@ class GmailAPI:
 
     def get_processed(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get processed Gmail messages."""
-        return self._client.request("GET", "/api/v1/gmail/processed", params={"limit": limit, "offset": offset})
+        return self._client.request(
+            "GET", "/api/v1/gmail/processed", params={"limit": limit, "offset": offset}
+        )
 
     def list_triage_rules(self) -> dict[str, Any]:
         """List Gmail triage rules."""
@@ -150,7 +152,9 @@ class AsyncGmailAPI:
 
     async def get_processed(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get processed Gmail messages."""
-        return await self._client.request("GET", "/api/v1/gmail/processed", params={"limit": limit, "offset": offset})
+        return await self._client.request(
+            "GET", "/api/v1/gmail/processed", params={"limit": limit, "offset": offset}
+        )
 
     async def list_triage_rules(self) -> dict[str, Any]:
         """List Gmail triage rules."""

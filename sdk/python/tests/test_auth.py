@@ -75,6 +75,7 @@ class TestAuthLoginLogout:
             assert result["success"] is True
             client.close()
 
+
 class TestAuthTokens:
     """Tests for token refresh and validation."""
 
@@ -108,6 +109,7 @@ class TestAuthTokens:
             assert result["id"] == "usr_1"
             assert result["name"] == "Test User"
             client.close()
+
 
 class TestAuthAPIKeys:
     """Tests for API key management."""
@@ -156,6 +158,7 @@ class TestAuthAPIKeys:
             assert result["success"] is True
             client.close()
 
+
 class TestAuthSessions:
     """Tests for session management."""
 
@@ -176,6 +179,7 @@ class TestAuthSessions:
             mock_request.assert_called_once_with("DELETE", "/api/v1/auth/sessions/sess_1")
             assert result["success"] is True
             client.close()
+
 
 class TestAsyncAuth:
     """Tests for async auth methods."""

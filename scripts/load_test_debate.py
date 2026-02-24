@@ -143,9 +143,9 @@ class DebateLoadMetrics:
                 "p99": round(self.percentile(self.debate_latencies_ms, 99), 1),
                 "min": round(min(self.debate_latencies_ms), 1) if self.debate_latencies_ms else 0,
                 "max": round(max(self.debate_latencies_ms), 1) if self.debate_latencies_ms else 0,
-                "mean": round(
-                    statistics.mean(self.debate_latencies_ms), 1
-                ) if self.debate_latencies_ms else 0,
+                "mean": round(statistics.mean(self.debate_latencies_ms), 1)
+                if self.debate_latencies_ms
+                else 0,
             },
             "latency_first_token_ms": {
                 "p50": round(self.percentile(self.first_token_latencies_ms, 50), 1),
@@ -164,9 +164,9 @@ class DebateLoadMetrics:
             },
             "concurrency": {
                 "max_concurrent": self.max_concurrent_active,
-                "avg_dispatch_ratio": round(
-                    statistics.mean(self.dispatch_concurrency_samples), 3
-                ) if self.dispatch_concurrency_samples else 0.0,
+                "avg_dispatch_ratio": round(statistics.mean(self.dispatch_concurrency_samples), 3)
+                if self.dispatch_concurrency_samples
+                else 0.0,
             },
             "errors": self.errors[:10],
         }
@@ -240,10 +240,7 @@ async def run_mock_debate(
     # Phase 1: Proposals (measures time to first token)
     first_token_start = time.monotonic()
     proposals = []
-    proposal_tasks = [
-        agent.generate(f"Propose a solution for: {question}")
-        for agent in agents
-    ]
+    proposal_tasks = [agent.generate(f"Propose a solution for: {question}") for agent in agents]
     # Run proposals concurrently to measure dispatch concurrency
     dispatch_start = time.monotonic()
     results = await asyncio.gather(*proposal_tasks, return_exceptions=True)
@@ -268,10 +265,7 @@ async def run_mock_debate(
     # Phase 2: Rounds (critique and revision)
     for round_num in range(num_rounds):
         # Critiques
-        critique_tasks = [
-            agent.critique(proposals[0])
-            for agent in agents
-        ]
+        critique_tasks = [agent.critique(proposals[0]) for agent in agents]
         await asyncio.gather(*critique_tasks, return_exceptions=True)
 
         # Minor revision of proposals (simulated)
@@ -286,6 +280,7 @@ async def run_mock_debate(
     valid_votes = [v for v in votes if isinstance(v, int)]
     if valid_votes:
         from collections import Counter
+
         vote_counts = Counter(valid_votes)
         winner_idx, winner_count = vote_counts.most_common(1)[0]
         consensus_reached = winner_count > len(valid_votes) / 2
@@ -362,9 +357,7 @@ async def run_debate_load_test(
         async with semaphore:
             async with active_lock:
                 active_count += 1
-                metrics.max_concurrent_active = max(
-                    metrics.max_concurrent_active, active_count
-                )
+                metrics.max_concurrent_active = max(metrics.max_concurrent_active, active_count)
 
             debate_id = f"load_{idx:06d}"
             question = questions[idx % len(questions)]
@@ -424,6 +417,7 @@ def validate_against_slos(metrics: DebateLoadMetrics) -> dict[str, Any]:
     """
     try:
         from aragora.observability.debate_slos import get_debate_slo_definitions
+
         definitions = get_debate_slo_definitions()
     except ImportError:
         definitions = {}
@@ -559,8 +553,7 @@ def format_report(metrics: DebateLoadMetrics, slo_results: dict | None = None) -
                 )
             elif "target" in result:
                 lines.append(
-                    f"    [{status}] {slo_name}: "
-                    f"{result['actual']} (target: {result['target']})"
+                    f"    [{status}] {slo_name}: {result['actual']} (target: {result['target']})"
                 )
         overall = "PASSED" if slo_results.get("all_passed") else "FAILED"
         lines.append(f"    Overall: {overall}")

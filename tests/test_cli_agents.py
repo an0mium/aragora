@@ -1281,9 +1281,7 @@ class TestCLIAgentModelMapping:
     def test_claude_model_mapping(self):
         """Should map Claude models correctly."""
         agent = ClaudeAgent(name="test", model="claude-opus-4-6")
-        assert (
-            agent.OPENROUTER_MODEL_MAP.get("claude-opus-4-6") == "anthropic/claude-opus-4.6"
-        )
+        assert agent.OPENROUTER_MODEL_MAP.get("claude-opus-4-6") == "anthropic/claude-opus-4.6"
 
     def test_codex_model_mapping(self):
         """Should map Codex models correctly."""

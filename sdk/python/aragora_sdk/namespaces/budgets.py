@@ -361,7 +361,9 @@ class BudgetsAPI:
 
     def remove_single_override(self, budget_id: str, override_id: str) -> dict[str, Any]:
         """Remove a budget override."""
-        return self._client._request("DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}")
+        return self._client._request(
+            "DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}"
+        )
 
     # =========================================================================
     # Cost Analytics
@@ -615,7 +617,9 @@ class AsyncBudgetsAPI:
 
     async def remove_single_override(self, budget_id: str, override_id: str) -> dict[str, Any]:
         """Remove a budget override."""
-        return await self._client._request("DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}")
+        return await self._client._request(
+            "DELETE", f"/api/v1/budgets/{budget_id}/override/{override_id}"
+        )
 
     # =========================================================================
     # Cost Analytics

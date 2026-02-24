@@ -374,7 +374,10 @@ class TestCreatePipelineRun:
     def test_creates_run_with_pipeline_execution(self, authed_client, pipeline_store):
         """POST executes the pipeline when available."""
         mock_result = MagicMock()
-        mock_result.to_dict.return_value = {"pipeline_id": "pipe-test", "stage_status": {"ideation": "complete"}}
+        mock_result.to_dict.return_value = {
+            "pipeline_id": "pipe-test",
+            "stage_status": {"ideation": "complete"},
+        }
         mock_result.stage_results = []
         mock_result.stage_status = {"ideation": "complete"}
 
@@ -579,10 +582,24 @@ class TestApprovePipelineStage:
             "idea": "Test gate completion",
             "status": "running",
             "stages": [
-                {"stage_name": "ideation", "status": "completed", "output": None,
-                 "started_at": None, "completed_at": None, "duration": 0.0, "error": None},
-                {"stage_name": "goals", "status": "pending", "output": None,
-                 "started_at": None, "completed_at": None, "duration": 0.0, "error": None},
+                {
+                    "stage_name": "ideation",
+                    "status": "completed",
+                    "output": None,
+                    "started_at": None,
+                    "completed_at": None,
+                    "duration": 0.0,
+                    "error": None,
+                },
+                {
+                    "stage_name": "goals",
+                    "status": "pending",
+                    "output": None,
+                    "started_at": None,
+                    "completed_at": None,
+                    "duration": 0.0,
+                    "error": None,
+                },
             ],
             "created_at": "2026-02-20T10:00:00",
             "updated_at": "2026-02-20T10:00:00",

@@ -397,7 +397,15 @@ class UnifiedHandler(  # type: ignore[misc]
 
         # Health check endpoints (non-API paths routed to HealthHandler)
         # These are required by Kubernetes probes and load balancers
-        if path in ("/healthz", "/readyz", "/health", "/ready", "/metrics", "/health/threads", "/health/build"):
+        if path in (
+            "/healthz",
+            "/readyz",
+            "/health",
+            "/ready",
+            "/metrics",
+            "/health/threads",
+            "/health/build",
+        ):
             if path == "/health/threads":
                 try:
                     from aragora.server.lifecycle import get_thread_registry

@@ -141,8 +141,10 @@ class TestOrchestratorRetry:
             mock_task.exception.return_value = None
             return mock_task
 
-        with patch("asyncio.sleep", new_callable=AsyncMock), \
-             patch("asyncio.create_task", side_effect=_capture_create_task):
+        with (
+            patch("asyncio.sleep", new_callable=AsyncMock),
+            patch("asyncio.create_task", side_effect=_capture_create_task),
+        ):
             await handle_debate_completion(arena, state)
 
         # Now run the captured background coroutine(s)

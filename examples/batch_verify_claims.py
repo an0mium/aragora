@@ -50,18 +50,36 @@ async def verify_claim(claim: str) -> VerificationResult:
         consensus="majority",
     )
 
-    debate.add_agent(create_agent("mock", name="fact-checker", proposal=(
-        f"Analyzing the claim: '{claim}'. Let me evaluate the evidence "
-        "and identify any nuances or conditions that affect accuracy."
-    )))
-    debate.add_agent(create_agent("mock", name="skeptic", proposal=(
-        f"I'll challenge the claim: '{claim}'. What assumptions does "
-        "it make? Are there counterexamples or missing context?"
-    )))
-    debate.add_agent(create_agent("mock", name="synthesizer", proposal=(
-        "Synthesizing both perspectives to reach a balanced verdict "
-        "with appropriate confidence level and caveats."
-    )))
+    debate.add_agent(
+        create_agent(
+            "mock",
+            name="fact-checker",
+            proposal=(
+                f"Analyzing the claim: '{claim}'. Let me evaluate the evidence "
+                "and identify any nuances or conditions that affect accuracy."
+            ),
+        )
+    )
+    debate.add_agent(
+        create_agent(
+            "mock",
+            name="skeptic",
+            proposal=(
+                f"I'll challenge the claim: '{claim}'. What assumptions does "
+                "it make? Are there counterexamples or missing context?"
+            ),
+        )
+    )
+    debate.add_agent(
+        create_agent(
+            "mock",
+            name="synthesizer",
+            proposal=(
+                "Synthesizing both perspectives to reach a balanced verdict "
+                "with appropriate confidence level and caveats."
+            ),
+        )
+    )
 
     result = await debate.run()
 

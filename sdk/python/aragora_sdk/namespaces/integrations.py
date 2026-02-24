@@ -452,7 +452,9 @@ class IntegrationsAPI:
         params: dict[str, Any] = {}
         if integration_type:
             params["type"] = integration_type
-        return self._client.request("GET", "/api/v2/integrations/wizard/preflight", params=params or None)
+        return self._client.request(
+            "GET", "/api/v2/integrations/wizard/preflight", params=params or None
+        )
 
     def wizard_recommendations(self) -> dict[str, Any]:
         """Get wizard integration recommendations."""
@@ -618,15 +620,11 @@ class AsyncIntegrationsAPI:
 
     async def get_config(self, integration_type: str) -> dict[str, Any]:
         """Get config for an integration type. GET /api/v1/integrations/config/:integration_type"""
-        return await self._client.request(
-            "GET", f"/api/v1/integrations/config/{integration_type}"
-        )
+        return await self._client.request("GET", f"/api/v1/integrations/config/{integration_type}")
 
     async def sync_integration(self, integration_type: str) -> dict[str, Any]:
         """Trigger synchronization. POST /api/v1/integrations/:integration_type/sync"""
-        return await self._client.request(
-            "POST", f"/api/v1/integrations/{integration_type}/sync"
-        )
+        return await self._client.request("POST", f"/api/v1/integrations/{integration_type}/sync")
 
     # =========================================================================
     # Bot Platform Status
@@ -670,9 +668,7 @@ class AsyncIntegrationsAPI:
         payload: dict[str, Any] = {"channel_id": channel_id, "message": message}
         if options:
             payload.update(options)
-        return await self._client.request(
-            "POST", "/api/v1/integrations/teams/notify", json=payload
-        )
+        return await self._client.request("POST", "/api/v1/integrations/teams/notify", json=payload)
 
     # =========================================================================
     # Zapier Integration
@@ -811,9 +807,7 @@ class AsyncIntegrationsAPI:
             payload["node_id"] = node_id
         if workspace_id:
             payload["workspace_id"] = workspace_id
-        return await self._client.request(
-            "POST", "/api/v1/integrations/n8n/webhooks", json=payload
-        )
+        return await self._client.request("POST", "/api/v1/integrations/n8n/webhooks", json=payload)
 
     # =========================================================================
     # Integration Wizard (v2)
@@ -889,7 +883,9 @@ class AsyncIntegrationsAPI:
         params: dict[str, Any] = {}
         if integration_type:
             params["type"] = integration_type
-        return await self._client.request("GET", "/api/v2/integrations/wizard/preflight", params=params or None)
+        return await self._client.request(
+            "GET", "/api/v2/integrations/wizard/preflight", params=params or None
+        )
 
     async def wizard_recommendations(self) -> dict[str, Any]:
         """Get wizard integration recommendations."""

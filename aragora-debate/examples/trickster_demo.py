@@ -76,10 +76,11 @@ async def main() -> None:
 
     print(f"\nResult: {result.status}")
     print(f"Rounds used: {result.rounds_used}")
-    print(f"Consensus: {'yes' if result.consensus_reached else 'no'} "
-          f"({result.confidence:.0%})")
-    print(f"Convergence detected: {result.convergence_detected} "
-          f"(similarity: {result.final_similarity:.0%})")
+    print(f"Consensus: {'yes' if result.consensus_reached else 'no'} ({result.confidence:.0%})")
+    print(
+        f"Convergence detected: {result.convergence_detected} "
+        f"(similarity: {result.final_similarity:.0%})"
+    )
     print(f"Trickster interventions: {result.trickster_interventions}")
 
     if result.receipt:

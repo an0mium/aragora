@@ -33,41 +33,47 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Default roles that require MFA enforcement
-DEFAULT_MFA_REQUIRED_ROLES: frozenset[str] = frozenset({
-    "admin",
-    "owner",
-    "superadmin",
-    "super_admin",
-    "org_admin",
-    "workspace_admin",
-    "security_admin",
-    "compliance_officer",
-})
+DEFAULT_MFA_REQUIRED_ROLES: frozenset[str] = frozenset(
+    {
+        "admin",
+        "owner",
+        "superadmin",
+        "super_admin",
+        "org_admin",
+        "workspace_admin",
+        "security_admin",
+        "compliance_officer",
+    }
+)
 
 # Paths exempt from MFA enforcement (health, public, auth flows)
-DEFAULT_EXEMPT_PATHS: frozenset[str] = frozenset({
-    "/health",
-    "/healthz",
-    "/ready",
-    "/metrics",
-    "/api/docs",
-    "/openapi.json",
-    "/api/auth/login",
-    "/api/auth/register",
-    "/api/auth/callback",
-    "/api/auth/refresh",
-    "/api/auth/mfa/verify",
-    "/api/auth/mfa/setup",
-    "/api/auth/sso/login",
-    "/api/auth/sso/callback",
-})
+DEFAULT_EXEMPT_PATHS: frozenset[str] = frozenset(
+    {
+        "/health",
+        "/healthz",
+        "/ready",
+        "/metrics",
+        "/api/docs",
+        "/openapi.json",
+        "/api/auth/login",
+        "/api/auth/register",
+        "/api/auth/callback",
+        "/api/auth/refresh",
+        "/api/auth/mfa/verify",
+        "/api/auth/mfa/setup",
+        "/api/auth/sso/login",
+        "/api/auth/sso/callback",
+    }
+)
 
 # Default exempt path prefixes (matched with startswith)
-DEFAULT_EXEMPT_PREFIXES: frozenset[str] = frozenset({
-    "/api/auth/oauth/",
-    "/api/auth/sso/",
-    "/scim/v2/",
-})
+DEFAULT_EXEMPT_PREFIXES: frozenset[str] = frozenset(
+    {
+        "/api/auth/oauth/",
+        "/api/auth/sso/",
+        "/scim/v2/",
+    }
+)
 
 
 class MFAEnforcementResult(str, Enum):
@@ -332,9 +338,7 @@ class MFAEnforcementMiddleware:
         # Ensure timezone-aware comparison
         if isinstance(role_assigned_at, str):
             try:
-                role_assigned_at = datetime.fromisoformat(
-                    role_assigned_at.replace("Z", "+00:00")
-                )
+                role_assigned_at = datetime.fromisoformat(role_assigned_at.replace("Z", "+00:00"))
             except ValueError:
                 return None
 

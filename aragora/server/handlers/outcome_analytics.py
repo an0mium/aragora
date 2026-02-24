@@ -58,9 +58,7 @@ class OutcomeAnalyticsHandler(SecureHandler):
     ]
 
     # Pattern for single debate outcome: /api/analytics/outcomes/{debate_id}
-    DEBATE_OUTCOME_PATTERN = re.compile(
-        r"^/api/analytics/outcomes/([a-zA-Z0-9_-]+)$"
-    )
+    DEBATE_OUTCOME_PATTERN = re.compile(r"^/api/analytics/outcomes/([a-zA-Z0-9_-]+)$")
 
     # Known sub-route suffixes that should NOT match as debate IDs
     _KNOWN_SUFFIXES = {
@@ -91,23 +89,17 @@ class OutcomeAnalyticsHandler(SecureHandler):
         client_ip = get_client_ip(handler)
         if not _outcome_analytics_limiter.is_allowed(client_ip):
             logger.warning("Rate limit exceeded for outcome analytics: %s", client_ip)
-            return error_response(
-                "Rate limit exceeded. Please try again later.", 429
-            )
+            return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # RBAC: Require authentication and analytics:read permission
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
             self.check_permission(auth_context, OUTCOME_ANALYTICS_PERMISSION)
         except UnauthorizedError:
-            return error_response(
-                "Authentication required", 401, code="AUTH_REQUIRED"
-            )
+            return error_response("Authentication required", 401, code="AUTH_REQUIRED")
         except ForbiddenError as e:
             logger.warning("Outcome analytics access denied: %s", e)
-            return error_response(
-                "Permission denied", 403, code="PERMISSION_DENIED"
-            )
+            return error_response("Permission denied", 403, code="PERMISSION_DENIED")
 
         # Route to appropriate method
         if normalized == "/api/analytics/outcomes":
@@ -133,9 +125,7 @@ class OutcomeAnalyticsHandler(SecureHandler):
         return None
 
     @handle_errors("get outcomes summary")
-    async def _get_outcomes_summary(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_outcomes_summary(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/analytics/outcomes - Full outcome analytics summary."""
         from aragora.analytics.outcome_analytics import get_outcome_analytics
 
@@ -146,19 +136,19 @@ class OutcomeAnalyticsHandler(SecureHandler):
         avg_rounds = await analytics.get_average_rounds(period=period)
         topics = await analytics.get_topic_distribution(period=period)
 
-        return json_response({
-            "data": {
-                "period": period,
-                "consensus_rate": round(consensus_rate, 4),
-                "average_rounds": round(avg_rounds, 2),
-                "topic_distribution": topics,
+        return json_response(
+            {
+                "data": {
+                    "period": period,
+                    "consensus_rate": round(consensus_rate, 4),
+                    "average_rounds": round(avg_rounds, 2),
+                    "topic_distribution": topics,
+                }
             }
-        })
+        )
 
     @handle_errors("get consensus rate")
-    async def _get_consensus_rate(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_consensus_rate(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/analytics/outcomes/consensus-rate"""
         from aragora.analytics.outcome_analytics import get_outcome_analytics
 
@@ -166,17 +156,17 @@ class OutcomeAnalyticsHandler(SecureHandler):
         analytics = get_outcome_analytics()
         rate = await analytics.get_consensus_rate(period=period)
 
-        return json_response({
-            "data": {
-                "period": period,
-                "consensus_rate": round(rate, 4),
+        return json_response(
+            {
+                "data": {
+                    "period": period,
+                    "consensus_rate": round(rate, 4),
+                }
             }
-        })
+        )
 
     @handle_errors("get average rounds")
-    async def _get_average_rounds(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_average_rounds(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/analytics/outcomes/average-rounds"""
         from aragora.analytics.outcome_analytics import get_outcome_analytics
 
@@ -184,17 +174,17 @@ class OutcomeAnalyticsHandler(SecureHandler):
         analytics = get_outcome_analytics()
         avg = await analytics.get_average_rounds(period=period)
 
-        return json_response({
-            "data": {
-                "period": period,
-                "average_rounds": round(avg, 2),
+        return json_response(
+            {
+                "data": {
+                    "period": period,
+                    "average_rounds": round(avg, 2),
+                }
             }
-        })
+        )
 
     @handle_errors("get agent contributions")
-    async def _get_contributions(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_contributions(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/analytics/outcomes/contributions"""
         from aragora.analytics.outcome_analytics import get_outcome_analytics
 
@@ -202,20 +192,19 @@ class OutcomeAnalyticsHandler(SecureHandler):
         analytics = get_outcome_analytics()
         contributions = await analytics.get_agent_contribution_scores(period=period)
 
-        return json_response({
-            "data": {
-                "period": period,
-                "contributions": {
-                    agent_id: contrib.to_dict()
-                    for agent_id, contrib in contributions.items()
-                },
+        return json_response(
+            {
+                "data": {
+                    "period": period,
+                    "contributions": {
+                        agent_id: contrib.to_dict() for agent_id, contrib in contributions.items()
+                    },
+                }
             }
-        })
+        )
 
     @handle_errors("get quality trend")
-    async def _get_quality_trend(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_quality_trend(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/analytics/outcomes/quality-trend"""
         from aragora.analytics.outcome_analytics import get_outcome_analytics
 
@@ -223,17 +212,17 @@ class OutcomeAnalyticsHandler(SecureHandler):
         analytics = get_outcome_analytics()
         trend = await analytics.get_decision_quality_trend(period=period)
 
-        return json_response({
-            "data": {
-                "period": period,
-                "trend": [point.to_dict() for point in trend],
+        return json_response(
+            {
+                "data": {
+                    "period": period,
+                    "trend": [point.to_dict() for point in trend],
+                }
             }
-        })
+        )
 
     @handle_errors("get topic distribution")
-    async def _get_topics(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_topics(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/analytics/outcomes/topics"""
         from aragora.analytics.outcome_analytics import get_outcome_analytics
 
@@ -241,12 +230,14 @@ class OutcomeAnalyticsHandler(SecureHandler):
         analytics = get_outcome_analytics()
         topics = await analytics.get_topic_distribution(period=period)
 
-        return json_response({
-            "data": {
-                "period": period,
-                "topics": topics,
+        return json_response(
+            {
+                "data": {
+                    "period": period,
+                    "topics": topics,
+                }
             }
-        })
+        )
 
     @handle_errors("get debate outcome")
     async def _get_debate_outcome(self, debate_id: str) -> HandlerResult:
@@ -257,9 +248,7 @@ class OutcomeAnalyticsHandler(SecureHandler):
         summary = await analytics.get_outcome_summary(debate_id)
 
         if summary is None:
-            return error_response(
-                f"Debate not found: {debate_id}", 404, code="NOT_FOUND"
-            )
+            return error_response(f"Debate not found: {debate_id}", 404, code="NOT_FOUND")
 
         return json_response({"data": summary.to_dict()})
 

@@ -12,9 +12,16 @@ from aragora_debate.events import DebateEvent, EventEmitter, EventType
 class TestEventType:
     def test_all_types_exist(self):
         expected = {
-            "debate_start", "debate_end", "round_start", "round_end",
-            "proposal", "critique", "vote", "consensus_check",
-            "trickster_intervention", "convergence_detected",
+            "debate_start",
+            "debate_end",
+            "round_start",
+            "round_end",
+            "proposal",
+            "critique",
+            "vote",
+            "consensus_check",
+            "trickster_intervention",
+            "convergence_detected",
         }
         actual = {e.value for e in EventType}
         assert actual == expected

@@ -97,5 +97,3 @@ class FeedbackHubHandler(BaseHandler):
             return error_response("Feedback hub module not available", 503)
 
         return json_response({"data": entries})
-
-

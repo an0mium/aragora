@@ -203,9 +203,7 @@ def flow_agents() -> list[FlowMockAgent]:
 @pytest.fixture
 def debate_environment() -> Environment:
     """Create a test environment with a clear debate topic."""
-    return Environment(
-        task="Should we implement caching for our read-heavy API endpoints?"
-    )
+    return Environment(task="Should we implement caching for our read-heavy API endpoints?")
 
 
 @pytest.fixture
@@ -242,7 +240,9 @@ def spectator_with_collector(event_collector: EventCollector) -> SpectatorStream
         round_number: int | None = None,
     ) -> None:
         event_collector.capture(event_type, agent, details, metric, round_number)
-        original_emit(event_type, agent=agent, details=details, metric=metric, round_number=round_number)
+        original_emit(
+            event_type, agent=agent, details=details, metric=metric, round_number=round_number
+        )
 
     spectator.emit = capturing_emit  # type: ignore[assignment]
     return spectator
@@ -312,13 +312,9 @@ class TestCompleteDebateFlow:
         assert result is not None
         # Each agent should have been called at least once
         for agent in flow_agents:
-            assert len(agent.call_log) > 0, (
-                f"Agent {agent.name} was never called during the debate"
-            )
+            assert len(agent.call_log) > 0, f"Agent {agent.name} was never called during the debate"
             # At minimum, generate should be called for proposals
-            assert "generate" in agent.call_log, (
-                f"Agent {agent.name} never had generate() called"
-            )
+            assert "generate" in agent.call_log, f"Agent {agent.name} never had generate() called"
 
     @pytest.mark.asyncio
     async def test_full_flow_debate_to_receipt(
@@ -415,8 +411,7 @@ class TestEventOrdering:
             start_idx = types.index(SpectatorEvents.DEBATE_START)
             end_idx = types.index(SpectatorEvents.DEBATE_END)
             assert start_idx < end_idx, (
-                f"debate_start (index {start_idx}) should come before "
-                f"debate_end (index {end_idx})"
+                f"debate_start (index {start_idx}) should come before debate_end (index {end_idx})"
             )
 
     @pytest.mark.asyncio
@@ -548,8 +543,7 @@ class TestReceiptContents:
 
         assert receipt.consensus_proof is not None
         all_agents = (
-            receipt.consensus_proof.supporting_agents
-            + receipt.consensus_proof.dissenting_agents
+            receipt.consensus_proof.supporting_agents + receipt.consensus_proof.dissenting_agents
         )
         # If there are participants, at least some should be tracked
         if result.participants:
@@ -571,9 +565,7 @@ class TestReceiptContents:
         # At minimum, the verdict event should be in the provenance chain
         assert len(receipt.provenance_chain) >= 1
         # The last provenance record should be the verdict
-        verdict_records = [
-            r for r in receipt.provenance_chain if r.event_type == "verdict"
-        ]
+        verdict_records = [r for r in receipt.provenance_chain if r.event_type == "verdict"]
         assert len(verdict_records) > 0
 
     @pytest.mark.asyncio
@@ -590,9 +582,7 @@ class TestReceiptContents:
         # If votes were recorded on the result, they should appear in provenance
         if result.votes:
             receipt = DecisionReceipt.from_debate_result(result)
-            vote_records = [
-                r for r in receipt.provenance_chain if r.event_type == "vote"
-            ]
+            vote_records = [r for r in receipt.provenance_chain if r.event_type == "vote"]
             assert len(vote_records) > 0
             # Each vote record should have an agent attribution
             for record in vote_records:

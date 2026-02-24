@@ -109,6 +109,7 @@ class TestRepositoryIndexing:
             assert len(result["index_ids"]) == 2
             client.close()
 
+
 class TestRepositoryStatusAndQueries:
     """Tests for status checking and entity querying."""
 
@@ -170,6 +171,7 @@ class TestRepositoryStatusAndQueries:
             assert len(result["nodes"]) == 1
             assert len(result["edges"]) == 1
             client.close()
+
 
 class TestAsyncRepository:
     """Tests for async repository methods."""

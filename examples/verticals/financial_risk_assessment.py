@@ -78,8 +78,10 @@ def main() -> None:
             Pricing: SOFR + 275bps, 50bps commitment fee on undrawn.
         """),
         vote_for="Sarah Kim (Senior Credit Analyst)",
-        critique_issues=["DSO of 68 days signals potential collection issues",
-                         "FCF decline needs monitoring despite capex explanation"],
+        critique_issues=[
+            "DSO of 68 days signals potential collection issues",
+            "FCF decline needs monitoring despite capex explanation",
+        ],
     )
 
     risk_manager = create_agent(
@@ -114,8 +116,10 @@ def main() -> None:
             AND reduces customer concentration below 45%, facility increases to $25M.
         """),
         vote_for="David Chen (Portfolio Risk Manager)",
-        critique_issues=["Collateral provides meaningful downside protection",
-                         "Order backlog mitigates near-term revenue risk"],
+        critique_issues=[
+            "Collateral provides meaningful downside protection",
+            "Order backlog mitigates near-term revenue risk",
+        ],
     )
 
     compliance_officer = create_agent(
@@ -147,8 +151,10 @@ def main() -> None:
             3. Management transition monitoring protocol activated
         """),
         vote_for="David Chen (Portfolio Risk Manager)",
-        critique_issues=["Documentation requirements should not delay credit decision",
-                         "Enhanced monitoring addresses most identified risks"],
+        critique_issues=[
+            "Documentation requirements should not delay credit decision",
+            "Enhanced monitoring addresses most identified risks",
+        ],
     )
 
     # ── Run the debate ─────────────────────────────────────────────────
@@ -180,7 +186,9 @@ def main() -> None:
     print(f"  Question:       {receipt.question[:60]}...")
     print(f"  Verdict:        {receipt.verdict.value if receipt.verdict else 'N/A'}")
     print(f"  Confidence:     {receipt.confidence:.0%}")
-    print(f"  Consensus:      {'Reached' if receipt.consensus.reached else 'Not reached'} ({receipt.consensus.method.value})")
+    print(
+        f"  Consensus:      {'Reached' if receipt.consensus.reached else 'Not reached'} ({receipt.consensus.method.value})"
+    )
     print(f"  Agents:         {len(receipt.agents)}")
     print(f"  Rounds:         {receipt.rounds_used}")
     print()

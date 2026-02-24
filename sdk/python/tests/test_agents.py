@@ -29,6 +29,7 @@ class TestAgentsList:
             assert len(result["agents"]) == 2
             client.close()
 
+
 class TestAgentsCalibration:
     """Tests for agent calibration data."""
 
@@ -59,6 +60,7 @@ class TestAgentsCalibration:
 
             mock_request.assert_called_once_with("GET", "/api/v1/agent/claude/calibration-summary")
             client.close()
+
 
 class TestAgentsRelationships:
     """Tests for agent relationship data."""
@@ -96,6 +98,7 @@ class TestAgentsRelationships:
             mock_request.assert_called_once_with("GET", "/api/v1/agent/claude/network")
             client.close()
 
+
 class TestAgentsHistory:
     """Tests for agent history."""
 
@@ -125,6 +128,7 @@ class TestAgentsHistory:
             )
             client.close()
 
+
 class TestAgentsComparison:
     """Tests for agent comparison."""
 
@@ -142,6 +146,7 @@ class TestAgentsComparison:
                 params={"agent1": "claude", "agent2": "gpt-4"},
             )
             client.close()
+
 
 class TestAgentsProfile:
     """Tests for agent profile operations."""
@@ -194,6 +199,7 @@ class TestAgentsProfile:
             mock_request.assert_called_once_with("GET", "/api/v1/agent/claude/identity-prompt")
             client.close()
 
+
 class TestAgentsAnalytics:
     """Tests for agent analytics."""
 
@@ -232,6 +238,7 @@ class TestAgentsAnalytics:
             assert "coding" in result["domains"]
             client.close()
 
+
 class TestAsyncAgents:
     """Tests for async agents API."""
 
@@ -246,9 +253,11 @@ class TestAsyncAgents:
 
                 mock_request.assert_called_once_with("GET", "/api/v1/agents")
 
+
 # =========================================================================
 # Health & Availability
 # =========================================================================
+
 
 class TestAgentsHealth:
     """Tests for agent health and availability."""
@@ -298,9 +307,11 @@ class TestAgentsHealth:
             mock_request.assert_called_once_with("GET", "/api/agents/local/status")
             client.close()
 
+
 # =========================================================================
 # Agent Details (Extended)
 # =========================================================================
+
 
 class TestAgentsDetailsExtended:
     """Tests for extended agent detail methods."""
@@ -352,9 +363,11 @@ class TestAgentsDetailsExtended:
             mock_request.assert_called_once_with("GET", "/api/agent/claude/introspect")
             client.close()
 
+
 # =========================================================================
 # Leaderboard & Analytics (Extended)
 # =========================================================================
+
 
 class TestAgentsLeaderboard:
     """Tests for leaderboard and analytics methods."""
@@ -445,6 +458,7 @@ class TestAgentsLeaderboard:
             )
             client.close()
 
+
 # =========================================================================
 # Agent Lifecycle
 # =========================================================================
@@ -456,6 +470,7 @@ class TestAgentsLeaderboard:
 # =========================================================================
 # Async Tests (Extended)
 # =========================================================================
+
 
 class TestAsyncAgentsExtended:
     """Async tests for new agent methods."""

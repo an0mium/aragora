@@ -354,9 +354,7 @@ class TestMarkCompletedGoals:
         """Empty completed_goals set results in zero marks."""
         bridge = WorkspacePipelineBridge(bead_manager=AsyncMock())
 
-        goal_graph = FakeGoalGraph(
-            goals=[FakeGoalNode(id="g1", title="Implement rate limiter")]
-        )
+        goal_graph = FakeGoalGraph(goals=[FakeGoalNode(id="g1", title="Implement rate limiter")])
         ctx = WorkspaceContext()
 
         marked = await bridge.mark_completed_goals(goal_graph, ctx)

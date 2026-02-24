@@ -135,9 +135,7 @@ class ConsensusAPI:
         Returns:
             Dict with consensus status including proof, partial consensus, and claims.
         """
-        return self._client.request(
-            "GET", f"/api/v1/consensus/status/{debate_id}"
-        )
+        return self._client.request("GET", f"/api/v1/consensus/status/{debate_id}")
 
 
 class AsyncConsensusAPI:
@@ -251,6 +249,4 @@ class AsyncConsensusAPI:
         Returns:
             Dict with consensus status including proof, partial consensus, and claims.
         """
-        return await self._client.request(
-            "GET", f"/api/v1/consensus/status/{debate_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/consensus/status/{debate_id}")

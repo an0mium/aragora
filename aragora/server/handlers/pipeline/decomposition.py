@@ -47,12 +47,7 @@ def _parse_decompose_path(cleaned: str) -> tuple[str | None, str | None, str | N
     """
     parts = cleaned.split("/")
     # parts: ["", "api", "pipeline", id, "decompose", node_id, ...]
-    if (
-        len(parts) >= 6
-        and parts[1] == "api"
-        and parts[2] == "pipeline"
-        and parts[4] == "decompose"
-    ):
+    if len(parts) >= 6 and parts[1] == "api" and parts[2] == "pipeline" and parts[4] == "decompose":
         pipeline_id = parts[3]
         node_id = parts[5]
         sub = parts[6] if len(parts) > 6 else None
@@ -72,9 +67,7 @@ class DecompositionHandler(BaseHandler):
         cleaned = strip_version_prefix(path)
         return "/decompose/" in cleaned and cleaned.startswith("/api/pipeline/")
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests (decomposition tree)."""
         cleaned = strip_version_prefix(path)
         client_ip = get_client_ip(handler)
@@ -126,9 +119,7 @@ class DecompositionHandler(BaseHandler):
             return None
 
     @handle_errors("task decomposition")
-    def handle_post(
-        self, path: str, body: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route POST requests (trigger decomposition)."""
         auth_error = self._check_permission(handler, "pipeline:write")
         if auth_error:
@@ -231,9 +222,7 @@ class DecompositionHandler(BaseHandler):
             logger.warning("Task decomposition failed: %s", type(e).__name__)
             return error_response("Task decomposition not available", 503)
 
-    def _get_decomposition_tree(
-        self, pipeline_id: str, node_id: str
-    ) -> HandlerResult:
+    def _get_decomposition_tree(self, pipeline_id: str, node_id: str) -> HandlerResult:
         store = _get_store()
         graph = store.get(pipeline_id)
         if graph is None:
@@ -274,9 +263,7 @@ class DecompositionHandler(BaseHandler):
                 if getattr(edge, "source_id", None) == node_id:
                     edge_label = getattr(edge, "label", "")
                     if edge_label == "decomposes_into" or "decompos" in edge_label.lower():
-                        child = self._build_subtree(
-                            graph, edge.target_id, depth + 1, max_depth
-                        )
+                        child = self._build_subtree(graph, edge.target_id, depth + 1, max_depth)
                         children.append(child)
 
         return {

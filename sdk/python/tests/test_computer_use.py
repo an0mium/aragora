@@ -16,6 +16,7 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Task Operations - Sync
 # =========================================================================
 
+
 class TestComputerUseCreateTask:
     """Tests for creating computer use tasks."""
 
@@ -82,6 +83,7 @@ class TestComputerUseCreateTask:
             assert json_data["dry_run"] is True
             assert result["dry_run"] is True
             client.close()
+
 
 class TestComputerUseListTasks:
     """Tests for listing computer use tasks."""
@@ -163,6 +165,7 @@ class TestComputerUseListTasks:
             assert params["status"] == "failed"
             client.close()
 
+
 class TestComputerUseGetTask:
     """Tests for getting computer use task details."""
 
@@ -210,6 +213,7 @@ class TestComputerUseGetTask:
             assert result["task"]["current_step"] == "Typing in email field"
             client.close()
 
+
 class TestComputerUseListPolicies:
     """Tests for listing computer use policies."""
 
@@ -241,6 +245,7 @@ class TestComputerUseListPolicies:
             assert len(result["policies"]) == 2
             assert result["policies"][0]["name"] == "Production Safety"
             client.close()
+
 
 class TestComputerUseCreatePolicy:
     """Tests for creating computer use policies."""
@@ -337,9 +342,11 @@ class TestComputerUseCreatePolicy:
             assert len(json_data["blocked_domains"]) == 2
             client.close()
 
+
 # =========================================================================
 # Async Tests
 # =========================================================================
+
 
 class TestAsyncComputerUseTasks:
     """Tests for async computer use task operations."""
@@ -439,6 +446,7 @@ class TestAsyncComputerUseTasks:
                     "GET", "/api/v1/computer-use/tasks/cu_task_async"
                 )
                 assert result["task"]["status"] == "completed"
+
 
 class TestAsyncComputerUsePolicies:
     """Tests for async computer use policy operations."""

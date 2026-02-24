@@ -70,12 +70,8 @@ def sample_db(temp_dir) -> Path:
     db_path = temp_dir / "test.db"
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
-    cursor.execute(
-        "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"
-    )
-    cursor.execute(
-        "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)"
-    )
+    cursor.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL)")
+    cursor.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)")
     for i in range(5):
         cursor.execute("INSERT INTO users (name) VALUES (?)", (f"User {i}",))
     cursor.execute(
@@ -260,9 +256,7 @@ class TestUploadBackup:
             manager.upload_backup("/nonexistent/path.db.gz")
 
     def test_upload_cloud_failure(self, manager, sample_backup):
-        manager._cloud_upload = MagicMock(
-            side_effect=RuntimeError("Network error")
-        )
+        manager._cloud_upload = MagicMock(side_effect=RuntimeError("Network error"))
         with pytest.raises(RuntimeError, match="Offsite upload failed"):
             manager.upload_backup(sample_backup)
 
@@ -328,9 +322,7 @@ class TestDownloadBackup:
 
     def test_download_cloud_failure(self, manager, sample_backup, temp_dir):
         record = manager.upload_backup(sample_backup)
-        manager._cloud_download = MagicMock(
-            side_effect=RuntimeError("Download failed")
-        )
+        manager._cloud_download = MagicMock(side_effect=RuntimeError("Download failed"))
         with pytest.raises(RuntimeError, match="Offsite download failed"):
             manager.download_backup(record.id, temp_dir / "fail.db")
 
@@ -382,9 +374,7 @@ class TestRunRestoreDrill:
 
     def test_drill_download_failure(self, manager, sample_backup):
         record = manager.upload_backup(sample_backup)
-        manager._cloud_download = MagicMock(
-            side_effect=RuntimeError("Simulated failure")
-        )
+        manager._cloud_download = MagicMock(side_effect=RuntimeError("Simulated failure"))
         result = manager.run_restore_drill(record.id)
         assert result.success is False
         assert len(result.errors) > 0
@@ -441,9 +431,7 @@ class TestVerifyBackupIntegrity:
 
     def test_integrity_download_failure(self, manager, sample_backup):
         record = manager.upload_backup(sample_backup)
-        manager._cloud_download = MagicMock(
-            side_effect=RuntimeError("Cloud down")
-        )
+        manager._cloud_download = MagicMock(side_effect=RuntimeError("Cloud down"))
         result = manager.verify_backup_integrity(record.id)
         assert result.valid is False
         assert len(result.errors) > 0
@@ -471,9 +459,7 @@ class TestDrillHistory:
         for i in range(len(history) - 1):
             assert history[i].started_at >= history[i + 1].started_at
 
-    def test_history_persisted_to_disk(
-        self, manager, sample_backup, state_dir, config, mock_cloud
-    ):
+    def test_history_persisted_to_disk(self, manager, sample_backup, state_dir, config, mock_cloud):
         record = manager.upload_backup(sample_backup)
         manager.run_restore_drill(record.id)
 
@@ -496,9 +482,7 @@ class TestDrillHistory:
 class TestStatePersistence:
     """Tests for record and drill history persistence across restarts."""
 
-    def test_records_survive_restart(
-        self, config, state_dir, sample_backup, mock_cloud
-    ):
+    def test_records_survive_restart(self, config, state_dir, sample_backup, mock_cloud):
         _storage, fake_upload, fake_download = mock_cloud
 
         mgr1 = OffsiteBackupManager(config, state_dir=state_dir)

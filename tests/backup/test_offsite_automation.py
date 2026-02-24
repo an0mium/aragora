@@ -63,12 +63,8 @@ def sample_db(temp_dir) -> Path:
     db_path = temp_dir / "test.db"
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
-    cursor.execute(
-        "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"
-    )
-    cursor.execute(
-        "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)"
-    )
+    cursor.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL)")
+    cursor.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)")
     for i in range(10):
         cursor.execute("INSERT INTO users (name) VALUES (?)", (f"User {i}",))
     cursor.execute(
@@ -450,6 +446,7 @@ class TestBackupOffsiteHandler:
         from aragora.server.handlers.backup_offsite_handler import (
             BackupOffsiteHandler,
         )
+
         return BackupOffsiteHandler
 
     @pytest.fixture
@@ -579,9 +576,7 @@ class TestBackupOffsiteHandler:
         mock_handler = MagicMock()
         mock_handler.command = "GET"
 
-        result = await handler.handle(
-            "/api/v1/backup/status", {}, mock_handler
-        )
+        result = await handler.handle("/api/v1/backup/status", {}, mock_handler)
         body = result[0]
         assert "data" in body
 
@@ -592,9 +587,7 @@ class TestBackupOffsiteHandler:
         mock_handler = MagicMock()
         mock_handler.command = "GET"
 
-        result = await handler.handle(
-            "/api/v1/backup/drills", {}, mock_handler
-        )
+        result = await handler.handle("/api/v1/backup/drills", {}, mock_handler)
         body = result[0]
         assert "data" in body
 
@@ -605,9 +598,7 @@ class TestBackupOffsiteHandler:
         mock_handler = MagicMock()
         mock_handler.command = "GET"
 
-        result = await handler.handle(
-            "/api/v1/backup/unknown", {}, mock_handler
-        )
+        result = await handler.handle("/api/v1/backup/unknown", {}, mock_handler)
         body = result[0]
         status = result[1]
         assert status == 404

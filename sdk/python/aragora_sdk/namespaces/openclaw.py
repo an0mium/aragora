@@ -90,9 +90,7 @@ class OpenclawAPI:
         """Delete a credential."""
         return self._client.request("DELETE", f"/api/v1/openclaw/credentials/{credential_id}")
 
-    def rotate_credential(
-        self, credential_id: str, new_value: str | None = None
-    ) -> dict[str, Any]:
+    def rotate_credential(self, credential_id: str, new_value: str | None = None) -> dict[str, Any]:
         """Rotate a credential."""
         payload: dict[str, Any] = {}
         if new_value is not None:
@@ -273,7 +271,9 @@ class AsyncOpenclawAPI:
 
     async def approve_action(self, approval_id: str) -> dict[str, Any]:
         """Approve a pending approval."""
-        return await self._client.request("POST", f"/api/v1/openclaw/approvals/{approval_id}/approve")
+        return await self._client.request(
+            "POST", f"/api/v1/openclaw/approvals/{approval_id}/approve"
+        )
 
     async def deny_action(self, approval_id: str) -> dict[str, Any]:
         """Deny a pending approval."""

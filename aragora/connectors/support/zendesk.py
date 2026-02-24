@@ -303,11 +303,14 @@ class ZendeskConnector:
                 except (AttributeError, TypeError) as exc:
                     logger.debug("Mock side_effect normalization skipped: %s", exc)
                 response = await client.request(
-                    method, path, params=params, json=json_data,
+                    method,
+                    path,
+                    params=params,
+                    json=json_data,
                 )
                 if response.status_code == 429 or response.status_code >= 500:
                     if attempt < self._MAX_RETRIES:
-                        delay = min(self._BASE_DELAY * (2 ** attempt), self._MAX_DELAY)
+                        delay = min(self._BASE_DELAY * (2**attempt), self._MAX_DELAY)
                         jitter = delay * 0.3 * random.random()
                         ra = response.headers.get("Retry-After")
                         if ra:
@@ -317,8 +320,12 @@ class ZendeskConnector:
                                 pass
                         logger.warning(
                             "Zendesk %s %s returned %d, retrying in %.1fs (attempt %d/%d)",
-                            method, path, response.status_code, delay + jitter,
-                            attempt + 1, self._MAX_RETRIES,
+                            method,
+                            path,
+                            response.status_code,
+                            delay + jitter,
+                            attempt + 1,
+                            self._MAX_RETRIES,
                         )
                         await asyncio.sleep(delay + jitter)
                         continue
@@ -343,12 +350,16 @@ class ZendeskConnector:
             except (httpx.TimeoutException, httpx.ConnectError, OSError) as exc:
                 last_exc = exc
                 if attempt < self._MAX_RETRIES:
-                    delay = min(self._BASE_DELAY * (2 ** attempt), self._MAX_DELAY)
+                    delay = min(self._BASE_DELAY * (2**attempt), self._MAX_DELAY)
                     jitter = delay * 0.3 * random.random()
                     logger.warning(
                         "Zendesk %s %s network error: %s, retrying in %.1fs (attempt %d/%d)",
-                        method, path, type(exc).__name__, delay + jitter,
-                        attempt + 1, self._MAX_RETRIES,
+                        method,
+                        path,
+                        type(exc).__name__,
+                        delay + jitter,
+                        attempt + 1,
+                        self._MAX_RETRIES,
                     )
                     await asyncio.sleep(delay + jitter)
                     continue

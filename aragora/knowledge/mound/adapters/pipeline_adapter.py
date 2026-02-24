@@ -584,7 +584,6 @@ class PipelineAdapter(KnowledgeMoundAdapter):
             logger.warning("Failed to get execution success rate: %s", e)
             return {"total": 0, "completed": 0, "failed": 0, "planned": 0, "rate": 0.0}
 
-
     async def query_precedents(
         self,
         task_type: str,
@@ -613,12 +612,14 @@ class PipelineAdapter(KnowledgeMoundAdapter):
                 metadata = getattr(result, "metadata", {})
                 if metadata.get("type") != "pipeline_task_outcome":
                     continue
-                precedents.append({
-                    "task_type": metadata.get("task_type", task_type),
-                    "outcome": getattr(result, "content", "")[:200],
-                    "status": metadata.get("task_status", "unknown"),
-                    "agent_type": metadata.get("agent_type", ""),
-                })
+                precedents.append(
+                    {
+                        "task_type": metadata.get("task_type", task_type),
+                        "outcome": getattr(result, "content", "")[:200],
+                        "status": metadata.get("task_status", "unknown"),
+                        "agent_type": metadata.get("agent_type", ""),
+                    }
+                )
                 if len(precedents) >= limit:
                     break
 

@@ -16,6 +16,7 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Search and Query Tests
 # ===========================================================================
 
+
 class TestMemorySearch:
     """Tests for memory search operations."""
 
@@ -61,9 +62,11 @@ class TestMemorySearch:
             )
             client.close()
 
+
 # ===========================================================================
 # Statistics and Monitoring Tests
 # ===========================================================================
+
 
 class TestMemoryStats:
     """Tests for tier stats, archive stats, pressure, and tier listing."""
@@ -124,9 +127,11 @@ class TestMemoryStats:
             )
             client.close()
 
+
 # ===========================================================================
 # Tier Operations Tests
 # ===========================================================================
+
 
 class TestTierOperations:
     """Tests for tier management operations."""
@@ -153,9 +158,11 @@ class TestTierOperations:
             mock_request.assert_called_once_with("GET", "/api/v1/memory/tiers")
             client.close()
 
+
 # ===========================================================================
 # Continuum Operations Tests
 # ===========================================================================
+
 
 class TestContinuumOperations:
     """Tests for continuum memory operations."""
@@ -213,9 +220,11 @@ class TestContinuumOperations:
             )
             client.close()
 
+
 # ===========================================================================
 # Critique Operations Tests
 # ===========================================================================
+
 
 class TestCritiqueOperations:
     """Tests for critique store operations."""
@@ -283,6 +292,7 @@ class TestCritiqueOperations:
             assert result["id"] == "critique-123"
             client.close()
 
+
 # ===========================================================================
 # Context Management Tests
 # ===========================================================================
@@ -306,6 +316,7 @@ class TestCritiqueOperations:
 # ===========================================================================
 # Async Memory Tests
 # ===========================================================================
+
 
 class TestAsyncMemory:
     """Tests for async memory methods."""

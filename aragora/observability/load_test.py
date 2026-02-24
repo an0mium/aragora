@@ -443,8 +443,12 @@ class SLOEnforcer:
         # Replace existing target with the same name if present
         self._targets = [t for t in self._targets if t.name != target.name]
         self._targets.append(target)
-        logger.info("Registered SLO target: %s (metric=%s, threshold=%s)",
-                     target.name, target.metric, target.threshold)
+        logger.info(
+            "Registered SLO target: %s (metric=%s, threshold=%s)",
+            target.name,
+            target.metric,
+            target.threshold,
+        )
 
     def get_targets(self) -> list[SLOTargetDef]:
         """Return a copy of all registered SLO targets.
@@ -517,8 +521,7 @@ class SLOEnforcer:
 
         # Get observations within window
         observations = [
-            (ts, val) for ts, val in self._observations.get(target.metric, [])
-            if ts >= window_start
+            (ts, val) for ts, val in self._observations.get(target.metric, []) if ts >= window_start
         ]
 
         if not observations:
@@ -586,8 +589,7 @@ class SLOEnforcer:
         for metric in self._observations:
             before = len(self._observations[metric])
             self._observations[metric] = [
-                (ts, val) for ts, val in self._observations[metric]
-                if ts >= cutoff
+                (ts, val) for ts, val in self._observations[metric] if ts >= cutoff
             ]
             pruned += before - len(self._observations[metric])
         return pruned

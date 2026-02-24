@@ -333,7 +333,8 @@ class MetabaseConnector(ProductionConnectorMixin):
         self._client: httpx.AsyncClient | None = None
         self._session_token: str | None = credentials.session_token
         self._init_production_mixin(
-            connector_name="metabase", request_timeout=60.0,
+            connector_name="metabase",
+            request_timeout=60.0,
         )
         self._has_production_mixin = True
 
@@ -407,7 +408,8 @@ class MetabaseConnector(ProductionConnectorMixin):
 
         if self._has_production_mixin:
             return await self._call_with_retry(
-                _do_request, operation=f"{method}_{path}",
+                _do_request,
+                operation=f"{method}_{path}",
             )
         return await _do_request()
 

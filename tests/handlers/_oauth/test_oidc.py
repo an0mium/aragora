@@ -988,8 +988,12 @@ class TestExchangeOIDCCode:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
-            "aragora.server.handlers._oauth.oidc.urllib_request.urlopen", return_value=mock_response
+        with (
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")),
+            patch(
+                "aragora.server.handlers._oauth.oidc.urllib_request.urlopen",
+                return_value=mock_response,
+            ),
         ):
             result = handler._exchange_oidc_code("auth-code", MOCK_DISCOVERY)
 
@@ -1002,8 +1006,12 @@ class TestExchangeOIDCCode:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
-            "aragora.server.handlers._oauth.oidc.urllib_request.urlopen", return_value=mock_response
+        with (
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")),
+            patch(
+                "aragora.server.handlers._oauth.oidc.urllib_request.urlopen",
+                return_value=mock_response,
+            ),
         ):
             result = handler._exchange_oidc_code("auth-code", MOCK_DISCOVERY)
             assert result == {}
@@ -1022,8 +1030,12 @@ class TestExchangeOIDCCode:
             mock_resp.__exit__ = MagicMock(return_value=False)
             return mock_resp
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
-            "aragora.server.handlers._oauth.oidc.urllib_request.urlopen", side_effect=mock_urlopen
+        with (
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")),
+            patch(
+                "aragora.server.handlers._oauth.oidc.urllib_request.urlopen",
+                side_effect=mock_urlopen,
+            ),
         ):
             result = handler._exchange_oidc_code("my-auth-code", MOCK_DISCOVERY)
 

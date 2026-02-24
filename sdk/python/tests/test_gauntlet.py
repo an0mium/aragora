@@ -76,6 +76,7 @@ class TestGauntletRun:
             assert call_args[1]["json"]["attacker_agents"] == ["gpt-4", "gemini"]
             client.close()
 
+
 class TestGauntletResults:
     """Tests for Gauntlet result operations."""
 
@@ -94,6 +95,7 @@ class TestGauntletResults:
             mock_request.assert_called_once_with("GET", "/api/v1/gauntlet/gnt_123")
             assert result["gauntlet_id"] == "gnt_123"
             client.close()
+
 
 class TestGauntletReceipts:
     """Tests for Gauntlet receipt operations."""
@@ -127,6 +129,7 @@ class TestGauntletReceipts:
             mock_request.assert_called_once_with("POST", "/api/v1/gauntlet/gnt_123/receipt/verify")
             assert result["valid"] is True
             client.close()
+
 
 class TestAsyncGauntlet:
     """Tests for async Gauntlet API."""

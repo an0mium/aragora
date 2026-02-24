@@ -26,6 +26,7 @@ class TestOAuthWizardConfiguration:
             assert result["completion_percent"] == 25
             client.close()
 
+
 class TestAsyncOAuthWizard:
     """Tests for async OAuth wizard methods."""
 
@@ -38,4 +39,3 @@ class TestAsyncOAuthWizard:
             mock_request.assert_called_once_with("GET", "/api/v2/integrations/wizard")
             assert result["available_providers"] == 12
             await client.close()
-

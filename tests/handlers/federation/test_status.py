@@ -110,9 +110,7 @@ class MockConsent:
     data_types: set = field(default_factory=lambda: {"debates", "findings"})
     revoked: bool = False
     revoked_at: datetime | None = None
-    granted_at: datetime = field(
-        default_factory=lambda: datetime(2026, 1, 15, tzinfo=timezone.utc)
-    )
+    granted_at: datetime = field(default_factory=lambda: datetime(2026, 1, 15, tzinfo=timezone.utc))
     times_used: int = 10
     last_used: datetime | None = None
 
@@ -127,9 +125,7 @@ class MockPendingRequest:
     source_workspace_id: str = "ws-1"
     target_workspace_id: str = "ws-2"
     requester_id: str = "user-1"
-    created_at: datetime = field(
-        default_factory=lambda: datetime(2026, 2, 20, tzinfo=timezone.utc)
-    )
+    created_at: datetime = field(default_factory=lambda: datetime(2026, 2, 20, tzinfo=timezone.utc))
 
 
 @dataclass
@@ -634,9 +630,7 @@ class TestFederationConfig:
         policy = MockPolicy()
         c_valid = MockConsent(data_types={"debates"}, revoked=False)
         c_revoked = MockConsent(data_types={"secrets"}, revoked=True)
-        coord = _make_coordinator(
-            policy=policy, consents=[c_valid, c_revoked]
-        )
+        coord = _make_coordinator(policy=policy, consents=[c_valid, c_revoked])
         with _patch_coordinator(coord):
             result = handler._handle_federation_config({})
 
@@ -683,57 +677,43 @@ class TestRouting:
 
     def test_routes_federation_status(self, handler):
         with _patch_no_coordinator():
-            result = handler.handle_request(
-                "GET", "/api/v1/federation/status", MagicMock(), {}
-            )
+            result = handler.handle_request("GET", "/api/v1/federation/status", MagicMock(), {})
 
         body = _parse_response(result)
         assert body["status"] == "unavailable"
 
     def test_routes_federation_workspaces(self, handler):
         with _patch_no_coordinator():
-            result = handler.handle_request(
-                "GET", "/api/v1/federation/workspaces", MagicMock(), {}
-            )
+            result = handler.handle_request("GET", "/api/v1/federation/workspaces", MagicMock(), {})
 
         body = _parse_response(result)
         assert body["workspaces"] == []
 
     def test_routes_federation_activity(self, handler):
         with _patch_no_coordinator():
-            result = handler.handle_request(
-                "GET", "/api/v1/federation/activity", MagicMock(), {}
-            )
+            result = handler.handle_request("GET", "/api/v1/federation/activity", MagicMock(), {})
 
         body = _parse_response(result)
         assert body["activity"] == []
 
     def test_routes_federation_config(self, handler):
         with _patch_no_coordinator():
-            result = handler.handle_request(
-                "GET", "/api/v1/federation/config", MagicMock(), {}
-            )
+            result = handler.handle_request("GET", "/api/v1/federation/config", MagicMock(), {})
 
         body = _parse_response(result)
         assert body["default_policy"] is None
 
     def test_unversioned_path_also_routes(self, handler):
         with _patch_no_coordinator():
-            result = handler.handle_request(
-                "GET", "/api/federation/status", MagicMock(), {}
-            )
+            result = handler.handle_request("GET", "/api/federation/status", MagicMock(), {})
 
         body = _parse_response(result)
         assert body["status"] == "unavailable"
 
     def test_unknown_path_returns_none(self, handler):
-        result = handler.handle_request(
-            "GET", "/api/v1/federation/unknown", MagicMock(), {}
-        )
+        result = handler.handle_request("GET", "/api/v1/federation/unknown", MagicMock(), {})
         assert result is None
 
     def test_post_method_returns_none(self, handler):
-        result = handler.handle_request(
-            "POST", "/api/v1/federation/status", MagicMock(), {}
-        )
+        result = handler.handle_request("POST", "/api/v1/federation/status", MagicMock(), {})
         assert result is None

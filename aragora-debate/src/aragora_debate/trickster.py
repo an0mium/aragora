@@ -206,11 +206,11 @@ class EvidencePoweredTrickster:
         cross_analysis: CrossProposalAnalysis | None = None
         avg_quality = (
             sum(s.overall_quality for s in quality_scores.values()) / len(quality_scores)
-            if quality_scores else 1.0
+            if quality_scores
+            else 1.0
         )
         should_cross_analyze = (
-            convergence_similarity > 0.6
-            or avg_quality < self.config.min_quality_threshold
+            convergence_similarity > 0.6 or avg_quality < self.config.min_quality_threshold
         )
         if should_cross_analyze:
             cross_analysis = self._cross_analyzer.analyze(responses)
@@ -235,7 +235,8 @@ class EvidencePoweredTrickster:
         if alert.severity < self.config.hollow_detection_threshold:
             logger.debug(
                 "trickster_pass round=%d reason=below_threshold severity=%.2f",
-                round_num, alert.severity,
+                round_num,
+                alert.severity,
             )
             return None
 
@@ -248,7 +249,9 @@ class EvidencePoweredTrickster:
         # Check max interventions
         if self._state.total_interventions >= self.config.max_interventions_total:
             logger.debug(
-                "trickster_limit round=%d total=%d", round_num, self._state.total_interventions,
+                "trickster_limit round=%d total=%d",
+                round_num,
+                self._state.total_interventions,
             )
             return None
 
@@ -275,7 +278,9 @@ class EvidencePoweredTrickster:
         # Check max interventions
         if self._state.total_interventions >= self.config.max_interventions_total:
             logger.debug(
-                "trickster_limit round=%d total=%d", round_num, self._state.total_interventions,
+                "trickster_limit round=%d total=%d",
+                round_num,
+                self._state.total_interventions,
             )
             return None
 
@@ -285,7 +290,9 @@ class EvidencePoweredTrickster:
 
         logger.info(
             "trickster_intervene round=%d type=%s targets=%s",
-            round_num, intervention.intervention_type.value, intervention.target_agents,
+            round_num,
+            intervention.intervention_type.value,
+            intervention.target_agents,
         )
 
         if self.on_intervention:
@@ -335,14 +342,16 @@ class EvidencePoweredTrickster:
             lines.append("  → No evidence provided by any agent")
             lines.append("")
 
-        lines.extend([
-            "### Required Actions:",
-            "1. Provide specific sources or data supporting these claims",
-            "2. If no evidence exists, reconsider the claim",
-            "3. Distinguish between speculation and supported conclusions",
-            "",
-            "*This challenge was triggered by cross-proposal evidence analysis.*",
-        ])
+        lines.extend(
+            [
+                "### Required Actions:",
+                "1. Provide specific sources or data supporting these claims",
+                "2. If no evidence exists, reconsider the claim",
+                "3. Distinguish between speculation and supported conclusions",
+                "",
+                "*This challenge was triggered by cross-proposal evidence analysis.*",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -407,8 +416,7 @@ class EvidencePoweredTrickster:
         # Identify lowest quality agents
         sorted_agents = sorted(alert.agent_scores.items(), key=lambda x: x[1])
         target_agents = [
-            agent for agent, score in sorted_agents
-            if score < self.config.min_quality_threshold
+            agent for agent, score in sorted_agents if score < self.config.min_quality_threshold
         ][: self.config.max_challenges_per_round]
 
         if not target_agents:
@@ -439,10 +447,12 @@ class EvidencePoweredTrickster:
         }
 
         if cross_analysis:
-            metadata.update({
-                "cross_analysis_redundancy": cross_analysis.redundancy_score,
-                "cross_analysis_gaps_count": len(cross_analysis.evidence_gaps),
-            })
+            metadata.update(
+                {
+                    "cross_analysis_redundancy": cross_analysis.redundancy_score,
+                    "cross_analysis_gaps_count": len(cross_analysis.evidence_gaps),
+                }
+            )
 
         return TricksterIntervention(
             intervention_type=InterventionType.CHALLENGE_PROMPT,
@@ -482,15 +492,17 @@ class EvidencePoweredTrickster:
                 lines.append(f"- **{agent}**: Missing {gaps_str}")
             lines.append("")
 
-        lines.extend([
-            "### Before Proceeding:",
-            "1. Provide specific citations or data sources",
-            "2. Replace vague language with concrete numbers",
-            "3. Give real examples that demonstrate your points",
-            "4. Explain the logical chain from premise to conclusion",
-            "",
-            "*This challenge was triggered by the Evidence-Powered Trickster system.*",
-        ])
+        lines.extend(
+            [
+                "### Before Proceeding:",
+                "1. Provide specific citations or data sources",
+                "2. Replace vague language with concrete numbers",
+                "3. Give real examples that demonstrate your points",
+                "4. Explain the logical chain from premise to conclusion",
+                "",
+                "*This challenge was triggered by the Evidence-Powered Trickster system.*",
+            ]
+        )
 
         return "\n".join(lines)
 

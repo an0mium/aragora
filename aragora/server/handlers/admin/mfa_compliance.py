@@ -61,7 +61,9 @@ class MFAComplianceHandler(BaseHandler):
             return error_response("User store not available", 503)
 
         # Get all users via user_store
-        list_fn = getattr(user_store, "list_users", None) or getattr(user_store, "get_all_users", None)
+        list_fn = getattr(user_store, "list_users", None) or getattr(
+            user_store, "get_all_users", None
+        )
         if list_fn is None:
             return error_response("User listing not supported", 501)
 
@@ -97,25 +99,29 @@ class MFAComplianceHandler(BaseHandler):
                 mfa_disabled += 1
                 status = "non_compliant"
 
-            details.append({
-                "user_id": getattr(u, "id", "unknown"),
-                "role": getattr(u, "role", "unknown"),
-                "mfa_enabled": enabled,
-                "status": status,
-            })
+            details.append(
+                {
+                    "user_id": getattr(u, "id", "unknown"),
+                    "role": getattr(u, "role", "unknown"),
+                    "mfa_enabled": enabled,
+                    "status": status,
+                }
+            )
 
         compliance_rate = (mfa_enabled / total_admins * 100.0) if total_admins > 0 else 100.0
 
-        return json_response({
-            "data": {
-                "total_admins": total_admins,
-                "mfa_enabled": mfa_enabled,
-                "mfa_disabled": mfa_disabled,
-                "in_grace_period": in_grace_period,
-                "compliance_rate": round(compliance_rate, 2),
-                "details": details,
+        return json_response(
+            {
+                "data": {
+                    "total_admins": total_admins,
+                    "mfa_enabled": mfa_enabled,
+                    "mfa_disabled": mfa_disabled,
+                    "in_grace_period": in_grace_period,
+                    "compliance_rate": round(compliance_rate, 2),
+                    "details": details,
+                }
             }
-        })
+        )
 
 
 __all__ = ["MFAComplianceHandler"]

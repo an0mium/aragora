@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class OAuthWizardAPI:
     """
     Synchronous OAuth Wizard API.
@@ -137,9 +138,7 @@ class OAuthWizardAPI:
         Returns:
             Disconnection confirmation
         """
-        return self._client.request(
-            "POST", f"/api/v2/integrations/wizard/{provider_id}/disconnect"
-        )
+        return self._client.request("POST", f"/api/v2/integrations/wizard/{provider_id}/disconnect")
 
 
 class AsyncOAuthWizardAPI:
@@ -198,9 +197,7 @@ class AsyncOAuthWizardAPI:
 
     async def test_connection(self, provider_id: str) -> dict[str, Any]:
         """Test connection to a specific provider."""
-        return await self._client.request(
-            "POST", f"/api/v2/integrations/wizard/{provider_id}/test"
-        )
+        return await self._client.request("POST", f"/api/v2/integrations/wizard/{provider_id}/test")
 
     async def list_workspaces(self, provider_id: str) -> dict[str, Any]:
         """List workspaces/tenants for a provider."""
@@ -213,4 +210,3 @@ class AsyncOAuthWizardAPI:
         return await self._client.request(
             "POST", f"/api/v2/integrations/wizard/{provider_id}/disconnect"
         )
-

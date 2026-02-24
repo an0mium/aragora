@@ -148,9 +148,8 @@ class TestWorkflowPythonSDKParity:
         canonical = set(WORKFLOW_ENDPOINTS)
 
         missing = canonical - sdk_paths
-        assert not missing, (
-            f"Python SDK workflows missing {len(missing)} endpoints:\n"
-            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        assert not missing, f"Python SDK workflows missing {len(missing)} endpoints:\n" + "\n".join(
+            f"  {m} {p}" for m, p in sorted(missing)
         )
 
     def test_python_sdk_method_count(self):
@@ -179,9 +178,7 @@ class TestWorkflowPythonSDKParity:
         ]
 
         for method_name in required_methods:
-            assert hasattr(WorkflowsAPI, method_name), (
-                f"WorkflowsAPI missing method: {method_name}"
-            )
+            assert hasattr(WorkflowsAPI, method_name), f"WorkflowsAPI missing method: {method_name}"
             assert hasattr(AsyncWorkflowsAPI, method_name), (
                 f"AsyncWorkflowsAPI missing method: {method_name}"
             )

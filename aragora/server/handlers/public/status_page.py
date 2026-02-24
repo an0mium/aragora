@@ -200,16 +200,15 @@ class StatusPageHandler(BaseHandler):
                     "components_summary": {
                         "total": len(components),
                         "operational": sum(
-                            1 for c in components
-                            if c.status == ServiceStatus.OPERATIONAL
+                            1 for c in components if c.status == ServiceStatus.OPERATIONAL
                         ),
                         "degraded": sum(
-                            1 for c in components
+                            1
+                            for c in components
                             if c.status in (ServiceStatus.DEGRADED, ServiceStatus.PARTIAL_OUTAGE)
                         ),
                         "down": sum(
-                            1 for c in components
-                            if c.status == ServiceStatus.MAJOR_OUTAGE
+                            1 for c in components if c.status == ServiceStatus.MAJOR_OUTAGE
                         ),
                     },
                     "sla": sla_metrics,
@@ -810,8 +809,15 @@ class StatusPageHandler(BaseHandler):
         except (ImportError, RuntimeError, AttributeError) as e:
             logger.debug("SLA tracker unavailable: %s", e)
             return {
-                "latency": {"p50": 0, "p95": 0, "p99": 0, "count": 0,
-                            "mean": 0, "min": 0, "max": 0},
+                "latency": {
+                    "p50": 0,
+                    "p95": 0,
+                    "p99": 0,
+                    "count": 0,
+                    "mean": 0,
+                    "min": 0,
+                    "max": 0,
+                },
                 "error_rate": {"total_requests": 0, "error_count": 0, "error_rate": 0},
             }
 

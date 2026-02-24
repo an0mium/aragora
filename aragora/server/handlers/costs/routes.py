@@ -112,34 +112,18 @@ def register_routes(app: web.Application) -> None:
     app.router.add_post("/api/costs/alerts", handler.handle_create_alert)
 
     # Spend analytics dashboard (v1 canonical + legacy)
-    app.router.add_get(
-        "/api/v1/costs/analytics/trend", handler.handle_get_spend_trend
-    )
-    app.router.add_get(
-        "/api/v1/costs/analytics/by-agent", handler.handle_get_spend_by_agent
-    )
-    app.router.add_get(
-        "/api/v1/costs/analytics/by-model", handler.handle_get_spend_by_model
-    )
-    app.router.add_get(
-        "/api/v1/costs/analytics/by-debate", handler.handle_get_spend_by_debate
-    )
+    app.router.add_get("/api/v1/costs/analytics/trend", handler.handle_get_spend_trend)
+    app.router.add_get("/api/v1/costs/analytics/by-agent", handler.handle_get_spend_by_agent)
+    app.router.add_get("/api/v1/costs/analytics/by-model", handler.handle_get_spend_by_model)
+    app.router.add_get("/api/v1/costs/analytics/by-debate", handler.handle_get_spend_by_debate)
     app.router.add_get(
         "/api/v1/costs/analytics/budget-utilization",
         handler.handle_get_budget_utilization,
     )
-    app.router.add_get(
-        "/api/costs/analytics/trend", handler.handle_get_spend_trend
-    )
-    app.router.add_get(
-        "/api/costs/analytics/by-agent", handler.handle_get_spend_by_agent
-    )
-    app.router.add_get(
-        "/api/costs/analytics/by-model", handler.handle_get_spend_by_model
-    )
-    app.router.add_get(
-        "/api/costs/analytics/by-debate", handler.handle_get_spend_by_debate
-    )
+    app.router.add_get("/api/costs/analytics/trend", handler.handle_get_spend_trend)
+    app.router.add_get("/api/costs/analytics/by-agent", handler.handle_get_spend_by_agent)
+    app.router.add_get("/api/costs/analytics/by-model", handler.handle_get_spend_by_model)
+    app.router.add_get("/api/costs/analytics/by-debate", handler.handle_get_spend_by_debate)
     app.router.add_get(
         "/api/costs/analytics/budget-utilization",
         handler.handle_get_budget_utilization,

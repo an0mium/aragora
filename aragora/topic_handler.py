@@ -3,13 +3,7 @@ import logging
 from aragora.task_brief import TaskBriefV1
 
 
-
-
-
 logger = logging.getLogger(__name__)
-
-
-
 
 
 def handle_ambiguous_task(task: str) -> TaskBriefV1:

@@ -109,9 +109,7 @@ class IdeasAPI:
             body["description"] = description
         if metadata is not None:
             body["metadata"] = metadata
-        return self._client._request(
-            "PUT", f"/api/v1/ideas/{canvas_id}", json=body
-        )
+        return self._client._request("PUT", f"/api/v1/ideas/{canvas_id}", json=body)
 
     def delete_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Delete a canvas and all its nodes and edges.
@@ -153,9 +151,7 @@ class IdeasAPI:
             body["position"] = position
         if data is not None:
             body["data"] = data
-        return self._client._request(
-            "POST", f"/api/v1/ideas/{canvas_id}/nodes", json=body
-        )
+        return self._client._request("POST", f"/api/v1/ideas/{canvas_id}/nodes", json=body)
 
     def update_node(
         self,
@@ -184,9 +180,7 @@ class IdeasAPI:
             body["position"] = position
         if data is not None:
             body["data"] = data
-        return self._client._request(
-            "PUT", f"/api/v1/ideas/{canvas_id}/nodes/{node_id}", json=body
-        )
+        return self._client._request("PUT", f"/api/v1/ideas/{canvas_id}/nodes/{node_id}", json=body)
 
     def delete_node(self, canvas_id: str, node_id: str) -> dict[str, Any]:
         """Delete a node from a canvas.
@@ -198,9 +192,7 @@ class IdeasAPI:
         Returns:
             Deletion confirmation.
         """
-        return self._client._request(
-            "DELETE", f"/api/v1/ideas/{canvas_id}/nodes/{node_id}"
-        )
+        return self._client._request("DELETE", f"/api/v1/ideas/{canvas_id}/nodes/{node_id}")
 
     # -------------------------------------------------------------------
     # Edge CRUD
@@ -236,9 +228,7 @@ class IdeasAPI:
         }
         if data is not None:
             body["data"] = data
-        return self._client._request(
-            "POST", f"/api/v1/ideas/{canvas_id}/edges", json=body
-        )
+        return self._client._request("POST", f"/api/v1/ideas/{canvas_id}/edges", json=body)
 
     def delete_edge(self, canvas_id: str, edge_id: str) -> dict[str, Any]:
         """Delete an edge from a canvas.
@@ -250,9 +240,7 @@ class IdeasAPI:
         Returns:
             Deletion confirmation.
         """
-        return self._client._request(
-            "DELETE", f"/api/v1/ideas/{canvas_id}/edges/{edge_id}"
-        )
+        return self._client._request("DELETE", f"/api/v1/ideas/{canvas_id}/edges/{edge_id}")
 
     # -------------------------------------------------------------------
     # Export & Promote
@@ -267,13 +255,9 @@ class IdeasAPI:
         Returns:
             React Flow format with ``nodes`` and ``edges`` arrays.
         """
-        return self._client._request(
-            "GET", f"/api/v1/ideas/{canvas_id}/export"
-        )
+        return self._client._request("GET", f"/api/v1/ideas/{canvas_id}/export")
 
-    def promote_nodes(
-        self, canvas_id: str, node_ids: list[str]
-    ) -> dict[str, Any]:
+    def promote_nodes(self, canvas_id: str, node_ids: list[str]) -> dict[str, Any]:
         """Promote selected nodes from the idea canvas to the goals stage.
 
         Args:
@@ -347,9 +331,7 @@ class AsyncIdeasAPI:
             body["description"] = description
         if metadata is not None:
             body["metadata"] = metadata
-        return await self._client._request(
-            "PUT", f"/api/v1/ideas/{canvas_id}", json=body
-        )
+        return await self._client._request("PUT", f"/api/v1/ideas/{canvas_id}", json=body)
 
     async def delete_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Delete a canvas and all its nodes and edges."""
@@ -373,9 +355,7 @@ class AsyncIdeasAPI:
             body["position"] = position
         if data is not None:
             body["data"] = data
-        return await self._client._request(
-            "POST", f"/api/v1/ideas/{canvas_id}/nodes", json=body
-        )
+        return await self._client._request("POST", f"/api/v1/ideas/{canvas_id}/nodes", json=body)
 
     async def update_node(
         self,
@@ -399,9 +379,7 @@ class AsyncIdeasAPI:
 
     async def delete_node(self, canvas_id: str, node_id: str) -> dict[str, Any]:
         """Delete a node from a canvas."""
-        return await self._client._request(
-            "DELETE", f"/api/v1/ideas/{canvas_id}/nodes/{node_id}"
-        )
+        return await self._client._request("DELETE", f"/api/v1/ideas/{canvas_id}/nodes/{node_id}")
 
     # -------------------------------------------------------------------
     # Edge CRUD
@@ -425,15 +403,11 @@ class AsyncIdeasAPI:
         }
         if data is not None:
             body["data"] = data
-        return await self._client._request(
-            "POST", f"/api/v1/ideas/{canvas_id}/edges", json=body
-        )
+        return await self._client._request("POST", f"/api/v1/ideas/{canvas_id}/edges", json=body)
 
     async def delete_edge(self, canvas_id: str, edge_id: str) -> dict[str, Any]:
         """Delete an edge from a canvas."""
-        return await self._client._request(
-            "DELETE", f"/api/v1/ideas/{canvas_id}/edges/{edge_id}"
-        )
+        return await self._client._request("DELETE", f"/api/v1/ideas/{canvas_id}/edges/{edge_id}")
 
     # -------------------------------------------------------------------
     # Export & Promote
@@ -441,13 +415,9 @@ class AsyncIdeasAPI:
 
     async def export_canvas(self, canvas_id: str) -> dict[str, Any]:
         """Export a canvas as React Flow JSON."""
-        return await self._client._request(
-            "GET", f"/api/v1/ideas/{canvas_id}/export"
-        )
+        return await self._client._request("GET", f"/api/v1/ideas/{canvas_id}/export")
 
-    async def promote_nodes(
-        self, canvas_id: str, node_ids: list[str]
-    ) -> dict[str, Any]:
+    async def promote_nodes(self, canvas_id: str, node_ids: list[str]) -> dict[str, Any]:
         """Promote selected nodes from the idea canvas to the goals stage."""
         return await self._client._request(
             "POST",

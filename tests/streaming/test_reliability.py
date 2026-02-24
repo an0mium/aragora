@@ -64,9 +64,7 @@ class TestReconnectPolicy:
         assert policy.base_delay == 0.5
 
     def test_exponential_backoff_no_jitter(self):
-        policy = ReconnectPolicy(
-            base_delay=1.0, backoff_factor=2.0, max_delay=100.0, jitter=False
-        )
+        policy = ReconnectPolicy(base_delay=1.0, backoff_factor=2.0, max_delay=100.0, jitter=False)
         assert policy.calculate_delay(0) == 1.0  # 1 * 2^0
         assert policy.calculate_delay(1) == 2.0  # 1 * 2^1
         assert policy.calculate_delay(2) == 4.0  # 1 * 2^2
@@ -75,9 +73,7 @@ class TestReconnectPolicy:
 
     def test_backoff_schedule_matches_spec(self):
         """Verify the backoff schedule: 1s, 2s, 4s, 8s, 16s, max 30s."""
-        policy = ReconnectPolicy(
-            base_delay=1.0, backoff_factor=2.0, max_delay=30.0, jitter=False
-        )
+        policy = ReconnectPolicy(base_delay=1.0, backoff_factor=2.0, max_delay=30.0, jitter=False)
         assert policy.calculate_delay(0) == 1.0
         assert policy.calculate_delay(1) == 2.0
         assert policy.calculate_delay(2) == 4.0
@@ -87,17 +83,13 @@ class TestReconnectPolicy:
         assert policy.calculate_delay(6) == 30.0  # still capped
 
     def test_backoff_respects_max_delay(self):
-        policy = ReconnectPolicy(
-            base_delay=1.0, backoff_factor=2.0, max_delay=5.0, jitter=False
-        )
+        policy = ReconnectPolicy(base_delay=1.0, backoff_factor=2.0, max_delay=5.0, jitter=False)
         assert policy.calculate_delay(0) == 1.0
         assert policy.calculate_delay(10) == 5.0  # capped at max_delay
 
     def test_jitter_reduces_delay(self):
         """Jitter multiplies by uniform(0.5, 1.0), so delay <= no-jitter delay."""
-        policy = ReconnectPolicy(
-            base_delay=10.0, backoff_factor=1.0, max_delay=100.0, jitter=True
-        )
+        policy = ReconnectPolicy(base_delay=10.0, backoff_factor=1.0, max_delay=100.0, jitter=True)
         for _ in range(50):
             delay = policy.calculate_delay(0)
             assert 0.0 <= delay <= 10.0
@@ -646,10 +638,12 @@ class TestReliableWebSocket:
     async def test_recv_tracks_pong_latency(self):
         """Verify recv() records latency from pong messages."""
         now_ms = time.time() * 1000
-        pong_event = json.dumps({
-            "type": "pong",
-            "data": {"client_ts": now_ms - 50, "server_ts": now_ms - 25},
-        })
+        pong_event = json.dumps(
+            {
+                "type": "pong",
+                "data": {"client_ts": now_ms - 50, "server_ts": now_ms - 25},
+            }
+        )
         mock_ws = AsyncMock()
         mock_ws.recv = AsyncMock(return_value=pong_event)
 
@@ -767,16 +761,12 @@ class TestReliableKafkaConsumer:
 
     @pytest.mark.asyncio
     async def test_initial_state(self):
-        consumer = ReliableKafkaConsumer(
-            bootstrap_servers="localhost:9092", topics=["test"]
-        )
+        consumer = ReliableKafkaConsumer(bootstrap_servers="localhost:9092", topics=["test"])
         assert consumer.state == ConnectionState.DISCONNECTED
 
     @pytest.mark.asyncio
     async def test_connect_with_mock(self):
-        consumer = ReliableKafkaConsumer(
-            bootstrap_servers="localhost:9092", topics=["test"]
-        )
+        consumer = ReliableKafkaConsumer(bootstrap_servers="localhost:9092", topics=["test"])
 
         with patch(
             "aragora.streaming.reliability.ReliableKafkaConsumer._do_connect"
@@ -800,9 +790,7 @@ class TestReliableKafkaConsumer:
         class FlakyConsumer:
             def __init__(self) -> None:
                 self.calls = 0
-                self._client = SimpleNamespace(
-                    cluster=SimpleNamespace(topics=lambda: [])
-                )
+                self._client = SimpleNamespace(cluster=SimpleNamespace(topics=lambda: []))
 
             async def __anext__(self):
                 self.calls += 1
@@ -955,7 +943,9 @@ class TestHealthCheck:
 class TestEventReplayBuffer:
     """Tests for the server-side event replay buffer."""
 
-    def _make_event(self, loop_id: str = "debate-1", seq: int = 1, event_type: str = "agent_message"):
+    def _make_event(
+        self, loop_id: str = "debate-1", seq: int = 1, event_type: str = "agent_message"
+    ):
         """Create a minimal StreamEvent for testing."""
         from aragora.events.types import StreamEvent, StreamEventType
 

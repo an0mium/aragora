@@ -235,7 +235,8 @@ class TestGetFlowData:
         # debate-003 consumed km-node-001, so source = debate-002
         # The cross-ref updates the flow with source_debate_id=debate-002 and km_node_id=km-node-001
         cross_ref_flows = [
-            f for f in data["flows"]
+            f
+            for f in data["flows"]
             if f["km_node_id"] == "km-node-001"
             and f["source_debate_id"] == "debate-002"
             and f["target_debate_id"] == "debate-003"
@@ -379,12 +380,15 @@ class TestAdapterHealth:
 
         mock_specs = {"adapter_a": mock_spec_a, "adapter_b": mock_spec_b}
 
-        with patch(
-            "aragora.knowledge.mound.adapters.factory.ADAPTER_SPECS",
-            mock_specs,
-        ), patch(
-            "aragora.server.handlers.knowledge_flow._get_adapter_defs",
-            return_value=[],
+        with (
+            patch(
+                "aragora.knowledge.mound.adapters.factory.ADAPTER_SPECS",
+                mock_specs,
+            ),
+            patch(
+                "aragora.server.handlers.knowledge_flow._get_adapter_defs",
+                return_value=[],
+            ),
         ):
             result = await handler._get_adapter_health()
 
@@ -403,12 +407,15 @@ class TestAdapterHealth:
         mock_spec.enabled_by_default = True
         mock_spec.reverse_method = None
 
-        with patch(
-            "aragora.knowledge.mound.adapters.factory.ADAPTER_SPECS",
-            {"test_adapter": mock_spec},
-        ), patch(
-            "aragora.server.handlers.knowledge_flow._get_adapter_defs",
-            return_value=[],
+        with (
+            patch(
+                "aragora.knowledge.mound.adapters.factory.ADAPTER_SPECS",
+                {"test_adapter": mock_spec},
+            ),
+            patch(
+                "aragora.server.handlers.knowledge_flow._get_adapter_defs",
+                return_value=[],
+            ),
         ):
             result = await handler._get_adapter_health()
 
@@ -430,12 +437,15 @@ class TestAdapterHealth:
         mock_spec.enabled_by_default = True
         mock_spec.reverse_method = None
 
-        with patch(
-            "aragora.knowledge.mound.adapters.factory.ADAPTER_SPECS",
-            {"good_adapter": mock_spec},
-        ), patch(
-            "aragora.server.handlers.knowledge_flow._get_adapter_defs",
-            return_value=[],
+        with (
+            patch(
+                "aragora.knowledge.mound.adapters.factory.ADAPTER_SPECS",
+                {"good_adapter": mock_spec},
+            ),
+            patch(
+                "aragora.server.handlers.knowledge_flow._get_adapter_defs",
+                return_value=[],
+            ),
         ):
             result = await handler._get_adapter_health()
 
@@ -454,15 +464,19 @@ class TestAdapterHealth:
         mock_spec.enabled_by_default = True
         mock_spec.reverse_method = None
 
-        with patch(
-            "aragora.knowledge.mound.adapters.factory.ADAPTER_SPECS",
-            {"failing_adapter": mock_spec},
-        ), patch(
-            "aragora.server.handlers.knowledge_flow._get_adapter_defs",
-            return_value=[("bad.module", "BadClass", {"name": "failing_adapter"})],
-        ), patch(
-            "aragora.server.handlers.knowledge_flow.importlib.import_module",
-            side_effect=ImportError("module not found"),
+        with (
+            patch(
+                "aragora.knowledge.mound.adapters.factory.ADAPTER_SPECS",
+                {"failing_adapter": mock_spec},
+            ),
+            patch(
+                "aragora.server.handlers.knowledge_flow._get_adapter_defs",
+                return_value=[("bad.module", "BadClass", {"name": "failing_adapter"})],
+            ),
+            patch(
+                "aragora.server.handlers.knowledge_flow.importlib.import_module",
+                side_effect=ImportError("module not found"),
+            ),
         ):
             result = await handler._get_adapter_health()
 
@@ -483,12 +497,15 @@ class TestAdapterHealth:
             spec.reverse_method = None
             specs[name] = spec
 
-        with patch(
-            "aragora.knowledge.mound.adapters.factory.ADAPTER_SPECS",
-            specs,
-        ), patch(
-            "aragora.server.handlers.knowledge_flow._get_adapter_defs",
-            return_value=[],
+        with (
+            patch(
+                "aragora.knowledge.mound.adapters.factory.ADAPTER_SPECS",
+                specs,
+            ),
+            patch(
+                "aragora.server.handlers.knowledge_flow._get_adapter_defs",
+                return_value=[],
+            ),
         ):
             result = await handler._get_adapter_health()
 
@@ -508,9 +525,7 @@ class TestHandleDispatch:
     @pytest.mark.asyncio
     async def test_handle_routes_to_flow(self, handler):
         """GET /api/knowledge/flow should return flow data."""
-        result = await handler.handle(
-            "/api/knowledge/flow", {}, _MockHTTPHandler()
-        )
+        result = await handler.handle("/api/knowledge/flow", {}, _MockHTTPHandler())
         data = _data(result)
         assert "flows" in data
         assert "stats" in data
@@ -544,9 +559,7 @@ class TestHandleDispatch:
     @pytest.mark.asyncio
     async def test_handle_returns_404_for_unknown(self, handler):
         """Unknown paths should return 404."""
-        result = await handler.handle(
-            "/api/knowledge/unknown", {}, _MockHTTPHandler()
-        )
+        result = await handler.handle("/api/knowledge/unknown", {}, _MockHTTPHandler())
         assert _status(result) == 404
 
 
@@ -561,20 +574,14 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_handle_catches_value_error(self, handler):
         """ValueError in sub-handler should return 500."""
-        with patch.object(
-            handler, "_get_flow_data", side_effect=ValueError("bad value")
-        ):
-            result = await handler.handle(
-                "/api/knowledge/flow", {}, _MockHTTPHandler()
-            )
+        with patch.object(handler, "_get_flow_data", side_effect=ValueError("bad value")):
+            result = await handler.handle("/api/knowledge/flow", {}, _MockHTTPHandler())
         assert _status(result) == 500
 
     @pytest.mark.asyncio
     async def test_handle_catches_runtime_error(self, handler):
         """RuntimeError in sub-handler should return 500."""
-        with patch.object(
-            handler, "_get_confidence_history", side_effect=RuntimeError("oops")
-        ):
+        with patch.object(handler, "_get_confidence_history", side_effect=RuntimeError("oops")):
             result = await handler.handle(
                 "/api/knowledge/flow/confidence-history",
                 {},

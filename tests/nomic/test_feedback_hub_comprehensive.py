@@ -391,6 +391,7 @@ class TestErrorHandlingPaths:
 
         async def slow_trending(**kwargs):
             import asyncio
+
             raise TimeoutError("Too slow")
 
         mock_mgr.get_trending_topics = slow_trending
@@ -414,10 +415,13 @@ class TestIntrospectionPriorityClamping:
         """success_rate=1.0 -> priority=0.0."""
         mock_queue = MagicMock()
 
-        with patch(
-            "aragora.nomic.feedback_orchestrator.ImprovementQueue",
-            return_value=mock_queue,
-        ), patch.dict("sys.modules", {"aragora.genesis.breeding": None}):
+        with (
+            patch(
+                "aragora.nomic.feedback_orchestrator.ImprovementQueue",
+                return_value=mock_queue,
+            ),
+            patch.dict("sys.modules", {"aragora.genesis.breeding": None}),
+        ):
             hub.route(
                 "introspection",
                 {"agent_name": "perfect", "success_rate": 1.0},
@@ -430,10 +434,13 @@ class TestIntrospectionPriorityClamping:
         """success_rate=0.0 -> priority=1.0."""
         mock_queue = MagicMock()
 
-        with patch(
-            "aragora.nomic.feedback_orchestrator.ImprovementQueue",
-            return_value=mock_queue,
-        ), patch.dict("sys.modules", {"aragora.genesis.breeding": None}):
+        with (
+            patch(
+                "aragora.nomic.feedback_orchestrator.ImprovementQueue",
+                return_value=mock_queue,
+            ),
+            patch.dict("sys.modules", {"aragora.genesis.breeding": None}),
+        ):
             hub.route(
                 "introspection",
                 {"agent_name": "worst", "success_rate": 0.0},
@@ -446,10 +453,13 @@ class TestIntrospectionPriorityClamping:
         """Negative success_rate should still clamp priority to [0, 1]."""
         mock_queue = MagicMock()
 
-        with patch(
-            "aragora.nomic.feedback_orchestrator.ImprovementQueue",
-            return_value=mock_queue,
-        ), patch.dict("sys.modules", {"aragora.genesis.breeding": None}):
+        with (
+            patch(
+                "aragora.nomic.feedback_orchestrator.ImprovementQueue",
+                return_value=mock_queue,
+            ),
+            patch.dict("sys.modules", {"aragora.genesis.breeding": None}),
+        ):
             hub.route(
                 "introspection",
                 {"agent_name": "glitched", "success_rate": -0.5},

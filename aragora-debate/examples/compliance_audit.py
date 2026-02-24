@@ -68,7 +68,9 @@ class ComplianceAgent(Agent):
         else:
             issues = ["Analysis could be more specific about remediation timelines"]
         return Critique(
-            agent=self.name, target_agent=target, target_content=proposal,
+            agent=self.name,
+            target_agent=target,
+            target_content=proposal,
             issues=issues if isinstance(issues, list) else [issues],
             severity=5.0,
         )
@@ -114,10 +116,16 @@ security_analyst = ComplianceAgent(
         ),
         "critique": {
             "audit-analyst": ["Good catch on backup testing, but you missed the MFA gap"],
-            "risk-assessor": ["Risk quantification is useful but SOC 2 auditors want control-level assessment"],
+            "risk-assessor": [
+                "Risk quantification is useful but SOC 2 auditors want control-level assessment"
+            ],
             "vendor-manager": ["Sub-processor gap is critical — should be elevated to finding"],
         },
-        "vote": {"choice": "security-analyst", "reasoning": "Control-level analysis most relevant for SOC 2", "confidence": 0.75},
+        "vote": {
+            "choice": "security-analyst",
+            "reasoning": "Control-level analysis most relevant for SOC 2",
+            "confidence": 0.75,
+        },
     },
 )
 
@@ -145,11 +153,21 @@ audit_analyst = ComplianceAgent(
             "**Overall: NOT READY** — Too many evidence gaps for Type II."
         ),
         "critique": {
-            "security-analyst": ["Technical controls look good but you need to address the evidence gaps I identified"],
-            "risk-assessor": ["Your risk matrix should map to specific SOC 2 trust service criteria"],
-            "vendor-manager": ["Vendor risk is important but I'd prioritize the evidence gaps first"],
+            "security-analyst": [
+                "Technical controls look good but you need to address the evidence gaps I identified"
+            ],
+            "risk-assessor": [
+                "Your risk matrix should map to specific SOC 2 trust service criteria"
+            ],
+            "vendor-manager": [
+                "Vendor risk is important but I'd prioritize the evidence gaps first"
+            ],
         },
-        "vote": {"choice": "audit-analyst", "reasoning": "Evidence gaps are the biggest blocker for Type II", "confidence": 0.8},
+        "vote": {
+            "choice": "audit-analyst",
+            "reasoning": "Evidence gaps are the biggest blocker for Type II",
+            "confidence": 0.8,
+        },
     },
 )
 
@@ -174,11 +192,19 @@ risk_assessor = ComplianceAgent(
             "Items 3 & 4 can be in-progress with documented remediation plans."
         ),
         "critique": {
-            "security-analyst": ["Good technical depth but missing risk quantification — how much does each gap cost?"],
-            "audit-analyst": ["Evidence gaps are important but need to be prioritized by risk impact"],
+            "security-analyst": [
+                "Good technical depth but missing risk quantification — how much does each gap cost?"
+            ],
+            "audit-analyst": [
+                "Evidence gaps are important but need to be prioritized by risk impact"
+            ],
             "vendor-manager": ["Vendor risk score should factor into the overall risk calculation"],
         },
-        "vote": {"choice": "audit-analyst", "reasoning": "Evidence gaps represent the highest audit risk", "confidence": 0.7},
+        "vote": {
+            "choice": "audit-analyst",
+            "reasoning": "Evidence gaps represent the highest audit risk",
+            "confidence": 0.7,
+        },
     },
 )
 
@@ -206,7 +232,11 @@ vendor_manager = ComplianceAgent(
             "audit-analyst": ["Agree on evidence gaps — the vendor gap is one of the worst"],
             "risk-assessor": ["Your risk score should weight the vendor gap more heavily"],
         },
-        "vote": {"choice": "audit-analyst", "reasoning": "Comprehensive view of readiness gaps", "confidence": 0.65},
+        "vote": {
+            "choice": "audit-analyst",
+            "reasoning": "Comprehensive view of readiness gaps",
+            "confidence": 0.65,
+        },
     },
 )
 
@@ -214,6 +244,7 @@ vendor_manager = ComplianceAgent(
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 async def main() -> None:
     agents = [security_analyst, audit_analyst, risk_assessor, vendor_manager]

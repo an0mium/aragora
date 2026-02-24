@@ -80,6 +80,7 @@ logger = logging.getLogger("workflow-automation")
 # Custom Step Implementations
 # ---------------------------------------------------------------------------
 
+
 class DraftContentStep(BaseStep):
     """Step that drafts content on a given topic.
 
@@ -185,12 +186,14 @@ class SecurityReviewStep(BaseStep):
 
         for pattern, description in sensitive_patterns:
             if pattern in lower_content:
-                issues.append({
-                    "type": "security",
-                    "severity": "medium",
-                    "description": description,
-                    "pattern": pattern,
-                })
+                issues.append(
+                    {
+                        "type": "security",
+                        "severity": "medium",
+                        "description": description,
+                        "pattern": pattern,
+                    }
+                )
 
         passed = len([i for i in issues if i["severity"] in ("critical", "high")]) == 0
 
@@ -202,10 +205,13 @@ class SecurityReviewStep(BaseStep):
             "reviewed_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        context.emit_event("security_review_complete", {
-            "passed": passed,
-            "issues": len(issues),
-        })
+        context.emit_event(
+            "security_review_complete",
+            {
+                "passed": passed,
+                "issues": len(issues),
+            },
+        )
 
         return result
 
@@ -262,10 +268,13 @@ class EditorialReviewStep(BaseStep):
             "reviewed_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        context.emit_event("editorial_review_complete", {
-            "passed": result["passed"],
-            "score": score,
-        })
+        context.emit_event(
+            "editorial_review_complete",
+            {
+                "passed": result["passed"],
+                "score": score,
+            },
+        )
 
         return result
 
@@ -316,16 +325,12 @@ class RevisionStep(BaseStep):
 
         reasons = []
         if not security.get("passed", True):
-            reasons.append(
-                f"Security issues: {security.get('issues_found', 0)} found"
-            )
+            reasons.append(f"Security issues: {security.get('issues_found', 0)} found")
             for issue in security.get("issues", []):
                 reasons.append(f"  - {issue['description']}")
 
         if not editorial.get("passed", True):
-            reasons.append(
-                f"Editorial score too low: {editorial.get('score', 0):.0%}"
-            )
+            reasons.append(f"Editorial score too low: {editorial.get('score', 0):.0%}")
             for suggestion in editorial.get("suggestions", []):
                 reasons.append(f"  - {suggestion}")
 
@@ -359,10 +364,7 @@ class NotifyStep(BaseStep):
             status = "published"
         elif revision and revision.get("revision_requested"):
             reasons = "\n".join(revision.get("reasons", []))
-            message = (
-                f"Revision needed for: {draft.get('title', 'Unknown')}\n"
-                f"Reasons:\n{reasons}"
-            )
+            message = f"Revision needed for: {draft.get('title', 'Unknown')}\nReasons:\n{reasons}"
             status = "revision_needed"
         else:
             message = f"Workflow complete for: {draft.get('title', 'Unknown')}"
@@ -384,6 +386,7 @@ class NotifyStep(BaseStep):
 # ---------------------------------------------------------------------------
 # Workflow Definition Builder
 # ---------------------------------------------------------------------------
+
 
 def build_content_publishing_workflow(
     topic: str = "AI governance",
@@ -545,6 +548,7 @@ def build_content_publishing_workflow(
 # Workflow Execution
 # ---------------------------------------------------------------------------
 
+
 async def run_workflow(
     topic: str = "AI governance best practices",
     demo: bool = True,
@@ -585,11 +589,13 @@ async def run_workflow(
     events: list[dict[str, Any]] = []
 
     def event_handler(event_type: str, payload: dict[str, Any]) -> None:
-        events.append({
-            "type": event_type,
-            "payload": payload,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        events.append(
+            {
+                "type": event_type,
+                "payload": payload,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         logger.info("Event: %s -- %s", event_type, json.dumps(payload))
 
     logger.info("Executing workflow: %s", definition.name)
@@ -609,15 +615,9 @@ async def run_workflow(
         "workflow_name": definition.name,
         "success": result.success,
         "total_steps": len(result.steps),
-        "completed_steps": sum(
-            1 for s in result.steps if s.status.value == "completed"
-        ),
-        "failed_steps": sum(
-            1 for s in result.steps if s.status.value == "failed"
-        ),
-        "skipped_steps": sum(
-            1 for s in result.steps if s.status.value == "skipped"
-        ),
+        "completed_steps": sum(1 for s in result.steps if s.status.value == "completed"),
+        "failed_steps": sum(1 for s in result.steps if s.status.value == "failed"),
+        "skipped_steps": sum(1 for s in result.steps if s.status.value == "skipped"),
         "elapsed_ms": elapsed_ms,
         "step_results": {},
         "events": events,
@@ -640,6 +640,7 @@ async def run_workflow(
 # ---------------------------------------------------------------------------
 # Output Formatting
 # ---------------------------------------------------------------------------
+
 
 def print_workflow_result(summary: dict[str, Any]) -> None:
     """Print a formatted workflow execution report."""
@@ -673,15 +674,20 @@ def print_workflow_result(summary: dict[str, Any]) -> None:
 
     for step_id, step_data in summary["step_results"].items():
         icon = step_icons.get(step_data["status"], "[??]")
-        print(
-            f"  {icon} {step_data['name']} ({step_id}) "
-            f"-- {step_data['duration_ms']:.0f}ms"
-        )
+        print(f"  {icon} {step_data['name']} ({step_id}) -- {step_data['duration_ms']:.0f}ms")
 
         output = step_data.get("output")
         if output and isinstance(output, dict):
             # Print key output fields
-            for key in ("passed", "score", "published", "revision_requested", "status", "url", "title"):
+            for key in (
+                "passed",
+                "score",
+                "published",
+                "revision_requested",
+                "status",
+                "url",
+                "title",
+            ):
                 if key in output:
                     print(f"       {key}: {output[key]}")
             # Print issues if any
@@ -753,6 +759,7 @@ def print_workflow_dag(definition: WorkflowDefinition) -> None:
 # Main Entry Point
 # ---------------------------------------------------------------------------
 
+
 async def main() -> None:
     """Run the workflow automation example."""
     parser = argparse.ArgumentParser(
@@ -813,8 +820,7 @@ Examples:
 
     # Execute the workflow
     use_demo = args.demo or not any(
-        os.environ.get(k)
-        for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY")
+        os.environ.get(k) for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY")
     )
 
     if use_demo:

@@ -63,8 +63,10 @@ def main() -> None:
             Monitoring: ECG at 2 weeks, renal function at 4 weeks, HbA1c at 3 months.
         """),
         vote_for="Dr. Chen (Cardiology)",
-        critique_issues=["Diltiazem has faster onset for acute rate control",
-                         "CYP3A4 interaction with atorvastatin is manageable"],
+        critique_issues=[
+            "Diltiazem has faster onset for acute rate control",
+            "CYP3A4 interaction with atorvastatin is manageable",
+        ],
     )
 
     pharmacologist = create_agent(
@@ -91,8 +93,10 @@ def main() -> None:
             Monitoring: LFTs at 2 and 6 weeks, lipid panel at 8 weeks, ECG at 2 weeks.
         """),
         vote_for="Dr. Patel (Clinical Pharmacology)",
-        critique_issues=["Drug interaction with atorvastatin requires medication change",
-                         "Peripheral edema risk may compound with diabetes-related edema"],
+        critique_issues=[
+            "Drug interaction with atorvastatin requires medication change",
+            "Peripheral edema risk may compound with diabetes-related edema",
+        ],
     )
 
     safety_officer = create_agent(
@@ -154,7 +158,9 @@ def main() -> None:
     print(f"  Question:       {receipt.question[:60]}...")
     print(f"  Verdict:        {receipt.verdict.value if receipt.verdict else 'N/A'}")
     print(f"  Confidence:     {receipt.confidence:.0%}")
-    print(f"  Consensus:      {'Reached' if receipt.consensus.reached else 'Not reached'} ({receipt.consensus.method.value})")
+    print(
+        f"  Consensus:      {'Reached' if receipt.consensus.reached else 'Not reached'} ({receipt.consensus.method.value})"
+    )
     print(f"  Agents:         {len(receipt.agents)}")
     print(f"  Rounds:         {receipt.rounds_used}")
     print()

@@ -149,8 +149,17 @@ class TestAdapterNames:
 
     def test_adapter_names_includes_key_adapters(self):
         """Should include well-known adapter names."""
-        for name in ["continuum", "consensus", "critique", "evidence",
-                      "elo", "pulse", "debate", "compliance", "claude_mem"]:
+        for name in [
+            "continuum",
+            "consensus",
+            "critique",
+            "evidence",
+            "elo",
+            "pulse",
+            "debate",
+            "compliance",
+            "claude_mem",
+        ]:
             assert name in ADAPTER_NAMES
 
     def test_adapter_names_unique(self):
@@ -307,9 +316,7 @@ class TestVelocityMetricsWithKM:
     @pytest.mark.asyncio
     async def test_velocity_top_topics(self, handler):
         """Top topics should be derived from adapter entries, sorted by count."""
-        stats = MockMoundStats(
-            nodes_by_type={"continuum": 100, "consensus": 50, "critique": 30}
-        )
+        stats = MockMoundStats(nodes_by_type={"continuum": 100, "consensus": 50, "critique": 30})
         mound = _make_mock_mound(stats)
 
         with patch(

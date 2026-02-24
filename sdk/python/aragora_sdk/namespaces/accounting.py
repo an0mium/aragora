@@ -173,7 +173,9 @@ class AccountingAPI:
 
     def export_expenses(self, format: str = "csv") -> dict[str, Any]:
         """Export expenses."""
-        return self._client.request("GET", "/api/v1/accounting/expenses/export", params={"format": format})
+        return self._client.request(
+            "GET", "/api/v1/accounting/expenses/export", params={"format": format}
+        )
 
     # =========================================================================
     # AP Automation
@@ -359,8 +361,11 @@ class AsyncAccountingAPI:
     # =========================================================================
 
     async def list_transactions(
-        self, limit: int = 50, offset: int = 0,
-        start_date: str | None = None, end_date: str | None = None,
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> dict[str, Any]:
         """List accounting transactions."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
@@ -375,7 +380,10 @@ class AsyncAccountingAPI:
     # =========================================================================
 
     async def generate_report(
-        self, report_type: str, start_date: str | None = None, end_date: str | None = None,
+        self,
+        report_type: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> dict[str, Any]:
         """Generate an accounting report."""
         data: dict[str, Any] = {"report_type": report_type}
@@ -396,7 +404,9 @@ class AsyncAccountingAPI:
 
     async def upload_invoice(self, invoice_data: dict[str, Any]) -> dict[str, Any]:
         """Upload an invoice."""
-        return await self._client.request("POST", "/api/v1/accounting/invoices/upload", json=invoice_data)
+        return await self._client.request(
+            "POST", "/api/v1/accounting/invoices/upload", json=invoice_data
+        )
 
     async def get_pending_invoices(self) -> dict[str, Any]:
         """Get pending invoices."""
@@ -417,7 +427,9 @@ class AsyncAccountingAPI:
     async def get_scheduled_payments(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get scheduled payments."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client.request("GET", "/api/v1/accounting/payments/scheduled", params=params)
+        return await self._client.request(
+            "GET", "/api/v1/accounting/payments/scheduled", params=params
+        )
 
     # =========================================================================
     # Expenses
@@ -430,7 +442,9 @@ class AsyncAccountingAPI:
 
     async def upload_expense(self, expense_data: dict[str, Any]) -> dict[str, Any]:
         """Upload an expense receipt."""
-        return await self._client.request("POST", "/api/v1/accounting/expenses/upload", json=expense_data)
+        return await self._client.request(
+            "POST", "/api/v1/accounting/expenses/upload", json=expense_data
+        )
 
     async def get_pending_expenses(self) -> dict[str, Any]:
         """Get pending expenses."""
@@ -438,11 +452,15 @@ class AsyncAccountingAPI:
 
     async def categorize_expenses(self, data: dict[str, Any]) -> dict[str, Any]:
         """Categorize expenses."""
-        return await self._client.request("POST", "/api/v1/accounting/expenses/categorize", json=data)
+        return await self._client.request(
+            "POST", "/api/v1/accounting/expenses/categorize", json=data
+        )
 
     async def sync_expenses(self, data: dict[str, Any] | None = None) -> dict[str, Any]:
         """Sync expenses with accounting system."""
-        return await self._client.request("POST", "/api/v1/accounting/expenses/sync", json=data or {})
+        return await self._client.request(
+            "POST", "/api/v1/accounting/expenses/sync", json=data or {}
+        )
 
     async def get_expense_stats(self) -> dict[str, Any]:
         """Get expense statistics."""
@@ -450,7 +468,9 @@ class AsyncAccountingAPI:
 
     async def export_expenses(self, format: str = "csv") -> dict[str, Any]:
         """Export expenses."""
-        return await self._client.request("GET", "/api/v1/accounting/expenses/export", params={"format": format})
+        return await self._client.request(
+            "GET", "/api/v1/accounting/expenses/export", params={"format": format}
+        )
 
     # =========================================================================
     # AP Automation
@@ -471,7 +491,9 @@ class AsyncAccountingAPI:
 
     async def get_ap_forecast(self, days: int = 30) -> dict[str, Any]:
         """Get AP cash flow forecast."""
-        return await self._client.request("GET", "/api/v1/accounting/ap/forecast", params={"days": days})
+        return await self._client.request(
+            "GET", "/api/v1/accounting/ap/forecast", params={"days": days}
+        )
 
     async def get_ap_discounts(self) -> dict[str, Any]:
         """Get AP early payment discounts."""
@@ -525,9 +547,7 @@ class AsyncAccountingAPI:
     ) -> dict[str, Any]:
         """List Gusto payroll runs."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client.request(
-            "GET", "/api/v1/accounting/gusto/payrolls", params=params
-        )
+        return await self._client.request("GET", "/api/v1/accounting/gusto/payrolls", params=params)
 
     async def get_gusto_status(self) -> dict[str, Any]:
         """Get Gusto integration status."""
@@ -552,6 +572,4 @@ class AsyncAccountingAPI:
             data["invoice_id"] = invoice_id
         if status is not None:
             data["status"] = status
-        return await self._client.request(
-            "POST", "/api/v1/accounting/invoices/status", json=data
-        )
+        return await self._client.request("POST", "/api/v1/accounting/invoices/status", json=data)

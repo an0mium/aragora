@@ -139,9 +139,7 @@ class TestPostBundle:
             return_value=gen,
         ):
             mock_http = _MockHTTPHandler("POST", body={})
-            result = handler.handle_post(
-                "/api/v1/compliance/eu-ai-act/bundles", {}, mock_http
-            )
+            result = handler.handle_post("/api/v1/compliance/eu-ai-act/bundles", {}, mock_http)
 
         assert _status(result) == 201
         data = _parse_data(result)
@@ -158,12 +156,8 @@ class TestPostBundle:
             "aragora.server.handlers.compliance_eu_ai_act._get_bundle_generator",
             return_value=gen,
         ):
-            mock_http = _MockHTTPHandler(
-                "POST", body={"debate_id": "debate-123"}
-            )
-            result = handler.handle_post(
-                "/api/v1/compliance/eu-ai-act/bundles", {}, mock_http
-            )
+            mock_http = _MockHTTPHandler("POST", body={"debate_id": "debate-123"})
+            result = handler.handle_post("/api/v1/compliance/eu-ai-act/bundles", {}, mock_http)
 
         assert _status(result) == 201
         data = _parse_data(result)
@@ -178,12 +172,8 @@ class TestPostBundle:
             "aragora.server.handlers.compliance_eu_ai_act._get_bundle_generator",
             return_value=gen,
         ):
-            mock_http = _MockHTTPHandler(
-                "POST", body={"scope": "Q1 2026 hiring decisions"}
-            )
-            result = handler.handle_post(
-                "/api/v1/compliance/eu-ai-act/bundles", {}, mock_http
-            )
+            mock_http = _MockHTTPHandler("POST", body={"scope": "Q1 2026 hiring decisions"})
+            result = handler.handle_post("/api/v1/compliance/eu-ai-act/bundles", {}, mock_http)
 
         assert _status(result) == 201
         data = _parse_data(result)
@@ -199,9 +189,7 @@ class TestPostBundle:
             return_value=gen,
         ):
             mock_http = _MockHTTPHandler("POST", body={"articles": [12]})
-            result = handler.handle_post(
-                "/api/v1/compliance/eu-ai-act/bundles", {}, mock_http
-            )
+            result = handler.handle_post("/api/v1/compliance/eu-ai-act/bundles", {}, mock_http)
 
         assert _status(result) == 201
         data = _parse_data(result)
@@ -220,9 +208,7 @@ class TestPostBundle:
             return_value=gen,
         ):
             mock_http = _MockHTTPHandler("POST", body={"articles": [13, 14]})
-            result = handler.handle_post(
-                "/api/v1/compliance/eu-ai-act/bundles", {}, mock_http
-            )
+            result = handler.handle_post("/api/v1/compliance/eu-ai-act/bundles", {}, mock_http)
 
         assert _status(result) == 201
         data = _parse_data(result)
@@ -241,9 +227,7 @@ class TestPostBundle:
             return_value=gen,
         ):
             mock_http = _MockHTTPHandler("POST", body={"articles": "12"})
-            result = handler.handle_post(
-                "/api/v1/compliance/eu-ai-act/bundles", {}, mock_http
-            )
+            result = handler.handle_post("/api/v1/compliance/eu-ai-act/bundles", {}, mock_http)
 
         assert _status(result) == 400
         body = _body(result)
@@ -259,9 +243,7 @@ class TestPostBundle:
             return_value=gen,
         ):
             mock_http = _MockHTTPHandler("POST", body={"articles": [12, 99]})
-            result = handler.handle_post(
-                "/api/v1/compliance/eu-ai-act/bundles", {}, mock_http
-            )
+            result = handler.handle_post("/api/v1/compliance/eu-ai-act/bundles", {}, mock_http)
 
         assert _status(result) == 400
         body = _body(result)
@@ -277,9 +259,7 @@ class TestPostBundle:
             return_value=gen,
         ):
             mock_http = _MockHTTPHandler("POST", body={})
-            result = handler.handle_post(
-                "/api/v1/compliance/reports/generate", {}, mock_http
-            )
+            result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_http)
 
         assert result is None
 
@@ -307,9 +287,7 @@ class TestGetBundle:
             return_value=gen,
         ):
             mock_http = _MockHTTPHandler("GET")
-            result = h.handle(
-                f"/api/v1/compliance/eu-ai-act/bundles/{bundle_id}", {}, mock_http
-            )
+            result = h.handle(f"/api/v1/compliance/eu-ai-act/bundles/{bundle_id}", {}, mock_http)
 
         assert _status(result) == 200
         data = _parse_data(result)
@@ -357,9 +335,7 @@ class TestBundleRoundTrip:
         ):
             # POST
             mock_post = _MockHTTPHandler("POST", body={"debate_id": "d-001"})
-            post_result = h.handle_post(
-                "/api/v1/compliance/eu-ai-act/bundles", {}, mock_post
-            )
+            post_result = h.handle_post("/api/v1/compliance/eu-ai-act/bundles", {}, mock_post)
             assert _status(post_result) == 201
             bundle_id = _parse_data(post_result)["bundle_id"]
 
@@ -438,9 +414,7 @@ class TestPermissions:
         # The decorator will look for an auth context and reject if missing.
         h = EUAIActComplianceHandler(ctx={})
         mock_http = _MockHTTPHandler("POST", body={})
-        result = h.handle_post(
-            "/api/v1/compliance/eu-ai-act/bundles", {}, mock_http
-        )
+        result = h.handle_post("/api/v1/compliance/eu-ai-act/bundles", {}, mock_http)
         # The decorator may return 401/403 or None depending on RBAC setup.
         # We just verify it does not return 201 (success).
         if result is not None:

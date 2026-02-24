@@ -31,7 +31,9 @@ logger = logging.getLogger(__name__)
 class HealthEvent:
     """Record of a health-related event."""
 
-    event_type: str  # stall_detected, recovery_attempted, recovery_succeeded, recovery_failed, abandoned
+    event_type: (
+        str  # stall_detected, recovery_attempted, recovery_succeeded, recovery_failed, abandoned
+    )
     worktree_id: str
     task_id: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

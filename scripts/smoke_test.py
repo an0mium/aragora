@@ -92,11 +92,16 @@ def check_server_startup() -> bool:
     }
 
     cmd = [
-        sys.executable, "-m", "aragora",
+        sys.executable,
+        "-m",
+        "aragora",
         "serve",
-        "--api-port", str(api_port),
-        "--ws-port", str(ws_port),
-        "--host", "127.0.0.1",
+        "--api-port",
+        str(api_port),
+        "--ws-port",
+        str(ws_port),
+        "--host",
+        "127.0.0.1",
     ]
 
     proc = None
@@ -168,11 +173,16 @@ def check_health_endpoint() -> bool:
     }
 
     cmd = [
-        sys.executable, "-m", "aragora",
+        sys.executable,
+        "-m",
+        "aragora",
         "serve",
-        "--api-port", str(api_port),
-        "--ws-port", str(ws_port),
-        "--host", "127.0.0.1",
+        "--api-port",
+        str(api_port),
+        "--ws-port",
+        str(ws_port),
+        "--host",
+        "127.0.0.1",
     ]
 
     proc = None
@@ -463,7 +473,8 @@ def check_frontend_build() -> bool:
             stderr = build.stderr or ""
             stdout = build.stdout or ""
             error_lines = [
-                line for line in (stderr + stdout).splitlines()
+                line
+                for line in (stderr + stdout).splitlines()
                 if "error" in line.lower() or "Error" in line
             ]
             summary = "; ".join(error_lines[:3]) if error_lines else stderr[:200]
@@ -490,15 +501,19 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--quick", action="store_true",
+        "--quick",
+        action="store_true",
         help="Skip frontend build check (faster)",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true",
+        "--verbose",
+        "-v",
+        action="store_true",
         help="Show detailed output for passing checks",
     )
     parser.add_argument(
-        "--skip-server", action="store_true",
+        "--skip-server",
+        action="store_true",
         help="Skip server startup and health checks (CI without port access)",
     )
     args = parser.parse_args()

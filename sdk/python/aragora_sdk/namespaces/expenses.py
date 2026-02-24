@@ -44,7 +44,9 @@ class ExpensesAPI:
 
     def reject(self, expense_id: str, **kwargs: Any) -> dict[str, Any]:
         """Reject an expense."""
-        return self._client.request("POST", f"/api/v1/accounting/expenses/{expense_id}/reject", json=kwargs)
+        return self._client.request(
+            "POST", f"/api/v1/accounting/expenses/{expense_id}/reject", json=kwargs
+        )
 
     def get_pending(self) -> dict[str, Any]:
         """Get pending expenses."""
@@ -91,7 +93,9 @@ class AsyncExpensesAPI:
 
     async def update_expense(self, expense_id: str, **kwargs: Any) -> dict[str, Any]:
         """Update an expense."""
-        return await self._client.request("PUT", f"/api/v1/accounting/expenses/{expense_id}", json=kwargs)
+        return await self._client.request(
+            "PUT", f"/api/v1/accounting/expenses/{expense_id}", json=kwargs
+        )
 
     async def delete_expense(self, expense_id: str) -> dict[str, Any]:
         """Delete an expense."""
@@ -99,11 +103,15 @@ class AsyncExpensesAPI:
 
     async def approve(self, expense_id: str) -> dict[str, Any]:
         """Approve an expense."""
-        return await self._client.request("POST", f"/api/v1/accounting/expenses/{expense_id}/approve")
+        return await self._client.request(
+            "POST", f"/api/v1/accounting/expenses/{expense_id}/approve"
+        )
 
     async def reject(self, expense_id: str, **kwargs: Any) -> dict[str, Any]:
         """Reject an expense."""
-        return await self._client.request("POST", f"/api/v1/accounting/expenses/{expense_id}/reject", json=kwargs)
+        return await self._client.request(
+            "POST", f"/api/v1/accounting/expenses/{expense_id}/reject", json=kwargs
+        )
 
     async def get_pending(self) -> dict[str, Any]:
         """Get pending expenses."""
@@ -115,7 +123,9 @@ class AsyncExpensesAPI:
 
     async def categorize(self, **kwargs: Any) -> dict[str, Any]:
         """Categorize expenses."""
-        return await self._client.request("POST", "/api/v1/accounting/expenses/categorize", json=kwargs)
+        return await self._client.request(
+            "POST", "/api/v1/accounting/expenses/categorize", json=kwargs
+        )
 
     async def export(self, **kwargs: Any) -> dict[str, Any]:
         """Export expenses."""

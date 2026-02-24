@@ -74,9 +74,7 @@ class TestWorkspaceEndpoints:
             client = AragoraClient(base_url="http://localhost")
             result = client.coordination.list_workspaces()
 
-            mock_request.assert_called_once_with(
-                "GET", "/api/v1/coordination/workspaces"
-            )
+            mock_request.assert_called_once_with("GET", "/api/v1/coordination/workspaces")
             assert result["total"] == 2
             assert len(result["workspaces"]) == 2
             client.close()
@@ -87,9 +85,7 @@ class TestWorkspaceEndpoints:
             client = AragoraClient(base_url="http://localhost")
             result = client.coordination.unregister_workspace("ws-1")
 
-            mock_request.assert_called_once_with(
-                "DELETE", "/api/v1/coordination/workspaces/ws-1"
-            )
+            mock_request.assert_called_once_with("DELETE", "/api/v1/coordination/workspaces/ws-1")
             assert result["unregistered"] is True
             client.close()
 
@@ -131,9 +127,7 @@ class TestFederationPolicyEndpoints:
             client = AragoraClient(base_url="http://localhost")
             result = client.coordination.list_federation_policies()
 
-            mock_request.assert_called_once_with(
-                "GET", "/api/v1/coordination/federation"
-            )
+            mock_request.assert_called_once_with("GET", "/api/v1/coordination/federation")
             assert result["total"] == 1
             client.close()
 
@@ -242,9 +236,7 @@ class TestConsentEndpoints:
             client = AragoraClient(base_url="http://localhost")
             result = client.coordination.revoke_consent("consent-1")
 
-            mock_request.assert_called_once_with(
-                "DELETE", "/api/v1/coordination/consent/consent-1"
-            )
+            mock_request.assert_called_once_with("DELETE", "/api/v1/coordination/consent/consent-1")
             assert result["revoked"] is True
             client.close()
 
@@ -273,9 +265,7 @@ class TestApprovalEndpoint:
         with patch.object(AragoraClient, "request") as mock_request:
             mock_request.return_value = {"approved": True}
             client = AragoraClient(base_url="http://localhost")
-            result = client.coordination.approve_request(
-                "req-1", approved_by="admin-user"
-            )
+            result = client.coordination.approve_request("req-1", approved_by="admin-user")
 
             mock_request.assert_called_once_with(
                 "POST",
@@ -299,9 +289,7 @@ class TestStatsAndHealthEndpoints:
             client = AragoraClient(base_url="http://localhost")
             result = client.coordination.get_stats()
 
-            mock_request.assert_called_once_with(
-                "GET", "/api/v1/coordination/stats"
-            )
+            mock_request.assert_called_once_with("GET", "/api/v1/coordination/stats")
             assert result["total_workspaces"] == 5
             client.close()
 
@@ -315,9 +303,7 @@ class TestStatsAndHealthEndpoints:
             client = AragoraClient(base_url="http://localhost")
             result = client.coordination.get_health()
 
-            mock_request.assert_called_once_with(
-                "GET", "/api/v1/coordination/health"
-            )
+            mock_request.assert_called_once_with("GET", "/api/v1/coordination/health")
             assert result["status"] == "healthy"
             client.close()
 
@@ -330,9 +316,7 @@ class TestAsyncCoordination:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"id": "ws-1", "name": "Primary"}
             async with AragoraAsyncClient(base_url="http://localhost") as client:
-                result = await client.coordination.register_workspace(
-                    id="ws-1", name="Primary"
-                )
+                result = await client.coordination.register_workspace(id="ws-1", name="Primary")
                 assert result["id"] == "ws-1"
 
     @pytest.mark.asyncio
@@ -340,9 +324,7 @@ class TestAsyncCoordination:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"name": "policy-1"}
             async with AragoraAsyncClient(base_url="http://localhost") as client:
-                result = await client.coordination.create_federation_policy(
-                    name="policy-1"
-                )
+                result = await client.coordination.create_federation_policy(name="policy-1")
                 assert result["name"] == "policy-1"
 
     @pytest.mark.asyncio

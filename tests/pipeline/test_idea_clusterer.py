@@ -47,8 +47,7 @@ class TestClusterIdeas:
 
         # The first two ideas should have high similarity
         has_01_edge = any(
-            (i == 0 and j == 1) or (i == 1 and j == 0)
-            for i, j, sim in result.similarity_edges
+            (i == 0 and j == 1) or (i == 1 and j == 0) for i, j, sim in result.similarity_edges
         )
         assert has_01_edge, "Expected similarity edge between ideas 0 and 1"
 

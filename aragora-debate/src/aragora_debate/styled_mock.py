@@ -197,8 +197,7 @@ class StyledMockAgent(Agent):
         super().__init__(name=name, model="mock", **kwargs)
         if style not in PROPOSALS:
             raise ValueError(
-                f"Unknown style {style!r}. "
-                f"Choose from: supportive, critical, balanced, contrarian"
+                f"Unknown style {style!r}. Choose from: supportive, critical, balanced, contrarian"
             )
         self.style: Style = style
         self._proposal_override = proposal
@@ -271,9 +270,7 @@ class StyledMockAgent(Agent):
             "contrarian": 0.50,
             "hollow": 0.90,  # High confidence despite no evidence
         }.get(self.style, 0.7)
-        confidence = round(
-            max(0.1, min(1.0, base_confidence + random.uniform(-0.05, 0.05))), 2
-        )
+        confidence = round(max(0.1, min(1.0, base_confidence + random.uniform(-0.05, 0.05))), 2)
 
         # Topic-aware reasoning (truncate at word boundary)
         topic_snippet = task[:80] if task else "the proposal"

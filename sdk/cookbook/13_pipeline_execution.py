@@ -34,12 +34,17 @@ async def run_pipeline(dry_run: bool = False) -> dict:
 
     ideas = [
         {"title": "Add retry middleware to SDK", "description": "Auto-retry on transient failures"},
-        {"title": "Add response caching", "description": "Cache debate results for repeated queries"},
+        {
+            "title": "Add response caching",
+            "description": "Cache debate results for repeated queries",
+        },
     ]
 
     for idea in ideas:
         node = await client.pipeline.add_node(
-            pipeline_id, stage="ideas", data=idea,
+            pipeline_id,
+            stage="ideas",
+            data=idea,
         )
         print(f"  Added idea: {idea['title']} ({node.get('id', '?')})")
 

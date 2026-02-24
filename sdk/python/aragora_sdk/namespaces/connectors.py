@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 ConnectorType = Literal["github_enterprise", "s3", "postgresql", "mongodb", "fhir"]
 SyncFrequency = Literal["hourly", "daily", "weekly", "manual"]
 
+
 class ConnectorsAPI:
     """
     Synchronous Connectors API.
@@ -177,6 +178,7 @@ class ConnectorsAPI:
             json={"full_sync": full_sync},
         )
 
+
 class AsyncConnectorsAPI:
     """
     Asynchronous Connectors API.
@@ -270,4 +272,3 @@ class AsyncConnectorsAPI:
             f"/api/v1/connectors/{connector_id}/sync",
             json={"full_sync": full_sync},
         )
-

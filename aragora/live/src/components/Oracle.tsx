@@ -1283,7 +1283,31 @@ export default function Oracle() {
               Duration {(oracle.streamDurationMs / 1000).toFixed(2)}s
             </span>
           )}
+          {oracle.streamStalled && (
+            <span className="px-2 py-1 border rounded border-[var(--crimson,#ff3333)]/40 text-[var(--crimson,#ff3333)]">
+              Stall: {oracle.stallReason === 'waiting_first_token' ? 'no first token' : 'no stream activity'}
+            </span>
+          )}
         </div>
+
+        {oracle.streamStalled && (
+          <div className="mb-4 border border-[var(--crimson,#ff3333)]/35 bg-[var(--crimson,#ff3333)]/10 rounded-xl p-3 text-xs text-[var(--text-muted)] flex items-center justify-between gap-3">
+            <span>
+              Oracle stream appears stalled. You can reset the stream and resubmit your question.
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                oracle.stop();
+                setLoading(false);
+                setDebating(false);
+              }}
+              className="shrink-0 px-3 py-1.5 border border-[var(--crimson,#ff3333)]/60 text-[var(--crimson,#ff3333)] hover:bg-[var(--crimson,#ff3333)]/20 transition-colors rounded-lg"
+            >
+              Reset Stream
+            </button>
+          </div>
+        )}
 
         {/* Input */}
         <form onSubmit={consultOracle} className="flex gap-3 mb-4">

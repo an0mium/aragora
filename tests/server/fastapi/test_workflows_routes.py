@@ -155,7 +155,9 @@ class TestListWorkflows:
         assert data["limit"] == 10
         assert data["offset"] == 5
         mock_workflow_engine.list_workflows.assert_called_once_with(
-            limit=10, offset=5, status=None,
+            limit=10,
+            offset=5,
+            status=None,
         )
 
     def test_list_with_status_filter(self, client, mock_workflow_engine):
@@ -163,7 +165,9 @@ class TestListWorkflows:
         response = client.get("/api/v2/workflows?status=running")
         assert response.status_code == 200
         mock_workflow_engine.list_workflows.assert_called_once_with(
-            limit=50, offset=0, status="running",
+            limit=50,
+            offset=0,
+            status="running",
         )
 
     def test_list_limit_validation(self, client):
@@ -573,26 +577,28 @@ class TestWorkflowHistory:
     def test_history_returns_200(self, client, mock_workflow_engine, sample_workflow):
         """History returns execution entries."""
         mock_workflow_engine.get_workflow.return_value = sample_workflow
-        mock_workflow_engine.get_execution_history = MagicMock(return_value=[
-            {
-                "execution_id": "exec_001",
-                "status": "completed",
-                "started_at": "2026-02-15T10:01:00",
-                "completed_at": "2026-02-15T10:30:00",
-                "duration_seconds": 1740.0,
-                "result": {"verdict": "APPROVED"},
-                "error": None,
-            },
-            {
-                "execution_id": "exec_002",
-                "status": "failed",
-                "started_at": "2026-02-14T10:00:00",
-                "completed_at": "2026-02-14T10:05:00",
-                "duration_seconds": 300.0,
-                "result": None,
-                "error": "Timeout exceeded",
-            },
-        ])
+        mock_workflow_engine.get_execution_history = MagicMock(
+            return_value=[
+                {
+                    "execution_id": "exec_001",
+                    "status": "completed",
+                    "started_at": "2026-02-15T10:01:00",
+                    "completed_at": "2026-02-15T10:30:00",
+                    "duration_seconds": 1740.0,
+                    "result": {"verdict": "APPROVED"},
+                    "error": None,
+                },
+                {
+                    "execution_id": "exec_002",
+                    "status": "failed",
+                    "started_at": "2026-02-14T10:00:00",
+                    "completed_at": "2026-02-14T10:05:00",
+                    "duration_seconds": 300.0,
+                    "result": None,
+                    "error": "Timeout exceeded",
+                },
+            ]
+        )
 
         response = client.get("/api/v2/workflows/wf_test123/history")
         assert response.status_code == 200
@@ -618,7 +624,8 @@ class TestWorkflowHistory:
         response = client.get("/api/v2/workflows/wf_test123/history?limit=5")
         assert response.status_code == 200
         mock_workflow_engine.get_execution_history.assert_called_once_with(
-            "wf_test123", limit=5,
+            "wf_test123",
+            limit=5,
         )
 
     def test_history_empty(self, client, mock_workflow_engine, sample_workflow):

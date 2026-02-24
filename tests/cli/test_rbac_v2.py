@@ -82,9 +82,16 @@ class TestRBACParserRegistration:
         subparsers = parser.add_subparsers(dest="command")
         add_rbac_ops_parser(subparsers)
 
-        args = parser.parse_args([
-            "rbac", "check-local", "user1", "debates:read", "--role", "admin",
-        ])
+        args = parser.parse_args(
+            [
+                "rbac",
+                "check-local",
+                "user1",
+                "debates:read",
+                "--role",
+                "admin",
+            ]
+        )
         assert args.rbac_command == "check-local"
         assert args.user_id == "user1"
         assert args.permission == "debates:read"
@@ -96,9 +103,15 @@ class TestRBACParserRegistration:
         subparsers = parser.add_subparsers(dest="command")
         add_rbac_ops_parser(subparsers)
 
-        args = parser.parse_args([
-            "rbac", "check-local", "user1", "debates:read", "--json",
-        ])
+        args = parser.parse_args(
+            [
+                "rbac",
+                "check-local",
+                "user1",
+                "debates:read",
+                "--json",
+            ]
+        )
         assert args.json is True
 
 

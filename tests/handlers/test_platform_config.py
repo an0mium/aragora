@@ -158,11 +158,14 @@ class TestAvailableAgents:
 
         handler = _make_handler()
         # Patch at the method level to use the mock
-        with patch(
-            "aragora.agents.registry.AgentFactory.get_registered_types",
-            return_value=["alpha", "beta", "gamma"],
-        ), patch(
-            "aragora.agents.registry.register_all_agents",
+        with (
+            patch(
+                "aragora.agents.registry.AgentFactory.get_registered_types",
+                return_value=["alpha", "beta", "gamma"],
+            ),
+            patch(
+                "aragora.agents.registry.register_all_agents",
+            ),
         ):
             result = handler.handle("/api/v1/platform/config", {}, MagicMock())
             data = _get_data(result)
@@ -323,7 +326,10 @@ class TestVersion:
     def test_version_fallback_on_import_error(self):
         """When aragora.__version__ is missing, return 'unknown'."""
         handler = _make_handler()
-        with patch("aragora.server.handlers.platform_config.PlatformConfigHandler._get_version", return_value="unknown"):
+        with patch(
+            "aragora.server.handlers.platform_config.PlatformConfigHandler._get_version",
+            return_value="unknown",
+        ):
             result = handler.handle("/api/v1/platform/config", {}, MagicMock())
             data = _get_data(result)
             assert data["version"] == "unknown"

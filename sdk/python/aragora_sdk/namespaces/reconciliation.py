@@ -138,9 +138,7 @@ class ReconciliationAPI:
         Returns:
             Dict with resolution confirmation.
         """
-        return self._client.request(
-            "POST", f"/api/v1/reconciliation/{job_id}/resolve", json=kwargs
-        )
+        return self._client.request("POST", f"/api/v1/reconciliation/{job_id}/resolve", json=kwargs)
 
     def bulk_resolve(self, **kwargs: Any) -> dict[str, Any]:
         """
@@ -173,9 +171,7 @@ class ReconciliationAPI:
         Returns:
             Dict with approval confirmation.
         """
-        return self._client.request(
-            "POST", f"/api/v1/reconciliation/{job_id}/approve", json=kwargs
-        )
+        return self._client.request("POST", f"/api/v1/reconciliation/{job_id}/approve", json=kwargs)
 
 
 class AsyncReconciliationAPI:

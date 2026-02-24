@@ -32,12 +32,8 @@ ARAGORA_ROOT = Path(__file__).resolve().parent.parent / "aragora"
 
 # httpx patterns
 HTTPX_CLIENT = re.compile(r"httpx\.(AsyncClient|Client)\s*\(")
-HTTPX_DIRECT = re.compile(
-    r"httpx\.(get|post|put|patch|delete|head|options|request)\s*\("
-)
-HTTPX_METHOD = re.compile(
-    r"\.(get|post|put|patch|delete|head|options|request|send)\s*\("
-)
+HTTPX_DIRECT = re.compile(r"httpx\.(get|post|put|patch|delete|head|options|request)\s*\(")
+HTTPX_METHOD = re.compile(r"\.(get|post|put|patch|delete|head|options|request|send)\s*\(")
 
 # aiohttp patterns
 AIOHTTP_SESSION = re.compile(r"aiohttp\.ClientSession\s*\(")
@@ -136,7 +132,9 @@ class FileReport:
 
     @property
     def is_protected(self) -> bool:
-        return self.has_ssrf_import or self.has_ssrf_call or self.has_safe_http or self.is_known_safe
+        return (
+            self.has_ssrf_import or self.has_ssrf_call or self.has_safe_http or self.is_known_safe
+        )
 
     @property
     def protection_type(self) -> str:
@@ -230,8 +228,12 @@ def print_report(reports: list[FileReport], summary_only: bool = False) -> None:
     print(f"  Files with outbound HTTP calls: {len(reports)}")
     print(f"  Total outbound call sites:      {total_call_sites}")
     print()
-    print(f"  Protected files:    {len(protected):>4}  ({len(protected) * 100 // max(len(reports), 1)}%)")
-    print(f"  Unprotected files:  {len(unprotected):>4}  ({len(unprotected) * 100 // max(len(reports), 1)}%)")
+    print(
+        f"  Protected files:    {len(protected):>4}  ({len(protected) * 100 // max(len(reports), 1)}%)"
+    )
+    print(
+        f"  Unprotected files:  {len(unprotected):>4}  ({len(unprotected) * 100 // max(len(reports), 1)}%)"
+    )
     print()
     print(f"  Protected call sites:   {protected_sites:>4}")
     print(f"  Unprotected call sites: {unprotected_sites:>4}")
@@ -259,7 +261,9 @@ def print_report(reports: list[FileReport], summary_only: bool = False) -> None:
             for r in sorted(by_dir[dirname], key=lambda x: x.file):
                 sites = len(r.call_sites)
                 patterns = {s.pattern_type for s in r.call_sites}
-                print(f"    {r.file.rsplit('/', 1)[-1]}  ({sites} call{'s' if sites > 1 else ''}: {', '.join(sorted(patterns))})")
+                print(
+                    f"    {r.file.rsplit('/', 1)[-1]}  ({sites} call{'s' if sites > 1 else ''}: {', '.join(sorted(patterns))})"
+                )
                 for s in r.call_sites[:3]:  # Show first 3 call sites
                     print(f"      L{s.line}: {s.code_snippet[:90]}")
                 if len(r.call_sites) > 3:
@@ -342,8 +346,7 @@ def main() -> int:
             )
             return 1
         print(
-            f"\nCI PASS: {unprotected_count} unprotected files within "
-            f"baseline of {args.baseline}"
+            f"\nCI PASS: {unprotected_count} unprotected files within baseline of {args.baseline}"
         )
     return 0
 

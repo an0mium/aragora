@@ -54,9 +54,7 @@ class TestRouteResult:
         assert r.success is False
 
     def test_partial_when_mixed(self):
-        r = RouteResult(
-            source="test", targets_hit=["a"], targets_failed=["b"]
-        )
+        r = RouteResult(source="test", targets_hit=["a"], targets_failed=["b"])
         assert r.success is False
         assert r.partial is True
 
@@ -147,9 +145,7 @@ class TestRouteGauntlet:
             "aragora.gauntlet.auto_improve.GauntletAutoImprove",
             mock_auto,
         ):
-            result = hub.route(
-                "gauntlet", {"gauntlet_result": mock_gauntlet_result}
-            )
+            result = hub.route("gauntlet", {"gauntlet_result": mock_gauntlet_result})
             assert "improvement_queue" in result.targets_hit
 
 
@@ -159,9 +155,7 @@ class TestRouteGauntlet:
 
 
 class TestRouteIntrospection:
-    def test_introspection_pushes_to_queue_and_genesis(
-        self, hub: FeedbackHub
-    ):
+    def test_introspection_pushes_to_queue_and_genesis(self, hub: FeedbackHub):
         """Introspection routes to both ImprovementQueue and Genesis."""
         mock_queue = MagicMock()
         mock_population = MagicMock()

@@ -89,9 +89,7 @@ class TestHandleDebateSLOHealth:
         assert "slos" in data
 
     def test_invalid_window_returns_400(self, handler, mock_http_handler):
-        result = handler._handle_debate_slo_health(
-            {"window": "invalid"}, mock_http_handler
-        )
+        result = handler._handle_debate_slo_health({"window": "invalid"}, mock_http_handler)
         assert result.status_code == 400
 
     def test_all_windows_returns_multi(self, handler, mock_http_handler):
@@ -100,9 +98,7 @@ class TestHandleDebateSLOHealth:
         tracker = get_debate_slo_tracker()
         tracker.record_first_token_latency(1.0)
 
-        result = handler._handle_debate_slo_health(
-            {"all_windows": "true"}, mock_http_handler
-        )
+        result = handler._handle_debate_slo_health({"all_windows": "true"}, mock_http_handler)
         assert result.status_code == 200
 
         body = _parse_body(result)

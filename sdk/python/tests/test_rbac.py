@@ -12,6 +12,7 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Bulk Operations
 # =========================================================================
 
+
 class TestRBACWorkspaceRoles:
     """Tests for workspace role management."""
 
@@ -27,9 +28,11 @@ class TestRBACWorkspaceRoles:
             assert len(result["profiles"]) == 3
             client.close()
 
+
 # =========================================================================
 # Audit Trail
 # =========================================================================
+
 
 class TestRBACAudit:
     """Tests for audit trail methods."""
@@ -108,9 +111,11 @@ class TestRBACAudit:
             )
             client.close()
 
+
 # =========================================================================
 # API Keys
 # =========================================================================
+
 
 class TestRBACApiKeys:
     """Tests for API key management."""
@@ -174,9 +179,11 @@ class TestRBACApiKeys:
             mock_request.assert_called_once_with("DELETE", "/api/keys/key_123")
             client.close()
 
+
 # =========================================================================
 # Sessions
 # =========================================================================
+
 
 class TestRBACSessions:
     """Tests for session management."""
@@ -214,9 +221,11 @@ class TestRBACSessions:
             mock_request.assert_called_once_with("POST", "/api/auth/logout-all", json={})
             client.close()
 
+
 # =========================================================================
 # MFA
 # =========================================================================
+
 
 class TestRBACMFA:
     """Tests for MFA methods."""
@@ -287,9 +296,11 @@ class TestRBACMFA:
             assert len(result["codes"]) == 2
             client.close()
 
+
 # =========================================================================
 # Async Tests
 # =========================================================================
+
 
 class TestAsyncRBAC:
     """Tests for async RBAC API."""

@@ -550,9 +550,9 @@ class SendGridConnector(BaseConnector):
             return cached
 
         if evidence_id.startswith("sg_tpl_"):
-            return await self._fetch_template(evidence_id[len("sg_tpl_"):], evidence_id)
+            return await self._fetch_template(evidence_id[len("sg_tpl_") :], evidence_id)
         elif evidence_id.startswith("sg_msg_"):
-            return await self._fetch_message(evidence_id[len("sg_msg_"):], evidence_id)
+            return await self._fetch_message(evidence_id[len("sg_msg_") :], evidence_id)
 
         return None
 

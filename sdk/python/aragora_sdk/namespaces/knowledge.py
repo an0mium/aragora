@@ -151,12 +151,12 @@ class KnowledgeAPI:
         """Get contradictions for a specific fact."""
         return self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}/contradictions")
 
-    def get_fact_relations(
-        self, fact_id: str, limit: int = 50
-    ) -> dict[str, Any]:
+    def get_fact_relations(self, fact_id: str, limit: int = 50) -> dict[str, Any]:
         """Get relations for a specific fact."""
         params: dict[str, Any] = {"limit": limit}
-        return self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}/relations", params=params)
+        return self._client.request(
+            "GET", f"/api/v1/knowledge/facts/{fact_id}/relations", params=params
+        )
 
     def create_fact_relation(
         self,
@@ -178,10 +178,14 @@ class KnowledgeAPI:
 
     def batch_delete_facts(self, fact_ids: list[str]) -> dict[str, Any]:
         """Delete multiple facts in batch."""
-        return self._client.request("POST", "/api/v1/knowledge/facts/batch/delete", json={"fact_ids": fact_ids})
+        return self._client.request(
+            "POST", "/api/v1/knowledge/facts/batch/delete", json={"fact_ids": fact_ids}
+        )
 
     def merge_facts(
-        self, source_ids: list[str], target_id: str | None = None,
+        self,
+        source_ids: list[str],
+        target_id: str | None = None,
     ) -> dict[str, Any]:
         """Merge multiple facts."""
         data: dict[str, Any] = {"source_ids": source_ids}
@@ -213,16 +217,16 @@ class KnowledgeAPI:
 
     def embed_batch(self, texts: list[str]) -> dict[str, Any]:
         """Create embeddings for a batch of texts."""
-        return self._client.request("POST", "/api/v1/knowledge/index/embed-batch", json={"texts": texts})
+        return self._client.request(
+            "POST", "/api/v1/knowledge/index/embed-batch", json={"texts": texts}
+        )
 
     def search_index(self, query: str, limit: int = 10) -> dict[str, Any]:
         """Search the knowledge index."""
         params: dict[str, Any] = {"q": query, "limit": limit}
         return self._client.request("GET", "/api/v1/knowledge/index/search", params=params)
 
-    def create_embeddings(
-        self, text: str, **kwargs: Any
-    ) -> dict[str, Any]:
+    def create_embeddings(self, text: str, **kwargs: Any) -> dict[str, Any]:
         """Create embeddings for text."""
         payload: dict[str, Any] = {"text": text, **kwargs}
         return self._client.request("POST", "/api/v1/knowledge/embeddings", json=payload)
@@ -422,7 +426,9 @@ class KnowledgeAPI:
 
     def add_culture_document(self, document: dict[str, Any]) -> dict[str, Any]:
         """Add a culture document to the Knowledge Mound."""
-        return self._client.request("POST", "/api/v1/knowledge/mound/culture/documents", json=document)
+        return self._client.request(
+            "POST", "/api/v1/knowledge/mound/culture/documents", json=document
+        )
 
     def promote_culture(self, node_id: str, **options: Any) -> dict[str, Any]:
         """Promote a node to culture knowledge."""
@@ -497,43 +503,35 @@ class KnowledgeAPI:
         }
         return self._client.request("POST", "/api/v1/knowledge/mound/share", json=payload)
 
-    def get_shared_with_me(
-        self, limit: int = 50, offset: int = 0
-    ) -> dict[str, Any]:
+    def get_shared_with_me(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get items shared with the current user."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         return self._client.request("GET", "/api/v1/knowledge/mound/shared-with-me", params=params)
 
-    def get_my_shares(
-        self, limit: int = 50, offset: int = 0
-    ) -> dict[str, Any]:
+    def get_my_shares(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get items shared by the current user."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         return self._client.request("GET", "/api/v1/knowledge/mound/my-shares", params=params)
 
     # ========== Global Knowledge ==========
 
-    def get_global_knowledge(
-        self, query: str | None = None
-    ) -> dict[str, Any]:
+    def get_global_knowledge(self, query: str | None = None) -> dict[str, Any]:
         """Get global knowledge entries."""
         params: dict[str, Any] = {}
         if query:
             params["query"] = query
         return self._client.request("GET", "/api/v1/knowledge/mound/global", params=params)
 
-    def get_global_facts(
-        self, limit: int = 50, offset: int = 0
-    ) -> dict[str, Any]:
+    def get_global_facts(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get global knowledge facts."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         return self._client.request("GET", "/api/v1/knowledge/mound/global/facts", params=params)
 
-    def promote_to_global(
-        self, node_id: str
-    ) -> dict[str, Any]:
+    def promote_to_global(self, node_id: str) -> dict[str, Any]:
         """Promote a knowledge node to global scope."""
-        return self._client.request("POST", "/api/v1/knowledge/mound/global/promote", json={"node_id": node_id})
+        return self._client.request(
+            "POST", "/api/v1/knowledge/mound/global/promote", json={"node_id": node_id}
+        )
 
     # ========== Federation ==========
 
@@ -543,23 +541,25 @@ class KnowledgeAPI:
 
     def delete_federation_region(self, region_id: str) -> dict[str, Any]:
         """Delete a federation region."""
-        return self._client.request("DELETE", f"/api/v1/knowledge/mound/federation/regions/{region_id}")
+        return self._client.request(
+            "DELETE", f"/api/v1/knowledge/mound/federation/regions/{region_id}"
+        )
 
     def get_federation_status(self) -> dict[str, Any]:
         """Get federation sync status."""
         return self._client.request("GET", "/api/v1/knowledge/mound/federation/status")
 
-    def federation_sync_push(
-        self, region_id: str
-    ) -> dict[str, Any]:
+    def federation_sync_push(self, region_id: str) -> dict[str, Any]:
         """Push knowledge to a federation region."""
-        return self._client.request("POST", "/api/v1/knowledge/mound/federation/sync/push", json={"region_id": region_id})
+        return self._client.request(
+            "POST", "/api/v1/knowledge/mound/federation/sync/push", json={"region_id": region_id}
+        )
 
-    def federation_sync_pull(
-        self, region_id: str
-    ) -> dict[str, Any]:
+    def federation_sync_pull(self, region_id: str) -> dict[str, Any]:
         """Pull knowledge from a federation region."""
-        return self._client.request("POST", "/api/v1/knowledge/mound/federation/sync/pull", json={"region_id": region_id})
+        return self._client.request(
+            "POST", "/api/v1/knowledge/mound/federation/sync/pull", json={"region_id": region_id}
+        )
 
     def federation_sync_all(self) -> dict[str, Any]:
         """Sync knowledge across all federation regions."""
@@ -567,12 +567,12 @@ class KnowledgeAPI:
 
     # ========== Index ==========
 
-    def index_repository(
-        self, url: str, **kwargs: Any
-    ) -> dict[str, Any]:
+    def index_repository(self, url: str, **kwargs: Any) -> dict[str, Any]:
         """Index a repository into the knowledge mound."""
         payload: dict[str, Any] = {"url": url, **kwargs}
-        return self._client.request("POST", "/api/v1/knowledge/mound/index/repository", json=payload)
+        return self._client.request(
+            "POST", "/api/v1/knowledge/mound/index/repository", json=payload
+        )
 
     # ========== Governance (additional) ==========
 
@@ -580,14 +580,14 @@ class KnowledgeAPI:
         """List all governance permissions."""
         return self._client.request("GET", "/api/v1/knowledge/mound/governance/permissions")
 
-    def get_user_audit(
-        self, user_id: str | None = None, limit: int = 50
-    ) -> dict[str, Any]:
+    def get_user_audit(self, user_id: str | None = None, limit: int = 50) -> dict[str, Any]:
         """Get governance audit trail for a user."""
         params: dict[str, Any] = {"limit": limit}
         if user_id:
             params["user_id"] = user_id
-        return self._client.request("GET", "/api/v1/knowledge/mound/governance/audit/user", params=params)
+        return self._client.request(
+            "GET", "/api/v1/knowledge/mound/governance/audit/user", params=params
+        )
 
     # ========== Short Alias Routes (/api/v1/facts/*, /api/v1/index/*) ==========
 
@@ -597,18 +597,24 @@ class KnowledgeAPI:
 
     def facts_batch_delete(self, fact_ids: list[str]) -> dict[str, Any]:
         """Batch delete facts (short alias)."""
-        return self._client.request("POST", "/api/v1/facts/batch/delete", json={"fact_ids": fact_ids})
+        return self._client.request(
+            "POST", "/api/v1/facts/batch/delete", json={"fact_ids": fact_ids}
+        )
 
     def facts_merge(self, source_id: str, target_id: str) -> dict[str, Any]:
         """Merge two facts (short alias)."""
-        return self._client.request("POST", "/api/v1/facts/merge", json={"source_id": source_id, "target_id": target_id})
+        return self._client.request(
+            "POST", "/api/v1/facts/merge", json={"source_id": source_id, "target_id": target_id}
+        )
 
     def facts_relationships(self, fact_id: str | None = None) -> dict[str, Any]:
         """List fact relationships (short alias)."""
         params: dict[str, Any] = {}
         if fact_id:
             params["fact_id"] = fact_id
-        return self._client.request("GET", "/api/v1/facts/relationships", params=params if params else None)
+        return self._client.request(
+            "GET", "/api/v1/facts/relationships", params=params if params else None
+        )
 
     def facts_stats(self) -> dict[str, Any]:
         """Get fact statistics (short alias)."""
@@ -770,11 +776,11 @@ class AsyncKnowledgeAPI:
 
     async def get_fact_contradictions(self, fact_id: str) -> dict[str, Any]:
         """Get contradictions for a specific fact."""
-        return await self._client.request("GET", f"/api/v1/knowledge/facts/{fact_id}/contradictions")
+        return await self._client.request(
+            "GET", f"/api/v1/knowledge/facts/{fact_id}/contradictions"
+        )
 
-    async def get_fact_relations(
-        self, fact_id: str, limit: int = 50
-    ) -> dict[str, Any]:
+    async def get_fact_relations(self, fact_id: str, limit: int = 50) -> dict[str, Any]:
         """Get relations for a specific fact."""
         params: dict[str, Any] = {"limit": limit}
         return await self._client.request(
@@ -797,13 +803,19 @@ class AsyncKnowledgeAPI:
 
     async def batch_create_facts(self, facts: list[dict[str, Any]]) -> dict[str, Any]:
         """Create multiple facts in batch."""
-        return await self._client.request("POST", "/api/v1/knowledge/facts/batch", json={"facts": facts})
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/facts/batch", json={"facts": facts}
+        )
 
     async def batch_delete_facts(self, fact_ids: list[str]) -> dict[str, Any]:
         """Delete multiple facts in batch."""
-        return await self._client.request("POST", "/api/v1/knowledge/facts/batch/delete", json={"fact_ids": fact_ids})
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/facts/batch/delete", json={"fact_ids": fact_ids}
+        )
 
-    async def merge_facts(self, source_ids: list[str], target_id: str | None = None) -> dict[str, Any]:
+    async def merge_facts(
+        self, source_ids: list[str], target_id: str | None = None
+    ) -> dict[str, Any]:
         """Merge multiple facts."""
         data: dict[str, Any] = {"source_ids": source_ids}
         if target_id:
@@ -813,7 +825,9 @@ class AsyncKnowledgeAPI:
     async def list_fact_relationships(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """List fact relationships."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client.request("GET", "/api/v1/knowledge/facts/relationships", params=params)
+        return await self._client.request(
+            "GET", "/api/v1/knowledge/facts/relationships", params=params
+        )
 
     async def get_fact_stats(self) -> dict[str, Any]:
         """Get fact statistics."""
@@ -832,7 +846,9 @@ class AsyncKnowledgeAPI:
 
     async def embed_batch(self, texts: list[str]) -> dict[str, Any]:
         """Create embeddings for a batch of texts."""
-        return await self._client.request("POST", "/api/v1/knowledge/index/embed-batch", json={"texts": texts})
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/index/embed-batch", json={"texts": texts}
+        )
 
     async def search_index(self, query: str, limit: int = 10) -> dict[str, Any]:
         """Search the knowledge index."""
@@ -850,16 +866,18 @@ class AsyncKnowledgeAPI:
 
     async def add_culture_document(self, document: dict[str, Any]) -> dict[str, Any]:
         """Add a culture document to the Knowledge Mound."""
-        return await self._client.request("POST", "/api/v1/knowledge/mound/culture/documents", json=document)
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/mound/culture/documents", json=document
+        )
 
     async def promote_culture(self, node_id: str, **options: Any) -> dict[str, Any]:
         """Promote a node to culture knowledge."""
         data: dict[str, Any] = {"node_id": node_id, **options}
-        return await self._client.request("POST", "/api/v1/knowledge/mound/culture/promote", json=data)
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/mound/culture/promote", json=data
+        )
 
-    async def create_embeddings(
-        self, text: str, **kwargs: Any
-    ) -> dict[str, Any]:
+    async def create_embeddings(self, text: str, **kwargs: Any) -> dict[str, Any]:
         """Create embeddings for text."""
         payload: dict[str, Any] = {"text": text, **kwargs}
         return await self._client.request("POST", "/api/v1/knowledge/embeddings", json=payload)
@@ -1166,11 +1184,15 @@ class AsyncKnowledgeAPI:
 
     async def get_node_relationships(self, node_id: str) -> dict[str, Any]:
         """Get relationships for a specific node."""
-        return await self._client.request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}/relationships")
+        return await self._client.request(
+            "GET", f"/api/v1/knowledge/mound/nodes/{node_id}/relationships"
+        )
 
     async def get_node_visibility(self, node_id: str) -> dict[str, Any]:
         """Get visibility settings for a node."""
-        return await self._client.request("GET", f"/api/v1/knowledge/mound/nodes/{node_id}/visibility")
+        return await self._client.request(
+            "GET", f"/api/v1/knowledge/mound/nodes/{node_id}/visibility"
+        )
 
     async def get_node_access(self, node_id: str) -> dict[str, Any]:
         """Get access grants for a node."""
@@ -1183,7 +1205,9 @@ class AsyncKnowledgeAPI:
         payload: dict[str, Any] = {}
         if workspace_id:
             payload["workspace_id"] = workspace_id
-        return await self._client.request("POST", "/api/v1/knowledge/mound/revalidate", json=payload)
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/mound/revalidate", json=payload
+        )
 
     async def sync(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Trigger bulk sync of knowledge mound."""
@@ -1210,41 +1234,35 @@ class AsyncKnowledgeAPI:
         }
         return await self._client.request("POST", "/api/v1/knowledge/mound/share", json=payload)
 
-    async def get_shared_with_me(
-        self, limit: int = 50, offset: int = 0
-    ) -> dict[str, Any]:
+    async def get_shared_with_me(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get items shared with the current user."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client.request("GET", "/api/v1/knowledge/mound/shared-with-me", params=params)
+        return await self._client.request(
+            "GET", "/api/v1/knowledge/mound/shared-with-me", params=params
+        )
 
-    async def get_my_shares(
-        self, limit: int = 50, offset: int = 0
-    ) -> dict[str, Any]:
+    async def get_my_shares(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get items shared by the current user."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         return await self._client.request("GET", "/api/v1/knowledge/mound/my-shares", params=params)
 
     # ========== Global Knowledge ==========
 
-    async def get_global_knowledge(
-        self, query: str | None = None
-    ) -> dict[str, Any]:
+    async def get_global_knowledge(self, query: str | None = None) -> dict[str, Any]:
         """Get global knowledge entries."""
         params: dict[str, Any] = {}
         if query:
             params["query"] = query
         return await self._client.request("GET", "/api/v1/knowledge/mound/global", params=params)
 
-    async def get_global_facts(
-        self, limit: int = 50, offset: int = 0
-    ) -> dict[str, Any]:
+    async def get_global_facts(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get global knowledge facts."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
-        return await self._client.request("GET", "/api/v1/knowledge/mound/global/facts", params=params)
+        return await self._client.request(
+            "GET", "/api/v1/knowledge/mound/global/facts", params=params
+        )
 
-    async def promote_to_global(
-        self, node_id: str
-    ) -> dict[str, Any]:
+    async def promote_to_global(self, node_id: str) -> dict[str, Any]:
         """Promote a knowledge node to global scope."""
         return await self._client.request(
             "POST", "/api/v1/knowledge/mound/global/promote", json={"node_id": node_id}
@@ -1258,23 +1276,21 @@ class AsyncKnowledgeAPI:
 
     async def delete_federation_region(self, region_id: str) -> dict[str, Any]:
         """Delete a federation region."""
-        return await self._client.request("DELETE", f"/api/v1/knowledge/mound/federation/regions/{region_id}")
+        return await self._client.request(
+            "DELETE", f"/api/v1/knowledge/mound/federation/regions/{region_id}"
+        )
 
     async def get_federation_status(self) -> dict[str, Any]:
         """Get federation sync status."""
         return await self._client.request("GET", "/api/v1/knowledge/mound/federation/status")
 
-    async def federation_sync_push(
-        self, region_id: str
-    ) -> dict[str, Any]:
+    async def federation_sync_push(self, region_id: str) -> dict[str, Any]:
         """Push knowledge to a federation region."""
         return await self._client.request(
             "POST", "/api/v1/knowledge/mound/federation/sync/push", json={"region_id": region_id}
         )
 
-    async def federation_sync_pull(
-        self, region_id: str
-    ) -> dict[str, Any]:
+    async def federation_sync_pull(self, region_id: str) -> dict[str, Any]:
         """Pull knowledge from a federation region."""
         return await self._client.request(
             "POST", "/api/v1/knowledge/mound/federation/sync/pull", json={"region_id": region_id}
@@ -1282,16 +1298,18 @@ class AsyncKnowledgeAPI:
 
     async def federation_sync_all(self) -> dict[str, Any]:
         """Sync knowledge across all federation regions."""
-        return await self._client.request("POST", "/api/v1/knowledge/mound/federation/sync/all", json={})
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/mound/federation/sync/all", json={}
+        )
 
     # ========== Index ==========
 
-    async def index_repository(
-        self, url: str, **kwargs: Any
-    ) -> dict[str, Any]:
+    async def index_repository(self, url: str, **kwargs: Any) -> dict[str, Any]:
         """Index a repository into the knowledge mound."""
         payload: dict[str, Any] = {"url": url, **kwargs}
-        return await self._client.request("POST", "/api/v1/knowledge/mound/index/repository", json=payload)
+        return await self._client.request(
+            "POST", "/api/v1/knowledge/mound/index/repository", json=payload
+        )
 
     # ========== Governance (additional) ==========
 
@@ -1299,14 +1317,14 @@ class AsyncKnowledgeAPI:
         """List all governance permissions."""
         return await self._client.request("GET", "/api/v1/knowledge/mound/governance/permissions")
 
-    async def get_user_audit(
-        self, user_id: str | None = None, limit: int = 50
-    ) -> dict[str, Any]:
+    async def get_user_audit(self, user_id: str | None = None, limit: int = 50) -> dict[str, Any]:
         """Get governance audit trail for a user."""
         params: dict[str, Any] = {"limit": limit}
         if user_id:
             params["user_id"] = user_id
-        return await self._client.request("GET", "/api/v1/knowledge/mound/governance/audit/user", params=params)
+        return await self._client.request(
+            "GET", "/api/v1/knowledge/mound/governance/audit/user", params=params
+        )
 
     # ========== Dashboard & Metrics ==========
 
@@ -1568,18 +1586,24 @@ class AsyncKnowledgeAPI:
 
     async def facts_batch_delete(self, fact_ids: list[str]) -> dict[str, Any]:
         """Batch delete facts (short alias)."""
-        return await self._client.request("POST", "/api/v1/facts/batch/delete", json={"fact_ids": fact_ids})
+        return await self._client.request(
+            "POST", "/api/v1/facts/batch/delete", json={"fact_ids": fact_ids}
+        )
 
     async def facts_merge(self, source_id: str, target_id: str) -> dict[str, Any]:
         """Merge two facts (short alias)."""
-        return await self._client.request("POST", "/api/v1/facts/merge", json={"source_id": source_id, "target_id": target_id})
+        return await self._client.request(
+            "POST", "/api/v1/facts/merge", json={"source_id": source_id, "target_id": target_id}
+        )
 
     async def facts_relationships(self, fact_id: str | None = None) -> dict[str, Any]:
         """List fact relationships (short alias)."""
         params: dict[str, Any] = {}
         if fact_id:
             params["fact_id"] = fact_id
-        return await self._client.request("GET", "/api/v1/facts/relationships", params=params if params else None)
+        return await self._client.request(
+            "GET", "/api/v1/facts/relationships", params=params if params else None
+        )
 
     async def facts_stats(self) -> dict[str, Any]:
         """Get fact statistics (short alias)."""
@@ -1601,7 +1625,9 @@ class AsyncKnowledgeAPI:
 
     async def index_embed_batch(self, texts: list[str]) -> dict[str, Any]:
         """Embed a batch of texts (short alias)."""
-        return await self._client.request("POST", "/api/v1/index/embed-batch", json={"texts": texts})
+        return await self._client.request(
+            "POST", "/api/v1/index/embed-batch", json={"texts": texts}
+        )
 
     async def index_search(self, query: str, limit: int = 10) -> dict[str, Any]:
         """Search the index (short alias)."""

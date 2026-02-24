@@ -81,9 +81,7 @@ def _generate_full_spec(fastapi_app: Any = None) -> dict[str, Any]:
                 # Merge v2 component schemas
                 v2_schemas = v2_spec.get("components", {}).get("schemas", {})
                 if v2_schemas:
-                    spec.setdefault("components", {}).setdefault("schemas", {}).update(
-                        v2_schemas
-                    )
+                    spec.setdefault("components", {}).setdefault("schemas", {}).update(v2_schemas)
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug("Could not merge FastAPI v2 spec: %s", e)
 

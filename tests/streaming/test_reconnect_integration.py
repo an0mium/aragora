@@ -138,6 +138,7 @@ class TestBufferCleanupLoop:
 
         # Mock active_loops_lock and active_loops
         import threading
+
         server._active_loops_lock = threading.Lock()
         server.active_loops = {"debate-1": MagicMock(), "debate-2": MagicMock()}
 
@@ -160,9 +161,7 @@ class TestBufferCleanupLoop:
 
         await run_one_iteration()
 
-        server._replay_buffer.cleanup_stale.assert_called_once_with(
-            {"debate-1", "debate-2"}
-        )
+        server._replay_buffer.cleanup_stale.assert_called_once_with({"debate-1", "debate-2"})
 
 
 # ---------------------------------------------------------------------------

@@ -157,7 +157,9 @@ class ControlPlaneAPI:
 
     def update_violation(self, violation_id: str, **kwargs: Any) -> dict[str, Any]:
         """Update a policy violation."""
-        return self._client.request("PATCH", f"/api/control-plane/policies/violations/{violation_id}", json=kwargs)
+        return self._client.request(
+            "PATCH", f"/api/control-plane/policies/violations/{violation_id}", json=kwargs
+        )
 
     # =========================================================================
     # Deliberations
@@ -210,7 +212,8 @@ class ControlPlaneAPI:
     def get_audit_logs(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get control plane audit logs."""
         return self._client.request(
-            "GET", "/api/control-plane/audit-logs",
+            "GET",
+            "/api/control-plane/audit-logs",
             params={"limit": limit, "offset": offset},
         )
 
@@ -228,7 +231,9 @@ class ControlPlaneAPI:
         Returns:
             Dict with full deliberation transcript including all rounds.
         """
-        return self._client.request("GET", f"/api/control-plane/deliberations/{request_id}/transcript")
+        return self._client.request(
+            "GET", f"/api/control-plane/deliberations/{request_id}/transcript"
+        )
 
     # =========================================================================
     # System & Task Metrics
@@ -347,7 +352,9 @@ class AsyncControlPlaneAPI:
 
     async def fail_task(self, task_id: str, **kwargs: Any) -> dict[str, Any]:
         """Mark a task as failed."""
-        return await self._client.request("POST", f"/api/control-plane/tasks/{task_id}/fail", json=kwargs)
+        return await self._client.request(
+            "POST", f"/api/control-plane/tasks/{task_id}/fail", json=kwargs
+        )
 
     async def get_metrics(self) -> dict[str, Any]:
         """Get control plane metrics."""
@@ -391,11 +398,15 @@ class AsyncControlPlaneAPI:
 
     async def get_violation(self, violation_id: str) -> dict[str, Any]:
         """Get a policy violation by ID."""
-        return await self._client.request("GET", f"/api/control-plane/policies/violations/{violation_id}")
+        return await self._client.request(
+            "GET", f"/api/control-plane/policies/violations/{violation_id}"
+        )
 
     async def update_violation(self, violation_id: str, **kwargs: Any) -> dict[str, Any]:
         """Update a policy violation."""
-        return await self._client.request("PATCH", f"/api/control-plane/policies/violations/{violation_id}", json=kwargs)
+        return await self._client.request(
+            "PATCH", f"/api/control-plane/policies/violations/{violation_id}", json=kwargs
+        )
 
     async def create_deliberation(self, **kwargs: Any) -> dict[str, Any]:
         """Create a deliberation."""
@@ -407,7 +418,9 @@ class AsyncControlPlaneAPI:
 
     async def get_deliberation_status(self, request_id: str) -> dict[str, Any]:
         """Get deliberation status."""
-        return await self._client.request("GET", f"/api/control-plane/deliberations/{request_id}/status")
+        return await self._client.request(
+            "GET", f"/api/control-plane/deliberations/{request_id}/status"
+        )
 
     async def list_notifications(self) -> dict[str, Any]:
         """List control plane notifications."""
@@ -434,14 +447,17 @@ class AsyncControlPlaneAPI:
     async def get_audit_logs(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get control plane audit logs."""
         return await self._client.request(
-            "GET", "/api/control-plane/audit-logs",
+            "GET",
+            "/api/control-plane/audit-logs",
             params={"limit": limit, "offset": offset},
         )
 
     # Deliberation Transcript
     async def get_deliberation_transcript(self, request_id: str) -> dict[str, Any]:
         """Get the full transcript of a deliberation."""
-        return await self._client.request("GET", f"/api/control-plane/deliberations/{request_id}/transcript")
+        return await self._client.request(
+            "GET", f"/api/control-plane/deliberations/{request_id}/transcript"
+        )
 
     # System & Task Metrics
     async def get_system_metrics(self) -> dict[str, Any]:
@@ -464,7 +480,9 @@ class AsyncControlPlaneAPI:
     # Queue Prioritization
     async def prioritize_queue(self, **kwargs: Any) -> dict[str, Any]:
         """Reprioritize tasks in the control plane queue."""
-        return await self._client.request("POST", "/api/control-plane/queue/prioritize", json=kwargs)
+        return await self._client.request(
+            "POST", "/api/control-plane/queue/prioritize", json=kwargs
+        )
 
     # Schedules
     async def list_schedules(self) -> dict[str, Any]:

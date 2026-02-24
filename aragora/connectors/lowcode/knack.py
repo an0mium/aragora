@@ -199,7 +199,8 @@ class KnackConnector(ProductionConnectorMixin):
         self._client: httpx.AsyncClient | None = None
         self._schema: dict[str, Any] | None = None
         self._init_production_mixin(
-            connector_name="knack", request_timeout=30.0,
+            connector_name="knack",
+            request_timeout=30.0,
         )
         self._has_production_mixin = True
 

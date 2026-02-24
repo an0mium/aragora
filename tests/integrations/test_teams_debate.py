@@ -62,9 +62,7 @@ def _make_debate_result(**kwargs):
     result.debate_id = kwargs.get("debate_id", "teams-abc123")
     result.task = kwargs.get("task", "Should we adopt microservices?")
     result.topic = kwargs.get("topic", "Should we adopt microservices?")
-    result.final_answer = kwargs.get(
-        "final_answer", "Yes, adopt a gradual migration strategy."
-    )
+    result.final_answer = kwargs.get("final_answer", "Yes, adopt a gradual migration strategy.")
     result.consensus_reached = kwargs.get("consensus_reached", True)
     result.confidence = kwargs.get("confidence", 0.85)
     result.rounds_used = kwargs.get("rounds_used", 3)
@@ -136,8 +134,11 @@ class TestTeamsDebateConfig:
 class TestTeamsActiveDebateState:
     def test_creation(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         assert state.debate_id == "d-1"
         assert state.status == "running"
@@ -146,8 +147,11 @@ class TestTeamsActiveDebateState:
 
     def test_record_vote(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         state.record_vote("voter-1", "agree")
         state.record_vote("voter-2", "disagree")
@@ -156,8 +160,11 @@ class TestTeamsActiveDebateState:
 
     def test_record_vote_overwrites(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         state.record_vote("voter-1", "agree")
         state.record_vote("voter-1", "disagree")
@@ -165,8 +172,11 @@ class TestTeamsActiveDebateState:
 
     def test_add_suggestion(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         state.add_suggestion("u-2", "My idea")
         state.add_suggestion("u-3", "Another idea")
@@ -175,8 +185,11 @@ class TestTeamsActiveDebateState:
 
     def test_request_stop(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         assert state.status == "running"
         assert not state.cancel_event.is_set()
@@ -186,8 +199,11 @@ class TestTeamsActiveDebateState:
 
     def test_vote_summary(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         state.record_vote("v-1", "agree")
         state.record_vote("v-2", "agree")
@@ -198,8 +214,11 @@ class TestTeamsActiveDebateState:
 
     def test_vote_summary_empty(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         assert state.vote_summary == {}
 
@@ -212,8 +231,11 @@ class TestTeamsActiveDebateState:
 class TestModuleFunctions:
     def test_get_active_debate(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         _active_debates["d-1"] = state
         assert get_active_debate("d-1") is state
@@ -221,8 +243,11 @@ class TestModuleFunctions:
 
     def test_get_active_debate_for_thread(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         _active_debates["d-1"] = state
         assert get_active_debate_for_thread("ch-1", "msg-1") is state
@@ -231,8 +256,11 @@ class TestModuleFunctions:
 
     def test_stop_debate(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         _active_debates["d-1"] = state
         assert stop_debate("d-1") is True
@@ -244,8 +272,11 @@ class TestModuleFunctions:
 
     def test_stop_debate_already_stopping(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         state.status = "stopping"
         _active_debates["d-1"] = state
@@ -253,8 +284,11 @@ class TestModuleFunctions:
 
     def test_stop_debate_in_thread(self):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         _active_debates["d-1"] = state
         result = stop_debate_in_thread("ch-1", "msg-1")
@@ -749,9 +783,7 @@ class TestStartDebateFromThread:
         with patch.object(
             lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
         ):
-            with patch(
-                "aragora.server.debate_origin.register_debate_origin"
-            ) as mock_register:
+            with patch("aragora.server.debate_origin.register_debate_origin") as mock_register:
                 await lifecycle.start_debate_from_thread(
                     channel_id="19:abc@thread.tacv2",
                     message_id="msg-123",
@@ -949,9 +981,7 @@ class TestPostConsensus:
         with patch.object(
             lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
         ):
-            with patch(
-                "aragora.server.debate_origin.mark_result_sent"
-            ) as mock_mark:
+            with patch("aragora.server.debate_origin.mark_result_sent") as mock_mark:
                 await lifecycle.post_consensus(
                     channel_id="ch-1",
                     message_id="msg-1",
@@ -970,8 +1000,11 @@ class TestPostConsensus:
     @pytest.mark.asyncio
     async def test_cleans_up_active_debates(self, lifecycle):
         _active_debates["teams-abc"] = TeamsActiveDebateState(
-            debate_id="teams-abc", channel_id="ch-1", message_id="msg-1",
-            topic="test", user_id="u-1",
+            debate_id="teams-abc",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="test",
+            user_id="u-1",
         )
         with patch.object(
             lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
@@ -1251,12 +1284,13 @@ class TestHandleBotCommand:
     @pytest.mark.asyncio
     async def test_stop_command_with_id(self, lifecycle):
         _active_debates["teams-xyz"] = TeamsActiveDebateState(
-            debate_id="teams-xyz", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="teams-xyz",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
-        with patch.object(
-            lifecycle, "post_stop", new_callable=AsyncMock, return_value=True
-        ):
+        with patch.object(lifecycle, "post_stop", new_callable=AsyncMock, return_value=True):
             activity = {
                 "text": "/aragora stop teams-xyz",
                 "conversation": {"id": "ch-1"},
@@ -1282,8 +1316,11 @@ class TestHandleBotCommand:
     @pytest.mark.asyncio
     async def test_status_command_active_debate(self, lifecycle):
         _active_debates["teams-xyz"] = TeamsActiveDebateState(
-            debate_id="teams-xyz", channel_id="ch-1", message_id="msg-1",
-            topic="Test topic", user_id="u-1",
+            debate_id="teams-xyz",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test topic",
+            user_id="u-1",
         )
         activity = {
             "text": "/aragora status teams-xyz",
@@ -1407,8 +1444,11 @@ class TestHandleAdaptiveCardAction:
     @pytest.mark.asyncio
     async def test_vote_action(self, lifecycle):
         _active_debates["d-1"] = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         activity = {
             "value": {"action": "vote", "vote": "agree", "debate_id": "d-1"},
@@ -1434,12 +1474,13 @@ class TestHandleAdaptiveCardAction:
     @pytest.mark.asyncio
     async def test_cancel_debate_action(self, lifecycle):
         _active_debates["d-1"] = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
-        with patch.object(
-            lifecycle, "post_stop", new_callable=AsyncMock, return_value=True
-        ):
+        with patch.object(lifecycle, "post_stop", new_callable=AsyncMock, return_value=True):
             activity = {
                 "value": {"action": "cancel_debate", "debate_id": "d-1"},
                 "conversation": {"id": "ch-1"},
@@ -1451,8 +1492,11 @@ class TestHandleAdaptiveCardAction:
     @pytest.mark.asyncio
     async def test_suggest_action(self, lifecycle):
         _active_debates["d-1"] = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         activity = {
             "value": {"action": "suggest", "suggestion": "My input", "debate_id": "d-1"},
@@ -1483,12 +1527,13 @@ class TestHandleThreadReply:
     @pytest.mark.asyncio
     async def test_stop_reply(self, lifecycle):
         _active_debates["d-1"] = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
-        with patch.object(
-            lifecycle, "post_stop", new_callable=AsyncMock, return_value=True
-        ):
+        with patch.object(lifecycle, "post_stop", new_callable=AsyncMock, return_value=True):
             activity = {
                 "text": "stop",
                 "conversation": {"id": "ch-1"},
@@ -1502,8 +1547,11 @@ class TestHandleThreadReply:
     @pytest.mark.asyncio
     async def test_agree_vote(self, lifecycle):
         _active_debates["d-1"] = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         activity = {
             "text": "agree",
@@ -1519,8 +1567,11 @@ class TestHandleThreadReply:
     @pytest.mark.asyncio
     async def test_disagree_vote(self, lifecycle):
         _active_debates["d-1"] = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         activity = {
             "text": "disagree",
@@ -1535,8 +1586,11 @@ class TestHandleThreadReply:
     @pytest.mark.asyncio
     async def test_abstain_vote(self, lifecycle):
         _active_debates["d-1"] = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         activity = {
             "text": "abstain",
@@ -1551,8 +1605,11 @@ class TestHandleThreadReply:
     @pytest.mark.asyncio
     async def test_suggestion_with_prefix(self, lifecycle):
         _active_debates["d-1"] = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         activity = {
             "text": "suggest: Use caching for performance",
@@ -1568,8 +1625,11 @@ class TestHandleThreadReply:
     @pytest.mark.asyncio
     async def test_free_text_as_suggestion(self, lifecycle):
         _active_debates["d-1"] = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         activity = {
             "text": "Consider using Redis for this",
@@ -1636,24 +1696,30 @@ class TestRunDebate:
         mock_env_cls = MagicMock()
         mock_proto_cls = MagicMock()
 
-        with patch.object(lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True):
+        with patch.object(
+            lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
+        ):
             with patch.object(
                 lifecycle, "post_consensus", new_callable=AsyncMock, return_value=True
             ) as mock_consensus:
-                with patch.dict("sys.modules", {
-                    "aragora": MagicMock(
-                        Arena=mock_arena_cls,
-                        Environment=mock_env_cls,
-                        DebateProtocol=mock_proto_cls,
-                    ),
-                }):
+                with patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora": MagicMock(
+                            Arena=mock_arena_cls,
+                            Environment=mock_env_cls,
+                            DebateProtocol=mock_proto_cls,
+                        ),
+                    },
+                ):
                     _active_debates["teams-test"] = TeamsActiveDebateState(
-                        debate_id="teams-test", channel_id="ch-1",
-                        message_id="msg-1", topic="Topic", user_id="u-1",
+                        debate_id="teams-test",
+                        channel_id="ch-1",
+                        message_id="msg-1",
+                        topic="Topic",
+                        user_id="u-1",
                     )
-                    result = await lifecycle.run_debate(
-                        "ch-1", "msg-1", "teams-test", "Test topic"
-                    )
+                    result = await lifecycle.run_debate("ch-1", "msg-1", "teams-test", "Test topic")
                     assert result is mock_result
                     mock_consensus.assert_called_once()
 
@@ -1674,25 +1740,33 @@ class TestRunDebate:
         mock_env_cls = MagicMock()
         mock_proto_cls = MagicMock()
 
-        with patch.object(lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True):
-            with patch.object(lifecycle, "post_consensus", new_callable=AsyncMock, return_value=True):
+        with patch.object(
+            lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
+        ):
+            with patch.object(
+                lifecycle, "post_consensus", new_callable=AsyncMock, return_value=True
+            ):
                 with patch.object(
                     lifecycle, "post_receipt", new_callable=AsyncMock, return_value=True
                 ) as mock_post_receipt:
-                    with patch.dict("sys.modules", {
-                        "aragora": MagicMock(
-                            Arena=mock_arena_cls,
-                            Environment=mock_env_cls,
-                            DebateProtocol=mock_proto_cls,
-                        ),
-                    }):
+                    with patch.dict(
+                        "sys.modules",
+                        {
+                            "aragora": MagicMock(
+                                Arena=mock_arena_cls,
+                                Environment=mock_env_cls,
+                                DebateProtocol=mock_proto_cls,
+                            ),
+                        },
+                    ):
                         _active_debates["teams-test"] = TeamsActiveDebateState(
-                            debate_id="teams-test", channel_id="ch-1",
-                            message_id="msg-1", topic="Topic", user_id="u-1",
+                            debate_id="teams-test",
+                            channel_id="ch-1",
+                            message_id="msg-1",
+                            topic="Topic",
+                            user_id="u-1",
                         )
-                        await lifecycle.run_debate(
-                            "ch-1", "msg-1", "teams-test", "Topic"
-                        )
+                        await lifecycle.run_debate("ch-1", "msg-1", "teams-test", "Topic")
                         mock_post_receipt.assert_called_once()
 
     @pytest.mark.asyncio
@@ -1714,49 +1788,61 @@ class TestRunDebate:
         mock_env_cls = MagicMock()
         mock_proto_cls = MagicMock()
 
-        with patch.object(lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True):
-            with patch.object(lifecycle, "post_consensus", new_callable=AsyncMock, return_value=True):
+        with patch.object(
+            lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
+        ):
+            with patch.object(
+                lifecycle, "post_consensus", new_callable=AsyncMock, return_value=True
+            ):
                 with patch.object(
                     lifecycle, "post_round_update", new_callable=AsyncMock, return_value=True
                 ) as mock_round:
-                    with patch.dict("sys.modules", {
-                        "aragora": MagicMock(
-                            Arena=mock_arena_cls,
-                            Environment=mock_env_cls,
-                            DebateProtocol=mock_proto_cls,
-                        ),
-                    }):
+                    with patch.dict(
+                        "sys.modules",
+                        {
+                            "aragora": MagicMock(
+                                Arena=mock_arena_cls,
+                                Environment=mock_env_cls,
+                                DebateProtocol=mock_proto_cls,
+                            ),
+                        },
+                    ):
                         _active_debates["teams-test"] = TeamsActiveDebateState(
-                            debate_id="teams-test", channel_id="ch-1",
-                            message_id="msg-1", topic="Topic", user_id="u-1",
+                            debate_id="teams-test",
+                            channel_id="ch-1",
+                            message_id="msg-1",
+                            topic="Topic",
+                            user_id="u-1",
                         )
-                        await lifecycle.run_debate(
-                            "ch-1", "msg-1", "teams-test", "Topic"
-                        )
+                        await lifecycle.run_debate("ch-1", "msg-1", "teams-test", "Topic")
                         assert mock_round.call_count == 2
 
     @pytest.mark.asyncio
     async def test_run_debate_cleans_up_on_timeout(self, lifecycle):
         """Timeout cleans up active debates and posts error."""
         _active_debates["teams-test"] = TeamsActiveDebateState(
-            debate_id="teams-test", channel_id="ch-1",
-            message_id="msg-1", topic="Topic", user_id="u-1",
+            debate_id="teams-test",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Topic",
+            user_id="u-1",
         )
-        with patch.object(lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True):
-            with patch.object(
-                lifecycle, "post_error", new_callable=AsyncMock
-            ) as mock_error:
-                with patch.dict("sys.modules", {
-                    "aragora": MagicMock(
-                        Arena=MagicMock(return_value=MagicMock(run=AsyncMock())),
-                        Environment=MagicMock(),
-                        DebateProtocol=MagicMock(),
-                    ),
-                }):
+        with patch.object(
+            lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
+        ):
+            with patch.object(lifecycle, "post_error", new_callable=AsyncMock) as mock_error:
+                with patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora": MagicMock(
+                            Arena=MagicMock(return_value=MagicMock(run=AsyncMock())),
+                            Environment=MagicMock(),
+                            DebateProtocol=MagicMock(),
+                        ),
+                    },
+                ):
                     with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
-                        result = await lifecycle.run_debate(
-                            "ch-1", "msg-1", "teams-test", "Topic"
-                        )
+                        result = await lifecycle.run_debate("ch-1", "msg-1", "teams-test", "Topic")
                         assert result is None
                         mock_error.assert_called_once()
                         assert "teams-test" not in _active_debates
@@ -1765,24 +1851,28 @@ class TestRunDebate:
     async def test_run_debate_cleans_up_on_error(self, lifecycle):
         """Runtime error cleans up active debates and posts error."""
         _active_debates["teams-test"] = TeamsActiveDebateState(
-            debate_id="teams-test", channel_id="ch-1",
-            message_id="msg-1", topic="Topic", user_id="u-1",
+            debate_id="teams-test",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Topic",
+            user_id="u-1",
         )
-        with patch.object(lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True):
-            with patch.object(
-                lifecycle, "post_error", new_callable=AsyncMock
-            ) as mock_error:
-                with patch.dict("sys.modules", {
-                    "aragora": MagicMock(
-                        Arena=MagicMock(return_value=MagicMock(run=AsyncMock())),
-                        Environment=MagicMock(),
-                        DebateProtocol=MagicMock(),
-                    ),
-                }):
+        with patch.object(
+            lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
+        ):
+            with patch.object(lifecycle, "post_error", new_callable=AsyncMock) as mock_error:
+                with patch.dict(
+                    "sys.modules",
+                    {
+                        "aragora": MagicMock(
+                            Arena=MagicMock(return_value=MagicMock(run=AsyncMock())),
+                            Environment=MagicMock(),
+                            DebateProtocol=MagicMock(),
+                        ),
+                    },
+                ):
                     with patch("asyncio.wait_for", side_effect=RuntimeError("boom")):
-                        result = await lifecycle.run_debate(
-                            "ch-1", "msg-1", "teams-test", "Topic"
-                        )
+                        result = await lifecycle.run_debate("ch-1", "msg-1", "teams-test", "Topic")
                         assert result is None
                         mock_error.assert_called_once()
                         assert "teams-test" not in _active_debates
@@ -1833,9 +1923,7 @@ class TestRunDebateBackground:
         with patch.object(
             lifecycle, "run_debate", new_callable=AsyncMock, return_value=None
         ) as mock_run:
-            await lifecycle._run_debate_background(
-                "ch-1", "msg-1", "d-bg-123", "Background topic"
-            )
+            await lifecycle._run_debate_background("ch-1", "msg-1", "d-bg-123", "Background topic")
             mock_run.assert_called_once_with(
                 channel_id="ch-1",
                 message_id="msg-1",
@@ -1851,19 +1939,18 @@ class TestRunDebateBackground:
             new_callable=AsyncMock,
             side_effect=RuntimeError("boom"),
         ):
-            with patch.object(
-                lifecycle, "post_error", new_callable=AsyncMock
-            ) as mock_error:
-                await lifecycle._run_debate_background(
-                    "ch-1", "msg-1", "d-err-123", "Error topic"
-                )
+            with patch.object(lifecycle, "post_error", new_callable=AsyncMock) as mock_error:
+                await lifecycle._run_debate_background("ch-1", "msg-1", "d-err-123", "Error topic")
                 mock_error.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_marks_state_failed_on_error(self, lifecycle):
         _active_debates["d-err"] = TeamsActiveDebateState(
-            debate_id="d-err", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-err",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         with patch.object(
             lifecycle,
@@ -1872,9 +1959,7 @@ class TestRunDebateBackground:
             side_effect=RuntimeError("boom"),
         ):
             with patch.object(lifecycle, "post_error", new_callable=AsyncMock):
-                await lifecycle._run_debate_background(
-                    "ch-1", "msg-1", "d-err", "Error topic"
-                )
+                await lifecycle._run_debate_background("ch-1", "msg-1", "d-err", "Error topic")
                 assert _active_debates["d-err"].status == "failed"
 
 
@@ -1901,9 +1986,7 @@ class TestDeliverReceiptToThread:
     @pytest.mark.asyncio
     async def test_loads_receipt_from_store(self, lifecycle):
         mock_receipt = _make_receipt()
-        with patch.object(
-            lifecycle, "_load_receipt", return_value=mock_receipt
-        ):
+        with patch.object(lifecycle, "_load_receipt", return_value=mock_receipt):
             with patch.object(
                 lifecycle, "_send_card_to_thread", new_callable=AsyncMock, return_value=True
             ):
@@ -1966,8 +2049,11 @@ class TestBuildHelpResponse:
 class TestGetDebateStatus:
     def test_active_debate(self, lifecycle):
         _active_debates["d-1"] = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         result = lifecycle._get_debate_status("d-1")
         assert "active" in result["text"]
@@ -1982,8 +2068,11 @@ class TestGetDebateStatus:
 
     def test_shows_vote_and_suggestion_counts(self, lifecycle):
         state = TeamsActiveDebateState(
-            debate_id="d-1", channel_id="ch-1", message_id="msg-1",
-            topic="Test", user_id="u-1",
+            debate_id="d-1",
+            channel_id="ch-1",
+            message_id="msg-1",
+            topic="Test",
+            user_id="u-1",
         )
         state.record_vote("v-1", "agree")
         state.add_suggestion("v-2", "idea")

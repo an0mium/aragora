@@ -64,6 +64,7 @@ class TestReceiptsGauntlet:
             )
             client.close()
 
+
 class TestReceiptsHelpers:
     """Tests for static helper methods."""
 

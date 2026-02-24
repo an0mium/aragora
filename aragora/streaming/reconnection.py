@@ -153,9 +153,7 @@ class ReconnectionContext:
         if self._attempt >= self._config.max_attempts:
             return self._config.max_delay
 
-        delay = self._config.initial_delay * (
-            self._config.backoff_factor ** self._attempt
-        )
+        delay = self._config.initial_delay * (self._config.backoff_factor**self._attempt)
         delay = min(delay, self._config.max_delay)
 
         # Apply jitter

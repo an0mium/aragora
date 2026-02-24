@@ -238,9 +238,7 @@ class WorkspacePipelineBridge:
         for bead in all_beads:
             # Freshness filter: exclude beads created before cutoff that
             # are not yet completed, or completed before cutoff.
-            bead_time = getattr(bead, "completed_at", None) or getattr(
-                bead, "created_at", None
-            )
+            bead_time = getattr(bead, "completed_at", None) or getattr(bead, "created_at", None)
             if bead_time is not None and bead_time < cutoff:
                 continue
 

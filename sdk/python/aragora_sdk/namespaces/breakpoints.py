@@ -35,9 +35,7 @@ class BreakpointsAPI:
 
     def get_status(self, breakpoint_id: str) -> dict[str, Any]:
         """Get the status of a specific breakpoint."""
-        return self._client.request(
-            "GET", f"/api/v1/breakpoints/{breakpoint_id}/status"
-        )
+        return self._client.request("GET", f"/api/v1/breakpoints/{breakpoint_id}/status")
 
     def resolve(self, breakpoint_id: str, **kwargs: Any) -> dict[str, Any]:
         """Resolve a breakpoint (continue or abort).
@@ -67,9 +65,7 @@ class AsyncBreakpointsAPI:
 
     async def get_status(self, breakpoint_id: str) -> dict[str, Any]:
         """Get the status of a specific breakpoint."""
-        return await self._client.request(
-            "GET", f"/api/v1/breakpoints/{breakpoint_id}/status"
-        )
+        return await self._client.request("GET", f"/api/v1/breakpoints/{breakpoint_id}/status")
 
     async def resolve(self, breakpoint_id: str, **kwargs: Any) -> dict[str, Any]:
         """Resolve a breakpoint (continue or abort)."""

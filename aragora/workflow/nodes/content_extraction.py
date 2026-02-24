@@ -183,6 +183,7 @@ class ContentExtractionStep(BaseStep):
 
         adapter = LangExtractAdapter()
         from aragora.knowledge.mound.adapters.langextract_adapter import ExtractionSchema
+
         extraction_schema = ExtractionSchema(name="structured", fields=schema or {})
         result = await adapter.extract_from_document(text, schema=extraction_schema)
         facts = result.facts if hasattr(result, "facts") else []
@@ -244,8 +245,7 @@ class ContentExtractionStep(BaseStep):
         relationships: list[Any] = []
         if hasattr(result, "relationships"):
             relationships = [
-                r.to_dict() if hasattr(r, "to_dict") else r
-                for r in result.relationships
+                r.to_dict() if hasattr(r, "to_dict") else r for r in result.relationships
             ][:max_entities]
         return {
             "success": True,

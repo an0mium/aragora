@@ -69,7 +69,9 @@ class TrainingAPI:
         params: dict[str, Any] = {}
         if limit is not None:
             params["limit"] = limit
-        return self._client.request("GET", "/api/v1/training/export/gauntlet", params=params or None)
+        return self._client.request(
+            "GET", "/api/v1/training/export/gauntlet", params=params or None
+        )
 
     def get_stats(self) -> dict[str, Any]:
         """Get training statistics."""
@@ -116,7 +118,9 @@ class AsyncTrainingAPI:
             params["min_confidence"] = min_confidence
         if limit is not None:
             params["limit"] = limit
-        return await self._client.request("GET", "/api/v1/training/export/sft", params=params or None)
+        return await self._client.request(
+            "GET", "/api/v1/training/export/sft", params=params or None
+        )
 
     async def export_dpo(
         self,
@@ -129,7 +133,9 @@ class AsyncTrainingAPI:
             params["min_confidence_diff"] = min_confidence_diff
         if limit is not None:
             params["limit"] = limit
-        return await self._client.request("GET", "/api/v1/training/export/dpo", params=params or None)
+        return await self._client.request(
+            "GET", "/api/v1/training/export/dpo", params=params or None
+        )
 
     async def export_gauntlet(
         self,
@@ -139,7 +145,9 @@ class AsyncTrainingAPI:
         params: dict[str, Any] = {}
         if limit is not None:
             params["limit"] = limit
-        return await self._client.request("GET", "/api/v1/training/export/gauntlet", params=params or None)
+        return await self._client.request(
+            "GET", "/api/v1/training/export/gauntlet", params=params or None
+        )
 
     async def get_stats(self) -> dict[str, Any]:
         """Get training statistics."""

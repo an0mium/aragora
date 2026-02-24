@@ -17,6 +17,7 @@ _List = list  # Preserve builtin list for type annotations
 TournamentFormat = Literal["single_elimination", "double_elimination", "round_robin", "swiss"]
 TournamentStatus = Literal["pending", "active", "completed", "cancelled"]
 
+
 class TournamentsAPI:
     """
     Synchronous Tournaments API.
@@ -202,6 +203,7 @@ class TournamentsAPI:
         """
         return self._client.request("POST", f"/api/v1/tournaments/{tournament_id}/advance")
 
+
 class AsyncTournamentsAPI:
     """
     Asynchronous Tournaments API.
@@ -298,4 +300,3 @@ class AsyncTournamentsAPI:
     async def advance(self, tournament_id: str) -> dict[str, Any]:
         """Advance the tournament to the next round."""
         return await self._client.request("POST", f"/api/v1/tournaments/{tournament_id}/advance")
-

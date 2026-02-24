@@ -173,9 +173,7 @@ class TestFeatured:
 
     def test_featured_returns_items(self, handler, mock_http):
         """Featured endpoint returns featured items."""
-        result = handler.handle(
-            "/api/v1/marketplace/listings/featured", {}, mock_http
-        )
+        result = handler.handle("/api/v1/marketplace/listings/featured", {}, mock_http)
         data = _parse_data(result)
         assert "items" in data
         for item in data["items"]:
@@ -202,9 +200,7 @@ class TestStats:
 
     def test_stats_returns_counts(self, handler, mock_http):
         """Stats endpoint returns type breakdown."""
-        result = handler.handle(
-            "/api/v1/marketplace/listings/stats", {}, mock_http
-        )
+        result = handler.handle("/api/v1/marketplace/listings/stats", {}, mock_http)
         data = _parse_data(result)
         assert "total_items" in data
         assert data["total_items"] >= 10
@@ -222,9 +218,7 @@ class TestGetDetail:
 
     def test_get_existing_item(self, handler, mock_http):
         """Detail endpoint returns enriched item dict."""
-        result = handler.handle(
-            "/api/v1/marketplace/listings/tpl-code-review", {}, mock_http
-        )
+        result = handler.handle("/api/v1/marketplace/listings/tpl-code-review", {}, mock_http)
         data = _parse_data(result)
         assert data["id"] == "tpl-code-review"
         assert data["name"] == "Code Review Pipeline"
@@ -233,18 +227,14 @@ class TestGetDetail:
 
     def test_get_nonexistent_item(self, handler, mock_http):
         """Detail endpoint returns 404 for unknown ID."""
-        result = handler.handle(
-            "/api/v1/marketplace/listings/nonexistent-id", {}, mock_http
-        )
+        result = handler.handle("/api/v1/marketplace/listings/nonexistent-id", {}, mock_http)
         assert result is not None
         status = result.status_code if hasattr(result, "status_code") else result[1]
         assert status == 404
 
     def test_get_invalid_id(self, handler, mock_http):
         """Detail endpoint returns 400 for invalid ID pattern."""
-        result = handler.handle(
-            "/api/v1/marketplace/listings/!!!invalid!!!", {}, mock_http
-        )
+        result = handler.handle("/api/v1/marketplace/listings/!!!invalid!!!", {}, mock_http)
         assert result is not None
         status = result.status_code if hasattr(result, "status_code") else result[1]
         assert status == 400

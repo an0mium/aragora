@@ -122,15 +122,11 @@ class TestShouldSkip:
 
     def test_skip_ssrf_module(self):
         base = Path("/project")
-        assert _should_skip(
-            Path("/project/aragora/security/ssrf_protection.py"), base
-        ) is True
+        assert _should_skip(Path("/project/aragora/security/ssrf_protection.py"), base) is True
 
     def test_allow_normal_file(self):
         base = Path("/project")
-        assert _should_skip(
-            Path("/project/aragora/connectors/slack.py"), base
-        ) is False
+        assert _should_skip(Path("/project/aragora/connectors/slack.py"), base) is False
 
 
 class TestScanDirectory:
@@ -182,11 +178,7 @@ class TestScanDirectory:
     def test_multiple_violations_in_file(self, tmp_path):
         """Should report each unguarded call."""
         module = tmp_path / "multi.py"
-        module.write_text(
-            "import requests\nimport httpx\n"
-            "requests.get(url)\n"
-            "httpx.post(url)\n"
-        )
+        module.write_text("import requests\nimport httpx\nrequests.get(url)\nhttpx.post(url)\n")
 
         violations = scan_directory(tmp_path)
         assert len(violations) == 2

@@ -31,6 +31,7 @@ AuditEventType = Literal[
     "compliance",
 ]
 
+
 class ComplianceAPI:
     """
     Synchronous Compliance API.
@@ -71,7 +72,9 @@ class ComplianceAPI:
 
     def get_audit_events(self, limit: int = 100, offset: int = 0) -> dict[str, Any]:
         """Get compliance audit events."""
-        return self._client.request("GET", "/api/v1/compliance/audit-events", params={"limit": limit, "offset": offset})
+        return self._client.request(
+            "GET", "/api/v1/compliance/audit-events", params={"limit": limit, "offset": offset}
+        )
 
     def verify_audit(self, event_id: str | None = None) -> dict[str, Any]:
         """Verify audit trail integrity."""
@@ -89,7 +92,11 @@ class ComplianceAPI:
 
     def gdpr_right_to_be_forgotten(self, user_id: str, confirm: bool = True) -> dict[str, Any]:
         """Execute GDPR right to be forgotten."""
-        return self._client.request("POST", "/api/v1/compliance/gdpr/right-to-be-forgotten", json={"user_id": user_id, "confirm": confirm})
+        return self._client.request(
+            "POST",
+            "/api/v1/compliance/gdpr/right-to-be-forgotten",
+            json={"user_id": user_id, "confirm": confirm},
+        )
 
     def validate_policies(self, policies: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         """Validate compliance policies."""
@@ -100,7 +107,9 @@ class ComplianceAPI:
 
     def get_violations(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get policy violations."""
-        return self._client.request("GET", "/api/v1/policies/violations", params={"limit": limit, "offset": offset})
+        return self._client.request(
+            "GET", "/api/v1/policies/violations", params={"limit": limit, "offset": offset}
+        )
 
     def check(self, **kwargs: Any) -> dict[str, Any]:
         """Run a compliance check against current configuration.
@@ -132,7 +141,8 @@ class ComplianceAPI:
             List of compliance violations.
         """
         return self._client.request(
-            "GET", "/api/v1/compliance/violations",
+            "GET",
+            "/api/v1/compliance/violations",
             params={"limit": limit, "offset": offset},
         )
 
@@ -177,7 +187,9 @@ class ComplianceAPI:
             payload["remediation_notes"] = remediation_notes
         if due_date:
             payload["due_date"] = due_date
-        return self._client.request("PUT", f"/api/v1/compliance/violations/{violation_id}", json=payload)
+        return self._client.request(
+            "PUT", f"/api/v1/compliance/violations/{violation_id}", json=payload
+        )
 
     # ===========================================================================
     # EU AI Act
@@ -191,7 +203,8 @@ class ComplianceAPI:
         Returns:
             Risk classification with level, rationale, and obligations.
         """
-        return self._client.request("POST",
+        return self._client.request(
+            "POST",
             "/api/v2/compliance/eu-ai-act/classify",
             json={"description": description},
         )
@@ -205,7 +218,8 @@ class ComplianceAPI:
         Returns:
             Conformity report with article-by-article assessment.
         """
-        return self._client.request("POST",
+        return self._client.request(
+            "POST",
             "/api/v2/compliance/eu-ai-act/audit",
             json={"receipt": receipt},
         )
@@ -247,16 +261,18 @@ class ComplianceAPI:
             body["system_name"] = system_name
         if system_version:
             body["system_version"] = system_version
-        return self._client.request("POST",
+        return self._client.request(
+            "POST",
             "/api/v2/compliance/eu-ai-act/generate-bundle",
             json=body,
         )
 
-
     # ===========================================================================
     # HIPAA Compliance
 
-    def hipaa_status(self, *, scope: str = "summary", include_recommendations: bool = True) -> dict[str, Any]:
+    def hipaa_status(
+        self, *, scope: str = "summary", include_recommendations: bool = True
+    ) -> dict[str, Any]:
         """Get HIPAA compliance status overview.
 
         Args:
@@ -266,9 +282,13 @@ class ComplianceAPI:
         Returns:
             HIPAA compliance status with score, rules, and BAA summary.
         """
-        return self._client.request("GET",
+        return self._client.request(
+            "GET",
             "/api/v2/compliance/hipaa/status",
-            params={"scope": scope, "include_recommendations": str(include_recommendations).lower()},
+            params={
+                "scope": scope,
+                "include_recommendations": str(include_recommendations).lower(),
+            },
         )
 
     def hipaa_phi_access_log(
@@ -301,7 +321,7 @@ class ComplianceAPI:
             params["from"] = from_date
         if to_date:
             params["to"] = to_date
-        return self._client.request("GET","/api/v2/compliance/hipaa/phi-access", params=params)
+        return self._client.request("GET", "/api/v2/compliance/hipaa/phi-access", params=params)
 
     def hipaa_breach_assessment(
         self,
@@ -340,11 +360,9 @@ class ComplianceAPI:
             body["unauthorized_access"] = unauthorized_access
         if mitigation_actions:
             body["mitigation_actions"] = mitigation_actions
-        return self._client.request("POST","/api/v2/compliance/hipaa/breach-assessment", json=body)
+        return self._client.request("POST", "/api/v2/compliance/hipaa/breach-assessment", json=body)
 
-    def hipaa_list_baas(
-        self, *, status: str = "active", ba_type: str = "all"
-    ) -> dict[str, Any]:
+    def hipaa_list_baas(self, *, status: str = "active", ba_type: str = "all") -> dict[str, Any]:
         """List Business Associate Agreements.
 
         Args:
@@ -354,7 +372,8 @@ class ComplianceAPI:
         Returns:
             List of BAAs with count and filters.
         """
-        return self._client.request("GET",
+        return self._client.request(
+            "GET",
             "/api/v2/compliance/hipaa/baa",
             params={"status": status, "ba_type": ba_type},
         )
@@ -396,7 +415,7 @@ class ComplianceAPI:
             body["agreement_date"] = agreement_date
         if expiration_date:
             body["expiration_date"] = expiration_date
-        return self._client.request("POST","/api/v2/compliance/hipaa/baa", json=body)
+        return self._client.request("POST", "/api/v2/compliance/hipaa/baa", json=body)
 
     def hipaa_security_report(
         self, *, format: str = "json", include_evidence: bool = False
@@ -410,7 +429,8 @@ class ComplianceAPI:
         Returns:
             HIPAA Security Rule compliance report.
         """
-        return self._client.request("GET",
+        return self._client.request(
+            "GET",
             "/api/v2/compliance/hipaa/security-report",
             params={"format": format, "include_evidence": str(include_evidence).lower()},
         )
@@ -441,7 +461,7 @@ class ComplianceAPI:
             body["data"] = data
         if identifier_types:
             body["identifier_types"] = identifier_types
-        return self._client.request("POST","/api/v2/compliance/hipaa/deidentify", json=body)
+        return self._client.request("POST", "/api/v2/compliance/hipaa/deidentify", json=body)
 
     def hipaa_safe_harbor_verify(self, content: str) -> dict[str, Any]:
         """Verify content meets HIPAA Safe Harbor requirements.
@@ -452,14 +472,13 @@ class ComplianceAPI:
         Returns:
             Safe Harbor compliance result with identifiers remaining.
         """
-        return self._client.request("POST",
+        return self._client.request(
+            "POST",
             "/api/v2/compliance/hipaa/safe-harbor/verify",
             json={"content": content},
         )
 
-    def hipaa_detect_phi(
-        self, content: str, *, min_confidence: float = 0.5
-    ) -> dict[str, Any]:
+    def hipaa_detect_phi(self, content: str, *, min_confidence: float = 0.5) -> dict[str, Any]:
         """Detect HIPAA PHI identifiers in content.
 
         Args:
@@ -469,7 +488,8 @@ class ComplianceAPI:
         Returns:
             Detected identifiers with types, positions, and confidence scores.
         """
-        return self._client.request("POST",
+        return self._client.request(
+            "POST",
             "/api/v2/compliance/hipaa/detect-phi",
             json={"content": content, "min_confidence": min_confidence},
         )
@@ -513,7 +533,9 @@ class AsyncComplianceAPI:
 
     async def get_audit_events(self, limit: int = 100, offset: int = 0) -> dict[str, Any]:
         """Get compliance audit events."""
-        return await self._client.request("GET", "/api/v1/compliance/audit-events", params={"limit": limit, "offset": offset})
+        return await self._client.request(
+            "GET", "/api/v1/compliance/audit-events", params={"limit": limit, "offset": offset}
+        )
 
     async def verify_audit(self, event_id: str | None = None) -> dict[str, Any]:
         """Verify audit trail integrity."""
@@ -529,11 +551,19 @@ class AsyncComplianceAPI:
             params["user_id"] = user_id
         return await self._client.request("GET", "/api/v1/compliance/gdpr-export", params=params)
 
-    async def gdpr_right_to_be_forgotten(self, user_id: str, confirm: bool = True) -> dict[str, Any]:
+    async def gdpr_right_to_be_forgotten(
+        self, user_id: str, confirm: bool = True
+    ) -> dict[str, Any]:
         """Execute GDPR right to be forgotten."""
-        return await self._client.request("POST", "/api/v1/compliance/gdpr/right-to-be-forgotten", json={"user_id": user_id, "confirm": confirm})
+        return await self._client.request(
+            "POST",
+            "/api/v1/compliance/gdpr/right-to-be-forgotten",
+            json={"user_id": user_id, "confirm": confirm},
+        )
 
-    async def validate_policies(self, policies: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    async def validate_policies(
+        self, policies: list[dict[str, Any]] | None = None
+    ) -> dict[str, Any]:
         """Validate compliance policies."""
         data: dict[str, Any] = {}
         if policies:
@@ -542,7 +572,9 @@ class AsyncComplianceAPI:
 
     async def get_violations(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get policy violations."""
-        return await self._client.request("GET", "/api/v1/policies/violations", params={"limit": limit, "offset": offset})
+        return await self._client.request(
+            "GET", "/api/v1/policies/violations", params={"limit": limit, "offset": offset}
+        )
 
     async def check(self, **kwargs: Any) -> dict[str, Any]:
         """Run a compliance check against current configuration."""
@@ -555,7 +587,8 @@ class AsyncComplianceAPI:
     async def get_violations_list(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """Get compliance violations list."""
         return await self._client.request(
-            "GET", "/api/v1/compliance/violations",
+            "GET",
+            "/api/v1/compliance/violations",
             params={"limit": limit, "offset": offset},
         )
 
@@ -582,21 +615,25 @@ class AsyncComplianceAPI:
             payload["remediation_notes"] = remediation_notes
         if due_date:
             payload["due_date"] = due_date
-        return await self._client.request("PUT", f"/api/v1/compliance/violations/{violation_id}", json=payload)
+        return await self._client.request(
+            "PUT", f"/api/v1/compliance/violations/{violation_id}", json=payload
+        )
 
     # ===========================================================================
     # EU AI Act
 
     async def eu_ai_act_classify(self, description: str) -> dict[str, Any]:
         """Classify an AI use case by EU AI Act risk level."""
-        return await self._client.request("POST",
+        return await self._client.request(
+            "POST",
             "/api/v2/compliance/eu-ai-act/classify",
             json={"description": description},
         )
 
     async def eu_ai_act_audit(self, receipt: dict[str, Any]) -> dict[str, Any]:
         """Generate a conformity report from a decision receipt."""
-        return await self._client.request("POST",
+        return await self._client.request(
+            "POST",
             "/api/v2/compliance/eu-ai-act/audit",
             json={"receipt": receipt},
         )
@@ -623,7 +660,8 @@ class AsyncComplianceAPI:
             body["system_name"] = system_name
         if system_version:
             body["system_version"] = system_version
-        return await self._client.request("POST",
+        return await self._client.request(
+            "POST",
             "/api/v2/compliance/eu-ai-act/generate-bundle",
             json=body,
         )
@@ -631,11 +669,17 @@ class AsyncComplianceAPI:
     # ===========================================================================
     # HIPAA Compliance
 
-    async def hipaa_status(self, *, scope: str = "summary", include_recommendations: bool = True) -> dict[str, Any]:
+    async def hipaa_status(
+        self, *, scope: str = "summary", include_recommendations: bool = True
+    ) -> dict[str, Any]:
         """Get HIPAA compliance status overview."""
-        return await self._client.request("GET",
+        return await self._client.request(
+            "GET",
             "/api/v2/compliance/hipaa/status",
-            params={"scope": scope, "include_recommendations": str(include_recommendations).lower()},
+            params={
+                "scope": scope,
+                "include_recommendations": str(include_recommendations).lower(),
+            },
         )
 
     async def hipaa_phi_access_log(
@@ -657,7 +701,9 @@ class AsyncComplianceAPI:
             params["from"] = from_date
         if to_date:
             params["to"] = to_date
-        return await self._client.request("GET","/api/v2/compliance/hipaa/phi-access", params=params)
+        return await self._client.request(
+            "GET", "/api/v2/compliance/hipaa/phi-access", params=params
+        )
 
     async def hipaa_breach_assessment(
         self,
@@ -683,13 +729,16 @@ class AsyncComplianceAPI:
             body["unauthorized_access"] = unauthorized_access
         if mitigation_actions:
             body["mitigation_actions"] = mitigation_actions
-        return await self._client.request("POST","/api/v2/compliance/hipaa/breach-assessment", json=body)
+        return await self._client.request(
+            "POST", "/api/v2/compliance/hipaa/breach-assessment", json=body
+        )
 
     async def hipaa_list_baas(
         self, *, status: str = "active", ba_type: str = "all"
     ) -> dict[str, Any]:
         """List Business Associate Agreements."""
-        return await self._client.request("GET",
+        return await self._client.request(
+            "GET",
             "/api/v2/compliance/hipaa/baa",
             params={"status": status, "ba_type": ba_type},
         )
@@ -718,13 +767,14 @@ class AsyncComplianceAPI:
             body["agreement_date"] = agreement_date
         if expiration_date:
             body["expiration_date"] = expiration_date
-        return await self._client.request("POST","/api/v2/compliance/hipaa/baa", json=body)
+        return await self._client.request("POST", "/api/v2/compliance/hipaa/baa", json=body)
 
     async def hipaa_security_report(
         self, *, format: str = "json", include_evidence: bool = False
     ) -> dict[str, Any]:
         """Generate HIPAA Security Rule compliance report."""
-        return await self._client.request("GET",
+        return await self._client.request(
+            "GET",
             "/api/v2/compliance/hipaa/security-report",
             params={"format": format, "include_evidence": str(include_evidence).lower()},
         )
@@ -745,11 +795,12 @@ class AsyncComplianceAPI:
             body["data"] = data
         if identifier_types:
             body["identifier_types"] = identifier_types
-        return await self._client.request("POST","/api/v2/compliance/hipaa/deidentify", json=body)
+        return await self._client.request("POST", "/api/v2/compliance/hipaa/deidentify", json=body)
 
     async def hipaa_safe_harbor_verify(self, content: str) -> dict[str, Any]:
         """Verify content meets HIPAA Safe Harbor requirements."""
-        return await self._client.request("POST",
+        return await self._client.request(
+            "POST",
             "/api/v2/compliance/hipaa/safe-harbor/verify",
             json={"content": content},
         )
@@ -758,7 +809,8 @@ class AsyncComplianceAPI:
         self, content: str, *, min_confidence: float = 0.5
     ) -> dict[str, Any]:
         """Detect HIPAA PHI identifiers in content."""
-        return await self._client.request("POST",
+        return await self._client.request(
+            "POST",
             "/api/v2/compliance/hipaa/detect-phi",
             json={"content": content, "min_confidence": min_confidence},
         )

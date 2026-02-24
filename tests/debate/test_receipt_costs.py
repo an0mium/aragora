@@ -356,9 +356,7 @@ class TestReceiptFromDebateResultWithCost:
     """Tests for DecisionReceipt.from_debate_result cost_summary param."""
 
     def test_receipt_includes_cost_when_provided(self):
-        cost_data = _make_cost_summary_dict(
-            agents={"claude": "0.015", "gpt-4o": "0.0084"}
-        )
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
         receipt = _make_receipt_with_cost(cost_summary=cost_data)
 
         assert receipt.cost_summary is not None
@@ -420,9 +418,7 @@ class TestCostBreakdownStructure:
     """Validate the structure of cost breakdown dicts."""
 
     def test_per_agent_breakdown_structure(self):
-        cost_data = _make_cost_summary_dict(
-            agents={"claude": "0.015", "gpt-4o": "0.0084"}
-        )
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
         per_agent = cost_data["per_agent"]
 
         for agent_name, breakdown in per_agent.items():
@@ -472,9 +468,7 @@ class TestMarkdownCostRendering:
     """Tests for cost breakdown in markdown export."""
 
     def test_markdown_includes_cost_section(self):
-        cost_data = _make_cost_summary_dict(
-            agents={"claude": "0.015", "gpt-4o": "0.0084"}
-        )
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
         receipt = _make_receipt_with_cost(cost_summary=cost_data)
 
         md = receipt.to_markdown()
@@ -482,9 +476,7 @@ class TestMarkdownCostRendering:
         assert "$0.0234" in md
 
     def test_markdown_includes_per_agent_table(self):
-        cost_data = _make_cost_summary_dict(
-            agents={"claude": "0.015", "gpt-4o": "0.0084"}
-        )
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
         receipt = _make_receipt_with_cost(cost_summary=cost_data)
 
         md = receipt.to_markdown()
@@ -526,9 +518,7 @@ class TestHTMLCostRendering:
     """Tests for cost breakdown in HTML export."""
 
     def test_html_includes_cost_section(self):
-        cost_data = _make_cost_summary_dict(
-            agents={"claude": "0.015", "gpt-4o": "0.0084"}
-        )
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
         receipt = _make_receipt_with_cost(cost_summary=cost_data)
 
         html = receipt.to_html()
@@ -536,9 +526,7 @@ class TestHTMLCostRendering:
         assert "$0.0234" in html
 
     def test_html_includes_per_agent_table(self):
-        cost_data = _make_cost_summary_dict(
-            agents={"claude": "0.015", "gpt-4o": "0.0084"}
-        )
+        cost_data = _make_cost_summary_dict(agents={"claude": "0.015", "gpt-4o": "0.0084"})
         receipt = _make_receipt_with_cost(cost_summary=cost_data)
 
         html = receipt.to_html()

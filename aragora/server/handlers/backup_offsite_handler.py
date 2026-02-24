@@ -129,12 +129,14 @@ class BackupOffsiteHandler(BaseHandler):
 
         drills = manager.get_drill_history(limit=limit)
 
-        return json_response({
-            "data": {
-                "drills": [d.to_dict() for d in drills],
-                "total": len(drills),
+        return json_response(
+            {
+                "data": {
+                    "drills": [d.to_dict() for d in drills],
+                    "total": len(drills),
+                }
             }
-        })
+        )
 
     @handle_errors("backup restore drill")
     @require_permission("backups:create")

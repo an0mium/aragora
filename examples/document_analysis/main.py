@@ -27,6 +27,7 @@ from pathlib import Path
 
 # --- API key check -------------------------------------------------------
 
+
 def _check_api_keys() -> None:
     """Exit early with a helpful message if no API keys are configured."""
     keys = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY")
@@ -76,6 +77,7 @@ def load_document(path: str) -> tuple[str, str]:
 
 
 # --- Debate setup ---------------------------------------------------------
+
 
 def build_analysis_task(content: str, filename: str) -> str:
     """Build the debate task prompt for document analysis."""
@@ -147,13 +149,13 @@ async def run_analysis(content: str, filename: str) -> dict:
 
 # --- CLI entry point ------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Multi-agent document analysis via Aragora"
-    )
+    parser = argparse.ArgumentParser(description="Multi-agent document analysis via Aragora")
     parser.add_argument("document", help="Path to the document to analyze")
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Write JSON report to this file (default: stdout)",
     )
     parser.add_argument(
@@ -171,8 +173,9 @@ async def main() -> None:
 
     # Load the document
     content, filename = load_document(args.document)
-    print(f"Analyzing '{filename}' ({len(content)} chars) with multi-agent debate...",
-          file=sys.stderr)
+    print(
+        f"Analyzing '{filename}' ({len(content)} chars) with multi-agent debate...", file=sys.stderr
+    )
 
     # Run the analysis
     report = await run_analysis(content, filename)

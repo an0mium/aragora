@@ -72,10 +72,13 @@ def aragora_get(path: str) -> dict:
         return {}
 
     url = f"{ARAGORA_URL}{path}"
-    req = Request(url, headers={
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    })
+    req = Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+    )
     try:
         with urlopen(req, timeout=30) as resp:
             return json.loads(resp.read())
@@ -99,7 +102,9 @@ def fetch_zendesk_tickets() -> dict:
     return aragora_get("/api/v1/support/zendesk/tickets")
 
 
-def build_briefing(inbox: dict, orders: dict | None = None, tickets: dict | None = None) -> list[dict]:
+def build_briefing(
+    inbox: dict, orders: dict | None = None, tickets: dict | None = None
+) -> list[dict]:
     """Build Slack Block Kit message from inbox data."""
     now = datetime.now(timezone.utc).strftime("%A, %B %d %Y")
     emails = inbox.get("emails", inbox.get("messages", []))
@@ -129,63 +134,75 @@ def build_briefing(inbox: dict, orders: dict | None = None, tickets: dict | None
 
     if high:
         blocks.append({"type": "divider"})
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": "*Urgent — needs attention:*"},
-        })
+        blocks.append(
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "*Urgent — needs attention:*"},
+            }
+        )
         for email in high[:10]:
             sender = email.get("from", email.get("sender", "Unknown"))
             subject = email.get("subject", "(no subject)")
             category = email.get("category", "")
             tag = f" `{category}`" if category else ""
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"\u2022 *{subject}*\n  From: {sender}{tag}",
-                },
-            })
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"\u2022 *{subject}*\n  From: {sender}{tag}",
+                    },
+                }
+            )
 
     if medium:
         blocks.append({"type": "divider"})
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"*Medium priority:* {len(medium)} emails (vendors, inventory, accounts)",
-            },
-        })
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Medium priority:* {len(medium)} emails (vendors, inventory, accounts)",
+                },
+            }
+        )
 
     if low:
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"*Low priority:* {len(low)} emails (newsletters, notifications)",
-            },
-        })
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Low priority:* {len(low)} emails (newsletters, notifications)",
+                },
+            }
+        )
 
     # ── Orders section ──────────────────────────────────────────────
     if orders:
         order_list = orders.get("orders", [])
         unfulfilled = [o for o in order_list if o.get("fulfillment_status") != "fulfilled"]
         total_revenue = sum(float(o.get("total_price", 0)) for o in order_list)
-        returns = [o for o in order_list if o.get("financial_status") in ("refunded", "partially_refunded")]
+        returns = [
+            o for o in order_list if o.get("financial_status") in ("refunded", "partially_refunded")
+        ]
 
         blocks.append({"type": "divider"})
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": (
-                    f"*Shopify Orders*\n"
-                    f"*{len(order_list)}* new orders | "
-                    f"*${total_revenue:,.2f}* revenue | "
-                    f"*{len(unfulfilled)}* unfulfilled"
-                    + (f" | *{len(returns)}* returns" if returns else "")
-                ),
-            },
-        })
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": (
+                        f"*Shopify Orders*\n"
+                        f"*{len(order_list)}* new orders | "
+                        f"*${total_revenue:,.2f}* revenue | "
+                        f"*{len(unfulfilled)}* unfulfilled"
+                        + (f" | *{len(returns)}* returns" if returns else "")
+                    ),
+                },
+            }
+        )
 
     # ── Tickets section ──────────────────────────────────────────────
     if tickets:
@@ -203,22 +220,26 @@ def build_briefing(inbox: dict, orders: dict | None = None, tickets: dict | None
         ]
         if avg_wait is not None:
             text_parts.append(f" | avg response *{avg_wait:.1f}h*")
-        blocks.append({
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": "".join(text_parts)},
-        })
+        blocks.append(
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "".join(text_parts)},
+            }
+        )
 
     blocks.append({"type": "divider"})
-    blocks.append({
-        "type": "actions",
-        "elements": [
-            {
-                "type": "button",
-                "text": {"type": "plain_text", "text": "Open Aragora"},
-                "url": f"{ARAGORA_URL}",
-            },
-        ],
-    })
+    blocks.append(
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Open Aragora"},
+                    "url": f"{ARAGORA_URL}",
+                },
+            ],
+        }
+    )
 
     return blocks
 
@@ -231,15 +252,21 @@ def post_to_slack(blocks: list[dict], text: str = "LiftMode Daily Briefing") -> 
         return False
 
     channel = os.environ.get("SLACK_CHANNEL", "#ops")
-    payload = json.dumps({
-        "channel": channel,
-        "text": text,
-        "blocks": blocks,
-    }).encode()
+    payload = json.dumps(
+        {
+            "channel": channel,
+            "text": text,
+            "blocks": blocks,
+        }
+    ).encode()
 
-    req = Request(webhook_url, data=payload, headers={
-        "Content-Type": "application/json",
-    })
+    req = Request(
+        webhook_url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+        },
+    )
     try:
         with urlopen(req, timeout=15) as resp:
             if resp.status == 200:
@@ -259,10 +286,12 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.test:
-        blocks = [{
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": "Test briefing from Aragora. Connection OK."},
-        }]
+        blocks = [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "Test briefing from Aragora. Connection OK."},
+            }
+        ]
         if args.dry_run:
             print(json.dumps(blocks, indent=2))
             return 0
@@ -274,13 +303,15 @@ def main() -> int:
 
     if not inbox and not orders and not tickets:
         logger.warning("No data — Aragora may not be running or connectors not synced")
-        blocks = [{
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "Could not fetch data. Check that Aragora is running and connectors are synced.",
-            },
-        }]
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "Could not fetch data. Check that Aragora is running and connectors are synced.",
+                },
+            }
+        ]
     else:
         blocks = build_briefing(inbox, orders=orders or None, tickets=tickets or None)
 

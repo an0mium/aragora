@@ -52,6 +52,7 @@ class TestAnalyticsDashboardOverview:
             assert result["average_rounds"] == 3.5
             client.close()
 
+
 class TestAnalyticsTimeSeries:
     """Tests for time-series and trend data endpoints."""
 
@@ -101,6 +102,7 @@ class TestAnalyticsTimeSeries:
             assert result["topics"][0]["name"] == "architecture"
             client.close()
 
+
 class TestAnalyticsAgentPerformance:
     """Tests for agent analytics and comparison endpoints."""
 
@@ -130,6 +132,7 @@ class TestAnalyticsAgentPerformance:
                 params={"agents": "claude,gpt-4,gemini"},
             )
             client.close()
+
 
 class TestAnalyticsReportsAndCosts:
     """Tests for usage tracking, cost breakdown, and report-style endpoints."""
@@ -176,6 +179,7 @@ class TestAnalyticsReportsAndCosts:
             )
             assert result["total"] == 80
             client.close()
+
 
 class TestAsyncAnalytics:
     """Tests for async analytics methods."""

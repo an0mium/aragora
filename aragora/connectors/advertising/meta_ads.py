@@ -410,16 +410,29 @@ class MetaAdsConnector:
                 response = await client.request(method, path, params=params, json=json_data)
 
                 if response.status_code == 429 and attempt < _MAX_RETRIES:
-                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    retry_after = float(
+                        response.headers.get("Retry-After", _BASE_DELAY * (2**attempt))
+                    )
                     jitter = random.uniform(0, retry_after * 0.3)
                     delay = min(retry_after + jitter, _MAX_DELAY)
-                    logger.warning("Meta Ads rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    logger.warning(
+                        "Meta Ads rate limited, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
 
                 if response.status_code >= 500 and attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Meta Ads server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Meta Ads server error %d, retrying in %.1fs (attempt %d/%d)",
+                        response.status_code,
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
 
@@ -438,15 +451,25 @@ class MetaAdsConnector:
             except httpx.TimeoutException as e:
                 last_error = e
                 if attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Meta Ads request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Meta Ads request timeout, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
             except httpx.ConnectError as e:
                 last_error = e
                 if attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Meta Ads connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Meta Ads connection error, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
             except MetaAdsError:

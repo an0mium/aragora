@@ -172,9 +172,7 @@ class TestClassifyEndpoint:
 
     @pytest.mark.asyncio
     async def test_classify_public_data(self, handler_instance):
-        result = await handler_instance._classify_data(
-            {"data": {"title": "Hello World"}}
-        )
+        result = await handler_instance._classify_data({"data": {"title": "Hello World"}})
         body = _parse_data(result)
         assert "data" in body
         assert body["data"]["classification"] == "public"
@@ -192,9 +190,7 @@ class TestClassifyEndpoint:
 
     @pytest.mark.asyncio
     async def test_classify_restricted_data(self, handler_instance):
-        result = await handler_instance._classify_data(
-            {"data": {"api_key": "sk-secret-abc"}}
-        )
+        result = await handler_instance._classify_data({"data": {"api_key": "sk-secret-abc"}})
         body = _parse_data(result)
         assert body["data"]["classification"] == "restricted"
 
@@ -223,9 +219,7 @@ class TestClassifyEndpoint:
 
     @pytest.mark.asyncio
     async def test_classify_has_timestamp(self, handler_instance):
-        result = await handler_instance._classify_data(
-            {"data": {"title": "test"}}
-        )
+        result = await handler_instance._classify_data({"data": {"title": "test"}})
         body = _parse_data(result)
         assert "classified_at" in body["data"]
 
@@ -240,86 +234,102 @@ class TestValidateEndpoint:
 
     @pytest.mark.asyncio
     async def test_validate_public_read_allowed(self, handler_instance):
-        result = await handler_instance._validate_handling({
-            "data": {"title": "Hello"},
-            "classification": "public",
-            "operation": "read",
-        })
+        result = await handler_instance._validate_handling(
+            {
+                "data": {"title": "Hello"},
+                "classification": "public",
+                "operation": "read",
+            }
+        )
         body = _parse_data(result)
         assert body["data"]["allowed"] is True
 
     @pytest.mark.asyncio
     async def test_validate_restricted_export_blocked(self, handler_instance):
-        result = await handler_instance._validate_handling({
-            "data": {"secret": "value"},
-            "classification": "restricted",
-            "operation": "export",
-            "is_encrypted": True,
-            "has_consent": True,
-        })
+        result = await handler_instance._validate_handling(
+            {
+                "data": {"secret": "value"},
+                "classification": "restricted",
+                "operation": "export",
+                "is_encrypted": True,
+                "has_consent": True,
+            }
+        )
         body = _parse_data(result)
         assert body["data"]["allowed"] is False
         assert any("export" in v.lower() for v in body["data"]["violations"])
 
     @pytest.mark.asyncio
     async def test_validate_missing_data(self, handler_instance):
-        result = await handler_instance._validate_handling({
-            "classification": "public",
-            "operation": "read",
-        })
+        result = await handler_instance._validate_handling(
+            {
+                "classification": "public",
+                "operation": "read",
+            }
+        )
         if isinstance(result, tuple):
             assert result[1] == 400
 
     @pytest.mark.asyncio
     async def test_validate_missing_classification(self, handler_instance):
-        result = await handler_instance._validate_handling({
-            "data": {"title": "Hello"},
-            "operation": "read",
-        })
+        result = await handler_instance._validate_handling(
+            {
+                "data": {"title": "Hello"},
+                "operation": "read",
+            }
+        )
         if isinstance(result, tuple):
             assert result[1] == 400
 
     @pytest.mark.asyncio
     async def test_validate_invalid_classification(self, handler_instance):
-        result = await handler_instance._validate_handling({
-            "data": {"title": "Hello"},
-            "classification": "invalid",
-            "operation": "read",
-        })
+        result = await handler_instance._validate_handling(
+            {
+                "data": {"title": "Hello"},
+                "classification": "invalid",
+                "operation": "read",
+            }
+        )
         if isinstance(result, tuple):
             assert result[1] == 400
 
     @pytest.mark.asyncio
     async def test_validate_missing_operation(self, handler_instance):
-        result = await handler_instance._validate_handling({
-            "data": {"title": "Hello"},
-            "classification": "public",
-        })
+        result = await handler_instance._validate_handling(
+            {
+                "data": {"title": "Hello"},
+                "classification": "public",
+            }
+        )
         if isinstance(result, tuple):
             assert result[1] == 400
 
     @pytest.mark.asyncio
     async def test_validate_encryption_violation(self, handler_instance):
-        result = await handler_instance._validate_handling({
-            "data": {"secret": "value"},
-            "classification": "restricted",
-            "operation": "read",
-            "is_encrypted": False,
-            "has_consent": True,
-        })
+        result = await handler_instance._validate_handling(
+            {
+                "data": {"secret": "value"},
+                "classification": "restricted",
+                "operation": "read",
+                "is_encrypted": False,
+                "has_consent": True,
+            }
+        )
         body = _parse_data(result)
         assert body["data"]["allowed"] is False
         assert any("Encryption" in v for v in body["data"]["violations"])
 
     @pytest.mark.asyncio
     async def test_validate_region_violation(self, handler_instance):
-        result = await handler_instance._validate_handling({
-            "data": {"financial": "data"},
-            "classification": "confidential",
-            "operation": "read",
-            "is_encrypted": True,
-            "region": "cn",
-        })
+        result = await handler_instance._validate_handling(
+            {
+                "data": {"financial": "data"},
+                "classification": "confidential",
+                "operation": "read",
+                "is_encrypted": True,
+                "region": "cn",
+            }
+        )
         body = _parse_data(result)
         assert body["data"]["allowed"] is False
         assert any("Region" in v for v in body["data"]["violations"])
@@ -335,23 +345,27 @@ class TestEnforceEndpoint:
 
     @pytest.mark.asyncio
     async def test_enforce_same_level_allowed(self, handler_instance):
-        result = await handler_instance._enforce_access({
-            "data": {"info": "test"},
-            "source_classification": "internal",
-            "target_classification": "internal",
-        })
+        result = await handler_instance._enforce_access(
+            {
+                "data": {"info": "test"},
+                "source_classification": "internal",
+                "target_classification": "internal",
+            }
+        )
         body = _parse_data(result)
         assert body["data"]["allowed"] is True
 
     @pytest.mark.asyncio
     async def test_enforce_restricted_to_public_blocked(self, handler_instance):
-        result = await handler_instance._enforce_access({
-            "data": {"secret": "value"},
-            "source_classification": "restricted",
-            "target_classification": "public",
-            "is_encrypted": True,
-            "has_consent": True,
-        })
+        result = await handler_instance._enforce_access(
+            {
+                "data": {"secret": "value"},
+                "source_classification": "restricted",
+                "target_classification": "public",
+                "is_encrypted": True,
+                "has_consent": True,
+            }
+        )
         body = _parse_data(result)
         assert body["data"]["allowed"] is False
         assert body["data"]["source_classification"] == "restricted"
@@ -359,60 +373,72 @@ class TestEnforceEndpoint:
 
     @pytest.mark.asyncio
     async def test_enforce_public_to_restricted_allowed(self, handler_instance):
-        result = await handler_instance._enforce_access({
-            "data": {"title": "Hello"},
-            "source_classification": "public",
-            "target_classification": "restricted",
-        })
+        result = await handler_instance._enforce_access(
+            {
+                "data": {"title": "Hello"},
+                "source_classification": "public",
+                "target_classification": "restricted",
+            }
+        )
         body = _parse_data(result)
         assert body["data"]["allowed"] is True
 
     @pytest.mark.asyncio
     async def test_enforce_missing_source(self, handler_instance):
-        result = await handler_instance._enforce_access({
-            "data": {"info": "test"},
-            "target_classification": "public",
-        })
+        result = await handler_instance._enforce_access(
+            {
+                "data": {"info": "test"},
+                "target_classification": "public",
+            }
+        )
         if isinstance(result, tuple):
             assert result[1] == 400
 
     @pytest.mark.asyncio
     async def test_enforce_missing_target(self, handler_instance):
-        result = await handler_instance._enforce_access({
-            "data": {"info": "test"},
-            "source_classification": "internal",
-        })
+        result = await handler_instance._enforce_access(
+            {
+                "data": {"info": "test"},
+                "source_classification": "internal",
+            }
+        )
         if isinstance(result, tuple):
             assert result[1] == 400
 
     @pytest.mark.asyncio
     async def test_enforce_invalid_classification(self, handler_instance):
-        result = await handler_instance._enforce_access({
-            "data": {"info": "test"},
-            "source_classification": "invalid",
-            "target_classification": "public",
-        })
+        result = await handler_instance._enforce_access(
+            {
+                "data": {"info": "test"},
+                "source_classification": "invalid",
+                "target_classification": "public",
+            }
+        )
         if isinstance(result, tuple):
             assert result[1] == 400
 
     @pytest.mark.asyncio
     async def test_enforce_missing_data(self, handler_instance):
-        result = await handler_instance._enforce_access({
-            "source_classification": "internal",
-            "target_classification": "public",
-        })
+        result = await handler_instance._enforce_access(
+            {
+                "source_classification": "internal",
+                "target_classification": "public",
+            }
+        )
         if isinstance(result, tuple):
             assert result[1] == 400
 
     @pytest.mark.asyncio
     async def test_enforce_pii_to_public_blocked(self, handler_instance):
-        result = await handler_instance._enforce_access({
-            "data": {"email": "user@example.com"},
-            "source_classification": "pii",
-            "target_classification": "public",
-            "is_encrypted": True,
-            "has_consent": True,
-        })
+        result = await handler_instance._enforce_access(
+            {
+                "data": {"email": "user@example.com"},
+                "source_classification": "pii",
+                "target_classification": "public",
+                "is_encrypted": True,
+                "has_consent": True,
+            }
+        )
         body = _parse_data(result)
         assert body["data"]["allowed"] is False
 

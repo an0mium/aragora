@@ -597,7 +597,6 @@ class TestNoContextHandling:
     """Test behavior when no AuthorizationContext is provided."""
 
     def test_no_context_raises_mfa_error(self):
-
         @require_mfa()
         def action() -> str:
             return "success"
@@ -610,7 +609,6 @@ class TestNoContextHandling:
             assert "No AuthorizationContext" in str(exc_info.value)
 
     def test_no_context_auth_disabled_allows(self):
-
         @require_mfa()
         def action() -> str:
             return "no-auth"
@@ -631,7 +629,6 @@ class TestDecoratorMetadata:
     """Test that @require_mfa preserves function metadata."""
 
     def test_preserves_name(self):
-
         @require_mfa()
         def my_admin_endpoint():
             """My admin endpoint docstring."""
@@ -641,7 +638,6 @@ class TestDecoratorMetadata:
         assert my_admin_endpoint.__doc__ == "My admin endpoint docstring."
 
     def test_preserves_async_name(self):
-
         @require_mfa()
         async def my_async_endpoint():
             """Async admin endpoint."""

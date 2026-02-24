@@ -873,12 +873,18 @@ def cmd_ask(args: argparse.Namespace) -> None:
             context += "Assumptions:\n" + "\n".join(f"- {a}" for a in task_brief.assumptions)
         # Non-goals and evaluation_criteria are not in V1, but check defensively
         if getattr(task_brief, "non_goals", []):
-            context += "\nNon-Goals:\n" + "\n".join(f"- {ng}" for ng in getattr(task_brief, "non_goals", []))
+            context += "\nNon-Goals:\n" + "\n".join(
+                f"- {ng}" for ng in getattr(task_brief, "non_goals", [])
+            )
         if getattr(task_brief, "success_criteria", []):
-            context += "\nSuccess Criteria:\n" + "\n".join(f"- {sc}" for sc in task_brief.success_criteria)
+            context += "\nSuccess Criteria:\n" + "\n".join(
+                f"- {sc}" for sc in task_brief.success_criteria
+            )
         context += "\n--------------------------\n"
         if task_brief.requires_user_confirmation:
-            logger.info("This task was interpreted from an ambiguous input and requires confirmation.")
+            logger.info(
+                "This task was interpreted from an ambiguous input and requires confirmation."
+            )
 
     agents = args.agents
     rounds = args.rounds

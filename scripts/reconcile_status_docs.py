@@ -81,22 +81,26 @@ def _check_capability_matrix_freshness() -> list[dict]:
     findings = []
 
     if not CAPABILITY_YAML.exists():
-        findings.append({
-            "severity": "critical",
-            "source": "capability_surfaces.yaml",
-            "message": "Capability surfaces YAML not found",
-        })
+        findings.append(
+            {
+                "severity": "critical",
+                "source": "capability_surfaces.yaml",
+                "message": "Capability surfaces YAML not found",
+            }
+        )
         return findings
 
     yaml_age = _file_age_days(CAPABILITY_YAML)
     matrix_age = _file_age_days(CAPABILITY_MATRIX)
 
     if yaml_age is not None and matrix_age is not None and matrix_age > yaml_age + 7:
-        findings.append({
-            "severity": "warning",
-            "source": "CAPABILITY_MATRIX.md",
-            "message": f"Matrix ({matrix_age}d old) is significantly older than YAML source ({yaml_age}d old). Run: python scripts/generate_capability_matrix.py",
-        })
+        findings.append(
+            {
+                "severity": "warning",
+                "source": "CAPABILITY_MATRIX.md",
+                "message": f"Matrix ({matrix_age}d old) is significantly older than YAML source ({yaml_age}d old). Run: python scripts/generate_capability_matrix.py",
+            }
+        )
 
     # Check if generated matrix matches
     try:
@@ -108,17 +112,21 @@ def _check_capability_matrix_freshness() -> list[dict]:
             cwd=str(REPO_ROOT),
         )
         if result.returncode != 0:
-            findings.append({
-                "severity": "critical",
-                "source": "CAPABILITY_MATRIX.md",
-                "message": "Matrix is out of sync with YAML. Run: python scripts/generate_capability_matrix.py",
-            })
+            findings.append(
+                {
+                    "severity": "critical",
+                    "source": "CAPABILITY_MATRIX.md",
+                    "message": "Matrix is out of sync with YAML. Run: python scripts/generate_capability_matrix.py",
+                }
+            )
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        findings.append({
-            "severity": "warning",
-            "source": "check_capability_matrix_sync.py",
-            "message": "Could not run matrix sync check",
-        })
+        findings.append(
+            {
+                "severity": "warning",
+                "source": "check_capability_matrix_sync.py",
+                "message": "Could not run matrix sync check",
+            }
+        )
 
     return findings
 
@@ -128,11 +136,13 @@ def _check_ga_checklist() -> list[dict]:
     findings = []
 
     if not GA_CHECKLIST.exists():
-        findings.append({
-            "severity": "warning",
-            "source": "GA_CHECKLIST.md",
-            "message": "GA checklist not found",
-        })
+        findings.append(
+            {
+                "severity": "warning",
+                "source": "GA_CHECKLIST.md",
+                "message": "GA checklist not found",
+            }
+        )
         return findings
 
     stats = _extract_checklist_stats(GA_CHECKLIST)
@@ -141,21 +151,25 @@ def _check_ga_checklist() -> list[dict]:
     if stats["total"] > 0:
         completion = stats["complete"] / stats["total"] * 100
         if completion < 100 and age and age > 14:
-            findings.append({
-                "severity": "warning",
-                "source": "GA_CHECKLIST.md",
-                "message": f"GA checklist {completion:.0f}% complete ({stats['complete']}/{stats['total']}) and {age}d since last update",
-            })
+            findings.append(
+                {
+                    "severity": "warning",
+                    "source": "GA_CHECKLIST.md",
+                    "message": f"GA checklist {completion:.0f}% complete ({stats['complete']}/{stats['total']}) and {age}d since last update",
+                }
+            )
 
     # Check for explicit blockers
     content = GA_CHECKLIST.read_text(encoding="utf-8", errors="replace")
     blocker_count = len(re.findall(r"(?i)blocker|blocked|blocking", content))
     if blocker_count > 0:
-        findings.append({
-            "severity": "info",
-            "source": "GA_CHECKLIST.md",
-            "message": f"GA checklist references {blocker_count} blocker mentions",
-        })
+        findings.append(
+            {
+                "severity": "info",
+                "source": "GA_CHECKLIST.md",
+                "message": f"GA checklist references {blocker_count} blocker mentions",
+            }
+        )
 
     return findings
 
@@ -185,17 +199,21 @@ def _check_connector_status() -> list[dict]:
         prod_count = len(re.findall(r"(?i)\bproduction\b", content))
 
     if stub_count > 0:
-        findings.append({
-            "severity": "warning",
-            "source": "connectors/STATUS.md",
-            "message": f"Connector status has {stub_count} stub references (target: 0)",
-        })
+        findings.append(
+            {
+                "severity": "warning",
+                "source": "connectors/STATUS.md",
+                "message": f"Connector status has {stub_count} stub references (target: 0)",
+            }
+        )
 
-    findings.append({
-        "severity": "info",
-        "source": "connectors/STATUS.md",
-        "message": f"Connectors: ~{prod_count} production, ~{beta_count} beta, ~{stub_count} stub mentions",
-    })
+    findings.append(
+        {
+            "severity": "info",
+            "source": "connectors/STATUS.md",
+            "message": f"Connectors: ~{prod_count} production, ~{beta_count} beta, ~{stub_count} stub mentions",
+        }
+    )
 
     return findings
 
@@ -218,11 +236,13 @@ def _check_staleness() -> list[dict]:
             continue
         age = _file_age_days(path)
         if age is not None and age > STALE_THRESHOLD_DAYS:
-            findings.append({
-                "severity": "warning",
-                "source": label,
-                "message": f"Document is {age} days old (threshold: {STALE_THRESHOLD_DAYS}d)",
-            })
+            findings.append(
+                {
+                    "severity": "warning",
+                    "source": label,
+                    "message": f"Document is {age} days old (threshold: {STALE_THRESHOLD_DAYS}d)",
+                }
+            )
 
     return findings
 

@@ -91,19 +91,25 @@ class MockBackupManager:
     """Mock backup manager."""
 
     def __init__(self):
-        self.get_backup_status = MagicMock(return_value={
-            "last_backup": "2026-02-24T09:00:00Z",
-            "total_backups": 42,
-            "total_size_bytes": 1073741824,
-            "latest_drill": {
-                "status": "passed",
-                "timestamp": "2026-02-24T10:05:00Z",
-            },
-        })
-        self.get_drill_history = MagicMock(return_value=[
-            MockDrillReport(drill_id="drill-001"),
-            MockDrillReport(drill_id="drill-002", status="failed", errors=["Checksum mismatch"]),
-        ])
+        self.get_backup_status = MagicMock(
+            return_value={
+                "last_backup": "2026-02-24T09:00:00Z",
+                "total_backups": 42,
+                "total_size_bytes": 1073741824,
+                "latest_drill": {
+                    "status": "passed",
+                    "timestamp": "2026-02-24T10:05:00Z",
+                },
+            }
+        )
+        self.get_drill_history = MagicMock(
+            return_value=[
+                MockDrillReport(drill_id="drill-001"),
+                MockDrillReport(
+                    drill_id="drill-002", status="failed", errors=["Checksum mismatch"]
+                ),
+            ]
+        )
         self.restore_drill = MagicMock(return_value=MockDrillReport())
 
 
@@ -129,6 +135,7 @@ def handler(mock_manager):
 @pytest.fixture
 def mock_http_handler():
     """Create a mock HTTP handler."""
+
     def _make(method: str = "GET", body: dict | None = None):
         h = MagicMock()
         h.command = method
@@ -139,6 +146,7 @@ def mock_http_handler():
             h.rfile.read.return_value = b"{}"
             h.headers = {"Content-Length": "2"}
         return h
+
     return _make
 
 
@@ -386,9 +394,7 @@ class TestErrorHandling:
     async def test_get_status_handles_manager_error(self, handler, mock_manager):
         mock_manager.get_backup_status.side_effect = RuntimeError("Connection lost")
 
-        result = await handler.handle(
-            "/api/v1/backup/status", {}, MagicMock(command="GET")
-        )
+        result = await handler.handle("/api/v1/backup/status", {}, MagicMock(command="GET"))
 
         assert _status(result) == 500
 
@@ -396,9 +402,7 @@ class TestErrorHandling:
     async def test_list_drills_handles_manager_error(self, handler, mock_manager):
         mock_manager.get_drill_history.side_effect = OSError("Disk error")
 
-        result = await handler.handle(
-            "/api/v1/backup/drills", {}, MagicMock(command="GET")
-        )
+        result = await handler.handle("/api/v1/backup/drills", {}, MagicMock(command="GET"))
 
         assert _status(result) == 500
 
@@ -406,9 +410,7 @@ class TestErrorHandling:
     async def test_trigger_drill_handles_value_error(self, handler, mock_manager):
         mock_manager.restore_drill.side_effect = ValueError("Invalid backup ID")
 
-        result = await handler.handle(
-            "/api/v1/backup/drill", {}, MagicMock(command="POST")
-        )
+        result = await handler.handle("/api/v1/backup/drill", {}, MagicMock(command="POST"))
 
         # ValueError inside _trigger_drill is caught by @handle_errors (returns 400)
         # or by the outer handle() exception handler (returns 500)

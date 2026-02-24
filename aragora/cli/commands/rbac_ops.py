@@ -166,13 +166,15 @@ def _cmd_list_permissions_local(args: argparse.Namespace) -> None:
             resource = key.split(".")[0] if "." in key else "general"
             if group_filter and resource != group_filter:
                 continue
-            data.append({
-                "key": perm.key,
-                "name": perm.name,
-                "resource": perm.resource.value,
-                "action": perm.action.value,
-                "description": perm.description,
-            })
+            data.append(
+                {
+                    "key": perm.key,
+                    "name": perm.name,
+                    "resource": perm.resource.value,
+                    "action": perm.action.value,
+                    "description": perm.description,
+                }
+            )
         print(json.dumps({"permissions": data, "total": len(data)}, indent=2))
         return
 

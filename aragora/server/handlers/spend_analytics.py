@@ -123,33 +123,27 @@ class SpendAnalyticsHandler(SecureHandler):
 
         loop = asyncio.new_event_loop()
         try:
-            trend = loop.run_until_complete(
-                analytics.get_spend_trend(workspace_id, period=period)
-            )
-            by_provider = loop.run_until_complete(
-                analytics.get_spend_by_provider(workspace_id)
-            )
-            by_agent = loop.run_until_complete(
-                analytics.get_spend_by_agent(workspace_id)
-            )
-            forecast = loop.run_until_complete(
-                analytics.get_cost_forecast(workspace_id)
-            )
+            trend = loop.run_until_complete(analytics.get_spend_trend(workspace_id, period=period))
+            by_provider = loop.run_until_complete(analytics.get_spend_by_provider(workspace_id))
+            by_agent = loop.run_until_complete(analytics.get_spend_by_agent(workspace_id))
+            forecast = loop.run_until_complete(analytics.get_cost_forecast(workspace_id))
             anomalies = loop.run_until_complete(
                 analytics.get_anomalies(workspace_id, period=period)
             )
         finally:
             loop.close()
 
-        return json_response({
-            "data": {
-                "trend": trend.to_dict(),
-                "by_provider": by_provider,
-                "by_agent": by_agent,
-                "forecast": forecast.to_dict(),
-                "anomalies": [a.to_dict() for a in anomalies],
+        return json_response(
+            {
+                "data": {
+                    "trend": trend.to_dict(),
+                    "by_provider": by_provider,
+                    "by_agent": by_agent,
+                    "forecast": forecast.to_dict(),
+                    "anomalies": [a.to_dict() for a in anomalies],
+                }
             }
-        })
+        )
 
     @handle_errors("get spend trend")
     @require_permission("org:usage:read")
@@ -166,9 +160,7 @@ class SpendAnalyticsHandler(SecureHandler):
         analytics = _get_analytics()
         loop = asyncio.new_event_loop()
         try:
-            trend = loop.run_until_complete(
-                analytics.get_spend_trend(workspace_id, period=period)
-            )
+            trend = loop.run_until_complete(analytics.get_spend_trend(workspace_id, period=period))
         finally:
             loop.close()
 
@@ -188,9 +180,7 @@ class SpendAnalyticsHandler(SecureHandler):
         analytics = _get_analytics()
         loop = asyncio.new_event_loop()
         try:
-            by_provider = loop.run_until_complete(
-                analytics.get_spend_by_provider(workspace_id)
-            )
+            by_provider = loop.run_until_complete(analytics.get_spend_by_provider(workspace_id))
         finally:
             loop.close()
 
@@ -210,9 +200,7 @@ class SpendAnalyticsHandler(SecureHandler):
         analytics = _get_analytics()
         loop = asyncio.new_event_loop()
         try:
-            by_agent = loop.run_until_complete(
-                analytics.get_spend_by_agent(workspace_id)
-            )
+            by_agent = loop.run_until_complete(analytics.get_spend_by_agent(workspace_id))
         finally:
             loop.close()
 
@@ -237,9 +225,7 @@ class SpendAnalyticsHandler(SecureHandler):
         analytics = _get_analytics()
         loop = asyncio.new_event_loop()
         try:
-            forecast = loop.run_until_complete(
-                analytics.get_cost_forecast(workspace_id, days=days)
-            )
+            forecast = loop.run_until_complete(analytics.get_cost_forecast(workspace_id, days=days))
         finally:
             loop.close()
 
@@ -266,9 +252,7 @@ class SpendAnalyticsHandler(SecureHandler):
         finally:
             loop.close()
 
-        return json_response({
-            "data": {"anomalies": [a.to_dict() for a in anomalies]}
-        })
+        return json_response({"data": {"anomalies": [a.to_dict() for a in anomalies]}})
 
 
 __all__ = ["SpendAnalyticsHandler"]

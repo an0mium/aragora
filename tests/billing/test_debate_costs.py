@@ -311,7 +311,9 @@ class TestDebateCostSummary:
 
         # Verify agent details survive round-trip
         for name in original.per_agent:
-            assert restored.per_agent[name].total_cost_usd == original.per_agent[name].total_cost_usd
+            assert (
+                restored.per_agent[name].total_cost_usd == original.per_agent[name].total_cost_usd
+            )
             assert restored.per_agent[name].call_count == original.per_agent[name].call_count
 
     def test_from_dict_empty(self):

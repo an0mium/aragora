@@ -106,9 +106,7 @@ class TestArenaDebateFlow:
         for name in ["mock_claude", "mock_gpt"]:
             agent = MagicMock()
             agent.name = name
-            agent.generate = AsyncMock(
-                return_value=f"I propose that the answer is 42. — {name}"
-            )
+            agent.generate = AsyncMock(return_value=f"I propose that the answer is 42. — {name}")
             agent.get_metrics = MagicMock(return_value={})
             agents.append(agent)
         return agents

@@ -460,8 +460,14 @@ class TestProtocolConfiguration:
 
         assert protocol.rounds > 0
         assert protocol.consensus in (
-            "majority", "unanimous", "judge", "none",
-            "weighted", "supermajority", "any", "byzantine",
+            "majority",
+            "unanimous",
+            "judge",
+            "none",
+            "weighted",
+            "supermajority",
+            "any",
+            "byzantine",
         )
         assert 0.0 <= protocol.consensus_threshold <= 1.0
         assert protocol.timeout_seconds > 0
@@ -575,16 +581,23 @@ class TestConsensusDetection:
 
         claim = builder.add_claim("The sky is blue", author="claude", confidence=0.9)
         builder.add_evidence(
-            claim.claim_id, source="claude", content="Visual observation",
-            supports=True, strength=0.8,
+            claim.claim_id,
+            source="claude",
+            content="Visual observation",
+            supports=True,
+            strength=0.8,
         )
         builder.record_vote(
-            agent="claude", vote=VoteType.AGREE,
-            confidence=0.9, reasoning="I agree",
+            agent="claude",
+            vote=VoteType.AGREE,
+            confidence=0.9,
+            reasoning="I agree",
         )
         builder.record_vote(
-            agent="gpt4", vote=VoteType.AGREE,
-            confidence=0.85, reasoning="Confirmed",
+            agent="gpt4",
+            vote=VoteType.AGREE,
+            confidence=0.85,
+            reasoning="Confirmed",
         )
 
         proof = builder.build(
@@ -680,7 +693,8 @@ class TestConsensusDetection:
         builder.record_vote("claude", VoteType.AGREE, 0.8, "Agree")
         builder.record_vote("gpt4", VoteType.DISAGREE, 0.3, "Disagree")
         builder.record_dissent(
-            "gpt4", claim.claim_id,
+            "gpt4",
+            claim.claim_id,
             reasons=["Overlooked edge case"],
             alternative="Consider fallback strategy",
             severity=0.8,
@@ -703,7 +717,9 @@ class TestConsensusDetection:
 
         # Unanimous claim (only supporting evidence)
         claim1 = builder.add_claim("Safe choice", author="claude")
-        builder.add_evidence(claim1.claim_id, "claude", "Strong evidence", supports=True, strength=0.9)
+        builder.add_evidence(
+            claim1.claim_id, "claude", "Strong evidence", supports=True, strength=0.9
+        )
 
         # Contested claim (mixed evidence)
         claim2 = builder.add_claim("Risky choice", author="gpt4")
@@ -719,15 +735,13 @@ class TestConsensusDetection:
     def test_claim_net_evidence_strength(self):
         """Claim.net_evidence_strength calculates correctly."""
         claim = Claim(
-            claim_id="c1", statement="Test", author="agent",
+            claim_id="c1",
+            statement="Test",
+            author="agent",
             confidence=0.5,
         )
-        claim.supporting_evidence.append(
-            Evidence("e1", "agent", "Support", "argument", True, 0.8)
-        )
-        claim.refuting_evidence.append(
-            Evidence("e2", "critic", "Refute", "argument", False, 0.3)
-        )
+        claim.supporting_evidence.append(Evidence("e1", "agent", "Support", "argument", True, 0.8))
+        claim.refuting_evidence.append(Evidence("e2", "critic", "Refute", "argument", False, 0.3))
 
         # (0.8 - 0.3) / (0.8 + 0.3) = 0.5 / 1.1 ~ 0.4545
         strength = claim.net_evidence_strength
@@ -763,7 +777,10 @@ class TestConsensusDetection:
         builder = ConsensusBuilder(debate_id="debate-9", task="Conditional test")
 
         builder.record_vote(
-            "claude", VoteType.CONDITIONAL, 0.7, "Agree if conditions met",
+            "claude",
+            VoteType.CONDITIONAL,
+            0.7,
+            "Agree if conditions met",
             conditions=["Must have monitoring", "Must have rollback"],
         )
 
@@ -785,19 +802,27 @@ class TestPartialConsensus:
         """PartialConsensus tracks agreed and disagreed items."""
         partial = PartialConsensus(debate_id="debate-pc1")
 
-        partial.add_item(PartialConsensusItem(
-            item_id="item-1", topic="Architecture",
-            statement="Use microservices",
-            confidence=0.9, agreed=True,
-            supporting_agents=["claude", "gpt4"],
-        ))
-        partial.add_item(PartialConsensusItem(
-            item_id="item-2", topic="Database",
-            statement="Use PostgreSQL",
-            confidence=0.4, agreed=False,
-            supporting_agents=["claude"],
-            dissenting_agents=["gpt4"],
-        ))
+        partial.add_item(
+            PartialConsensusItem(
+                item_id="item-1",
+                topic="Architecture",
+                statement="Use microservices",
+                confidence=0.9,
+                agreed=True,
+                supporting_agents=["claude", "gpt4"],
+            )
+        )
+        partial.add_item(
+            PartialConsensusItem(
+                item_id="item-2",
+                topic="Database",
+                statement="Use PostgreSQL",
+                confidence=0.4,
+                agreed=False,
+                supporting_agents=["claude"],
+                dissenting_agents=["gpt4"],
+            )
+        )
 
         assert len(partial.agreed_items) == 1
         assert len(partial.disagreed_items) == 1
@@ -807,14 +832,26 @@ class TestPartialConsensus:
     def test_partial_consensus_actionable_items(self):
         """PartialConsensus filters actionable agreed items."""
         partial = PartialConsensus(debate_id="test")
-        partial.add_item(PartialConsensusItem(
-            item_id="a1", topic="Deploy", statement="Deploy to AWS",
-            confidence=0.8, agreed=True, actionable=True,
-        ))
-        partial.add_item(PartialConsensusItem(
-            item_id="a2", topic="Risk", statement="Theoretical risk",
-            confidence=0.6, agreed=True, actionable=False,
-        ))
+        partial.add_item(
+            PartialConsensusItem(
+                item_id="a1",
+                topic="Deploy",
+                statement="Deploy to AWS",
+                confidence=0.8,
+                agreed=True,
+                actionable=True,
+            )
+        )
+        partial.add_item(
+            PartialConsensusItem(
+                item_id="a2",
+                topic="Risk",
+                statement="Theoretical risk",
+                confidence=0.6,
+                agreed=True,
+                actionable=False,
+            )
+        )
 
         assert len(partial.actionable_items) == 1
         assert partial.actionable_items[0].item_id == "a1"
@@ -822,10 +859,16 @@ class TestPartialConsensus:
     def test_partial_consensus_summary(self):
         """PartialConsensus generates readable summary."""
         partial = PartialConsensus(debate_id="summary-test")
-        partial.add_item(PartialConsensusItem(
-            item_id="s1", topic="T1", statement="S1",
-            confidence=0.8, agreed=True, actionable=True,
-        ))
+        partial.add_item(
+            PartialConsensusItem(
+                item_id="s1",
+                topic="T1",
+                statement="S1",
+                confidence=0.8,
+                agreed=True,
+                actionable=True,
+            )
+        )
 
         summary = partial.summary()
         assert "Partial Consensus" in summary
@@ -846,10 +889,15 @@ class TestPartialConsensus:
             overall_consensus=True,
             overall_confidence=0.85,
         )
-        partial.add_item(PartialConsensusItem(
-            item_id="i1", topic="T", statement="S",
-            confidence=0.9, agreed=True,
-        ))
+        partial.add_item(
+            PartialConsensusItem(
+                item_id="i1",
+                topic="T",
+                statement="S",
+                confidence=0.9,
+                agreed=True,
+            )
+        )
 
         d = partial.to_dict()
         assert d["debate_id"] == "ser-test"
@@ -860,8 +908,11 @@ class TestPartialConsensus:
     def test_partial_consensus_item_agreement_ratio(self):
         """PartialConsensusItem calculates agreement ratio."""
         item = PartialConsensusItem(
-            item_id="r1", topic="T", statement="S",
-            confidence=0.7, agreed=True,
+            item_id="r1",
+            topic="T",
+            statement="S",
+            confidence=0.7,
+            agreed=True,
             supporting_agents=["claude", "gpt4", "gemini"],
             dissenting_agents=["grok"],
         )
@@ -919,7 +970,9 @@ class TestAgentTeamSelection:
         weights = {"claude": 1.5, "gpt4": 0.8}
 
         arena = Arena(
-            environment=env, agents=agents, protocol=protocol,
+            environment=env,
+            agents=agents,
+            protocol=protocol,
             agent_weights=weights,
         )
 
@@ -1018,7 +1071,9 @@ class TestCoreTypes:
 
     def test_message_str(self):
         """Message has readable string representation."""
-        msg = Message(role="critic", agent="gpt4", content="I think there is an issue with approach")
+        msg = Message(
+            role="critic", agent="gpt4", content="I think there is an issue with approach"
+        )
 
         s = str(msg)
         assert "critic" in s
@@ -1044,10 +1099,13 @@ class TestCoreTypes:
     def test_critique_to_prompt(self):
         """Critique formats as prompt text."""
         critique = Critique(
-            agent="gpt4", target_agent="claude",
+            agent="gpt4",
+            target_agent="claude",
             target_content="Proposal",
-            issues=["Issue 1"], suggestions=["Fix 1"],
-            severity=4.0, reasoning="Because",
+            issues=["Issue 1"],
+            suggestions=["Fix 1"],
+            severity=4.0,
+            reasoning="Because",
         )
 
         prompt = critique.to_prompt()
@@ -1204,7 +1262,8 @@ class TestMockAgent:
         agent = MockAgent(name="critic-1")
 
         critique = await agent.critique(
-            "My proposal", "Design something",
+            "My proposal",
+            "Design something",
             target_agent="proposer-1",
         )
 

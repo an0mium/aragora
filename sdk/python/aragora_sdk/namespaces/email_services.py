@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class EmailServicesAPI:
     """
     Synchronous Email Services API.
@@ -160,7 +161,6 @@ class EmailServicesAPI:
             data["correct_category"] = correct_category
 
         return self._client.request("POST", "/api/v1/email/categories/learn", json=data)
-
 
     # ===========================================================================
     # Email Triage

@@ -507,8 +507,7 @@ class AnalysisOperationsMixin:
                 # Check for hollow consensus via check_and_intervene
                 messages = [m for m in result.messages if getattr(m, "round", 0) == round_num]
                 responses = {
-                    getattr(m, "agent", "unknown"): getattr(m, "content", "")
-                    for m in messages
+                    getattr(m, "agent", "unknown"): getattr(m, "content", "") for m in messages
                 }
                 intervention = trickster.check_and_intervene(
                     responses=responses,
@@ -609,7 +608,9 @@ class AnalysisOperationsMixin:
             for msg in result.messages:
                 # Infer stance from sentiment/content heuristics
                 content_lower = msg.content.lower() if msg.content else ""
-                if any(w in content_lower for w in ("strongly agree", "fully support", "absolutely")):
+                if any(
+                    w in content_lower for w in ("strongly agree", "fully support", "absolutely")
+                ):
                     stance = PositionStance.STRONGLY_AGREE
                 elif any(w in content_lower for w in ("agree", "support", "endorse")):
                     stance = PositionStance.AGREE

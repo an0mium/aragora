@@ -87,6 +87,7 @@ class TestWorkflowsCRUD:
             assert result["deleted"] is True
             client.close()
 
+
 class TestWorkflowExecution:
     """Tests for workflow execution operations."""
 
@@ -124,6 +125,7 @@ class TestWorkflowExecution:
             assert result["cancelled"] is True
             client.close()
 
+
 class TestAsyncWorkflows:
     """Tests for async workflow methods."""
 
@@ -150,6 +152,7 @@ class TestAsyncWorkflows:
             mock_request.assert_called_once_with("GET", "/api/v1/workflow-executions/exec_1")
             assert result["status"] == "completed"
             await client.close()
+
 
 class TestWorkflowLibraryTemplates:
     """Tests for workflow library template operations."""
@@ -189,6 +192,7 @@ class TestWorkflowLibraryTemplates:
             )
             assert "package" in result
             client.close()
+
 
 class TestWorkflowCategoriesAndPatterns:
     """Tests for workflow categories and patterns operations."""
@@ -242,6 +246,7 @@ class TestWorkflowCategoriesAndPatterns:
             mock_request.assert_called_once_with("GET", "/api/v1/workflow/pattern-templates/pt_1")
             assert result["pattern"] == "parallel"
             client.close()
+
 
 class TestAsyncWorkflowsExtended:
     """Extended tests for async workflow methods."""
@@ -328,6 +333,7 @@ class TestAsyncWorkflowsExtended:
             assert result["deleted"] is True
             await client.close()
 
+
 class TestWorkflowUpdate:
     """Tests for workflow update operations."""
 
@@ -354,6 +360,7 @@ class TestWorkflowUpdate:
             )
             assert result["enabled"] is False
             client.close()
+
 
 class TestWorkflowExecutionListing:
     """Tests for listing workflow executions."""
@@ -386,6 +393,7 @@ class TestWorkflowExecutionListing:
             assert len(result["executions"]) == 2
             client.close()
 
+
 class TestWorkflowTemplateCatalog:
     """Tests for workflow template operations."""
 
@@ -398,4 +406,3 @@ class TestWorkflowTemplateCatalog:
             mock_request.assert_called_once_with("GET", "/api/v1/workflow-templates")
             assert len(result["templates"]) == 2
             client.close()
-

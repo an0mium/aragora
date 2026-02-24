@@ -121,9 +121,7 @@ def get_slo_targets() -> dict[str, SLOTarget]:
     )
     latency_p95_ms = float(os.getenv("SLO_LATENCY_P95_TARGET_MS", str(DEFAULT_LATENCY_P95_MS)))
     latency_p99_ms = float(os.getenv("SLO_LATENCY_P99_TARGET_MS", str(DEFAULT_LATENCY_P99_MS)))
-    error_rate_target = float(
-        os.getenv("SLO_ERROR_RATE_TARGET", str(DEFAULT_ERROR_RATE_TARGET))
-    )
+    error_rate_target = float(os.getenv("SLO_ERROR_RATE_TARGET", str(DEFAULT_ERROR_RATE_TARGET)))
     debate_success_target = float(
         os.getenv("SLO_DEBATE_SUCCESS_TARGET", str(DEFAULT_DEBATE_SUCCESS_TARGET))
     )
@@ -139,7 +137,10 @@ def get_slo_targets() -> dict[str, SLOTarget]:
         os.getenv("SLO_STREAM_MESSAGE_DELIVERY_TARGET", str(DEFAULT_STREAM_MESSAGE_DELIVERY_TARGET))
     )
     tts_latency_p95_s = float(
-        os.getenv("SLO_TTS_SYNTHESIS_LATENCY_P95_TARGET_S", str(DEFAULT_TTS_SYNTHESIS_LATENCY_P95_TARGET_S))
+        os.getenv(
+            "SLO_TTS_SYNTHESIS_LATENCY_P95_TARGET_S",
+            str(DEFAULT_TTS_SYNTHESIS_LATENCY_P95_TARGET_S),
+        )
     )
 
     return {
@@ -1479,12 +1480,14 @@ class SLOEnforcer:
             endpoint: Optional endpoint path for per-route tracking
         """
         now = datetime.now(timezone.utc)
-        self._requests.append({
-            "timestamp": now,
-            "latency_ms": latency_ms,
-            "success": success,
-            "endpoint": endpoint,
-        })
+        self._requests.append(
+            {
+                "timestamp": now,
+                "latency_ms": latency_ms,
+                "success": success,
+                "endpoint": endpoint,
+            }
+        )
         self._prune_old_requests(now)
 
     def _prune_old_requests(self, now: datetime) -> None:
@@ -1628,10 +1631,7 @@ class SLOEnforcer:
                 target_value=avail_target.target,
                 actual_value=metrics["uptime"],
                 timestamp=now,
-                message=(
-                    f"Uptime {metrics['uptime']:.4f} "
-                    f"below target {avail_target.target:.4f}"
-                ),
+                message=(f"Uptime {metrics['uptime']:.4f} below target {avail_target.target:.4f}"),
             )
             violations.append(v)
 
@@ -1745,46 +1745,50 @@ class SLOEnforcer:
         avail_budget_total = 1.0 - avail_target.target  # e.g. 0.001
         avail_errors_used = max(0, avail_target.target - metrics["uptime"])
         if avail_budget_total > 0:
-            avail_remaining_pct = max(
-                0, (avail_budget_total - avail_errors_used) / avail_budget_total
-            ) * 100
+            avail_remaining_pct = (
+                max(0, (avail_budget_total - avail_errors_used) / avail_budget_total) * 100
+            )
             avail_burn = avail_errors_used / avail_budget_total
         else:
             avail_remaining_pct = 0.0
             avail_burn = float("inf")
 
-        budgets.append({
-            "slo_name": avail_target.name,
-            "slo_id": "availability",
-            "target": avail_target.target,
-            "error_budget_total_pct": 100.0,
-            "error_budget_remaining_pct": avail_remaining_pct,
-            "error_budget_consumed_pct": 100.0 - avail_remaining_pct,
-            "burn_rate": avail_burn,
-        })
+        budgets.append(
+            {
+                "slo_name": avail_target.name,
+                "slo_id": "availability",
+                "target": avail_target.target,
+                "error_budget_total_pct": 100.0,
+                "error_budget_remaining_pct": avail_remaining_pct,
+                "error_budget_consumed_pct": 100.0 - avail_remaining_pct,
+                "burn_rate": avail_burn,
+            }
+        )
 
         # Error rate budget (lte comparison)
         error_target = targets["error_rate"]
         error_budget_total = error_target.target  # e.g. 0.01
         error_used = max(0, metrics["error_rate"] - 0)  # current rate
         if error_budget_total > 0:
-            error_remaining_pct = max(
-                0, (error_budget_total - error_used) / error_budget_total
-            ) * 100
+            error_remaining_pct = (
+                max(0, (error_budget_total - error_used) / error_budget_total) * 100
+            )
             error_burn = error_used / error_budget_total
         else:
             error_remaining_pct = 0.0
             error_burn = float("inf")
 
-        budgets.append({
-            "slo_name": error_target.name,
-            "slo_id": "error_rate",
-            "target": error_target.target,
-            "error_budget_total_pct": 100.0,
-            "error_budget_remaining_pct": error_remaining_pct,
-            "error_budget_consumed_pct": 100.0 - error_remaining_pct,
-            "burn_rate": error_burn,
-        })
+        budgets.append(
+            {
+                "slo_name": error_target.name,
+                "slo_id": "error_rate",
+                "target": error_target.target,
+                "error_budget_total_pct": 100.0,
+                "error_budget_remaining_pct": error_remaining_pct,
+                "error_budget_consumed_pct": 100.0 - error_remaining_pct,
+                "burn_rate": error_burn,
+            }
+        )
 
         # Latency p95 budget
         p95_target = targets["latency_p95"]
@@ -1798,15 +1802,17 @@ class SLOEnforcer:
             p95_remaining_pct = 0.0
             p95_burn = float("inf")
 
-        budgets.append({
-            "slo_name": p95_target.name,
-            "slo_id": "latency_p95",
-            "target_ms": p95_target_ms,
-            "error_budget_total_pct": 100.0,
-            "error_budget_remaining_pct": p95_remaining_pct,
-            "error_budget_consumed_pct": 100.0 - p95_remaining_pct,
-            "burn_rate": p95_burn,
-        })
+        budgets.append(
+            {
+                "slo_name": p95_target.name,
+                "slo_id": "latency_p95",
+                "target_ms": p95_target_ms,
+                "error_budget_total_pct": 100.0,
+                "error_budget_remaining_pct": p95_remaining_pct,
+                "error_budget_consumed_pct": 100.0 - p95_remaining_pct,
+                "burn_rate": p95_burn,
+            }
+        )
 
         # Latency p99 budget
         p99_target = targets["latency_p99"]
@@ -1820,15 +1826,17 @@ class SLOEnforcer:
             p99_remaining_pct = 0.0
             p99_burn = float("inf")
 
-        budgets.append({
-            "slo_name": p99_target.name,
-            "slo_id": "latency_p99",
-            "target_ms": p99_target_ms,
-            "error_budget_total_pct": 100.0,
-            "error_budget_remaining_pct": p99_remaining_pct,
-            "error_budget_consumed_pct": 100.0 - p99_remaining_pct,
-            "burn_rate": p99_burn,
-        })
+        budgets.append(
+            {
+                "slo_name": p99_target.name,
+                "slo_id": "latency_p99",
+                "target_ms": p99_target_ms,
+                "error_budget_total_pct": 100.0,
+                "error_budget_remaining_pct": p99_remaining_pct,
+                "error_budget_consumed_pct": 100.0 - p99_remaining_pct,
+                "burn_rate": p99_burn,
+            }
+        )
 
         return {
             "timestamp": now.isoformat(),

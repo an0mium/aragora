@@ -1317,16 +1317,18 @@ class DebateStreamServer(ServerBase):
                         "internal_error": "Server error processing message",
                     }
                     await websocket.send(
-                        json.dumps({
-                            "type": "error",
-                            "data": {
-                                "message": _error_messages.get(
-                                    parse_error or "", "Invalid message format"
-                                ),
-                                "error_category": "validation",
-                                "error_type": parse_error or "unknown",
-                            },
-                        })
+                        json.dumps(
+                            {
+                                "type": "error",
+                                "data": {
+                                    "message": _error_messages.get(
+                                        parse_error or "", "Invalid message format"
+                                    ),
+                                    "error_category": "validation",
+                                    "error_type": parse_error or "unknown",
+                                },
+                            }
+                        )
                     )
                     continue
 
@@ -1378,11 +1380,7 @@ class DebateStreamServer(ServerBase):
                     # Client can request their connection quality metrics
                     quality = self._quality_tracker.get_quality(ws_id)
                     sub_id = self._client_subscriptions.get(ws_id)
-                    buf_metrics = (
-                        self._replay_buffer.get_metrics(sub_id)
-                        if sub_id
-                        else {}
-                    )
+                    buf_metrics = self._replay_buffer.get_metrics(sub_id) if sub_id else {}
                     await websocket.send(
                         json.dumps(
                             {
@@ -1454,7 +1452,9 @@ class DebateStreamServer(ServerBase):
 
                             # Check if client is requesting replay (reconnection)
                             replay_from_seq = data.get("replay_from_seq")
-                            if replay_from_seq is not None and isinstance(replay_from_seq, (int, float)):
+                            if replay_from_seq is not None and isinstance(
+                                replay_from_seq, (int, float)
+                            ):
                                 replay_from_seq = int(replay_from_seq)
                                 self._quality_tracker.record_reconnect(ws_id)
                                 logger.info(
@@ -1479,8 +1479,12 @@ class DebateStreamServer(ServerBase):
                                                 "debate_id": debate_id,
                                                 "from_seq": replay_from_seq,
                                                 "event_count": replayed_count,
-                                                "buffer_oldest_seq": self._replay_buffer.get_oldest_seq(debate_id),
-                                                "buffer_latest_seq": self._replay_buffer.get_latest_seq(debate_id),
+                                                "buffer_oldest_seq": self._replay_buffer.get_oldest_seq(
+                                                    debate_id
+                                                ),
+                                                "buffer_latest_seq": self._replay_buffer.get_latest_seq(
+                                                    debate_id
+                                                ),
                                             },
                                         }
                                     )
@@ -1507,7 +1511,9 @@ class DebateStreamServer(ServerBase):
                                             "data": {
                                                 "debate_id": debate_id,
                                                 "replayed_count": replayed_count,
-                                                "latest_seq": self._replay_buffer.get_latest_seq(debate_id),
+                                                "latest_seq": self._replay_buffer.get_latest_seq(
+                                                    debate_id
+                                                ),
                                             },
                                         }
                                     )

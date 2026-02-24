@@ -170,9 +170,7 @@ class TestBuildReceiptWithApprovalBlocks:
     def test_cost_info_included_when_available(self, fake_receipt_with_cost: FakeReceipt) -> None:
         from aragora.integrations.slack_debate import _build_receipt_with_approval_blocks
 
-        blocks = _build_receipt_with_approval_blocks(
-            fake_receipt_with_cost, debate_id="d1"
-        )
+        blocks = _build_receipt_with_approval_blocks(fake_receipt_with_cost, debate_id="d1")
         all_text = _extract_all_text(blocks)
         assert "$0.0342" in all_text
         assert "4,500" in all_text
@@ -203,7 +201,9 @@ class TestBuildReceiptWithApprovalBlocks:
     def test_findings_count_in_blocks(self) -> None:
         from aragora.integrations.slack_debate import _build_receipt_with_approval_blocks
 
-        receipt = FakeReceipt(findings=[FakeFinding(severity="critical"), FakeFinding(severity="high")])
+        receipt = FakeReceipt(
+            findings=[FakeFinding(severity="critical"), FakeFinding(severity="high")]
+        )
         blocks = _build_receipt_with_approval_blocks(receipt, debate_id="d1")
         all_text = _extract_all_text(blocks)
         assert "2 total" in all_text
@@ -226,7 +226,9 @@ class TestDeliverReceiptToThread:
     """Tests for the lifecycle deliver_receipt_to_thread method."""
 
     @pytest.mark.asyncio
-    async def test_deliver_with_provided_receipt(self, lifecycle: Any, fake_receipt: FakeReceipt) -> None:
+    async def test_deliver_with_provided_receipt(
+        self, lifecycle: Any, fake_receipt: FakeReceipt
+    ) -> None:
         lifecycle._post_to_thread = AsyncMock(return_value=True)
         result = await lifecycle.deliver_receipt_to_thread(
             debate_id="d1",

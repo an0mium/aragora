@@ -30,6 +30,7 @@ from typing import Any
 # Mock Client (for --demo mode)
 # =============================================================================
 
+
 @dataclass
 class MockSession:
     session_id: str = "sess_demo_001"
@@ -80,21 +81,25 @@ class MockOpenClawClient:
             roles=roles or ["operator"],
         )
         self._sessions[session.session_id] = session
-        self._audit_log.append({
-            "event": "session_created",
-            "session_id": session.session_id,
-            "user_id": user_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        self._audit_log.append(
+            {
+                "event": "session_created",
+                "session_id": session.session_id,
+                "user_id": user_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         return session
 
     def add_policy_rule(self, rule: dict[str, Any]) -> dict[str, Any]:
         self._policies.append(rule)
-        self._audit_log.append({
-            "event": "policy_added",
-            "rule": rule,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        self._audit_log.append(
+            {
+                "event": "policy_added",
+                "rule": rule,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         return {"status": "added", "rule": rule}
 
     def execute_action(
@@ -106,7 +111,10 @@ class MockOpenClawClient:
         # Check policies
         requires_approval = False
         for policy in self._policies:
-            if policy.get("action_type") == action_type and policy.get("decision") == "require_approval":
+            if (
+                policy.get("action_type") == action_type
+                and policy.get("decision") == "require_approval"
+            ):
                 requires_approval = True
                 break
 
@@ -118,13 +126,15 @@ class MockOpenClawClient:
                 requested_at=datetime.now(timezone.utc).isoformat(),
             )
             self._approvals.append(approval)
-            self._audit_log.append({
-                "event": "action_requires_approval",
-                "action_id": action_id,
-                "action_type": action_type,
-                "approval_id": approval.approval_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            self._audit_log.append(
+                {
+                    "event": "action_requires_approval",
+                    "action_id": action_id,
+                    "action_type": action_type,
+                    "approval_id": approval.approval_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
             return MockActionResult(
                 success=False,
                 action_id=action_id,
@@ -135,13 +145,15 @@ class MockOpenClawClient:
 
         # Auto-approved action
         result = {"output": f"Executed {action_type} successfully", "params": params}
-        self._audit_log.append({
-            "event": "action_executed",
-            "action_id": action_id,
-            "action_type": action_type,
-            "decision": "allow",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        self._audit_log.append(
+            {
+                "event": "action_executed",
+                "action_id": action_id,
+                "action_type": action_type,
+                "decision": "allow",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         session = self._sessions.get(session_id)
         if session:
             session.action_count += 1
@@ -161,12 +173,14 @@ class MockOpenClawClient:
         for approval in self._approvals:
             if approval.approval_id == approval_id:
                 approval.status = "approved"
-                self._audit_log.append({
-                    "event": "action_approved",
-                    "approval_id": approval_id,
-                    "approver": approver,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
+                self._audit_log.append(
+                    {
+                        "event": "action_approved",
+                        "approval_id": approval_id,
+                        "approver": approver,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
                 return MockActionResult(
                     success=True,
                     action_id=f"act_approved_{approval_id}",
@@ -185,12 +199,14 @@ class MockOpenClawClient:
         session = self._sessions.get(session_id)
         if session:
             session.status = "ended"
-            self._audit_log.append({
-                "event": "session_ended",
-                "session_id": session_id,
-                "action_count": session.action_count,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            })
+            self._audit_log.append(
+                {
+                    "event": "session_ended",
+                    "session_id": session_id,
+                    "action_count": session.action_count,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            )
         return {"status": "ended", "session_id": session_id}
 
 
@@ -235,19 +251,23 @@ def run_demo() -> None:
     _print_step(2, "Configure Policy Rules")
 
     # Safe actions auto-approved
-    rule1 = client.add_policy_rule({
-        "action_type": "file_read",
-        "decision": "allow",
-        "description": "File reads are auto-approved for analysts",
-    })
+    rule1 = client.add_policy_rule(
+        {
+            "action_type": "file_read",
+            "decision": "allow",
+            "description": "File reads are auto-approved for analysts",
+        }
+    )
     print(f"  Rule 1 (file_read -> allow): {rule1['status']}")
 
     # Shell commands require approval
-    rule2 = client.add_policy_rule({
-        "action_type": "shell_command",
-        "decision": "require_approval",
-        "description": "Shell commands require human approval",
-    })
+    rule2 = client.add_policy_rule(
+        {
+            "action_type": "shell_command",
+            "decision": "require_approval",
+            "description": "Shell commands require human approval",
+        }
+    )
     print(f"  Rule 2 (shell_command -> require_approval): {rule2['status']}")
 
     # Step 3: Execute safe action

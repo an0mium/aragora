@@ -26,12 +26,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # Extraction helpers (mirroring check_sdk_parity.py patterns)
 # ---------------------------------------------------------------------------
 
-_PY_PATH_RE = re.compile(
-    r'self\._client\.(?:_request|request)\(\s*"[A-Z]+"\s*,\s*[f"]([^"]+)"'
-)
-_PY_FSTR_RE = re.compile(
-    r'self\._client\.(?:_request|request)\(\s*"[A-Z]+"\s*,\s*f"([^"]+)"'
-)
+_PY_PATH_RE = re.compile(r'self\._client\.(?:_request|request)\(\s*"[A-Z]+"\s*,\s*[f"]([^"]+)"')
+_PY_FSTR_RE = re.compile(r'self\._client\.(?:_request|request)\(\s*"[A-Z]+"\s*,\s*f"([^"]+)"')
 _TS_REQUEST_RE = re.compile(
     r"request(?:<[^(]*>)?\(\s*['\"](?:[A-Z]+)['\"]\s*,"
     r"\s*(?P<path>`[^`]+`|'[^']+'|\"[^\"]+\")"
@@ -152,7 +148,9 @@ def main() -> int:
 
     if not args.json:
         if args.baseline:
-            print(f"\nBaseline regressions: python_only={len(new_py_only)} typescript_only={len(new_ts_only)}")
+            print(
+                f"\nBaseline regressions: python_only={len(new_py_only)} typescript_only={len(new_ts_only)}"
+            )
             for p in sorted(new_py_only)[:10]:
                 print(f"  NEW PY-ONLY: {p}")
             for p in sorted(new_ts_only)[:10]:

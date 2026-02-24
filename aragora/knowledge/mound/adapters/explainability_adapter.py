@@ -301,9 +301,7 @@ class ExplainabilityAdapter(KnowledgeMoundAdapter):
                 continue
 
             task_lower = entry.task.lower()
-            if query_lower in task_lower or any(
-                word in task_lower for word in query_lower.split()
-            ):
+            if query_lower in task_lower or any(word in task_lower for word in query_lower.split()):
                 similarity = 0.8 if query_lower in task_lower else 0.5
                 results.append(
                     ExplainabilitySearchResult(
@@ -468,11 +466,7 @@ class ExplainabilityAdapter(KnowledgeMoundAdapter):
                 entry.metadata["km_sync_error"] = f"Sync failed: {type(e).__name__}"
 
         # Remove successfully synced from pending
-        synced_ids = {
-            e.decision_id
-            for e in pending
-            if e.metadata.get("km_sync_pending") is False
-        }
+        synced_ids = {e.decision_id for e in pending if e.metadata.get("km_sync_pending") is False}
         self._pending_entries = [
             e for e in self._pending_entries if e.decision_id not in synced_ids
         ]
@@ -494,14 +488,10 @@ class ExplainabilityAdapter(KnowledgeMoundAdapter):
             "total_synced": len(self._synced_entries),
             "pending_sync": len(self._pending_entries),
             "avg_confidence": (
-                sum(e.confidence for e in all_entries) / len(all_entries)
-                if all_entries
-                else 0.0
+                sum(e.confidence for e in all_entries) / len(all_entries) if all_entries else 0.0
             ),
             "avg_factor_count": (
-                sum(e.factor_count for e in all_entries) / len(all_entries)
-                if all_entries
-                else 0.0
+                sum(e.factor_count for e in all_entries) / len(all_entries) if all_entries else 0.0
             ),
             "total_counterfactuals": sum(e.counterfactual_count for e in all_entries),
             "consensus_rate": (

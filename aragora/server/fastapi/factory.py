@@ -24,8 +24,20 @@ from .middleware.tracing import TracingMiddleware
 from .middleware.validation import RequestValidationMiddleware, ValidationLimits
 from .middleware.error_handling import setup_exception_handlers
 from .routes import (
-    health, debates, decisions, receipts, gauntlet, agents, consensus, pipeline,
-    knowledge, workflows, compliance, auth, memory, api_explorer,
+    health,
+    debates,
+    decisions,
+    receipts,
+    gauntlet,
+    agents,
+    consensus,
+    pipeline,
+    knowledge,
+    workflows,
+    compliance,
+    auth,
+    memory,
+    api_explorer,
 )
 
 logger = logging.getLogger(__name__)

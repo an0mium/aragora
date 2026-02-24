@@ -166,9 +166,7 @@ class TestRetrieveLearnings:
         assert results == []
 
     def test_no_match_returns_empty(self, bridge):
-        bridge.persist_cycle_learnings(
-            FakeCycleRecord(goal="fix authentication bug")
-        )
+        bridge.persist_cycle_learnings(FakeCycleRecord(goal="fix authentication bug"))
         # Very unrelated query
         results = bridge.retrieve_relevant_learnings("quantum physics")
         # Might match zero or a few via tag overlap
@@ -186,7 +184,9 @@ class TestKMIntegration:
         mock_km.ingest_sync = MagicMock()
         bridge = KMFeedbackBridge(km=mock_km)
 
-        with patch("aragora.nomic.km_feedback_bridge.KMFeedbackBridge._ingest_to_km") as mock_ingest:
+        with patch(
+            "aragora.nomic.km_feedback_bridge.KMFeedbackBridge._ingest_to_km"
+        ) as mock_ingest:
             bridge.persist_cycle_learnings(record)
             assert mock_ingest.call_count > 0
 

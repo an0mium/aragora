@@ -24,6 +24,7 @@ import pytest
 # build_info module tests
 # ---------------------------------------------------------------------------
 
+
 class TestGetBuildInfo:
     """Tests for aragora.server.build_info.get_build_info."""
 
@@ -83,6 +84,7 @@ class TestGetBuildInfo:
         get_build_info.cache_clear()
 
         import aragora.server.build_info as bi
+
         original = bi._BUILD_SHA
         try:
             bi._BUILD_SHA = "abcdef1234567890abcdef1234567890abcdef12"
@@ -100,6 +102,7 @@ class TestGetBuildInfo:
         get_build_info.cache_clear()
 
         import aragora.server.build_info as bi
+
         original = bi._BUILD_SHA
         try:
             bi._BUILD_SHA = ""
@@ -119,14 +122,13 @@ class TestGetBuildInfo:
         get_build_info.cache_clear()
 
         import aragora.server.build_info as bi
+
         original = bi._BUILD_SHA
         try:
             bi._BUILD_SHA = ""
             get_build_info.cache_clear()
 
-            with patch.object(
-                bi, "_git_sha_fallback", return_value="fedcba9876543210"
-            ):
+            with patch.object(bi, "_git_sha_fallback", return_value="fedcba9876543210"):
                 get_build_info.cache_clear()
                 info = get_build_info()
                 assert info["sha"] == "fedcba9876543210"
@@ -144,6 +146,7 @@ class TestVerifySha:
         get_build_info.cache_clear()
 
         import aragora.server.build_info as bi
+
         original = bi._BUILD_SHA
         try:
             bi._BUILD_SHA = "abc123def456"
@@ -162,6 +165,7 @@ class TestVerifySha:
         get_build_info.cache_clear()
 
         import aragora.server.build_info as bi
+
         original = bi._BUILD_SHA
         try:
             bi._BUILD_SHA = "abc123def456789"
@@ -179,6 +183,7 @@ class TestVerifySha:
         get_build_info.cache_clear()
 
         import aragora.server.build_info as bi
+
         original = bi._BUILD_SHA
         try:
             bi._BUILD_SHA = "abc123"
@@ -196,6 +201,7 @@ class TestVerifySha:
         get_build_info.cache_clear()
 
         import aragora.server.build_info as bi
+
         original = bi._BUILD_SHA
         try:
             bi._BUILD_SHA = ""
@@ -215,6 +221,7 @@ class TestVerifySha:
         get_build_info.cache_clear()
 
         import aragora.server.build_info as bi
+
         original = bi._BUILD_SHA
         try:
             bi._BUILD_SHA = "abc123"
@@ -230,6 +237,7 @@ class TestVerifySha:
 # ---------------------------------------------------------------------------
 # BuildInfoHandler tests
 # ---------------------------------------------------------------------------
+
 
 class TestBuildInfoHandler:
     """Tests for BuildInfoHandler endpoint."""
@@ -256,6 +264,7 @@ class TestBuildInfoHandler:
         get_build_info.cache_clear()
 
         import aragora.server.build_info as bi
+
         original = bi._BUILD_SHA
         try:
             bi._BUILD_SHA = "testsha123456"
@@ -282,14 +291,13 @@ class TestBuildInfoHandler:
         get_build_info.cache_clear()
 
         import aragora.server.build_info as bi
+
         original = bi._BUILD_SHA
         try:
             bi._BUILD_SHA = "abc123def456"
             get_build_info.cache_clear()
 
-            result = await handler.handle(
-                "/health/build", {"verify": "abc123de"}, MagicMock()
-            )
+            result = await handler.handle("/health/build", {"verify": "abc123de"}, MagicMock())
             assert result is not None
             body = json.loads(result.body.decode("utf-8"))
             assert "verification" in body
@@ -314,6 +322,7 @@ class TestBuildInfoHandler:
 # DeployStatusHandler tests
 # ---------------------------------------------------------------------------
 
+
 class TestDeployStatusHandler:
     """Tests for DeployStatusHandler endpoint."""
 
@@ -336,12 +345,8 @@ class TestDeployStatusHandler:
 
         handler = self._make_handler()
 
-        with patch.object(
-            handler, "get_auth_context", side_effect=UnauthorizedError("no token")
-        ):
-            result = await handler.handle(
-                "/api/deploy/status", {}, MagicMock()
-            )
+        with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError("no token")):
+            result = await handler.handle("/api/deploy/status", {}, MagicMock())
             assert result is not None
             assert result.status_code == 401
 
@@ -352,14 +357,11 @@ class TestDeployStatusHandler:
         handler = self._make_handler()
 
         mock_ctx = MagicMock()
-        with patch.object(
-            handler, "get_auth_context", return_value=mock_ctx
-        ), patch.object(
-            handler, "check_permission", side_effect=ForbiddenError("denied")
+        with (
+            patch.object(handler, "get_auth_context", return_value=mock_ctx),
+            patch.object(handler, "check_permission", side_effect=ForbiddenError("denied")),
         ):
-            result = await handler.handle(
-                "/api/v1/deploy/status", {}, MagicMock()
-            )
+            result = await handler.handle("/api/v1/deploy/status", {}, MagicMock())
             assert result is not None
             assert result.status_code == 403
 
@@ -372,18 +374,18 @@ class TestDeployStatusHandler:
         get_build_info.cache_clear()
 
         import aragora.server.build_info as bi
+
         original = bi._BUILD_SHA
         try:
             bi._BUILD_SHA = "deploy123abc"
             get_build_info.cache_clear()
 
             mock_ctx = MagicMock()
-            with patch.object(
-                handler, "get_auth_context", return_value=mock_ctx
-            ), patch.object(handler, "check_permission"):
-                result = await handler.handle(
-                    "/api/deploy/status", {}, MagicMock()
-                )
+            with (
+                patch.object(handler, "get_auth_context", return_value=mock_ctx),
+                patch.object(handler, "check_permission"),
+            ):
+                result = await handler.handle("/api/deploy/status", {}, MagicMock())
                 assert result is not None
                 assert result.status_code == 200
                 body = json.loads(result.body.decode("utf-8"))
@@ -399,6 +401,7 @@ class TestDeployStatusHandler:
 # ---------------------------------------------------------------------------
 # Git SHA fallback tests
 # ---------------------------------------------------------------------------
+
 
 class TestGitShaFallback:
     """Tests for _git_sha_fallback function."""

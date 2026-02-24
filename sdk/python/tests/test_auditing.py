@@ -12,6 +12,7 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Capability Probe Operations
 # =========================================================================
 
+
 class TestAuditingCapabilityProbe:
     """Tests for capability probe operations."""
 
@@ -52,9 +53,11 @@ class TestAuditingCapabilityProbe:
             assert json_data["config"] == config
             client.close()
 
+
 # =========================================================================
 # Deep Audit Operations
 # =========================================================================
+
 
 class TestAuditingDeepAudit:
     """Tests for deep audit operations."""
@@ -110,9 +113,11 @@ class TestAuditingDeepAudit:
             assert json_data["config"] == {"focus": "security"}
             client.close()
 
+
 # =========================================================================
 # Red Team Operations
 # =========================================================================
+
 
 class TestAuditingAttackTypes:
     """Tests for attack types operations."""
@@ -145,9 +150,11 @@ class TestAuditingAttackTypes:
             assert result["attack_types"][0]["id"] == "prompt_injection"
             client.close()
 
+
 # =========================================================================
 # Async Tests
 # =========================================================================
+
 
 class TestAsyncAuditing:
     """Tests for async Auditing API."""

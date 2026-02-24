@@ -20,10 +20,13 @@ from aragora.server.versioning.compat import strip_version_prefix
 try:
     from aragora.rbac.decorators import require_permission
 except ImportError:  # pragma: no cover
+
     def require_permission(*_a, **_kw):  # type: ignore[misc]
         def _noop(fn):  # type: ignore[no-untyped-def]
             return fn
+
         return _noop
+
 
 from ..base import (
     SAFE_ID_PATTERN,
@@ -114,10 +117,7 @@ class ReceiptExplorerHandler(BaseHandler):
         if pipeline_id:
             receipts = [r for r in receipts if r.get("pipeline_id") == pipeline_id]
         if status:
-            receipts = [
-                r for r in receipts
-                if r.get("execution", {}).get("status") == status
-            ]
+            receipts = [r for r in receipts if r.get("execution", {}).get("status") == status]
 
         # Also query KM for historical receipts
         try:
@@ -129,19 +129,21 @@ class ReceiptExplorerHandler(BaseHandler):
             pass
 
         receipts = receipts[:limit]
-        return json_response({
-            "receipts": [
-                {
-                    "receipt_id": r.get("receipt_id"),
-                    "pipeline_id": r.get("pipeline_id"),
-                    "generated_at": r.get("generated_at"),
-                    "status": r.get("execution", {}).get("status", "unknown"),
-                    "content_hash": r.get("content_hash"),
-                }
-                for r in receipts
-            ],
-            "count": len(receipts),
-        })
+        return json_response(
+            {
+                "receipts": [
+                    {
+                        "receipt_id": r.get("receipt_id"),
+                        "pipeline_id": r.get("pipeline_id"),
+                        "generated_at": r.get("generated_at"),
+                        "status": r.get("execution", {}).get("status", "unknown"),
+                        "content_hash": r.get("content_hash"),
+                    }
+                    for r in receipts
+                ],
+                "count": len(receipts),
+            }
+        )
 
     def _get_receipt(self, receipt_id: str) -> HandlerResult:
         """Get full receipt with provenance."""
@@ -167,13 +169,15 @@ class ReceiptExplorerHandler(BaseHandler):
 
         valid = recomputed_hash == stored_hash
 
-        return json_response({
-            "receipt_id": receipt_id,
-            "valid": valid,
-            "stored_hash": stored_hash,
-            "recomputed_hash": recomputed_hash,
-            "pipeline_id": pipeline_id,
-        })
+        return json_response(
+            {
+                "receipt_id": receipt_id,
+                "valid": valid,
+                "stored_hash": stored_hash,
+                "recomputed_hash": recomputed_hash,
+                "pipeline_id": pipeline_id,
+            }
+        )
 
 
 __all__ = ["ReceiptExplorerHandler", "register_receipt"]

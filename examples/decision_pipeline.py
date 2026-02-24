@@ -95,12 +95,24 @@ def _run_mock_debate(question: str) -> MockDebateResult:
     ]
 
     votes = [
-        MockVote("claude-analyst", "mistral-synthesizer", 0.85,
-                 "Phased approach addresses my concern about parallel costs."),
-        MockVote("gpt4-challenger", "mistral-synthesizer", 0.78,
-                 "Phased migration reduces blast radius, though 120 days is tight."),
-        MockVote("mistral-synthesizer", "mistral-synthesizer", 0.92,
-                 "Consensus on phased approach with hard gate."),
+        MockVote(
+            "claude-analyst",
+            "mistral-synthesizer",
+            0.85,
+            "Phased approach addresses my concern about parallel costs.",
+        ),
+        MockVote(
+            "gpt4-challenger",
+            "mistral-synthesizer",
+            0.78,
+            "Phased migration reduces blast radius, though 120 days is tight.",
+        ),
+        MockVote(
+            "mistral-synthesizer",
+            "mistral-synthesizer",
+            0.92,
+            "Consensus on phased approach with hard gate.",
+        ),
     ]
 
     dissent = [
@@ -143,8 +155,7 @@ def _generate_receipt(debate: MockDebateResult) -> dict[str, Any]:
         "debate_time_ms": debate.debate_time_ms,
         "dissent": debate.dissent,
         "vote_summary": {
-            v.agent: {"choice": v.choice, "confidence": v.confidence}
-            for v in debate.votes
+            v.agent: {"choice": v.choice, "confidence": v.confidence} for v in debate.votes
         },
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -218,14 +229,16 @@ def _export_markdown(receipt: dict[str, Any]) -> str:
     for d in receipt.get("dissent", []):
         lines.append(f"- **{d['agent']}:** {d['reason']}")
 
-    lines.extend([
-        "",
-        "## Integrity",
-        "",
-        f"- Content hash: `{receipt.get('content_hash', 'N/A')}`",
-        f"- HMAC signed: {'Yes' if receipt.get('hmac_signature') else 'No'}",
-        f"- Generated: {receipt.get('generated_at', 'N/A')}",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Integrity",
+            "",
+            f"- Content hash: `{receipt.get('content_hash', 'N/A')}`",
+            f"- HMAC signed: {'Yes' if receipt.get('hmac_signature') else 'No'}",
+            f"- Generated: {receipt.get('generated_at', 'N/A')}",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -233,10 +246,12 @@ def _export_markdown(receipt: dict[str, Any]) -> str:
 def _export_html(receipt: dict[str, Any]) -> str:
     votes_html = ""
     for agent, vote in receipt.get("vote_summary", {}).items():
-        votes_html += f"<tr><td>{agent}</td><td>{vote['choice']}</td><td>{vote['confidence']:.0%}</td></tr>\n"
+        votes_html += (
+            f"<tr><td>{agent}</td><td>{vote['choice']}</td><td>{vote['confidence']:.0%}</td></tr>\n"
+        )
 
     return f"""<!DOCTYPE html>
-<html><head><title>Decision Receipt {receipt['receipt_id']}</title>
+<html><head><title>Decision Receipt {receipt["receipt_id"]}</title>
 <style>
 body {{ font-family: system-ui; max-width: 800px; margin: 2em auto; padding: 0 1em; }}
 table {{ border-collapse: collapse; width: 100%; }}
@@ -247,19 +262,19 @@ th {{ background: #f5f5f5; }}
 </style></head>
 <body>
 <h1>Decision Receipt</h1>
-<p><strong>ID:</strong> {receipt['receipt_id']}</p>
-<p><strong>Question:</strong> {receipt['question']}</p>
-<p class="verdict">Verdict: {receipt['verdict']}</p>
-<p><strong>Confidence:</strong> {receipt['confidence']:.0%}</p>
-<p><strong>Agents:</strong> {', '.join(receipt['agents'])}</p>
+<p><strong>ID:</strong> {receipt["receipt_id"]}</p>
+<p><strong>Question:</strong> {receipt["question"]}</p>
+<p class="verdict">Verdict: {receipt["verdict"]}</p>
+<p><strong>Confidence:</strong> {receipt["confidence"]:.0%}</p>
+<p><strong>Agents:</strong> {", ".join(receipt["agents"])}</p>
 
 <h2>Vote Summary</h2>
 <table><tr><th>Agent</th><th>Choice</th><th>Confidence</th></tr>
 {votes_html}</table>
 
 <h2>Integrity</h2>
-<p class="hash">SHA-256: {receipt.get('content_hash', 'N/A')}</p>
-<p class="hash">HMAC signed: {'Yes' if receipt.get('hmac_signature') else 'No'}</p>
+<p class="hash">SHA-256: {receipt.get("content_hash", "N/A")}</p>
+<p class="hash">HMAC signed: {"Yes" if receipt.get("hmac_signature") else "No"}</p>
 </body></html>"""
 
 

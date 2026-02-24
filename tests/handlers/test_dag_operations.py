@@ -98,43 +98,59 @@ class MockCoordinator:
     """Mock DAGOperationsCoordinator."""
 
     def __init__(self):
-        self.debate_node = AsyncMock(return_value=MockOpResult(
-            success=True,
-            message="Debate completed",
-            metadata={"rounds": 3},
-        ))
-        self.decompose_node = AsyncMock(return_value=MockOpResult(
-            success=True,
-            message="Decomposed into 3 sub-tasks",
-            created_nodes=["n1", "n2", "n3"],
-        ))
-        self.prioritize_children = AsyncMock(return_value=MockOpResult(
-            success=True,
-            message="Prioritized 3 children",
-        ))
-        self.assign_agents = AsyncMock(return_value=MockOpResult(
-            success=True,
-            message="Agents assigned",
-        ))
-        self.execute_node = AsyncMock(return_value=MockOpResult(
-            success=True,
-            message="Execution complete",
-        ))
-        self.find_precedents = AsyncMock(return_value=MockOpResult(
-            success=True,
-            message="Found 2 precedents",
-            metadata={"count": 2},
-        ))
-        self.cluster_ideas = AsyncMock(return_value=MockOpResult(
-            success=True,
-            message="Clustered into 2 groups",
-            created_nodes=["c1", "c2"],
-        ))
-        self.auto_flow = AsyncMock(return_value=MockOpResult(
-            success=True,
-            message="Auto-flow complete",
-            created_nodes=["af1", "af2"],
-        ))
+        self.debate_node = AsyncMock(
+            return_value=MockOpResult(
+                success=True,
+                message="Debate completed",
+                metadata={"rounds": 3},
+            )
+        )
+        self.decompose_node = AsyncMock(
+            return_value=MockOpResult(
+                success=True,
+                message="Decomposed into 3 sub-tasks",
+                created_nodes=["n1", "n2", "n3"],
+            )
+        )
+        self.prioritize_children = AsyncMock(
+            return_value=MockOpResult(
+                success=True,
+                message="Prioritized 3 children",
+            )
+        )
+        self.assign_agents = AsyncMock(
+            return_value=MockOpResult(
+                success=True,
+                message="Agents assigned",
+            )
+        )
+        self.execute_node = AsyncMock(
+            return_value=MockOpResult(
+                success=True,
+                message="Execution complete",
+            )
+        )
+        self.find_precedents = AsyncMock(
+            return_value=MockOpResult(
+                success=True,
+                message="Found 2 precedents",
+                metadata={"count": 2},
+            )
+        )
+        self.cluster_ideas = AsyncMock(
+            return_value=MockOpResult(
+                success=True,
+                message="Clustered into 2 groups",
+                created_nodes=["c1", "c2"],
+            )
+        )
+        self.auto_flow = AsyncMock(
+            return_value=MockOpResult(
+                success=True,
+                message="Auto-flow complete",
+                created_nodes=["af1", "af2"],
+            )
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +185,7 @@ def mock_coordinator():
 @pytest.fixture
 def mock_handler_obj():
     """Create a mock HTTP handler with request body."""
+
     def _make(body: dict | None = None):
         h = MagicMock()
         if body:
@@ -176,6 +193,7 @@ def mock_handler_obj():
         else:
             h.request.body = b"{}"
         return h
+
     return _make
 
 
@@ -279,7 +297,9 @@ class TestGetGraph:
 
         assert _status(result) == 404
         body = _body(result)
-        assert "not found" in body.get("error", "").lower() or "not found" in json.dumps(body).lower()
+        assert (
+            "not found" in body.get("error", "").lower() or "not found" in json.dumps(body).lower()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -303,24 +323,24 @@ class TestDebateNode:
         assert _status(result) == 200
 
         mock_backends["coordinator"].debate_node.assert_awaited_once_with(
-            "node-1", agents=["claude"], rounds=5,
+            "node-1",
+            agents=["claude"],
+            rounds=5,
         )
 
     @pytest.mark.asyncio
     async def test_debate_node_default_rounds(self, handler, mock_backends):
-        result = await handler._dispatch_node_op(
-            "test-graph", "node-1", "debate", {}
-        )
+        result = await handler._dispatch_node_op("test-graph", "node-1", "debate", {})
 
         mock_backends["coordinator"].debate_node.assert_awaited_once_with(
-            "node-1", agents=None, rounds=3,
+            "node-1",
+            agents=None,
+            rounds=3,
         )
 
     @pytest.mark.asyncio
     async def test_debate_node_graph_not_found(self, handler, mock_backends_no_graph):
-        result = await handler._dispatch_node_op(
-            "nonexistent", "node-1", "debate", {}
-        )
+        result = await handler._dispatch_node_op("nonexistent", "node-1", "debate", {})
 
         assert _status(result) == 404
 
@@ -335,9 +355,7 @@ class TestDecomposeNode:
 
     @pytest.mark.asyncio
     async def test_decompose_node_success(self, handler, mock_backends):
-        result = await handler._dispatch_node_op(
-            "test-graph", "node-1", "decompose", {}
-        )
+        result = await handler._dispatch_node_op("test-graph", "node-1", "decompose", {})
 
         data = _data(result)
         assert data["success"] is True
@@ -357,9 +375,7 @@ class TestPrioritizeChildren:
 
     @pytest.mark.asyncio
     async def test_prioritize_children_success(self, handler, mock_backends):
-        result = await handler._dispatch_node_op(
-            "test-graph", "node-1", "prioritize", {}
-        )
+        result = await handler._dispatch_node_op("test-graph", "node-1", "prioritize", {})
 
         data = _data(result)
         assert data["success"] is True
@@ -378,9 +394,7 @@ class TestAssignAgents:
 
     @pytest.mark.asyncio
     async def test_assign_agents_default_node_id(self, handler, mock_backends):
-        result = await handler._dispatch_node_op(
-            "test-graph", "node-1", "assign-agents", {}
-        )
+        result = await handler._dispatch_node_op("test-graph", "node-1", "assign-agents", {})
 
         data = _data(result)
         assert data["success"] is True
@@ -407,9 +421,7 @@ class TestExecuteNode:
 
     @pytest.mark.asyncio
     async def test_execute_node_success(self, handler, mock_backends):
-        result = await handler._dispatch_node_op(
-            "test-graph", "node-1", "execute", {}
-        )
+        result = await handler._dispatch_node_op("test-graph", "node-1", "execute", {})
 
         data = _data(result)
         assert data["success"] is True
@@ -438,17 +450,17 @@ class TestFindPrecedents:
         assert _status(result) == 200
 
         mock_backends["coordinator"].find_precedents.assert_awaited_once_with(
-            "node-1", max_results=10,
+            "node-1",
+            max_results=10,
         )
 
     @pytest.mark.asyncio
     async def test_find_precedents_default_max_results(self, handler, mock_backends):
-        result = await handler._dispatch_node_op(
-            "test-graph", "node-1", "find-precedents", {}
-        )
+        result = await handler._dispatch_node_op("test-graph", "node-1", "find-precedents", {})
 
         mock_backends["coordinator"].find_precedents.assert_awaited_once_with(
-            "node-1", max_results=5,
+            "node-1",
+            max_results=5,
         )
 
 
@@ -462,9 +474,7 @@ class TestUnknownOperation:
 
     @pytest.mark.asyncio
     async def test_unknown_operation_returns_400(self, handler, mock_backends):
-        result = await handler._dispatch_node_op(
-            "test-graph", "node-1", "unknown-op", {}
-        )
+        result = await handler._dispatch_node_op("test-graph", "node-1", "unknown-op", {})
 
         assert _status(result) == 400
         body = _body(result)
@@ -486,9 +496,7 @@ class TestOperationFailure:
             message="Node not found in graph",
         )
 
-        result = await handler._dispatch_node_op(
-            "test-graph", "node-1", "debate", {}
-        )
+        result = await handler._dispatch_node_op("test-graph", "node-1", "debate", {})
 
         data = _data(result)
         assert data["success"] is False
@@ -516,7 +524,8 @@ class TestClusterIdeas:
         assert _status(result) == 200
 
         mock_backends["coordinator"].cluster_ideas.assert_awaited_once_with(
-            ["idea1", "idea2"], threshold=0.5,
+            ["idea1", "idea2"],
+            threshold=0.5,
         )
 
     @pytest.mark.asyncio
@@ -527,7 +536,8 @@ class TestClusterIdeas:
         )
 
         mock_backends["coordinator"].cluster_ideas.assert_awaited_once_with(
-            ["idea1"], threshold=0.3,
+            ["idea1"],
+            threshold=0.3,
         )
 
     @pytest.mark.asyncio
@@ -540,17 +550,13 @@ class TestClusterIdeas:
 
     @pytest.mark.asyncio
     async def test_cluster_ideas_empty_ideas_list(self, handler, mock_backends):
-        result = await handler._handle_cluster_ideas(
-            "test-graph", {"ideas": []}
-        )
+        result = await handler._handle_cluster_ideas("test-graph", {"ideas": []})
 
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_cluster_ideas_graph_not_found(self, handler, mock_backends_no_graph):
-        result = await handler._handle_cluster_ideas(
-            "nonexistent", {"ideas": ["idea1"]}
-        )
+        result = await handler._handle_cluster_ideas("nonexistent", {"ideas": ["idea1"]})
 
         assert _status(result) == 404
 
@@ -576,7 +582,8 @@ class TestAutoFlow:
         assert _status(result) == 200
 
         mock_backends["coordinator"].auto_flow.assert_awaited_once_with(
-            ["idea1", "idea2"], config={"parallel": True},
+            ["idea1", "idea2"],
+            config={"parallel": True},
         )
 
     @pytest.mark.asyncio
@@ -587,7 +594,8 @@ class TestAutoFlow:
         )
 
         mock_backends["coordinator"].auto_flow.assert_awaited_once_with(
-            ["idea1"], config=None,
+            ["idea1"],
+            config=None,
         )
 
     @pytest.mark.asyncio
@@ -598,9 +606,7 @@ class TestAutoFlow:
 
     @pytest.mark.asyncio
     async def test_auto_flow_graph_not_found(self, handler, mock_backends_no_graph):
-        result = await handler._handle_auto_flow(
-            "nonexistent", {"ideas": ["idea1"]}
-        )
+        result = await handler._handle_auto_flow("nonexistent", {"ideas": ["idea1"]})
 
         assert _status(result) == 404
 
@@ -698,7 +704,9 @@ class TestHandlePostDispatch:
         mock_backends["coordinator"].auto_flow.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_handle_post_unmatched_path_returns_none(self, handler, mock_backends, mock_handler_obj):
+    async def test_handle_post_unmatched_path_returns_none(
+        self, handler, mock_backends, mock_handler_obj
+    ):
         h = mock_handler_obj({})
         result = handler.handle_post(
             "/api/v1/pipeline/dag/",

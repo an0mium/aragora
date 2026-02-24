@@ -89,13 +89,16 @@ class TestCategoryMapping:
 
     def test_bug_report_becomes_reliability_goal(self, tmp_path: Path):
         """Bug reports should create improvement goals with category=reliability."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "bug-1",
-                "feedback_type": "bug_report",
-                "comment": "The debate crashes when I submit long prompts",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "bug-1",
+                    "feedback_type": "bug_report",
+                    "comment": "The debate crashes when I submit long prompts",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         result = analyzer.process_new_feedback()
 
@@ -108,13 +111,16 @@ class TestCategoryMapping:
 
     def test_feature_request_becomes_features_goal(self, tmp_path: Path):
         """Feature requests should create goals with category=features."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "feat-1",
-                "feedback_type": "feature_request",
-                "comment": "Please add Slack integration for debate results",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "feat-1",
+                    "feedback_type": "feature_request",
+                    "comment": "Please add Slack integration for debate results",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         result = analyzer.process_new_feedback()
 
@@ -125,14 +131,17 @@ class TestCategoryMapping:
 
     def test_debate_quality_low_score_becomes_accuracy_goal(self, tmp_path: Path):
         """Low debate quality ratings should create accuracy improvement goals."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "dq-1",
-                "feedback_type": "debate_quality",
-                "score": 2,
-                "comment": "The agents gave incorrect answers about Python asyncio",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "dq-1",
+                    "feedback_type": "debate_quality",
+                    "score": 2,
+                    "comment": "The agents gave incorrect answers about Python asyncio",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         result = analyzer.process_new_feedback()
 
@@ -143,14 +152,17 @@ class TestCategoryMapping:
 
     def test_low_nps_triggers_investigation_goal(self, tmp_path: Path):
         """NPS scores <= 5 should trigger investigation goals."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "nps-1",
-                "feedback_type": "nps",
-                "score": 3,
-                "comment": "Too slow and confusing",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "nps-1",
+                    "feedback_type": "nps",
+                    "score": 3,
+                    "comment": "Too slow and confusing",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         result = analyzer.process_new_feedback()
 
@@ -161,14 +173,17 @@ class TestCategoryMapping:
 
     def test_high_nps_without_comment_skipped(self, tmp_path: Path):
         """High NPS scores without comments produce no actionable goals."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "nps-high-1",
-                "feedback_type": "nps",
-                "score": 10,
-                "comment": None,
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "nps-high-1",
+                    "feedback_type": "nps",
+                    "score": 10,
+                    "comment": None,
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         result = analyzer.process_new_feedback()
 
@@ -186,13 +201,16 @@ class TestKeywordRefinement:
 
     def test_performance_keywords_override(self, tmp_path: Path):
         """Comments mentioning 'slow' should be categorized as performance."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "gen-perf-1",
-                "feedback_type": "general",
-                "comment": "The debates are too slow, takes minutes to get results",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "gen-perf-1",
+                    "feedback_type": "general",
+                    "comment": "The debates are too slow, takes minutes to get results",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         result = analyzer.process_new_feedback()
 
@@ -202,13 +220,16 @@ class TestKeywordRefinement:
 
     def test_crash_keyword_maps_to_reliability(self, tmp_path: Path):
         """Comments mentioning 'crash' should be categorized as reliability."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "gen-crash-1",
-                "feedback_type": "general",
-                "comment": "The app crashes when I try to export results",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "gen-crash-1",
+                    "feedback_type": "general",
+                    "comment": "The app crashes when I try to export results",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         result = analyzer.process_new_feedback()
 
@@ -226,18 +247,21 @@ class TestDeduplication:
 
     def test_duplicate_feedback_skipped(self, tmp_path: Path):
         """Near-identical feedback items should be deduplicated."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "dup-1",
-                "feedback_type": "bug_report",
-                "comment": "The debate crashes when I submit long prompts",
-            },
-            {
-                "id": "dup-2",
-                "feedback_type": "bug_report",
-                "comment": "The debate crashes when I submit long prompts!",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "dup-1",
+                    "feedback_type": "bug_report",
+                    "comment": "The debate crashes when I submit long prompts",
+                },
+                {
+                    "id": "dup-2",
+                    "feedback_type": "bug_report",
+                    "comment": "The debate crashes when I submit long prompts!",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         result = analyzer.process_new_feedback()
 
@@ -247,18 +271,21 @@ class TestDeduplication:
 
     def test_different_feedback_not_deduplicated(self, tmp_path: Path):
         """Distinct feedback items should each produce goals."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "diff-1",
-                "feedback_type": "bug_report",
-                "comment": "The debate crashes on long prompts",
-            },
-            {
-                "id": "diff-2",
-                "feedback_type": "feature_request",
-                "comment": "Please add dark mode to the dashboard",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "diff-1",
+                    "feedback_type": "bug_report",
+                    "comment": "The debate crashes on long prompts",
+                },
+                {
+                    "id": "diff-2",
+                    "feedback_type": "feature_request",
+                    "comment": "Please add dark mode to the dashboard",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         result = analyzer.process_new_feedback()
 
@@ -276,13 +303,16 @@ class TestProcessingState:
 
     def test_already_processed_feedback_skipped(self, tmp_path: Path):
         """Running the analyzer twice should not create duplicate goals."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "once-1",
-                "feedback_type": "bug_report",
-                "comment": "Login form is broken on mobile",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "once-1",
+                    "feedback_type": "bug_report",
+                    "comment": "Login form is broken on mobile",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
 
         result1 = analyzer.process_new_feedback()
@@ -295,13 +325,16 @@ class TestProcessingState:
 
     def test_processing_state_persists(self, tmp_path: Path):
         """Processing state should survive across FeedbackAnalyzer instances."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "persist-1",
-                "feedback_type": "feature_request",
-                "comment": "Add CSV export",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "persist-1",
+                    "feedback_type": "feature_request",
+                    "comment": "Add CSV export",
+                },
+            ],
+        )
 
         # First instance processes it
         analyzer1 = _make_analyzer(tmp_path, db)
@@ -324,14 +357,17 @@ class TestEdgeCases:
 
     def test_empty_feedback_handled_gracefully(self, tmp_path: Path):
         """Feedback with no comment and no score should be skipped."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "empty-1",
-                "feedback_type": "general",
-                "comment": None,
-                "score": None,
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "empty-1",
+                    "feedback_type": "general",
+                    "comment": None,
+                    "score": None,
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         result = analyzer.process_new_feedback()
 
@@ -379,7 +415,15 @@ class TestEdgeCases:
         """)
         conn.execute(
             "INSERT INTO feedback VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("bad-meta-1", "user1", "bug_report", None, "Something is broken", "not-json{{{", "2026-02-23T12:00:00"),
+            (
+                "bad-meta-1",
+                "user1",
+                "bug_report",
+                None,
+                "Something is broken",
+                "not-json{{{",
+                "2026-02-23T12:00:00",
+            ),
         )
         conn.commit()
         conn.close()
@@ -401,13 +445,16 @@ class TestGoalContent:
 
     def test_goal_source_is_user_feedback(self, tmp_path: Path):
         """All goals from this analyzer should have source='user_feedback'."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "src-1",
-                "feedback_type": "bug_report",
-                "comment": "Memory leak in long debates",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "src-1",
+                    "feedback_type": "bug_report",
+                    "comment": "Memory leak in long debates",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         analyzer.process_new_feedback()
 
@@ -416,13 +463,16 @@ class TestGoalContent:
 
     def test_goal_tracks_feedback_id(self, tmp_path: Path):
         """Goal context should include the originating feedback_id."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "track-me-123",
-                "feedback_type": "feature_request",
-                "comment": "Add PDF export",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "track-me-123",
+                    "feedback_type": "feature_request",
+                    "comment": "Add PDF export",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         analyzer.process_new_feedback()
 
@@ -431,18 +481,21 @@ class TestGoalContent:
 
     def test_goal_priority_reflects_category(self, tmp_path: Path):
         """Reliability goals should have higher priority than feature goals."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "pri-bug",
-                "feedback_type": "bug_report",
-                "comment": "Critical crash in debate engine",
-            },
-            {
-                "id": "pri-feat",
-                "feedback_type": "feature_request",
-                "comment": "Add emoji reactions to debate outcomes",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "pri-bug",
+                    "feedback_type": "bug_report",
+                    "comment": "Critical crash in debate engine",
+                },
+                {
+                    "id": "pri-feat",
+                    "feedback_type": "feature_request",
+                    "comment": "Add emoji reactions to debate outcomes",
+                },
+            ],
+        )
         analyzer = _make_analyzer(tmp_path, db)
         analyzer.process_new_feedback()
 
@@ -464,13 +517,16 @@ class TestConvenienceFunction:
 
     def test_process_new_feedback_function(self, tmp_path: Path):
         """The convenience function should work end-to-end."""
-        db = _create_feedback_db(tmp_path, [
-            {
-                "id": "conv-1",
-                "feedback_type": "general",
-                "comment": "Great product but needs better docs",
-            },
-        ])
+        db = _create_feedback_db(
+            tmp_path,
+            [
+                {
+                    "id": "conv-1",
+                    "feedback_type": "general",
+                    "comment": "Great product but needs better docs",
+                },
+            ],
+        )
         result = process_new_feedback(
             feedback_db_path=db,
             state_db_path=tmp_path / "state.db",

@@ -188,7 +188,9 @@ class AsyncAgentDashboardAPI:
 
     async def prioritize_queue(self, **kwargs: Any) -> dict[str, Any]:
         """Reprioritize tasks in the queue."""
-        return await self._client.request("POST", "/api/agent-dashboard/queue/prioritize", json=kwargs)
+        return await self._client.request(
+            "POST", "/api/agent-dashboard/queue/prioritize", json=kwargs
+        )
 
     # Stream
     async def get_stream_info(self) -> dict[str, Any]:

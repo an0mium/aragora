@@ -96,9 +96,7 @@ class TTSEventBridge:
     voice_handler: VoiceStreamHandler
     _text_buffers: dict[str, str] = field(default_factory=dict)
     _buffer_timestamps: dict[str, float] = field(default_factory=dict)
-    _queues: dict[str, asyncio.Queue[tuple[str, str] | None]] = field(
-        default_factory=dict
-    )
+    _queues: dict[str, asyncio.Queue[tuple[str, str] | None]] = field(default_factory=dict)
     _workers: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     _audio_states: dict[str, _SessionAudioState] = field(default_factory=dict)
     _connected: bool = False
@@ -280,9 +278,7 @@ class TTSEventBridge:
             return
 
         elapsed = time.monotonic() - self._buffer_timestamps.get(debate_id, time.monotonic())
-        force_flush = (
-            elapsed >= _PARTIAL_FLUSH_TIMEOUT or len(buf) >= _MAX_ACCUMULATOR_LEN
-        )
+        force_flush = elapsed >= _PARTIAL_FLUSH_TIMEOUT or len(buf) >= _MAX_ACCUMULATOR_LEN
 
         sentences: list[str] = []
         remaining = buf
@@ -326,16 +322,12 @@ class TTSEventBridge:
         if debate_id not in self._queues:
             self._queues[debate_id] = asyncio.Queue(maxsize=100)
         if debate_id not in self._workers:
-            self._workers[debate_id] = asyncio.create_task(
-                self._synthesis_worker(debate_id)
-            )
+            self._workers[debate_id] = asyncio.create_task(self._synthesis_worker(debate_id))
 
         try:
             self._queues[debate_id].put_nowait((agent, text))
         except asyncio.QueueFull:
-            logger.warning(
-                "[TTS Bridge] Synthesis queue full for %s, dropping sentence", debate_id
-            )
+            logger.warning("[TTS Bridge] Synthesis queue full for %s, dropping sentence", debate_id)
 
     # ------------------------------------------------------------------
     # Synthesis worker
@@ -375,6 +367,7 @@ class TTSEventBridge:
 # ---------------------------------------------------------------------------
 # Convenience helpers for TTSIntegration
 # ---------------------------------------------------------------------------
+
 
 def _add_synthesize_for_debate(tts_cls: type) -> None:
     """Monkey-patch ``synthesize_for_debate`` onto TTSIntegration if absent.

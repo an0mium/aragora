@@ -389,9 +389,7 @@ class TestDebateTemplate:
         for field in expected_fields:
             assert field in field_names
 
-    def test_debate_template_new_topic_and_policy_fields(
-        self, sample_roles, sample_phases
-    ):
+    def test_debate_template_new_topic_and_policy_fields(self, sample_roles, sample_phases):
         """Test the new topic_prompt and evidence_policy fields."""
         template = DebateTemplate(
             template_id="new-fields-test",

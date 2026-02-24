@@ -108,9 +108,7 @@ class ExplainabilityAPI:
             Dict with batch job ID and status. Use get_batch_status()
             to check progress and get_batch_results() to retrieve results.
         """
-        return self._client.request(
-            "POST", "/api/v1/explainability/batch", json=kwargs
-        )
+        return self._client.request("POST", "/api/v1/explainability/batch", json=kwargs)
 
     def get_batch_status(self, batch_id: str) -> dict[str, Any]:
         """
@@ -123,9 +121,7 @@ class ExplainabilityAPI:
             Dict with batch status including progress percentage
             and completion state.
         """
-        return self._client.request(
-            "GET", f"/api/v1/explainability/batch/{batch_id}/status"
-        )
+        return self._client.request("GET", f"/api/v1/explainability/batch/{batch_id}/status")
 
     def get_batch_results(self, batch_id: str) -> dict[str, Any]:
         """
@@ -137,9 +133,7 @@ class ExplainabilityAPI:
         Returns:
             Dict with explanation results for each decision in the batch.
         """
-        return self._client.request(
-            "GET", f"/api/v1/explainability/batch/{batch_id}/results"
-        )
+        return self._client.request("GET", f"/api/v1/explainability/batch/{batch_id}/results")
 
 
 class AsyncExplainabilityAPI:
@@ -191,18 +185,12 @@ class AsyncExplainabilityAPI:
 
     async def batch_explain(self, **kwargs: Any) -> dict[str, Any]:
         """Submit a batch of decisions for explanation."""
-        return await self._client.request(
-            "POST", "/api/v1/explainability/batch", json=kwargs
-        )
+        return await self._client.request("POST", "/api/v1/explainability/batch", json=kwargs)
 
     async def get_batch_status(self, batch_id: str) -> dict[str, Any]:
         """Get status of a batch explanation job."""
-        return await self._client.request(
-            "GET", f"/api/v1/explainability/batch/{batch_id}/status"
-        )
+        return await self._client.request("GET", f"/api/v1/explainability/batch/{batch_id}/status")
 
     async def get_batch_results(self, batch_id: str) -> dict[str, Any]:
         """Get results of a completed batch explanation job."""
-        return await self._client.request(
-            "GET", f"/api/v1/explainability/batch/{batch_id}/results"
-        )
+        return await self._client.request("GET", f"/api/v1/explainability/batch/{batch_id}/results")

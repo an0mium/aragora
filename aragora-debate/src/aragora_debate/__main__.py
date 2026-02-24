@@ -52,6 +52,7 @@ def _header(text: str) -> str:
 # Demo runner
 # ---------------------------------------------------------------------------
 
+
 async def _run_demo(
     topic: str,
     rounds: int,
@@ -87,7 +88,11 @@ async def _run_demo(
     def on_event(event: object) -> None:
         """Print live event updates."""
         if hasattr(event, "event_type"):
-            etype = event.event_type.value if hasattr(event.event_type, "value") else str(event.event_type)
+            etype = (
+                event.event_type.value
+                if hasattr(event.event_type, "value")
+                else str(event.event_type)
+            )
             if etype in ("trickster_intervention", "convergence_detected"):
                 print(f"  {_c(f'[{etype}]', 'magenta')}", end="")
                 if hasattr(event, "data") and event.data:
@@ -175,6 +180,7 @@ async def _run_demo(
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="python -m aragora_debate",
@@ -202,12 +208,14 @@ def main() -> None:
         help="Enable convergence tracking across rounds",
     )
     args = parser.parse_args()
-    asyncio.run(_run_demo(
-        args.topic,
-        args.rounds,
-        enable_trickster=args.trickster,
-        enable_convergence=args.convergence,
-    ))
+    asyncio.run(
+        _run_demo(
+            args.topic,
+            args.rounds,
+            enable_trickster=args.trickster,
+            enable_convergence=args.convergence,
+        )
+    )
 
 
 if __name__ == "__main__":

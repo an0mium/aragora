@@ -66,11 +66,15 @@ class TestSignalTestFailures:
         """Simulate .pytest_cache/v/cache/lastfailed with known failures."""
         cache_dir = tmp_path / ".pytest_cache" / "v" / "cache"
         cache_dir.mkdir(parents=True)
-        (cache_dir / "lastfailed").write_text(json.dumps({
-            "tests/foo/test_a.py::test_one": True,
-            "tests/foo/test_a.py::test_two": True,
-            "tests/bar/test_b.py::test_three": True,
-        }))
+        (cache_dir / "lastfailed").write_text(
+            json.dumps(
+                {
+                    "tests/foo/test_a.py::test_one": True,
+                    "tests/foo/test_a.py::test_two": True,
+                    "tests/bar/test_b.py::test_three": True,
+                }
+            )
+        )
         monkeypatch.chdir(tmp_path)
 
         proposer = GoalProposer()
@@ -101,9 +105,13 @@ class TestSignalTestFailures:
     def test_signal_source_tag(self, tmp_path, monkeypatch):
         cache_dir = tmp_path / ".pytest_cache" / "v" / "cache"
         cache_dir.mkdir(parents=True)
-        (cache_dir / "lastfailed").write_text(json.dumps({
-            "tests/x.py::test_y": True,
-        }))
+        (cache_dir / "lastfailed").write_text(
+            json.dumps(
+                {
+                    "tests/x.py::test_y": True,
+                }
+            )
+        )
         monkeypatch.chdir(tmp_path)
 
         proposer = GoalProposer()
@@ -160,7 +168,7 @@ class TestSignalSlowCycles:
 
     def test_expensive_cycles_detected(self):
         records = [
-            self._make_record(cost_usd=1.0),   # expensive
+            self._make_record(cost_usd=1.0),  # expensive
             self._make_record(cost_usd=0.01),
             self._make_record(cost_usd=0.01),
             self._make_record(cost_usd=0.01),
@@ -192,7 +200,9 @@ class TestSignalStaleness:
         mock_km = MagicMock()
         mock_km.find_stale.return_value = ["item1", "item2", "item3"]
 
-        with patch("aragora.nomic.goal_proposer.GoalProposer._signal_knowledge_staleness") as patched:
+        with patch(
+            "aragora.nomic.goal_proposer.GoalProposer._signal_knowledge_staleness"
+        ) as patched:
             # Test the actual method by calling the real implementation
             proposer = GoalProposer()
             # Directly test with mocked km via the internal approach
@@ -361,18 +371,25 @@ class TestProposeGoals:
         monkeypatch.chdir(tmp_path)
 
         proposer = GoalProposer()
-        with patch.object(
-            proposer,
-            "_signal_test_failures",
-            return_value=[
-                GoalCandidate(goal_text="from_tests", confidence=0.9, signal_source="test_failures"),
-            ],
-        ), patch.object(
-            proposer,
-            "_signal_slow_cycles",
-            return_value=[
-                GoalCandidate(goal_text="from_perf", confidence=0.85, signal_source="slow_cycles"),
-            ],
+        with (
+            patch.object(
+                proposer,
+                "_signal_test_failures",
+                return_value=[
+                    GoalCandidate(
+                        goal_text="from_tests", confidence=0.9, signal_source="test_failures"
+                    ),
+                ],
+            ),
+            patch.object(
+                proposer,
+                "_signal_slow_cycles",
+                return_value=[
+                    GoalCandidate(
+                        goal_text="from_perf", confidence=0.85, signal_source="slow_cycles"
+                    ),
+                ],
+            ),
         ):
             goals = proposer.propose_goals(min_confidence=0.8)
             sources = {g.signal_source for g in goals}

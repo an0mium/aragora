@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class ChatAPI:
     """Synchronous Chat API for knowledge operations."""
 
@@ -80,6 +81,7 @@ class ChatAPI:
             body["metadata"] = metadata
         return self._client.request("POST", "/api/v1/chat/knowledge/store", json=body)
 
+
 class AsyncChatAPI:
     """Asynchronous Chat API for knowledge operations."""
 
@@ -148,4 +150,3 @@ class AsyncChatAPI:
         if metadata:
             body["metadata"] = metadata
         return await self._client.request("POST", "/api/v1/chat/knowledge/store", json=body)
-

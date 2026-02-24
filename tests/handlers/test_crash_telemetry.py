@@ -144,10 +144,7 @@ class TestIngest:
         assert body["total_stored"] == 1
 
     def test_multiple_reports_accepted(self, handler: CrashTelemetryHandler):
-        reports = [
-            _make_report(message=f"Error {i}", fingerprint=f"fp_{i}")
-            for i in range(5)
-        ]
+        reports = [_make_report(message=f"Error {i}", fingerprint=f"fp_{i}") for i in range(5)]
         mock = _make_handler_with_body({"reports": reports})
         result = handler.handle_post("/api/v1/observability/crashes", {}, mock)
         assert _status(result) == 202
@@ -345,9 +342,7 @@ class TestStats:
     def test_stats_top_components(self, handler: CrashTelemetryHandler):
         # Ingest 3 crashes for CompA and 1 for CompB
         for i in range(3):
-            report = _make_report(
-                fingerprint=f"comp_a_{i}", component_name="CompA"
-            )
+            report = _make_report(fingerprint=f"comp_a_{i}", component_name="CompA")
             mock = _make_handler_with_body({"reports": [report]})
             handler.handle_post("/api/v1/observability/crashes", {}, mock)
 

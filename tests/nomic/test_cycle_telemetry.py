@@ -178,9 +178,15 @@ class TestAggregation:
         assert collector.get_avg_cost_per_improvement() == 0.0
 
     def test_top_goals_by_impact(self, collector):
-        collector.record_cycle(_make_record(cycle_id="g1", quality_delta=0.5, success=True, goal="Big"))
-        collector.record_cycle(_make_record(cycle_id="g2", quality_delta=0.1, success=True, goal="Small"))
-        collector.record_cycle(_make_record(cycle_id="g3", quality_delta=0.9, success=True, goal="Biggest"))
+        collector.record_cycle(
+            _make_record(cycle_id="g1", quality_delta=0.5, success=True, goal="Big")
+        )
+        collector.record_cycle(
+            _make_record(cycle_id="g2", quality_delta=0.1, success=True, goal="Small")
+        )
+        collector.record_cycle(
+            _make_record(cycle_id="g3", quality_delta=0.9, success=True, goal="Biggest")
+        )
         top = collector.get_top_goals_by_impact(n=2)
         assert len(top) == 2
         assert top[0]["goal"] == "Biggest"

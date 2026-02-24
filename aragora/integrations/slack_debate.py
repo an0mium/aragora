@@ -105,9 +105,7 @@ def get_active_debate(debate_id: str) -> SlackActiveDebateState | None:
     return _active_debates.get(debate_id)
 
 
-def get_active_debate_for_thread(
-    channel_id: str, thread_ts: str
-) -> SlackActiveDebateState | None:
+def get_active_debate_for_thread(channel_id: str, thread_ts: str) -> SlackActiveDebateState | None:
     """Find the active debate for a given Slack thread.
 
     Args:
@@ -219,8 +217,7 @@ def _build_debate_started_blocks(
                 {
                     "type": "mrkdwn",
                     "text": (
-                        f":robot_face: Aragora | "
-                        f"{datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"
+                        f":robot_face: Aragora | {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"
                     ),
                 }
             ],
@@ -249,8 +246,7 @@ def _build_round_update_blocks(round_data: dict[str, Any]) -> list[dict[str, Any
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    f"{phase_emoji} *Round {current_round}/{total_rounds}* "
-                    f"- _{phase.capitalize()}_"
+                    f"{phase_emoji} *Round {current_round}/{total_rounds}* - _{phase.capitalize()}_"
                 ),
             },
         },
@@ -297,9 +293,7 @@ def _build_consensus_blocks(result: Any) -> list[dict[str, Any]]:
 
     task = getattr(result, "task", "")
     if task:
-        blocks.append(
-            {"type": "section", "text": {"type": "mrkdwn", "text": f"*Task:* {task}"}}
-        )
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*Task:* {task}"}})
 
     # Results fields
     confidence = getattr(result, "confidence", 0.0) or 0.0
@@ -390,14 +384,10 @@ def _build_receipt_blocks(
     confidence = getattr(receipt, "confidence", 0.0) or 0.0
     findings = getattr(receipt, "findings", []) or []
     critical_count = sum(
-        1
-        for f in findings
-        if getattr(f, "severity", getattr(f, "level", "")).lower() == "critical"
+        1 for f in findings if getattr(f, "severity", getattr(f, "level", "")).lower() == "critical"
     )
     high_count = sum(
-        1
-        for f in findings
-        if getattr(f, "severity", getattr(f, "level", "")).lower() == "high"
+        1 for f in findings if getattr(f, "severity", getattr(f, "level", "")).lower() == "high"
     )
 
     fields = [
@@ -443,7 +433,12 @@ def _build_receipt_blocks(
     )
     if dissenting_views:
         dissent_lines = "\n".join(
-            f"  - {d}" for d in (dissenting_views[:5] if isinstance(dissenting_views, list) else [str(dissenting_views)])
+            f"  - {d}"
+            for d in (
+                dissenting_views[:5]
+                if isinstance(dissenting_views, list)
+                else [str(dissenting_views)]
+            )
         )
         blocks.append({"type": "divider"})
         blocks.append(
@@ -521,10 +516,7 @@ def _build_stop_blocks(
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": (
-                            f"Stopped by <@{stopped_by}> | "
-                            f"Debate `{debate_id[:12]}...`"
-                        ),
+                        "text": (f"Stopped by <@{stopped_by}> | Debate `{debate_id[:12]}...`"),
                     }
                 ],
             }
@@ -552,9 +544,7 @@ def _build_vote_summary_blocks(
             vote_lines.append(f":{emoji}: x{count}")
         parts.append("*User Votes:* " + "  ".join(vote_lines))
     if suggestions_count > 0:
-        parts.append(
-            f"*User Suggestions:* {suggestions_count} received"
-        )
+        parts.append(f"*User Suggestions:* {suggestions_count} received")
 
     return [
         {"type": "divider"},
@@ -714,7 +704,7 @@ def parse_mention_text(text: str) -> tuple[str, str]:
     lower = clean.lower()
     for keyword in ("debate", "decide"):
         if lower.startswith(keyword):
-            rest = clean[len(keyword):].strip().strip("\"'")
+            rest = clean[len(keyword) :].strip().strip("\"'")
             return (keyword, rest)
 
     return ("", "")
@@ -799,13 +789,9 @@ class SlackDebateLifecycle:
         }
 
         try:
-            async with session.post(
-                url, data=_json.dumps(payload), headers=headers
-            ) as resp:
+            async with session.post(url, data=_json.dumps(payload), headers=headers) as resp:
                 if resp.status != 200:
-                    logger.error(
-                        "Slack API returned HTTP %s for chat.postMessage", resp.status
-                    )
+                    logger.error("Slack API returned HTTP %s for chat.postMessage", resp.status)
                     return False
                 body = await resp.json()
                 if not body.get("ok"):
@@ -1214,17 +1200,13 @@ class SlackDebateLifecycle:
                 stopped_early = True
         except asyncio.TimeoutError:
             logger.warning("Debate %s timed out after %ss", debate_id, config.timeout_seconds)
-            await self.post_error(
-                channel_id, thread_ts, "Debate timed out.", debate_id
-            )
+            await self.post_error(channel_id, thread_ts, "Debate timed out.", debate_id)
             state.status = "failed"
             _active_debates.pop(debate_id, None)
             return None
         except (RuntimeError, OSError, ValueError) as exc:
             logger.error("Debate %s failed: %s", debate_id, exc)
-            await self.post_error(
-                channel_id, thread_ts, f"Debate failed: {exc}", debate_id
-            )
+            await self.post_error(channel_id, thread_ts, f"Debate failed: {exc}", debate_id)
             state.status = "failed"
             _active_debates.pop(debate_id, None)
             return None
@@ -1267,10 +1249,12 @@ class SlackDebateLifecycle:
                 if isinstance(c, dict):
                     crit_data.append(c)
                 else:
-                    crit_data.append({
-                        "agent": getattr(c, "agent", ""),
-                        "summary": getattr(c, "summary", getattr(c, "text", "")),
-                    })
+                    crit_data.append(
+                        {
+                            "agent": getattr(c, "agent", ""),
+                            "summary": getattr(c, "summary", getattr(c, "text", "")),
+                        }
+                    )
             await self.post_critique_summary(channel_id, thread_ts, crit_data)
 
         # Post voting results if available
@@ -1293,9 +1277,7 @@ class SlackDebateLifecycle:
         # Post receipt if available
         receipt = getattr(result, "receipt", None)
         if receipt:
-            await self.post_receipt(
-                channel_id, thread_ts, receipt, debate_id=debate_id
-            )
+            await self.post_receipt(channel_id, thread_ts, receipt, debate_id=debate_id)
 
         # Mark result as sent via debate_origin
         try:
@@ -1364,7 +1346,7 @@ class SlackDebateLifecycle:
             await self._post_to_thread(
                 channel_id,
                 thread_ts,
-                f"Usage: `@aragora {command} \"Your topic here\"`",
+                f'Usage: `@aragora {command} "Your topic here"`',
             )
             return None
 
@@ -1398,9 +1380,7 @@ class SlackDebateLifecycle:
             )
         except (RuntimeError, OSError, ValueError, asyncio.CancelledError) as exc:
             logger.error("Background debate %s failed: %s", debate_id, exc)
-            await self.post_error(
-                channel_id, thread_ts, f"Debate failed: {exc}", debate_id
-            )
+            await self.post_error(channel_id, thread_ts, f"Debate failed: {exc}", debate_id)
 
     async def handle_slash_command(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Handle the ``/aragora-debate`` slash command from Slack.
@@ -1463,7 +1443,6 @@ class SlackDebateLifecycle:
                 "response_type": "ephemeral",
                 "text": "Failed to start debate. Please try again later.",
             }
-
 
     # -- Receipt delivery with approval flow ---------------------------------
 

@@ -31,10 +31,13 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 try:
     from aragora.rbac.decorators import require_permission
 except ImportError:  # pragma: no cover
+
     def require_permission(*_a, **_kw):  # type: ignore[misc]
         def _noop(fn):  # type: ignore[no-untyped-def]
             return fn
+
         return _noop
+
 
 logger = logging.getLogger(__name__)
 
@@ -101,12 +104,8 @@ class SystemHealthDashboardHandler(BaseHandler):
         # Circuit breakers
         cb_status = "healthy"
         if cb_data.get("available"):
-            open_count = sum(
-                1 for b in cb_data.get("breakers", []) if b.get("state") == "open"
-            )
-            half_open = sum(
-                1 for b in cb_data.get("breakers", []) if b.get("state") == "half-open"
-            )
+            open_count = sum(1 for b in cb_data.get("breakers", []) if b.get("state") == "open")
+            half_open = sum(1 for b in cb_data.get("breakers", []) if b.get("state") == "half-open")
             if open_count > 0:
                 cb_status = "critical"
             elif half_open > 0:
@@ -144,9 +143,7 @@ class SystemHealthDashboardHandler(BaseHandler):
         # Agents
         agent_status = "healthy"
         if agent_data.get("available"):
-            failed = sum(
-                1 for a in agent_data.get("agents", []) if a.get("status") == "failed"
-            )
+            failed = sum(1 for a in agent_data.get("agents", []) if a.get("status") == "failed")
             total_agents = agent_data.get("total", 0)
             if total_agents > 0 and failed > total_agents * 0.3:
                 agent_status = "critical"

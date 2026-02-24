@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 SessionStatus = Literal["active", "completed", "failed"]
 
+
 class LearningAPI:
     """
     Synchronous Learning API.
@@ -478,6 +479,3 @@ class AsyncLearningAPI:
         if config:
             data["config"] = config
         return await self._client.request("POST", "/api/v1/learning/sessions", json=data)
-
-
-

@@ -96,6 +96,7 @@ class TestPulseTrending:
             assert call_args[1]["params"]["source"] == "twitter"
             client.close()
 
+
 class TestPulseSuggest:
     """Tests for debate topic suggestion operations."""
 
@@ -144,6 +145,7 @@ class TestPulseSuggest:
             call_args = mock_request.call_args
             assert call_args[1]["params"]["category"] == "finance"
             client.close()
+
 
 class TestAsyncPulse:
     """Tests for async pulse API."""
@@ -194,4 +196,3 @@ class TestAsyncPulse:
                 assert params["source"] == "hackernews"
                 assert params["category"] == "technology"
                 assert "topic" in result
-

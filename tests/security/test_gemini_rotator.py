@@ -104,9 +104,7 @@ def test_update_local_env(tmp_path, monkeypatch):
     """Updates .env file with new key value."""
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "OTHER_KEY=foo\n"
-        "GEMINI_API_KEY=old-key-value\n"
-        "GOOGLE_API_KEY=old-key-value\n"
+        "OTHER_KEY=foo\nGEMINI_API_KEY=old-key-value\nGOOGLE_API_KEY=old-key-value\n"
     )
 
     # Patch to find our test .env
@@ -275,4 +273,6 @@ async def test_rotate_aborts_on_secrets_manager_failure(monkeypatch):
     # Should abort and return None
     assert result is None
     # Should attempt to clean up the newly created key
-    delete_mock.assert_called_once_with("access-token", "projects/proj/locations/global/keys/new-key")
+    delete_mock.assert_called_once_with(
+        "access-token", "projects/proj/locations/global/keys/new-key"
+    )

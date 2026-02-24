@@ -334,9 +334,7 @@ class StatusPage:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         with self._lock:
             history = [
-                i
-                for i in self._incidents
-                if i.status == "resolved" and i.started_at >= cutoff
+                i for i in self._incidents if i.status == "resolved" and i.started_at >= cutoff
             ]
         return sorted(history, key=lambda i: i.started_at, reverse=True)
 
@@ -423,9 +421,7 @@ class StatusPage:
                     )
                     if status == "resolved":
                         incident.resolved_at = now
-                    logger.info(
-                        "Incident updated: %s -> %s", incident_id, status
-                    )
+                    logger.info("Incident updated: %s -> %s", incident_id, status)
                     return True
         return False
 
@@ -458,9 +454,7 @@ class StatusPage:
             "components": [c.to_dict() for c in components],
             "active_incidents": [i.to_dict() for i in active_incidents],
             "incident_history": [i.to_dict() for i in history],
-            "uptime": {
-                comp_id: self.get_uptime(comp_id) for comp_id in self._components
-            },
+            "uptime": {comp_id: self.get_uptime(comp_id) for comp_id in self._components},
         }
 
     def _record_uptime(self, component: str, healthy: bool) -> None:
@@ -483,9 +477,7 @@ class StatusPage:
             records.append((now, healthy))
 
             # Trim old records
-            self._uptime_records[component] = [
-                (ts, ok) for ts, ok in records if ts >= cutoff
-            ]
+            self._uptime_records[component] = [(ts, ok) for ts, ok in records if ts >= cutoff]
 
 
 # =============================================================================

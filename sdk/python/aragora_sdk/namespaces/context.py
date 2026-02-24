@@ -35,9 +35,7 @@ class ContextAPI:
         Returns:
             Dict with estimated token usage and cost.
         """
-        return self._client.request(
-            "GET", "/api/v1/context/budget/estimate", params=params
-        )
+        return self._client.request("GET", "/api/v1/context/budget/estimate", params=params)
 
 
 class AsyncContextAPI:
@@ -52,6 +50,4 @@ class AsyncContextAPI:
 
     async def estimate_budget(self, **params: Any) -> dict[str, Any]:
         """Estimate context budget for a planned operation."""
-        return await self._client.request(
-            "GET", "/api/v1/context/budget/estimate", params=params
-        )
+        return await self._client.request("GET", "/api/v1/context/budget/estimate", params=params)

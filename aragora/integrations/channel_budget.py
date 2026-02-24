@@ -126,9 +126,7 @@ class ChannelBudgetEnforcer:
         # Get current spend
         channel_record = self._channel_spend.get(ch_key)
         channel_spent = channel_record.total_usd if channel_record else 0.0
-        channel_budget = (
-            channel_record.budget_limit_usd if channel_record else self._channel_budget
-        )
+        channel_budget = channel_record.budget_limit_usd if channel_record else self._channel_budget
 
         workspace_spent = self._workspace_spend.get(ws_key, 0.0)
 
@@ -142,7 +140,9 @@ class ChannelBudgetEnforcer:
                 logger.debug("External budget check failed: %s", exc)
 
         # Check workspace budget first (more restrictive)
-        ws_utilization = workspace_spent / self._workspace_budget if self._workspace_budget > 0 else 0.0
+        ws_utilization = (
+            workspace_spent / self._workspace_budget if self._workspace_budget > 0 else 0.0
+        )
         projected_ws = workspace_spent + estimated_cost_usd
 
         if projected_ws > self._workspace_budget and self._workspace_budget > 0:
@@ -184,7 +184,9 @@ class ChannelBudgetEnforcer:
         warning = effective_utilization >= self._warning_threshold
 
         remaining = min(
-            self._workspace_budget - workspace_spent if self._workspace_budget > 0 else float("inf"),
+            self._workspace_budget - workspace_spent
+            if self._workspace_budget > 0
+            else float("inf"),
             channel_budget - channel_spent if channel_budget > 0 else float("inf"),
         )
         if remaining == float("inf"):

@@ -152,7 +152,6 @@ class TestBackupsRestore:
         assert call_json["data_types"] == ["debates", "agents"]
 
 
-
 class TestBackupsSchedules:
     """Tests for backup schedule management."""
 

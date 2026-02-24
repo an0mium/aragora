@@ -102,9 +102,7 @@ class CoordinationAPI:
         Returns:
             Dict with ``unregistered: True`` on success.
         """
-        return self._client.request(
-            "DELETE", f"/api/v1/coordination/workspaces/{workspace_id}"
-        )
+        return self._client.request("DELETE", f"/api/v1/coordination/workspaces/{workspace_id}")
 
     # =========================================================================
     # Federation Policies
@@ -239,9 +237,7 @@ class CoordinationAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client.request(
-            "GET", "/api/v1/coordination/executions", params=params
-        )
+        return self._client.request("GET", "/api/v1/coordination/executions", params=params)
 
     # =========================================================================
     # Consent
@@ -287,9 +283,7 @@ class CoordinationAPI:
             body["operations"] = operations
         if expires_in_days is not None:
             body["expires_in_days"] = expires_in_days
-        return self._client.request(
-            "POST", "/api/v1/coordination/consent", json=body
-        )
+        return self._client.request("POST", "/api/v1/coordination/consent", json=body)
 
     def revoke_consent(self, consent_id: str, **kwargs: Any) -> dict[str, Any]:
         """
@@ -301,9 +295,7 @@ class CoordinationAPI:
         Returns:
             Dict with ``revoked: True`` on success.
         """
-        return self._client.request(
-            "DELETE", f"/api/v1/coordination/consent/{consent_id}"
-        )
+        return self._client.request("DELETE", f"/api/v1/coordination/consent/{consent_id}")
 
     def list_consents(self, workspace_id: str | None = None) -> dict[str, Any]:
         """
@@ -318,9 +310,7 @@ class CoordinationAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return self._client.request(
-            "GET", "/api/v1/coordination/consent", params=params
-        )
+        return self._client.request("GET", "/api/v1/coordination/consent", params=params)
 
     # =========================================================================
     # Approval
@@ -340,9 +330,7 @@ class CoordinationAPI:
             Dict with ``approved: True`` on success.
         """
         body: dict[str, Any] = {"approved_by": approved_by, **kwargs}
-        return self._client.request(
-            "POST", f"/api/v1/coordination/approve/{request_id}", json=body
-        )
+        return self._client.request("POST", f"/api/v1/coordination/approve/{request_id}", json=body)
 
     # =========================================================================
     # Stats and Health
@@ -412,9 +400,7 @@ class AsyncCoordinationAPI:
         }
         if endpoint_url is not None:
             body["endpoint_url"] = endpoint_url
-        return await self._client.request(
-            "POST", "/api/v1/coordination/workspaces", json=body
-        )
+        return await self._client.request("POST", "/api/v1/coordination/workspaces", json=body)
 
     async def list_workspaces(self) -> dict[str, Any]:
         """List all registered workspaces."""
@@ -465,9 +451,7 @@ class AsyncCoordinationAPI:
             body["source_workspace_id"] = source_workspace_id
         if target_workspace_id is not None:
             body["target_workspace_id"] = target_workspace_id
-        return await self._client.request(
-            "POST", "/api/v1/coordination/federation", json=body
-        )
+        return await self._client.request("POST", "/api/v1/coordination/federation", json=body)
 
     async def list_federation_policies(self) -> dict[str, Any]:
         """List all federation policies."""
@@ -506,9 +490,7 @@ class AsyncCoordinationAPI:
             body["payload"] = payload
         if consent_id is not None:
             body["consent_id"] = consent_id
-        return await self._client.request(
-            "POST", "/api/v1/coordination/execute", json=body
-        )
+        return await self._client.request("POST", "/api/v1/coordination/execute", json=body)
 
     # Backward-compatible alias
     execute = execute_cross_workspace
@@ -518,9 +500,7 @@ class AsyncCoordinationAPI:
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client.request(
-            "GET", "/api/v1/coordination/executions", params=params
-        )
+        return await self._client.request("GET", "/api/v1/coordination/executions", params=params)
 
     # =========================================================================
     # Consent
@@ -552,24 +532,18 @@ class AsyncCoordinationAPI:
             body["operations"] = operations
         if expires_in_days is not None:
             body["expires_in_days"] = expires_in_days
-        return await self._client.request(
-            "POST", "/api/v1/coordination/consent", json=body
-        )
+        return await self._client.request("POST", "/api/v1/coordination/consent", json=body)
 
     async def revoke_consent(self, consent_id: str, **kwargs: Any) -> dict[str, Any]:
         """Revoke a data sharing consent."""
-        return await self._client.request(
-            "DELETE", f"/api/v1/coordination/consent/{consent_id}"
-        )
+        return await self._client.request("DELETE", f"/api/v1/coordination/consent/{consent_id}")
 
     async def list_consents(self, workspace_id: str | None = None) -> dict[str, Any]:
         """List data sharing consents."""
         params: dict[str, Any] = {}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client.request(
-            "GET", "/api/v1/coordination/consent", params=params
-        )
+        return await self._client.request("GET", "/api/v1/coordination/consent", params=params)
 
     # =========================================================================
     # Approval

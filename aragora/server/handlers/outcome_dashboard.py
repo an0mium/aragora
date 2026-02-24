@@ -129,9 +129,7 @@ class OutcomeDashboardHandler(SecureHandler):
     # =========================================================================
 
     @handle_errors("get outcome dashboard")
-    async def _get_full_dashboard(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_full_dashboard(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return the full outcome dashboard payload."""
         period = query_params.get("period", "30d")
 
@@ -140,24 +138,24 @@ class OutcomeDashboardHandler(SecureHandler):
         history = await self._build_decision_history(period, limit=20)
         calibration = await self._build_calibration_curve(period)
 
-        return json_response({
-            "data": {
-                "quality": quality,
-                "agents": agents,
-                "history": history,
-                "calibration": calibration,
-                "period": period,
+        return json_response(
+            {
+                "data": {
+                    "quality": quality,
+                    "agents": agents,
+                    "history": history,
+                    "calibration": calibration,
+                    "period": period,
+                }
             }
-        })
+        )
 
     # =========================================================================
     # GET /api/v1/outcome-dashboard/quality — Decision quality score
     # =========================================================================
 
     @handle_errors("get quality score")
-    async def _get_quality_score(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_quality_score(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return decision quality score and trend."""
         period = query_params.get("period", "30d")
         quality = await self._build_quality_score(period)
@@ -168,9 +166,7 @@ class OutcomeDashboardHandler(SecureHandler):
     # =========================================================================
 
     @handle_errors("get agent leaderboard")
-    async def _get_agent_leaderboard(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_agent_leaderboard(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return agent performance leaderboard with ELO + calibration."""
         period = query_params.get("period", "30d")
         agents = await self._build_agent_leaderboard(period)
@@ -181,9 +177,7 @@ class OutcomeDashboardHandler(SecureHandler):
     # =========================================================================
 
     @handle_errors("get decision history")
-    async def _get_decision_history(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_decision_history(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return paginated decision history with quality scores."""
         period = query_params.get("period", "30d")
         limit = min(int(query_params.get("limit", "50")), 200)
@@ -196,9 +190,7 @@ class OutcomeDashboardHandler(SecureHandler):
     # =========================================================================
 
     @handle_errors("get calibration curve")
-    async def _get_calibration_curve(
-        self, query_params: dict[str, Any]
-    ) -> HandlerResult:
+    async def _get_calibration_curve(self, query_params: dict[str, Any]) -> HandlerResult:
         """Return calibration curve data."""
         period = query_params.get("period", "30d")
         calibration = await self._build_calibration_curve(period)
@@ -224,14 +216,10 @@ class OutcomeDashboardHandler(SecureHandler):
             # 40% consensus rate + 30% round efficiency + 30% completion rate
             round_efficiency = max(0.0, 1.0 - (avg_rounds / 20.0))
             completion_rate = (
-                stats.completed_debates / stats.total_debates
-                if stats.total_debates > 0
-                else 0.0
+                stats.completed_debates / stats.total_debates if stats.total_debates > 0 else 0.0
             )
             quality_score = (
-                0.4 * consensus_rate
-                + 0.3 * round_efficiency
-                + 0.3 * completion_rate
+                0.4 * consensus_rate + 0.3 * round_efficiency + 0.3 * completion_rate
             ) * 100
 
             # Compute previous period for comparison
@@ -252,9 +240,7 @@ class OutcomeDashboardHandler(SecureHandler):
                         else 0
                     )
                     change_pct = (
-                        ((second_avg - first_avg) / first_avg * 100)
-                        if first_avg > 0
-                        else 0.0
+                        ((second_avg - first_avg) / first_avg * 100) if first_avg > 0 else 0.0
                     )
                     prev_quality = round(change_pct, 1)
             except _SAFE_EXCEPTIONS:
@@ -315,24 +301,26 @@ class OutcomeDashboardHandler(SecureHandler):
             agents = []
             for agent in leaderboard:
                 cal_data = calibration_map.get(agent.agent_name, {})
-                agents.append({
-                    "rank": agent.rank,
-                    "agent_id": agent.agent_id,
-                    "agent_name": agent.agent_name,
-                    "provider": agent.provider,
-                    "model": agent.model,
-                    "elo": round(agent.current_elo, 1),
-                    "elo_change": round(agent.elo_change_period, 1),
-                    "debates": agent.debates_participated,
-                    "messages": agent.messages_sent,
-                    "win_rate": round(agent.vote_ratio * 100, 1),
-                    "error_rate": round(agent.error_rate * 100, 2),
-                    "avg_response_ms": round(agent.avg_response_time_ms, 0),
-                    "consensus_contributions": agent.consensus_contributions,
-                    "brier_score": cal_data.get("brier_score"),
-                    "calibration_accuracy": cal_data.get("accuracy"),
-                    "calibration_count": cal_data.get("count", 0),
-                })
+                agents.append(
+                    {
+                        "rank": agent.rank,
+                        "agent_id": agent.agent_id,
+                        "agent_name": agent.agent_name,
+                        "provider": agent.provider,
+                        "model": agent.model,
+                        "elo": round(agent.current_elo, 1),
+                        "elo_change": round(agent.elo_change_period, 1),
+                        "debates": agent.debates_participated,
+                        "messages": agent.messages_sent,
+                        "win_rate": round(agent.vote_ratio * 100, 1),
+                        "error_rate": round(agent.error_rate * 100, 2),
+                        "avg_response_ms": round(agent.avg_response_time_ms, 0),
+                        "consensus_contributions": agent.consensus_contributions,
+                        "brier_score": cal_data.get("brier_score"),
+                        "calibration_accuracy": cal_data.get("accuracy"),
+                        "calibration_count": cal_data.get("count", 0),
+                    }
+                )
 
             return {
                 "agents": agents,
@@ -399,21 +387,23 @@ class OutcomeDashboardHandler(SecureHandler):
                             + 0.2 * (1.0 if row["status"] == "completed" else 0.0)
                         ) * 100
 
-                        decisions.append({
-                            "debate_id": row["debate_id"],
-                            "task": row["protocol"] or "",
-                            "status": row["status"],
-                            "consensus_reached": consensus,
-                            "quality_score": round(debate_quality, 1),
-                            "rounds": rounds_val,
-                            "agents": agents,
-                            "agent_count": len(agents),
-                            "duration_seconds": round(duration, 2),
-                            "total_messages": row["total_messages"] or 0,
-                            "total_votes": row["total_votes"] or 0,
-                            "cost": row["total_cost"] or "0",
-                            "created_at": row["created_at"] or "",
-                        })
+                        decisions.append(
+                            {
+                                "debate_id": row["debate_id"],
+                                "task": row["protocol"] or "",
+                                "status": row["status"],
+                                "consensus_reached": consensus,
+                                "quality_score": round(debate_quality, 1),
+                                "rounds": rounds_val,
+                                "agents": agents,
+                                "agent_count": len(agents),
+                                "duration_seconds": round(duration, 2),
+                                "total_messages": row["total_messages"] or 0,
+                                "total_votes": row["total_votes"] or 0,
+                                "cost": row["total_cost"] or "0",
+                                "created_at": row["created_at"] or "",
+                            }
+                        )
             except (sqlite3.Error, OSError, _json.JSONDecodeError) as e:
                 logger.warning("Failed to query debate records: %s", e)
 
@@ -500,15 +490,15 @@ class OutcomeDashboardHandler(SecureHandler):
             points = []
             for label, bucket in buckets.items():
                 if bucket["total"] > 0:
-                    bucket["actual_rate"] = round(
-                        bucket["positive"] / bucket["total"], 4
-                    )
-                points.append({
-                    "bucket": label,
-                    "predicted": bucket["predicted_mid"],
-                    "actual": bucket["actual_rate"],
-                    "count": bucket["total"],
-                })
+                    bucket["actual_rate"] = round(bucket["positive"] / bucket["total"], 4)
+                points.append(
+                    {
+                        "bucket": label,
+                        "predicted": bucket["predicted_mid"],
+                        "actual": bucket["actual_rate"],
+                        "count": bucket["total"],
+                    }
+                )
 
             return {
                 "points": points,

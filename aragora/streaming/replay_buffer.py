@@ -176,9 +176,7 @@ class EventReplayBuffer:
         """
         with self._lock:
             return [
-                ev.data
-                for ev in self._buffer
-                if ev.debate_id == debate_id and ev.seq > seq_number
+                ev.data for ev in self._buffer if ev.debate_id == debate_id and ev.seq > seq_number
             ]
 
     def get_latest_seq(self, debate_id: str) -> int:

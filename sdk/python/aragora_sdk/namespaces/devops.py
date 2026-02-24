@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class DevopsAPI:
     """
     Synchronous DevOps API.
@@ -102,9 +103,7 @@ class DevopsAPI:
         """Acknowledge an incident."""
         return self._client.request("POST", f"/api/v1/incidents/{incident_id}/acknowledge")
 
-    def resolve_incident(
-        self, incident_id: str, resolution: str | None = None
-    ) -> dict[str, Any]:
+    def resolve_incident(self, incident_id: str, resolution: str | None = None) -> dict[str, Any]:
         """Resolve an incident."""
         data: dict[str, Any] = {}
         if resolution:
@@ -207,9 +206,7 @@ class AsyncDevopsAPI:
 
     async def acknowledge_incident(self, incident_id: str) -> dict[str, Any]:
         """Acknowledge an incident."""
-        return await self._client.request(
-            "POST", f"/api/v1/incidents/{incident_id}/acknowledge"
-        )
+        return await self._client.request("POST", f"/api/v1/incidents/{incident_id}/acknowledge")
 
     async def resolve_incident(
         self, incident_id: str, resolution: str | None = None
@@ -255,4 +252,3 @@ class AsyncDevopsAPI:
     async def get_service(self, service_id: str) -> dict[str, Any]:
         """Get PagerDuty service details."""
         return await self._client.request("GET", f"/api/v1/services/{service_id}")
-

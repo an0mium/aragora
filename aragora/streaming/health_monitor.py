@@ -179,9 +179,7 @@ class StreamHealthMonitor:
 
             # Prune old error timestamps
             cutoff = now - self._error_rate_window
-            dh.error_timestamps = [
-                ts for ts in dh.error_timestamps if ts > cutoff
-            ]
+            dh.error_timestamps = [ts for ts in dh.error_timestamps if ts > cutoff]
 
     def remove_debate(self, debate_id: str) -> None:
         """Remove tracking for a finished debate."""
@@ -209,9 +207,7 @@ class StreamHealthMonitor:
             cutoff = now - self._error_rate_window
             total_errors = 0
             for dh in self._debates.values():
-                total_errors += len(
-                    [ts for ts in dh.error_timestamps if ts > cutoff]
-                )
+                total_errors += len([ts for ts in dh.error_timestamps if ts > cutoff])
 
             # Error rate per minute
             window_minutes = self._error_rate_window / 60.0
@@ -219,17 +215,13 @@ class StreamHealthMonitor:
 
             # Message delivery rate
             total_attempted = total_delivered + total_failed
-            delivery_rate = (
-                total_delivered / total_attempted if total_attempted > 0 else 1.0
-            )
+            delivery_rate = total_delivered / total_attempted if total_attempted > 0 else 1.0
 
             # Per-debate summary
             debate_summaries: dict[str, dict[str, Any]] = {}
             for did, dh in self._debates.items():
                 d_attempted = dh.messages_delivered + dh.messages_failed
-                d_rate = (
-                    dh.messages_delivered / d_attempted if d_attempted > 0 else 1.0
-                )
+                d_rate = dh.messages_delivered / d_attempted if d_attempted > 0 else 1.0
                 debate_summaries[did] = {
                     "active_connections": dh.active_connections,
                     "messages_delivered": dh.messages_delivered,
@@ -273,10 +265,7 @@ class StreamHealthMonitor:
 
     def should_run_health_check(self) -> bool:
         """Whether enough time has elapsed for the next periodic health check."""
-        return (
-            time.monotonic() - self._last_health_check
-            >= self._health_check_interval
-        )
+        return time.monotonic() - self._last_health_check >= self._health_check_interval
 
     # ------------------------------------------------------------------
     # SLO checks
@@ -349,9 +338,7 @@ class StreamHealthMonitor:
     def _get_or_create(self, debate_id: str) -> _DebateHealth:
         """Get or create debate health entry (caller must hold lock)."""
         if debate_id not in self._debates:
-            self._debates[debate_id] = _DebateHealth(
-                last_activity_at=time.monotonic()
-            )
+            self._debates[debate_id] = _DebateHealth(last_activity_at=time.monotonic())
         return self._debates[debate_id]
 
 

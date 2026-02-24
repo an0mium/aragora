@@ -160,8 +160,7 @@ class InterventionManager:
         with self._lock:
             if self._state != DebateInterventionState.RUNNING:
                 raise ValueError(
-                    f"Cannot pause debate {self._debate_id}: "
-                    f"current state is {self._state.value}"
+                    f"Cannot pause debate {self._debate_id}: current state is {self._state.value}"
                 )
             self._state = DebateInterventionState.PAUSED
             entry = self._record(InterventionType.PAUSE, user_id=user_id)
@@ -184,8 +183,7 @@ class InterventionManager:
         with self._lock:
             if self._state != DebateInterventionState.PAUSED:
                 raise ValueError(
-                    f"Cannot resume debate {self._debate_id}: "
-                    f"current state is {self._state.value}"
+                    f"Cannot resume debate {self._debate_id}: current state is {self._state.value}"
                 )
             self._state = DebateInterventionState.RUNNING
             entry = self._record(InterventionType.RESUME, user_id=user_id)
@@ -217,9 +215,7 @@ class InterventionManager:
 
         with self._lock:
             if self._state == DebateInterventionState.COMPLETED:
-                raise ValueError(
-                    f"Cannot nudge completed debate {self._debate_id}"
-                )
+                raise ValueError(f"Cannot nudge completed debate {self._debate_id}")
             entry = self._record(
                 InterventionType.NUDGE,
                 user_id=user_id,
@@ -257,9 +253,7 @@ class InterventionManager:
 
         with self._lock:
             if self._state == DebateInterventionState.COMPLETED:
-                raise ValueError(
-                    f"Cannot challenge completed debate {self._debate_id}"
-                )
+                raise ValueError(f"Cannot challenge completed debate {self._debate_id}")
             entry = self._record(
                 InterventionType.CHALLENGE,
                 user_id=user_id,
@@ -297,9 +291,7 @@ class InterventionManager:
 
         with self._lock:
             if self._state == DebateInterventionState.COMPLETED:
-                raise ValueError(
-                    f"Cannot inject evidence into completed debate {self._debate_id}"
-                )
+                raise ValueError(f"Cannot inject evidence into completed debate {self._debate_id}")
             entry = self._record(
                 InterventionType.INJECT_EVIDENCE,
                 user_id=user_id,

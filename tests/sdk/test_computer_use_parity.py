@@ -321,9 +321,7 @@ class TestTypeScriptSDKParity:
     def test_execute_action_has_action_type(self) -> None:
         """ExecuteActionOptions must have actionType field."""
         content = self._TS_SDK.read_text()
-        interface_match = re.search(
-            r"interface ExecuteActionOptions\s*\{([^}]+)\}", content
-        )
+        interface_match = re.search(r"interface ExecuteActionOptions\s*\{([^}]+)\}", content)
         assert interface_match, "ExecuteActionOptions interface not found"
         fields = interface_match.group(1)
         assert "actionType" in fields, "ExecuteActionOptions should have actionType"
@@ -331,9 +329,7 @@ class TestTypeScriptSDKParity:
     def test_update_policy_options_interface(self) -> None:
         """UpdatePolicyOptions interface must exist with correct fields."""
         content = self._TS_SDK.read_text()
-        interface_match = re.search(
-            r"interface UpdatePolicyOptions\s*\{([^}]+)\}", content
-        )
+        interface_match = re.search(r"interface UpdatePolicyOptions\s*\{([^}]+)\}", content)
         assert interface_match, "UpdatePolicyOptions interface not found"
         fields = interface_match.group(1)
         for field in ["name", "description", "allowedActions", "blockedDomains"]:

@@ -35,6 +35,7 @@ class TestExplainabilityComparison:
             assert result["similarity_score"] == 0.72
             client.close()
 
+
 class TestAsyncExplainability:
     """Tests for async explainability API."""
 

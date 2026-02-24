@@ -222,16 +222,12 @@ class TestHelpers:
 
 
 class TestExtractEndpoints:
-    def test_scan_handlers_finds_all(
-        self, generator: SDKCodeGenerator, sample_handler_dir: Path
-    ):
+    def test_scan_handlers_finds_all(self, generator: SDKCodeGenerator, sample_handler_dir: Path):
         endpoints = generator.scan_handlers(sample_handler_dir)
         # orders: 5 docstring + ROUTES deduped, items: 3, tags: 2, invoices: 2
         assert len(endpoints) >= 10
 
-    def test_scan_skips_private_files(
-        self, generator: SDKCodeGenerator, sample_handler_dir: Path
-    ):
+    def test_scan_skips_private_files(self, generator: SDKCodeGenerator, sample_handler_dir: Path):
         endpoints = generator.scan_handlers(sample_handler_dir)
         handler_files = {ep.handler_file for ep in endpoints}
         assert not any("_internal" in f for f in handler_files)
@@ -256,20 +252,14 @@ class TestExtractEndpoints:
         assert ("POST", "/api/v2/items") in methods
         assert ("GET", "/api/v2/items/:item_id") in methods
 
-    def test_extract_routes_only(
-        self, generator: SDKCodeGenerator, sample_handler_dir: Path
-    ):
+    def test_extract_routes_only(self, generator: SDKCodeGenerator, sample_handler_dir: Path):
         eps = generator.extract_endpoints(sample_handler_dir / "tags.py")
         paths = {e.path for e in eps}
         assert "/api/v1/tags" in paths
         assert "/api/v1/tags/popular" in paths
 
-    def test_extract_subdirectory(
-        self, generator: SDKCodeGenerator, sample_handler_dir: Path
-    ):
-        eps = generator.extract_endpoints(
-            sample_handler_dir / "billing" / "invoices.py"
-        )
+    def test_extract_subdirectory(self, generator: SDKCodeGenerator, sample_handler_dir: Path):
+        eps = generator.extract_endpoints(sample_handler_dir / "billing" / "invoices.py")
         methods = {(e.method, e.path) for e in eps}
         assert ("GET", "/api/v1/billing/invoices") in methods
         assert ("POST", "/api/v1/billing/invoices/:invoice_id/pay") in methods
@@ -282,37 +272,25 @@ class TestExtractEndpoints:
         assert len(parameterized) >= 2
         assert all("order_id" in e.params for e in parameterized)
 
-    def test_extract_description(
-        self, generator: SDKCodeGenerator, sample_handler_dir: Path
-    ):
+    def test_extract_description(self, generator: SDKCodeGenerator, sample_handler_dir: Path):
         eps = generator.extract_endpoints(sample_handler_dir / "orders.py")
-        get_list = [
-            e for e in eps if e.method == "GET" and e.path == "/api/v1/orders"
-        ]
+        get_list = [e for e in eps if e.method == "GET" and e.path == "/api/v1/orders"]
         assert len(get_list) == 1
         assert "List all orders" in get_list[0].description
 
-    def test_deduplication(
-        self, generator: SDKCodeGenerator, sample_handler_dir: Path
-    ):
+    def test_deduplication(self, generator: SDKCodeGenerator, sample_handler_dir: Path):
         """Endpoints appearing in both docstring and ROUTES are deduplicated."""
         eps = generator.extract_endpoints(sample_handler_dir / "orders.py")
         get_orders = [
-            (e.method, e.path)
-            for e in eps
-            if e.path == "/api/v1/orders" and e.method == "GET"
+            (e.method, e.path) for e in eps if e.path == "/api/v1/orders" and e.method == "GET"
         ]
         assert len(get_orders) == 1
 
-    def test_nonexistent_dir_raises(
-        self, generator: SDKCodeGenerator, tmp_path: Path
-    ):
+    def test_nonexistent_dir_raises(self, generator: SDKCodeGenerator, tmp_path: Path):
         with pytest.raises(FileNotFoundError):
             generator.scan_handlers(tmp_path / "nonexistent")
 
-    def test_syntax_error_skipped(
-        self, generator: SDKCodeGenerator, tmp_path: Path
-    ):
+    def test_syntax_error_skipped(self, generator: SDKCodeGenerator, tmp_path: Path):
         """Files with syntax errors are silently skipped."""
         handler_dir = tmp_path / "handlers"
         handler_dir.mkdir()
@@ -332,9 +310,7 @@ class TestTypeScriptGeneration:
         generator: SDKCodeGenerator,
         sample_endpoints: list[EndpointDef],
     ):
-        code = generator.generate_typescript_namespace(
-            sample_endpoints, "widgets"
-        )
+        code = generator.generate_typescript_namespace(sample_endpoints, "widgets")
         assert "export class WidgetsAPI" in code
         assert "interface WidgetsAPIClient" in code
 
@@ -343,9 +319,7 @@ class TestTypeScriptGeneration:
         generator: SDKCodeGenerator,
         sample_endpoints: list[EndpointDef],
     ):
-        code = generator.generate_typescript_namespace(
-            sample_endpoints, "widgets"
-        )
+        code = generator.generate_typescript_namespace(sample_endpoints, "widgets")
         assert "async getWidgets(" in code
         assert "async createWidgets(" in code
         assert "async deleteWidgets" in code
@@ -355,9 +329,7 @@ class TestTypeScriptGeneration:
         generator: SDKCodeGenerator,
         sample_endpoints: list[EndpointDef],
     ):
-        code = generator.generate_typescript_namespace(
-            sample_endpoints, "widgets"
-        )
+        code = generator.generate_typescript_namespace(sample_endpoints, "widgets")
         assert "widgetId: string" in code
 
     def test_template_literals(
@@ -365,9 +337,7 @@ class TestTypeScriptGeneration:
         generator: SDKCodeGenerator,
         sample_endpoints: list[EndpointDef],
     ):
-        code = generator.generate_typescript_namespace(
-            sample_endpoints, "widgets"
-        )
+        code = generator.generate_typescript_namespace(sample_endpoints, "widgets")
         assert "${widgetId}" in code
 
     def test_post_has_body(
@@ -375,9 +345,7 @@ class TestTypeScriptGeneration:
         generator: SDKCodeGenerator,
         sample_endpoints: list[EndpointDef],
     ):
-        code = generator.generate_typescript_namespace(
-            sample_endpoints, "widgets"
-        )
+        code = generator.generate_typescript_namespace(sample_endpoints, "widgets")
         assert "data: Record<string, unknown>" in code
         assert "{ body: data }" in code
 
@@ -386,9 +354,7 @@ class TestTypeScriptGeneration:
         generator: SDKCodeGenerator,
         sample_endpoints: list[EndpointDef],
     ):
-        code = generator.generate_typescript_namespace(
-            sample_endpoints, "widgets"
-        )
+        code = generator.generate_typescript_namespace(sample_endpoints, "widgets")
         assert "Auto-generated by sdk_codegen.py" in code
 
     def test_empty_endpoints(self, generator: SDKCodeGenerator):
@@ -464,9 +430,7 @@ class TestPythonGeneration:
 
 
 class TestCoverageValidation:
-    def test_full_coverage(
-        self, generator: SDKCodeGenerator, tmp_path: Path
-    ):
+    def test_full_coverage(self, generator: SDKCodeGenerator, tmp_path: Path):
         sdk_dir = tmp_path / "sdk"
         ts_dir = sdk_dir / "ts"
         ts_dir.mkdir(parents=True)
@@ -484,15 +448,11 @@ class TestCoverageValidation:
         assert report.coverage_percent == 100.0
         assert report.missing == []
 
-    def test_partial_coverage(
-        self, generator: SDKCodeGenerator, tmp_path: Path
-    ):
+    def test_partial_coverage(self, generator: SDKCodeGenerator, tmp_path: Path):
         sdk_dir = tmp_path / "sdk"
         ts_dir = sdk_dir / "ts"
         ts_dir.mkdir(parents=True)
-        (ts_dir / "widgets.ts").write_text(
-            "this.client.request('GET', '/api/v1/widgets');\n"
-        )
+        (ts_dir / "widgets.ts").write_text("this.client.request('GET', '/api/v1/widgets');\n")
         endpoints = [
             EndpointDef(method="GET", path="/api/v1/widgets"),
             EndpointDef(method="POST", path="/api/v1/widgets/special"),
@@ -503,26 +463,20 @@ class TestCoverageValidation:
         assert len(report.missing) == 1
         assert report.coverage_percent == 50.0
 
-    def test_no_coverage(
-        self, generator: SDKCodeGenerator, tmp_path: Path
-    ):
+    def test_no_coverage(self, generator: SDKCodeGenerator, tmp_path: Path):
         sdk_dir = tmp_path / "sdk"
         sdk_dir.mkdir()
         endpoints = [EndpointDef(method="GET", path="/api/v1/missing")]
         report = generator.validate_sdk_coverage(sdk_dir, endpoints)
         assert report.coverage_percent == 0.0
 
-    def test_empty_endpoints(
-        self, generator: SDKCodeGenerator, tmp_path: Path
-    ):
+    def test_empty_endpoints(self, generator: SDKCodeGenerator, tmp_path: Path):
         sdk_dir = tmp_path / "sdk"
         sdk_dir.mkdir()
         report = generator.validate_sdk_coverage(sdk_dir, [])
         assert report.coverage_percent == 100.0
 
-    def test_template_literal_matching(
-        self, generator: SDKCodeGenerator, tmp_path: Path
-    ):
+    def test_template_literal_matching(self, generator: SDKCodeGenerator, tmp_path: Path):
         """SDK files using template literals should match :id paths."""
         sdk_dir = tmp_path / "sdk"
         ts_dir = sdk_dir / "ts"
@@ -550,9 +504,7 @@ class TestRun:
         tmp_path: Path,
     ):
         output = tmp_path / "output"
-        report = generator.run(
-            sample_handler_dir, output_dir=output, language="typescript"
-        )
+        report = generator.run(sample_handler_dir, output_dir=output, language="typescript")
         assert report.total_endpoints >= 10
         ts_dir = output / "typescript"
         assert ts_dir.is_dir()
@@ -566,9 +518,7 @@ class TestRun:
         tmp_path: Path,
     ):
         output = tmp_path / "output"
-        report = generator.run(
-            sample_handler_dir, output_dir=output, language="python"
-        )
+        report = generator.run(sample_handler_dir, output_dir=output, language="python")
         py_dir = output / "python"
         assert py_dir.is_dir()
         py_files = list(py_dir.glob("*.py"))
@@ -581,15 +531,11 @@ class TestRun:
         tmp_path: Path,
     ):
         output = tmp_path / "output"
-        generator.run(
-            sample_handler_dir, output_dir=output, language="both"
-        )
+        generator.run(sample_handler_dir, output_dir=output, language="both")
         assert (output / "typescript").is_dir()
         assert (output / "python").is_dir()
 
-    def test_run_scan_only(
-        self, generator: SDKCodeGenerator, sample_handler_dir: Path
-    ):
+    def test_run_scan_only(self, generator: SDKCodeGenerator, sample_handler_dir: Path):
         report = generator.run(sample_handler_dir)
         assert report.total_endpoints >= 10
 
@@ -601,14 +547,10 @@ class TestRun:
     ):
         """Generated TypeScript should not have obvious syntax issues."""
         output = tmp_path / "output"
-        generator.run(
-            sample_handler_dir, output_dir=output, language="typescript"
-        )
+        generator.run(sample_handler_dir, output_dir=output, language="typescript")
         for ts_file in (output / "typescript").glob("*.ts"):
             content = ts_file.read_text()
-            assert content.count("{") == content.count(
-                "}"
-            ), f"Unbalanced braces in {ts_file.name}"
+            assert content.count("{") == content.count("}"), f"Unbalanced braces in {ts_file.name}"
 
     def test_generated_py_is_valid_syntax(
         self,
@@ -620,9 +562,7 @@ class TestRun:
         import ast as _ast
 
         output = tmp_path / "output"
-        generator.run(
-            sample_handler_dir, output_dir=output, language="python"
-        )
+        generator.run(sample_handler_dir, output_dir=output, language="python")
         for py_file in (output / "python").glob("*.py"):
             content = py_file.read_text()
             _ast.parse(content, filename=str(py_file))
@@ -656,9 +596,7 @@ class TestDataclasses:
 
 
 class TestCLI:
-    def test_main_scan(
-        self, sample_handler_dir: Path, capsys: pytest.CaptureFixture
-    ):
+    def test_main_scan(self, sample_handler_dir: Path, capsys: pytest.CaptureFixture):
         from scripts.sdk_codegen import main
 
         ret = main(["--scan", "--handler-dir", str(sample_handler_dir)])

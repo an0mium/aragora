@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class A2AAPI:
     """
     Synchronous A2A (Agent-to-Agent) API.
@@ -122,6 +123,7 @@ class A2AAPI:
         """
         return self._client.request("GET", f"/api/v1/a2a/tasks/{task_id}")
 
+
 class AsyncA2AAPI:
     """
     Asynchronous A2A (Agent-to-Agent) API.
@@ -183,4 +185,3 @@ class AsyncA2AAPI:
     async def get_task(self, task_id: str) -> dict[str, Any]:
         """Get the status and result of a task."""
         return await self._client.request("GET", f"/api/v1/a2a/tasks/{task_id}")
-

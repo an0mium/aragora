@@ -1,4 +1,5 @@
 """Quickstart: run a multi-agent debate with zero API keys."""
+
 import asyncio
 from aragora_debate.arena import Arena
 from aragora_debate.styled_mock import StyledMockAgent

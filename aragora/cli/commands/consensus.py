@@ -217,7 +217,10 @@ def cmd_consensus_detect(args: argparse.Namespace) -> int:
         result = _try_local_detect(task, proposals, threshold)
 
     if result is None:
-        print("Error: Consensus detection failed. Check that the module is available.", file=sys.stderr)
+        print(
+            "Error: Consensus detection failed. Check that the module is available.",
+            file=sys.stderr,
+        )
         return 1
 
     if output_format == "json":
@@ -271,11 +274,13 @@ def _normalize_proposals(raw: list) -> list[dict[str, Any]]:
         if isinstance(item, str):
             result.append({"agent": f"agent-{i + 1}", "content": item})
         elif isinstance(item, dict):
-            result.append({
-                "agent": item.get("agent", f"agent-{i + 1}"),
-                "content": item.get("content", ""),
-                "round": item.get("round", 0),
-            })
+            result.append(
+                {
+                    "agent": item.get("agent", f"agent-{i + 1}"),
+                    "content": item.get("content", ""),
+                    "round": item.get("round", 0),
+                }
+            )
     return [p for p in result if p.get("content")]
 
 
@@ -363,7 +368,9 @@ def _try_local_detect(
                         overlap = len(words_a & words_b)
                         union = len(words_a | words_b)
                         agreement_scores.append(overlap / union if union else 0.0)
-            avg_agreement = sum(agreement_scores) / len(agreement_scores) if agreement_scores else 0.0
+            avg_agreement = (
+                sum(agreement_scores) / len(agreement_scores) if agreement_scores else 0.0
+            )
         else:
             avg_agreement = 1.0
 

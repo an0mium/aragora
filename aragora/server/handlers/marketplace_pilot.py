@@ -109,9 +109,7 @@ class MarketplacePilotHandler(BaseHandler):
 
     @require_permission("marketplace:read")
     @rate_limit(requests_per_minute=60, limiter_name="marketplace_pilot.read")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests."""
         normalized = strip_version_prefix(path)
 

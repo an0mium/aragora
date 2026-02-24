@@ -52,7 +52,6 @@ class GraphDebatesAPI:
         return self._client.request("POST", "/api/v1/debates/graph", json=data)
 
 
-
 class AsyncGraphDebatesAPI:
     """
     Asynchronous Graph Debates API.
@@ -89,4 +88,3 @@ class AsyncGraphDebatesAPI:
         if branch_policy:
             data["branch_policy"] = branch_policy
         return await self._client.request("POST", "/api/v1/debates/graph", json=data)
-

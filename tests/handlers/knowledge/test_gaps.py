@@ -177,14 +177,10 @@ def _make_mock_detector(
         return_value=stale if stale is not None else [MockStaleEntry()]
     )
     detector.detect_contradictions = AsyncMock(
-        return_value=contradictions
-        if contradictions is not None
-        else [MockContradiction()]
+        return_value=contradictions if contradictions is not None else [MockContradiction()]
     )
     detector.get_recommendations = AsyncMock(
-        return_value=recommendations
-        if recommendations is not None
-        else [MockRecommendation()]
+        return_value=recommendations if recommendations is not None else [MockRecommendation()]
     )
     detector.get_coverage_map = AsyncMock(
         return_value=coverage_map
@@ -303,9 +299,7 @@ class TestGetGaps:
         many_stale = [MockStaleEntry(node_id=f"node-{i}") for i in range(100)]
         detector = _make_mock_detector(stale=many_stale)
 
-        with patch.object(
-            KnowledgeGapHandler, "_create_detector", return_value=detector
-        ):
+        with patch.object(KnowledgeGapHandler, "_create_detector", return_value=detector):
             result = await handler._get_gaps("default", {})
 
         data = _data(result)
@@ -316,14 +310,11 @@ class TestGetGaps:
     async def test_get_gaps_limits_contradictions(self, handler):
         """Contradictions should be limited to 50."""
         many_contradictions = [
-            MockContradiction(node_a_id=f"a-{i}", node_b_id=f"b-{i}")
-            for i in range(80)
+            MockContradiction(node_a_id=f"a-{i}", node_b_id=f"b-{i}") for i in range(80)
         ]
         detector = _make_mock_detector(contradictions=many_contradictions)
 
-        with patch.object(
-            KnowledgeGapHandler, "_create_detector", return_value=detector
-        ):
+        with patch.object(KnowledgeGapHandler, "_create_detector", return_value=detector):
             result = await handler._get_gaps("default", {})
 
         data = _data(result)
@@ -333,9 +324,7 @@ class TestGetGaps:
     @pytest.mark.asyncio
     async def test_get_gaps_unavailable_response(self, handler):
         """When detector is None, should return unavailable response."""
-        with patch.object(
-            KnowledgeGapHandler, "_create_detector", return_value=None
-        ):
+        with patch.object(KnowledgeGapHandler, "_create_detector", return_value=None):
             result = await handler._get_gaps("ws-1", {})
 
         data = _data(result)
@@ -349,9 +338,7 @@ class TestGetGaps:
         detector = AsyncMock()
         detector.detect_coverage_gaps = AsyncMock(side_effect=RuntimeError("boom"))
 
-        with patch.object(
-            KnowledgeGapHandler, "_create_detector", return_value=detector
-        ):
+        with patch.object(KnowledgeGapHandler, "_create_detector", return_value=detector):
             result = await handler._get_gaps("default", {"domain": "x"})
 
         assert _status(result) == 500
@@ -379,24 +366,18 @@ class TestGetRecommendations:
     async def test_recommendations_with_domain(self, handler, mock_detector):
         """Domain param should be passed through to detector."""
         await handler._get_recommendations("default", {"domain": "security"})
-        mock_detector.get_recommendations.assert_awaited_once_with(
-            domain="security", limit=20
-        )
+        mock_detector.get_recommendations.assert_awaited_once_with(domain="security", limit=20)
 
     @pytest.mark.asyncio
     async def test_recommendations_custom_limit(self, handler, mock_detector):
         """Custom limit from query params."""
         await handler._get_recommendations("default", {"limit": "5"})
-        mock_detector.get_recommendations.assert_awaited_once_with(
-            domain=None, limit=5
-        )
+        mock_detector.get_recommendations.assert_awaited_once_with(domain=None, limit=5)
 
     @pytest.mark.asyncio
     async def test_recommendations_unavailable(self, handler):
         """When detector is None, return unavailable response."""
-        with patch.object(
-            KnowledgeGapHandler, "_create_detector", return_value=None
-        ):
+        with patch.object(KnowledgeGapHandler, "_create_detector", return_value=None):
             result = await handler._get_recommendations("ws-1", {})
 
         data = _data(result)
@@ -420,9 +401,7 @@ class TestGetRecommendations:
         detector = AsyncMock()
         detector.get_recommendations = AsyncMock(side_effect=TypeError("bad"))
 
-        with patch.object(
-            KnowledgeGapHandler, "_create_detector", return_value=detector
-        ):
+        with patch.object(KnowledgeGapHandler, "_create_detector", return_value=detector):
             result = await handler._get_recommendations("default", {})
 
         assert _status(result) == 500
@@ -468,9 +447,7 @@ class TestGetCoverageMap:
         """Empty coverage map should have score 0.0."""
         detector = _make_mock_detector(coverage_map=[])
 
-        with patch.object(
-            KnowledgeGapHandler, "_create_detector", return_value=detector
-        ):
+        with patch.object(KnowledgeGapHandler, "_create_detector", return_value=detector):
             result = await handler._get_coverage_map("default", {})
 
         data = _data(result)
@@ -480,9 +457,7 @@ class TestGetCoverageMap:
     @pytest.mark.asyncio
     async def test_coverage_map_unavailable(self, handler):
         """When detector is None, return unavailable response with empty domains."""
-        with patch.object(
-            KnowledgeGapHandler, "_create_detector", return_value=None
-        ):
+        with patch.object(KnowledgeGapHandler, "_create_detector", return_value=None):
             result = await handler._get_coverage_map("ws-1", {})
 
         data = _data(result)
@@ -496,9 +471,7 @@ class TestGetCoverageMap:
         detector = AsyncMock()
         detector.get_coverage_map = AsyncMock(side_effect=AttributeError("oops"))
 
-        with patch.object(
-            KnowledgeGapHandler, "_create_detector", return_value=detector
-        ):
+        with patch.object(KnowledgeGapHandler, "_create_detector", return_value=detector):
             result = await handler._get_coverage_map("default", {})
 
         assert _status(result) == 500
@@ -532,9 +505,7 @@ class TestGetScore:
     @pytest.mark.asyncio
     async def test_score_unavailable(self, handler):
         """When detector is None, return unavailable response."""
-        with patch.object(
-            KnowledgeGapHandler, "_create_detector", return_value=None
-        ):
+        with patch.object(KnowledgeGapHandler, "_create_detector", return_value=None):
             result = await handler._get_score("ws-1", {"domain": "test"})
 
         data = _data(result)
@@ -546,9 +517,7 @@ class TestGetScore:
         detector = AsyncMock()
         detector.get_coverage_score = AsyncMock(side_effect=ValueError("bad"))
 
-        with patch.object(
-            KnowledgeGapHandler, "_create_detector", return_value=detector
-        ):
+        with patch.object(KnowledgeGapHandler, "_create_detector", return_value=detector):
             result = await handler._get_score("default", {"domain": "x"})
 
         assert _status(result) == 500
@@ -564,9 +533,7 @@ class TestHandleDispatch:
 
     @pytest.mark.asyncio
     async def test_handle_routes_to_gaps(self, handler, mock_detector):
-        result = await handler.handle(
-            "/api/v1/knowledge/gaps", {}, _MockHTTPHandler()
-        )
+        result = await handler.handle("/api/v1/knowledge/gaps", {}, _MockHTTPHandler())
         data = _data(result)
         assert "stale_entries" in data
 
@@ -633,9 +600,7 @@ class TestRateLimiting:
     @pytest.mark.asyncio
     async def test_rate_limit_allows_normal_requests(self, handler, mock_detector):
         """Normal request rate should be allowed."""
-        result = await handler.handle(
-            "/api/v1/knowledge/gaps", {}, _MockHTTPHandler()
-        )
+        result = await handler.handle("/api/v1/knowledge/gaps", {}, _MockHTTPHandler())
         assert _status(result) == 200
 
     @pytest.mark.asyncio
@@ -646,9 +611,7 @@ class TestRateLimiting:
         for _ in range(25):
             _gaps_limiter.is_allowed("127.0.0.1")
 
-        result = await handler.handle(
-            "/api/v1/knowledge/gaps", {}, http_handler
-        )
+        result = await handler.handle("/api/v1/knowledge/gaps", {}, http_handler)
         assert _status(result) == 429
 
 

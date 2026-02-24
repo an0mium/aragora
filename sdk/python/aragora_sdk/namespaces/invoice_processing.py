@@ -60,15 +60,21 @@ class InvoiceProcessingAPI:
 
     def reject(self, invoice_id: str, **kwargs: Any) -> dict[str, Any]:
         """Reject an invoice."""
-        return self._client.request("POST", f"/api/v1/accounting/invoices/{invoice_id}/reject", json=kwargs)
+        return self._client.request(
+            "POST", f"/api/v1/accounting/invoices/{invoice_id}/reject", json=kwargs
+        )
 
     def match(self, invoice_id: str, **kwargs: Any) -> dict[str, Any]:
         """Match an invoice to a purchase order."""
-        return self._client.request("POST", f"/api/v1/accounting/invoices/{invoice_id}/match", json=kwargs)
+        return self._client.request(
+            "POST", f"/api/v1/accounting/invoices/{invoice_id}/match", json=kwargs
+        )
 
     def schedule(self, invoice_id: str, **kwargs: Any) -> dict[str, Any]:
         """Schedule an invoice for payment."""
-        return self._client.request("POST", f"/api/v1/accounting/invoices/{invoice_id}/schedule", json=kwargs)
+        return self._client.request(
+            "POST", f"/api/v1/accounting/invoices/{invoice_id}/schedule", json=kwargs
+        )
 
 
 class AsyncInvoiceProcessingAPI:
@@ -111,20 +117,30 @@ class AsyncInvoiceProcessingAPI:
 
     async def get_anomalies(self, invoice_id: str) -> dict[str, Any]:
         """Get anomalies detected for an invoice."""
-        return await self._client.request("GET", f"/api/v1/accounting/invoices/{invoice_id}/anomalies")
+        return await self._client.request(
+            "GET", f"/api/v1/accounting/invoices/{invoice_id}/anomalies"
+        )
 
     async def approve(self, invoice_id: str) -> dict[str, Any]:
         """Approve an invoice."""
-        return await self._client.request("POST", f"/api/v1/accounting/invoices/{invoice_id}/approve")
+        return await self._client.request(
+            "POST", f"/api/v1/accounting/invoices/{invoice_id}/approve"
+        )
 
     async def reject(self, invoice_id: str, **kwargs: Any) -> dict[str, Any]:
         """Reject an invoice."""
-        return await self._client.request("POST", f"/api/v1/accounting/invoices/{invoice_id}/reject", json=kwargs)
+        return await self._client.request(
+            "POST", f"/api/v1/accounting/invoices/{invoice_id}/reject", json=kwargs
+        )
 
     async def match(self, invoice_id: str, **kwargs: Any) -> dict[str, Any]:
         """Match an invoice to a purchase order."""
-        return await self._client.request("POST", f"/api/v1/accounting/invoices/{invoice_id}/match", json=kwargs)
+        return await self._client.request(
+            "POST", f"/api/v1/accounting/invoices/{invoice_id}/match", json=kwargs
+        )
 
     async def schedule(self, invoice_id: str, **kwargs: Any) -> dict[str, Any]:
         """Schedule an invoice for payment."""
-        return await self._client.request("POST", f"/api/v1/accounting/invoices/{invoice_id}/schedule", json=kwargs)
+        return await self._client.request(
+            "POST", f"/api/v1/accounting/invoices/{invoice_id}/schedule", json=kwargs
+        )

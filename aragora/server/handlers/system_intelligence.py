@@ -106,7 +106,8 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             recent = store.get_recent_cycles(n=50)
             total_cycles = len(recent)
             successes = sum(
-                1 for c in recent
+                1
+                for c in recent
                 if (c if isinstance(c, dict) else getattr(c, "__dict__", {})).get("success", False)
             )
             if total_cycles > 0:
@@ -122,17 +123,21 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             leaderboard = elo.get_leaderboard(limit=10)
             for entry in leaderboard:
                 if isinstance(entry, dict):
-                    top_agents.append({
-                        "id": entry.get("agent_name", ""),
-                        "elo": entry.get("rating", 1500),
-                        "wins": entry.get("wins", 0),
-                    })
+                    top_agents.append(
+                        {
+                            "id": entry.get("agent_name", ""),
+                            "elo": entry.get("rating", 1500),
+                            "wins": entry.get("wins", 0),
+                        }
+                    )
                 else:
-                    top_agents.append({
-                        "id": getattr(entry, "agent_name", ""),
-                        "elo": getattr(entry, "rating", 1500),
-                        "wins": getattr(entry, "wins", 0),
-                    })
+                    top_agents.append(
+                        {
+                            "id": getattr(entry, "agent_name", ""),
+                            "elo": getattr(entry, "rating", 1500),
+                            "wins": getattr(entry, "wins", 0),
+                        }
+                    )
             active_agents = len(leaderboard)
         except (ImportError, RuntimeError, ValueError, OSError, AttributeError):
             logger.debug("EloSystem not available for overview")
@@ -153,24 +158,28 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
 
             queue = get_improvement_queue()
             for s in queue.peek(5):
-                recent_improvements.append({
-                    "id": s.debate_id,
-                    "goal": s.task[:200],
-                    "status": s.category,
-                })
+                recent_improvements.append(
+                    {
+                        "id": s.debate_id,
+                        "goal": s.task[:200],
+                        "status": s.category,
+                    }
+                )
         except (ImportError, RuntimeError):
             pass
 
-        return json_response({
-            "data": {
-                "totalCycles": total_cycles,
-                "successRate": success_rate,
-                "activeAgents": active_agents,
-                "knowledgeItems": knowledge_items,
-                "topAgents": top_agents,
-                "recentImprovements": recent_improvements,
+        return json_response(
+            {
+                "data": {
+                    "totalCycles": total_cycles,
+                    "successRate": success_rate,
+                    "activeAgents": active_agents,
+                    "knowledgeItems": knowledge_items,
+                    "topAgents": top_agents,
+                    "recentImprovements": recent_improvements,
+                }
             }
-        })
+        )
 
     # ------------------------------------------------------------------
     # GET /api/v1/system-intelligence/agent-performance
@@ -212,15 +221,19 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                     history = elo.get_elo_history(name, limit=20)
                     for h in history:
                         if isinstance(h, dict):
-                            elo_history.append({
-                                "date": h.get("timestamp", ""),
-                                "elo": h.get("rating", rating),
-                            })
+                            elo_history.append(
+                                {
+                                    "date": h.get("timestamp", ""),
+                                    "elo": h.get("rating", rating),
+                                }
+                            )
                         else:
-                            elo_history.append({
-                                "date": getattr(h, "timestamp", ""),
-                                "elo": getattr(h, "rating", rating),
-                            })
+                            elo_history.append(
+                                {
+                                    "date": getattr(h, "timestamp", ""),
+                                    "elo": getattr(h, "rating", rating),
+                                }
+                            )
                 except (AttributeError, TypeError, ValueError):
                     pass
 
@@ -249,15 +262,17 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
                 except (ImportError, AttributeError, TypeError):
                     pass
 
-                agents.append({
-                    "id": name,
-                    "name": name,
-                    "elo": rating,
-                    "eloHistory": elo_history,
-                    "calibration": calibration,
-                    "winRate": win_rate,
-                    "domains": domains,
-                })
+                agents.append(
+                    {
+                        "id": name,
+                        "name": name,
+                        "elo": rating,
+                        "eloHistory": elo_history,
+                        "calibration": calibration,
+                        "winRate": win_rate,
+                        "domains": domains,
+                    }
+                )
 
         except (ImportError, RuntimeError, ValueError, OSError, AttributeError):
             logger.debug("EloSystem not available for agent performance")
@@ -296,11 +311,13 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             try:
                 roi_data = await adapter.find_high_roi_goal_types(limit=10)
                 for entry in roi_data:
-                    top_patterns.append({
-                        "pattern": entry.get("pattern", ""),
-                        "frequency": entry.get("cycle_count", 0),
-                        "confidence": entry.get("avg_improvement_score", 0.0),
-                    })
+                    top_patterns.append(
+                        {
+                            "pattern": entry.get("pattern", ""),
+                            "frequency": entry.get("cycle_count", 0),
+                            "confidence": entry.get("avg_improvement_score", 0.0),
+                        }
+                    )
             except (RuntimeError, ValueError, OSError, AttributeError):
                 pass
 
@@ -327,22 +344,26 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             decay_stats: list[Any] = getattr(km, "get_confidence_decay_stats", lambda: [])()
             if isinstance(decay_stats, list):
                 for entry in decay_stats[:10]:
-                    confidence_changes.append({
-                        "topic": entry.get("topic", ""),
-                        "before": entry.get("initial_confidence", 0.0),
-                        "after": entry.get("current_confidence", 0.0),
-                    })
+                    confidence_changes.append(
+                        {
+                            "topic": entry.get("topic", ""),
+                            "before": entry.get("initial_confidence", 0.0),
+                            "after": entry.get("current_confidence", 0.0),
+                        }
+                    )
         except (ImportError, RuntimeError, AttributeError):
             logger.debug("KM confidence decay stats not available")
 
-        return json_response({
-            "data": {
-                "totalInjections": total_injections,
-                "retrievalCount": retrieval_count,
-                "topPatterns": top_patterns,
-                "confidenceChanges": confidence_changes,
+        return json_response(
+            {
+                "data": {
+                    "totalInjections": total_injections,
+                    "retrievalCount": retrieval_count,
+                    "topPatterns": top_patterns,
+                    "confidenceChanges": confidence_changes,
+                }
             }
-        })
+        )
 
     # ------------------------------------------------------------------
     # GET /api/v1/system-intelligence/improvement-queue
@@ -369,23 +390,27 @@ class SystemIntelligenceHandler(SecureEndpointMixin, SecureHandler):  # type: ig
             total_size = len(queue)
 
             for s in queue.peek(50):
-                items.append({
-                    "id": s.debate_id,
-                    "goal": s.task[:200],
-                    "priority": int(s.confidence * 100),
-                    "source": s.category,
-                    "status": "pending",
-                    "createdAt": str(s.created_at),
-                })
+                items.append(
+                    {
+                        "id": s.debate_id,
+                        "goal": s.task[:200],
+                        "priority": int(s.confidence * 100),
+                        "source": s.category,
+                        "status": "pending",
+                        "createdAt": str(s.created_at),
+                    }
+                )
                 source_breakdown[s.category] = source_breakdown.get(s.category, 0) + 1
 
         except (ImportError, RuntimeError):
             logger.debug("ImprovementQueue not available")
 
-        return json_response({
-            "data": {
-                "items": items,
-                "totalSize": total_size,
-                "sourceBreakdown": source_breakdown,
+        return json_response(
+            {
+                "data": {
+                    "items": items,
+                    "totalSize": total_size,
+                    "sourceBreakdown": source_breakdown,
+                }
             }
-        })
+        )

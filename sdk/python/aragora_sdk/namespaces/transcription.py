@@ -24,6 +24,7 @@ TranscriptionStatus = Literal["pending", "processing", "completed", "failed"]
 TranscriptionBackend = Literal["openai", "faster-whisper", "whisper-cpp"]
 WhisperModel = Literal["tiny", "base", "small", "medium", "large"]
 
+
 class TranscriptionAPI:
     """
     Synchronous Transcription API.

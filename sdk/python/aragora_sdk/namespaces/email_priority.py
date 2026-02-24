@@ -28,6 +28,7 @@ EmailCategory = Literal[
 ]
 GmailScopes = Literal["readonly", "full"]
 
+
 class EmailPriorityAPI:
     """
     Synchronous Email Priority API.
@@ -370,6 +371,7 @@ class EmailPriorityAPI:
             Dict with boost factors from various signals
         """
         return self._client.request("POST", "/api/v1/email/context/boost", json={"email": email})
+
 
 class AsyncEmailPriorityAPI:
     """

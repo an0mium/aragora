@@ -66,7 +66,9 @@ class PipelineAPI:
         if use_ai:
             payload["use_ai"] = True
         return self._client.request(
-            "POST", "/api/v1/canvas/pipeline/from-debate", json=payload,
+            "POST",
+            "/api/v1/canvas/pipeline/from-debate",
+            json=payload,
         )
 
     def from_ideas(
@@ -83,7 +85,9 @@ class PipelineAPI:
         if use_ai:
             payload["use_ai"] = True
         return self._client.request(
-            "POST", "/api/v1/canvas/pipeline/from-ideas", json=payload,
+            "POST",
+            "/api/v1/canvas/pipeline/from-ideas",
+            json=payload,
         )
 
     def status(self, pipeline_id: str) -> dict[str, Any]:
@@ -98,7 +102,9 @@ class PipelineAPI:
         """Get React Flow JSON graph for pipeline stages."""
         params = {"stage": stage} if stage else {}
         return self._client.request(
-            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/graph", params=params,
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/graph",
+            params=params,
         )
 
     def receipt(self, pipeline_id: str) -> dict[str, Any]:
@@ -116,7 +122,8 @@ class PipelineAPI:
     def stage(self, pipeline_id: str, stage: str) -> dict[str, Any]:
         """Get a specific stage canvas from a pipeline."""
         return self._client.request(
-            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/stage/{stage}",
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/stage/{stage}",
         )
 
     def extract_goals(
@@ -133,7 +140,9 @@ class PipelineAPI:
         if config:
             payload["config"] = config
         return self._client.request(
-            "POST", "/api/v1/canvas/pipeline/extract-goals", json=payload,
+            "POST",
+            "/api/v1/canvas/pipeline/extract-goals",
+            json=payload,
         )
 
     def approve_transition(
@@ -191,7 +200,9 @@ class PipelineAPI:
         if context:
             payload["context"] = context
         return self._client.request(
-            "POST", "/api/v1/canvas/pipeline/from-braindump", json=payload,
+            "POST",
+            "/api/v1/canvas/pipeline/from-braindump",
+            json=payload,
         )
 
     def from_template(
@@ -241,7 +252,9 @@ class PipelineAPI:
         """
         params = {"category": category} if category else {}
         return self._client.request(
-            "GET", "/api/v1/canvas/pipeline/templates", params=params,
+            "GET",
+            "/api/v1/canvas/pipeline/templates",
+            params=params,
         )
 
     def debate_to_pipeline(
@@ -270,7 +283,9 @@ class PipelineAPI:
     def save(self, pipeline_id: str, data: dict[str, Any]) -> dict[str, Any]:
         """Save/update a pipeline."""
         return self._client.request(
-            "PUT", f"/api/v1/canvas/pipeline/{pipeline_id}", json=data,
+            "PUT",
+            f"/api/v1/canvas/pipeline/{pipeline_id}",
+            json=data,
         )
 
     def convert_debate(self, cartographer_data: dict[str, Any]) -> dict[str, Any]:
@@ -409,7 +424,9 @@ class AsyncPipelineAPI:
         if use_ai:
             payload["use_ai"] = True
         return await self._client.request(
-            "POST", "/api/v1/canvas/pipeline/from-debate", json=payload,
+            "POST",
+            "/api/v1/canvas/pipeline/from-debate",
+            json=payload,
         )
 
     async def from_ideas(
@@ -426,7 +443,9 @@ class AsyncPipelineAPI:
         if use_ai:
             payload["use_ai"] = True
         return await self._client.request(
-            "POST", "/api/v1/canvas/pipeline/from-ideas", json=payload,
+            "POST",
+            "/api/v1/canvas/pipeline/from-ideas",
+            json=payload,
         )
 
     async def status(self, pipeline_id: str) -> dict[str, Any]:
@@ -441,7 +460,9 @@ class AsyncPipelineAPI:
         """Get React Flow JSON graph for pipeline stages."""
         params = {"stage": stage} if stage else {}
         return await self._client.request(
-            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/graph", params=params,
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/graph",
+            params=params,
         )
 
     async def receipt(self, pipeline_id: str) -> dict[str, Any]:
@@ -459,7 +480,8 @@ class AsyncPipelineAPI:
     async def stage(self, pipeline_id: str, stage: str) -> dict[str, Any]:
         """Get a specific stage canvas from a pipeline."""
         return await self._client.request(
-            "GET", f"/api/v1/canvas/pipeline/{pipeline_id}/stage/{stage}",
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/stage/{stage}",
         )
 
     async def extract_goals(
@@ -476,7 +498,9 @@ class AsyncPipelineAPI:
         if config:
             payload["config"] = config
         return await self._client.request(
-            "POST", "/api/v1/canvas/pipeline/extract-goals", json=payload,
+            "POST",
+            "/api/v1/canvas/pipeline/extract-goals",
+            json=payload,
         )
 
     async def approve_transition(
@@ -517,7 +541,9 @@ class AsyncPipelineAPI:
         if context:
             payload["context"] = context
         return await self._client.request(
-            "POST", "/api/v1/canvas/pipeline/from-braindump", json=payload,
+            "POST",
+            "/api/v1/canvas/pipeline/from-braindump",
+            json=payload,
         )
 
     async def from_template(
@@ -553,7 +579,9 @@ class AsyncPipelineAPI:
         """List available pipeline templates."""
         params = {"category": category} if category else {}
         return await self._client.request(
-            "GET", "/api/v1/canvas/pipeline/templates", params=params,
+            "GET",
+            "/api/v1/canvas/pipeline/templates",
+            params=params,
         )
 
     async def debate_to_pipeline(
@@ -576,7 +604,9 @@ class AsyncPipelineAPI:
     async def save(self, pipeline_id: str, data: dict[str, Any]) -> dict[str, Any]:
         """Save/update a pipeline."""
         return await self._client.request(
-            "PUT", f"/api/v1/canvas/pipeline/{pipeline_id}", json=data,
+            "PUT",
+            f"/api/v1/canvas/pipeline/{pipeline_id}",
+            json=data,
         )
 
     async def convert_debate(self, cartographer_data: dict[str, Any]) -> dict[str, Any]:

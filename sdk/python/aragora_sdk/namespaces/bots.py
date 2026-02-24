@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class BotsAPI:
     """Synchronous bots API."""
 
@@ -53,6 +54,7 @@ class BotsAPI:
 
     def zoom_status(self) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/bots/zoom/status")
+
 
 class AsyncBotsAPI:
     """Asynchronous bots API."""

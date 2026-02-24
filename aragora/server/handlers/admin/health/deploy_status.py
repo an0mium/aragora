@@ -74,6 +74,7 @@ class DeployStatusHandler(SecureHandler):
         backend_healthy = True
         try:
             from aragora.server.degraded_mode import is_degraded
+
             if is_degraded():
                 backend_healthy = False
         except ImportError:
@@ -82,29 +83,32 @@ class DeployStatusHandler(SecureHandler):
         # Check server readiness
         try:
             from aragora.server.unified_server import is_server_ready
+
             server_ready = is_server_ready()
         except ImportError:
             server_ready = True
 
-        return json_response({
-            "deploy": {
-                "sha": build["sha"],
-                "sha_short": build["sha_short"],
-                "build_time": build["build_time"],
-                "version": build["version"],
-            },
-            "health": {
-                "backend": "healthy" if backend_healthy else "degraded",
-                "server_ready": server_ready,
-            },
-            "uptime": {
-                "seconds": round(uptime_seconds, 1),
-                "started_at": datetime.fromtimestamp(
-                    _SERVER_START_TIME, tz=timezone.utc
-                ).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            },
-            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        })
+        return json_response(
+            {
+                "deploy": {
+                    "sha": build["sha"],
+                    "sha_short": build["sha_short"],
+                    "build_time": build["build_time"],
+                    "version": build["version"],
+                },
+                "health": {
+                    "backend": "healthy" if backend_healthy else "degraded",
+                    "server_ready": server_ready,
+                },
+                "uptime": {
+                    "seconds": round(uptime_seconds, 1),
+                    "started_at": datetime.fromtimestamp(
+                        _SERVER_START_TIME, tz=timezone.utc
+                    ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+        )
 
 
 __all__ = ["DeployStatusHandler"]

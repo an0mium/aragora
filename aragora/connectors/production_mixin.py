@@ -130,7 +130,7 @@ class ProductionConnectorMixin:
 
     def _calculate_retry_delay(self, attempt: int) -> float:
         """Calculate retry delay with exponential backoff and jitter."""
-        delay = min(self._pcm_base_delay * (2 ** attempt), self._pcm_max_delay)
+        delay = min(self._pcm_base_delay * (2**attempt), self._pcm_max_delay)
         jitter = delay * DEFAULT_JITTER_FACTOR * random.uniform(-1, 1)
         return max(0.1, delay + jitter)
 
@@ -181,8 +181,7 @@ class ProductionConnectorMixin:
                 cooldown,
             )
             raise ConnectionError(
-                f"{operation} blocked by circuit breaker "
-                f"(cooldown: {cooldown:.1f}s)"
+                f"{operation} blocked by circuit breaker (cooldown: {cooldown:.1f}s)"
             )
 
         last_error: Exception | None = None
@@ -277,6 +276,4 @@ class ProductionConnectorMixin:
         if last_error is not None:
             raise last_error
 
-        raise ConnectionError(
-            f"{operation} failed after {self._pcm_max_retries + 1} attempts"
-        )
+        raise ConnectionError(f"{operation} failed after {self._pcm_max_retries + 1} attempts")

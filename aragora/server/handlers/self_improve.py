@@ -310,13 +310,15 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         except (ImportError, RuntimeError):
             pass
 
-        return json_response({
-            "data": {
-                "regression_history": regression_history,
-                "selection_adjustments": selection_adjustments,
-                "feedback_metrics": feedback_metrics,
+        return json_response(
+            {
+                "data": {
+                    "regression_history": regression_history,
+                    "selection_adjustments": selection_adjustments,
+                    "feedback_metrics": feedback_metrics,
+                }
             }
-        })
+        )
 
     # ------------------------------------------------------------------
     # GET /api/self-improve/regression-history
@@ -338,12 +340,14 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         except (ImportError, RuntimeError, TypeError, AttributeError) as e:
             logger.debug("Regression history unavailable: %s", type(e).__name__)
 
-        return json_response({
-            "data": {
-                "regressions": regressions,
-                "total": len(regressions),
+        return json_response(
+            {
+                "data": {
+                    "regressions": regressions,
+                    "total": len(regressions),
+                }
             }
-        })
+        )
 
     # ------------------------------------------------------------------
     # GET /api/self-improve/feedback-summary
@@ -367,12 +371,14 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             tracker = EloTracker()
             history: list[Any] = getattr(tracker, "get_recent_changes", lambda n: [])(10)
             for change in history:
-                elo_changes.append({
-                    "agent": getattr(change, "agent_name", str(change)),
-                    "delta": getattr(change, "delta", 0),
-                    "new_rating": getattr(change, "new_rating", 0),
-                    "reason": getattr(change, "reason", ""),
-                })
+                elo_changes.append(
+                    {
+                        "agent": getattr(change, "agent_name", str(change)),
+                        "delta": getattr(change, "delta", 0),
+                        "new_rating": getattr(change, "new_rating", 0),
+                        "reason": getattr(change, "reason", ""),
+                    }
+                )
         except (ImportError, RuntimeError, TypeError, AttributeError):
             pass
 
@@ -383,12 +389,14 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             bridge = PipelineKMBridge()
             if bridge.available and pipeline_id:
                 entries = bridge.get_entries_for_pipeline(pipeline_id)  # type: ignore[attr-defined]
-                for entry in (entries if isinstance(entries, list) else []):
-                    km_entries.append({
-                        "id": getattr(entry, "id", str(entry)),
-                        "type": getattr(entry, "entry_type", "unknown"),
-                        "confidence": getattr(entry, "confidence", 0.5),
-                    })
+                for entry in entries if isinstance(entries, list) else []:
+                    km_entries.append(
+                        {
+                            "id": getattr(entry, "id", str(entry)),
+                            "type": getattr(entry, "entry_type", "unknown"),
+                            "confidence": getattr(entry, "confidence", 0.5),
+                        }
+                    )
         except (ImportError, RuntimeError, TypeError, AttributeError):
             pass
 
@@ -400,16 +408,18 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         except (ImportError, RuntimeError, TypeError, AttributeError):
             pass
 
-        return json_response({
-            "data": {
-                "pipeline_id": pipeline_id,
-                "elo_changes": elo_changes,
-                "km_entries_stored": len(km_entries),
-                "km_entries": km_entries,
-                "regressions": regressions,
-                "regression_count": len(regressions),
+        return json_response(
+            {
+                "data": {
+                    "pipeline_id": pipeline_id,
+                    "elo_changes": elo_changes,
+                    "km_entries_stored": len(km_entries),
+                    "km_entries": km_entries,
+                    "regressions": regressions,
+                    "regression_count": len(regressions),
+                }
             }
-        })
+        )
 
     # ------------------------------------------------------------------
     # GET /api/self-improve/goals
@@ -429,15 +439,17 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             queue = ImprovementQueue()
             pending = queue.peek(limit=limit)
             for g in pending:
-                goals.append({
-                    "goal": g.goal,
-                    "source": g.source,
-                    "priority": g.priority,
-                    "context": g.context,
-                    "estimated_impact": g.context.get("estimated_impact", "medium"),
-                    "track": g.context.get("track", "core"),
-                    "status": "pending",
-                })
+                goals.append(
+                    {
+                        "goal": g.goal,
+                        "source": g.source,
+                        "priority": g.priority,
+                        "context": g.context,
+                        "estimated_impact": g.context.get("estimated_impact", "medium"),
+                        "track": g.context.get("track", "core"),
+                        "status": "pending",
+                    }
+                )
         except (ImportError, OSError, RuntimeError) as e:
             logger.debug("ImprovementQueue not available: %s", type(e).__name__)
 
@@ -447,15 +459,17 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
             legacy_queue = IQ.load()
             for fg in legacy_queue.goals[-limit:]:
-                goals.append({
-                    "goal": fg.description,
-                    "source": fg.source,
-                    "priority": fg.priority,
-                    "context": fg.metadata,
-                    "estimated_impact": fg.estimated_impact,
-                    "track": fg.track,
-                    "status": "pending",
-                })
+                goals.append(
+                    {
+                        "goal": fg.description,
+                        "source": fg.source,
+                        "priority": fg.priority,
+                        "context": fg.metadata,
+                        "estimated_impact": fg.estimated_impact,
+                        "track": fg.track,
+                        "status": "pending",
+                    }
+                )
         except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
             logger.debug("Legacy goal queue not available: %s", type(e).__name__)
 
@@ -471,12 +485,14 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         # Sort by priority descending
         deduped.sort(key=lambda g: g.get("priority", 0), reverse=True)
 
-        return json_response({
-            "data": {
-                "goals": deduped[:limit],
-                "total": len(deduped),
+        return json_response(
+            {
+                "data": {
+                    "goals": deduped[:limit],
+                    "total": len(deduped),
+                }
             }
-        })
+        )
 
     # ------------------------------------------------------------------
     # GET /api/self-improve/metrics/summary
@@ -516,21 +532,21 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
                 # Build activity feed entries from runs
                 if rd.get("summary"):
-                    recent_activity.append({
-                        "type": "cycle_completed" if status == "completed" else "cycle_failed",
-                        "message": rd["summary"],
-                        "timestamp": rd.get("completed_at") or rd.get("started_at") or rd.get("created_at", ""),
-                        "run_id": rd.get("run_id", ""),
-                        "status": status,
-                    })
+                    recent_activity.append(
+                        {
+                            "type": "cycle_completed" if status == "completed" else "cycle_failed",
+                            "message": rd["summary"],
+                            "timestamp": rd.get("completed_at")
+                            or rd.get("started_at")
+                            or rd.get("created_at", ""),
+                            "run_id": rd.get("run_id", ""),
+                            "status": status,
+                        }
+                    )
 
         # Compute rates
-        cycle_success_rate = (
-            completed_cycles / total_cycles if total_cycles > 0 else 0.0
-        )
-        goal_completion_rate = (
-            completed_subtasks / total_subtasks if total_subtasks > 0 else 0.0
-        )
+        cycle_success_rate = completed_cycles / total_cycles if total_cycles > 0 else 0.0
+        goal_completion_rate = completed_subtasks / total_subtasks if total_subtasks > 0 else 0.0
 
         # Get queued goal count
         total_goals_queued = 0
@@ -558,32 +574,30 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
         # Compute overall health score (weighted average)
         health_score = (
-            cycle_success_rate * 0.4
-            + goal_completion_rate * 0.35
-            + test_pass_rate * 0.25
+            cycle_success_rate * 0.4 + goal_completion_rate * 0.35 + test_pass_rate * 0.25
         )
 
         # Sort activity by timestamp descending, take latest 10
-        recent_activity.sort(
-            key=lambda a: a.get("timestamp", ""), reverse=True
-        )
+        recent_activity.sort(key=lambda a: a.get("timestamp", ""), reverse=True)
         recent_activity = recent_activity[:10]
 
-        return json_response({
-            "data": {
-                "health_score": round(health_score, 4),
-                "cycle_success_rate": round(cycle_success_rate, 4),
-                "goal_completion_rate": round(goal_completion_rate, 4),
-                "test_pass_rate": round(test_pass_rate, 4),
-                "total_cycles": total_cycles,
-                "completed_cycles": completed_cycles,
-                "failed_cycles": failed_cycles,
-                "total_subtasks": total_subtasks,
-                "completed_subtasks": completed_subtasks,
-                "total_goals_queued": total_goals_queued,
-                "recent_activity": recent_activity,
+        return json_response(
+            {
+                "data": {
+                    "health_score": round(health_score, 4),
+                    "cycle_success_rate": round(cycle_success_rate, 4),
+                    "goal_completion_rate": round(goal_completion_rate, 4),
+                    "test_pass_rate": round(test_pass_rate, 4),
+                    "total_cycles": total_cycles,
+                    "completed_cycles": completed_cycles,
+                    "failed_cycles": failed_cycles,
+                    "total_subtasks": total_subtasks,
+                    "completed_subtasks": completed_subtasks,
+                    "total_goals_queued": total_goals_queued,
+                    "recent_activity": recent_activity,
+                }
             }
-        })
+        )
 
     # ------------------------------------------------------------------
     # POST /api/self-improve/run (and /start alias)
@@ -1021,9 +1035,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             # Emit loop_stopped
             try:
                 if stream:
-                    await stream.emit_loop_stopped(
-                        reason=_res.summary or "Orchestration complete"
-                    )
+                    await stream.emit_loop_stopped(reason=_res.summary or "Orchestration complete")
             except (RuntimeError, OSError) as e:
                 logger.debug("WebSocket emit skipped: %s", type(e).__name__)
 

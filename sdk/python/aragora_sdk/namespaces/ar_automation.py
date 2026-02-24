@@ -290,9 +290,7 @@ class ARAutomationAPI:
         Returns:
             Customer balance with outstanding and overdue amounts.
         """
-        return self._client.request(
-            "GET", f"/api/v1/accounting/ar/customers/{customer_id}/balance"
-        )
+        return self._client.request("GET", f"/api/v1/accounting/ar/customers/{customer_id}/balance")
 
 
 class AsyncARAutomationAPI:

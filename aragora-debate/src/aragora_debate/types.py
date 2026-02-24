@@ -18,8 +18,10 @@ from collections.abc import Callable
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class Phase(str, Enum):
     """Phases of a structured adversarial debate."""
+
     PROPOSE = "propose"
     CRITIQUE = "critique"
     REVISE = "revise"
@@ -29,6 +31,7 @@ class Phase(str, Enum):
 
 class ConsensusMethod(str, Enum):
     """How consensus is determined."""
+
     MAJORITY = "majority"
     SUPERMAJORITY = "supermajority"
     UNANIMOUS = "unanimous"
@@ -38,6 +41,7 @@ class ConsensusMethod(str, Enum):
 
 class Verdict(str, Enum):
     """Canonical verdict for decision receipts."""
+
     APPROVED = "approved"
     APPROVED_WITH_CONDITIONS = "approved_with_conditions"
     NEEDS_REVIEW = "needs_review"
@@ -48,9 +52,11 @@ class Verdict(str, Enum):
 # Communication types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Message:
     """A message exchanged during a debate."""
+
     role: str
     agent: str
     content: str
@@ -70,6 +76,7 @@ class Message:
 @dataclass
 class Proposal:
     """A proposal submitted by an agent during the propose phase."""
+
     agent: str
     content: str
     round: int = 0
@@ -80,6 +87,7 @@ class Proposal:
 @dataclass
 class Critique:
     """A critique of another agent's proposal."""
+
     agent: str
     target_agent: str
     target_content: str
@@ -103,6 +111,7 @@ class Critique:
 @dataclass
 class Vote:
     """An agent's vote for a proposal during the voting phase."""
+
     agent: str
     choice: str  # which agent/proposal they endorse
     reasoning: str = ""
@@ -113,9 +122,11 @@ class Vote:
 # Evidence & claims
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Evidence:
     """A piece of evidence supporting or refuting a claim."""
+
     source: str
     content: str
     evidence_type: str = "argument"  # argument, data, citation, tool_output
@@ -129,6 +140,7 @@ class Evidence:
 @dataclass
 class Claim:
     """A structured claim with supporting and refuting evidence."""
+
     statement: str
     author: str
     confidence: float = 0.5  # 0-1
@@ -150,9 +162,11 @@ class Claim:
 # Consensus & dissent
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DissentRecord:
     """Record of an agent's dissent from the consensus."""
+
     agent: str
     reasons: list[str]
     alternative_view: str | None = None
@@ -172,6 +186,7 @@ class DissentRecord:
 @dataclass
 class Consensus:
     """The consensus state after voting."""
+
     reached: bool
     method: ConsensusMethod
     confidence: float  # 0-1
@@ -190,9 +205,11 @@ class Consensus:
 # Agent
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AgentResponse:
     """Response returned from an agent's generate/critique/vote call."""
+
     content: str
     agent: str
     confidence: float = 0.5
@@ -256,9 +273,11 @@ class Agent(ABC):
 # Configuration
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DebateConfig:
     """Configuration for a debate session."""
+
     rounds: int = 3
     consensus_method: ConsensusMethod = ConsensusMethod.MAJORITY
     consensus_threshold: float = 0.6
@@ -279,12 +298,14 @@ class DebateConfig:
 # Result
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DecisionReceipt:
     """Cryptographic audit trail for a debate decision.
 
     See ``ReceiptBuilder`` to construct these from a ``DebateResult``.
     """
+
     receipt_id: str
     question: str
     verdict: Verdict
@@ -307,7 +328,9 @@ class DecisionReceipt:
             "confidence": self.confidence,
             "consensus": {
                 "reached": self.consensus.reached,
-                "method": self.consensus.method.value if isinstance(self.consensus.method, ConsensusMethod) else self.consensus.method,
+                "method": self.consensus.method.value
+                if isinstance(self.consensus.method, ConsensusMethod)
+                else self.consensus.method,
                 "confidence": self.consensus.confidence,
                 "supporting_agents": self.consensus.supporting_agents,
                 "dissenting_agents": self.consensus.dissenting_agents,
@@ -352,9 +375,7 @@ class DecisionReceipt:
             lines.append("")
             for c in self.claims:
                 status = f" [{c.status}]" if c.status != "active" else ""
-                lines.append(
-                    f"- **{c.author}** ({c.confidence:.0%}){status}: {c.statement}"
-                )
+                lines.append(f"- **{c.author}** ({c.confidence:.0%}){status}: {c.statement}")
             lines.append("")
         if self.signature:
             lines.append("---")
@@ -366,6 +387,7 @@ class DecisionReceipt:
 @dataclass
 class DebateResult:
     """The complete result of a multi-agent debate."""
+
     # Identification
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     task: str = ""

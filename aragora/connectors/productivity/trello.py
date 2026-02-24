@@ -357,9 +357,9 @@ class TrelloConnector(BaseConnector):
             return cached
 
         if evidence_id.startswith("trello_board_"):
-            return await self._fetch_board(evidence_id[len("trello_board_"):], evidence_id)
+            return await self._fetch_board(evidence_id[len("trello_board_") :], evidence_id)
         elif evidence_id.startswith("trello_card_"):
-            return await self._fetch_card(evidence_id[len("trello_card_"):], evidence_id)
+            return await self._fetch_card(evidence_id[len("trello_card_") :], evidence_id)
 
         return None
 

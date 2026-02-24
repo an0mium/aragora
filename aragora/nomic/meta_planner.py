@@ -367,8 +367,10 @@ class MetaPlanner:
                 for i, candidate in enumerate(candidates):
                     track = self._infer_track(candidate.goal_text, available_tracks)
                     impact = (
-                        "high" if candidate.estimated_impact >= 1.5
-                        else "medium" if candidate.estimated_impact >= 0.8
+                        "high"
+                        if candidate.estimated_impact >= 1.5
+                        else "medium"
+                        if candidate.estimated_impact >= 0.8
                         else "low"
                     )
                     all_goals.append(
@@ -627,7 +629,7 @@ class MetaPlanner:
             store = get_plan_store()
             outcomes = store.get_recent_outcomes(limit=5) if store else []
 
-            for outcome in (outcomes or []):
+            for outcome in outcomes or []:
                 status = outcome.get("status", "unknown")
                 task = outcome.get("task", "unknown task")
                 exec_error = outcome.get("execution_error")
@@ -877,9 +879,7 @@ class MetaPlanner:
                 # SelectionFeedbackLoop domain adjustment
                 if self._feedback_loop:
                     try:
-                        fb_adj = self._feedback_loop.get_domain_adjustment(
-                            agent_name, domain or ""
-                        )
+                        fb_adj = self._feedback_loop.get_domain_adjustment(agent_name, domain or "")
                         score += fb_adj * 0.3
                     except (AttributeError, TypeError):
                         pass
@@ -1371,9 +1371,7 @@ class MetaPlanner:
             scan_result = runner.scan() if hasattr(runner, "scan") else None
             if scan_result and hasattr(scan_result, "steps"):
                 for step in scan_result.steps[:10]:
-                    track = self._infer_track(
-                        getattr(step, "title", str(step)), available_tracks
-                    )
+                    track = self._infer_track(getattr(step, "title", str(step)), available_tracks)
                     if track and track.value in track_signals:
                         priority = getattr(step, "priority", "medium")
                         category = getattr(step, "category", "misc")
@@ -1946,9 +1944,7 @@ class MetaPlanner:
             if km:
                 recent = await km.query(query="recent issues bugs failures", limit=5)
                 if recent:
-                    context.recent_issues = [
-                        getattr(r, "title", str(r)) for r in recent
-                    ]
+                    context.recent_issues = [getattr(r, "title", str(r)) for r in recent]
         except (ImportError, AttributeError, TypeError):
             logger.debug("KM unavailable for system health context")
 
@@ -1996,14 +1992,16 @@ class MetaPlanner:
 
             cycles = get_recent_cycles(n=50)
             for cycle in cycles:
-                outcomes.append({
-                    "objective": getattr(cycle, "objective", ""),
-                    "status": getattr(cycle, "status", "unknown"),
-                    "goals_attempted": getattr(cycle, "goals_attempted", 0),
-                    "goals_succeeded": getattr(cycle, "goals_succeeded", 0),
-                    "goals_failed": getattr(cycle, "goals_failed", 0),
-                    "tracks": getattr(cycle, "tracks_affected", []),
-                })
+                outcomes.append(
+                    {
+                        "objective": getattr(cycle, "objective", ""),
+                        "status": getattr(cycle, "status", "unknown"),
+                        "goals_attempted": getattr(cycle, "goals_attempted", 0),
+                        "goals_succeeded": getattr(cycle, "goals_succeeded", 0),
+                        "goals_failed": getattr(cycle, "goals_failed", 0),
+                        "tracks": getattr(cycle, "tracks_affected", []),
+                    }
+                )
         except (ImportError, RuntimeError, AttributeError, TypeError) as e:
             logger.debug("Cycle store unavailable for outcome analysis: %s", e)
 
@@ -2013,16 +2011,18 @@ class MetaPlanner:
 
             store = get_plan_store()
             recent = store.get_recent_outcomes(limit=50) if store else []
-            for entry in (recent or []):
-                outcomes.append({
-                    "objective": entry.get("task", ""),
-                    "status": entry.get("status", "unknown"),
-                    "goals_attempted": 1,
-                    "goals_succeeded": 1 if entry.get("status") == "completed" else 0,
-                    "goals_failed": 1 if entry.get("status") in ("failed", "rejected") else 0,
-                    "tracks": [],
-                    "error": entry.get("execution_error"),
-                })
+            for entry in recent or []:
+                outcomes.append(
+                    {
+                        "objective": entry.get("task", ""),
+                        "status": entry.get("status", "unknown"),
+                        "goals_attempted": 1,
+                        "goals_succeeded": 1 if entry.get("status") == "completed" else 0,
+                        "goals_failed": 1 if entry.get("status") in ("failed", "rejected") else 0,
+                        "tracks": [],
+                        "error": entry.get("execution_error"),
+                    }
+                )
         except (ImportError, RuntimeError, ValueError) as e:
             logger.debug("PlanStore unavailable for outcome analysis: %s", e)
 
@@ -2041,21 +2041,23 @@ class MetaPlanner:
 
         # Pattern 1: Low overall success rate
         if success_rate < low_consensus_threshold:
-            goals.append(PrioritizedGoal(
-                id=f"outcome_goal_{priority - 1}",
-                track=Track.CORE,
-                description=(
-                    f"Improve debate outcome success rate (currently {success_rate:.0%} "
-                    f"across {total} recent outcomes, threshold {low_consensus_threshold:.0%})"
-                ),
-                rationale=(
-                    f"Only {succeeded}/{total} recent debates/plans succeeded. "
-                    f"Investigate agent selection, consensus methods, or prompt quality."
-                ),
-                estimated_impact="high",
-                priority=priority,
-                focus_areas=["consensus", "agent_selection", "prompt_quality"],
-            ))
+            goals.append(
+                PrioritizedGoal(
+                    id=f"outcome_goal_{priority - 1}",
+                    track=Track.CORE,
+                    description=(
+                        f"Improve debate outcome success rate (currently {success_rate:.0%} "
+                        f"across {total} recent outcomes, threshold {low_consensus_threshold:.0%})"
+                    ),
+                    rationale=(
+                        f"Only {succeeded}/{total} recent debates/plans succeeded. "
+                        f"Investigate agent selection, consensus methods, or prompt quality."
+                    ),
+                    estimated_impact="high",
+                    priority=priority,
+                    focus_areas=["consensus", "agent_selection", "prompt_quality"],
+                )
+            )
             priority += 1
 
         # Pattern 2: Track-specific failure clustering
@@ -2079,21 +2081,23 @@ class MetaPlanner:
                     track = Track(track_name)
                 except ValueError:
                     continue
-                goals.append(PrioritizedGoal(
-                    id=f"outcome_goal_{priority - 1}",
-                    track=track,
-                    description=(
-                        f"Address high failure rate in {track_name} track "
-                        f"({fail_count}/{total_for_track} = {fail_rate:.0%} failures)"
-                    ),
-                    rationale=(
-                        f"Track '{track_name}' has {fail_rate:.0%} failure rate "
-                        f"over {total_for_track} recent outcomes."
-                    ),
-                    estimated_impact="high" if fail_rate > 0.7 else "medium",
-                    priority=priority,
-                    focus_areas=[track_name],
-                ))
+                goals.append(
+                    PrioritizedGoal(
+                        id=f"outcome_goal_{priority - 1}",
+                        track=track,
+                        description=(
+                            f"Address high failure rate in {track_name} track "
+                            f"({fail_count}/{total_for_track} = {fail_rate:.0%} failures)"
+                        ),
+                        rationale=(
+                            f"Track '{track_name}' has {fail_rate:.0%} failure rate "
+                            f"over {total_for_track} recent outcomes."
+                        ),
+                        estimated_impact="high" if fail_rate > 0.7 else "medium",
+                        priority=priority,
+                        focus_areas=[track_name],
+                    )
+                )
                 priority += 1
 
         # Pattern 3: Recurring error messages
@@ -2102,23 +2106,25 @@ class MetaPlanner:
             err = o.get("error")
             if err:
                 # Normalize error to first 80 chars for grouping
-                err_key = str(err)[:80] if isinstance(err, str) else str(err.get("message", ""))[:80]
+                err_key = (
+                    str(err)[:80] if isinstance(err, str) else str(err.get("message", ""))[:80]
+                )
                 if err_key:
                     error_counts[err_key] = error_counts.get(err_key, 0) + 1
 
         for err_msg, count in sorted(error_counts.items(), key=lambda kv: kv[1], reverse=True):
             if count >= 2:
-                goals.append(PrioritizedGoal(
-                    id=f"outcome_goal_{priority - 1}",
-                    track=Track.QA,
-                    description=(
-                        f"Fix recurring error ({count}x): {err_msg}"
-                    ),
-                    rationale=f"Error appeared {count} times in recent outcomes.",
-                    estimated_impact="high" if count >= 3 else "medium",
-                    priority=priority,
-                    focus_areas=["error_handling", "reliability"],
-                ))
+                goals.append(
+                    PrioritizedGoal(
+                        id=f"outcome_goal_{priority - 1}",
+                        track=Track.QA,
+                        description=(f"Fix recurring error ({count}x): {err_msg}"),
+                        rationale=f"Error appeared {count} times in recent outcomes.",
+                        estimated_impact="high" if count >= 3 else "medium",
+                        priority=priority,
+                        focus_areas=["error_handling", "reliability"],
+                    )
+                )
                 priority += 1
                 if priority > self.config.max_goals + 1:
                     break
@@ -2130,8 +2136,7 @@ class MetaPlanner:
                 total,
             )
 
-        return goals[:self.config.max_goals]
-
+        return goals[: self.config.max_goals]
 
     def classify_goal_risk(self, goal: PrioritizedGoal) -> str:
         """Classify a goal's risk level based on its description and focus areas.
@@ -2152,18 +2157,38 @@ class MetaPlanner:
 
         # High risk: security, auth, database, API changes, breaking changes
         high_risk_patterns = [
-            "security", "auth", "encryption", "migration", "schema",
-            "database", "breaking change", "api contract", "delete",
-            "remove", "drop", "rbac", "permission",
+            "security",
+            "auth",
+            "encryption",
+            "migration",
+            "schema",
+            "database",
+            "breaking change",
+            "api contract",
+            "delete",
+            "remove",
+            "drop",
+            "rbac",
+            "permission",
         ]
         if any(p in combined for p in high_risk_patterns):
             return "high"
 
         # Low risk: tests, docs, lint, formatting, typos, comments
         low_risk_patterns = [
-            "test", "lint", "format", "typo", "comment", "docstring",
-            "documentation", "readme", "type hint", "type annotation",
-            "unused import", "whitespace", "spelling",
+            "test",
+            "lint",
+            "format",
+            "typo",
+            "comment",
+            "docstring",
+            "documentation",
+            "readme",
+            "type hint",
+            "type annotation",
+            "unused import",
+            "whitespace",
+            "spelling",
         ]
         if any(p in combined for p in low_risk_patterns):
             return "low"

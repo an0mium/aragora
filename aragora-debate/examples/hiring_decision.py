@@ -70,6 +70,7 @@ Team need: Backfill for departing senior engineer. Timeline: urgent (2 weeks).
 # Evaluator agents
 # ---------------------------------------------------------------------------
 
+
 class HiringAgent(Agent):
     """Mock hiring evaluator with a specific perspective."""
 
@@ -85,7 +86,9 @@ class HiringAgent(Agent):
     async def critique(self, proposal: str, task: str, **kw) -> Critique:
         target = kw.get("target_agent", "unknown")
         return Critique(
-            agent=self.name, target_agent=target, target_content=proposal,
+            agent=self.name,
+            target_agent=target,
+            target_content=proposal,
             issues=self.analysis.get("critique_issues", ["Could provide more specifics"]),
             suggestions=self.analysis.get("critique_suggestions", ["Add concrete examples"]),
             severity=float(self.analysis.get("critique_severity", "4.0")),
@@ -244,6 +247,7 @@ devil_advocate = HiringAgent(
 # Main
 # ---------------------------------------------------------------------------
 
+
 async def main() -> None:
     agents = [technical_evaluator, culture_evaluator, devil_advocate]
 
@@ -289,7 +293,7 @@ async def main() -> None:
 
     # Vote breakdown
     print("VOTE BREAKDOWN:")
-    for v in result.votes[-len(result.participants):]:  # last round's votes
+    for v in result.votes[-len(result.participants) :]:  # last round's votes
         print(f"  {v.agent}: voted for '{v.choice}' (confidence: {v.confidence:.0%})")
         print(f"    Reasoning: {v.reasoning}")
     print()

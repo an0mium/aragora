@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 SearchScope = Literal["workspace", "channel", "user", "global"]
 SearchStrategy = Literal["hybrid", "semantic", "keyword", "exact"]
 
+
 class KnowledgeChatAPI:
     """
     Synchronous Knowledge Chat API.
@@ -323,4 +324,6 @@ class AsyncKnowledgeChatAPI:
 
     async def get_channel_summary(self, channel_id: str) -> dict[str, Any]:
         """Get a knowledge summary for a specific channel."""
-        return await self._client.request("GET", f"/api/v1/chat/knowledge/channel/{channel_id}/summary")
+        return await self._client.request(
+            "GET", f"/api/v1/chat/knowledge/channel/{channel_id}/summary"
+        )

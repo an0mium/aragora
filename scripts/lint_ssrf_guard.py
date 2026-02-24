@@ -188,12 +188,8 @@ def main() -> int:
             print("-" * 100)
             for v in violations:
                 print(f"{v['file']:<60} {v['line']:<6} {v['call']}")
-            print(
-                "\nTo fix: import from aragora.security.ssrf_protection and validate URLs"
-            )
-            print(
-                "To allowlist: add a comment '# ssrf-safe: <reason>' to the file"
-            )
+            print("\nTo fix: import from aragora.security.ssrf_protection and validate URLs")
+            print("To allowlist: add a comment '# ssrf-safe: <reason>' to the file")
         else:
             print("SSRF Guard Lint: All outbound HTTP calls are guarded. OK")
 

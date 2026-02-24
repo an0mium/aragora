@@ -25,6 +25,7 @@ import sys
 
 # --- API key check -------------------------------------------------------
 
+
 def _check_api_keys() -> None:
     """Exit early with a helpful message if no API keys are configured."""
     keys = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY")
@@ -39,6 +40,7 @@ def _check_api_keys() -> None:
 
 
 # --- Debate setup ---------------------------------------------------------
+
 
 def build_review_task(diff_text: str) -> str:
     """Build the debate task prompt from a code diff."""
@@ -89,6 +91,7 @@ async def run_code_review(diff_text: str) -> dict:
 
 
 # --- Slack posting --------------------------------------------------------
+
 
 async def post_to_slack(review: dict) -> bool:
     """Post the review to Slack using the Aragora Slack integration."""
@@ -145,6 +148,7 @@ async def post_to_slack(review: dict) -> bool:
 
 # --- CLI entry point ------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Multi-agent code review via Aragora")
     parser.add_argument(
@@ -185,11 +189,11 @@ async def main() -> None:
         print(json.dumps(review, indent=2))
     else:
         status = "APPROVED" if review["consensus_reached"] else "NEEDS DISCUSSION"
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"  Code Review Result: {status}")
         print(f"  Confidence: {review['confidence']:.0%}")
         print(f"  Agents: {', '.join(review['participants'])}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"\n{review['review']}")
 
     # Post to Slack if configured

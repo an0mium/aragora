@@ -66,7 +66,12 @@ class DocsHandler(BaseHandler):
     ]
 
     # Unversioned paths for direct matching (used by frontend)
-    _OPENAPI_JSON_PATHS = {"/api/openapi", "/api/openapi.json", "/api/v1/openapi", "/api/v1/openapi.json"}
+    _OPENAPI_JSON_PATHS = {
+        "/api/openapi",
+        "/api/openapi.json",
+        "/api/v1/openapi",
+        "/api/v1/openapi.json",
+    }
     _OPENAPI_YAML_PATHS = {"/api/openapi.yaml", "/api/v1/openapi.yaml"}
     _POSTMAN_PATHS = {"/api/postman.json", "/api/v1/postman.json"}
     _DOCS_PATHS = {"/api/docs", "/api/docs/", "/api/v1/docs", "/api/v1/docs/"}

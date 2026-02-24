@@ -88,7 +88,9 @@ class TestBuildReceiptWithApprovalCard:
         card = _build_receipt_with_approval_card(fake_receipt, debate_id="d1")
         body = card.get("body", [])
         header_texts = [
-            b.get("text", "") for b in body if b.get("type") == "TextBlock" and b.get("weight") == "Bolder"
+            b.get("text", "")
+            for b in body
+            if b.get("type") == "TextBlock" and b.get("weight") == "Bolder"
         ]
         combined = " ".join(header_texts)
         assert "APPROVED" in combined
@@ -166,9 +168,7 @@ class TestBuildReceiptWithApprovalCard:
     def test_cost_info_included_when_available(self, fake_receipt_with_cost: FakeReceipt) -> None:
         from aragora.integrations.teams_debate import _build_receipt_with_approval_card
 
-        card = _build_receipt_with_approval_card(
-            fake_receipt_with_cost, debate_id="d1"
-        )
+        card = _build_receipt_with_approval_card(fake_receipt_with_cost, debate_id="d1")
         body = card.get("body", [])
         fact_values = []
         for b in body:
@@ -224,7 +224,9 @@ class TestDeliverReceiptToThread:
     """Tests for the lifecycle deliver_receipt_to_thread method."""
 
     @pytest.mark.asyncio
-    async def test_deliver_with_provided_receipt(self, lifecycle: Any, fake_receipt: FakeReceipt) -> None:
+    async def test_deliver_with_provided_receipt(
+        self, lifecycle: Any, fake_receipt: FakeReceipt
+    ) -> None:
         lifecycle._send_card_to_thread = AsyncMock(return_value=True)
         result = await lifecycle.deliver_receipt_to_thread(
             debate_id="d1",

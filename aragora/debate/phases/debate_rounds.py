@@ -1089,6 +1089,7 @@ class DebateRoundsPhase:
         # Latency optimization (issue #268): pre-build per-agent critique index
         # to avoid O(agents * critiques) filtering in the revision loop below.
         from collections import defaultdict
+
         _critiques_by_target: dict[str, list] = defaultdict(list)
         for c in all_critiques:
             _critiques_by_target[c.target_agent].append(c)
@@ -1234,7 +1235,8 @@ class DebateRoundsPhase:
                 revision_agents,
                 [
                     self._build_revision_prompt(
-                        a, proposals.get(a.name, ""),
+                        a,
+                        proposals.get(a.name, ""),
                         _critiques_by_target.get(a.name, []),
                         round_num,
                     )
@@ -1339,9 +1341,13 @@ class DebateRoundsPhase:
                 # Record position for grounded personas
                 if self._record_grounded_position:
                     debate_id = (
-                        result.id if hasattr(result, "id") else (ctx.env.task[:50] if ctx.env else "")
+                        result.id
+                        if hasattr(result, "id")
+                        else (ctx.env.task[:50] if ctx.env else "")
                     )
-                    self._record_grounded_position(agent.name, revised_str, debate_id, round_num, 0.75)
+                    self._record_grounded_position(
+                        agent.name, revised_str, debate_id, round_num, 0.75
+                    )
 
                 # Observe rhetorical patterns for audience engagement
                 loop_id = ctx.loop_id if hasattr(ctx, "loop_id") else ""

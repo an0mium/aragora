@@ -76,11 +76,31 @@ def _synthetic_receipt(debate_id: str | None = None) -> dict[str, Any]:
             "mistral-challenger: Insufficient bias testing for protected categories."
         ],
         "provenance_chain": [
-            {"event_type": "debate_started", "timestamp": "2026-01-15T10:00:00Z", "actor": "system"},
-            {"event_type": "proposal_submitted", "timestamp": "2026-01-15T10:01:00Z", "actor": "claude-analyst"},
-            {"event_type": "critique_submitted", "timestamp": "2026-01-15T10:02:00Z", "actor": "mistral-challenger"},
-            {"event_type": "human_approval", "timestamp": "2026-01-15T10:10:00Z", "actor": "hr-director@acme.com"},
-            {"event_type": "receipt_generated", "timestamp": "2026-01-15T10:10:05Z", "actor": "system"},
+            {
+                "event_type": "debate_started",
+                "timestamp": "2026-01-15T10:00:00Z",
+                "actor": "system",
+            },
+            {
+                "event_type": "proposal_submitted",
+                "timestamp": "2026-01-15T10:01:00Z",
+                "actor": "claude-analyst",
+            },
+            {
+                "event_type": "critique_submitted",
+                "timestamp": "2026-01-15T10:02:00Z",
+                "actor": "mistral-challenger",
+            },
+            {
+                "event_type": "human_approval",
+                "timestamp": "2026-01-15T10:10:00Z",
+                "actor": "hr-director@acme.com",
+            },
+            {
+                "event_type": "receipt_generated",
+                "timestamp": "2026-01-15T10:10:05Z",
+                "actor": "system",
+            },
         ],
         "config_used": {
             "protocol": "adversarial",

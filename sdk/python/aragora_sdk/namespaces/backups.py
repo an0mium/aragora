@@ -311,9 +311,7 @@ class AsyncBackupsAPI:
         if data_types:
             data["data_types"] = data_types
 
-        return await self._client.request(
-            "POST", f"/api/v1/backups/{backup_id}/restore", json=data
-        )
+        return await self._client.request("POST", f"/api/v1/backups/{backup_id}/restore", json=data)
 
     async def schedule(
         self,

@@ -214,18 +214,20 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
                 except (ValueError, TypeError):
                     pass
 
-        return json_response({
-            "total_spend_usd": total_spend_usd,
-            "total_api_calls": total_api_calls,
-            "total_tokens": total_tokens,
-            "budget_limit_usd": round(budget_limit_usd, 2),
-            "budget_spent_usd": round(budget_spent_usd, 2),
-            "utilization_pct": utilization_pct,
-            "trend_direction": trend_direction,
-            "avg_cost_per_decision": (
-                round(float(total_spend_usd) / max(total_api_calls, 1), 4)
-            ),
-        })
+        return json_response(
+            {
+                "total_spend_usd": total_spend_usd,
+                "total_api_calls": total_api_calls,
+                "total_tokens": total_tokens,
+                "budget_limit_usd": round(budget_limit_usd, 2),
+                "budget_spent_usd": round(budget_spent_usd, 2),
+                "utilization_pct": utilization_pct,
+                "trend_direction": trend_direction,
+                "avg_cost_per_decision": (
+                    round(float(total_spend_usd) / max(total_api_calls, 1), 4)
+                ),
+            }
+        )
 
     # ------------------------------------------------------------------
     # Endpoint: GET /api/v1/analytics/spend/trends
@@ -263,12 +265,14 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
             )
             data_points = trends
 
-        return json_response({
-            "org_id": org_id,
-            "period": period,
-            "days": days,
-            "data_points": data_points,
-        })
+        return json_response(
+            {
+                "org_id": org_id,
+                "period": period,
+                "days": days,
+                "data_points": data_points,
+            }
+        )
 
     # ------------------------------------------------------------------
     # Endpoint: GET /api/v1/analytics/spend/by-agent
@@ -307,20 +311,24 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
                 except (ValueError, TypeError):
                     cost_val = 0.0
                 pct = round((cost_val / total_float * 100), 1) if total_float > 0 else 0.0
-                agents.append({
-                    "agent_name": agent_name,
-                    "cost_usd": cost_str,
-                    "percentage": pct,
-                })
+                agents.append(
+                    {
+                        "agent_name": agent_name,
+                        "cost_usd": cost_str,
+                        "percentage": pct,
+                    }
+                )
 
             # Sort by cost descending
             agents.sort(key=lambda x: float(x.get("cost_usd", "0")), reverse=True)
 
-        return json_response({
-            "workspace_id": workspace_id,
-            "total_usd": total_usd,
-            "agents": agents,
-        })
+        return json_response(
+            {
+                "workspace_id": workspace_id,
+                "total_usd": total_usd,
+                "agents": agents,
+            }
+        )
 
     # ------------------------------------------------------------------
     # Endpoint: GET /api/v1/analytics/spend/by-decision
@@ -357,16 +365,20 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
             sorted_debates = sorted(debate_costs.items(), key=lambda x: x[1], reverse=True)
 
             for debate_id, cost in sorted_debates[:limit]:
-                decisions.append({
-                    "debate_id": debate_id,
-                    "cost_usd": str(cost),
-                })
+                decisions.append(
+                    {
+                        "debate_id": debate_id,
+                        "cost_usd": str(cost),
+                    }
+                )
 
-        return json_response({
-            "workspace_id": workspace_id,
-            "decisions": decisions,
-            "count": len(decisions),
-        })
+        return json_response(
+            {
+                "workspace_id": workspace_id,
+                "decisions": decisions,
+                "count": len(decisions),
+            }
+        )
 
     # ------------------------------------------------------------------
     # Endpoint: GET /api/v1/analytics/spend/budget
@@ -387,15 +399,17 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
         budget_mgr = _get_budget_manager()
 
         if not budget_mgr:
-            return json_response({
-                "org_id": org_id,
-                "budgets": [],
-                "total_budget_usd": 0.0,
-                "total_spent_usd": 0.0,
-                "total_remaining_usd": 0.0,
-                "utilization_pct": 0.0,
-                "forecast_exhaustion_days": None,
-            })
+            return json_response(
+                {
+                    "org_id": org_id,
+                    "budgets": [],
+                    "total_budget_usd": 0.0,
+                    "total_spent_usd": 0.0,
+                    "total_remaining_usd": 0.0,
+                    "utilization_pct": 0.0,
+                    "forecast_exhaustion_days": None,
+                }
+            )
 
         summary = budget_mgr.get_summary(org_id)
 
@@ -409,8 +423,7 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
             # Estimate daily rate from budgets
             budgets_list = summary.get("budgets", [])
             active_budgets = [
-                b for b in budgets_list
-                if b.get("status") == "active" and b.get("period_start")
+                b for b in budgets_list if b.get("status") == "active" and b.get("period_start")
             ]
             if active_budgets:
                 now = datetime.now(timezone.utc).timestamp()
@@ -423,19 +436,19 @@ class SpendAnalyticsDashboardHandler(SecureHandler):
                 if total_daily_rate > 0:
                     forecast_exhaustion_days = round(remaining / total_daily_rate, 1)
 
-        utilization_pct = round(
-            (total_spent / total_budget * 100) if total_budget > 0 else 0, 1
-        )
+        utilization_pct = round((total_spent / total_budget * 100) if total_budget > 0 else 0, 1)
 
-        return json_response({
-            "org_id": org_id,
-            "budgets": summary.get("budgets", []),
-            "total_budget_usd": total_budget,
-            "total_spent_usd": total_spent,
-            "total_remaining_usd": remaining,
-            "utilization_pct": utilization_pct,
-            "forecast_exhaustion_days": forecast_exhaustion_days,
-        })
+        return json_response(
+            {
+                "org_id": org_id,
+                "budgets": summary.get("budgets", []),
+                "total_budget_usd": total_budget,
+                "total_spent_usd": total_spent,
+                "total_remaining_usd": remaining,
+                "utilization_pct": utilization_pct,
+                "forecast_exhaustion_days": forecast_exhaustion_days,
+            }
+        )
 
 
 __all__ = ["SpendAnalyticsDashboardHandler"]

@@ -176,9 +176,7 @@ class TestCachedTeamSelector:
         agents = [_make_agent("a1"), _make_agent("a2")]
         result = cached.select(agents, domain="code", task="review")
 
-        selector.select.assert_called_once_with(
-            agents, domain="code", task="review"
-        )
+        selector.select.assert_called_once_with(agents, domain="code", task="review")
         assert len(result) == 2
 
     def test_cache_hit_avoids_delegate(self):
@@ -256,9 +254,7 @@ class TestCachedTeamSelector:
         cached = CachedTeamSelector(selector)
 
         agents = [_make_agent("a1")]
-        cached.select(
-            agents, domain="code", task="review", debate_id="d1", context=None
-        )
+        cached.select(agents, domain="code", task="review", debate_id="d1", context=None)
 
         selector.select.assert_called_once_with(
             agents, domain="code", task="review", debate_id="d1", context=None
@@ -345,9 +341,7 @@ class TestLatencyProfiler:
 
     def test_clear_resets_state(self):
         profiler = LatencyProfiler()
-        profiler._records.append(
-            PhaseTimingRecord(phase_name="x", duration_ms=100)
-        )
+        profiler._records.append(PhaseTimingRecord(phase_name="x", duration_ms=100))
         profiler._debate_start = 1.0
 
         profiler.clear()

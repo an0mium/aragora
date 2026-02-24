@@ -23,6 +23,7 @@ from aragora_sdk import AragoraClient
 
 # -- State Definition --
 
+
 class WorkflowState(TypedDict, total=False):
     """State flowing through the LangGraph workflow."""
 
@@ -34,6 +35,7 @@ class WorkflowState(TypedDict, total=False):
 
 
 # -- Aragora Verification Node --
+
 
 def create_verification_node(
     api_url: str | None = None,
@@ -121,7 +123,9 @@ def main():
 
     # Add nodes
     graph.add_node("research", lambda s: {**s, "research": "Research results..."})
-    graph.add_node("draft", lambda s: {**s, "draft": f"Based on {s.get('research', '')}: recommendation..."})
+    graph.add_node(
+        "draft", lambda s: {**s, "draft": f"Based on {s.get('research', '')}: recommendation..."}
+    )
     graph.add_node("verify", create_verification_node(attack_rounds=2))
     graph.add_node("revise", lambda s: {**s, "draft": f"Revised: {s.get('draft', '')}"})
     graph.add_node("finalize", lambda s: {**s, "final_output": s.get("draft", "")})
@@ -130,7 +134,9 @@ def main():
     graph.set_entry_point("research")
     graph.add_edge("research", "draft")
     graph.add_edge("draft", "verify")
-    graph.add_conditional_edges("verify", should_revise, {"finalize": "finalize", "revise": "revise"})
+    graph.add_conditional_edges(
+        "verify", should_revise, {"finalize": "finalize", "revise": "revise"}
+    )
     graph.add_edge("revise", "verify")  # Re-verify after revision
     graph.add_edge("finalize", END)
 

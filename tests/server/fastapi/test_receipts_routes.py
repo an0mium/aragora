@@ -325,9 +325,7 @@ class TestSearchReceipts:
         mock_receipt_store.search = MagicMock(return_value=[])
         mock_receipt_store.search_count = MagicMock(return_value=0)
 
-        response = client.get(
-            "/api/v2/receipts/search?q=test&verdict=APPROVED&risk_level=LOW"
-        )
+        response = client.get("/api/v2/receipts/search?q=test&verdict=APPROVED&risk_level=LOW")
         assert response.status_code == 200
         mock_receipt_store.search.assert_called_once()
         call_kwargs = mock_receipt_store.search.call_args
@@ -356,12 +354,14 @@ class TestReceiptStats:
 
     def test_stats_returns_200(self, client, mock_receipt_store):
         """Stats returns aggregate statistics."""
-        mock_receipt_store.get_stats = MagicMock(return_value={
-            "total": 100,
-            "verified": 85,
-            "by_verdict": {"APPROVED": 70, "REJECTED": 30},
-            "by_risk_level": {"LOW": 50, "MEDIUM": 30, "HIGH": 20},
-        })
+        mock_receipt_store.get_stats = MagicMock(
+            return_value={
+                "total": 100,
+                "verified": 85,
+                "by_verdict": {"APPROVED": 70, "REJECTED": 30},
+                "by_risk_level": {"LOW": 50, "MEDIUM": 30, "HIGH": 20},
+            }
+        )
 
         response = client.get("/api/v2/receipts/stats")
         assert response.status_code == 200

@@ -136,7 +136,10 @@ class GitReconciler:
 
         # Three-way merge-tree
         tree_result = self._run_git(
-            "merge-tree", merge_base, target, source,
+            "merge-tree",
+            merge_base,
+            target,
+            source,
             check=False,
         )
 
@@ -166,7 +169,8 @@ class GitReconciler:
                         ConflictInfo(
                             file_path=current_file,
                             category=category,
-                            auto_resolvable=category in (
+                            auto_resolvable=category
+                            in (
                                 ConflictCategory.IMPORT_ORDER,
                                 ConflictCategory.WHITESPACE,
                             ),
@@ -192,7 +196,9 @@ class GitReconciler:
     def get_changed_files(self, source: str, target: str = "main") -> list[str]:
         """Get files changed in source relative to target."""
         result = self._run_git(
-            "diff", "--name-only", f"{target}...{source}",
+            "diff",
+            "--name-only",
+            f"{target}...{source}",
             check=False,
         )
         if result.returncode != 0:
@@ -202,7 +208,9 @@ class GitReconciler:
     def get_commits_ahead(self, source: str, target: str = "main") -> int:
         """Return number of commits in source not in target."""
         result = self._run_git(
-            "rev-list", "--count", f"{target}..{source}",
+            "rev-list",
+            "--count",
+            f"{target}..{source}",
             check=False,
         )
         if result.returncode != 0:
@@ -228,9 +236,7 @@ class GitReconciler:
         # Step 1: Detect conflicts
         conflicts = self.detect_conflicts(source, target)
 
-        semantic_conflicts = [
-            c for c in conflicts if not c.auto_resolvable
-        ]
+        semantic_conflicts = [c for c in conflicts if not c.auto_resolvable]
 
         if semantic_conflicts:
             attempt = MergeAttempt(
@@ -262,8 +268,10 @@ class GitReconciler:
         self._run_git("checkout", target, check=False)
 
         merge_result = self._run_git(
-            "merge", "--no-ff",
-            "-m", f"Merge {source} into {target}",
+            "merge",
+            "--no-ff",
+            "-m",
+            f"Merge {source} into {target}",
             source,
             check=False,
         )
@@ -290,7 +298,11 @@ class GitReconciler:
             if not post_passed and self.config.rollback_on_test_failure:
                 # Rollback: revert the merge commit
                 revert_result = self._run_git(
-                    "revert", "-m", "1", "--no-edit", commit_sha,
+                    "revert",
+                    "-m",
+                    "1",
+                    "--no-edit",
+                    commit_sha,
                     check=False,
                 )
                 rolled_back = revert_result.returncode == 0
@@ -306,7 +318,9 @@ class GitReconciler:
                 self._merge_history.append(attempt)
                 logger.warning(
                     "merge_rolled_back source=%s sha=%s rolled_back=%s",
-                    source, commit_sha[:8], rolled_back,
+                    source,
+                    commit_sha[:8],
+                    rolled_back,
                 )
                 return attempt
 

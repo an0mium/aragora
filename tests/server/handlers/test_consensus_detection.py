@@ -81,9 +81,7 @@ class TestConsensusDetect:
                 {"agent": "claude", "content": "Use PostgreSQL for reliability"},
                 {"agent": "gpt-4", "content": "Use PostgreSQL for scalability and reliability"},
             ]
-        return json.dumps(
-            {"task": task, "proposals": proposals, "threshold": threshold}
-        ).encode()
+        return json.dumps({"task": task, "proposals": proposals, "threshold": threshold}).encode()
 
     def _setup_handler(self, mock_http_handler, body_bytes):
         mock_http_handler.headers["Content-Length"] = str(len(body_bytes))
@@ -103,9 +101,7 @@ class TestConsensusDetect:
         body_bytes = self._make_body()
         self._setup_handler(mock_http_handler, body_bytes)
 
-        result = consensus_handler.handle_post(
-            "/api/v1/consensus/detect", {}, mock_http_handler
-        )
+        result = consensus_handler.handle_post("/api/v1/consensus/detect", {}, mock_http_handler)
 
         assert result is not None
         assert result.status == 200
@@ -120,9 +116,7 @@ class TestConsensusDetect:
 
     @patch("aragora.server.handlers.consensus.ConsensusHandler.require_auth_or_error")
     @patch("aragora.server.handlers.consensus.ConsensusHandler.require_permission_or_error")
-    def test_detect_missing_task(
-        self, mock_perm, mock_auth, consensus_handler, mock_http_handler
-    ):
+    def test_detect_missing_task(self, mock_perm, mock_auth, consensus_handler, mock_http_handler):
         """Test detection with missing task returns 400."""
         mock_auth.return_value = (MagicMock(), None)
         mock_perm.return_value = (MagicMock(), None)
@@ -130,9 +124,7 @@ class TestConsensusDetect:
         body_bytes = self._make_body(task="")
         self._setup_handler(mock_http_handler, body_bytes)
 
-        result = consensus_handler.handle_post(
-            "/api/v1/consensus/detect", {}, mock_http_handler
-        )
+        result = consensus_handler.handle_post("/api/v1/consensus/detect", {}, mock_http_handler)
 
         assert result is not None
         assert result.status == 400
@@ -149,9 +141,7 @@ class TestConsensusDetect:
         body_bytes = self._make_body(proposals=[])
         self._setup_handler(mock_http_handler, body_bytes)
 
-        result = consensus_handler.handle_post(
-            "/api/v1/consensus/detect", {}, mock_http_handler
-        )
+        result = consensus_handler.handle_post("/api/v1/consensus/detect", {}, mock_http_handler)
 
         assert result is not None
         assert result.status == 400
@@ -168,9 +158,7 @@ class TestConsensusDetect:
         body_bytes = self._make_body(threshold=2.0)
         self._setup_handler(mock_http_handler, body_bytes)
 
-        result = consensus_handler.handle_post(
-            "/api/v1/consensus/detect", {}, mock_http_handler
-        )
+        result = consensus_handler.handle_post("/api/v1/consensus/detect", {}, mock_http_handler)
 
         assert result is not None
         assert result.status == 400
@@ -187,14 +175,15 @@ class TestConsensusDetect:
         proposals = [
             {"agent": "a1", "content": "We should use PostgreSQL database for the project"},
             {"agent": "a2", "content": "PostgreSQL database should be used for this project"},
-            {"agent": "a3", "content": "Use PostgreSQL database is the right choice for the project"},
+            {
+                "agent": "a3",
+                "content": "Use PostgreSQL database is the right choice for the project",
+            },
         ]
         body_bytes = self._make_body(proposals=proposals, threshold=0.3)
         self._setup_handler(mock_http_handler, body_bytes)
 
-        result = consensus_handler.handle_post(
-            "/api/v1/consensus/detect", {}, mock_http_handler
-        )
+        result = consensus_handler.handle_post("/api/v1/consensus/detect", {}, mock_http_handler)
 
         assert result is not None
         assert result.status == 200
@@ -203,9 +192,7 @@ class TestConsensusDetect:
         assert data["confidence"] > 0.3
 
     @patch("aragora.server.handlers.consensus.ConsensusHandler.require_auth_or_error")
-    def test_detect_requires_auth(
-        self, mock_auth, consensus_handler, mock_http_handler
-    ):
+    def test_detect_requires_auth(self, mock_auth, consensus_handler, mock_http_handler):
         """Test detection requires authentication."""
         from aragora.server.handlers.base import error_response
 
@@ -214,9 +201,7 @@ class TestConsensusDetect:
         body_bytes = self._make_body()
         self._setup_handler(mock_http_handler, body_bytes)
 
-        result = consensus_handler.handle_post(
-            "/api/v1/consensus/detect", {}, mock_http_handler
-        )
+        result = consensus_handler.handle_post("/api/v1/consensus/detect", {}, mock_http_handler)
 
         assert result is not None
         assert result.status == 401
@@ -240,17 +225,13 @@ class TestConsensusStatus:
         """Test status without storage returns 503."""
         handler = ConsensusHandler(ctx={"storage": None})
 
-        result = handler.handle(
-            "/api/v1/consensus/status/test-123", {}, mock_get_handler
-        )
+        result = handler.handle("/api/v1/consensus/status/test-123", {}, mock_get_handler)
 
         assert result is not None
         assert result.status == 503
 
     @patch("aragora.server.handlers.consensus.ConsensusHandler.require_auth_or_error")
-    def test_status_with_debate_result(
-        self, mock_auth, consensus_handler, mock_get_handler
-    ):
+    def test_status_with_debate_result(self, mock_auth, consensus_handler, mock_get_handler):
         """Test status with a valid debate result."""
         # Create a mock debate result
         mock_result = MagicMock()

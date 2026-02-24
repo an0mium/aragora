@@ -539,14 +539,42 @@ def ideas_to_principles_canvas(
         return canvas
 
     # Tokenize each node for clustering
-    _stop = frozenset({
-        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to",
-        "for", "of", "with", "by", "from", "is", "it", "this", "that",
-        "be", "are", "was", "were", "has", "have", "had", "do", "does",
-    })
+    _stop = frozenset(
+        {
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "from",
+            "is",
+            "it",
+            "this",
+            "that",
+            "be",
+            "are",
+            "was",
+            "were",
+            "has",
+            "have",
+            "had",
+            "do",
+            "does",
+        }
+    )
 
     def _tokenize(text: str) -> frozenset[str]:
         import re as _re
+
         words = _re.split(r"[^a-zA-Z0-9]+", text.lower())
         return frozenset(w for w in words if w and len(w) > 1 and w not in _stop)
 
@@ -606,6 +634,7 @@ def ideas_to_principles_canvas(
             for idx in member_indices:
                 all_tokens.extend(node_tokens[idx][1])
             from collections import Counter
+
             freq = Counter(all_tokens)
             top_words = [w for w, _ in freq.most_common(3)]
             theme_label = " & ".join(top_words).title() if top_words else f"Theme {theme_idx + 1}"
@@ -614,9 +643,7 @@ def ideas_to_principles_canvas(
         theme_color = NODE_TYPE_COLORS.get("theme", "#7c3aed")
 
         # Position themes radially
-        theme_positions = _radial_layout(
-            len(cluster_map), center_x=400, center_y=300, radius=300
-        )
+        theme_positions = _radial_layout(len(cluster_map), center_x=400, center_y=300, radius=300)
         tpos = theme_positions[theme_idx] if theme_idx < len(theme_positions) else Position(0, 0)
 
         canvas.nodes[theme_node_id] = CanvasNode(
@@ -666,7 +693,11 @@ def ideas_to_principles_canvas(
                 center_y=tpos.y,
                 radius=120,
             )
-            mpos = member_positions[rank] if rank < len(member_positions) else Position(tpos.x, tpos.y + 100)
+            mpos = (
+                member_positions[rank]
+                if rank < len(member_positions)
+                else Position(tpos.x, tpos.y + 100)
+            )
 
             canvas.nodes[p_node_id] = CanvasNode(
                 id=p_node_id,
@@ -849,9 +880,7 @@ def principles_to_goals_canvas(
                     label="derived from",
                     data={
                         "provenance": True,
-                        "content_hash": content_hash(
-                            node.get("label", "")
-                        ),
+                        "content_hash": content_hash(node.get("label", "")),
                     },
                     style={"strokeDasharray": "5 5", "opacity": 0.5},
                 )

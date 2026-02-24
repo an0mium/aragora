@@ -192,12 +192,8 @@ class DecisionAnalyticsHandler:
         """
         try:
             period = request.query.get("period", "30d")
-            limit = safe_query_int(
-                request.query, "limit", default=50, min_val=1, max_val=200
-            )
-            offset = safe_query_int(
-                request.query, "offset", default=0, min_val=0, max_val=10000
-            )
+            limit = safe_query_int(request.query, "limit", default=50, min_val=1, max_val=200)
+            offset = safe_query_int(request.query, "offset", default=0, min_val=0, max_val=10000)
 
             analytics = _get_outcome_analytics()
 
@@ -248,9 +244,7 @@ class DecisionAnalyticsHandler:
                                 "confidence": 1.0 if row["consensus_reached"] else 0.0,
                                 "rounds": row["rounds"] or 0,
                                 "agents": agents,
-                                "duration_seconds": round(
-                                    row["duration_seconds"] or 0.0, 2
-                                ),
+                                "duration_seconds": round(row["duration_seconds"] or 0.0, 2),
                                 "created_at": row["created_at"] or "",
                             }
                         )
@@ -298,9 +292,7 @@ class DecisionAnalyticsHandler:
             period = request.query.get("period", "30d")
 
             analytics = _get_outcome_analytics()
-            contributions = await analytics.get_agent_contribution_scores(
-                period=period
-            )
+            contributions = await analytics.get_agent_contribution_scores(period=period)
 
             agents_list = sorted(
                 [c.to_dict() for c in contributions.values()],

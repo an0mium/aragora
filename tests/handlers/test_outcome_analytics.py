@@ -145,19 +145,22 @@ def _make_mock_analytics(
     analytics.get_consensus_rate = AsyncMock(return_value=consensus_rate)
     analytics.get_average_rounds = AsyncMock(return_value=avg_rounds)
     analytics.get_topic_distribution = AsyncMock(
-        return_value=topics or [
+        return_value=topics
+        or [
             {"topic": "architecture", "count": 10},
             {"topic": "security", "count": 7},
         ]
     )
     analytics.get_agent_contribution_scores = AsyncMock(
-        return_value=contributions or {
+        return_value=contributions
+        or {
             "agent-001": MockContribution(),
             "agent-002": MockContribution(proposal_count=8, influence_score=0.72),
         }
     )
     analytics.get_decision_quality_trend = AsyncMock(
-        return_value=trend or [
+        return_value=trend
+        or [
             MockQualityPoint(),
             MockQualityPoint(date="2026-02-08", quality_score=0.85),
         ]
@@ -187,9 +190,7 @@ def mock_analytics():
 @pytest.fixture
 def mock_rate_limiter():
     """Bypass rate limiter."""
-    with patch(
-        "aragora.server.handlers.outcome_analytics._outcome_analytics_limiter"
-    ) as limiter:
+    with patch("aragora.server.handlers.outcome_analytics._outcome_analytics_limiter") as limiter:
         limiter.is_allowed.return_value = True
         yield limiter
 
@@ -282,7 +283,9 @@ class TestOutcomesSummary:
     """Test full outcome analytics summary endpoint."""
 
     @pytest.mark.asyncio
-    async def test_summary_returns_data(self, handler, mock_analytics, mock_rate_limiter, mock_handler):
+    async def test_summary_returns_data(
+        self, handler, mock_analytics, mock_rate_limiter, mock_handler
+    ):
         result = await handler._get_outcomes_summary({"period": "30d"})
 
         data = _get_data(result)
@@ -292,14 +295,18 @@ class TestOutcomesSummary:
         assert data["period"] == "30d"
 
     @pytest.mark.asyncio
-    async def test_summary_default_period(self, handler, mock_analytics, mock_rate_limiter, mock_handler):
+    async def test_summary_default_period(
+        self, handler, mock_analytics, mock_rate_limiter, mock_handler
+    ):
         result = await handler._get_outcomes_summary({})
 
         data = _get_data(result)
         assert data["period"] == "30d"
 
     @pytest.mark.asyncio
-    async def test_summary_rounds_values(self, handler, mock_analytics, mock_rate_limiter, mock_handler):
+    async def test_summary_rounds_values(
+        self, handler, mock_analytics, mock_rate_limiter, mock_handler
+    ):
         result = await handler._get_outcomes_summary({"period": "30d"})
 
         data = _get_data(result)
@@ -400,7 +407,9 @@ class TestContributions:
         assert data["period"] == "30d"
 
     @pytest.mark.asyncio
-    async def test_contributions_has_agent_entries(self, handler, mock_analytics, mock_rate_limiter):
+    async def test_contributions_has_agent_entries(
+        self, handler, mock_analytics, mock_rate_limiter
+    ):
         result = await handler._get_contributions({})
 
         data = _get_data(result)
@@ -546,7 +555,9 @@ class TestHandleDispatch:
     """Test the main handle() dispatch method."""
 
     @pytest.mark.asyncio
-    async def test_dispatch_to_summary(self, handler, mock_analytics, mock_rate_limiter, mock_handler):
+    async def test_dispatch_to_summary(
+        self, handler, mock_analytics, mock_rate_limiter, mock_handler
+    ):
         result = await handler.handle("/api/analytics/outcomes", {}, mock_handler)
 
         assert result is not None
@@ -554,70 +565,70 @@ class TestHandleDispatch:
         assert "consensus_rate" in data
 
     @pytest.mark.asyncio
-    async def test_dispatch_to_consensus_rate(self, handler, mock_analytics, mock_rate_limiter, mock_handler):
-        result = await handler.handle(
-            "/api/analytics/outcomes/consensus-rate", {}, mock_handler
-        )
+    async def test_dispatch_to_consensus_rate(
+        self, handler, mock_analytics, mock_rate_limiter, mock_handler
+    ):
+        result = await handler.handle("/api/analytics/outcomes/consensus-rate", {}, mock_handler)
 
         assert result is not None
         data = _get_data(result)
         assert "consensus_rate" in data
 
     @pytest.mark.asyncio
-    async def test_dispatch_to_average_rounds(self, handler, mock_analytics, mock_rate_limiter, mock_handler):
-        result = await handler.handle(
-            "/api/analytics/outcomes/average-rounds", {}, mock_handler
-        )
+    async def test_dispatch_to_average_rounds(
+        self, handler, mock_analytics, mock_rate_limiter, mock_handler
+    ):
+        result = await handler.handle("/api/analytics/outcomes/average-rounds", {}, mock_handler)
 
         assert result is not None
         data = _get_data(result)
         assert "average_rounds" in data
 
     @pytest.mark.asyncio
-    async def test_dispatch_to_contributions(self, handler, mock_analytics, mock_rate_limiter, mock_handler):
-        result = await handler.handle(
-            "/api/analytics/outcomes/contributions", {}, mock_handler
-        )
+    async def test_dispatch_to_contributions(
+        self, handler, mock_analytics, mock_rate_limiter, mock_handler
+    ):
+        result = await handler.handle("/api/analytics/outcomes/contributions", {}, mock_handler)
 
         assert result is not None
         data = _get_data(result)
         assert "contributions" in data
 
     @pytest.mark.asyncio
-    async def test_dispatch_to_quality_trend(self, handler, mock_analytics, mock_rate_limiter, mock_handler):
-        result = await handler.handle(
-            "/api/analytics/outcomes/quality-trend", {}, mock_handler
-        )
+    async def test_dispatch_to_quality_trend(
+        self, handler, mock_analytics, mock_rate_limiter, mock_handler
+    ):
+        result = await handler.handle("/api/analytics/outcomes/quality-trend", {}, mock_handler)
 
         assert result is not None
         data = _get_data(result)
         assert "trend" in data
 
     @pytest.mark.asyncio
-    async def test_dispatch_to_topics(self, handler, mock_analytics, mock_rate_limiter, mock_handler):
-        result = await handler.handle(
-            "/api/analytics/outcomes/topics", {}, mock_handler
-        )
+    async def test_dispatch_to_topics(
+        self, handler, mock_analytics, mock_rate_limiter, mock_handler
+    ):
+        result = await handler.handle("/api/analytics/outcomes/topics", {}, mock_handler)
 
         assert result is not None
         data = _get_data(result)
         assert "topics" in data
 
     @pytest.mark.asyncio
-    async def test_dispatch_to_debate_id(self, handler, mock_analytics, mock_rate_limiter, mock_handler):
-        result = await handler.handle(
-            "/api/analytics/outcomes/debate-abc-123", {}, mock_handler
-        )
+    async def test_dispatch_to_debate_id(
+        self, handler, mock_analytics, mock_rate_limiter, mock_handler
+    ):
+        result = await handler.handle("/api/analytics/outcomes/debate-abc-123", {}, mock_handler)
 
         assert result is not None
         data = _get_data(result)
         assert "debate_id" in data
 
     @pytest.mark.asyncio
-    async def test_dispatch_with_version_prefix(self, handler, mock_analytics, mock_rate_limiter, mock_handler):
-        result = await handler.handle(
-            "/api/v1/analytics/outcomes", {}, mock_handler
-        )
+    async def test_dispatch_with_version_prefix(
+        self, handler, mock_analytics, mock_rate_limiter, mock_handler
+    ):
+        result = await handler.handle("/api/v1/analytics/outcomes", {}, mock_handler)
 
         assert result is not None
         data = _get_data(result)

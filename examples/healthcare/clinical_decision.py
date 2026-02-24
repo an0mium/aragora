@@ -95,9 +95,7 @@ def build_sample_fhir_bundle() -> dict:
                     },
                     "valueQuantity": {"value": 9.1, "unit": "%"},
                     "effectiveDateTime": "2026-01-15",
-                    "interpretation": [
-                        {"coding": [{"code": "H", "display": "High"}]}
-                    ],
+                    "interpretation": [{"coding": [{"code": "H", "display": "High"}]}],
                 }
             },
             {
@@ -109,9 +107,7 @@ def build_sample_fhir_bundle() -> dict:
                     "medicationCodeableConcept": {
                         "text": "Metformin 1000mg twice daily",
                     },
-                    "dosageInstruction": [
-                        {"text": "1000mg twice daily with meals"}
-                    ],
+                    "dosageInstruction": [{"text": "1000mg twice daily with meals"}],
                 }
             },
         ],
@@ -184,7 +180,9 @@ async def main():
     print(f"Profile:          {receipt['profile']}")
     print(f"HIPAA Compliant:  {receipt['compliance']['hipaa_compliant']}")
     print(f"PHI Redacted:     {receipt['compliance']['phi_redacted']}")
-    print(f"Consensus:        {'Reached' if receipt['verdict']['consensus_reached'] else 'Not reached'}")
+    print(
+        f"Consensus:        {'Reached' if receipt['verdict']['consensus_reached'] else 'Not reached'}"
+    )
     print(f"Confidence:       {receipt['verdict']['confidence']:.1%}")
     print()
 

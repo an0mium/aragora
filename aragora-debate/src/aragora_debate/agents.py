@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 # Prompt helpers
 # ---------------------------------------------------------------------------
 
+
 def _format_context(context: list[Message] | None) -> str:
     """Format debate context into a readable conversation history."""
     if not context:
@@ -98,6 +99,7 @@ def _parse_json_from_text(text: str) -> dict[str, Any]:
 # Claude agent (Anthropic)
 # ---------------------------------------------------------------------------
 
+
 class ClaudeAgent(Agent):
     """Debate agent powered by Anthropic's Claude models.
 
@@ -143,7 +145,10 @@ class ClaudeAgent(Agent):
         full_prompt = prompt
         if history:
             full_prompt = f"## Debate history\n\n{history}\n\n## Your task\n\n{prompt}"
-        system = self.system_prompt or "You are a thoughtful debater. Make a clear, well-reasoned proposal."
+        system = (
+            self.system_prompt
+            or "You are a thoughtful debater. Make a clear, well-reasoned proposal."
+        )
         if self.stance != "neutral":
             system += f"\n\nYou are arguing from a {self.stance} stance."
         msg = self._client.messages.create(
@@ -224,6 +229,7 @@ class ClaudeAgent(Agent):
 # OpenAI agent (GPT-4, o-series)
 # ---------------------------------------------------------------------------
 
+
 class OpenAIAgent(Agent):
     """Debate agent powered by OpenAI models.
 
@@ -269,7 +275,10 @@ class OpenAIAgent(Agent):
         full_prompt = prompt
         if history:
             full_prompt = f"## Debate history\n\n{history}\n\n## Your task\n\n{prompt}"
-        system = self.system_prompt or "You are a thoughtful debater. Make a clear, well-reasoned proposal."
+        system = (
+            self.system_prompt
+            or "You are a thoughtful debater. Make a clear, well-reasoned proposal."
+        )
         if self.stance != "neutral":
             system += f"\n\nYou are arguing from a {self.stance} stance."
         resp = self._client.chat.completions.create(
@@ -356,6 +365,7 @@ class OpenAIAgent(Agent):
 # Mistral agent
 # ---------------------------------------------------------------------------
 
+
 class MistralAgent(Agent):
     """Debate agent powered by Mistral AI models.
 
@@ -401,7 +411,10 @@ class MistralAgent(Agent):
         full_prompt = prompt
         if history:
             full_prompt = f"## Debate history\n\n{history}\n\n## Your task\n\n{prompt}"
-        system = self.system_prompt or "You are a thoughtful debater. Make a clear, well-reasoned proposal."
+        system = (
+            self.system_prompt
+            or "You are a thoughtful debater. Make a clear, well-reasoned proposal."
+        )
         if self.stance != "neutral":
             system += f"\n\nYou are arguing from a {self.stance} stance."
         resp = self._client.chat.complete(
@@ -488,6 +501,7 @@ class MistralAgent(Agent):
 # Gemini agent (Google)
 # ---------------------------------------------------------------------------
 
+
 class GeminiAgent(Agent):
     """Debate agent powered by Google's Gemini models.
 
@@ -534,7 +548,10 @@ class GeminiAgent(Agent):
         full_prompt = prompt
         if history:
             full_prompt = f"## Debate history\n\n{history}\n\n## Your task\n\n{prompt}"
-        system = self.system_prompt or "You are a thoughtful debater. Make a clear, well-reasoned proposal."
+        system = (
+            self.system_prompt
+            or "You are a thoughtful debater. Make a clear, well-reasoned proposal."
+        )
         if self.stance != "neutral":
             system += f"\n\nYou are arguing from a {self.stance} stance."
         resp = self._client.models.generate_content(

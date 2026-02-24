@@ -111,9 +111,7 @@ class EcommerceAPI:
         params: dict[str, Any] = {"limit": limit}
         if status:
             params["status"] = status
-        return self._client.request(
-            "GET", f"/api/v1/ecommerce/{platform}/orders", params=params
-        )
+        return self._client.request("GET", f"/api/v1/ecommerce/{platform}/orders", params=params)
 
     def get_order(self, platform: str, order_id: str) -> dict[str, Any]:
         """
@@ -126,17 +124,13 @@ class EcommerceAPI:
         Returns:
             Dict with order details.
         """
-        return self._client.request(
-            "GET", f"/api/v1/ecommerce/{platform}/orders/{order_id}"
-        )
+        return self._client.request("GET", f"/api/v1/ecommerce/{platform}/orders/{order_id}")
 
     # =========================================================================
     # Products
     # =========================================================================
 
-    def list_products(
-        self, category: str | None = None, limit: int = 20
-    ) -> dict[str, Any]:
+    def list_products(self, category: str | None = None, limit: int = 20) -> dict[str, Any]:
         """
         List products across all connected platforms.
 
@@ -152,9 +146,7 @@ class EcommerceAPI:
             params["category"] = category
         return self._client.request("GET", "/api/v1/ecommerce/products", params=params)
 
-    def list_platform_products(
-        self, platform: str, limit: int = 20
-    ) -> dict[str, Any]:
+    def list_platform_products(self, platform: str, limit: int = 20) -> dict[str, Any]:
         """
         List products for a specific platform.
 
@@ -166,9 +158,7 @@ class EcommerceAPI:
             Dict with platform-specific products.
         """
         params: dict[str, Any] = {"limit": limit}
-        return self._client.request(
-            "GET", f"/api/v1/ecommerce/{platform}/products", params=params
-        )
+        return self._client.request("GET", f"/api/v1/ecommerce/{platform}/products", params=params)
 
     def get_product(self, platform: str, product_id: str) -> dict[str, Any]:
         """
@@ -181,9 +171,7 @@ class EcommerceAPI:
         Returns:
             Dict with product details.
         """
-        return self._client.request(
-            "GET", f"/api/v1/ecommerce/{platform}/products/{product_id}"
-        )
+        return self._client.request("GET", f"/api/v1/ecommerce/{platform}/products/{product_id}")
 
     # =========================================================================
     # Inventory
@@ -216,9 +204,7 @@ class EcommerceAPI:
         Returns:
             Dict with sync results and any discrepancies found.
         """
-        return self._client.request(
-            "POST", "/api/v1/ecommerce/sync-inventory", json=kwargs
-        )
+        return self._client.request("POST", "/api/v1/ecommerce/sync-inventory", json=kwargs)
 
     # =========================================================================
     # Fulfillment & Shipping
@@ -231,9 +217,7 @@ class EcommerceAPI:
         Returns:
             Dict with fulfillment status and pending items.
         """
-        return self._client.request(
-            "GET", "/api/v1/ecommerce/fulfillment", params=kwargs or None
-        )
+        return self._client.request("GET", "/api/v1/ecommerce/fulfillment", params=kwargs or None)
 
     def ship(self, **kwargs: Any) -> dict[str, Any]:
         """
@@ -309,9 +293,7 @@ class AsyncEcommerceAPI:
     # Orders
     # =========================================================================
 
-    async def list_orders(
-        self, status: str | None = None, limit: int = 20
-    ) -> dict[str, Any]:
+    async def list_orders(self, status: str | None = None, limit: int = 20) -> dict[str, Any]:
         """List orders across all connected platforms."""
         params: dict[str, Any] = {"limit": limit}
         if status:
@@ -331,28 +313,20 @@ class AsyncEcommerceAPI:
 
     async def get_order(self, platform: str, order_id: str) -> dict[str, Any]:
         """Get order details from a specific platform."""
-        return await self._client.request(
-            "GET", f"/api/v1/ecommerce/{platform}/orders/{order_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/ecommerce/{platform}/orders/{order_id}")
 
     # =========================================================================
     # Products
     # =========================================================================
 
-    async def list_products(
-        self, category: str | None = None, limit: int = 20
-    ) -> dict[str, Any]:
+    async def list_products(self, category: str | None = None, limit: int = 20) -> dict[str, Any]:
         """List products across all connected platforms."""
         params: dict[str, Any] = {"limit": limit}
         if category:
             params["category"] = category
-        return await self._client.request(
-            "GET", "/api/v1/ecommerce/products", params=params
-        )
+        return await self._client.request("GET", "/api/v1/ecommerce/products", params=params)
 
-    async def list_platform_products(
-        self, platform: str, limit: int = 20
-    ) -> dict[str, Any]:
+    async def list_platform_products(self, platform: str, limit: int = 20) -> dict[str, Any]:
         """List products for a specific platform."""
         params: dict[str, Any] = {"limit": limit}
         return await self._client.request(
@@ -374,15 +348,11 @@ class AsyncEcommerceAPI:
         params: dict[str, Any] = {}
         if product_id:
             params["product_id"] = product_id
-        return await self._client.request(
-            "GET", "/api/v1/ecommerce/inventory", params=params
-        )
+        return await self._client.request("GET", "/api/v1/ecommerce/inventory", params=params)
 
     async def sync_inventory(self, **kwargs: Any) -> dict[str, Any]:
         """Sync inventory levels across connected platforms."""
-        return await self._client.request(
-            "POST", "/api/v1/ecommerce/sync-inventory", json=kwargs
-        )
+        return await self._client.request("POST", "/api/v1/ecommerce/sync-inventory", json=kwargs)
 
     # =========================================================================
     # Fulfillment & Shipping

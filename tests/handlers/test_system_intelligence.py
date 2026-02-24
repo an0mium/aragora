@@ -425,8 +425,12 @@ class TestOverview:
         assert "data" in body
         data = body["data"]
         expected_keys = [
-            "totalCycles", "successRate", "activeAgents",
-            "knowledgeItems", "topAgents", "recentImprovements",
+            "totalCycles",
+            "successRate",
+            "activeAgents",
+            "knowledgeItems",
+            "topAgents",
+            "recentImprovements",
         ]
         for key in expected_keys:
             assert key in data, f"Missing key: {key}"
@@ -625,8 +629,13 @@ class TestAgentPerformance:
         data = _get_data(result)
         agent = data["agents"][0]
         expected_keys = [
-            "id", "name", "elo", "eloHistory",
-            "calibration", "winRate", "domains",
+            "id",
+            "name",
+            "elo",
+            "eloHistory",
+            "calibration",
+            "winRate",
+            "domains",
         ]
         for key in expected_keys:
             assert key in agent, f"Missing key: {key}"
@@ -643,10 +652,12 @@ class TestInstitutionalMemory:
     @pytest.mark.asyncio
     async def test_institutional_memory_full_data(self, handler):
         adapter = AsyncMock()
-        adapter.find_high_roi_goal_types = AsyncMock(return_value=[
-            {"pattern": "testing", "cycle_count": 10, "avg_improvement_score": 0.85},
-            {"pattern": "refactor", "cycle_count": 5, "avg_improvement_score": 0.70},
-        ])
+        adapter.find_high_roi_goal_types = AsyncMock(
+            return_value=[
+                {"pattern": "testing", "cycle_count": 10, "avg_improvement_score": 0.85},
+                {"pattern": "refactor", "cycle_count": 5, "avg_improvement_score": 0.70},
+            ]
+        )
 
         cdm = MagicMock()
         cdm.get_statistics.return_value = {
@@ -704,9 +715,7 @@ class TestInstitutionalMemory:
     async def test_institutional_memory_adapter_roi_error(self, handler):
         """ROI data fetch fails but other data sources still work."""
         adapter = AsyncMock()
-        adapter.find_high_roi_goal_types = AsyncMock(
-            side_effect=RuntimeError("failed")
-        )
+        adapter.find_high_roi_goal_types = AsyncMock(side_effect=RuntimeError("failed"))
 
         cdm = MagicMock()
         cdm.get_statistics.return_value = {
@@ -805,8 +814,10 @@ class TestInstitutionalMemory:
         assert "data" in body
         data = body["data"]
         expected_keys = [
-            "totalInjections", "retrievalCount",
-            "topPatterns", "confidenceChanges",
+            "totalInjections",
+            "retrievalCount",
+            "topPatterns",
+            "confidenceChanges",
         ]
         for key in expected_keys:
             assert key in data, f"Missing key: {key}"
@@ -826,8 +837,12 @@ class TestImprovementQueue:
         queue.__len__ = MagicMock(return_value=3)
         queue.peek.return_value = [
             MockImprovementItem(debate_id="d1", task="Fix bug A", confidence=0.9, category="bugs"),
-            MockImprovementItem(debate_id="d2", task="Add tests", confidence=0.7, category="testing"),
-            MockImprovementItem(debate_id="d3", task="Refactor X", confidence=0.5, category="refactor"),
+            MockImprovementItem(
+                debate_id="d2", task="Add tests", confidence=0.7, category="testing"
+            ),
+            MockImprovementItem(
+                debate_id="d3", task="Refactor X", confidence=0.5, category="refactor"
+            ),
         ]
 
         with patch(

@@ -91,7 +91,15 @@ class TestThresholds:
 
     def test_all_thresholds_present(self):
         """Required threshold keys exist."""
-        required = {"clone", "install", "import", "first_debate", "receipt", "server_startup", "total"}
+        required = {
+            "clone",
+            "install",
+            "import",
+            "first_debate",
+            "receipt",
+            "server_startup",
+            "total",
+        }
         assert required.issubset(THRESHOLDS.keys())
 
     def test_thresholds_are_non_negative(self):
@@ -268,12 +276,16 @@ class TestJsonOutput:
     def test_cli_json_flag(self):
         """Running the script with --json produces valid JSON."""
         result = subprocess.run(
-            [sys.executable, "-c", (
-                "from scripts.measure_quickstart_time import QuickstartReport, evaluate_step;\n"
-                "import json;\n"
-                "r = QuickstartReport(steps=[evaluate_step('t', 1.0, 5.0)], total_seconds=1.0, all_passed=True);\n"
-                "print(json.dumps(r.to_dict()))\n"
-            )],
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from scripts.measure_quickstart_time import QuickstartReport, evaluate_step;\n"
+                    "import json;\n"
+                    "r = QuickstartReport(steps=[evaluate_step('t', 1.0, 5.0)], total_seconds=1.0, all_passed=True);\n"
+                    "print(json.dumps(r.to_dict()))\n"
+                ),
+            ],
             capture_output=True,
             text=True,
             timeout=30,
@@ -298,8 +310,10 @@ class TestRunAllMeasurements:
 
     def test_report_has_all_steps(self):
         """run_all_measurements returns a report with 6 steps."""
-        with patch("scripts.measure_quickstart_time.measure_server_startup") as mock_server, \
-             patch("scripts.measure_quickstart_time.measure_install_time") as mock_install:
+        with (
+            patch("scripts.measure_quickstart_time.measure_server_startup") as mock_server,
+            patch("scripts.measure_quickstart_time.measure_install_time") as mock_install,
+        ):
             mock_server.return_value = evaluate_step("Server startup", 0.5, 5.0)
             mock_install.return_value = evaluate_step("Dependencies Install", 1.0, 60.0)
             report = run_all_measurements()
@@ -307,8 +321,10 @@ class TestRunAllMeasurements:
 
     def test_total_seconds_is_sum_of_measured(self):
         """total_seconds equals the sum of non-skipped step durations."""
-        with patch("scripts.measure_quickstart_time.measure_server_startup") as mock_server, \
-             patch("scripts.measure_quickstart_time.measure_install_time") as mock_install:
+        with (
+            patch("scripts.measure_quickstart_time.measure_server_startup") as mock_server,
+            patch("scripts.measure_quickstart_time.measure_install_time") as mock_install,
+        ):
             mock_server.return_value = evaluate_step("Server startup", 0.5, 5.0)
             mock_install.return_value = evaluate_step("Dependencies Install", 1.0, 60.0)
             report = run_all_measurements()
@@ -318,8 +334,10 @@ class TestRunAllMeasurements:
 
     def test_all_passed_false_when_step_fails(self):
         """all_passed is False when any step fails."""
-        with patch("scripts.measure_quickstart_time.measure_server_startup") as mock_server, \
-             patch("scripts.measure_quickstart_time.measure_install_time") as mock_install:
+        with (
+            patch("scripts.measure_quickstart_time.measure_server_startup") as mock_server,
+            patch("scripts.measure_quickstart_time.measure_install_time") as mock_install,
+        ):
             mock_server.return_value = evaluate_step("Server startup", 999.0, 5.0)
             mock_install.return_value = evaluate_step("Dependencies Install", 1.0, 60.0)
             report = run_all_measurements()

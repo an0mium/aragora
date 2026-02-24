@@ -73,7 +73,11 @@ def sample_debate_dict():
             {
                 "round_num": 2,
                 "messages": [
-                    {"role": "critique", "content": "Token bucket scales better", "agent": "gemini"},
+                    {
+                        "role": "critique",
+                        "content": "Token bucket scales better",
+                        "agent": "gemini",
+                    },
                 ],
             },
         ],
@@ -200,7 +204,14 @@ class TestListDebates:
     def test_no_consensus_shows_false(self, client, mock_storage):
         """Debate without consensus shows has_consensus=False."""
         mock_storage.list_debates.return_value = [
-            {"id": "d-1", "task": "No consensus yet", "status": "active", "agents": [], "rounds": [], "consensus": None}
+            {
+                "id": "d-1",
+                "task": "No consensus yet",
+                "status": "active",
+                "agents": [],
+                "rounds": [],
+                "consensus": None,
+            }
         ]
         mock_storage.count_debates.return_value = 1
 

@@ -88,16 +88,56 @@ def _hr_recruitment_receipt() -> dict[str, Any]:
             },
         ],
         "provenance_chain": [
-            {"event_type": "debate_started", "timestamp": "2026-02-12T10:00:00Z", "actor": "system"},
-            {"event_type": "proposal_submitted", "timestamp": "2026-02-12T10:01:00Z", "actor": "claude-analyst"},
-            {"event_type": "critique_submitted", "timestamp": "2026-02-12T10:02:00Z", "actor": "gemini-challenger"},
-            {"event_type": "revision_submitted", "timestamp": "2026-02-12T10:03:00Z", "actor": "mistral-auditor"},
-            {"event_type": "vote_cast", "timestamp": "2026-02-12T10:04:00Z", "actor": "claude-analyst"},
-            {"event_type": "vote_cast", "timestamp": "2026-02-12T10:04:01Z", "actor": "gpt4-ethics"},
-            {"event_type": "vote_cast", "timestamp": "2026-02-12T10:04:02Z", "actor": "gemini-challenger"},
-            {"event_type": "vote_cast", "timestamp": "2026-02-12T10:04:03Z", "actor": "mistral-auditor"},
-            {"event_type": "human_approval", "timestamp": "2026-02-12T10:10:00Z", "actor": "hr-director@acme.com"},
-            {"event_type": "receipt_generated", "timestamp": "2026-02-12T10:10:05Z", "actor": "system"},
+            {
+                "event_type": "debate_started",
+                "timestamp": "2026-02-12T10:00:00Z",
+                "actor": "system",
+            },
+            {
+                "event_type": "proposal_submitted",
+                "timestamp": "2026-02-12T10:01:00Z",
+                "actor": "claude-analyst",
+            },
+            {
+                "event_type": "critique_submitted",
+                "timestamp": "2026-02-12T10:02:00Z",
+                "actor": "gemini-challenger",
+            },
+            {
+                "event_type": "revision_submitted",
+                "timestamp": "2026-02-12T10:03:00Z",
+                "actor": "mistral-auditor",
+            },
+            {
+                "event_type": "vote_cast",
+                "timestamp": "2026-02-12T10:04:00Z",
+                "actor": "claude-analyst",
+            },
+            {
+                "event_type": "vote_cast",
+                "timestamp": "2026-02-12T10:04:01Z",
+                "actor": "gpt4-ethics",
+            },
+            {
+                "event_type": "vote_cast",
+                "timestamp": "2026-02-12T10:04:02Z",
+                "actor": "gemini-challenger",
+            },
+            {
+                "event_type": "vote_cast",
+                "timestamp": "2026-02-12T10:04:03Z",
+                "actor": "mistral-auditor",
+            },
+            {
+                "event_type": "human_approval",
+                "timestamp": "2026-02-12T10:10:00Z",
+                "actor": "hr-director@acme.com",
+            },
+            {
+                "event_type": "receipt_generated",
+                "timestamp": "2026-02-12T10:10:05Z",
+                "actor": "system",
+            },
         ],
         "config_used": {
             "protocol": "adversarial",
@@ -155,9 +195,21 @@ def _credit_scoring_receipt() -> dict[str, Any]:
             },
         ],
         "provenance_chain": [
-            {"event_type": "debate_started", "timestamp": "2026-02-12T14:00:00Z", "actor": "system"},
-            {"event_type": "proposal_submitted", "timestamp": "2026-02-12T14:02:00Z", "actor": "claude-analyst"},
-            {"event_type": "receipt_generated", "timestamp": "2026-02-12T14:15:00Z", "actor": "system"},
+            {
+                "event_type": "debate_started",
+                "timestamp": "2026-02-12T14:00:00Z",
+                "actor": "system",
+            },
+            {
+                "event_type": "proposal_submitted",
+                "timestamp": "2026-02-12T14:02:00Z",
+                "actor": "claude-analyst",
+            },
+            {
+                "event_type": "receipt_generated",
+                "timestamp": "2026-02-12T14:15:00Z",
+                "actor": "system",
+            },
         ],
         "config_used": {"protocol": "adversarial", "rounds": 3},
         "artifact_hash": hashlib.sha256(b"credit-scoring-receipt-v1").hexdigest(),
@@ -192,13 +244,41 @@ def _chatbot_receipt() -> dict[str, Any]:
         },
         "dissenting_views": [],
         "provenance_chain": [
-            {"event_type": "debate_started", "timestamp": "2026-02-12T09:00:00Z", "actor": "system"},
-            {"event_type": "proposal_submitted", "timestamp": "2026-02-12T09:01:00Z", "actor": "claude-analyst"},
-            {"event_type": "vote_cast", "timestamp": "2026-02-12T09:05:00Z", "actor": "claude-analyst"},
-            {"event_type": "vote_cast", "timestamp": "2026-02-12T09:05:01Z", "actor": "mistral-auditor"},
-            {"event_type": "vote_cast", "timestamp": "2026-02-12T09:05:02Z", "actor": "gpt4-ethics"},
-            {"event_type": "human_approval", "timestamp": "2026-02-12T09:10:00Z", "actor": "product-manager@acme.com"},
-            {"event_type": "receipt_generated", "timestamp": "2026-02-12T09:10:05Z", "actor": "system"},
+            {
+                "event_type": "debate_started",
+                "timestamp": "2026-02-12T09:00:00Z",
+                "actor": "system",
+            },
+            {
+                "event_type": "proposal_submitted",
+                "timestamp": "2026-02-12T09:01:00Z",
+                "actor": "claude-analyst",
+            },
+            {
+                "event_type": "vote_cast",
+                "timestamp": "2026-02-12T09:05:00Z",
+                "actor": "claude-analyst",
+            },
+            {
+                "event_type": "vote_cast",
+                "timestamp": "2026-02-12T09:05:01Z",
+                "actor": "mistral-auditor",
+            },
+            {
+                "event_type": "vote_cast",
+                "timestamp": "2026-02-12T09:05:02Z",
+                "actor": "gpt4-ethics",
+            },
+            {
+                "event_type": "human_approval",
+                "timestamp": "2026-02-12T09:10:00Z",
+                "actor": "product-manager@acme.com",
+            },
+            {
+                "event_type": "receipt_generated",
+                "timestamp": "2026-02-12T09:10:05Z",
+                "actor": "system",
+            },
         ],
         "config_used": {
             "protocol": "quick_consensus",
@@ -312,7 +392,9 @@ def run_classification_demo() -> None:
         print(f"  {indicator}  {scenario['name']:<30s}  [{status}]")
 
         if result.annex_iii_category:
-            print(f"              Annex III Cat. {result.annex_iii_number}: {result.annex_iii_category}")
+            print(
+                f"              Annex III Cat. {result.annex_iii_number}: {result.annex_iii_category}"
+            )
         if result.matched_keywords:
             print(f"              Keywords: {', '.join(result.matched_keywords[:3])}")
         if result.obligations:
@@ -345,8 +427,10 @@ def run_conformity_demo() -> None:
         # Summary
         print(f"  Risk Level:      {report.risk_classification.risk_level.value.upper()}")
         if report.risk_classification.annex_iii_category:
-            print(f"  Annex III:       Cat. {report.risk_classification.annex_iii_number} "
-                  f"({report.risk_classification.annex_iii_category})")
+            print(
+                f"  Annex III:       Cat. {report.risk_classification.annex_iii_number} "
+                f"({report.risk_classification.annex_iii_category})"
+            )
         print(f"  Overall Status:  {report.overall_status.upper()}")
         print(f"  Report ID:       {report.report_id}")
         print(f"  Integrity Hash:  {report.integrity_hash[:16]}...")
@@ -354,7 +438,7 @@ def run_conformity_demo() -> None:
 
         # Article compliance table
         print(f"  {'Article':<12s} {'Requirement':<45s} {'Status':<10s}")
-        print(f"  {'-'*12} {'-'*45} {'-'*10}")
+        print(f"  {'-' * 12} {'-' * 45} {'-' * 10}")
         for mapping in report.article_mappings:
             status_display = {
                 "satisfied": "PASS",
@@ -362,7 +446,11 @@ def run_conformity_demo() -> None:
                 "not_satisfied": "FAIL",
                 "not_applicable": "N/A",
             }.get(mapping.status, mapping.status)
-            req_short = mapping.requirement[:43] + ".." if len(mapping.requirement) > 45 else mapping.requirement
+            req_short = (
+                mapping.requirement[:43] + ".."
+                if len(mapping.requirement) > 45
+                else mapping.requirement
+            )
             print(f"  {mapping.article:<12s} {req_short:<45s} {status_display:<10s}")
         print()
 
@@ -370,7 +458,9 @@ def run_conformity_demo() -> None:
         if report.recommendations:
             print(f"  Recommendations ({len(report.recommendations)}):")
             for rec in report.recommendations:
-                wrapped = textwrap.fill(rec, width=64, initial_indent="    - ", subsequent_indent="      ")
+                wrapped = textwrap.fill(
+                    rec, width=64, initial_indent="    - ", subsequent_indent="      "
+                )
                 print(wrapped)
             print()
 
@@ -380,7 +470,8 @@ def run_conformity_demo() -> None:
             print(f"  Dissenting Views ({len(dissenting)}):")
             for dv in dissenting:
                 wrapped = textwrap.fill(
-                    dv["view"], width=64,
+                    dv["view"],
+                    width=64,
                     initial_indent=f"    [{dv['agent']}] ",
                     subsequent_indent="      ",
                 )
@@ -496,7 +587,9 @@ def run_artifact_generation_demo() -> None:
     print()
 
     human_ref = art13.human_oversight_reference
-    print(f"  Human Oversight: {'Detected' if human_ref['human_approval_detected'] else 'Not detected'}")
+    print(
+        f"  Human Oversight: {'Detected' if human_ref['human_approval_detected'] else 'Not detected'}"
+    )
 
     # Article 14: Human Oversight
     _print_section("Article 14: Human Oversight")
@@ -506,11 +599,19 @@ def run_artifact_generation_demo() -> None:
     print(f"  Human approval:     {'Yes' if om['human_approval_detected'] else 'No'}")
     print()
 
-    print(f"  14.4(a) Monitoring:     {len(art14.understanding_monitoring['monitoring_features'])} features")
-    print(f"  14.4(b) Bias safeguards: {len(art14.automation_bias_safeguards['mechanisms'])} mechanisms")
-    print(f"  14.4(c) Interpretation:  {len(art14.interpretation_features['explainability'])} features")
+    print(
+        f"  14.4(a) Monitoring:     {len(art14.understanding_monitoring['monitoring_features'])} features"
+    )
+    print(
+        f"  14.4(b) Bias safeguards: {len(art14.automation_bias_safeguards['mechanisms'])} mechanisms"
+    )
+    print(
+        f"  14.4(c) Interpretation:  {len(art14.interpretation_features['explainability'])} features"
+    )
     print(f"  14.4(d) Override:        {len(art14.override_capability['mechanisms'])} mechanisms")
-    print(f"  14.4(e) Intervention:    {len(art14.intervention_capability['mechanisms'])} stop mechanisms")
+    print(
+        f"  14.4(e) Intervention:    {len(art14.intervention_capability['mechanisms'])} stop mechanisms"
+    )
 
     # Export bundle
     _print_section("Artifact Bundle Export")
@@ -586,7 +687,9 @@ def main() -> int:
     parser.add_argument("--demo", action="store_true", default=True, help="Run full demo (default)")
     parser.add_argument("--classify", action="store_true", help="Risk classification demo only")
     parser.add_argument("--report", action="store_true", help="Conformity report demo only")
-    parser.add_argument("--artifacts", action="store_true", help="Art. 12/13/14 artifact generation only")
+    parser.add_argument(
+        "--artifacts", action="store_true", help="Art. 12/13/14 artifact generation only"
+    )
     parser.add_argument("--export", action="store_true", help="Artifact export demo only")
 
     args = parser.parse_args()

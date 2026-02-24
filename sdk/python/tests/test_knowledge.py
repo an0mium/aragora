@@ -12,6 +12,7 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Sync: Fact CRUD
 # ---------------------------------------------------------------------------
 
+
 class TestKnowledgeFactCRUD:
     """Tests for basic fact create / read / update / delete."""
 
@@ -60,9 +61,11 @@ class TestKnowledgeFactCRUD:
             )
             client.close()
 
+
 # ---------------------------------------------------------------------------
 # Sync: Search & Query
 # ---------------------------------------------------------------------------
+
 
 class TestKnowledgeSearchQuery:
     """Tests for search and query operations."""
@@ -133,6 +136,7 @@ class TestKnowledgeSearchQuery:
             )
             client.close()
 
+
 # ---------------------------------------------------------------------------
 # Sync: Relations & Contradictions
 # ---------------------------------------------------------------------------
@@ -140,6 +144,7 @@ class TestKnowledgeSearchQuery:
 # ---------------------------------------------------------------------------
 # Sync: Stats & Mound
 # ---------------------------------------------------------------------------
+
 
 class TestKnowledgeStatsMound:
     """Tests for stats and mound operations."""
@@ -177,9 +182,11 @@ class TestKnowledgeStatsMound:
             assert result["id"] == "node_1"
             client.close()
 
+
 # ---------------------------------------------------------------------------
 # Async Tests
 # ---------------------------------------------------------------------------
+
 
 class TestAsyncKnowledge:
     """Tests for async knowledge methods."""

@@ -372,9 +372,9 @@ class InstagramConnector(BaseConnector):
             return cached
 
         if evidence_id.startswith("ig_comment_"):
-            return await self._fetch_comment(evidence_id[len("ig_comment_"):], evidence_id)
+            return await self._fetch_comment(evidence_id[len("ig_comment_") :], evidence_id)
         elif evidence_id.startswith("ig_media_"):
-            return await self._fetch_media(evidence_id[len("ig_media_"):], evidence_id)
+            return await self._fetch_media(evidence_id[len("ig_media_") :], evidence_id)
 
         return None
 

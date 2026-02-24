@@ -116,15 +116,11 @@ class BatchedAgentCaller:
                 try:
                     coro = call_fn(agent)
                     if self._timeout_seconds is not None:
-                        value = await asyncio.wait_for(
-                            coro, timeout=self._timeout_seconds
-                        )
+                        value = await asyncio.wait_for(coro, timeout=self._timeout_seconds)
                     else:
                         value = await coro
                     elapsed = (time.perf_counter() - start) * 1000
-                    return AgentCallResult(
-                        agent_name=name, result=value, duration_ms=elapsed
-                    )
+                    return AgentCallResult(agent_name=name, result=value, duration_ms=elapsed)
                 except asyncio.TimeoutError:
                     elapsed = (time.perf_counter() - start) * 1000
                     logger.warning(
@@ -146,9 +142,7 @@ class BatchedAgentCaller:
                         name,
                         exc,
                     )
-                    return AgentCallResult(
-                        agent_name=name, error=exc, duration_ms=elapsed
-                    )
+                    return AgentCallResult(agent_name=name, error=exc, duration_ms=elapsed)
 
         tasks = [
             asyncio.create_task(_bounded_call(agent), name=f"batch_{getattr(agent, 'name', i)}")
@@ -335,9 +329,7 @@ class LatencyProfiler:
         """
         total_ms = sum(r.duration_ms for r in self._records)
         wall_ms = (
-            (time.perf_counter() - self._debate_start) * 1000
-            if self._debate_start
-            else total_ms
+            (time.perf_counter() - self._debate_start) * 1000 if self._debate_start else total_ms
         )
         phase_durations = {r.phase_name: round(r.duration_ms, 2) for r in self._records}
         slowest = max(self._records, key=lambda r: r.duration_ms) if self._records else None

@@ -149,7 +149,6 @@ class GenesisAPI:
         """
         return self._client.request("GET", f"/api/v1/genesis/tree/{debate_id}")
 
-
     def list_lineage(self) -> dict[str, Any]:
         """List all lineage records."""
         return self._client.request("GET", "/api/v1/genesis/lineage")

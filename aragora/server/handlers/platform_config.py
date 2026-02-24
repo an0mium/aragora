@@ -116,21 +116,23 @@ class PlatformConfigHandler(BaseHandler):
         features = self._collect_feature_flags()
         version = self._get_version()
 
-        return json_response({
-            "data": {
-                "available_agents": available_agents,
-                "agent_display_names": display_names,
-                "default_agents": DEFAULT_AGENTS,
-                "streaming_capable_agents": STREAMING_CAPABLE_AGENTS,
-                "default_debate_config": {
-                    "rounds": 9,
-                    "max_rounds": 12,
-                    "consensus_mode": "judge",
-                },
-                "features": features,
-                "version": version,
+        return json_response(
+            {
+                "data": {
+                    "available_agents": available_agents,
+                    "agent_display_names": display_names,
+                    "default_agents": DEFAULT_AGENTS,
+                    "streaming_capable_agents": STREAMING_CAPABLE_AGENTS,
+                    "default_debate_config": {
+                        "rounds": 9,
+                        "max_rounds": 12,
+                        "consensus_mode": "judge",
+                    },
+                    "features": features,
+                    "version": version,
+                }
             }
-        })
+        )
 
     def _collect_available_agents(self) -> list[str]:
         """Collect the list of available agent type names from the registry.

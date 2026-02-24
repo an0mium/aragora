@@ -103,12 +103,8 @@ class TestSchemaCreationFromScratch:
         mgr_a = SchemaManager(mem_conn, "module_a", current_version=1)
         mgr_b = SchemaManager(mem_conn, "module_b", current_version=1)
 
-        mgr_a.ensure_schema(
-            initial_schema="CREATE TABLE a_table (id INTEGER PRIMARY KEY);"
-        )
-        mgr_b.ensure_schema(
-            initial_schema="CREATE TABLE b_table (id INTEGER PRIMARY KEY);"
-        )
+        mgr_a.ensure_schema(initial_schema="CREATE TABLE a_table (id INTEGER PRIMARY KEY);")
+        mgr_b.ensure_schema(initial_schema="CREATE TABLE b_table (id INTEGER PRIMARY KEY);")
 
         assert mgr_a.get_version() == 1
         assert mgr_b.get_version() == 1
@@ -138,9 +134,7 @@ class TestMigrationIdempotency:
 
     def test_ensure_schema_idempotent(self, mem_conn: sqlite3.Connection):
         mgr = SchemaManager(mem_conn, "events", current_version=2)
-        mgr.register_migration(
-            1, 2, sql="ALTER TABLE events ADD COLUMN ts TIMESTAMP;"
-        )
+        mgr.register_migration(1, 2, sql="ALTER TABLE events ADD COLUMN ts TIMESTAMP;")
         mgr.ensure_schema(initial_schema=self.INITIAL)
         assert mgr.get_version() == 2
 
@@ -152,9 +146,7 @@ class TestMigrationIdempotency:
     def test_partial_migration_resumes(self, mem_conn: sqlite3.Connection):
         """If only v1 was applied previously, a new manager at v3 picks up from v1."""
         mgr1 = SchemaManager(mem_conn, "resume", current_version=1)
-        mgr1.ensure_schema(
-            initial_schema="CREATE TABLE t (id INTEGER PRIMARY KEY);"
-        )
+        mgr1.ensure_schema(initial_schema="CREATE TABLE t (id INTEGER PRIMARY KEY);")
         assert mgr1.get_version() == 1
 
         mgr3 = SchemaManager(mem_conn, "resume", current_version=3)
@@ -167,9 +159,7 @@ class TestMigrationIdempotency:
     def test_newer_db_version_skipped(self, mem_conn: sqlite3.Connection):
         """Code at v1 should not downgrade a v2 database."""
         mgr2 = SchemaManager(mem_conn, "compat", current_version=2)
-        mgr2.ensure_schema(
-            initial_schema="CREATE TABLE c (id INTEGER PRIMARY KEY);"
-        )
+        mgr2.ensure_schema(initial_schema="CREATE TABLE c (id INTEGER PRIMARY KEY);")
         mgr2.register_migration(1, 2, sql="ALTER TABLE c ADD COLUMN x TEXT;")
         mgr2.ensure_schema()
         assert mgr2.get_version() == 2
@@ -201,9 +191,7 @@ class TestDataSurvivesMigration:
 
     def _seed_data(self, conn: sqlite3.Connection) -> list[tuple]:
         rows = [("Widget", 9.99), ("Gadget", 19.99), ("Doohickey", 4.50)]
-        conn.executemany(
-            "INSERT INTO products (name, price) VALUES (?, ?)", rows
-        )
+        conn.executemany("INSERT INTO products (name, price) VALUES (?, ?)", rows)
         conn.commit()
         return rows
 
@@ -236,13 +224,9 @@ class TestDataSurvivesMigration:
         mgr2.register_migration(1, 2, sql=self.MIGRATION_SQL)
         mgr2.ensure_schema()
 
-        mem_conn.execute(
-            "UPDATE products SET category = 'tools' WHERE name = 'Widget'"
-        )
+        mem_conn.execute("UPDATE products SET category = 'tools' WHERE name = 'Widget'")
         mem_conn.commit()
-        cursor = mem_conn.execute(
-            "SELECT category FROM products WHERE name = 'Widget'"
-        )
+        cursor = mem_conn.execute("SELECT category FROM products WHERE name = 'Widget'")
         assert cursor.fetchone()[0] == "tools"
 
     def test_function_migration_preserves_data(self, mem_conn: sqlite3.Connection):
@@ -252,13 +236,9 @@ class TestDataSurvivesMigration:
         self._seed_data(mem_conn)
 
         def upgrade_fn(conn: sqlite3.Connection) -> None:
-            conn.execute(
-                "ALTER TABLE products ADD COLUMN sku TEXT DEFAULT 'UNKNOWN'"
-            )
+            conn.execute("ALTER TABLE products ADD COLUMN sku TEXT DEFAULT 'UNKNOWN'")
             # Back-fill existing rows
-            conn.execute(
-                "UPDATE products SET sku = 'SKU-' || CAST(id AS TEXT)"
-            )
+            conn.execute("UPDATE products SET sku = 'SKU-' || CAST(id AS TEXT)")
 
         mgr2 = SchemaManager(mem_conn, "products", current_version=2)
         mgr2.register_migration(1, 2, function=upgrade_fn, description="add sku")
@@ -291,9 +271,7 @@ class TestConfigBackwardCompatibility:
             except (ImportError, TypeError, Exception):
                 pytest.skip("resolve_arena_config not importable in test environment")
 
-            deprecation_msgs = [
-                w for w in caught if issubclass(w.category, DeprecationWarning)
-            ]
+            deprecation_msgs = [w for w in caught if issubclass(w.category, DeprecationWarning)]
             assert len(deprecation_msgs) >= 1, (
                 "Expected DeprecationWarning for individual supermemory params"
             )
@@ -312,9 +290,7 @@ class TestConfigBackwardCompatibility:
             except (ImportError, TypeError, Exception):
                 pytest.skip("resolve_arena_config not importable in test environment")
 
-            deprecation_msgs = [
-                w for w in caught if issubclass(w.category, DeprecationWarning)
-            ]
+            deprecation_msgs = [w for w in caught if issubclass(w.category, DeprecationWarning)]
             assert len(deprecation_msgs) >= 1, (
                 "Expected DeprecationWarning for individual knowledge params"
             )
@@ -336,9 +312,7 @@ class TestConfigBackwardCompatibility:
             except (ImportError, TypeError, Exception):
                 pytest.skip("resolve_arena_config not importable in test environment")
 
-            deprecation_msgs = [
-                w for w in caught if issubclass(w.category, DeprecationWarning)
-            ]
+            deprecation_msgs = [w for w in caught if issubclass(w.category, DeprecationWarning)]
             assert len(deprecation_msgs) == 0, (
                 f"No DeprecationWarning expected when using config objects, got: "
                 f"{[str(w.message) for w in deprecation_msgs]}"

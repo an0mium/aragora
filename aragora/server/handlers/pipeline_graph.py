@@ -36,7 +36,9 @@ logger = logging.getLogger(__name__)
 _GRAPH_ID = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)$")
 _GRAPH_NODE = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/node$")
 _GRAPH_NODE_ID = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/node/([a-zA-Z0-9_-]+)$")
-_GRAPH_NODE_REASSIGN = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/node/([a-zA-Z0-9_-]+)/reassign$")
+_GRAPH_NODE_REASSIGN = re.compile(
+    r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/node/([a-zA-Z0-9_-]+)/reassign$"
+)
 _GRAPH_NODES = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/nodes$")
 _GRAPH_PROMOTE = re.compile(r"^/api/(?:v1/)?pipeline/graph/([a-zA-Z0-9_-]+)/promote$")
 _GRAPH_PROVENANCE = re.compile(
@@ -477,7 +479,9 @@ class PipelineGraphHandler:
 
     # -- Transition suggestions --
 
-    async def handle_suggestions(self, graph_id: str, query_params: dict[str, Any]) -> HandlerResult:
+    async def handle_suggestions(
+        self, graph_id: str, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """GET /api/v1/pipeline/graph/{id}/suggestions?stage={stage}
 
         Get AI-suggested transitions for the given pipeline stage.
@@ -499,20 +503,22 @@ class PipelineGraphHandler:
 
             suggestions = suggest_transitions(graph, stage)
 
-            return json_response({
-                "graph_id": graph_id,
-                "stage": stage_str,
-                "suggestions": [
-                    {
-                        "target_stage": s.get("to_stage", ""),
-                        "confidence": s.get("confidence", 0.5),
-                        "rationale": s.get("reason", ""),
-                        "node_ids": [s["node_id"]] if "node_id" in s else [],
-                        "auto_promotable": s.get("confidence", 0) >= 0.8,
-                    }
-                    for s in (suggestions if isinstance(suggestions, list) else [])
-                ],
-            })
+            return json_response(
+                {
+                    "graph_id": graph_id,
+                    "stage": stage_str,
+                    "suggestions": [
+                        {
+                            "target_stage": s.get("to_stage", ""),
+                            "confidence": s.get("confidence", 0.5),
+                            "rationale": s.get("reason", ""),
+                            "node_ids": [s["node_id"]] if "node_id" in s else [],
+                            "auto_promotable": s.get("confidence", 0) >= 0.8,
+                        }
+                        for s in (suggestions if isinstance(suggestions, list) else [])
+                    ],
+                }
+            )
         except (ImportError, ValueError, TypeError, AttributeError) as e:
             logger.warning("Transition suggestions failed: %s", e)
             return error_response("Failed to generate suggestions", 500)

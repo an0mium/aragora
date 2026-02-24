@@ -68,6 +68,7 @@ logger = logging.getLogger("slack-review-bot")
 # Configuration
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ReviewBotConfig:
     """Configuration for the Slack review bot."""
@@ -78,15 +79,19 @@ class ReviewBotConfig:
     debate_rounds: int = 2
     consensus_mode: str = "majority"
     min_consensus_confidence: float = 0.7
-    agent_types: list[str] = field(default_factory=lambda: [
-        "anthropic-api",
-        "openai-api",
-    ])
-    reviewer_roles: list[str] = field(default_factory=lambda: [
-        "security_reviewer",
-        "performance_reviewer",
-        "best_practices_reviewer",
-    ])
+    agent_types: list[str] = field(
+        default_factory=lambda: [
+            "anthropic-api",
+            "openai-api",
+        ]
+    )
+    reviewer_roles: list[str] = field(
+        default_factory=lambda: [
+            "security_reviewer",
+            "performance_reviewer",
+            "best_practices_reviewer",
+        ]
+    )
 
     @classmethod
     def from_env(cls) -> ReviewBotConfig:
@@ -171,6 +176,7 @@ async def fetch_pr_diff(repo: str, pr_number: int, token: str = "") -> str:
 # Multi-Agent Code Review via Debate
 # ---------------------------------------------------------------------------
 
+
 async def run_code_review_debate(
     diff: str,
     config: ReviewBotConfig,
@@ -206,8 +212,7 @@ async def run_code_review_debate(
 
     if len(agents) < 2:
         logger.error(
-            "Need at least 2 agents for a debate. "
-            "Set ANTHROPIC_API_KEY and/or OPENAI_API_KEY."
+            "Need at least 2 agents for a debate. Set ANTHROPIC_API_KEY and/or OPENAI_API_KEY."
         )
         return _build_demo_review(diff, pr_info)
 
@@ -377,6 +382,7 @@ def _build_demo_review(diff: str, pr_info: str) -> dict[str, Any]:
 # Slack Notification
 # ---------------------------------------------------------------------------
 
+
 def format_review_for_slack(review: dict[str, Any]) -> str:
     """Format the review results as a Slack message.
 
@@ -426,9 +432,7 @@ def format_review_for_slack(review: dict[str, Any]) -> str:
                 continue
             for item in items:
                 prefix = severity_emoji.get(severity, "")
-                lines.append(
-                    f"  {prefix} *{item['title']}* ({item['category']})"
-                )
+                lines.append(f"  {prefix} *{item['title']}* ({item['category']})")
                 lines.append(f"    {item['description'][:200]}")
                 if item.get("fix"):
                     lines.append(f"    Fix: _{item['fix'][:150]}_")
@@ -494,6 +498,7 @@ async def post_to_slack(
 # ---------------------------------------------------------------------------
 # Main Entry Point
 # ---------------------------------------------------------------------------
+
 
 def print_review(review: dict[str, Any]) -> None:
     """Print a formatted review to the console."""
@@ -636,6 +641,7 @@ Examples:
     # Step 3: Display results
     if args.json:
         import json as json_mod
+
         print(json_mod.dumps(review, indent=2, default=str))
     else:
         print_review(review)
@@ -648,9 +654,7 @@ Examples:
         print("\n--- Slack Message Preview ---")
         print(slack_msg)
         print("--- End Preview ---")
-        print(
-            "\nTo post to Slack, set SLACK_WEBHOOK_URL or pass --webhook <url>"
-        )
+        print("\nTo post to Slack, set SLACK_WEBHOOK_URL or pass --webhook <url>")
 
 
 if __name__ == "__main__":

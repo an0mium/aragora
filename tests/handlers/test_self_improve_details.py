@@ -384,26 +384,29 @@ class TestGetMetaPlannerGoals:
             pass
 
         # Test via the actual method with mocked imports
-        with patch.dict("sys.modules", {
-            "aragora.nomic.meta_planner": MagicMock(
-                MetaPlanner=MagicMock(return_value=mock_planner),
-                MetaPlannerConfig=MagicMock(
-                    return_value=MagicMock(scan_mode=True, max_goals=10),
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.meta_planner": MagicMock(
+                    MetaPlanner=MagicMock(return_value=mock_planner),
+                    MetaPlannerConfig=MagicMock(
+                        return_value=MagicMock(scan_mode=True, max_goals=10),
+                    ),
+                    PrioritizedGoal=MagicMock,
                 ),
-                PrioritizedGoal=MagicMock,
-            ),
-            "aragora.nomic.improvement_queue": MagicMock(
-                get_improvement_queue=MagicMock(
-                    return_value=MockImprovementQueue([
-                        MockImprovementSuggestion("s1", "Fix bugs"),
-                    ]),
+                "aragora.nomic.improvement_queue": MagicMock(
+                    get_improvement_queue=MagicMock(
+                        return_value=MockImprovementQueue(
+                            [
+                                MockImprovementSuggestion("s1", "Fix bugs"),
+                            ]
+                        ),
+                    ),
                 ),
-            ),
-        }):
+            },
+        ):
             # Need to reimport since we patched sys.modules
-            result = await handler.handle(
-                "/api/self-improve/meta-planner/goals", {}, http_handler
-            )
+            result = await handler.handle("/api/self-improve/meta-planner/goals", {}, http_handler)
 
         data = _parse_data(result)
         assert "goals" in data
@@ -418,14 +421,16 @@ class TestGetMetaPlannerGoals:
         ) as mock_method:
             from aragora.server.handlers.base import json_response
 
-            mock_method.return_value = json_response({
-                "data": {
-                    "goals": [],
-                    "signals_used": [],
-                    "config": {},
-                    "error": "MetaPlanner module not available",
+            mock_method.return_value = json_response(
+                {
+                    "data": {
+                        "goals": [],
+                        "signals_used": [],
+                        "config": {},
+                        "error": "MetaPlanner module not available",
+                    }
                 }
-            })
+            )
             result = await mock_method()
 
         data = _parse_data(result)
@@ -435,22 +440,23 @@ class TestGetMetaPlannerGoals:
     @pytest.mark.asyncio
     async def test_meta_planner_runtime_error(self, handler, http_handler):
         """When MetaPlanner raises RuntimeError, return graceful fallback."""
+
         async def _raise_goals():
             from aragora.server.handlers.base import json_response
 
-            return json_response({
-                "data": {
-                    "goals": [],
-                    "signals_used": [],
-                    "config": {},
-                    "error": "Failed to generate goals",
+            return json_response(
+                {
+                    "data": {
+                        "goals": [],
+                        "signals_used": [],
+                        "config": {},
+                        "error": "Failed to generate goals",
+                    }
                 }
-            })
+            )
 
         handler._get_meta_planner_goals = _raise_goals
-        result = await handler.handle(
-            "/api/self-improve/meta-planner/goals", {}, http_handler
-        )
+        result = await handler.handle("/api/self-improve/meta-planner/goals", {}, http_handler)
         data = _parse_data(result)
         assert data["goals"] == []
         assert data["error"] == "Failed to generate goals"
@@ -483,13 +489,14 @@ class TestGetMetaPlannerGoals:
         queue_mod = MagicMock()
         queue_mod.get_improvement_queue.return_value = MockImprovementQueue()
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.meta_planner": meta_planner_mod,
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/meta-planner/goals", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.meta_planner": meta_planner_mod,
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/meta-planner/goals", {}, http_handler)
 
         data = _parse_data(result)
         signals = data.get("signals_used", [])
@@ -507,8 +514,11 @@ class TestGetMetaPlannerGoals:
         mock_planner.prioritize_work = AsyncMock(return_value=mock_goals)
 
         mock_config = MagicMock(
-            scan_mode=True, quick_mode=False, max_goals=10,
-            enable_metrics_collection=False, enable_cross_cycle_learning=False,
+            scan_mode=True,
+            quick_mode=False,
+            max_goals=10,
+            enable_metrics_collection=False,
+            enable_cross_cycle_learning=False,
         )
 
         meta_mod = MagicMock()
@@ -523,13 +533,14 @@ class TestGetMetaPlannerGoals:
         queue_mod = MagicMock()
         queue_mod.get_improvement_queue.return_value = MockImprovementQueue(suggestions)
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.meta_planner": meta_mod,
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/meta-planner/goals", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.meta_planner": meta_mod,
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/meta-planner/goals", {}, http_handler)
 
         data = _parse_data(result)
         queue_data = data.get("improvement_queue", {})
@@ -540,16 +551,17 @@ class TestGetMetaPlannerGoals:
     @pytest.mark.asyncio
     async def test_file_hints_truncated_to_10(self, handler, http_handler):
         """Goal file_hints should be truncated to at most 10 entries."""
-        goal = MockPrioritizedGoal(
-            file_hints=[f"file_{i}.py" for i in range(20)]
-        )
+        goal = MockPrioritizedGoal(file_hints=[f"file_{i}.py" for i in range(20)])
 
         mock_planner = AsyncMock()
         mock_planner.prioritize_work = AsyncMock(return_value=[goal])
 
         mock_config = MagicMock(
-            scan_mode=True, quick_mode=False, max_goals=10,
-            enable_metrics_collection=False, enable_cross_cycle_learning=False,
+            scan_mode=True,
+            quick_mode=False,
+            max_goals=10,
+            enable_metrics_collection=False,
+            enable_cross_cycle_learning=False,
         )
 
         meta_mod = MagicMock()
@@ -560,13 +572,14 @@ class TestGetMetaPlannerGoals:
         queue_mod = MagicMock()
         queue_mod.get_improvement_queue.return_value = MockImprovementQueue()
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.meta_planner": meta_mod,
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/meta-planner/goals", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.meta_planner": meta_mod,
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/meta-planner/goals", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["goals"][0]["file_hints"]) == 10
@@ -583,14 +596,15 @@ class TestGetExecutionTimeline:
     @pytest.mark.asyncio
     async def test_returns_empty_when_no_modules(self, handler, http_handler):
         """When all modules are unavailable, return empty data."""
-        with patch.dict("sys.modules", {
-            "aragora.nomic.branch_coordinator": None,
-            "aragora.nomic.cycle_store": None,
-            "aragora.server.handlers.self_improve": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/execution/timeline", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.branch_coordinator": None,
+                "aragora.nomic.cycle_store": None,
+                "aragora.server.handlers.self_improve": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/execution/timeline", {}, http_handler)
 
         data = _parse_data(result)
         assert data["branches"] == []
@@ -614,14 +628,15 @@ class TestGetExecutionTimeline:
         si_mod = MagicMock()
         si_mod._active_tasks = {}
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.branch_coordinator": coord_mod,
-            "aragora.nomic.cycle_store": cycle_mod,
-            "aragora.server.handlers.self_improve": si_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/execution/timeline", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.branch_coordinator": coord_mod,
+                "aragora.nomic.cycle_store": cycle_mod,
+                "aragora.server.handlers.self_improve": si_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/execution/timeline", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["branches"]) == 2
@@ -659,14 +674,15 @@ class TestGetExecutionTimeline:
         si_mod = MagicMock()
         si_mod._active_tasks = {}
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.branch_coordinator": coord_mod,
-            "aragora.nomic.cycle_store": cycle_mod,
-            "aragora.server.handlers.self_improve": si_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/execution/timeline", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.branch_coordinator": coord_mod,
+                "aragora.nomic.cycle_store": cycle_mod,
+                "aragora.server.handlers.self_improve": si_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/execution/timeline", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["merge_decisions"]) == 2
@@ -689,14 +705,15 @@ class TestGetExecutionTimeline:
         si_mod = MagicMock()
         si_mod._active_tasks = {"abcdef123456789": mock_task}
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.branch_coordinator": coord_mod,
-            "aragora.nomic.cycle_store": cycle_mod,
-            "aragora.server.handlers.self_improve": si_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/execution/timeline", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.branch_coordinator": coord_mod,
+                "aragora.nomic.cycle_store": cycle_mod,
+                "aragora.server.handlers.self_improve": si_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/execution/timeline", {}, http_handler)
 
         data = _parse_data(result)
         running = [b for b in data["branches"] if b["status"] == "running"]
@@ -727,14 +744,15 @@ class TestGetExecutionTimeline:
         si_mod = MagicMock()
         si_mod._active_tasks = {}
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.branch_coordinator": coord_mod,
-            "aragora.nomic.cycle_store": cycle_mod,
-            "aragora.server.handlers.self_improve": si_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/execution/timeline", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.branch_coordinator": coord_mod,
+                "aragora.nomic.cycle_store": cycle_mod,
+                "aragora.server.handlers.self_improve": si_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/execution/timeline", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["merge_decisions"]) == 1
@@ -751,14 +769,15 @@ class TestGetLearningInsights:
     @pytest.mark.asyncio
     async def test_returns_empty_when_no_modules(self, handler, http_handler):
         """When all modules are unavailable, return empty data."""
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.nomic_cycle_adapter": None,
-            "aragora.nomic.outcome_tracker": None,
-            "aragora.nomic.strategic_memory": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/learning/insights", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter": None,
+                "aragora.nomic.outcome_tracker": None,
+                "aragora.nomic.strategic_memory": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/learning/insights", {}, http_handler)
 
         data = _parse_data(result)
         assert data["insights"] == []
@@ -769,23 +788,26 @@ class TestGetLearningInsights:
     async def test_returns_high_roi_patterns(self, handler, http_handler):
         """Return high-ROI patterns from NomicCycleAdapter."""
         mock_adapter = AsyncMock()
-        mock_adapter.find_high_roi_goal_types = AsyncMock(return_value=[
-            {"pattern": "test_coverage", "avg_improvement_score": 0.85, "cycle_count": 5},
-            {"pattern": "lint_fix", "avg_improvement_score": 0.6, "cycle_count": 3},
-        ])
+        mock_adapter.find_high_roi_goal_types = AsyncMock(
+            return_value=[
+                {"pattern": "test_coverage", "avg_improvement_score": 0.85, "cycle_count": 5},
+                {"pattern": "lint_fix", "avg_improvement_score": 0.6, "cycle_count": 3},
+            ]
+        )
         mock_adapter.find_recurring_failures = AsyncMock(return_value=[])
 
         adapter_mod = MagicMock()
         adapter_mod.get_nomic_cycle_adapter.return_value = mock_adapter
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.nomic_cycle_adapter": adapter_mod,
-            "aragora.nomic.outcome_tracker": None,
-            "aragora.nomic.strategic_memory": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/learning/insights", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter": adapter_mod,
+                "aragora.nomic.outcome_tracker": None,
+                "aragora.nomic.strategic_memory": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/learning/insights", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["high_roi_patterns"]) == 2
@@ -797,25 +819,28 @@ class TestGetLearningInsights:
         """Return recurring failures from NomicCycleAdapter."""
         mock_adapter = AsyncMock()
         mock_adapter.find_high_roi_goal_types = AsyncMock(return_value=[])
-        mock_adapter.find_recurring_failures = AsyncMock(return_value=[
-            {
-                "pattern": "timeout_in_tests",
-                "occurrences": 5,
-                "affected_tracks": ["qa", "developer"],
-            },
-        ])
+        mock_adapter.find_recurring_failures = AsyncMock(
+            return_value=[
+                {
+                    "pattern": "timeout_in_tests",
+                    "occurrences": 5,
+                    "affected_tracks": ["qa", "developer"],
+                },
+            ]
+        )
 
         adapter_mod = MagicMock()
         adapter_mod.get_nomic_cycle_adapter.return_value = mock_adapter
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.nomic_cycle_adapter": adapter_mod,
-            "aragora.nomic.outcome_tracker": None,
-            "aragora.nomic.strategic_memory": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/learning/insights", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter": adapter_mod,
+                "aragora.nomic.outcome_tracker": None,
+                "aragora.nomic.strategic_memory": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/learning/insights", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["recurring_failures"]) == 1
@@ -833,14 +858,15 @@ class TestGetLearningInsights:
             },
         ]
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.nomic_cycle_adapter": None,
-            "aragora.nomic.outcome_tracker": tracker_mod,
-            "aragora.nomic.strategic_memory": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/learning/insights", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter": None,
+                "aragora.nomic.outcome_tracker": tracker_mod,
+                "aragora.nomic.strategic_memory": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/learning/insights", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["insights"]) == 1
@@ -860,14 +886,15 @@ class TestGetLearningInsights:
         sm_store_instance.get_recurring_findings.return_value = findings
         sm_mod.StrategicMemoryStore.return_value = sm_store_instance
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.nomic_cycle_adapter": None,
-            "aragora.nomic.outcome_tracker": None,
-            "aragora.nomic.strategic_memory": sm_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/learning/insights", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter": None,
+                "aragora.nomic.outcome_tracker": None,
+                "aragora.nomic.strategic_memory": sm_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/learning/insights", {}, http_handler)
 
         data = _parse_data(result)
         strategic = [i for i in data["insights"] if i["type"] == "strategic_finding"]
@@ -879,24 +906,25 @@ class TestGetLearningInsights:
     async def test_high_roi_query_failure_graceful(self, handler, http_handler):
         """When high-ROI query fails, recurring failures still returned."""
         mock_adapter = AsyncMock()
-        mock_adapter.find_high_roi_goal_types = AsyncMock(
-            side_effect=RuntimeError("query failed")
+        mock_adapter.find_high_roi_goal_types = AsyncMock(side_effect=RuntimeError("query failed"))
+        mock_adapter.find_recurring_failures = AsyncMock(
+            return_value=[
+                {"pattern": "test_flake", "occurrences": 4, "affected_tracks": ["qa"]},
+            ]
         )
-        mock_adapter.find_recurring_failures = AsyncMock(return_value=[
-            {"pattern": "test_flake", "occurrences": 4, "affected_tracks": ["qa"]},
-        ])
 
         adapter_mod = MagicMock()
         adapter_mod.get_nomic_cycle_adapter.return_value = mock_adapter
 
-        with patch.dict("sys.modules", {
-            "aragora.knowledge.mound.adapters.nomic_cycle_adapter": adapter_mod,
-            "aragora.nomic.outcome_tracker": None,
-            "aragora.nomic.strategic_memory": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/learning/insights", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.knowledge.mound.adapters.nomic_cycle_adapter": adapter_mod,
+                "aragora.nomic.outcome_tracker": None,
+                "aragora.nomic.strategic_memory": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/learning/insights", {}, http_handler)
 
         data = _parse_data(result)
         assert data["high_roi_patterns"] == []
@@ -914,14 +942,15 @@ class TestGetMetricsComparison:
     @pytest.mark.asyncio
     async def test_returns_empty_when_no_modules(self, handler, http_handler):
         """When all modules are unavailable, return empty data."""
-        with patch.dict("sys.modules", {
-            "aragora.nomic.outcome_tracker": None,
-            "aragora.nomic.cycle_store": None,
-            "aragora.nomic.metrics_collector": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/metrics/comparison", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.outcome_tracker": None,
+                "aragora.nomic.cycle_store": None,
+                "aragora.nomic.metrics_collector": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/metrics/comparison", {}, http_handler)
 
         data = _parse_data(result)
         assert data["comparisons"] == []
@@ -940,14 +969,15 @@ class TestGetMetricsComparison:
             },
         ]
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.outcome_tracker": tracker_mod,
-            "aragora.nomic.cycle_store": None,
-            "aragora.nomic.metrics_collector": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/metrics/comparison", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.outcome_tracker": tracker_mod,
+                "aragora.nomic.cycle_store": None,
+                "aragora.nomic.metrics_collector": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/metrics/comparison", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["regressions"]) == 1
@@ -968,14 +998,15 @@ class TestGetMetricsComparison:
         cycle_mod = MagicMock()
         cycle_mod.get_cycle_store.return_value.get_recent_cycles.return_value = cycles
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.outcome_tracker": None,
-            "aragora.nomic.cycle_store": cycle_mod,
-            "aragora.nomic.metrics_collector": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/metrics/comparison", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.outcome_tracker": None,
+                "aragora.nomic.cycle_store": cycle_mod,
+                "aragora.nomic.metrics_collector": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/metrics/comparison", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["comparisons"]) == 1
@@ -1003,14 +1034,15 @@ class TestGetMetricsComparison:
         cycle_mod = MagicMock()
         cycle_mod.get_cycle_store.return_value.get_recent_cycles.return_value = cycles
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.outcome_tracker": None,
-            "aragora.nomic.cycle_store": cycle_mod,
-            "aragora.nomic.metrics_collector": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/metrics/comparison", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.outcome_tracker": None,
+                "aragora.nomic.cycle_store": cycle_mod,
+                "aragora.nomic.metrics_collector": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/metrics/comparison", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["comparisons"]) == 1
@@ -1035,14 +1067,15 @@ class TestGetMetricsComparison:
         collector_mod.MetricsCollector.return_value = mock_collector
         collector_mod.MetricSnapshot.return_value = mock_snapshot
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.outcome_tracker": None,
-            "aragora.nomic.cycle_store": None,
-            "aragora.nomic.metrics_collector": collector_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/metrics/comparison", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.outcome_tracker": None,
+                "aragora.nomic.cycle_store": None,
+                "aragora.nomic.metrics_collector": collector_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/metrics/comparison", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["comparisons"]) == 1
@@ -1061,14 +1094,15 @@ class TestGetMetricsComparison:
         collector_mod.MetricsCollector.return_value = MagicMock()
         collector_mod.MetricSnapshot.return_value = mock_snapshot
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.outcome_tracker": None,
-            "aragora.nomic.cycle_store": None,
-            "aragora.nomic.metrics_collector": collector_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/metrics/comparison", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.outcome_tracker": None,
+                "aragora.nomic.cycle_store": None,
+                "aragora.nomic.metrics_collector": collector_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/metrics/comparison", {}, http_handler)
 
         data = _parse_data(result)
         assert data["comparisons"] == []
@@ -1085,13 +1119,14 @@ class TestGetCycleTrends:
     @pytest.mark.asyncio
     async def test_returns_empty_when_no_modules(self, handler, http_handler):
         """When all modules are unavailable, return empty data."""
-        with patch.dict("sys.modules", {
-            "aragora.nomic.cycle_store": None,
-            "aragora.nomic.stores.run_store": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/trends/cycles", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.cycle_store": None,
+                "aragora.nomic.stores.run_store": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/trends/cycles", {}, http_handler)
 
         data = _parse_data(result)
         assert data["cycles"] == []
@@ -1104,25 +1139,34 @@ class TestGetCycleTrends:
         """Return cycle data with computed summary statistics."""
         cycles = [
             MockCycleRecord(
-                "c-1", success=True, duration_seconds=1000,
-                lines_added=100, lines_removed=20, tests_passed=500,
+                "c-1",
+                success=True,
+                duration_seconds=1000,
+                lines_added=100,
+                lines_removed=20,
+                tests_passed=500,
             ),
             MockCycleRecord(
-                "c-2", success=False, duration_seconds=2000,
-                lines_added=50, lines_removed=10, tests_passed=450,
+                "c-2",
+                success=False,
+                duration_seconds=2000,
+                lines_added=50,
+                lines_removed=10,
+                tests_passed=450,
             ),
         ]
 
         cycle_mod = MagicMock()
         cycle_mod.get_cycle_store.return_value.get_recent_cycles.return_value = cycles
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.cycle_store": cycle_mod,
-            "aragora.nomic.stores.run_store": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/trends/cycles", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.cycle_store": cycle_mod,
+                "aragora.nomic.stores.run_store": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/trends/cycles", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["cycles"]) == 2
@@ -1140,21 +1184,33 @@ class TestGetCycleTrends:
         cycle_mod = MagicMock()
         cycle_mod.get_cycle_store.return_value.get_recent_cycles.return_value = [cycle]
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.cycle_store": cycle_mod,
-            "aragora.nomic.stores.run_store": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/trends/cycles", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.cycle_store": cycle_mod,
+                "aragora.nomic.stores.run_store": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/trends/cycles", {}, http_handler)
 
         data = _parse_data(result)
         entry = data["cycles"][0]
         expected_fields = [
-            "cycle_id", "started_at", "completed_at", "duration_seconds",
-            "success", "topics", "lines_added", "lines_removed",
-            "tests_passed", "tests_failed", "files_modified", "files_created",
-            "phases_completed", "agent_count", "evidence_quality",
+            "cycle_id",
+            "started_at",
+            "completed_at",
+            "duration_seconds",
+            "success",
+            "topics",
+            "lines_added",
+            "lines_removed",
+            "tests_passed",
+            "tests_failed",
+            "files_modified",
+            "files_created",
+            "phases_completed",
+            "agent_count",
+            "evidence_quality",
         ]
         for field in expected_fields:
             assert field in entry, f"Missing field: {field}"
@@ -1168,13 +1224,14 @@ class TestGetCycleTrends:
         cycle_mod = MagicMock()
         cycle_mod.get_cycle_store.return_value.get_recent_cycles.return_value = [cycle]
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.cycle_store": cycle_mod,
-            "aragora.nomic.stores.run_store": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/trends/cycles", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.cycle_store": cycle_mod,
+                "aragora.nomic.stores.run_store": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/trends/cycles", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["cycles"][0]["topics"]) == 5
@@ -1190,13 +1247,14 @@ class TestGetCycleTrends:
         run_mod = MagicMock()
         run_mod.SelfImproveRunStore.return_value.list_runs.return_value = runs
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.cycle_store": None,
-            "aragora.nomic.stores.run_store": run_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/trends/cycles", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.cycle_store": None,
+                "aragora.nomic.stores.run_store": run_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/trends/cycles", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["run_costs"]) == 2
@@ -1215,13 +1273,14 @@ class TestGetCycleTrends:
         cycle_mod = MagicMock()
         cycle_mod.get_cycle_store.return_value.get_recent_cycles.return_value = cycles
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.cycle_store": cycle_mod,
-            "aragora.nomic.stores.run_store": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/trends/cycles", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.cycle_store": cycle_mod,
+                "aragora.nomic.stores.run_store": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/trends/cycles", {}, http_handler)
 
         data = _parse_data(result)
         # Only c-21 has positive duration
@@ -1239,13 +1298,14 @@ class TestGetCycleTrends:
         cycle_mod = MagicMock()
         cycle_mod.get_cycle_store.return_value.get_recent_cycles.return_value = cycles
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.cycle_store": cycle_mod,
-            "aragora.nomic.stores.run_store": None,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/trends/cycles", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.cycle_store": cycle_mod,
+                "aragora.nomic.stores.run_store": None,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/trends/cycles", {}, http_handler)
 
         data = _parse_data(result)
         assert data["summary"]["success_rate"] == 1.0
@@ -1259,13 +1319,14 @@ class TestGetCycleTrends:
         run_mod = MagicMock()
         run_mod.SelfImproveRunStore.return_value.list_runs.return_value = [run]
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.cycle_store": None,
-            "aragora.nomic.stores.run_store": run_mod,
-        }):
-            result = await handler.handle(
-                "/api/self-improve/trends/cycles", {}, http_handler
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.cycle_store": None,
+                "aragora.nomic.stores.run_store": run_mod,
+            },
+        ):
+            result = await handler.handle("/api/self-improve/trends/cycles", {}, http_handler)
 
         data = _parse_data(result)
         assert len(data["run_costs"][0]["goal"]) == 200
@@ -1295,12 +1356,13 @@ class TestPostImprovementQueue:
             method="POST",
         )
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
-            result = await handler.handle_post(
-                "/api/self-improve/improvement-queue", {}, http
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
+            result = await handler.handle_post("/api/self-improve/improvement-queue", {}, http)
 
         assert _status(result) == 201
         data = _parse_data(result)
@@ -1313,9 +1375,7 @@ class TestPostImprovementQueue:
     async def test_add_goal_missing_goal_field(self, handler):
         """Missing 'goal' field returns 400."""
         http = MockHTTPHandler(body={"priority": 50}, method="POST")
-        result = await handler.handle_post(
-            "/api/self-improve/improvement-queue", {}, http
-        )
+        result = await handler.handle_post("/api/self-improve/improvement-queue", {}, http)
         assert _status(result) == 400
         body = _body(result)
         assert "goal" in body.get("error", "").lower() or "goal" in json.dumps(body).lower()
@@ -1324,9 +1384,7 @@ class TestPostImprovementQueue:
     async def test_add_goal_empty_goal_field(self, handler):
         """Empty 'goal' field returns 400."""
         http = MockHTTPHandler(body={"goal": "", "priority": 50}, method="POST")
-        result = await handler.handle_post(
-            "/api/self-improve/improvement-queue", {}, http
-        )
+        result = await handler.handle_post("/api/self-improve/improvement-queue", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
@@ -1337,12 +1395,13 @@ class TestPostImprovementQueue:
             method="POST",
         )
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": None,
-        }):
-            result = await handler.handle_post(
-                "/api/self-improve/improvement-queue", {}, http
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": None,
+            },
+        ):
+            result = await handler.handle_post("/api/self-improve/improvement-queue", {}, http)
 
         assert _status(result) == 503
 
@@ -1359,12 +1418,13 @@ class TestPostImprovementQueue:
 
         http = MockHTTPHandler(body={"goal": "My goal"}, method="POST")
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
-            result = await handler.handle_post(
-                "/api/self-improve/improvement-queue", {}, http
-            )
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
+            result = await handler.handle_post("/api/self-improve/improvement-queue", {}, http)
 
         assert _status(result) == 201
         data = _parse_data(result)
@@ -1375,18 +1435,14 @@ class TestPostImprovementQueue:
     async def test_post_wrong_path_returns_none(self, handler):
         """POST to a different path returns None."""
         http = MockHTTPHandler(body={"goal": "Test"}, method="POST")
-        result = await handler.handle_post(
-            "/api/self-improve/other-endpoint", {}, http
-        )
+        result = await handler.handle_post("/api/self-improve/other-endpoint", {}, http)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_post_versioned_path(self, handler):
         """POST to versioned path should work after strip_version_prefix."""
         http = MockHTTPHandler(body={"goal": ""}, method="POST")
-        result = await handler.handle_post(
-            "/api/v1/self-improve/improvement-queue", {}, http
-        )
+        result = await handler.handle_post("/api/v1/self-improve/improvement-queue", {}, http)
         # Empty goal returns 400 error, confirming it matched the route
         assert _status(result) == 400
 
@@ -1410,9 +1466,12 @@ class TestPutImprovementQueuePriority:
 
         http = MockHTTPHandler(body={"priority": 90}, method="PUT")
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
             result = await handler.handle_put(
                 "/api/self-improve/improvement-queue/item-123/priority", {}, http
             )
@@ -1435,9 +1494,12 @@ class TestPutImprovementQueuePriority:
 
         http = MockHTTPHandler(body={"priority": 50}, method="PUT")
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
             result = await handler.handle_put(
                 "/api/self-improve/improvement-queue/nonexistent/priority", {}, http
             )
@@ -1457,27 +1519,21 @@ class TestPutImprovementQueuePriority:
     async def test_update_priority_missing_item_id(self, handler):
         """Empty item ID in path returns 400."""
         http = MockHTTPHandler(body={"priority": 50}, method="PUT")
-        result = await handler.handle_put(
-            "/api/self-improve/improvement-queue//priority", {}, http
-        )
+        result = await handler.handle_put("/api/self-improve/improvement-queue//priority", {}, http)
         assert _status(result) == 400
 
     @pytest.mark.asyncio
     async def test_update_priority_wrong_path_returns_none(self, handler):
         """PUT to non-matching path returns None."""
         http = MockHTTPHandler(body={"priority": 50}, method="PUT")
-        result = await handler.handle_put(
-            "/api/self-improve/other/item-1/priority", {}, http
-        )
+        result = await handler.handle_put("/api/self-improve/other/item-1/priority", {}, http)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_update_priority_no_priority_suffix_returns_none(self, handler):
         """PUT path without /priority suffix returns None."""
         http = MockHTTPHandler(body={"priority": 50}, method="PUT")
-        result = await handler.handle_put(
-            "/api/self-improve/improvement-queue/item-1", {}, http
-        )
+        result = await handler.handle_put("/api/self-improve/improvement-queue/item-1", {}, http)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1485,9 +1541,12 @@ class TestPutImprovementQueuePriority:
         """When improvement queue is not available, return 503."""
         http = MockHTTPHandler(body={"priority": 50}, method="PUT")
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": None,
+            },
+        ):
             result = await handler.handle_put(
                 "/api/self-improve/improvement-queue/item-1/priority", {}, http
             )
@@ -1505,9 +1564,12 @@ class TestPutImprovementQueuePriority:
 
         http = MockHTTPHandler(body={"priority": 200}, method="PUT")
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
             result = await handler.handle_put(
                 "/api/self-improve/improvement-queue/item-200/priority", {}, http
             )
@@ -1526,9 +1588,12 @@ class TestPutImprovementQueuePriority:
 
         http = MockHTTPHandler(body={"priority": -50}, method="PUT")
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
             result = await handler.handle_put(
                 "/api/self-improve/improvement-queue/item-300/priority", {}, http
             )
@@ -1566,9 +1631,12 @@ class TestDeleteImprovementQueue:
 
         http = MockHTTPHandler(method="DELETE")
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
             result = await handler.handle_delete(
                 "/api/self-improve/improvement-queue/item-del-1", {}, http
             )
@@ -1583,18 +1651,23 @@ class TestDeleteImprovementQueue:
     @pytest.mark.asyncio
     async def test_delete_item_not_found(self, handler):
         """Return 404 when item ID does not exist."""
-        mock_queue = MockImprovementQueue([
-            MockImprovementSuggestion("other-item", "Keep me"),
-        ])
+        mock_queue = MockImprovementQueue(
+            [
+                MockImprovementSuggestion("other-item", "Keep me"),
+            ]
+        )
 
         queue_mod = MagicMock()
         queue_mod.get_improvement_queue.return_value = mock_queue
 
         http = MockHTTPHandler(method="DELETE")
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
             result = await handler.handle_delete(
                 "/api/self-improve/improvement-queue/nonexistent", {}, http
             )
@@ -1607,9 +1680,7 @@ class TestDeleteImprovementQueue:
     async def test_delete_empty_id_returns_none(self, handler):
         """Empty item ID in path returns None."""
         http = MockHTTPHandler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/self-improve/improvement-queue/", {}, http
-        )
+        result = await handler.handle_delete("/api/self-improve/improvement-queue/", {}, http)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1625,9 +1696,7 @@ class TestDeleteImprovementQueue:
     async def test_delete_wrong_prefix_returns_none(self, handler):
         """Delete on non-matching path returns None."""
         http = MockHTTPHandler(method="DELETE")
-        result = await handler.handle_delete(
-            "/api/self-improve/other/item-1", {}, http
-        )
+        result = await handler.handle_delete("/api/self-improve/other/item-1", {}, http)
         assert result is None
 
     @pytest.mark.asyncio
@@ -1635,9 +1704,12 @@ class TestDeleteImprovementQueue:
         """When improvement queue is not available, return 503."""
         http = MockHTTPHandler(method="DELETE")
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": None,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": None,
+            },
+        ):
             result = await handler.handle_delete(
                 "/api/self-improve/improvement-queue/item-1", {}, http
             )
@@ -1654,9 +1726,12 @@ class TestDeleteImprovementQueue:
 
         http = MockHTTPHandler(method="DELETE")
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
             result = await handler.handle_delete(
                 "/api/v1/self-improve/improvement-queue/item-v1", {}, http
             )
@@ -1677,9 +1752,12 @@ class TestDeleteImprovementQueue:
 
         http = MockHTTPHandler(method="DELETE")
 
-        with patch.dict("sys.modules", {
-            "aragora.nomic.improvement_queue": queue_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
             result = await handler.handle_delete(
                 "/api/self-improve/improvement-queue/delete-me", {}, http
             )
@@ -1707,9 +1785,7 @@ class TestRouteDispatch:
             from aragora.server.handlers.base import json_response
 
             mock.return_value = json_response({"data": {"goals": []}})
-            result = await handler.handle(
-                "/api/self-improve/meta-planner/goals", {}, http_handler
-            )
+            result = await handler.handle("/api/self-improve/meta-planner/goals", {}, http_handler)
             mock.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -1719,9 +1795,7 @@ class TestRouteDispatch:
             from aragora.server.handlers.base import json_response
 
             mock.return_value = json_response({"data": {}})
-            result = await handler.handle(
-                "/api/self-improve/execution/timeline", {}, http_handler
-            )
+            result = await handler.handle("/api/self-improve/execution/timeline", {}, http_handler)
             mock.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -1731,9 +1805,7 @@ class TestRouteDispatch:
             from aragora.server.handlers.base import json_response
 
             mock.return_value = json_response({"data": {}})
-            result = await handler.handle(
-                "/api/self-improve/learning/insights", {}, http_handler
-            )
+            result = await handler.handle("/api/self-improve/learning/insights", {}, http_handler)
             mock.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -1743,9 +1815,7 @@ class TestRouteDispatch:
             from aragora.server.handlers.base import json_response
 
             mock.return_value = json_response({"data": {}})
-            result = await handler.handle(
-                "/api/self-improve/metrics/comparison", {}, http_handler
-            )
+            result = await handler.handle("/api/self-improve/metrics/comparison", {}, http_handler)
             mock.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -1755,25 +1825,19 @@ class TestRouteDispatch:
             from aragora.server.handlers.base import json_response
 
             mock.return_value = json_response({"data": {}})
-            result = await handler.handle(
-                "/api/self-improve/trends/cycles", {}, http_handler
-            )
+            result = await handler.handle("/api/self-improve/trends/cycles", {}, http_handler)
             mock.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_handle_returns_none_for_unknown_path(self, handler, http_handler):
         """Unknown GET path returns None from handle()."""
-        result = await handler.handle(
-            "/api/self-improve/unknown-endpoint", {}, http_handler
-        )
+        result = await handler.handle("/api/self-improve/unknown-endpoint", {}, http_handler)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_handle_returns_none_for_queue_path(self, handler, http_handler):
         """Queue path is not handled by GET handle() - it's POST/PUT/DELETE."""
-        result = await handler.handle(
-            "/api/self-improve/improvement-queue", {}, http_handler
-        )
+        result = await handler.handle("/api/self-improve/improvement-queue", {}, http_handler)
         assert result is None
 
     @pytest.mark.asyncio

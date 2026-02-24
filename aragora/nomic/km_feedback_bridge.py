@@ -297,12 +297,14 @@ class KMFeedbackBridge:
                     tags = getattr(item, "tags", [])
                     source = getattr(item, "source", "km")
                     timestamp = getattr(item, "timestamp", 0.0)
-                    results.append({
-                        "content": content,
-                        "tags": tags,
-                        "source": source,
-                        "timestamp": timestamp,
-                    })
+                    results.append(
+                        {
+                            "content": content,
+                            "tags": tags,
+                            "source": source,
+                            "timestamp": timestamp,
+                        }
+                    )
 
         return results
 
@@ -318,9 +320,7 @@ class KMFeedbackBridge:
         for item in self._in_memory_store:
             content_words = set(item.content.lower().split())
             tag_words = set(
-                word
-                for tag in item.tags
-                for word in tag.lower().replace(":", " ").split()
+                word for tag in item.tags for word in tag.lower().replace(":", " ").split()
             )
             all_words = content_words | tag_words
             overlap = len(query_words & all_words)

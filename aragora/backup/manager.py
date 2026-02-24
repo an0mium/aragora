@@ -327,9 +327,7 @@ class RestoreDrillReport:
             backup_id=data["backup_id"],
             started_at=datetime.fromisoformat(data["started_at"]),
             completed_at=(
-                datetime.fromisoformat(data["completed_at"])
-                if data.get("completed_at")
-                else None
+                datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None
             ),
             duration_seconds=data.get("duration_seconds", 0.0),
             status=data.get("status", "pending"),
@@ -924,8 +922,7 @@ class BackupManager:
             report.checksum_valid = current_checksum == backup_meta.checksum
             if not report.checksum_valid:
                 report.errors.append(
-                    f"Checksum mismatch: expected {backup_meta.checksum}, "
-                    f"got {current_checksum}"
+                    f"Checksum mismatch: expected {backup_meta.checksum}, got {current_checksum}"
                 )
 
             # Step 2: Restore to temporary location
@@ -1057,9 +1054,7 @@ class BackupManager:
             try:
                 with open(self._drills_path) as f:
                     data = json.load(f)
-                self._drill_history = [
-                    RestoreDrillReport.from_dict(d) for d in data
-                ]
+                self._drill_history = [RestoreDrillReport.from_dict(d) for d in data]
             except (OSError, ValueError, KeyError) as e:
                 logger.error("Failed to load drill history: %s", e)
                 self._drill_history = []

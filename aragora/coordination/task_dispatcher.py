@@ -124,8 +124,7 @@ class TaskDispatcher:
 
         # Compute initial blocked_by from depends_on
         task.blocked_by = [
-            dep_id for dep_id in task.depends_on
-            if dep_id not in self._completed_ids
+            dep_id for dep_id in task.depends_on if dep_id not in self._completed_ids
         ]
 
         self._tasks[task.task_id] = task
@@ -135,7 +134,10 @@ class TaskDispatcher:
 
         logger.info(
             "task_submitted id=%s title=%s priority=%d deps=%s",
-            task.task_id, title, task.priority, task.depends_on,
+            task.task_id,
+            title,
+            task.priority,
+            task.depends_on,
         )
         return task
 
@@ -152,7 +154,12 @@ class TaskDispatcher:
         if track:
             for priority, task_id in sorted(self._queue):
                 task = self._tasks.get(task_id)
-                if task and task.status == "pending" and task.track == track and not task.blocked_by:
+                if (
+                    task
+                    and task.status == "pending"
+                    and task.track == track
+                    and not task.blocked_by
+                ):
                     return task
 
         # General: pop from priority queue
@@ -236,7 +243,9 @@ class TaskDispatcher:
             heapq.heappush(self._queue, (task.priority, task.task_id))
             logger.info(
                 "task_retry id=%s attempt=%d/%d",
-                task_id, task.retry_count, task.max_retries,
+                task_id,
+                task.retry_count,
+                task.max_retries,
             )
             return False
 
@@ -272,7 +281,9 @@ class TaskDispatcher:
 
         logger.info(
             "task_reassigned id=%s from=%s to=%s",
-            task_id, old_worktree, new_worktree_id,
+            task_id,
+            old_worktree,
+            new_worktree_id,
         )
         return True
 
@@ -343,8 +354,7 @@ class TaskDispatcher:
                 task = created[i]
                 task.depends_on = [temp_to_real.get(d, d) for d in raw_deps]
                 task.blocked_by = [
-                    dep_id for dep_id in task.depends_on
-                    if dep_id not in self._completed_ids
+                    dep_id for dep_id in task.depends_on if dep_id not in self._completed_ids
                 ]
 
         return created

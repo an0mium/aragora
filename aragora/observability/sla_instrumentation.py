@@ -192,8 +192,13 @@ class SLATracker:
         """Compute latency percentiles from a list of latency values."""
         if not latencies:
             return LatencyPercentiles(
-                p50=0.0, p95=0.0, p99=0.0,
-                count=0, mean=0.0, min=0.0, max=0.0,
+                p50=0.0,
+                p95=0.0,
+                p99=0.0,
+                count=0,
+                mean=0.0,
+                min=0.0,
+                max=0.0,
             )
 
         sorted_latencies = sorted(latencies)
@@ -290,15 +295,17 @@ class SLATracker:
             latencies = [r.latency_seconds for r in ep_records]
             pct = self._compute_percentiles(latencies)
 
-            results.append(EndpointMetrics(
-                endpoint=ep,
-                total_requests=total,
-                error_count=errors,
-                latency_p50=pct.p50,
-                latency_p95=pct.p95,
-                latency_p99=pct.p99,
-                error_rate=errors / total if total > 0 else 0.0,
-            ))
+            results.append(
+                EndpointMetrics(
+                    endpoint=ep,
+                    total_requests=total,
+                    error_count=errors,
+                    latency_p50=pct.p50,
+                    latency_p95=pct.p95,
+                    latency_p99=pct.p99,
+                    error_rate=errors / total if total > 0 else 0.0,
+                )
+            )
 
         return results
 
@@ -353,9 +360,7 @@ class SLATracker:
             "error_rate": error_rate,
             "uptime": uptime,
             "endpoints": [m.to_dict() for m in endpoint_metrics[:20]],  # Top 20
-            "tracking_since": datetime.fromtimestamp(
-                self._start_time, tz=timezone.utc
-            ).isoformat(),
+            "tracking_since": datetime.fromtimestamp(self._start_time, tz=timezone.utc).isoformat(),
         }
 
     def reset(self) -> None:

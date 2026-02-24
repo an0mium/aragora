@@ -416,16 +416,29 @@ class SegmentConnector:
                 response = await client.post(url, json=json_data)
 
                 if response.status_code == 429 and attempt < _MAX_RETRIES:
-                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    retry_after = float(
+                        response.headers.get("Retry-After", _BASE_DELAY * (2**attempt))
+                    )
                     jitter = random.uniform(0, retry_after * 0.3)
                     delay = min(retry_after + jitter, _MAX_DELAY)
-                    logger.warning("Segment tracking rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    logger.warning(
+                        "Segment tracking rate limited, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
 
                 if response.status_code >= 500 and attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Segment tracking server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Segment tracking server error %d, retrying in %.1fs (attempt %d/%d)",
+                        response.status_code,
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
 
@@ -442,15 +455,25 @@ class SegmentConnector:
             except httpx.TimeoutException as e:
                 last_error = e
                 if attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Segment tracking request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Segment tracking request timeout, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
             except httpx.ConnectError as e:
                 last_error = e
                 if attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Segment tracking connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Segment tracking connection error, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
             except SegmentError:
@@ -483,16 +506,29 @@ class SegmentConnector:
                 )
 
                 if response.status_code == 429 and attempt < _MAX_RETRIES:
-                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    retry_after = float(
+                        response.headers.get("Retry-After", _BASE_DELAY * (2**attempt))
+                    )
                     jitter = random.uniform(0, retry_after * 0.3)
                     delay = min(retry_after + jitter, _MAX_DELAY)
-                    logger.warning("Segment config rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    logger.warning(
+                        "Segment config rate limited, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
 
                 if response.status_code >= 500 and attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Segment config server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Segment config server error %d, retrying in %.1fs (attempt %d/%d)",
+                        response.status_code,
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
 
@@ -509,15 +545,25 @@ class SegmentConnector:
             except httpx.TimeoutException as e:
                 last_error = e
                 if attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Segment config request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Segment config request timeout, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
             except httpx.ConnectError as e:
                 last_error = e
                 if attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Segment config connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Segment config connection error, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
             except SegmentError:
@@ -548,16 +594,29 @@ class SegmentConnector:
                 )
 
                 if response.status_code == 429 and attempt < _MAX_RETRIES:
-                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    retry_after = float(
+                        response.headers.get("Retry-After", _BASE_DELAY * (2**attempt))
+                    )
                     jitter = random.uniform(0, retry_after * 0.3)
                     delay = min(retry_after + jitter, _MAX_DELAY)
-                    logger.warning("Segment profiles rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    logger.warning(
+                        "Segment profiles rate limited, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
 
                 if response.status_code >= 500 and attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Segment profiles server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Segment profiles server error %d, retrying in %.1fs (attempt %d/%d)",
+                        response.status_code,
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
 
@@ -574,15 +633,25 @@ class SegmentConnector:
             except httpx.TimeoutException as e:
                 last_error = e
                 if attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Segment profiles request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Segment profiles request timeout, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
             except httpx.ConnectError as e:
                 last_error = e
                 if attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Segment profiles connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Segment profiles connection error, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
             except SegmentError:

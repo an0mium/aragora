@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ApiExplorerPanel } from '@/components/ApiExplorerPanel';
 
 // ---------------------------------------------------------------------------
@@ -374,7 +374,6 @@ describe('ApiExplorerPanel', () => {
 
     it('shows error message on failed request', async () => {
       // Spec loads fine, but subsequent requests fail
-      let callCount = 0;
       mockFetch.mockImplementation((url: string) => {
         if (typeof url === 'string' && url.includes('openapi.json')) {
           return Promise.resolve({
@@ -385,7 +384,6 @@ describe('ApiExplorerPanel', () => {
             headers: new Map(),
           });
         }
-        callCount++;
         return Promise.reject(new Error('Network error'));
       });
 

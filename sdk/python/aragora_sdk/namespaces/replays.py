@@ -231,7 +231,10 @@ class AsyncReplaysAPI:
         self._client = client
 
     async def search(
-        self, query: str, limit: int = 50, offset: int = 0,
+        self,
+        query: str,
+        limit: int = 50,
+        offset: int = 0,
     ) -> dict[str, Any]:
         """Search replays."""
         params: dict[str, Any] = {"q": query, "limit": limit, "offset": offset}

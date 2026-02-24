@@ -385,14 +385,16 @@ class ExecutionBridge:
             )
 
             queue = get_improvement_queue()
-            queue.enqueue(ImprovementSuggestion(
-                debate_id=context["debate_id"],
-                task=context.get("task", "")[:100],
-                suggestion=f"Debate outcome (confidence={context.get('confidence', 0):.2f}, "
-                f"domain={context.get('domain', 'general')})",
-                category="code_quality",
-                confidence=context.get("confidence", 0.5),
-            ))
+            queue.enqueue(
+                ImprovementSuggestion(
+                    debate_id=context["debate_id"],
+                    task=context.get("task", "")[:100],
+                    suggestion=f"Debate outcome (confidence={context.get('confidence', 0):.2f}, "
+                    f"domain={context.get('domain', 'general')})",
+                    category="code_quality",
+                    confidence=context.get("confidence", 0.5),
+                )
+            )
             return ActionResult(
                 rule_name=rule.name,
                 action_type=ActionType.IMPROVEMENT_QUEUE,

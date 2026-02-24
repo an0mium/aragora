@@ -40,11 +40,16 @@ class TestConsensusParserRegistration:
         assert args.command == "consensus"
 
     def test_detect_subcommand(self, parser):
-        args = parser.parse_args([
-            "consensus", "detect",
-            "--task", "Choose a DB",
-            "--proposals", '["Use PostgreSQL"]',
-        ])
+        args = parser.parse_args(
+            [
+                "consensus",
+                "detect",
+                "--task",
+                "Choose a DB",
+                "--proposals",
+                '["Use PostgreSQL"]',
+            ]
+        )
         assert args.consensus_command == "detect"
         assert args.task == "Choose a DB"
 
@@ -64,25 +69,31 @@ class TestNormalizeProposals:
         assert result[0]["content"] == "Use Postgres"
 
     def test_dict_proposals(self):
-        result = _normalize_proposals([
-            {"agent": "claude", "content": "Use Postgres"},
-            {"agent": "gpt", "content": "Use MySQL"},
-        ])
+        result = _normalize_proposals(
+            [
+                {"agent": "claude", "content": "Use Postgres"},
+                {"agent": "gpt", "content": "Use MySQL"},
+            ]
+        )
         assert len(result) == 2
         assert result[0]["agent"] == "claude"
 
     def test_empty_content_filtered(self):
-        result = _normalize_proposals([
-            {"agent": "a", "content": ""},
-            {"agent": "b", "content": "Use Postgres"},
-        ])
+        result = _normalize_proposals(
+            [
+                {"agent": "a", "content": ""},
+                {"agent": "b", "content": "Use Postgres"},
+            ]
+        )
         assert len(result) == 1
 
     def test_mixed_types(self):
-        result = _normalize_proposals([
-            "Plain string proposal",
-            {"agent": "claude", "content": "Dict proposal"},
-        ])
+        result = _normalize_proposals(
+            [
+                "Plain string proposal",
+                {"agent": "claude", "content": "Dict proposal"},
+            ]
+        )
         assert len(result) == 2
 
 

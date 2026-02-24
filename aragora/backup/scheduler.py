@@ -455,9 +455,7 @@ class BackupScheduler:
                             {"source_backup_id": backup_metadata.id},
                         )
                         job.metadata["offsite_id"] = offsite_record.id
-                        logger.info(
-                            "Offsite upload completed: %s", offsite_record.id
-                        )
+                        logger.info("Offsite upload completed: %s", offsite_record.id)
                     except (OSError, RuntimeError) as e:
                         logger.error("Offsite upload failed: %s", e)
                         job.metadata["offsite_error"] = str(e)

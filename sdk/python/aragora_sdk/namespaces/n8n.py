@@ -142,7 +142,9 @@ class AsyncN8nAPI:
         """Create a new n8n credential."""
         return await self._client.request("POST", "/api/v1/n8n/credentials", json=kwargs)
 
-    async def delete_credential(self, credential_id: str | None = None, **kwargs: Any) -> dict[str, Any]:
+    async def delete_credential(
+        self, credential_id: str | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         """Delete an n8n credential."""
         data: dict[str, Any] = {**kwargs}
         if credential_id:

@@ -112,9 +112,11 @@ class TestHighSeverityFindings:
         """Critical severity findings should be queued as goals."""
         with _patch_queue():
             auto = GauntletAutoImprove(enabled=True, cooldown_seconds=0)
-            gauntlet_result = _make_result_with_findings([
-                _make_finding(finding_id="f-crit", severity="critical"),
-            ])
+            gauntlet_result = _make_result_with_findings(
+                [
+                    _make_finding(finding_id="f-crit", severity="critical"),
+                ]
+            )
 
             result = auto.on_run_complete(gauntlet_result)
 
@@ -125,9 +127,11 @@ class TestHighSeverityFindings:
         """High severity findings should be queued as goals."""
         with _patch_queue():
             auto = GauntletAutoImprove(enabled=True, cooldown_seconds=0)
-            gauntlet_result = _make_result_with_findings([
-                _make_finding(finding_id="f-high", severity="high"),
-            ])
+            gauntlet_result = _make_result_with_findings(
+                [
+                    _make_finding(finding_id="f-high", severity="high"),
+                ]
+            )
 
             result = auto.on_run_complete(gauntlet_result)
 
@@ -137,14 +141,14 @@ class TestHighSeverityFindings:
     def test_multiple_high_critical_findings(self):
         """Multiple high/critical findings should all be queued."""
         with _patch_queue():
-            auto = GauntletAutoImprove(
-                enabled=True, max_goals_per_run=10, cooldown_seconds=0
+            auto = GauntletAutoImprove(enabled=True, max_goals_per_run=10, cooldown_seconds=0)
+            gauntlet_result = _make_result_with_findings(
+                [
+                    _make_finding(finding_id="f-1", severity="critical"),
+                    _make_finding(finding_id="f-2", severity="high"),
+                    _make_finding(finding_id="f-3", severity="critical"),
+                ]
             )
-            gauntlet_result = _make_result_with_findings([
-                _make_finding(finding_id="f-1", severity="critical"),
-                _make_finding(finding_id="f-2", severity="high"),
-                _make_finding(finding_id="f-3", severity="critical"),
-            ])
 
             result = auto.on_run_complete(gauntlet_result)
 
@@ -159,9 +163,11 @@ class TestLowSeverityFiltered:
         """Low severity findings should not produce goals."""
         with _patch_queue():
             auto = GauntletAutoImprove(enabled=True, cooldown_seconds=0)
-            gauntlet_result = _make_result_with_findings([
-                _make_finding(finding_id="f-low", severity="low"),
-            ])
+            gauntlet_result = _make_result_with_findings(
+                [
+                    _make_finding(finding_id="f-low", severity="low"),
+                ]
+            )
 
             result = auto.on_run_complete(gauntlet_result)
 
@@ -170,12 +176,12 @@ class TestLowSeverityFiltered:
     def test_medium_severity_filtered_with_high_min(self):
         """Medium severity findings should be filtered when min_severity='high'."""
         with _patch_queue():
-            auto = GauntletAutoImprove(
-                enabled=True, min_severity="high", cooldown_seconds=0
+            auto = GauntletAutoImprove(enabled=True, min_severity="high", cooldown_seconds=0)
+            gauntlet_result = _make_result_with_findings(
+                [
+                    _make_finding(finding_id="f-med", severity="medium"),
+                ]
             )
-            gauntlet_result = _make_result_with_findings([
-                _make_finding(finding_id="f-med", severity="medium"),
-            ])
 
             result = auto.on_run_complete(gauntlet_result)
 
@@ -184,16 +190,16 @@ class TestLowSeverityFiltered:
     def test_mixed_severities_only_high_critical_queued(self):
         """Mixed findings should only queue high/critical ones."""
         with _patch_queue():
-            auto = GauntletAutoImprove(
-                enabled=True, max_goals_per_run=10, cooldown_seconds=0
+            auto = GauntletAutoImprove(enabled=True, max_goals_per_run=10, cooldown_seconds=0)
+            gauntlet_result = _make_result_with_findings(
+                [
+                    _make_finding(finding_id="f-crit", severity="critical"),
+                    _make_finding(finding_id="f-low", severity="low"),
+                    _make_finding(finding_id="f-high", severity="high"),
+                    _make_finding(finding_id="f-med", severity="medium"),
+                    _make_finding(finding_id="f-info", severity="info"),
+                ]
             )
-            gauntlet_result = _make_result_with_findings([
-                _make_finding(finding_id="f-crit", severity="critical"),
-                _make_finding(finding_id="f-low", severity="low"),
-                _make_finding(finding_id="f-high", severity="high"),
-                _make_finding(finding_id="f-med", severity="medium"),
-                _make_finding(finding_id="f-info", severity="info"),
-            ])
 
             result = auto.on_run_complete(gauntlet_result)
 
@@ -207,13 +213,10 @@ class TestRateLimiting:
     def test_rate_limit_caps_at_max(self):
         """Should cap at max_goals_per_run goals."""
         with _patch_queue():
-            auto = GauntletAutoImprove(
-                enabled=True, max_goals_per_run=3, cooldown_seconds=0
+            auto = GauntletAutoImprove(enabled=True, max_goals_per_run=3, cooldown_seconds=0)
+            gauntlet_result = _make_result_with_findings(
+                [_make_finding(finding_id=f"f-{i}", severity="critical") for i in range(8)]
             )
-            gauntlet_result = _make_result_with_findings([
-                _make_finding(finding_id=f"f-{i}", severity="critical")
-                for i in range(8)
-            ])
 
             result = auto.on_run_complete(gauntlet_result)
 
@@ -227,10 +230,9 @@ class TestRateLimiting:
         """Default max_goals_per_run should be 5."""
         with _patch_queue():
             auto = GauntletAutoImprove(enabled=True, cooldown_seconds=0)
-            gauntlet_result = _make_result_with_findings([
-                _make_finding(finding_id=f"f-{i}", severity="high")
-                for i in range(12)
-            ])
+            gauntlet_result = _make_result_with_findings(
+                [_make_finding(finding_id=f"f-{i}", severity="high") for i in range(12)]
+            )
 
             result = auto.on_run_complete(gauntlet_result)
 
@@ -292,15 +294,15 @@ class TestDeduplication:
     def test_new_findings_still_queued_after_dedup(self):
         """New findings should still be queued even when some are duplicates."""
         with _patch_queue():
-            auto = GauntletAutoImprove(
-                enabled=True, max_goals_per_run=10, cooldown_seconds=0
-            )
+            auto = GauntletAutoImprove(enabled=True, max_goals_per_run=10, cooldown_seconds=0)
 
             # First run
             result1 = auto.on_run_complete(
-                _make_result_with_findings([
-                    _make_finding(finding_id="f-1", severity="critical"),
-                ])
+                _make_result_with_findings(
+                    [
+                        _make_finding(finding_id="f-1", severity="critical"),
+                    ]
+                )
             )
             assert result1.goals_queued == 1
 
@@ -364,9 +366,11 @@ class TestCooldown:
 
             # Two rapid triggers should both work
             result1 = auto.on_run_complete(
-                _make_result_with_findings([
-                    _make_finding(finding_id="f-1", severity="critical"),
-                ])
+                _make_result_with_findings(
+                    [
+                        _make_finding(finding_id="f-1", severity="critical"),
+                    ]
+                )
             )
             result2 = auto.on_run_complete(
                 _make_result_with_findings(
@@ -425,17 +429,17 @@ class TestGoalDescriptions:
     def test_goal_descriptions_populated(self):
         """Goal descriptions should be captured in the result."""
         with _patch_queue():
-            auto = GauntletAutoImprove(
-                enabled=True, max_goals_per_run=10, cooldown_seconds=0
+            auto = GauntletAutoImprove(enabled=True, max_goals_per_run=10, cooldown_seconds=0)
+            gauntlet_result = _make_result_with_findings(
+                [
+                    _make_finding(
+                        finding_id="f-1",
+                        severity="critical",
+                        description="XSS in admin panel",
+                        category="security",
+                    ),
+                ]
             )
-            gauntlet_result = _make_result_with_findings([
-                _make_finding(
-                    finding_id="f-1",
-                    severity="critical",
-                    description="XSS in admin panel",
-                    category="security",
-                ),
-            ])
 
             result = auto.on_run_complete(gauntlet_result)
 

@@ -443,18 +443,33 @@ class ShopifyConnector(EnterpriseConnector):
 
         for attempt in range(_MAX_RETRIES + 1):
             try:
-                async with self._session.request(method, url, params=params, json=json_data) as resp:
+                async with self._session.request(
+                    method, url, params=params, json=json_data
+                ) as resp:
                     if resp.status == 429 and attempt < _MAX_RETRIES:
-                        retry_after = float(resp.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                        retry_after = float(
+                            resp.headers.get("Retry-After", _BASE_DELAY * (2**attempt))
+                        )
                         jitter = random.uniform(0, retry_after * 0.3)
                         delay = min(retry_after + jitter, _MAX_DELAY)
-                        logger.warning("Shopify rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                        logger.warning(
+                            "Shopify rate limited, retrying in %.1fs (attempt %d/%d)",
+                            delay,
+                            attempt + 1,
+                            _MAX_RETRIES,
+                        )
                         await asyncio.sleep(delay)
                         continue
 
                     if resp.status >= 500 and attempt < _MAX_RETRIES:
-                        delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                        logger.warning("Shopify server error %d, retrying in %.1fs (attempt %d/%d)", resp.status, delay, attempt + 1, _MAX_RETRIES)
+                        delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                        logger.warning(
+                            "Shopify server error %d, retrying in %.1fs (attempt %d/%d)",
+                            resp.status,
+                            delay,
+                            attempt + 1,
+                            _MAX_RETRIES,
+                        )
                         await asyncio.sleep(delay)
                         continue
 
@@ -473,15 +488,25 @@ class ShopifyConnector(EnterpriseConnector):
             except asyncio.TimeoutError as e:
                 last_error = e
                 if attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Shopify request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Shopify request timeout, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
             except OSError as e:
                 last_error = e
                 if attempt < _MAX_RETRIES:
-                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
-                    logger.warning("Shopify connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    delay = min(_BASE_DELAY * (2**attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning(
+                        "Shopify connection error, retrying in %.1fs (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        _MAX_RETRIES,
+                    )
                     await asyncio.sleep(delay)
                     continue
             except ConnectorAPIError:

@@ -27,6 +27,7 @@ class TestSLOStatus:
             assert result["summary"]["meeting"] == 5
             client.close()
 
+
 class TestAsyncSLO:
     """Tests for async SLO methods."""
 
@@ -39,4 +40,3 @@ class TestAsyncSLO:
             mock_request.assert_called_once_with("GET", "/api/v2/slo/status")
             assert result["status"] == "degraded"
             await client.close()
-

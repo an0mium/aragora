@@ -368,7 +368,8 @@ class ShipStationConnector(ProductionConnectorMixin):
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
         self._init_production_mixin(
-            connector_name="shipstation", request_timeout=30.0,
+            connector_name="shipstation",
+            request_timeout=30.0,
         )
         self._has_production_mixin = True
 
@@ -426,7 +427,8 @@ class ShipStationConnector(ProductionConnectorMixin):
         if self._has_production_mixin:
             try:
                 return await self._call_with_retry(
-                    _do_request, operation=f"{method}_{endpoint}",
+                    _do_request,
+                    operation=f"{method}_{endpoint}",
                 )
             except httpx.HTTPError as e:
                 raise ShipStationError(f"HTTP error: {e}") from e

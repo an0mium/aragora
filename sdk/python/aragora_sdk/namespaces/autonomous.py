@@ -438,9 +438,7 @@ class AutonomousAPI:
         params: dict[str, Any] = {"hours": hours}
         if metric_name:
             params["metric_name"] = metric_name
-        return self._client.request(
-            "GET", "/api/v1/autonomous/monitoring/anomalies", params=params
-        )
+        return self._client.request("GET", "/api/v1/autonomous/monitoring/anomalies", params=params)
 
     def list_monitoring_baselines(self) -> dict[str, Any]:
         """
@@ -465,9 +463,7 @@ class AutonomousAPI:
         Returns:
             Dict with baseline stats (mean, stdev, min, max, median)
         """
-        return self._client.request(
-            "GET", f"/api/v1/autonomous/monitoring/baseline/{metric_name}"
-        )
+        return self._client.request("GET", f"/api/v1/autonomous/monitoring/baseline/{metric_name}")
 
     def get_monitoring_circuit_breaker(self) -> dict[str, Any]:
         """
@@ -720,7 +716,4 @@ class AsyncAutonomousAPI:
 
     async def get_monitoring_circuit_breaker(self) -> dict[str, Any]:
         """Get circuit breaker status. GET /api/v1/autonomous/monitoring/circuit-breaker"""
-        return await self._client.request(
-            "GET", "/api/v1/autonomous/monitoring/circuit-breaker"
-        )
-
+        return await self._client.request("GET", "/api/v1/autonomous/monitoring/circuit-breaker")

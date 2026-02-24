@@ -109,9 +109,7 @@ class AsyncFlipsAPI:
         params: dict[str, Any] = {}
         if period:
             params["period"] = period
-        return await self._client.request(
-            "GET", "/api/v1/flips/summary", params=params or None
-        )
+        return await self._client.request("GET", "/api/v1/flips/summary", params=params or None)
 
     async def get(self, flip_id: str) -> dict[str, Any]:
         """Get details for a specific flip event."""

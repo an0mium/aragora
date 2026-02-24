@@ -106,7 +106,9 @@ class SMEAPI:
 
     def update_slack_workspace(self, workspace_id: str, **kwargs: Any) -> dict[str, Any]:
         """Update a Slack workspace."""
-        return self._client.request("PATCH", f"/api/v1/sme/slack/workspaces/{workspace_id}", json=kwargs)
+        return self._client.request(
+            "PATCH", f"/api/v1/sme/slack/workspaces/{workspace_id}", json=kwargs
+        )
 
     def delete_slack_workspace(self, workspace_id: str) -> dict[str, Any]:
         """Delete a Slack workspace integration."""
@@ -151,7 +153,8 @@ class SMEAPI:
     def get_delivery_history(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
         """Get receipt delivery history."""
         return self._client.request(
-            "GET", "/api/sme/receipts/delivery/history",
+            "GET",
+            "/api/sme/receipts/delivery/history",
             params={"limit": limit, "offset": offset},
         )
 
@@ -239,7 +242,9 @@ class SMEAPI:
         """List SME-specific pre-built workflows."""
         return self._client.request("GET", "/api/sme/workflows")
 
-    def execute_workflow(self, workflow_name: str, inputs: dict[str, Any] | None = None) -> dict[str, Any]:
+    def execute_workflow(
+        self, workflow_name: str, inputs: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         Execute an SME workflow by name.
 
@@ -401,7 +406,9 @@ class AsyncSMEAPI:
 
     async def delete_slack_subscription(self, subscription_id: str) -> dict[str, Any]:
         """Delete a Slack subscription."""
-        return await self._client.request("DELETE", f"/api/v1/sme/slack/subscriptions/{subscription_id}")
+        return await self._client.request(
+            "DELETE", f"/api/v1/sme/slack/subscriptions/{subscription_id}"
+        )
 
     async def list_slack_workspaces(self) -> dict[str, Any]:
         """List Slack workspaces."""
@@ -417,7 +424,9 @@ class AsyncSMEAPI:
 
     async def update_slack_workspace(self, workspace_id: str, **kwargs: Any) -> dict[str, Any]:
         """Update a Slack workspace."""
-        return await self._client.request("PATCH", f"/api/v1/sme/slack/workspaces/{workspace_id}", json=kwargs)
+        return await self._client.request(
+            "PATCH", f"/api/v1/sme/slack/workspaces/{workspace_id}", json=kwargs
+        )
 
     async def delete_slack_workspace(self, workspace_id: str) -> dict[str, Any]:
         """Delete a Slack workspace integration."""
@@ -425,11 +434,15 @@ class AsyncSMEAPI:
 
     async def list_slack_channels(self, workspace_id: str) -> dict[str, Any]:
         """List channels in a Slack workspace."""
-        return await self._client.request("GET", f"/api/v1/sme/slack/workspaces/{workspace_id}/channels")
+        return await self._client.request(
+            "GET", f"/api/v1/sme/slack/workspaces/{workspace_id}/channels"
+        )
 
     async def test_slack_workspace(self, workspace_id: str) -> dict[str, Any]:
         """Test a Slack workspace connection."""
-        return await self._client.request("POST", f"/api/v1/sme/slack/workspaces/{workspace_id}/test")
+        return await self._client.request(
+            "POST", f"/api/v1/sme/slack/workspaces/{workspace_id}/test"
+        )
 
     # ===========================================================================
     # Budget Check
@@ -454,7 +467,8 @@ class AsyncSMEAPI:
     async def get_delivery_history(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
         """Get receipt delivery history."""
         return await self._client.request(
-            "GET", "/api/sme/receipts/delivery/history",
+            "GET",
+            "/api/sme/receipts/delivery/history",
             params={"limit": limit, "offset": offset},
         )
 
@@ -539,7 +553,9 @@ class AsyncSMEAPI:
         """List SME-specific pre-built workflows."""
         return await self._client.request("GET", "/api/sme/workflows")
 
-    async def execute_workflow(self, workflow_name: str, inputs: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def execute_workflow(
+        self, workflow_name: str, inputs: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Execute an SME workflow by name."""
         data: dict[str, Any] = {"workflow": workflow_name}
         if inputs:

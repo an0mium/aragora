@@ -21,6 +21,7 @@ PerformancePeriod = Literal["7d", "30d", "90d", "all"]
 MoverPeriod = Literal["24h", "7d", "30d"]
 MoverDirection = Literal["up", "down", "both"]
 
+
 class LeaderboardAPI:
     """
     Synchronous Leaderboard API.
@@ -79,6 +80,7 @@ class LeaderboardAPI:
         """
         return self._client.request("GET", "/api/leaderboard-view")
 
+
 class AsyncLeaderboardAPI:
     """
     Asynchronous Leaderboard API.
@@ -113,4 +115,3 @@ class AsyncLeaderboardAPI:
     async def get_view(self) -> dict[str, Any]:
         """Get full leaderboard view."""
         return await self._client.request("GET", "/api/leaderboard-view")
-

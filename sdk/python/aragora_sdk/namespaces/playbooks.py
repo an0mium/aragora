@@ -87,4 +87,6 @@ class AsyncPlaybooksAPI:
 
     async def run(self, playbook_id: str, **kwargs: Any) -> dict[str, Any]:
         """Execute a playbook."""
-        return await self._client.request("POST", f"/api/v1/playbooks/{playbook_id}/run", json=kwargs)
+        return await self._client.request(
+            "POST", f"/api/v1/playbooks/{playbook_id}/run", json=kwargs
+        )

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 _List = list  # Preserve builtin list for type annotations
 
+
 class RankingAPI:
     """Synchronous Ranking API for agent performance rankings."""
 
@@ -118,6 +119,7 @@ class RankingAPI:
             params["domain"] = domain
         return self._client.request("GET", "/api/v1/leaderboard", params=params)
 
+
 class AsyncRankingAPI:
     """Asynchronous Ranking API for agent performance rankings."""
 
@@ -176,4 +178,3 @@ class AsyncRankingAPI:
         if domain:
             params["domain"] = domain
         return await self._client.request("GET", "/api/v1/leaderboard", params=params)
-

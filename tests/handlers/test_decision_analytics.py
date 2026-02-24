@@ -92,9 +92,7 @@ class MockAgentLeaderboardEntry:
 class MockQualityDataPoint:
     """Mock QualityDataPoint from outcome_analytics."""
 
-    timestamp: datetime = field(
-        default_factory=lambda: datetime(2026, 2, 1, tzinfo=timezone.utc)
-    )
+    timestamp: datetime = field(default_factory=lambda: datetime(2026, 2, 1, tzinfo=timezone.utc))
     consensus_rate: float = 0.82
     avg_confidence: float = 0.80
     avg_rounds: float = 3.1
@@ -595,7 +593,9 @@ class TestErrorHandling:
         ):
             request = FakeRequest()
             response = await handler.handle_get_overview(request)
-            body_text = response.body.decode() if isinstance(response.body, bytes) else str(response.body)
+            body_text = (
+                response.body.decode() if isinstance(response.body, bytes) else str(response.body)
+            )
             assert "secret details here" not in body_text
             assert response.status == 500
 

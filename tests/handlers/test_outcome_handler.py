@@ -209,9 +209,7 @@ class TestRecordOutcome:
                 "impact_score": 0.5,
             }
         )
-        with patch(
-            "aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter"
-        ) as m:
+        with patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter") as m:
             m.return_value = MagicMock(ingest=MagicMock())
             handler.handle_post("/api/v1/decisions/dec_store/outcome", {}, http)
 
@@ -232,9 +230,7 @@ class TestRecordOutcome:
                 "tags": ["strategy", "q1"],
             }
         )
-        with patch(
-            "aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter"
-        ) as m:
+        with patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter") as m:
             m.return_value = MagicMock(ingest=MagicMock())
             result = handler.handle_post("/api/v1/decisions/dec_opt/outcome", {}, http)
 
@@ -386,9 +382,7 @@ class TestSearchOutcomes:
             "tags": [],
             "outcome_type": "failure",
         }
-        result = handler.handle(
-            "/api/v1/outcomes/search", {"type": "failure"}, MagicMock()
-        )
+        result = handler.handle("/api/v1/outcomes/search", {"type": "failure"}, MagicMock())
         body = _body(result)
         assert body["count"] == 1
 

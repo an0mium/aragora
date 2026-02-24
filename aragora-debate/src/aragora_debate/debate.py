@@ -107,9 +107,7 @@ class Debate:
             If fewer than 2 agents have been added.
         """
         if len(self._agents) < 2:
-            raise ValueError(
-                f"A debate requires at least 2 agents, got {len(self._agents)}"
-            )
+            raise ValueError(f"A debate requires at least 2 agents, got {len(self._agents)}")
 
         arena = Arena(
             question=self.topic,

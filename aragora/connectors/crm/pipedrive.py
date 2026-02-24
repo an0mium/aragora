@@ -723,7 +723,8 @@ class PipedriveClient:
                 if response.status_code == 429 or response.status_code >= 500:
                     if attempt < self._MAX_RETRIES:
                         delay = min(
-                            self._BASE_DELAY * (2 ** attempt), self._MAX_DELAY,
+                            self._BASE_DELAY * (2**attempt),
+                            self._MAX_DELAY,
                         )
                         jitter = delay * 0.3 * random.random()
                         retry_after = response.headers.get("Retry-After")
@@ -733,8 +734,7 @@ class PipedriveClient:
                             except (ValueError, TypeError):
                                 pass
                         logger.warning(
-                            "Pipedrive %s %s returned %d, retrying in %.1fs "
-                            "(attempt %d/%d)",
+                            "Pipedrive %s %s returned %d, retrying in %.1fs (attempt %d/%d)",
                             method,
                             endpoint,
                             response.status_code,
@@ -749,7 +749,8 @@ class PipedriveClient:
                     error_data = response.json() if response.content else {}
                     raise PipedriveError(
                         message=error_data.get(
-                            "error", f"HTTP {response.status_code}",
+                            "error",
+                            f"HTTP {response.status_code}",
                         ),
                         status_code=response.status_code,
                         error_code=error_data.get("error_code"),
@@ -774,12 +775,12 @@ class PipedriveClient:
                 last_exc = e
                 if attempt < self._MAX_RETRIES:
                     delay = min(
-                        self._BASE_DELAY * (2 ** attempt), self._MAX_DELAY,
+                        self._BASE_DELAY * (2**attempt),
+                        self._MAX_DELAY,
                     )
                     jitter = delay * 0.3 * random.random()
                     logger.warning(
-                        "Pipedrive %s %s network error: %s, retrying in "
-                        "%.1fs (attempt %d/%d)",
+                        "Pipedrive %s %s network error: %s, retrying in %.1fs (attempt %d/%d)",
                         method,
                         endpoint,
                         type(e).__name__,
@@ -790,8 +791,7 @@ class PipedriveClient:
                     await asyncio.sleep(delay + jitter)
                     continue
                 raise PipedriveError(
-                    f"Network error after {self._MAX_RETRIES} retries: "
-                    f"{type(e).__name__}",
+                    f"Network error after {self._MAX_RETRIES} retries: {type(e).__name__}",
                 ) from e
 
         raise PipedriveError(

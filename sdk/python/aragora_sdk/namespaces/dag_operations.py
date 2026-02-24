@@ -39,13 +39,15 @@ class DAGOperationsAPI:
     def decompose_node(self, graph_id: str, node_id: str) -> dict[str, Any]:
         """Decompose a node into child nodes."""
         return self._client.request(
-            "POST", f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/decompose",
+            "POST",
+            f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/decompose",
         )
 
     def prioritize_node(self, graph_id: str, node_id: str) -> dict[str, Any]:
         """Prioritize children for a node."""
         return self._client.request(
-            "POST", f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/prioritize",
+            "POST",
+            f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/prioritize",
         )
 
     def assign_agents(
@@ -66,13 +68,15 @@ class DAGOperationsAPI:
                 json=payload,
             )
         return self._client.request(
-            "POST", f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents",
+            "POST",
+            f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents",
         )
 
     def execute_node(self, graph_id: str, node_id: str) -> dict[str, Any]:
         """Execute a node."""
         return self._client.request(
-            "POST", f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/execute",
+            "POST",
+            f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/execute",
         )
 
     def find_precedents(
@@ -152,13 +156,15 @@ class AsyncDAGOperationsAPI:
     async def decompose_node(self, graph_id: str, node_id: str) -> dict[str, Any]:
         """Decompose a node into child nodes."""
         return await self._client.request(
-            "POST", f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/decompose",
+            "POST",
+            f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/decompose",
         )
 
     async def prioritize_node(self, graph_id: str, node_id: str) -> dict[str, Any]:
         """Prioritize children for a node."""
         return await self._client.request(
-            "POST", f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/prioritize",
+            "POST",
+            f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/prioritize",
         )
 
     async def assign_agents(
@@ -179,13 +185,15 @@ class AsyncDAGOperationsAPI:
                 json=payload,
             )
         return await self._client.request(
-            "POST", f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents",
+            "POST",
+            f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents",
         )
 
     async def execute_node(self, graph_id: str, node_id: str) -> dict[str, Any]:
         """Execute a node."""
         return await self._client.request(
-            "POST", f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/execute",
+            "POST",
+            f"/api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/execute",
         )
 
     async def find_precedents(

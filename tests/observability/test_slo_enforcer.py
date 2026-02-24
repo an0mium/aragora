@@ -89,9 +89,7 @@ class TestSLOEnforcerRecordRequest:
 
         # Record a request and manually backdate it
         enforcer.record_request(latency_ms=10.0, success=True)
-        enforcer._requests[0]["timestamp"] = datetime.now(timezone.utc) - timedelta(
-            seconds=120
-        )
+        enforcer._requests[0]["timestamp"] = datetime.now(timezone.utc) - timedelta(seconds=120)
 
         # Record a new request - this triggers pruning
         enforcer.record_request(latency_ms=20.0, success=True)
@@ -446,9 +444,7 @@ class TestSLOEnforcerErrorBudget:
             enforcer.record_request(latency_ms=50.0, success=False)
 
         budget = enforcer.get_error_budget()
-        error_budget = next(
-            b for b in budget["budgets"] if b["slo_id"] == "error_rate"
-        )
+        error_budget = next(b for b in budget["budgets"] if b["slo_id"] == "error_rate")
         assert error_budget["error_budget_consumed_pct"] > 0
         assert error_budget["burn_rate"] > 1.0
 
@@ -459,9 +455,7 @@ class TestSLOEnforcerErrorBudget:
             enforcer.record_request(latency_ms=800.0, success=True)
 
         budget = enforcer.get_error_budget()
-        p95_budget = next(
-            b for b in budget["budgets"] if b["slo_id"] == "latency_p95"
-        )
+        p95_budget = next(b for b in budget["budgets"] if b["slo_id"] == "latency_p95")
         assert p95_budget["error_budget_consumed_pct"] > 0
 
     def test_budget_ids(self):

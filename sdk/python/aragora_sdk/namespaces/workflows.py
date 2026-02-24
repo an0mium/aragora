@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 _List = list  # Preserve builtin list for type annotations
 
+
 class WorkflowsAPI:
     """
     Synchronous Workflows API.
@@ -395,9 +396,7 @@ class WorkflowsAPI:
             params["workflow_id"] = workflow_id
         if tenant_id:
             params["tenant_id"] = tenant_id
-        return self._client.request(
-            "GET", "/api/v1/workflow-approvals", params=params or None
-        )
+        return self._client.request("GET", "/api/v1/workflow-approvals", params=params or None)
 
     def resolve_approval(
         self,
@@ -637,9 +636,7 @@ class AsyncWorkflowsAPI:
 
     async def get_workflow_template(self, template_id: str) -> dict[str, Any]:
         """Get a workflow template by ID. GET /api/v1/workflows/templates/:template_id"""
-        return await self._client.request(
-            "GET", f"/api/v1/workflows/templates/{template_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/workflows/templates/{template_id}")
 
     async def list_workflow_executions(
         self,
@@ -652,15 +649,11 @@ class AsyncWorkflowsAPI:
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if workflow_id:
             params["workflow_id"] = workflow_id
-        return await self._client.request(
-            "GET", "/api/v1/workflows/executions", params=params
-        )
+        return await self._client.request("GET", "/api/v1/workflows/executions", params=params)
 
     async def get_workflow_execution(self, execution_id: str) -> dict[str, Any]:
         """Get a workflow execution. GET /api/v1/workflows/executions/:execution_id"""
-        return await self._client.request(
-            "GET", f"/api/v1/workflows/executions/{execution_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/workflows/executions/{execution_id}")
 
     async def execute(
         self,
@@ -713,9 +706,7 @@ class AsyncWorkflowsAPI:
         Returns:
             Dict with execution status or a no_executions indicator.
         """
-        return await self._client.request(
-            "GET", f"/api/v1/workflows/{workflow_id}/status"
-        )
+        return await self._client.request("GET", f"/api/v1/workflows/{workflow_id}/status")
 
     async def get_versions(self, workflow_id: str) -> dict[str, Any]:
         """Get workflow version history.
@@ -726,9 +717,7 @@ class AsyncWorkflowsAPI:
         Returns:
             Dict with version list and workflow_id.
         """
-        return await self._client.request(
-            "GET", f"/api/v1/workflows/{workflow_id}/versions"
-        )
+        return await self._client.request("GET", f"/api/v1/workflows/{workflow_id}/versions")
 
     async def restore_version(
         self,
@@ -805,9 +794,7 @@ class AsyncWorkflowsAPI:
 
     async def run_template(self, template_id: str) -> dict[str, Any]:
         """Run a workflow template."""
-        return await self._client.request(
-            "POST", f"/api/v1/workflow/templates/{template_id}/run"
-        )
+        return await self._client.request("POST", f"/api/v1/workflow/templates/{template_id}/run")
 
     # =========================================================================
     # Generation & Validation

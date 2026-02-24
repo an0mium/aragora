@@ -1,12 +1,14 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
+
 @dataclass
 class TopicSpec:
     """
     A structured data contract for a debate topic to ensure clarity and
     prevent low-quality outputs from ambiguous prompts.
     """
+
     # The clear, concise title of the debate.
     title: str
 

@@ -231,8 +231,8 @@ class SpendAnalytics:
                 for usage in self._cost_tracker._usage_buffer:
                     if usage.workspace_id != workspace_id:
                         continue
-                    by_provider[usage.provider] = (
-                        by_provider.get(usage.provider, 0.0) + float(usage.cost_usd)
+                    by_provider[usage.provider] = by_provider.get(usage.provider, 0.0) + float(
+                        usage.cost_usd
                     )
 
         return by_provider
@@ -275,9 +275,7 @@ class SpendAnalytics:
                     if usage.workspace_id != workspace_id:
                         continue
                     model_key = usage.model or "unknown"
-                    by_model[model_key] = by_model.get(model_key, 0.0) + float(
-                        usage.cost_usd
-                    )
+                    by_model[model_key] = by_model.get(model_key, 0.0) + float(usage.cost_usd)
 
         return by_model
 
@@ -368,15 +366,11 @@ class SpendAnalytics:
 
         monthly_limit = float(budget.monthly_limit_usd) if budget.monthly_limit_usd else 0.0
         monthly_spend = (
-            float(budget.current_monthly_spend)
-            if hasattr(budget, "current_monthly_spend")
-            else 0.0
+            float(budget.current_monthly_spend) if hasattr(budget, "current_monthly_spend") else 0.0
         )
         daily_limit = float(budget.daily_limit_usd) if budget.daily_limit_usd else None
         daily_spend = (
-            float(budget.current_daily_spend)
-            if hasattr(budget, "current_daily_spend")
-            else 0.0
+            float(budget.current_daily_spend) if hasattr(budget, "current_daily_spend") else 0.0
         )
 
         result["budget_usd"] = monthly_limit
@@ -388,9 +382,7 @@ class SpendAnalytics:
         result["daily_budget_usd"] = daily_limit
         result["daily_spent_usd"] = round(daily_spend, 4)
         result["daily_utilization_pct"] = (
-            round(daily_spend / daily_limit * 100, 1)
-            if daily_limit and daily_limit > 0
-            else 0.0
+            round(daily_spend / daily_limit * 100, 1) if daily_limit and daily_limit > 0 else 0.0
         )
 
         return result

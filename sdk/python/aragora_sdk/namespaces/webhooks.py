@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 _List = list  # Preserve builtin list for type annotations
 
+
 class WebhooksAPI:
     """
     Synchronous Webhooks API.
@@ -206,7 +207,9 @@ class AsyncWebhooksAPI:
 
     async def bulk_create(self, webhooks: _List[dict[str, Any]]) -> dict[str, Any]:
         """Create multiple webhooks in bulk."""
-        return await self._client.request("POST", "/api/v1/webhooks/bulk", json={"webhooks": webhooks})
+        return await self._client.request(
+            "POST", "/api/v1/webhooks/bulk", json={"webhooks": webhooks}
+        )
 
     async def pause_all(self) -> dict[str, Any]:
         """Pause all webhooks."""

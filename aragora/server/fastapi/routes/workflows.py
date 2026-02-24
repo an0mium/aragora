@@ -277,15 +277,21 @@ def _workflow_to_detail(wf: Any) -> WorkflowDetail:
         nodes = []
         for n in wf.get("nodes", []):
             if isinstance(n, dict):
-                nodes.append(WorkflowNodeDetail(**{k: n[k] for k in n if k in WorkflowNodeDetail.model_fields}))
+                nodes.append(
+                    WorkflowNodeDetail(
+                        **{k: n[k] for k in n if k in WorkflowNodeDetail.model_fields}
+                    )
+                )
             else:
-                nodes.append(WorkflowNodeDetail(
-                    id=getattr(n, "id", ""),
-                    type=getattr(n, "type", ""),
-                    name=getattr(n, "name", ""),
-                    status=getattr(n, "status", "pending"),
-                    config=getattr(n, "config", {}),
-                ))
+                nodes.append(
+                    WorkflowNodeDetail(
+                        id=getattr(n, "id", ""),
+                        type=getattr(n, "type", ""),
+                        name=getattr(n, "name", ""),
+                        status=getattr(n, "status", "pending"),
+                        config=getattr(n, "config", {}),
+                    )
+                )
 
         return WorkflowDetail(
             id=wf.get("id", wf.get("workflow_id", "")),
@@ -307,15 +313,19 @@ def _workflow_to_detail(wf: Any) -> WorkflowDetail:
     nodes = []
     for n in getattr(wf, "nodes", []):
         if isinstance(n, dict):
-            nodes.append(WorkflowNodeDetail(**{k: n[k] for k in n if k in WorkflowNodeDetail.model_fields}))
+            nodes.append(
+                WorkflowNodeDetail(**{k: n[k] for k in n if k in WorkflowNodeDetail.model_fields})
+            )
         else:
-            nodes.append(WorkflowNodeDetail(
-                id=getattr(n, "id", ""),
-                type=getattr(n, "type", ""),
-                name=getattr(n, "name", ""),
-                status=getattr(n, "status", "pending"),
-                config=getattr(n, "config", {}),
-            ))
+            nodes.append(
+                WorkflowNodeDetail(
+                    id=getattr(n, "id", ""),
+                    type=getattr(n, "type", ""),
+                    name=getattr(n, "name", ""),
+                    status=getattr(n, "status", "pending"),
+                    config=getattr(n, "config", {}),
+                )
+            )
 
     return WorkflowDetail(
         id=getattr(wf, "id", getattr(wf, "workflow_id", "")),
@@ -324,10 +334,7 @@ def _workflow_to_detail(wf: Any) -> WorkflowDetail:
         status=getattr(wf, "status", "pending"),
         template=getattr(wf, "template", None),
         nodes=nodes,
-        edges=[
-            e if isinstance(e, dict) else e.__dict__
-            for e in getattr(wf, "edges", [])
-        ],
+        edges=[e if isinstance(e, dict) else e.__dict__ for e in getattr(wf, "edges", [])],
         config=getattr(wf, "config", {}),
         created_at=str(getattr(wf, "created_at", "")) if hasattr(wf, "created_at") else None,
         updated_at=str(getattr(wf, "updated_at", "")) if hasattr(wf, "updated_at") else None,
@@ -368,11 +375,12 @@ async def list_workflows(
             all_wf = engine.list()
             if status:
                 all_wf = [
-                    w for w in all_wf
+                    w
+                    for w in all_wf
                     if (w.get("status") if isinstance(w, dict) else getattr(w, "status", ""))
                     == status
                 ]
-            workflows_raw = all_wf[offset: offset + limit]
+            workflows_raw = all_wf[offset : offset + limit]
 
         # Get total count
         if hasattr(engine, "count_workflows"):
@@ -409,21 +417,25 @@ async def list_workflow_templates(
             raw_templates = list_templates(category=category)
             for t in raw_templates:
                 if isinstance(t, dict):
-                    templates.append(TemplateSummary(
-                        name=t.get("name", t.get("id", "")),
-                        description=t.get("description", ""),
-                        category=t.get("category", ""),
-                        node_count=len(t.get("nodes", [])),
-                        tags=t.get("tags", []),
-                    ))
+                    templates.append(
+                        TemplateSummary(
+                            name=t.get("name", t.get("id", "")),
+                            description=t.get("description", ""),
+                            category=t.get("category", ""),
+                            node_count=len(t.get("nodes", [])),
+                            tags=t.get("tags", []),
+                        )
+                    )
                 else:
-                    templates.append(TemplateSummary(
-                        name=getattr(t, "name", getattr(t, "id", "")),
-                        description=getattr(t, "description", ""),
-                        category=getattr(t, "category", ""),
-                        node_count=len(getattr(t, "nodes", [])),
-                        tags=getattr(t, "tags", []),
-                    ))
+                    templates.append(
+                        TemplateSummary(
+                            name=getattr(t, "name", getattr(t, "id", "")),
+                            description=getattr(t, "description", ""),
+                            category=getattr(t, "category", ""),
+                            node_count=len(getattr(t, "nodes", [])),
+                            tags=getattr(t, "tags", []),
+                        )
+                    )
         except (ImportError, RuntimeError, ValueError, TypeError) as e:
             logger.debug("Workflow templates not available: %s", e)
 
@@ -640,12 +652,14 @@ async def get_workflow_status(
             status = wf.get("status", "pending")
             nodes = wf.get("nodes", [])
             completed = [
-                n.get("id", "") for n in nodes
+                n.get("id", "")
+                for n in nodes
                 if (n.get("status") if isinstance(n, dict) else getattr(n, "status", ""))
                 == "completed"
             ]
             failed = [
-                n.get("id", "") for n in nodes
+                n.get("id", "")
+                for n in nodes
                 if (n.get("status") if isinstance(n, dict) else getattr(n, "status", ""))
                 == "failed"
             ]
@@ -655,13 +669,9 @@ async def get_workflow_status(
             status = getattr(wf, "status", "pending")
             nodes = getattr(wf, "nodes", [])
             completed = [
-                getattr(n, "id", "") for n in nodes
-                if getattr(n, "status", "") == "completed"
+                getattr(n, "id", "") for n in nodes if getattr(n, "status", "") == "completed"
             ]
-            failed = [
-                getattr(n, "id", "") for n in nodes
-                if getattr(n, "status", "") == "failed"
-            ]
+            failed = [getattr(n, "id", "") for n in nodes if getattr(n, "status", "") == "failed"]
             total_nodes = len(nodes)
             progress = len(completed) / total_nodes if total_nodes > 0 else 0.0
 
@@ -674,11 +684,13 @@ async def get_workflow_status(
                 break
 
         started_at = (
-            wf.get("started_at") if isinstance(wf, dict)
+            wf.get("started_at")
+            if isinstance(wf, dict)
             else (str(getattr(wf, "started_at", "")) if hasattr(wf, "started_at") else None)
         )
         completed_at = (
-            wf.get("completed_at") if isinstance(wf, dict)
+            wf.get("completed_at")
+            if isinstance(wf, dict)
             else (str(getattr(wf, "completed_at", "")) if hasattr(wf, "completed_at") else None)
         )
 
@@ -706,9 +718,7 @@ async def get_workflow_status(
 # =============================================================================
 
 
-@router.get(
-    "/workflows/{workflow_id}/history", response_model=WorkflowHistoryResponse
-)
+@router.get("/workflows/{workflow_id}/history", response_model=WorkflowHistoryResponse)
 async def get_workflow_history(
     workflow_id: str,
     limit: int = Query(20, ge=1, le=100, description="Max entries to return"),
@@ -742,29 +752,33 @@ async def get_workflow_history(
 
         for entry in raw_history:
             if isinstance(entry, dict):
-                executions.append(HistoryEntry(
-                    execution_id=entry.get("execution_id", entry.get("id", "")),
-                    status=entry.get("status", "completed"),
-                    started_at=entry.get("started_at"),
-                    completed_at=entry.get("completed_at"),
-                    duration_seconds=entry.get("duration_seconds", 0.0),
-                    result=entry.get("result"),
-                    error=entry.get("error"),
-                ))
+                executions.append(
+                    HistoryEntry(
+                        execution_id=entry.get("execution_id", entry.get("id", "")),
+                        status=entry.get("status", "completed"),
+                        started_at=entry.get("started_at"),
+                        completed_at=entry.get("completed_at"),
+                        duration_seconds=entry.get("duration_seconds", 0.0),
+                        result=entry.get("result"),
+                        error=entry.get("error"),
+                    )
+                )
             else:
-                executions.append(HistoryEntry(
-                    execution_id=getattr(
-                        entry, "execution_id", getattr(entry, "id", "")
-                    ),
-                    status=getattr(entry, "status", "completed"),
-                    started_at=str(getattr(entry, "started_at", ""))
-                    if hasattr(entry, "started_at") else None,
-                    completed_at=str(getattr(entry, "completed_at", ""))
-                    if hasattr(entry, "completed_at") else None,
-                    duration_seconds=getattr(entry, "duration_seconds", 0.0),
-                    result=getattr(entry, "result", None),
-                    error=getattr(entry, "error", None),
-                ))
+                executions.append(
+                    HistoryEntry(
+                        execution_id=getattr(entry, "execution_id", getattr(entry, "id", "")),
+                        status=getattr(entry, "status", "completed"),
+                        started_at=str(getattr(entry, "started_at", ""))
+                        if hasattr(entry, "started_at")
+                        else None,
+                        completed_at=str(getattr(entry, "completed_at", ""))
+                        if hasattr(entry, "completed_at")
+                        else None,
+                        duration_seconds=getattr(entry, "duration_seconds", 0.0),
+                        result=getattr(entry, "result", None),
+                        error=getattr(entry, "error", None),
+                    )
+                )
 
         return WorkflowHistoryResponse(
             workflow_id=workflow_id,
@@ -775,17 +789,11 @@ async def get_workflow_history(
     except NotFoundError:
         raise
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception(
-            "Error getting workflow history %s: %s", workflow_id, e
-        )
-        raise HTTPException(
-            status_code=500, detail="Failed to get workflow history"
-        )
+        logger.exception("Error getting workflow history %s: %s", workflow_id, e)
+        raise HTTPException(status_code=500, detail="Failed to get workflow history")
 
 
-@router.post(
-    "/workflows/{workflow_id}/approve", response_model=ApproveStepResponse
-)
+@router.post("/workflows/{workflow_id}/approve", response_model=ApproveStepResponse)
 async def approve_workflow_step(
     workflow_id: str,
     body: ApproveStepRequest,
@@ -810,22 +818,16 @@ async def approve_workflow_step(
         # Try to approve the step
         approved = False
         if hasattr(engine, "approve_step"):
-            approved = engine.approve_step(
-                workflow_id, body.step_id, comment=body.comment
-            )
+            approved = engine.approve_step(workflow_id, body.step_id, comment=body.comment)
         elif hasattr(engine, "approve"):
-            approved = engine.approve(
-                workflow_id, body.step_id, comment=body.comment
-            )
+            approved = engine.approve(workflow_id, body.step_id, comment=body.comment)
         else:
             raise HTTPException(
                 status_code=501,
                 detail="Workflow engine does not support step approval",
             )
 
-        logger.info(
-            "Approved step %s in workflow %s", body.step_id, workflow_id
-        )
+        logger.info("Approved step %s in workflow %s", body.step_id, workflow_id)
 
         return ApproveStepResponse(
             success=bool(approved),
@@ -845,6 +847,4 @@ async def approve_workflow_step(
             workflow_id,
             e,
         )
-        raise HTTPException(
-            status_code=500, detail="Failed to approve workflow step"
-        )
+        raise HTTPException(status_code=500, detail="Failed to approve workflow step")

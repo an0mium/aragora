@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class AuthAPI:
     """
     Synchronous Auth API.
@@ -559,9 +560,7 @@ class AuthAPI:
         if state:
             params["state"] = state
 
-        return self._client.request(
-            "GET", "/api/auth/oauth/authorize", params=params
-        )
+        return self._client.request("GET", "/api/auth/oauth/authorize", params=params)
 
     def get_oauth_diagnostics(self) -> dict[str, Any]:
         """
@@ -594,9 +593,7 @@ class AuthAPI:
         if state:
             params["state"] = state
 
-        return self._client.request(
-            "GET", "/api/auth/oauth/callback", params=params
-        )
+        return self._client.request("GET", "/api/auth/oauth/callback", params=params)
 
     # ===========================================================================
     # Password (alternative endpoints)
@@ -659,9 +656,7 @@ class AuthAPI:
         if email:
             data["email"] = email
 
-        return self._client.request(
-            "POST", "/api/auth/resend-verification", json=data
-        )
+        return self._client.request("POST", "/api/auth/resend-verification", json=data)
 
     # ===========================================================================
     # Invitations (alternative endpoints)
@@ -726,9 +721,8 @@ class AuthAPI:
         if slug:
             data["slug"] = slug
 
-        return self._client.request(
-            "POST", "/api/auth/setup-organization", json=data
-        )
+        return self._client.request("POST", "/api/auth/setup-organization", json=data)
+
 
 class AsyncAuthAPI:
     """
@@ -1036,9 +1030,7 @@ class AsyncAuthAPI:
         if state:
             params["state"] = state
 
-        return await self._client.request(
-            "GET", "/api/auth/oauth/authorize", params=params
-        )
+        return await self._client.request("GET", "/api/auth/oauth/authorize", params=params)
 
     async def get_oauth_diagnostics(self) -> dict[str, Any]:
         """Get OAuth configuration diagnostics."""
@@ -1054,9 +1046,7 @@ class AsyncAuthAPI:
         if state:
             params["state"] = state
 
-        return await self._client.request(
-            "GET", "/api/auth/oauth/callback", params=params
-        )
+        return await self._client.request("GET", "/api/auth/oauth/callback", params=params)
 
     # ===========================================================================
     # Password (alternative endpoints)
@@ -1070,9 +1060,7 @@ class AsyncAuthAPI:
             json={"email": email},
         )
 
-    async def reset_password_alt(
-        self, token: str, new_password: str
-    ) -> dict[str, Any]:
+    async def reset_password_alt(self, token: str, new_password: str) -> dict[str, Any]:
         """Reset password via /api/auth/reset-password."""
         return await self._client.request(
             "POST",
@@ -1084,17 +1072,13 @@ class AsyncAuthAPI:
     # Verification (alternative endpoint)
     # ===========================================================================
 
-    async def resend_verification_alt(
-        self, email: str | None = None
-    ) -> dict[str, Any]:
+    async def resend_verification_alt(self, email: str | None = None) -> dict[str, Any]:
         """Resend email verification via /api/auth/resend-verification."""
         data: dict[str, Any] = {}
         if email:
             data["email"] = email
 
-        return await self._client.request(
-            "POST", "/api/auth/resend-verification", json=data
-        )
+        return await self._client.request("POST", "/api/auth/resend-verification", json=data)
 
     # ===========================================================================
     # Invitations (alternative endpoints)
@@ -1130,6 +1114,4 @@ class AsyncAuthAPI:
         if slug:
             data["slug"] = slug
 
-        return await self._client.request(
-            "POST", "/api/auth/setup-organization", json=data
-        )
+        return await self._client.request("POST", "/api/auth/setup-organization", json=data)

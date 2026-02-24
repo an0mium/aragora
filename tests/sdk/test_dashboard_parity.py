@@ -151,9 +151,8 @@ class TestDashboardContractParity:
         canonical = set(DASHBOARD_ENDPOINTS)
 
         missing = canonical - sdk_paths
-        assert not missing, (
-            f"Python SDK dashboard missing {len(missing)} endpoints:\n"
-            + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
+        assert not missing, f"Python SDK dashboard missing {len(missing)} endpoints:\n" + "\n".join(
+            f"  {m} {p}" for m, p in sorted(missing)
         )
 
     def test_typescript_sdk_covers_all_endpoints(self):

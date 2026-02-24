@@ -109,13 +109,21 @@ def evaluate_step(
     """Build a StepResult with pass/fail evaluation."""
     if duration < 0:
         return StepResult(
-            name=name, duration=-1.0, threshold=threshold,
-            passed=True, error=error, detail=detail,
+            name=name,
+            duration=-1.0,
+            threshold=threshold,
+            passed=True,
+            error=error,
+            detail=detail,
         )
     passed = (threshold <= 0) or (duration <= threshold)
     return StepResult(
-        name=name, duration=round(duration, 3), threshold=threshold,
-        passed=passed, error=error, detail=detail,
+        name=name,
+        duration=round(duration, 3),
+        threshold=threshold,
+        passed=passed,
+        error=error,
+        detail=detail,
     )
 
 
@@ -158,8 +166,13 @@ def measure_install_time() -> StepResult:
     try:
         result = subprocess.run(
             [
-                sys.executable, "-m", "pip", "install",
-                "--dry-run", "-e", f"{repo_root}[dev]",
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--dry-run",
+                "-e",
+                f"{repo_root}[dev]",
             ],
             capture_output=True,
             text=True,
@@ -184,9 +197,13 @@ def measure_install_time() -> StepResult:
 
     except subprocess.TimeoutExpired:
         elapsed = time.perf_counter() - t0
-        return evaluate_step("Dependencies Install", elapsed, THRESHOLDS["install"], error="timeout")
+        return evaluate_step(
+            "Dependencies Install", elapsed, THRESHOLDS["install"], error="timeout"
+        )
     except FileNotFoundError:
-        return evaluate_step("Dependencies Install", -1.0, THRESHOLDS["install"], error="pip not found")
+        return evaluate_step(
+            "Dependencies Install", -1.0, THRESHOLDS["install"], error="pip not found"
+        )
 
 
 def measure_import_time() -> StepResult:
@@ -213,7 +230,9 @@ def measure_import_time() -> StepResult:
     elapsed = time.perf_counter() - t0
     detail = f"imported {len(imported)}/{len(target_modules)} modules"
     error_str = "; ".join(errors) if errors else ""
-    return evaluate_step("Import aragora", elapsed, THRESHOLDS["import"], error=error_str, detail=detail)
+    return evaluate_step(
+        "Import aragora", elapsed, THRESHOLDS["import"], error=error_str, detail=detail
+    )
 
 
 def measure_first_debate() -> StepResult:
@@ -335,11 +354,17 @@ def measure_server_startup() -> StepResult:
     try:
         proc = subprocess.Popen(
             [
-                sys.executable, "-m", "aragora.cli.main",
-                "serve", "--demo",
-                "--api-port", str(http_port),
-                "--ws-port", str(ws_port),
-                "--host", "127.0.0.1",
+                sys.executable,
+                "-m",
+                "aragora.cli.main",
+                "serve",
+                "--demo",
+                "--api-port",
+                str(http_port),
+                "--ws-port",
+                str(ws_port),
+                "--host",
+                "127.0.0.1",
             ],
             env=env,
             cwd=str(repo_root),
@@ -365,18 +390,26 @@ def measure_server_startup() -> StepResult:
 
         elapsed = time.perf_counter() - t0
         if ready:
-            return evaluate_step("Server startup", elapsed, THRESHOLDS["server_startup"], detail="readyz=200")
+            return evaluate_step(
+                "Server startup", elapsed, THRESHOLDS["server_startup"], detail="readyz=200"
+            )
         return evaluate_step(
-            "Server startup", elapsed, THRESHOLDS["server_startup"],
+            "Server startup",
+            elapsed,
+            THRESHOLDS["server_startup"],
             error="server did not reach ready state within threshold",
         )
 
     except FileNotFoundError:
         elapsed = time.perf_counter() - t0
-        return evaluate_step("Server startup", elapsed, THRESHOLDS["server_startup"], error="could not start process")
+        return evaluate_step(
+            "Server startup", elapsed, THRESHOLDS["server_startup"], error="could not start process"
+        )
     except Exception as exc:
         elapsed = time.perf_counter() - t0
-        return evaluate_step("Server startup", elapsed, THRESHOLDS["server_startup"], error=str(exc))
+        return evaluate_step(
+            "Server startup", elapsed, THRESHOLDS["server_startup"], error=str(exc)
+        )
     finally:
         if proc is not None:
             proc.terminate()
@@ -437,7 +470,9 @@ def run_all_measurements() -> QuickstartReport:
     report.repo_size_mb = repo_mb
     report.steps.append(
         evaluate_step(
-            "Clone/Download", -1.0, THRESHOLDS["clone"],
+            "Clone/Download",
+            -1.0,
+            THRESHOLDS["clone"],
             detail=f"repo .git = {repo_mb:.1f} MB",
         )
     )

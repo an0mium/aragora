@@ -186,10 +186,7 @@ class DAGOperationsCoordinator:
         if node is None:
             return DAGOperationResult(success=False, message=f"Node {parent_id} not found")
 
-        children = [
-            n for n in self.graph.nodes.values()
-            if parent_id in n.parent_ids
-        ]
+        children = [n for n in self.graph.nodes.values() if parent_id in n.parent_ids]
         if not children:
             return DAGOperationResult(success=True, message="No children to prioritize")
 
@@ -328,14 +325,11 @@ class DAGOperationsCoordinator:
 
         # Determine target nodes
         if node_ids is not None:
-            targets = [
-                self.graph.nodes[nid]
-                for nid in node_ids
-                if nid in self.graph.nodes
-            ]
+            targets = [self.graph.nodes[nid] for nid in node_ids if nid in self.graph.nodes]
         else:
             targets = [
-                n for n in self.graph.nodes.values()
+                n
+                for n in self.graph.nodes.values()
                 if n.stage == PipelineStage.ORCHESTRATION
                 or n.data.get("orch_type") == "agent_task"
                 or n.data.get("orchType") == "agent_task"
@@ -379,14 +373,11 @@ class DAGOperationsCoordinator:
         """
         # Collect target nodes
         if node_ids is not None:
-            targets = [
-                self.graph.nodes[nid]
-                for nid in node_ids
-                if nid in self.graph.nodes
-            ]
+            targets = [self.graph.nodes[nid] for nid in node_ids if nid in self.graph.nodes]
         else:
             targets = [
-                n for n in self.graph.nodes.values()
+                n
+                for n in self.graph.nodes.values()
                 if n.stage == PipelineStage.ORCHESTRATION
                 or n.data.get("orch_type") == "agent_task"
                 or n.data.get("orchType") == "agent_task"
@@ -402,8 +393,7 @@ class DAGOperationsCoordinator:
 
         # Build structured prompt for the debate
         task_descriptions = "\n".join(
-            f"- T{i+1} ({n.id}): {n.label} — {n.description}"
-            for i, n in enumerate(targets)
+            f"- T{i + 1} ({n.id}): {n.label} — {n.description}" for i, n in enumerate(targets)
         )
         prompt = (
             f"Given the following tasks and available agents ({', '.join(agent_names)}), "
@@ -444,7 +434,7 @@ class DAGOperationsCoordinator:
             assignments: dict[str, list[str]] = {}
 
             for i, node in enumerate(targets):
-                tag = f"T{i+1}"
+                tag = f"T{i + 1}"
                 assigned: list[str] = []
                 for line in summary.split("\n"):
                     if tag in line and ":" in line:
@@ -714,10 +704,12 @@ class DAGOperationsCoordinator:
             precedents = []
             if results:
                 for r in results:
-                    precedents.append({
-                        "title": getattr(r, "title", str(r)),
-                        "similarity": getattr(r, "similarity", 0),
-                    })
+                    precedents.append(
+                        {
+                            "title": getattr(r, "title", str(r)),
+                            "similarity": getattr(r, "similarity", 0),
+                        }
+                    )
 
             node.metadata["precedents"] = precedents
             self._save()
@@ -866,11 +858,7 @@ class DAGOperationsCoordinator:
         if action_ids:
             await self.assign_agents(action_ids)
 
-        all_created = (
-            cluster_result.created_nodes
-            + goal_ids
-            + action_ids
-        )
+        all_created = cluster_result.created_nodes + goal_ids + action_ids
 
         self._save()
         return DAGOperationResult(

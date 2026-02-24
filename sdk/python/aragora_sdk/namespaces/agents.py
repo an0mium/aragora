@@ -307,7 +307,9 @@ class AgentsAPI:
 
     def compare_leaderboard(self, agent1: str, agent2: str) -> dict[str, Any]:
         """Compare two agents on the leaderboard."""
-        return self._client.request("GET", "/api/v1/leaderboard/compare", params={"agent1": agent1, "agent2": agent2})
+        return self._client.request(
+            "GET", "/api/v1/leaderboard/compare", params={"agent1": agent1, "agent2": agent2}
+        )
 
     def get_leaderboard_domains(self) -> dict[str, Any]:
         """Get leaderboard domain breakdown."""
@@ -594,7 +596,9 @@ class AsyncAgentsAPI:
 
     async def compare_leaderboard(self, agent1: str, agent2: str) -> dict[str, Any]:
         """Compare two agents on the leaderboard."""
-        return await self._client.request("GET", "/api/v1/leaderboard/compare", params={"agent1": agent1, "agent2": agent2})
+        return await self._client.request(
+            "GET", "/api/v1/leaderboard/compare", params={"agent1": agent1, "agent2": agent2}
+        )
 
     async def get_leaderboard_domains(self) -> dict[str, Any]:
         """Get leaderboard domain breakdown."""
@@ -602,7 +606,9 @@ class AsyncAgentsAPI:
 
     async def get_leaderboard_movers(self, period: str = "7d") -> dict[str, Any]:
         """Get biggest movers on the leaderboard."""
-        return await self._client.request("GET", "/api/v1/leaderboard/movers", params={"period": period})
+        return await self._client.request(
+            "GET", "/api/v1/leaderboard/movers", params={"period": period}
+        )
 
     # =========================================================================
     # Feedback & Recommendations

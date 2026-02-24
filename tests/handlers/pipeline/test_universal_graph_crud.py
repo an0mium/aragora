@@ -261,7 +261,10 @@ class TestListGraphs:
         h.handle("/api/v1/pipeline/graphs", {"owner_id": "user-1"}, http)
         patched_store.list.assert_called_once()
         call_kwargs = patched_store.list.call_args
-        assert call_kwargs.kwargs.get("owner_id") == "user-1" or call_kwargs[1].get("owner_id") == "user-1"
+        assert (
+            call_kwargs.kwargs.get("owner_id") == "user-1"
+            or call_kwargs[1].get("owner_id") == "user-1"
+        )
 
     def test_list_passes_workspace_filter(self, patched_store):
         patched_store.list.return_value = []
@@ -270,7 +273,10 @@ class TestListGraphs:
         h.handle("/api/v1/pipeline/graphs", {"workspace_id": "ws-42"}, http)
         patched_store.list.assert_called_once()
         call_kwargs = patched_store.list.call_args
-        assert call_kwargs.kwargs.get("workspace_id") == "ws-42" or call_kwargs[1].get("workspace_id") == "ws-42"
+        assert (
+            call_kwargs.kwargs.get("workspace_id") == "ws-42"
+            or call_kwargs[1].get("workspace_id") == "ws-42"
+        )
 
 
 # ===========================================================================
@@ -482,8 +488,10 @@ class TestAddNode:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        with patch("aragora.canvas.stages.PipelineStage") as MockStage, \
-             patch("aragora.pipeline.universal_node.UniversalNode") as MockNode:
+        with (
+            patch("aragora.canvas.stages.PipelineStage") as MockStage,
+            patch("aragora.pipeline.universal_node.UniversalNode") as MockNode,
+        ):
             MockStage.return_value = "ideas"
             mock_node = MagicMock()
             mock_node.to_dict.return_value = {"id": "node-new", "label": "New Node"}
@@ -520,9 +528,7 @@ class TestRemoveNode:
     def test_remove_node_success(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-1/nodes/node-1", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-1/nodes/node-1", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["deleted"] is True
@@ -532,9 +538,7 @@ class TestRemoveNode:
     def test_remove_node_invalid_node_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-1/nodes/<script>", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-1/nodes/<script>", {}, http)
         assert _status(result) == 400
 
 
@@ -637,9 +641,7 @@ class TestRemoveEdge:
         patched_store.get.return_value = None
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-1/edges/edge-1", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-1/edges/edge-1", {}, http)
         assert _status(result) == 404
 
     def test_remove_edge_success(self, patched_store):
@@ -648,9 +650,7 @@ class TestRemoveEdge:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-1/edges/edge-1", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-1/edges/edge-1", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["deleted"] is True
@@ -662,17 +662,13 @@ class TestRemoveEdge:
         patched_store.get.return_value = graph
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-1/edges/edge-1", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-1/edges/edge-1", {}, http)
         assert _status(result) == 404
 
     def test_remove_edge_invalid_edge_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_delete(
-            "/api/v1/pipeline/graphs/graph-1/edges/<bad>", {}, http
-        )
+        result = h.handle_delete("/api/v1/pipeline/graphs/graph-1/edges/<bad>", {}, http)
         assert _status(result) == 400
 
 
@@ -735,9 +731,7 @@ class TestProvenanceChain:
         patched_store.get_provenance_chain.return_value = []
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-1/provenance/node-1", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-1/provenance/node-1", {}, http)
         assert _status(result) == 200
         body = _body(result)
         assert body["chain"] == []
@@ -748,18 +742,14 @@ class TestProvenanceChain:
         patched_store.get_provenance_chain.return_value = [node]
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-1/provenance/node-1", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-1/provenance/node-1", {}, http)
         body = _body(result)
         assert body["depth"] == 1
 
     def test_provenance_invalid_node_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle(
-            "/api/v1/pipeline/graphs/graph-1/provenance/<bad>", {}, http
-        )
+        result = h.handle("/api/v1/pipeline/graphs/graph-1/provenance/<bad>", {}, http)
         assert _status(result) == 400
 
 
@@ -1088,9 +1078,7 @@ class TestExecuteNode:
         patched_store.get.return_value = None
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/graph-nope/execute/node-1", {}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/graph-nope/execute/node-1", {}, http)
         assert _status(result) == 404
 
     def test_execute_node_not_found(self, patched_store):
@@ -1116,9 +1104,7 @@ class TestExecuteNode:
             "aragora.pipeline.dag_operations.DAGOperationsCoordinator",
             side_effect=RuntimeError("execution failed"),
         ):
-            result = h.handle_post(
-                "/api/v1/pipeline/graphs/graph-abc123/execute/node-1", {}, http
-            )
+            result = h.handle_post("/api/v1/pipeline/graphs/graph-abc123/execute/node-1", {}, http)
         assert _status(result) == 500
 
     def test_execute_success(self, patched_store):
@@ -1160,17 +1146,13 @@ class TestExecuteNode:
     def test_execute_invalid_graph_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/../bad/execute/node-1", {}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/../bad/execute/node-1", {}, http)
         assert _status(result) == 400
 
     def test_execute_invalid_node_id(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/graph-abc123/execute/<script>", {}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/graph-abc123/execute/<script>", {}, http)
         assert _status(result) == 400
 
     def test_execute_passes_agents_and_rounds(self, patched_store):
@@ -1252,9 +1234,7 @@ class TestRoutingEdgeCases:
     def test_handle_post_unrecognized_sub_resource(self, patched_store):
         h = _make_handler()
         http = _make_http_handler()
-        result = h.handle_post(
-            "/api/v1/pipeline/graphs/graph-1/unknown", {}, http
-        )
+        result = h.handle_post("/api/v1/pipeline/graphs/graph-1/unknown", {}, http)
         assert result is None
 
     def test_handle_delete_too_short(self, patched_store):

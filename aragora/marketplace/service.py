@@ -129,7 +129,7 @@ class MarketplaceService:
             )
 
         total = len(items)
-        page = items[offset: offset + limit]
+        page = items[offset : offset + limit]
 
         return {
             "items": [self._enrich(i) for i in page],
@@ -167,9 +167,7 @@ class MarketplaceService:
         result = self._catalog.install_item(item_id)
         if result.success:
             self._user_installs.setdefault(user_id, set()).add(item_id)
-            logger.info(
-                "User %s installed marketplace item %s", user_id, item_id
-            )
+            logger.info("User %s installed marketplace item %s", user_id, item_id)
         return result
 
     def get_user_installs(self, user_id: str) -> list[str]:
@@ -255,12 +253,8 @@ class MarketplaceService:
         return {
             "total_items": self._catalog.item_count,
             "types": type_counts,
-            "total_ratings": sum(
-                len(rs) for rs in self._ratings.values()
-            ),
-            "total_installs": sum(
-                len(ids) for ids in self._user_installs.values()
-            ),
+            "total_ratings": sum(len(rs) for rs in self._ratings.values()),
+            "total_installs": sum(len(ids) for ids in self._user_installs.values()),
         }
 
     # ----- Internal ---------------------------------------------------------

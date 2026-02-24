@@ -111,9 +111,7 @@ class MockSloStatus:
     """Mock SLO status collection."""
 
     availability: MockSloResult = field(default_factory=MockSloResult)
-    latency_p99: MockSloResult = field(
-        default_factory=lambda: MockSloResult(name="latency_p99")
-    )
+    latency_p99: MockSloResult = field(default_factory=lambda: MockSloResult(name="latency_p99"))
     debate_success: MockSloResult = field(
         default_factory=lambda: MockSloResult(name="debate_success")
     )
@@ -215,41 +213,31 @@ class TestRouteDispatch:
 
     @pytest.mark.asyncio
     async def test_dispatch_slos(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/admin/system-health/slos", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/admin/system-health/slos", {}, mock_http_handler)
         data = _get_data(result)
         assert "slos" in data
 
     @pytest.mark.asyncio
     async def test_dispatch_adapters(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/admin/system-health/adapters", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/admin/system-health/adapters", {}, mock_http_handler)
         data = _get_data(result)
         assert "adapters" in data
 
     @pytest.mark.asyncio
     async def test_dispatch_agents(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/admin/system-health/agents", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/admin/system-health/agents", {}, mock_http_handler)
         data = _get_data(result)
         assert "agents" in data
 
     @pytest.mark.asyncio
     async def test_dispatch_budget(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/admin/system-health/budget", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/admin/system-health/budget", {}, mock_http_handler)
         data = _get_data(result)
         assert "available" in data
 
     @pytest.mark.asyncio
     async def test_dispatch_unknown_returns_404(self, handler, mock_http_handler):
-        result = await handler.handle(
-            "/api/admin/system-health/nonexistent", {}, mock_http_handler
-        )
+        result = await handler.handle("/api/admin/system-health/nonexistent", {}, mock_http_handler)
         status = _get_status_code(result)
         assert status == 404
 
@@ -381,9 +369,14 @@ class TestSLOs:
 
         slo = result["slos"][0]
         expected_keys = [
-            "name", "key", "target", "current",
-            "compliant", "compliance_percentage",
-            "error_budget_remaining", "burn_rate",
+            "name",
+            "key",
+            "target",
+            "current",
+            "compliant",
+            "compliance_percentage",
+            "error_budget_remaining",
+            "burn_rate",
         ]
         for key in expected_keys:
             assert key in slo, f"Missing key: {key}"
@@ -488,9 +481,7 @@ class TestAdapters:
     def test_collect_adapters_import_error(self, handler):
         with patch(
             "builtins.__import__",
-            side_effect=_selective_import_error(
-                "aragora.knowledge.mound.adapters.factory"
-            ),
+            side_effect=_selective_import_error("aragora.knowledge.mound.adapters.factory"),
         ):
             result = handler._collect_adapters()
 
@@ -511,9 +502,24 @@ class TestAgents:
     def test_collect_agents_with_dict_agents(self, handler):
         registry = MagicMock()
         registry.list_agents.return_value = [
-            {"agent_id": "a1", "type": "claude", "status": "active", "last_heartbeat": "2026-02-01T00:00:00Z"},
-            {"agent_id": "a2", "type": "gpt4", "status": "idle", "last_heartbeat": "2026-02-01T00:00:00Z"},
-            {"agent_id": "a3", "type": "gemini", "status": "failed", "last_heartbeat": "2026-02-01T00:00:00Z"},
+            {
+                "agent_id": "a1",
+                "type": "claude",
+                "status": "active",
+                "last_heartbeat": "2026-02-01T00:00:00Z",
+            },
+            {
+                "agent_id": "a2",
+                "type": "gpt4",
+                "status": "idle",
+                "last_heartbeat": "2026-02-01T00:00:00Z",
+            },
+            {
+                "agent_id": "a3",
+                "type": "gemini",
+                "status": "failed",
+                "last_heartbeat": "2026-02-01T00:00:00Z",
+            },
         ]
         with patch(
             "aragora.control_plane.registry.get_default_registry",
@@ -621,7 +627,8 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_cost_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster",
+                create=True,
                 return_value=None,
             ):
                 result = handler._collect_budget()
@@ -645,7 +652,8 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_cost_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster",
+                create=True,
                 return_value=None,
             ):
                 result = handler._collect_budget()
@@ -671,7 +679,8 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_cost_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster",
+                create=True,
                 return_value=forecaster,
             ):
                 result = handler._collect_budget()
@@ -694,7 +703,8 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_cost_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster",
+                create=True,
                 return_value=forecaster,
             ):
                 result = handler._collect_budget()
@@ -716,7 +726,8 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_cost_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster",
+                create=True,
                 return_value=forecaster,
             ):
                 result = handler._collect_budget()
@@ -737,7 +748,8 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_cost_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster",
+                create=True,
                 return_value=forecaster,
             ):
                 result = handler._collect_budget()
@@ -798,7 +810,8 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_cost_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster",
+                create=True,
                 return_value=None,
             ):
                 result = handler._collect_budget()
@@ -819,7 +832,8 @@ class TestBudget:
             return_value=tracker,
         ):
             with patch(
-                "aragora.billing.forecaster.get_cost_forecaster", create=True,
+                "aragora.billing.forecaster.get_cost_forecaster",
+                create=True,
                 return_value=forecaster,
             ):
                 result = handler._collect_budget()
@@ -838,26 +852,34 @@ class TestOverview:
     def test_overview_all_healthy(self, handler):
         with (
             patch.object(
-                handler, "_collect_circuit_breakers",
+                handler,
+                "_collect_circuit_breakers",
                 return_value={"breakers": [], "total": 0, "available": True},
             ),
             patch.object(
-                handler, "_collect_slos",
+                handler,
+                "_collect_slos",
                 return_value={"slos": [], "overall_healthy": True, "available": True},
             ),
             patch.object(
-                handler, "_collect_adapters",
+                handler,
+                "_collect_adapters",
                 return_value={"adapters": [], "active": 10, "total": 10, "available": True},
             ),
             patch.object(
-                handler, "_collect_agents",
+                handler,
+                "_collect_agents",
                 return_value={"agents": [], "total": 5, "active": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_budget",
+                handler,
+                "_collect_budget",
                 return_value={
-                    "total_budget": 100, "spent": 50, "utilization": 0.5,
-                    "forecast": None, "available": True,
+                    "total_budget": 100,
+                    "spent": 50,
+                    "utilization": 0.5,
+                    "forecast": None,
+                    "available": True,
                 },
             ),
         ):
@@ -876,29 +898,38 @@ class TestOverview:
     def test_overview_critical_from_open_circuit_breaker(self, handler):
         with (
             patch.object(
-                handler, "_collect_circuit_breakers",
+                handler,
+                "_collect_circuit_breakers",
                 return_value={
                     "breakers": [{"state": "open"}],
-                    "total": 1, "available": True,
+                    "total": 1,
+                    "available": True,
                 },
             ),
             patch.object(
-                handler, "_collect_slos",
+                handler,
+                "_collect_slos",
                 return_value={"slos": [], "overall_healthy": True, "available": True},
             ),
             patch.object(
-                handler, "_collect_adapters",
+                handler,
+                "_collect_adapters",
                 return_value={"adapters": [], "active": 5, "total": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_agents",
+                handler,
+                "_collect_agents",
                 return_value={"agents": [], "total": 5, "active": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_budget",
+                handler,
+                "_collect_budget",
                 return_value={
-                    "total_budget": 100, "spent": 50, "utilization": 0.5,
-                    "forecast": None, "available": True,
+                    "total_budget": 100,
+                    "spent": 50,
+                    "utilization": 0.5,
+                    "forecast": None,
+                    "available": True,
                 },
             ),
         ):
@@ -911,29 +942,38 @@ class TestOverview:
     def test_overview_degraded_from_half_open_cb(self, handler):
         with (
             patch.object(
-                handler, "_collect_circuit_breakers",
+                handler,
+                "_collect_circuit_breakers",
                 return_value={
                     "breakers": [{"state": "half-open"}],
-                    "total": 1, "available": True,
+                    "total": 1,
+                    "available": True,
                 },
             ),
             patch.object(
-                handler, "_collect_slos",
+                handler,
+                "_collect_slos",
                 return_value={"slos": [], "overall_healthy": True, "available": True},
             ),
             patch.object(
-                handler, "_collect_adapters",
+                handler,
+                "_collect_adapters",
                 return_value={"adapters": [], "active": 5, "total": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_agents",
+                handler,
+                "_collect_agents",
                 return_value={"agents": [], "total": 5, "active": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_budget",
+                handler,
+                "_collect_budget",
                 return_value={
-                    "total_budget": 100, "spent": 50, "utilization": 0.5,
-                    "forecast": None, "available": True,
+                    "total_budget": 100,
+                    "spent": 50,
+                    "utilization": 0.5,
+                    "forecast": None,
+                    "available": True,
                 },
             ),
         ):
@@ -946,11 +986,13 @@ class TestOverview:
         """Multiple non-compliant SLOs => critical."""
         with (
             patch.object(
-                handler, "_collect_circuit_breakers",
+                handler,
+                "_collect_circuit_breakers",
                 return_value={"breakers": [], "total": 0, "available": True},
             ),
             patch.object(
-                handler, "_collect_slos",
+                handler,
+                "_collect_slos",
                 return_value={
                     "slos": [
                         {"compliant": False},
@@ -961,18 +1003,24 @@ class TestOverview:
                 },
             ),
             patch.object(
-                handler, "_collect_adapters",
+                handler,
+                "_collect_adapters",
                 return_value={"adapters": [], "active": 5, "total": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_agents",
+                handler,
+                "_collect_agents",
                 return_value={"agents": [], "total": 5, "active": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_budget",
+                handler,
+                "_collect_budget",
                 return_value={
-                    "total_budget": 100, "spent": 50, "utilization": 0.5,
-                    "forecast": None, "available": True,
+                    "total_budget": 100,
+                    "spent": 50,
+                    "utilization": 0.5,
+                    "forecast": None,
+                    "available": True,
                 },
             ),
         ):
@@ -986,11 +1034,13 @@ class TestOverview:
         """One non-compliant SLO => degraded."""
         with (
             patch.object(
-                handler, "_collect_circuit_breakers",
+                handler,
+                "_collect_circuit_breakers",
                 return_value={"breakers": [], "total": 0, "available": True},
             ),
             patch.object(
-                handler, "_collect_slos",
+                handler,
+                "_collect_slos",
                 return_value={
                     "slos": [{"compliant": False}, {"compliant": True}],
                     "overall_healthy": False,
@@ -998,18 +1048,24 @@ class TestOverview:
                 },
             ),
             patch.object(
-                handler, "_collect_adapters",
+                handler,
+                "_collect_adapters",
                 return_value={"adapters": [], "active": 5, "total": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_agents",
+                handler,
+                "_collect_agents",
                 return_value={"agents": [], "total": 5, "active": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_budget",
+                handler,
+                "_collect_budget",
                 return_value={
-                    "total_budget": 100, "spent": 50, "utilization": 0.5,
-                    "forecast": None, "available": True,
+                    "total_budget": 100,
+                    "spent": 50,
+                    "utilization": 0.5,
+                    "forecast": None,
+                    "available": True,
                 },
             ),
         ):
@@ -1022,26 +1078,34 @@ class TestOverview:
         """Less than 50% active adapters => degraded."""
         with (
             patch.object(
-                handler, "_collect_circuit_breakers",
+                handler,
+                "_collect_circuit_breakers",
                 return_value={"breakers": [], "total": 0, "available": True},
             ),
             patch.object(
-                handler, "_collect_slos",
+                handler,
+                "_collect_slos",
                 return_value={"slos": [], "overall_healthy": True, "available": True},
             ),
             patch.object(
-                handler, "_collect_adapters",
+                handler,
+                "_collect_adapters",
                 return_value={"adapters": [], "active": 2, "total": 10, "available": True},
             ),
             patch.object(
-                handler, "_collect_agents",
+                handler,
+                "_collect_agents",
                 return_value={"agents": [], "total": 5, "active": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_budget",
+                handler,
+                "_collect_budget",
                 return_value={
-                    "total_budget": 100, "spent": 50, "utilization": 0.5,
-                    "forecast": None, "available": True,
+                    "total_budget": 100,
+                    "spent": 50,
+                    "utilization": 0.5,
+                    "forecast": None,
+                    "available": True,
                 },
             ),
         ):
@@ -1054,19 +1118,23 @@ class TestOverview:
         """More than 30% failed agents => critical."""
         with (
             patch.object(
-                handler, "_collect_circuit_breakers",
+                handler,
+                "_collect_circuit_breakers",
                 return_value={"breakers": [], "total": 0, "available": True},
             ),
             patch.object(
-                handler, "_collect_slos",
+                handler,
+                "_collect_slos",
                 return_value={"slos": [], "overall_healthy": True, "available": True},
             ),
             patch.object(
-                handler, "_collect_adapters",
+                handler,
+                "_collect_adapters",
                 return_value={"adapters": [], "active": 5, "total": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_agents",
+                handler,
+                "_collect_agents",
                 return_value={
                     "agents": [
                         {"status": "failed"},
@@ -1079,10 +1147,14 @@ class TestOverview:
                 },
             ),
             patch.object(
-                handler, "_collect_budget",
+                handler,
+                "_collect_budget",
                 return_value={
-                    "total_budget": 100, "spent": 50, "utilization": 0.5,
-                    "forecast": None, "available": True,
+                    "total_budget": 100,
+                    "spent": 50,
+                    "utilization": 0.5,
+                    "forecast": None,
+                    "available": True,
                 },
             ),
         ):
@@ -1096,19 +1168,23 @@ class TestOverview:
         """Some failed agents but <= 30% => degraded."""
         with (
             patch.object(
-                handler, "_collect_circuit_breakers",
+                handler,
+                "_collect_circuit_breakers",
                 return_value={"breakers": [], "total": 0, "available": True},
             ),
             patch.object(
-                handler, "_collect_slos",
+                handler,
+                "_collect_slos",
                 return_value={"slos": [], "overall_healthy": True, "available": True},
             ),
             patch.object(
-                handler, "_collect_adapters",
+                handler,
+                "_collect_adapters",
                 return_value={"adapters": [], "active": 5, "total": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_agents",
+                handler,
+                "_collect_agents",
                 return_value={
                     "agents": [
                         {"status": "failed"},
@@ -1122,10 +1198,14 @@ class TestOverview:
                 },
             ),
             patch.object(
-                handler, "_collect_budget",
+                handler,
+                "_collect_budget",
                 return_value={
-                    "total_budget": 100, "spent": 50, "utilization": 0.5,
-                    "forecast": None, "available": True,
+                    "total_budget": 100,
+                    "spent": 50,
+                    "utilization": 0.5,
+                    "forecast": None,
+                    "available": True,
                 },
             ),
         ):
@@ -1139,26 +1219,34 @@ class TestOverview:
         """Utilization > 0.95 => critical."""
         with (
             patch.object(
-                handler, "_collect_circuit_breakers",
+                handler,
+                "_collect_circuit_breakers",
                 return_value={"breakers": [], "total": 0, "available": True},
             ),
             patch.object(
-                handler, "_collect_slos",
+                handler,
+                "_collect_slos",
                 return_value={"slos": [], "overall_healthy": True, "available": True},
             ),
             patch.object(
-                handler, "_collect_adapters",
+                handler,
+                "_collect_adapters",
                 return_value={"adapters": [], "active": 5, "total": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_agents",
+                handler,
+                "_collect_agents",
                 return_value={"agents": [], "total": 5, "active": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_budget",
+                handler,
+                "_collect_budget",
                 return_value={
-                    "total_budget": 100, "spent": 98, "utilization": 0.98,
-                    "forecast": None, "available": True,
+                    "total_budget": 100,
+                    "spent": 98,
+                    "utilization": 0.98,
+                    "forecast": None,
+                    "available": True,
                 },
             ),
         ):
@@ -1171,26 +1259,34 @@ class TestOverview:
         """Utilization > 0.8 but <= 0.95 => degraded."""
         with (
             patch.object(
-                handler, "_collect_circuit_breakers",
+                handler,
+                "_collect_circuit_breakers",
                 return_value={"breakers": [], "total": 0, "available": True},
             ),
             patch.object(
-                handler, "_collect_slos",
+                handler,
+                "_collect_slos",
                 return_value={"slos": [], "overall_healthy": True, "available": True},
             ),
             patch.object(
-                handler, "_collect_adapters",
+                handler,
+                "_collect_adapters",
                 return_value={"adapters": [], "active": 5, "total": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_agents",
+                handler,
+                "_collect_agents",
                 return_value={"agents": [], "total": 5, "active": 5, "available": True},
             ),
             patch.object(
-                handler, "_collect_budget",
+                handler,
+                "_collect_budget",
                 return_value={
-                    "total_budget": 100, "spent": 85, "utilization": 0.85,
-                    "forecast": None, "available": True,
+                    "total_budget": 100,
+                    "spent": 85,
+                    "utilization": 0.85,
+                    "forecast": None,
+                    "available": True,
                 },
             ),
         ):
@@ -1203,26 +1299,34 @@ class TestOverview:
         """Subsystems that are unavailable => 'unknown'."""
         with (
             patch.object(
-                handler, "_collect_circuit_breakers",
+                handler,
+                "_collect_circuit_breakers",
                 return_value={"breakers": [], "available": False},
             ),
             patch.object(
-                handler, "_collect_slos",
+                handler,
+                "_collect_slos",
                 return_value={"slos": [], "overall_healthy": True, "available": False},
             ),
             patch.object(
-                handler, "_collect_adapters",
+                handler,
+                "_collect_adapters",
                 return_value={"adapters": [], "active": 0, "total": 0, "available": False},
             ),
             patch.object(
-                handler, "_collect_agents",
+                handler,
+                "_collect_agents",
                 return_value={"agents": [], "total": 0, "active": 0, "available": False},
             ),
             patch.object(
-                handler, "_collect_budget",
+                handler,
+                "_collect_budget",
                 return_value={
-                    "total_budget": 0, "spent": 0, "utilization": 0,
-                    "forecast": None, "available": False,
+                    "total_budget": 0,
+                    "spent": 0,
+                    "utilization": 0,
+                    "forecast": None,
+                    "available": False,
                 },
             ),
         ):
@@ -1236,11 +1340,37 @@ class TestOverview:
 
     def test_overview_collection_time_present(self, handler):
         with (
-            patch.object(handler, "_collect_circuit_breakers", return_value={"breakers": [], "available": False}),
-            patch.object(handler, "_collect_slos", return_value={"slos": [], "overall_healthy": True, "available": False}),
-            patch.object(handler, "_collect_adapters", return_value={"adapters": [], "active": 0, "total": 0, "available": False}),
-            patch.object(handler, "_collect_agents", return_value={"agents": [], "total": 0, "active": 0, "available": False}),
-            patch.object(handler, "_collect_budget", return_value={"total_budget": 0, "spent": 0, "utilization": 0, "forecast": None, "available": False}),
+            patch.object(
+                handler,
+                "_collect_circuit_breakers",
+                return_value={"breakers": [], "available": False},
+            ),
+            patch.object(
+                handler,
+                "_collect_slos",
+                return_value={"slos": [], "overall_healthy": True, "available": False},
+            ),
+            patch.object(
+                handler,
+                "_collect_adapters",
+                return_value={"adapters": [], "active": 0, "total": 0, "available": False},
+            ),
+            patch.object(
+                handler,
+                "_collect_agents",
+                return_value={"agents": [], "total": 0, "active": 0, "available": False},
+            ),
+            patch.object(
+                handler,
+                "_collect_budget",
+                return_value={
+                    "total_budget": 0,
+                    "spent": 0,
+                    "utilization": 0,
+                    "forecast": None,
+                    "available": False,
+                },
+            ),
         ):
             result = handler._get_overview()
 

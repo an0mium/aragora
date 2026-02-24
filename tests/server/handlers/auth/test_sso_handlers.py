@@ -365,9 +365,7 @@ class TestHandleSsoCallback:
                 "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
-                with patch(
-                    "aragora.billing.jwt_auth.create_token_pair"
-                ) as mock_jwt:
+                with patch("aragora.billing.jwt_auth.create_token_pair") as mock_jwt:
                     mock_jwt.return_value = mock_tokens
                     with patch(
                         "aragora.storage.user_store.singleton.get_user_store"
@@ -436,9 +434,7 @@ class TestHandleSsoCallback:
                 "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
-                with patch(
-                    "aragora.billing.jwt_auth.create_token_pair"
-                ) as mock_jwt:
+                with patch("aragora.billing.jwt_auth.create_token_pair") as mock_jwt:
                     mock_jwt.return_value = mock_tokens
                     with patch(
                         "aragora.storage.user_store.singleton.get_user_store"
@@ -580,9 +576,7 @@ class TestHandleSsoCallback:
                 "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
-                with patch(
-                    "aragora.billing.jwt_auth.create_token_pair"
-                ) as mock_jwt:
+                with patch("aragora.billing.jwt_auth.create_token_pair") as mock_jwt:
                     mock_jwt.return_value = mock_tokens
                     with patch(
                         "aragora.storage.user_store.singleton.get_user_store"
@@ -628,9 +622,7 @@ class TestHandleSsoCallback:
                 "aragora.server.handlers.auth.sso_handlers._sso_state_store.get"
             ) as mock_store_fn:
                 mock_store_fn.return_value = mock_store
-                with patch(
-                    "aragora.billing.jwt_auth.create_token_pair"
-                ) as mock_jwt:
+                with patch("aragora.billing.jwt_auth.create_token_pair") as mock_jwt:
                     mock_jwt.return_value = mock_tokens
                     with patch(
                         "aragora.storage.user_store.singleton.get_user_store"

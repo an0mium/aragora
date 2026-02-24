@@ -166,7 +166,9 @@ async def main():
 
     print("\n--- Decision ---\n")
     print(f"Verdict:          {result.verdict.value if result.verdict else 'N/A'}")
-    print(f"Consensus:        {'Yes' if result.consensus_reached else 'No'} (confidence: {result.confidence:.2f})")
+    print(
+        f"Consensus:        {'Yes' if result.consensus_reached else 'No'} (confidence: {result.confidence:.2f})"
+    )
     print(f"Dissenting views: {len(result.dissenting_views)}")
 
     if result.receipt:
@@ -181,9 +183,7 @@ async def main():
         print(f"Agents:     {', '.join(result.receipt.agents)}")
         print(f"Rounds:     {result.receipt.rounds_used}")
         print()
-        print(
-            "This receipt is tamper-evident. Any modification invalidates the HMAC"
-        )
+        print("This receipt is tamper-evident. Any modification invalidates the HMAC")
         print("signature, providing a cryptographic audit trail for the decision.")
 
 

@@ -26,23 +26,41 @@ async def main():
     )
 
     # Add mock agents (no API keys required)
-    debate.add_agent(create_agent("mock", name="claude", proposal=(
-        "Use a token bucket algorithm. It handles bursts well, "
-        "is simple to implement with Redis INCR + EXPIRE, and "
-        "provides predictable rate limiting per API key."
-    )))
-    debate.add_agent(create_agent("mock", name="gpt", proposal=(
-        "Token bucket is a solid choice, but consider sliding "
-        "window log for more precise rate limiting. The tradeoff "
-        "is higher memory usage per client. For 10K req/s, "
-        "the token bucket's O(1) operations are preferable."
-    )))
-    debate.add_agent(create_agent("mock", name="gemini", proposal=(
-        "Consensus: token bucket for the hot path with a sliding "
-        "window counter as a secondary check. This gives O(1) "
-        "performance for most requests while catching edge cases "
-        "that slip through bucket refill timing."
-    )))
+    debate.add_agent(
+        create_agent(
+            "mock",
+            name="claude",
+            proposal=(
+                "Use a token bucket algorithm. It handles bursts well, "
+                "is simple to implement with Redis INCR + EXPIRE, and "
+                "provides predictable rate limiting per API key."
+            ),
+        )
+    )
+    debate.add_agent(
+        create_agent(
+            "mock",
+            name="gpt",
+            proposal=(
+                "Token bucket is a solid choice, but consider sliding "
+                "window log for more precise rate limiting. The tradeoff "
+                "is higher memory usage per client. For 10K req/s, "
+                "the token bucket's O(1) operations are preferable."
+            ),
+        )
+    )
+    debate.add_agent(
+        create_agent(
+            "mock",
+            name="gemini",
+            proposal=(
+                "Consensus: token bucket for the hot path with a sliding "
+                "window counter as a secondary check. This gives O(1) "
+                "performance for most requests while catching edge cases "
+                "that slip through bucket refill timing."
+            ),
+        )
+    )
 
     # Run the debate
     result = await debate.run()

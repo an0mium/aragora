@@ -280,7 +280,9 @@ class TestIngest:
         assert "list" in str(data).lower()
 
     def test_ingest_batch_too_large(self, handler):
-        reports = [_make_crash_report(message=f"Error {i}") for i in range(MAX_REPORTS_PER_BATCH + 1)]
+        reports = [
+            _make_crash_report(message=f"Error {i}") for i in range(MAX_REPORTS_PER_BATCH + 1)
+        ]
         body = {"reports": reports}
         h = _make_handler_with_body(body)
 

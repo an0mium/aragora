@@ -122,9 +122,7 @@ class SupportAPI:
         params: dict[str, Any] = {"limit": limit}
         if status:
             params["status"] = status
-        return self._client.request(
-            "GET", f"/api/v1/support/{platform}/tickets", params=params
-        )
+        return self._client.request("GET", f"/api/v1/support/{platform}/tickets", params=params)
 
     def create_ticket(
         self,
@@ -153,13 +151,9 @@ class SupportAPI:
             "priority": priority,
             **kwargs,
         }
-        return self._client.request(
-            "POST", f"/api/v1/support/{platform}/tickets", json=data
-        )
+        return self._client.request("POST", f"/api/v1/support/{platform}/tickets", json=data)
 
-    def update_ticket(
-        self, platform: str, ticket_id: str, **kwargs: Any
-    ) -> dict[str, Any]:
+    def update_ticket(self, platform: str, ticket_id: str, **kwargs: Any) -> dict[str, Any]:
         """
         Update a support ticket.
 
@@ -175,9 +169,7 @@ class SupportAPI:
             "PUT", f"/api/v1/support/{platform}/tickets/{ticket_id}", json=kwargs
         )
 
-    def reply_to_ticket(
-        self, platform: str, ticket_id: str, **kwargs: Any
-    ) -> dict[str, Any]:
+    def reply_to_ticket(self, platform: str, ticket_id: str, **kwargs: Any) -> dict[str, Any]:
         """
         Reply to a support ticket.
 
@@ -337,21 +329,15 @@ class AsyncSupportAPI:
             "priority": priority,
             **kwargs,
         }
-        return await self._client.request(
-            "POST", f"/api/v1/support/{platform}/tickets", json=data
-        )
+        return await self._client.request("POST", f"/api/v1/support/{platform}/tickets", json=data)
 
-    async def update_ticket(
-        self, platform: str, ticket_id: str, **kwargs: Any
-    ) -> dict[str, Any]:
+    async def update_ticket(self, platform: str, ticket_id: str, **kwargs: Any) -> dict[str, Any]:
         """Update a support ticket."""
         return await self._client.request(
             "PUT", f"/api/v1/support/{platform}/tickets/{ticket_id}", json=kwargs
         )
 
-    async def reply_to_ticket(
-        self, platform: str, ticket_id: str, **kwargs: Any
-    ) -> dict[str, Any]:
+    async def reply_to_ticket(self, platform: str, ticket_id: str, **kwargs: Any) -> dict[str, Any]:
         """Reply to a support ticket."""
         return await self._client.request(
             "POST",
@@ -369,9 +355,7 @@ class AsyncSupportAPI:
 
     async def auto_respond(self, **kwargs: Any) -> dict[str, Any]:
         """Generate AI-powered response suggestions for a ticket."""
-        return await self._client.request(
-            "POST", "/api/v1/support/auto-respond", json=kwargs
-        )
+        return await self._client.request("POST", "/api/v1/support/auto-respond", json=kwargs)
 
     async def search(self, query: str, **kwargs: Any) -> dict[str, Any]:
         """Search across support tickets and knowledge base."""

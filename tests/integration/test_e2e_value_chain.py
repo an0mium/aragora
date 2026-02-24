@@ -86,9 +86,7 @@ class _MockAgent(Agent):
         self._call_idx += 1
         return resp
 
-    async def critique(
-        self, proposal: str, task: str, context: list | None = None
-    ) -> Critique:
+    async def critique(self, proposal: str, task: str, context: list | None = None) -> Critique:
         self._call_idx += 1
         return Critique(
             agent=self.name,
@@ -261,9 +259,7 @@ class TestStep1CreateDebate:
     returns a well-formed DebateResult.
     """
 
-    async def test_debate_completes_with_result(
-        self, consensus_agents, simple_env, quick_protocol
-    ):
+    async def test_debate_completes_with_result(self, consensus_agents, simple_env, quick_protocol):
         result = await _run_debate(consensus_agents, simple_env, quick_protocol)
 
         assert result is not None
@@ -271,9 +267,7 @@ class TestStep1CreateDebate:
         assert result.rounds_completed >= 1
         assert result.task == simple_env.task
 
-    async def test_debate_records_participants(
-        self, consensus_agents, simple_env, quick_protocol
-    ):
+    async def test_debate_records_participants(self, consensus_agents, simple_env, quick_protocol):
         result = await _run_debate(consensus_agents, simple_env, quick_protocol)
 
         # Participants should include agent names
@@ -283,16 +277,12 @@ class TestStep1CreateDebate:
             f"Expected at least some of {agent_names} in participants {result_participants}"
         )
 
-    async def test_debate_generates_votes(
-        self, consensus_agents, simple_env, quick_protocol
-    ):
+    async def test_debate_generates_votes(self, consensus_agents, simple_env, quick_protocol):
         result = await _run_debate(consensus_agents, simple_env, quick_protocol)
 
         assert len(result.votes) > 0, "Debate should generate at least one vote"
 
-    async def test_debate_has_final_answer(
-        self, consensus_agents, simple_env, quick_protocol
-    ):
+    async def test_debate_has_final_answer(self, consensus_agents, simple_env, quick_protocol):
         result = await _run_debate(consensus_agents, simple_env, quick_protocol)
 
         # Arena always produces a final_answer (may be a summary fallback)
@@ -388,17 +378,13 @@ class TestStep2GenerateReceipt:
 
         assert len(receipt.provenance_chain) > 0, "Receipt must have provenance records"
         # Should have a verdict event
-        verdict_events = [
-            p for p in receipt.provenance_chain if p.event_type == "verdict"
-        ]
+        verdict_events = [p for p in receipt.provenance_chain if p.event_type == "verdict"]
         assert len(verdict_events) >= 1
 
     def test_receipt_has_vote_provenance(self, debate_result):
         receipt = DecisionReceipt.from_debate_result(debate_result)
 
-        vote_events = [
-            p for p in receipt.provenance_chain if p.event_type == "vote"
-        ]
+        vote_events = [p for p in receipt.provenance_chain if p.event_type == "vote"]
         assert len(vote_events) == 3, "Should have one provenance record per vote"
 
     def test_receipt_serialization_roundtrip(self, debate_result):
@@ -529,14 +515,16 @@ class TestStep4PersistToKM:
     def test_receipt_adapter_sync_ingest(self, mock_mound):
         adapter = ReceiptAdapter(mound=mock_mound)
 
-        success = adapter.ingest({
-            "debate_id": "debate-e2e-003",
-            "task": "Design a rate limiter API",
-            "confidence": 0.9,
-            "consensus_reached": True,
-            "final_answer": "Token bucket with sliding window fallback.",
-            "participants": ["alpha", "beta", "gamma"],
-        })
+        success = adapter.ingest(
+            {
+                "debate_id": "debate-e2e-003",
+                "task": "Design a rate limiter API",
+                "confidence": 0.9,
+                "consensus_reached": True,
+                "final_answer": "Token bucket with sliding window fallback.",
+                "participants": ["alpha", "beta", "gamma"],
+            }
+        )
 
         assert success is True
         mock_mound.store_sync.assert_called_once()
@@ -552,14 +540,16 @@ class TestStep4PersistToKM:
     def test_receipt_adapter_tracks_ingestion(self, mock_mound):
         adapter = ReceiptAdapter(mound=mock_mound)
 
-        adapter.ingest({
-            "debate_id": "debate-track-001",
-            "task": "Test tracking",
-            "confidence": 0.75,
-            "consensus_reached": True,
-            "final_answer": "Answer here.",
-            "participants": ["a"],
-        })
+        adapter.ingest(
+            {
+                "debate_id": "debate-track-001",
+                "task": "Test tracking",
+                "confidence": 0.75,
+                "consensus_reached": True,
+                "final_answer": "Answer here.",
+                "participants": ["a"],
+            }
+        )
 
         result = adapter.get_ingestion_result("debate-track-001")
         assert result is not None
@@ -604,14 +594,16 @@ class TestStep4PersistToKM:
     def test_receipt_adapter_stats(self, mock_mound):
         adapter = ReceiptAdapter(mound=mock_mound)
 
-        adapter.ingest({
-            "debate_id": "stats-001",
-            "task": "Stats test",
-            "confidence": 0.8,
-            "consensus_reached": True,
-            "final_answer": "Answer.",
-            "participants": [],
-        })
+        adapter.ingest(
+            {
+                "debate_id": "stats-001",
+                "task": "Stats test",
+                "confidence": 0.8,
+                "consensus_reached": True,
+                "final_answer": "Answer.",
+                "participants": [],
+            }
+        )
 
         stats = adapter.get_stats()
         assert stats["receipts_processed"] == 1
@@ -631,14 +623,16 @@ class TestStep5SearchKM:
         adapter = ReceiptAdapter(mound=mock_mound)
 
         # Ingest a receipt about rate limiting
-        adapter.ingest({
-            "debate_id": "search-001",
-            "task": "Design a rate limiter API",
-            "confidence": 0.9,
-            "consensus_reached": True,
-            "final_answer": "Token bucket with sliding window fallback.",
-            "participants": ["alpha", "beta"],
-        })
+        adapter.ingest(
+            {
+                "debate_id": "search-001",
+                "task": "Design a rate limiter API",
+                "confidence": 0.9,
+                "consensus_reached": True,
+                "final_answer": "Token bucket with sliding window fallback.",
+                "participants": ["alpha", "beta"],
+            }
+        )
 
         # Search for related decisions
         results = await adapter.find_related_decisions("rate limiter", limit=5)
@@ -650,22 +644,26 @@ class TestStep5SearchKM:
     async def test_search_with_multiple_receipts_returns_matching(self, mock_mound):
         adapter = ReceiptAdapter(mound=mock_mound)
 
-        adapter.ingest({
-            "debate_id": "search-002a",
-            "task": "Database schema design",
-            "confidence": 0.8,
-            "consensus_reached": True,
-            "final_answer": "Use normalized schema with indexes.",
-            "participants": ["a"],
-        })
-        adapter.ingest({
-            "debate_id": "search-002b",
-            "task": "API rate limiting approach",
-            "confidence": 0.85,
-            "consensus_reached": True,
-            "final_answer": "Token bucket algorithm.",
-            "participants": ["b"],
-        })
+        adapter.ingest(
+            {
+                "debate_id": "search-002a",
+                "task": "Database schema design",
+                "confidence": 0.8,
+                "consensus_reached": True,
+                "final_answer": "Use normalized schema with indexes.",
+                "participants": ["a"],
+            }
+        )
+        adapter.ingest(
+            {
+                "debate_id": "search-002b",
+                "task": "API rate limiting approach",
+                "confidence": 0.85,
+                "consensus_reached": True,
+                "final_answer": "Token bucket algorithm.",
+                "participants": ["b"],
+            }
+        )
 
         # Search for rate limiting - should match the second receipt
         results = await adapter.find_related_decisions("rate limiting")
@@ -767,9 +765,7 @@ class TestFullPipelineIntegration:
         self, consensus_agents, simple_env, quick_protocol, mock_mound
     ):
         # Step 1: Run debate
-        debate_result = await _run_debate(
-            consensus_agents, simple_env, quick_protocol
-        )
+        debate_result = await _run_debate(consensus_agents, simple_env, quick_protocol)
         assert debate_result is not None
         assert debate_result.rounds_completed >= 1
 
@@ -842,14 +838,16 @@ class TestFailurePaths:
         """ReceiptAdapter should degrade gracefully when KM is None."""
         adapter = ReceiptAdapter(mound=None)
 
-        success = adapter.ingest({
-            "debate_id": "fail-001",
-            "task": "Test",
-            "confidence": 0.5,
-            "consensus_reached": False,
-            "final_answer": "N/A",
-            "participants": [],
-        })
+        success = adapter.ingest(
+            {
+                "debate_id": "fail-001",
+                "task": "Test",
+                "confidence": 0.5,
+                "consensus_reached": False,
+                "final_answer": "N/A",
+                "participants": [],
+            }
+        )
 
         # Should still track locally even without mound
         result = adapter.get_ingestion_result("fail-001")

@@ -74,7 +74,9 @@ class TestEvidenceQualityAnalyzer:
     def test_citation_detection(self):
         text = "According to Smith [1], the approach works. See https://example.com for details."
         score = self.analyzer.analyze(text, "agent1")
-        citation_markers = [m for m in score.evidence_markers if m.evidence_type == EvidenceType.CITATION]
+        citation_markers = [
+            m for m in score.evidence_markers if m.evidence_type == EvidenceType.CITATION
+        ]
         assert len(citation_markers) >= 2
 
     def test_data_detection(self):
@@ -86,7 +88,9 @@ class TestEvidenceQualityAnalyzer:
     def test_example_detection(self):
         text = "For example, Netflix uses this pattern. Specifically, they process 1M events/s."
         score = self.analyzer.analyze(text, "agent1")
-        example_markers = [m for m in score.evidence_markers if m.evidence_type == EvidenceType.EXAMPLE]
+        example_markers = [
+            m for m in score.evidence_markers if m.evidence_type == EvidenceType.EXAMPLE
+        ]
         assert len(example_markers) >= 1
 
     def test_high_quality_response(self):
@@ -120,7 +124,9 @@ class TestEvidenceQualityAnalyzer:
         assert scores["agent1"].overall_quality > scores["agent2"].overall_quality
 
     def test_reasoning_detection(self):
-        text = "Because the data is clear, therefore we conclude X. Thus, it follows that Y. Hence Z."
+        text = (
+            "Because the data is clear, therefore we conclude X. Thus, it follows that Y. Hence Z."
+        )
         score = self.analyzer.analyze(text, "reasoner")
         assert score.logical_chain_score > 0
 

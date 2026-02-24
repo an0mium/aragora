@@ -92,19 +92,19 @@ class EventEmitter:
 
             emitter.on(EventType.PROPOSAL)(my_handler)
         """
+
         def decorator(fn: EventCallback) -> EventCallback:
             if event_type not in self._listeners:
                 self._listeners[event_type] = []
             self._listeners[event_type].append(fn)
             return fn
+
         return decorator
 
     def off(self, event_type: EventType, fn: EventCallback) -> None:
         """Remove a callback for an event type."""
         if event_type in self._listeners:
-            self._listeners[event_type] = [
-                cb for cb in self._listeners[event_type] if cb is not fn
-            ]
+            self._listeners[event_type] = [cb for cb in self._listeners[event_type] if cb is not fn]
 
     async def emit(
         self,

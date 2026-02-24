@@ -89,13 +89,15 @@ Examples:
     print("=" * 60)
 
     # Step 1: Classify risk level
-    print(f"\n1. Classifying risk level for: \"{args.use_case}\"")
+    print(f'\n1. Classifying risk level for: "{args.use_case}"')
     classifier = RiskClassifier()
     classification = classifier.classify(args.use_case)
 
     print(f"   Risk Level: {classification.risk_level.value.upper()}")
     if classification.annex_iii_category:
-        print(f"   Annex III Category: {classification.annex_iii_number}. {classification.annex_iii_category}")
+        print(
+            f"   Annex III Category: {classification.annex_iii_number}. {classification.annex_iii_category}"
+        )
     if classification.matched_keywords:
         print(f"   Matched Keywords: {', '.join(classification.matched_keywords)}")
     if classification.applicable_articles:
@@ -107,8 +109,10 @@ Examples:
     receipt = create_synthetic_receipt(args.use_case)
     print(f"   Receipt ID: {receipt['id']}")
     print(f"   Agents: {', '.join(a['name'] for a in receipt['agents'])}")
-    print(f"   Consensus: {'Reached' if receipt['consensus']['reached'] else 'Not reached'} "
-          f"({receipt['consensus']['confidence']:.0%} confidence)")
+    print(
+        f"   Consensus: {'Reached' if receipt['consensus']['reached'] else 'Not reached'} "
+        f"({receipt['consensus']['confidence']:.0%} confidence)"
+    )
 
     # Step 3: Generate compliance artifacts
     print("\n3. Generating Article 12/13/14 compliance artifacts...")

@@ -37,9 +37,7 @@ class TestAudioInfo:
 
         result = client.audio.get_audio_info("audio_123")
 
-        mock_request.assert_called_once_with(
-            "GET", "/api/v1/audio/audio_123"
-        )
+        mock_request.assert_called_once_with("GET", "/api/v1/audio/audio_123")
         assert result["format"] == "mp3"
         assert result["duration_seconds"] == 300
 
@@ -56,9 +54,7 @@ class TestAudioEpisodes:
 
         result = client.audio.list_episodes()
 
-        mock_request.assert_called_once_with(
-            "GET", "/api/v1/podcast/episodes", params=None
-        )
+        mock_request.assert_called_once_with("GET", "/api/v1/podcast/episodes", params=None)
         assert len(result["episodes"]) == 1
 
     def test_list_episodes_with_pagination(self, client: AragoraClient, mock_request) -> None:

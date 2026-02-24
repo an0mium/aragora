@@ -116,13 +116,9 @@ class AsyncQuotasAPI:
         params: dict[str, Any] = {}
         if period:
             params["period"] = period
-        return await self._client.request(
-            "GET", "/api/v1/quotas/usage", params=params or None
-        )
+        return await self._client.request("GET", "/api/v1/quotas/usage", params=params or None)
 
     async def request_increase(self, resource: str, **kwargs: Any) -> dict[str, Any]:
         """Request a quota increase for a resource type."""
         data: dict[str, Any] = {"resource": resource, **kwargs}
-        return await self._client.request(
-            "POST", "/api/v1/quotas/request-increase", json=data
-        )
+        return await self._client.request("POST", "/api/v1/quotas/request-increase", json=data)

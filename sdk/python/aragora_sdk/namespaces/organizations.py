@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class OrganizationsAPI:
     """
     Synchronous Organizations API.
@@ -270,6 +271,7 @@ class OrganizationsAPI:
         if settings is not None:
             data["settings"] = settings
         return self._client.request("POST", "/api/v1/tenants", json=data)
+
 
 class AsyncOrganizationsAPI:
     """

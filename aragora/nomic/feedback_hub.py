@@ -143,8 +143,7 @@ class FeedbackHub:
         """
         if source not in KNOWN_SOURCES:
             raise ValueError(
-                f"Unknown feedback source {source!r}. "
-                f"Known sources: {sorted(KNOWN_SOURCES)}"
+                f"Unknown feedback source {source!r}. Known sources: {sorted(KNOWN_SOURCES)}"
             )
 
         router = _ROUTE_TABLE.get(source)
@@ -310,9 +309,16 @@ class FeedbackHub:
                     context={
                         "agent_name": agent_name,
                         "success_rate": success_rate,
-                        **{k: v for k, v in payload.items() if k not in (
-                            "agent_name", "success_rate", "description",
-                        )},
+                        **{
+                            k: v
+                            for k, v in payload.items()
+                            if k
+                            not in (
+                                "agent_name",
+                                "success_rate",
+                                "description",
+                            )
+                        },
                     },
                 )
             )
@@ -406,9 +412,7 @@ class FeedbackHub:
 
         return result
 
-    def _route_knowledge_contradictions(
-        self, payload: dict[str, Any]
-    ) -> RouteResult:
+    def _route_knowledge_contradictions(self, payload: dict[str, Any]) -> RouteResult:
         """knowledge_contradictions -> ImprovementQueue.
 
         Converts knowledge contradiction signals into improvement goals
@@ -458,9 +462,7 @@ class FeedbackHub:
             result.errors.append("ImprovementQueue not available")
         except (RuntimeError, ValueError, TypeError, OSError) as exc:
             result.targets_failed.append("improvement_queue")
-            result.errors.append(
-                f"Contradiction goal push failed: {type(exc).__name__}"
-            )
+            result.errors.append(f"Contradiction goal push failed: {type(exc).__name__}")
             logger.warning("feedback_hub_contradiction_error: %s", exc)
 
         return result
@@ -493,15 +495,11 @@ class FeedbackHub:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     topics = pool.submit(
                         asyncio.run,
-                        manager.get_trending_topics(
-                            platforms=platforms, limit_per_platform=limit
-                        ),
+                        manager.get_trending_topics(platforms=platforms, limit_per_platform=limit),
                     ).result(timeout=30)
             else:
                 topics = asyncio.run(
-                    manager.get_trending_topics(
-                        platforms=platforms, limit_per_platform=limit
-                    )
+                    manager.get_trending_topics(platforms=platforms, limit_per_platform=limit)
                 )
 
             result.targets_hit.append("pulse_refresh")

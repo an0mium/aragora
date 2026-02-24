@@ -63,7 +63,9 @@ class PlaygroundAPI:
         Returns:
             Dict with estimated cost breakdown.
         """
-        return self._client.request("POST", "/api/playground/debate/live/cost-estimate", json=kwargs)
+        return self._client.request(
+            "POST", "/api/playground/debate/live/cost-estimate", json=kwargs
+        )
 
     def get_status(self) -> dict[str, Any]:
         """
@@ -109,7 +111,9 @@ class AsyncPlaygroundAPI:
 
     async def estimate_live_cost(self, **kwargs: Any) -> dict[str, Any]:
         """Get cost estimate for a live playground debate."""
-        return await self._client.request("POST", "/api/playground/debate/live/cost-estimate", json=kwargs)
+        return await self._client.request(
+            "POST", "/api/playground/debate/live/cost-estimate", json=kwargs
+        )
 
     async def get_status(self) -> dict[str, Any]:
         """Get playground system status."""

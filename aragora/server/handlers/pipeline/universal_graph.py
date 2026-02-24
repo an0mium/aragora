@@ -198,9 +198,7 @@ class UniversalGraphHandler(BaseHandler):
         return None
 
     @handle_errors("universal graph node update")
-    def handle_patch(
-        self, path: str, body: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle_patch(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route PATCH requests for node updates (position, label, status)."""
         auth_error = self._check_permission(handler, "pipeline:write")
         if auth_error:
@@ -465,9 +463,7 @@ class UniversalGraphHandler(BaseHandler):
             }
         )
 
-    def _update_node(
-        self, graph_id: str, node_id: str, body: dict[str, Any]
-    ) -> HandlerResult:
+    def _update_node(self, graph_id: str, node_id: str, body: dict[str, Any]) -> HandlerResult:
         """Update individual node properties (position, label, status, etc.)."""
         store = _get_store()
         graph = store.get(graph_id)
@@ -497,9 +493,7 @@ class UniversalGraphHandler(BaseHandler):
         store.update(graph)
         return json_response(node.to_dict())
 
-    def _execute_node(
-        self, graph_id: str, node_id: str, body: dict[str, Any]
-    ) -> HandlerResult:
+    def _execute_node(self, graph_id: str, node_id: str, body: dict[str, Any]) -> HandlerResult:
         """Trigger execution on a specific node via DAGOperationsCoordinator."""
         store = _get_store()
         graph = store.get(graph_id)

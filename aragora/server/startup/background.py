@@ -378,9 +378,7 @@ async def init_self_improvement_daemon() -> asyncio.Task | None:
         "1",
         "yes",
     ):
-        logger.debug(
-            "Self-improvement daemon disabled (set ARAGORA_SELF_IMPROVE_ENABLED=true)"
-        )
+        logger.debug("Self-improvement daemon disabled (set ARAGORA_SELF_IMPROVE_ENABLED=true)")
         return None
 
     try:
@@ -392,9 +390,11 @@ async def init_self_improvement_daemon() -> asyncio.Task | None:
             "1",
             "yes",
         )
-        auto_low_risk = os.environ.get(
-            "ARAGORA_SELF_IMPROVE_AUTO_LOW_RISK", "false"
-        ).lower() in ("true", "1", "yes")
+        auto_low_risk = os.environ.get("ARAGORA_SELF_IMPROVE_AUTO_LOW_RISK", "false").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
         budget = float(os.environ.get("ARAGORA_SELF_IMPROVE_BUDGET", "5.0"))
 
         config = DaemonConfig(

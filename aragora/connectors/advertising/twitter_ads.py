@@ -325,7 +325,8 @@ class TwitterAdsConnector(ProductionConnectorMixin):
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
         self._init_production_mixin(
-            connector_name="twitter_ads", request_timeout=30.0,
+            connector_name="twitter_ads",
+            request_timeout=30.0,
         )
         self._has_production_mixin = True
 
@@ -432,7 +433,8 @@ class TwitterAdsConnector(ProductionConnectorMixin):
 
         if self._has_production_mixin:
             return await self._call_with_retry(
-                _do_request, operation=f"{method}_{endpoint}",
+                _do_request,
+                operation=f"{method}_{endpoint}",
             )
         return await _do_request()
 

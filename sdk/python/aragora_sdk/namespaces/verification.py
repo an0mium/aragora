@@ -78,9 +78,7 @@ class VerificationAPI:
         Returns:
             Dict with verification proofs and their metadata.
         """
-        return self._client.request(
-            "GET", "/api/v1/verification/proofs", params=kwargs or None
-        )
+        return self._client.request("GET", "/api/v1/verification/proofs", params=kwargs or None)
 
     def validate(self, **kwargs: Any) -> dict[str, Any]:
         """
@@ -118,9 +116,7 @@ class AsyncVerificationAPI:
 
     async def formal_verify(self, **kwargs: Any) -> dict[str, Any]:
         """Run formal verification on a decision or claim."""
-        return await self._client.request(
-            "POST", "/api/v1/verification/formal-verify", json=kwargs
-        )
+        return await self._client.request("POST", "/api/v1/verification/formal-verify", json=kwargs)
 
     async def get_proofs(self, **kwargs: Any) -> dict[str, Any]:
         """Get generated verification proofs."""
@@ -130,6 +126,4 @@ class AsyncVerificationAPI:
 
     async def validate(self, **kwargs: Any) -> dict[str, Any]:
         """Validate a specific claim or assertion."""
-        return await self._client.request(
-            "POST", "/api/v1/verification/validate", json=kwargs
-        )
+        return await self._client.request("POST", "/api/v1/verification/validate", json=kwargs)

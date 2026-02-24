@@ -364,9 +364,7 @@ def build_integrity_package_from_result(
     receipt = None
     if include_receipt:
         cost_summary = _build_cost_summary_for_receipt(debate_result)
-        receipt = DecisionReceipt.from_debate_result(
-            debate_result, cost_summary=cost_summary
-        )
+        receipt = DecisionReceipt.from_debate_result(debate_result, cost_summary=cost_summary)
 
     plan: ImplementPlan | None = None
     if include_plan:
@@ -416,9 +414,7 @@ async def build_decision_integrity_package(
     receipt = None
     if include_receipt:
         cost_summary = _build_cost_summary_for_receipt(debate_result)
-        receipt = DecisionReceipt.from_debate_result(
-            debate_result, cost_summary=cost_summary
-        )
+        receipt = DecisionReceipt.from_debate_result(debate_result, cost_summary=cost_summary)
 
     plan: ImplementPlan | None = None
     if include_plan:

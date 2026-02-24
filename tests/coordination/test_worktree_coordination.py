@@ -47,6 +47,7 @@ from aragora.coordination.reconciler import (
 # WorktreeManager tests
 # ---------------------------------------------------------------------------
 
+
 class TestWorktreeManager:
     """Tests for WorktreeManager lifecycle and health tracking."""
 
@@ -250,13 +251,22 @@ class TestWorktreeManager:
     def test_summary(self):
         manager = self._make_manager()
         manager._worktrees["a"] = WorktreeState(
-            worktree_id="a", branch_name="dev/a", path=Path("/tmp/a"), status="active",
+            worktree_id="a",
+            branch_name="dev/a",
+            path=Path("/tmp/a"),
+            status="active",
         )
         manager._worktrees["b"] = WorktreeState(
-            worktree_id="b", branch_name="dev/b", path=Path("/tmp/b"), status="stalled",
+            worktree_id="b",
+            branch_name="dev/b",
+            path=Path("/tmp/b"),
+            status="stalled",
         )
         manager._worktrees["c"] = WorktreeState(
-            worktree_id="c", branch_name="dev/c", path=Path("/tmp/c"), status="active",
+            worktree_id="c",
+            branch_name="dev/c",
+            path=Path("/tmp/c"),
+            status="active",
         )
 
         s = manager.summary()
@@ -266,7 +276,9 @@ class TestWorktreeManager:
     async def test_mark_stalled(self):
         manager = self._make_manager()
         state = WorktreeState(
-            worktree_id="x", branch_name="dev/x", path=Path("/tmp/x"),
+            worktree_id="x",
+            branch_name="dev/x",
+            path=Path("/tmp/x"),
         )
         manager._worktrees["x"] = state
         await manager.mark_stalled("x")
@@ -276,7 +288,9 @@ class TestWorktreeManager:
     async def test_mark_abandoned(self):
         manager = self._make_manager()
         state = WorktreeState(
-            worktree_id="x", branch_name="dev/x", path=Path("/tmp/x"),
+            worktree_id="x",
+            branch_name="dev/x",
+            path=Path("/tmp/x"),
         )
         manager._worktrees["x"] = state
         await manager.mark_abandoned("x")
@@ -286,6 +300,7 @@ class TestWorktreeManager:
 # ---------------------------------------------------------------------------
 # TaskDispatcher tests
 # ---------------------------------------------------------------------------
+
 
 class TestTaskDispatcher:
     """Tests for TaskDispatcher priority queue and dependency tracking."""
@@ -479,6 +494,7 @@ class TestTaskDispatcher:
 # HealthWatchdog tests
 # ---------------------------------------------------------------------------
 
+
 class TestHealthWatchdog:
     """Tests for HealthWatchdog stall detection and recovery."""
 
@@ -648,6 +664,7 @@ class TestHealthWatchdog:
 # GitReconciler tests
 # ---------------------------------------------------------------------------
 
+
 class TestGitReconciler:
     """Tests for GitReconciler conflict detection and merge logic."""
 
@@ -674,7 +691,9 @@ class TestGitReconciler:
 
     def test_conflict_classification_unknown(self):
         reconciler = self._make_reconciler()
-        assert reconciler._classify_conflict("aragora/server/handler.py") == ConflictCategory.UNKNOWN
+        assert (
+            reconciler._classify_conflict("aragora/server/handler.py") == ConflictCategory.UNKNOWN
+        )
 
     def test_detect_conflicts_no_conflicts(self):
         reconciler = self._make_reconciler()
@@ -712,9 +731,7 @@ class TestGitReconciler:
     async def test_safe_merge_success(self):
         reconciler = self._make_reconciler()
 
-        mock_results = {
-            "calls": []
-        }
+        mock_results = {"calls": []}
 
         def mock_git(*args, cwd=None, check=True):
             mock_results["calls"].append(args)
@@ -886,6 +903,7 @@ class TestGitReconciler:
 # ---------------------------------------------------------------------------
 # Integration: full cycle test
 # ---------------------------------------------------------------------------
+
 
 class TestFullCycle:
     """End-to-end test: create worktree -> assign task -> complete -> merge."""

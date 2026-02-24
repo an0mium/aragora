@@ -80,9 +80,7 @@ def _is_production() -> bool:
 class SecurityHeadersConfig:
     """Configuration for the security headers middleware."""
 
-    enabled: bool = field(
-        default_factory=lambda: _env_bool("ARAGORA_SECURITY_HEADERS", "true")
-    )
+    enabled: bool = field(default_factory=lambda: _env_bool("ARAGORA_SECURITY_HEADERS", "true"))
     hsts_enabled: bool = field(
         default_factory=lambda: _env_bool(
             "ARAGORA_HSTS_ENABLED", "true" if _is_production() else "false"
@@ -194,9 +192,7 @@ class SecurityHeadersMiddleware:
             for name, value in headers.items():
                 handler.send_header(name, value)
         else:
-            logger.warning(
-                "SecurityHeadersMiddleware: handler missing send_header method"
-            )
+            logger.warning("SecurityHeadersMiddleware: handler missing send_header method")
 
     def apply_to_dict(self, response_headers: dict[str, str], path: str = "") -> None:
         """Merge security headers into an existing headers dict.

@@ -123,9 +123,7 @@ class TestQueryPrecedents:
     async def test_respects_limit(self, adapter, mock_mound):
         """Returned precedents are capped at the requested limit."""
         mock_mound.search = AsyncMock(
-            return_value=[
-                _make_task_outcome(content=f"task {i}") for i in range(10)
-            ]
+            return_value=[_make_task_outcome(content=f"task {i}") for i in range(10)]
         )
 
         results = await adapter.query_precedents("backend", limit=3)
@@ -262,8 +260,18 @@ class TestKMFeedbackEnrichesInstruction:
     async def test_km_feedback_adds_historical_insights(self):
         """When query_precedents returns outcomes, instruction gets enriched."""
         precedents = [
-            {"outcome": "Caching reduced latency by 40%", "status": "completed", "task_type": "perf", "agent_type": "claude"},
-            {"outcome": "Redis cluster improved throughput", "status": "completed", "task_type": "perf", "agent_type": "gpt4"},
+            {
+                "outcome": "Caching reduced latency by 40%",
+                "status": "completed",
+                "task_type": "perf",
+                "agent_type": "claude",
+            },
+            {
+                "outcome": "Redis cluster improved throughput",
+                "status": "completed",
+                "task_type": "perf",
+                "agent_type": "gpt4",
+            },
         ]
         agent_perf = {
             "agent_type": "claude",
@@ -303,9 +311,8 @@ class TestKMFeedbackEnrichesInstruction:
                     if outcome:
                         lessons.append(f"- {outcome}")
                 if lessons:
-                    instruction += (
-                        "\n\nHistorical insights from similar tasks:\n"
-                        + "\n".join(lessons)
+                    instruction += "\n\nHistorical insights from similar tasks:\n" + "\n".join(
+                        lessons
                     )
 
             perf = await pipeline_adapter.get_agent_performance(
@@ -314,9 +321,7 @@ class TestKMFeedbackEnrichesInstruction:
             )
             if perf and perf.get("success_rate", 0) > 0:
                 rate = perf["success_rate"]
-                instruction += (
-                    f"\n\nAgent historical success rate for this domain: {rate:.0%}"
-                )
+                instruction += f"\n\nAgent historical success rate for this domain: {rate:.0%}"
 
         assert "Historical insights from similar tasks:" in instruction
         assert "Caching reduced latency by 40%" in instruction
@@ -381,12 +386,11 @@ class TestKMFeedbackEnrichesInstruction:
                 side_effect=ImportError("no module"),
             ):
                 from aragora.knowledge.mound.adapters.pipeline_adapter import get_pipeline_adapter
+
                 pipeline_adapter = get_pipeline_adapter()
                 precs = await pipeline_adapter.query_precedents("feature", limit=3)
                 if precs:
-                    instruction += "\n\nInsights:\n" + "\n".join(
-                        f"- {p['outcome']}" for p in precs
-                    )
+                    instruction += "\n\nInsights:\n" + "\n".join(f"- {p['outcome']}" for p in precs)
         except (ImportError, AttributeError, TypeError, RuntimeError, ValueError):
             pass
 
@@ -557,7 +561,8 @@ class TestFindSimilarPipelines:
         )
 
         results = await adapter.find_similar_pipelines(
-            "search query", min_similarity=0.3,
+            "search query",
+            min_similarity=0.3,
         )
         assert results == []
 
@@ -883,6 +888,7 @@ class TestEventEmission:
 
     def test_event_callback_error_swallowed(self):
         """Errors in on_event callback are swallowed silently."""
+
         def bad_callback(event, data):
             raise RuntimeError("callback broke")
 

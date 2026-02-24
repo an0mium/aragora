@@ -162,9 +162,7 @@ class GauntletAutoImprove:
 
         # Apply rate limit (max goals per run)
         goals_to_queue = filtered_goals[: self.max_goals_per_run]
-        result.goals_skipped_rate_limit = max(
-            0, len(filtered_goals) - self.max_goals_per_run
-        )
+        result.goals_skipped_rate_limit = max(0, len(filtered_goals) - self.max_goals_per_run)
 
         if not goals_to_queue:
             logger.debug(
@@ -209,9 +207,7 @@ class GauntletAutoImprove:
                 result.goal_descriptions.append(goal.description)
 
         except ImportError:
-            logger.warning(
-                "auto_improve_queue_unavailable gauntlet=%s", gauntlet_id
-            )
+            logger.warning("auto_improve_queue_unavailable gauntlet=%s", gauntlet_id)
             result.error = "improvement_queue_import_failed"
             return result
         except (RuntimeError, ValueError, OSError) as exc:

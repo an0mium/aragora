@@ -33,7 +33,9 @@ class PipelineTransitionsAPI:
         if context:
             payload["context"] = context
         return self._client.request(
-            "POST", "/api/v1/pipeline/transitions/ideas-to-goals", json=payload,
+            "POST",
+            "/api/v1/pipeline/transitions/ideas-to-goals",
+            json=payload,
         )
 
     def goals_to_tasks(
@@ -55,7 +57,9 @@ class PipelineTransitionsAPI:
         if constraints:
             payload["constraints"] = constraints
         return self._client.request(
-            "POST", "/api/v1/pipeline/transitions/goals-to-tasks", json=payload,
+            "POST",
+            "/api/v1/pipeline/transitions/goals-to-tasks",
+            json=payload,
         )
 
     def tasks_to_workflow(
@@ -77,7 +81,9 @@ class PipelineTransitionsAPI:
         if execution_mode:
             payload["execution_mode"] = execution_mode
         return self._client.request(
-            "POST", "/api/v1/pipeline/transitions/tasks-to-workflow", json=payload,
+            "POST",
+            "/api/v1/pipeline/transitions/tasks-to-workflow",
+            json=payload,
         )
 
     def execute(
@@ -120,7 +126,8 @@ class PipelineTransitionsAPI:
             Dict with 'chain' list (origin first) and 'depth'.
         """
         return self._client.request(
-            "GET", f"/api/v1/pipeline/transitions/{node_id}/provenance",
+            "GET",
+            f"/api/v1/pipeline/transitions/{node_id}/provenance",
         )
 
 
@@ -141,7 +148,9 @@ class AsyncPipelineTransitionsAPI:
         if context:
             payload["context"] = context
         return await self._client.request(
-            "POST", "/api/v1/pipeline/transitions/ideas-to-goals", json=payload,
+            "POST",
+            "/api/v1/pipeline/transitions/ideas-to-goals",
+            json=payload,
         )
 
     async def goals_to_tasks(
@@ -155,7 +164,9 @@ class AsyncPipelineTransitionsAPI:
         if constraints:
             payload["constraints"] = constraints
         return await self._client.request(
-            "POST", "/api/v1/pipeline/transitions/goals-to-tasks", json=payload,
+            "POST",
+            "/api/v1/pipeline/transitions/goals-to-tasks",
+            json=payload,
         )
 
     async def tasks_to_workflow(
@@ -169,7 +180,9 @@ class AsyncPipelineTransitionsAPI:
         if execution_mode:
             payload["execution_mode"] = execution_mode
         return await self._client.request(
-            "POST", "/api/v1/pipeline/transitions/tasks-to-workflow", json=payload,
+            "POST",
+            "/api/v1/pipeline/transitions/tasks-to-workflow",
+            json=payload,
         )
 
     async def execute(
@@ -195,5 +208,6 @@ class AsyncPipelineTransitionsAPI:
     async def get_provenance(self, node_id: str) -> dict[str, Any]:
         """Get the full provenance chain for a node."""
         return await self._client.request(
-            "GET", f"/api/v1/pipeline/transitions/{node_id}/provenance",
+            "GET",
+            f"/api/v1/pipeline/transitions/{node_id}/provenance",
         )

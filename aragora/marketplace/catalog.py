@@ -478,9 +478,7 @@ class MarketplaceCatalog:
         if search is not None:
             query = search.lower()
             results = [
-                i
-                for i in results
-                if query in i.name.lower() or query in i.description.lower()
+                i for i in results if query in i.name.lower() or query in i.description.lower()
             ]
 
         results.sort(key=lambda i: i.downloads, reverse=True)

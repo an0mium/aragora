@@ -113,7 +113,6 @@ class AudioAPI:
         base_url = getattr(self._client, "_base_url", "https://api.aragora.ai")
         return f"{base_url}/api/v1/podcast/feed.xml"
 
-
     def serve_audio(self, audio_path: str) -> dict[str, Any]:
         """
         Serve audio file by path.

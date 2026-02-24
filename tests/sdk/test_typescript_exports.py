@@ -73,9 +73,7 @@ def _barrel_exported_api_classes(barrel_path: Path) -> set[str]:
     content = barrel_path.read_text()
     classes: set[str] = set()
     # Match export { ClassName, ... } from '...'  (non-type exports)
-    for m in re.finditer(
-        r"export\s*\{([^}]+)\}\s*from\s*['\"][^'\"]+['\"]", content
-    ):
+    for m in re.finditer(r"export\s*\{([^}]+)\}\s*from\s*['\"][^'\"]+['\"]", content):
         block = m.group(1)
         for item in block.split(","):
             item = item.strip()
@@ -107,9 +105,7 @@ def _top_index_reexports(index_path: Path) -> set[str]:
         return set()
     content = index_path.read_text()
     classes: set[str] = set()
-    for m in re.finditer(
-        r"export\s*\{([^}]+)\}\s*from\s*['\"][^'\"]+['\"]", content
-    ):
+    for m in re.finditer(r"export\s*\{([^}]+)\}\s*from\s*['\"][^'\"]+['\"]", content):
         block = m.group(1)
         for item in block.split(","):
             item = item.strip()
@@ -260,8 +256,7 @@ class TestNoDuplicateTypeExports:
         # Some duplicates are expected when using "as" aliases -- they'll
         # have different base names. This test catches true collisions.
         assert not duplicates, (
-            f"Duplicate export names in barrel (will cause TS compilation errors): "
-            f"{duplicates}"
+            f"Duplicate export names in barrel (will cause TS compilation errors): {duplicates}"
         )
 
 
@@ -289,9 +284,7 @@ class TestTypeScriptCompilation:
             # Show first 20 lines of errors
             lines = (result.stdout or result.stderr or "").strip().splitlines()[:20]
             error_summary = "\n".join(lines)
-            pytest.fail(
-                f"TypeScript compilation failed with {result.returncode}:\n{error_summary}"
-            )
+            pytest.fail(f"TypeScript compilation failed with {result.returncode}:\n{error_summary}")
 
 
 class TestInputValidation:
@@ -307,9 +300,11 @@ class TestInputValidation:
         assert "ValidationError" in content, (
             "AragoraClient constructor should throw ValidationError for invalid config"
         )
-        assert "baseUrl" in content and "non-empty" in content.lower() or "valid URL" in content.lower(), (
-            "AragoraClient constructor should validate baseUrl"
-        )
+        assert (
+            "baseUrl" in content
+            and "non-empty" in content.lower()
+            or "valid URL" in content.lower()
+        ), "AragoraClient constructor should validate baseUrl"
 
     def test_request_method_validates_http_method(self):
         """Verify the request method validates the HTTP method parameter."""

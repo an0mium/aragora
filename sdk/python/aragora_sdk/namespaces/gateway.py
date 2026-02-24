@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 DeviceStatus = Literal["online", "offline", "unknown"]
 
+
 class GatewayAPI:
     """
     Synchronous Gateway API.
@@ -198,9 +199,7 @@ class GatewayAPI:
         Returns:
             Dict with agent health status.
         """
-        return self._client.request(
-            "GET", f"/api/v1/gateway/agents/{agent_name}/health"
-        )
+        return self._client.request("GET", f"/api/v1/gateway/agents/{agent_name}/health")
 
     # =========================================================================
     # Credentials
@@ -254,9 +253,7 @@ class GatewayAPI:
         Returns:
             Dict with success message.
         """
-        return self._client.request(
-            "DELETE", f"/api/v1/gateway/credentials/{credential_id}"
-        )
+        return self._client.request("DELETE", f"/api/v1/gateway/credentials/{credential_id}")
 
     # =========================================================================
     # Messages (extended)
@@ -295,9 +292,7 @@ class GatewayAPI:
         Returns:
             Dict with message details and routing info.
         """
-        return self._client.request(
-            "GET", f"/api/v1/gateway/messages/{message_id}"
-        )
+        return self._client.request("GET", f"/api/v1/gateway/messages/{message_id}")
 
     # =========================================================================
     # Routing (extended)
@@ -364,7 +359,9 @@ class GatewayAPI:
         """Get routing statistics."""
         return self._client.request("GET", "/api/v1/gateway/routing/stats")
 
-    def route_message(self, channel: str, content: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    def route_message(
+        self, channel: str, content: str, metadata: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Route a message through the gateway."""
         data: dict[str, Any] = {"channel": channel, "content": content}
         if metadata:
@@ -420,9 +417,7 @@ class GatewayAPI:
         params: dict[str, Any] = {"skip": skip, "limit": limit}
         if status is not None:
             params["status"] = status
-        return self._client.request(
-            "GET", "/api/gateway/openclaw/sessions", params=params
-        )
+        return self._client.request("GET", "/api/gateway/openclaw/sessions", params=params)
 
     def openclaw_create_session(self, **kwargs: Any) -> dict[str, Any]:
         """Create an OpenClaw session via the gateway path.
@@ -430,9 +425,7 @@ class GatewayAPI:
         Returns:
             Dict with session details.
         """
-        return self._client.request(
-            "POST", "/api/gateway/openclaw/sessions", json=kwargs
-        )
+        return self._client.request("POST", "/api/gateway/openclaw/sessions", json=kwargs)
 
     def openclaw_actions(
         self,
@@ -458,9 +451,7 @@ class GatewayAPI:
         }
         if input_data is not None:
             payload["input_data"] = input_data
-        return self._client.request(
-            "POST", "/api/gateway/openclaw/actions", json=payload
-        )
+        return self._client.request("POST", "/api/gateway/openclaw/actions", json=payload)
 
     def openclaw_credentials(self) -> dict[str, Any]:
         """List OpenClaw credentials via the gateway path.
@@ -476,9 +467,7 @@ class GatewayAPI:
         Returns:
             Dict with credential ID and success message.
         """
-        return self._client.request(
-            "POST", "/api/gateway/openclaw/credentials", json=kwargs
-        )
+        return self._client.request("POST", "/api/gateway/openclaw/credentials", json=kwargs)
 
     def openclaw_health(self) -> dict[str, Any]:
         """Get OpenClaw gateway health via the gateway path.
@@ -515,9 +504,7 @@ class GatewayAPI:
             params["event_type"] = event_type
         if user_id is not None:
             params["user_id"] = user_id
-        return self._client.request(
-            "GET", "/api/gateway/openclaw/audit", params=params or None
-        )
+        return self._client.request("GET", "/api/gateway/openclaw/audit", params=params or None)
 
 
 class AsyncGatewayAPI:
@@ -596,15 +583,11 @@ class AsyncGatewayAPI:
 
     async def get_agent(self, agent_name: str) -> dict[str, Any]:
         """Get details for a specific gateway agent."""
-        return await self._client.request(
-            "GET", f"/api/v1/gateway/agents/{agent_name}"
-        )
+        return await self._client.request("GET", f"/api/v1/gateway/agents/{agent_name}")
 
     async def get_agent_health(self, agent_name: str) -> dict[str, Any]:
         """Check health of a specific gateway agent."""
-        return await self._client.request(
-            "GET", f"/api/v1/gateway/agents/{agent_name}/health"
-        )
+        return await self._client.request("GET", f"/api/v1/gateway/agents/{agent_name}/health")
 
     # =========================================================================
     # Credentials
@@ -630,15 +613,11 @@ class AsyncGatewayAPI:
         if metadata:
             data["metadata"] = metadata
 
-        return await self._client.request(
-            "POST", "/api/v1/gateway/credentials", json=data
-        )
+        return await self._client.request("POST", "/api/v1/gateway/credentials", json=data)
 
     async def delete_credential(self, credential_id: str) -> dict[str, Any]:
         """Delete a stored credential."""
-        return await self._client.request(
-            "DELETE", f"/api/v1/gateway/credentials/{credential_id}"
-        )
+        return await self._client.request("DELETE", f"/api/v1/gateway/credentials/{credential_id}")
 
     # =========================================================================
     # Messages (extended)
@@ -655,15 +634,11 @@ class AsyncGatewayAPI:
         if metadata:
             data["metadata"] = metadata
 
-        return await self._client.request(
-            "POST", "/api/v1/gateway/messages", json=data
-        )
+        return await self._client.request("POST", "/api/v1/gateway/messages", json=data)
 
     async def get_message(self, message_id: str) -> dict[str, Any]:
         """Get details for a specific routed message."""
-        return await self._client.request(
-            "GET", f"/api/v1/gateway/messages/{message_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/gateway/messages/{message_id}")
 
     # =========================================================================
     # Routing (extended)
@@ -691,15 +666,11 @@ class AsyncGatewayAPI:
         if priority is not None:
             data["priority"] = priority
 
-        return await self._client.request(
-            "POST", "/api/v1/gateway/routing", json=data
-        )
+        return await self._client.request("POST", "/api/v1/gateway/routing", json=data)
 
     async def get_routing_rule(self, route_id: str) -> dict[str, Any]:
         """Get details for a specific routing rule."""
-        return await self._client.request(
-            "GET", f"/api/v1/gateway/routing/{route_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/gateway/routing/{route_id}")
 
     async def get_routing_rules(self) -> dict[str, Any]:
         """List all routing rules."""
@@ -709,7 +680,9 @@ class AsyncGatewayAPI:
         """Get routing statistics."""
         return await self._client.request("GET", "/api/v1/gateway/routing/stats")
 
-    async def route_message(self, channel: str, content: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def route_message(
+        self, channel: str, content: str, metadata: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Route a message through the gateway."""
         data: dict[str, Any] = {"channel": channel, "content": content}
         if metadata:
@@ -730,15 +703,11 @@ class AsyncGatewayAPI:
         params: dict[str, Any] = {"skip": skip, "limit": limit}
         if status is not None:
             params["status"] = status
-        return await self._client.request(
-            "GET", "/api/gateway/openclaw/sessions", params=params
-        )
+        return await self._client.request("GET", "/api/gateway/openclaw/sessions", params=params)
 
     async def openclaw_create_session(self, **kwargs: Any) -> dict[str, Any]:
         """Create an OpenClaw session via the gateway path."""
-        return await self._client.request(
-            "POST", "/api/gateway/openclaw/sessions", json=kwargs
-        )
+        return await self._client.request("POST", "/api/gateway/openclaw/sessions", json=kwargs)
 
     async def openclaw_actions(
         self,
@@ -755,9 +724,7 @@ class AsyncGatewayAPI:
         }
         if input_data is not None:
             payload["input_data"] = input_data
-        return await self._client.request(
-            "POST", "/api/gateway/openclaw/actions", json=payload
-        )
+        return await self._client.request("POST", "/api/gateway/openclaw/actions", json=payload)
 
     async def openclaw_credentials(self) -> dict[str, Any]:
         """List OpenClaw credentials via the gateway path."""
@@ -765,9 +732,7 @@ class AsyncGatewayAPI:
 
     async def openclaw_store_credential(self, **kwargs: Any) -> dict[str, Any]:
         """Store an OpenClaw credential via the gateway path."""
-        return await self._client.request(
-            "POST", "/api/gateway/openclaw/credentials", json=kwargs
-        )
+        return await self._client.request("POST", "/api/gateway/openclaw/credentials", json=kwargs)
 
     async def openclaw_health(self) -> dict[str, Any]:
         """Get OpenClaw gateway health via the gateway path."""

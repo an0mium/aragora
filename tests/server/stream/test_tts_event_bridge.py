@@ -437,9 +437,7 @@ class TestShutdownCleanup:
 class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_tts_synthesis_failure_logged_not_raised(self) -> None:
-        bridge, tts, _ = _make_bridge(
-            synthesize_side_effect=RuntimeError("TTS backend down")
-        )
+        bridge, tts, _ = _make_bridge(synthesize_side_effect=RuntimeError("TTS backend down"))
         bus = FakeEventBus()
         bridge.connect(bus)
 
@@ -459,9 +457,7 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_tts_timeout_error_handled(self) -> None:
-        bridge, tts, _ = _make_bridge(
-            synthesize_side_effect=TimeoutError("Timed out")
-        )
+        bridge, tts, _ = _make_bridge(synthesize_side_effect=TimeoutError("Timed out"))
         bus = FakeEventBus()
         bridge.connect(bus)
 

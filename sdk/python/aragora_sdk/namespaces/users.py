@@ -47,7 +47,9 @@ class AsyncUsersAPI:
 
     async def request_deletion(self, **kwargs: Any) -> dict[str, Any]:
         """Request account deletion."""
-        return await self._client.request("POST", "/api/v1/users/self/deletion-request", json=kwargs)
+        return await self._client.request(
+            "POST", "/api/v1/users/self/deletion-request", json=kwargs
+        )
 
     async def cancel_deletion(self) -> dict[str, Any]:
         """Cancel a pending account deletion request."""

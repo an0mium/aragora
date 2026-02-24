@@ -129,9 +129,7 @@ class _TokenBucket:
 class EndpointRateLimitConfig:
     """Configuration for the per-endpoint rate limiter."""
 
-    tier_rates: dict[RateTier, int] = field(
-        default_factory=lambda: dict(DEFAULT_TIER_RATES)
-    )
+    tier_rates: dict[RateTier, int] = field(default_factory=lambda: dict(DEFAULT_TIER_RATES))
     burst_multiplier: float = DEFAULT_BURST_MULTIPLIER
 
     # Per-path overrides: path-prefix -> requests/min.
@@ -293,9 +291,7 @@ class EndpointRateLimiter:
         ):
             return
         threshold = now - self.config.stale_threshold
-        stale = [
-            k for k, b in self._buckets.items() if b.last_refill < threshold
-        ]
+        stale = [k for k, b in self._buckets.items() if b.last_refill < threshold]
         for k in stale:
             del self._buckets[k]
         if stale:

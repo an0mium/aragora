@@ -91,9 +91,7 @@ class TestConsensusAPIGetDetectionStatus:
         api = ConsensusAPI(mock_client)
         result = api.get_detection_status("test-123")
 
-        mock_client.request.assert_called_once_with(
-            "GET", "/api/v1/consensus/status/test-123"
-        )
+        mock_client.request.assert_called_once_with("GET", "/api/v1/consensus/status/test-123")
         assert result["data"]["debate_id"] == "test-123"
 
     def test_get_detection_status_encodes_id(self):
@@ -104,9 +102,7 @@ class TestConsensusAPIGetDetectionStatus:
         api = ConsensusAPI(mock_client)
         api.get_detection_status("my-debate-456")
 
-        mock_client.request.assert_called_once_with(
-            "GET", "/api/v1/consensus/status/my-debate-456"
-        )
+        mock_client.request.assert_called_once_with("GET", "/api/v1/consensus/status/my-debate-456")
 
 
 class TestAsyncConsensusAPIDetect:
@@ -144,14 +140,10 @@ class TestAsyncConsensusAPIGetDetectionStatus:
     async def test_async_get_detection_status(self):
         """Test async get_detection_status makes correct request."""
         mock_client = MagicMock()
-        mock_client.request = AsyncMock(
-            return_value={"data": {"debate_id": "test-789"}}
-        )
+        mock_client.request = AsyncMock(return_value={"data": {"debate_id": "test-789"}})
 
         api = AsyncConsensusAPI(mock_client)
         result = await api.get_detection_status("test-789")
 
-        mock_client.request.assert_awaited_once_with(
-            "GET", "/api/v1/consensus/status/test-789"
-        )
+        mock_client.request.assert_awaited_once_with("GET", "/api/v1/consensus/status/test-789")
         assert result["data"]["debate_id"] == "test-789"

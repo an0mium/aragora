@@ -127,13 +127,20 @@ class TestConsensusParser:
         subparsers = parser.add_subparsers(dest="command")
         add_consensus_parser(subparsers)
 
-        args = parser.parse_args([
-            "consensus", "detect",
-            "--task", "Choose a database",
-            "--proposals", '["Use PostgreSQL", "Use MySQL"]',
-            "--threshold", "0.8",
-            "--format", "json",
-        ])
+        args = parser.parse_args(
+            [
+                "consensus",
+                "detect",
+                "--task",
+                "Choose a database",
+                "--proposals",
+                '["Use PostgreSQL", "Use MySQL"]',
+                "--threshold",
+                "0.8",
+                "--format",
+                "json",
+            ]
+        )
         assert args.consensus_command == "detect"
         assert args.task == "Choose a database"
         assert args.proposals == '["Use PostgreSQL", "Use MySQL"]'
@@ -145,9 +152,16 @@ class TestConsensusParser:
         subparsers = parser.add_subparsers(dest="command")
         add_consensus_parser(subparsers)
 
-        args = parser.parse_args([
-            "consensus", "detect", "--task", "Test", "--file", "proposals.json",
-        ])
+        args = parser.parse_args(
+            [
+                "consensus",
+                "detect",
+                "--task",
+                "Test",
+                "--file",
+                "proposals.json",
+            ]
+        )
         assert args.file == "proposals.json"
 
     def test_detect_stdin_flag(self):
@@ -155,9 +169,13 @@ class TestConsensusParser:
         subparsers = parser.add_subparsers(dest="command")
         add_consensus_parser(subparsers)
 
-        args = parser.parse_args([
-            "consensus", "detect", "--stdin",
-        ])
+        args = parser.parse_args(
+            [
+                "consensus",
+                "detect",
+                "--stdin",
+            ]
+        )
         assert args.stdin is True
 
     def test_status_subcommand_parses(self):
@@ -165,9 +183,15 @@ class TestConsensusParser:
         subparsers = parser.add_subparsers(dest="command")
         add_consensus_parser(subparsers)
 
-        args = parser.parse_args([
-            "consensus", "status", "debate-123", "--format", "json",
-        ])
+        args = parser.parse_args(
+            [
+                "consensus",
+                "status",
+                "debate-123",
+                "--format",
+                "json",
+            ]
+        )
         assert args.consensus_command == "status"
         assert args.debate_id == "debate-123"
         assert args.output_format == "json"
@@ -177,11 +201,17 @@ class TestConsensusParser:
         subparsers = parser.add_subparsers(dest="command")
         add_consensus_parser(subparsers)
 
-        args = parser.parse_args([
-            "consensus", "status", "d1",
-            "--api-url", "http://custom:9090",
-            "--api-key", "sk-test",
-        ])
+        args = parser.parse_args(
+            [
+                "consensus",
+                "status",
+                "d1",
+                "--api-url",
+                "http://custom:9090",
+                "--api-key",
+                "sk-test",
+            ]
+        )
         assert args.api_url == "http://custom:9090"
         assert args.api_key == "sk-test"
 
@@ -227,28 +257,34 @@ class TestNormalizeProposals:
         assert result[1]["content"] == "Use MySQL"
 
     def test_normalize_dict_proposals(self):
-        result = _normalize_proposals([
-            {"agent": "claude", "content": "Use PostgreSQL"},
-            {"agent": "gpt4", "content": "Use MySQL"},
-        ])
+        result = _normalize_proposals(
+            [
+                {"agent": "claude", "content": "Use PostgreSQL"},
+                {"agent": "gpt4", "content": "Use MySQL"},
+            ]
+        )
         assert len(result) == 2
         assert result[0]["agent"] == "claude"
         assert result[1]["agent"] == "gpt4"
 
     def test_normalize_mixed_proposals(self):
-        result = _normalize_proposals([
-            "Use PostgreSQL",
-            {"agent": "claude", "content": "Use MySQL"},
-        ])
+        result = _normalize_proposals(
+            [
+                "Use PostgreSQL",
+                {"agent": "claude", "content": "Use MySQL"},
+            ]
+        )
         assert len(result) == 2
         assert result[0]["agent"] == "agent-1"
         assert result[1]["agent"] == "claude"
 
     def test_empty_content_filtered(self):
-        result = _normalize_proposals([
-            {"agent": "a", "content": ""},
-            {"agent": "b", "content": "Valid"},
-        ])
+        result = _normalize_proposals(
+            [
+                {"agent": "a", "content": ""},
+                {"agent": "b", "content": "Valid"},
+            ]
+        )
         assert len(result) == 1
         assert result[0]["agent"] == "b"
 
@@ -257,9 +293,11 @@ class TestNormalizeProposals:
         assert result == []
 
     def test_dict_with_round(self):
-        result = _normalize_proposals([
-            {"agent": "a", "content": "Test", "round": 2},
-        ])
+        result = _normalize_proposals(
+            [
+                {"agent": "a", "content": "Test", "round": 2},
+            ]
+        )
         assert result[0]["round"] == 2
 
 
@@ -310,13 +348,17 @@ class TestConsensusDetect:
     def test_detect_from_file(self, capsys, tmp_path):
         """Detect reads proposals from a JSON file."""
         proposals_file = tmp_path / "proposals.json"
-        proposals_file.write_text(json.dumps({
-            "task": "Choose a framework",
-            "proposals": [
-                {"agent": "claude", "content": "Use React"},
-                {"agent": "gpt4", "content": "Use React with Next.js"},
-            ],
-        }))
+        proposals_file.write_text(
+            json.dumps(
+                {
+                    "task": "Choose a framework",
+                    "proposals": [
+                        {"agent": "claude", "content": "Use React"},
+                        {"agent": "gpt4", "content": "Use React with Next.js"},
+                    ],
+                }
+            )
+        )
 
         args = _make_detect_args(
             file=str(proposals_file),
@@ -337,10 +379,14 @@ class TestConsensusDetect:
     def test_detect_from_file_array_format(self, capsys, tmp_path):
         """Detect reads proposals from a JSON array file."""
         proposals_file = tmp_path / "proposals.json"
-        proposals_file.write_text(json.dumps([
-            "Use React",
-            "Use Vue",
-        ]))
+        proposals_file.write_text(
+            json.dumps(
+                [
+                    "Use React",
+                    "Use Vue",
+                ]
+            )
+        )
 
         args = _make_detect_args(
             file=str(proposals_file),
@@ -357,12 +403,14 @@ class TestConsensusDetect:
 
     def test_detect_from_stdin(self, capsys):
         """Detect reads proposals from stdin."""
-        stdin_data = json.dumps({
-            "task": "Pick a framework",
-            "proposals": [
-                {"agent": "a", "content": "Use React"},
-            ],
-        })
+        stdin_data = json.dumps(
+            {
+                "task": "Pick a framework",
+                "proposals": [
+                    {"agent": "a", "content": "Use React"},
+                ],
+            }
+        )
         args = _make_detect_args(
             stdin=True,
             task=None,
@@ -497,7 +545,7 @@ class TestConsensusDetect:
     def test_detect_empty_proposals_error(self, capsys):
         """Detect errors when proposals list is empty."""
         args = _make_detect_args(
-            proposals='[]',
+            proposals="[]",
         )
         result = cmd_consensus_detect(args)
 
@@ -624,7 +672,9 @@ class TestAPIHelpers:
         with patch("aragora.client.client.AragoraClient") as mock_cls:
             mock_cls.return_value = mock_client
             result = _try_api_detect(
-                "Test task", [{"agent": "a", "content": "Proposal"}], 0.7,
+                "Test task",
+                [{"agent": "a", "content": "Proposal"}],
+                0.7,
                 _make_detect_args(),
             )
 
@@ -641,7 +691,9 @@ class TestAPIHelpers:
         with patch("aragora.client.client.AragoraClient") as mock_cls:
             mock_cls.return_value = mock_client
             result = _try_api_detect(
-                "Test", [{"agent": "a", "content": "P"}], 0.7,
+                "Test",
+                [{"agent": "a", "content": "P"}],
+                0.7,
                 _make_detect_args(),
             )
 
@@ -659,7 +711,9 @@ class TestAPIHelpers:
 
         with patch("builtins.__import__", side_effect=block_client):
             result = _try_api_detect(
-                "Test", [{"agent": "a", "content": "P"}], 0.7,
+                "Test",
+                [{"agent": "a", "content": "P"}],
+                0.7,
                 _make_detect_args(),
             )
 
@@ -673,7 +727,9 @@ class TestAPIHelpers:
         with patch("aragora.client.client.AragoraClient") as mock_cls:
             mock_cls.return_value = mock_client
             result = _try_api_detect(
-                "Test", [{"agent": "a", "content": "P"}], 0.7,
+                "Test",
+                [{"agent": "a", "content": "P"}],
+                0.7,
                 _make_detect_args(),
             )
 
@@ -687,7 +743,9 @@ class TestAPIHelpers:
         with patch("aragora.client.client.AragoraClient") as mock_cls:
             mock_cls.return_value = mock_client
             _try_api_detect(
-                "Test", [{"agent": "a", "content": "P"}], 0.7,
+                "Test",
+                [{"agent": "a", "content": "P"}],
+                0.7,
                 _make_detect_args(api_url="http://custom:9090", api_key="sk-test"),
             )
 
@@ -796,7 +854,9 @@ class TestLocalDetection:
 
         with patch("builtins.__import__", side_effect=block_consensus):
             result = _try_local_detect(
-                "Test", [{"agent": "a", "content": "P"}], 0.7,
+                "Test",
+                [{"agent": "a", "content": "P"}],
+                0.7,
             )
 
         assert result is None

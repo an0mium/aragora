@@ -697,7 +697,9 @@ class TestOAuthUserCreation:
         user = await oauth_handler._create_oauth_user(mock_user_store, user_info)
 
         assert user is None
-        assert not any(u.email == "unverified-oidc@example.com" for u in mock_user_store.created_users)
+        assert not any(
+            u.email == "unverified-oidc@example.com" for u in mock_user_store.created_users
+        )
 
 
 # ===========================================================================

@@ -38,12 +38,14 @@ def _make_handler_mixin():
 
 def _make_event_json(seq: int, debate_id: str = "debate-1") -> str:
     """Create a JSON string resembling a serialized StreamEvent."""
-    return json.dumps({
-        "type": "agent_message",
-        "seq": seq,
-        "loop_id": debate_id,
-        "data": {"content": f"message-{seq}"},
-    })
+    return json.dumps(
+        {
+            "type": "agent_message",
+            "seq": seq,
+            "loop_id": debate_id,
+            "data": {"content": f"message-{seq}"},
+        }
+    )
 
 
 def _parse_result(result):
@@ -91,9 +93,7 @@ class TestGetDebateEventsPolling:
     def test_limit_cap_works(self):
         mixin = _make_handler_mixin()
         mock_buffer = MagicMock()
-        mock_buffer.replay_since.return_value = [
-            _make_event_json(i) for i in range(1, 11)
-        ]
+        mock_buffer.replay_since.return_value = [_make_event_json(i) for i in range(1, 11)]
 
         with patch(_PATCH_TARGET, return_value=mock_buffer):
             result = mixin._get_debate_events(None, "debate-1", since_seq=0, limit=3)
@@ -106,9 +106,7 @@ class TestGetDebateEventsPolling:
     def test_limit_clamped_to_max_500(self):
         mixin = _make_handler_mixin()
         mock_buffer = MagicMock()
-        mock_buffer.replay_since.return_value = [
-            _make_event_json(i) for i in range(1, 600)
-        ]
+        mock_buffer.replay_since.return_value = [_make_event_json(i) for i in range(1, 600)]
 
         with patch(_PATCH_TARGET, return_value=mock_buffer):
             result = mixin._get_debate_events(None, "debate-1", since_seq=0, limit=9999)

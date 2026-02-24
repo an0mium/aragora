@@ -95,7 +95,9 @@ class PaymentsAPI:
 
     def update_subscription(self, subscription_id: str, **kwargs: Any) -> dict[str, Any]:
         """Update a subscription."""
-        return self._client.request("PUT", f"/api/v1/payments/subscription/{subscription_id}", json=kwargs)
+        return self._client.request(
+            "PUT", f"/api/v1/payments/subscription/{subscription_id}", json=kwargs
+        )
 
     def cancel_subscription(self, subscription_id: str) -> dict[str, Any]:
         """Cancel a subscription."""
@@ -142,7 +144,9 @@ class AsyncPaymentsAPI:
 
     async def update_customer(self, customer_id: str, **kwargs: Any) -> dict[str, Any]:
         """Update a customer profile."""
-        return await self._client.request("PUT", f"/api/v1/payments/customer/{customer_id}", json=kwargs)
+        return await self._client.request(
+            "PUT", f"/api/v1/payments/customer/{customer_id}", json=kwargs
+        )
 
     async def delete_customer(self, customer_id: str) -> dict[str, Any]:
         """Delete a customer profile."""
@@ -158,8 +162,12 @@ class AsyncPaymentsAPI:
 
     async def update_subscription(self, subscription_id: str, **kwargs: Any) -> dict[str, Any]:
         """Update a subscription."""
-        return await self._client.request("PUT", f"/api/v1/payments/subscription/{subscription_id}", json=kwargs)
+        return await self._client.request(
+            "PUT", f"/api/v1/payments/subscription/{subscription_id}", json=kwargs
+        )
 
     async def cancel_subscription(self, subscription_id: str) -> dict[str, Any]:
         """Cancel a subscription."""
-        return await self._client.request("DELETE", f"/api/v1/payments/subscription/{subscription_id}")
+        return await self._client.request(
+            "DELETE", f"/api/v1/payments/subscription/{subscription_id}"
+        )

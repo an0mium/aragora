@@ -48,11 +48,7 @@ class TestDebateCreation:
         assert result is d
 
     def test_add_agent_chaining(self):
-        d = (
-            Debate(topic="test")
-            .add_agent(MockAgent("a"))
-            .add_agent(MockAgent("b"))
-        )
+        d = Debate(topic="test").add_agent(MockAgent("a")).add_agent(MockAgent("b"))
         assert len(d.agents) == 2
 
     def test_agents_property_is_copy(self):
@@ -305,11 +301,11 @@ class TestDebateIntegration:
         debate.add_agent(
             MockAgent("advocate", proposal="Yes, open-source builds community", vote_for="advocate")
         )
+        debate.add_agent(MockAgent("skeptic", proposal="No, competitive risk", vote_for="advocate"))
         debate.add_agent(
-            MockAgent("skeptic", proposal="No, competitive risk", vote_for="advocate")
-        )
-        debate.add_agent(
-            MockAgent("pragmatist", proposal="Partial: open-source non-core tools", vote_for="advocate")
+            MockAgent(
+                "pragmatist", proposal="Partial: open-source non-core tools", vote_for="advocate"
+            )
         )
 
         result = await debate.run()
@@ -341,7 +337,10 @@ class TestDebateIntegration:
 
         assert result.receipt is not None
         # against voted differently
-        assert len(result.receipt.consensus.dissents) > 0 or len(result.receipt.consensus.dissenting_agents) > 0
+        assert (
+            len(result.receipt.consensus.dissents) > 0
+            or len(result.receipt.consensus.dissenting_agents) > 0
+        )
 
     @pytest.mark.asyncio
     async def test_chained_api(self):

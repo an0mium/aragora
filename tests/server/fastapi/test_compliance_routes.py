@@ -28,43 +28,47 @@ def app():
 def mock_compliance_framework():
     """Create a mock compliance framework."""
     fw = MagicMock()
-    fw.get_status = MagicMock(return_value={
-        "overall_status": "partially_compliant",
-        "controls": [
-            {
-                "control_id": "CC-1.1",
-                "name": "Control Environment",
-                "description": "Organization demonstrates commitment to integrity",
-                "status": "passing",
-                "evidence_count": 5,
-                "last_assessed": "2026-02-15T10:00:00",
-            },
-            {
-                "control_id": "CC-1.2",
-                "name": "Board Oversight",
-                "description": "Board exercises oversight",
-                "status": "not_assessed",
-                "evidence_count": 0,
-                "last_assessed": None,
-            },
-            {
-                "control_id": "CC-2.1",
-                "name": "Risk Assessment",
-                "description": "Organization identifies risks",
-                "status": "failing",
-                "evidence_count": 2,
-                "last_assessed": "2026-02-14T10:00:00",
-            },
-        ],
-        "last_assessment": "2026-02-15T10:00:00",
-    })
+    fw.get_status = MagicMock(
+        return_value={
+            "overall_status": "partially_compliant",
+            "controls": [
+                {
+                    "control_id": "CC-1.1",
+                    "name": "Control Environment",
+                    "description": "Organization demonstrates commitment to integrity",
+                    "status": "passing",
+                    "evidence_count": 5,
+                    "last_assessed": "2026-02-15T10:00:00",
+                },
+                {
+                    "control_id": "CC-1.2",
+                    "name": "Board Oversight",
+                    "description": "Board exercises oversight",
+                    "status": "not_assessed",
+                    "evidence_count": 0,
+                    "last_assessed": None,
+                },
+                {
+                    "control_id": "CC-2.1",
+                    "name": "Risk Assessment",
+                    "description": "Organization identifies risks",
+                    "status": "failing",
+                    "evidence_count": 2,
+                    "last_assessed": "2026-02-14T10:00:00",
+                },
+            ],
+            "last_assessment": "2026-02-15T10:00:00",
+        }
+    )
     fw.list_policies = MagicMock(return_value=[])
     fw.count_policies = MagicMock(return_value=0)
-    fw.generate_artifact = MagicMock(return_value={
-        "framework": "soc2",
-        "status": "generated",
-        "integrity_hash": "sha256_abc123",
-    })
+    fw.generate_artifact = MagicMock(
+        return_value={
+            "framework": "soc2",
+            "status": "generated",
+            "integrity_hash": "sha256_abc123",
+        }
+    )
     return fw
 
 
@@ -230,7 +234,10 @@ class TestListPolicies:
         response = client.get("/api/v2/compliance/policies?framework=gdpr")
         assert response.status_code == 200
         mock_compliance_framework.list_policies.assert_called_once_with(
-            limit=50, offset=0, framework="gdpr", status=None,
+            limit=50,
+            offset=0,
+            framework="gdpr",
+            status=None,
         )
 
     def test_list_with_status_filter(self, client, mock_compliance_framework):
@@ -238,7 +245,10 @@ class TestListPolicies:
         response = client.get("/api/v2/compliance/policies?status=active")
         assert response.status_code == 200
         mock_compliance_framework.list_policies.assert_called_once_with(
-            limit=50, offset=0, framework=None, status="active",
+            limit=50,
+            offset=0,
+            framework=None,
+            status="active",
         )
 
     def test_list_pagination(self, client, mock_compliance_framework):
@@ -435,7 +445,9 @@ class TestAuditLog:
 
         assert response.status_code == 200
         mock_audit_store.query.assert_called_once_with(
-            limit=50, offset=0, action="debate.created",
+            limit=50,
+            offset=0,
+            action="debate.created",
         )
 
     def test_audit_log_with_actor_filter(self, client, mock_audit_store):
@@ -447,7 +459,9 @@ class TestAuditLog:
 
         assert response.status_code == 200
         mock_audit_store.query.assert_called_once_with(
-            limit=50, offset=0, actor="user-1",
+            limit=50,
+            offset=0,
+            actor="user-1",
         )
 
     def test_audit_log_with_resource_type_filter(self, client, mock_audit_store):
@@ -459,7 +473,9 @@ class TestAuditLog:
 
         assert response.status_code == 200
         mock_audit_store.query.assert_called_once_with(
-            limit=50, offset=0, resource_type="debate",
+            limit=50,
+            offset=0,
+            resource_type="debate",
         )
 
     def test_audit_log_pagination(self, client, mock_audit_store):
@@ -529,26 +545,28 @@ class TestListFrameworks:
 
     def test_list_returns_frameworks(self, client, mock_compliance_framework):
         """List returns frameworks from manager."""
-        mock_compliance_framework.list_frameworks = MagicMock(return_value=[
-            {
-                "id": "soc2",
-                "name": "SOC 2 Type II",
-                "description": "Service Organization Control 2",
-                "version": "2017",
-                "category": "security",
-                "rule_count": 64,
-                "applicable_verticals": ["saas", "fintech"],
-            },
-            {
-                "id": "gdpr",
-                "name": "GDPR",
-                "description": "General Data Protection Regulation",
-                "version": "2018",
-                "category": "privacy",
-                "rule_count": 99,
-                "applicable_verticals": ["all"],
-            },
-        ])
+        mock_compliance_framework.list_frameworks = MagicMock(
+            return_value=[
+                {
+                    "id": "soc2",
+                    "name": "SOC 2 Type II",
+                    "description": "Service Organization Control 2",
+                    "version": "2017",
+                    "category": "security",
+                    "rule_count": 64,
+                    "applicable_verticals": ["saas", "fintech"],
+                },
+                {
+                    "id": "gdpr",
+                    "name": "GDPR",
+                    "description": "General Data Protection Regulation",
+                    "version": "2018",
+                    "category": "privacy",
+                    "rule_count": 99,
+                    "applicable_verticals": ["all"],
+                },
+            ]
+        )
 
         response = client.get("/api/v2/compliance/frameworks")
         assert response.status_code == 200
@@ -570,15 +588,17 @@ class TestGetFrameworkDetail:
 
     def test_get_found(self, client, mock_compliance_framework):
         """Get existing framework returns detail."""
-        mock_compliance_framework.get_framework = MagicMock(return_value={
-            "id": "soc2",
-            "name": "SOC 2 Type II",
-            "description": "Service Organization Control 2",
-            "version": "2017",
-            "category": "security",
-            "rule_count": 64,
-            "applicable_verticals": ["saas"],
-        })
+        mock_compliance_framework.get_framework = MagicMock(
+            return_value={
+                "id": "soc2",
+                "name": "SOC 2 Type II",
+                "description": "Service Organization Control 2",
+                "version": "2017",
+                "category": "security",
+                "rule_count": 64,
+                "applicable_verticals": ["saas"],
+            }
+        )
 
         response = client.get("/api/v2/compliance/frameworks/soc2")
         assert response.status_code == 200
@@ -661,12 +681,14 @@ class TestComplianceCheck:
 
     def test_check_with_frameworks_filter(self, client, mock_compliance_framework):
         """Check passes framework filter."""
-        mock_compliance_framework.check = MagicMock(return_value={
-            "compliant": True,
-            "score": 1.0,
-            "frameworks_checked": ["gdpr"],
-            "issues": [],
-        })
+        mock_compliance_framework.check = MagicMock(
+            return_value={
+                "compliant": True,
+                "score": 1.0,
+                "frameworks_checked": ["gdpr"],
+                "issues": [],
+            }
+        )
 
         response = client.post(
             "/api/v2/compliance/check",
@@ -674,7 +696,8 @@ class TestComplianceCheck:
         )
         assert response.status_code == 200
         mock_compliance_framework.check.assert_called_once_with(
-            "Test content", frameworks=["gdpr"],
+            "Test content",
+            frameworks=["gdpr"],
         )
 
     def test_check_unavailable_manager(self, app):
@@ -726,19 +749,21 @@ class TestListViolations:
 
     def test_list_returns_violations(self, client, mock_compliance_framework):
         """List returns violations from framework."""
-        mock_compliance_framework.list_violations = MagicMock(return_value=[
-            {
-                "id": "viol-001",
-                "framework": "soc2",
-                "rule_id": "CC-1.1",
-                "severity": "high",
-                "description": "Missing access control",
-                "resource_type": "api",
-                "resource_id": "endpoint-x",
-                "detected_at": "2026-02-20T10:00:00",
-                "status": "active",
-            },
-        ])
+        mock_compliance_framework.list_violations = MagicMock(
+            return_value=[
+                {
+                    "id": "viol-001",
+                    "framework": "soc2",
+                    "rule_id": "CC-1.1",
+                    "severity": "high",
+                    "description": "Missing access control",
+                    "resource_type": "api",
+                    "resource_id": "endpoint-x",
+                    "detected_at": "2026-02-20T10:00:00",
+                    "status": "active",
+                },
+            ]
+        )
 
         response = client.get("/api/v2/compliance/violations")
         assert response.status_code == 200
@@ -756,7 +781,11 @@ class TestListViolations:
         )
         assert response.status_code == 200
         mock_compliance_framework.list_violations.assert_called_once_with(
-            limit=50, offset=0, framework="gdpr", severity="critical", status="active",
+            limit=50,
+            offset=0,
+            framework="gdpr",
+            severity="critical",
+            status="active",
         )
 
     def test_list_pagination(self, client, mock_compliance_framework):
@@ -807,9 +836,7 @@ class TestComplianceReport:
 
     def test_report_with_frameworks_param(self, client):
         """Report passes frameworks query param."""
-        response = client.get(
-            "/api/v2/compliance/report/debate-001?frameworks=soc2,gdpr"
-        )
+        response = client.get("/api/v2/compliance/report/debate-001?frameworks=soc2,gdpr")
         assert response.status_code == 200
         data = response.json()
         assert data["debate_id"] == "debate-001"

@@ -444,9 +444,23 @@ class TestFederationStatus:
     def test_shared_knowledge_only_counts_valid_consents(self, handler):
         """shared_knowledge_count only includes valid (non-revoked) consents."""
         consents = [
-            MockConsent(id="c1", source_workspace_id="ws-1", target_workspace_id="ws-2", times_used=10),
-            MockConsent(id="c2", source_workspace_id="ws-2", target_workspace_id="ws-1", times_used=5, revoked=True),
-            MockConsent(id="c3", source_workspace_id="ws-1", target_workspace_id="ws-3", times_used=7, _valid=False),
+            MockConsent(
+                id="c1", source_workspace_id="ws-1", target_workspace_id="ws-2", times_used=10
+            ),
+            MockConsent(
+                id="c2",
+                source_workspace_id="ws-2",
+                target_workspace_id="ws-1",
+                times_used=5,
+                revoked=True,
+            ),
+            MockConsent(
+                id="c3",
+                source_workspace_id="ws-1",
+                target_workspace_id="ws-3",
+                times_used=7,
+                _valid=False,
+            ),
         ]
         coord = MockCrossWorkspaceCoordinator(
             workspaces=[MockWorkspace(id="ws-1")],
@@ -580,10 +594,22 @@ class TestListWorkspaces:
         """Consents involving a workspace are counted correctly."""
         now = datetime.now(timezone.utc)
         consents = [
-            MockConsent(id="c1", source_workspace_id="ws-1", target_workspace_id="ws-2", times_used=10),
-            MockConsent(id="c2", source_workspace_id="ws-2", target_workspace_id="ws-1", times_used=3),
-            MockConsent(id="c3", source_workspace_id="ws-3", target_workspace_id="ws-4", times_used=99),
-            MockConsent(id="c4", source_workspace_id="ws-1", target_workspace_id="ws-3", times_used=7, revoked=True),
+            MockConsent(
+                id="c1", source_workspace_id="ws-1", target_workspace_id="ws-2", times_used=10
+            ),
+            MockConsent(
+                id="c2", source_workspace_id="ws-2", target_workspace_id="ws-1", times_used=3
+            ),
+            MockConsent(
+                id="c3", source_workspace_id="ws-3", target_workspace_id="ws-4", times_used=99
+            ),
+            MockConsent(
+                id="c4",
+                source_workspace_id="ws-1",
+                target_workspace_id="ws-3",
+                times_used=7,
+                revoked=True,
+            ),
         ]
         coord = MockCrossWorkspaceCoordinator(
             workspaces=[MockWorkspace(id="ws-1")],
@@ -1061,10 +1087,7 @@ class TestEdgeCases:
 
     def test_large_number_of_workspaces(self, handler):
         """Handler works with many workspaces."""
-        workspaces = [
-            MockWorkspace(id=f"ws-{i}", is_online=(i % 2 == 0))
-            for i in range(50)
-        ]
+        workspaces = [MockWorkspace(id=f"ws-{i}", is_online=(i % 2 == 0)) for i in range(50)]
         coord = MockCrossWorkspaceCoordinator(workspaces=workspaces, consents=[])
         with patch(f"{MODULE}._safe_import_coordinator", return_value=coord):
             result = handler.handle_request("GET", "/api/v1/federation/workspaces", None, {})

@@ -105,9 +105,7 @@ class TestRunPlaybook:
     def test_run_success(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry
 
-        result = handler._run_playbook(
-            "/api/playbooks/test_pb/run", {"input": "Evaluate vendor X"}
-        )
+        result = handler._run_playbook("/api/playbooks/test_pb/run", {"input": "Evaluate vendor X"})
         assert result["status"] == 202
         body = json.loads(result["body"])
         assert body["playbook_id"] == "test_pb"
@@ -118,9 +116,7 @@ class TestRunPlaybook:
     def test_run_not_found(self, mock_get_registry, handler, mock_registry):
         mock_get_registry.return_value = mock_registry
 
-        result = handler._run_playbook(
-            "/api/playbooks/nonexistent/run", {"input": "test"}
-        )
+        result = handler._run_playbook("/api/playbooks/nonexistent/run", {"input": "test"})
         assert result["status"] == 404
 
     @patch("aragora.playbooks.registry.get_playbook_registry")

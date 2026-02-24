@@ -25,9 +25,11 @@ from typing import Dict, List, Set, Tuple
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FeatureEntry:
     """A feature mentioned in a document with its status."""
+
     name: str
     raw_name: str  # original text before normalisation
     status: str  # normalised: DONE, PENDING, ACTIVE, UNMAPPED, etc.
@@ -39,6 +41,7 @@ class FeatureEntry:
 @dataclass
 class Discrepancy:
     """A contradiction between two documents."""
+
     feature: str
     doc_a: str
     status_a: str
@@ -52,13 +55,16 @@ class Discrepancy:
 class ReconciliationReport:
     features_by_source: Dict[str, List[FeatureEntry]] = field(default_factory=dict)
     discrepancies: List[Discrepancy] = field(default_factory=list)
-    missing_from: Dict[str, Set[str]] = field(default_factory=dict)  # doc -> set of feature names missing
+    missing_from: Dict[str, Set[str]] = field(
+        default_factory=dict
+    )  # doc -> set of feature names missing
     summary: Dict[str, int] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
 # Normalisation helpers
 # ---------------------------------------------------------------------------
+
 
 def normalise_feature_name(name: str) -> str:
     """Produce a canonical key from a feature name for fuzzy matching."""
@@ -74,7 +80,7 @@ def normalise_feature_name(name: str) -> str:
     # Remove common prefixes
     for prefix in ("complete ", "implement ", "deploy ", "finalize "):
         if s.startswith(prefix):
-            s = s[len(prefix):]
+            s = s[len(prefix) :]
     # Collapse whitespace, hyphens to single underscore
     s = re.sub(r"[\s\-]+", "_", s)
     # Strip non-alphanumeric (except underscore)
@@ -88,15 +94,34 @@ def normalise_status(raw: str) -> str:
     # Remove markdown
     s = re.sub(r"[*_`~]", "", s)
 
-    if s in ("x", "done", "complete", "completed", "shipped", "active",
-             "stable", "production", "production ready", "production-ready",
-             "exported", "resolved", "fixed"):
+    if s in (
+        "x",
+        "done",
+        "complete",
+        "completed",
+        "shipped",
+        "active",
+        "stable",
+        "production",
+        "production ready",
+        "production-ready",
+        "exported",
+        "resolved",
+        "fixed",
+    ):
         return "DONE"
-    if s in ("", " ", "pending", "not started", "planned", "todo",
-             "under consideration", "researching"):
+    if s in (
+        "",
+        " ",
+        "pending",
+        "not started",
+        "planned",
+        "todo",
+        "under consideration",
+        "researching",
+    ):
         return "PENDING"
-    if s in ("in progress", "in-progress", "wip", "experimental", "beta",
-             "alpha", "partial"):
+    if s in ("in progress", "in-progress", "wip", "experimental", "beta", "alpha", "partial"):
         return "IN_PROGRESS"
     if s in ("unmapped",):
         return "UNMAPPED"
@@ -113,6 +138,7 @@ def normalise_status(raw: str) -> str:
 # ---------------------------------------------------------------------------
 # Parsers
 # ---------------------------------------------------------------------------
+
 
 def parse_capability_matrix(text: str) -> List[FeatureEntry]:
     """Extract features from CAPABILITY_MATRIX.md.
@@ -152,7 +178,9 @@ def parse_capability_matrix(text: str) -> List[FeatureEntry]:
             section = "ui_coverage"
             in_table = False
             continue
-        elif stripped.startswith("## ") or (stripped.startswith("### ") and section not in ("missing_ui", "missing_channels")):
+        elif stripped.startswith("## ") or (
+            stripped.startswith("### ") and section not in ("missing_ui", "missing_channels")
+        ):
             section = ""
             in_table = False
             continue
@@ -176,15 +204,27 @@ def parse_capability_matrix(text: str) -> List[FeatureEntry]:
                     continue
                 seen_keys.add(key)
                 if section == "unmapped":
-                    entries.append(FeatureEntry(
-                        name=key, raw_name=raw, status="UNMAPPED",
-                        source=source, category="unmapped",
-                        detail="Listed as unmapped capability"))
+                    entries.append(
+                        FeatureEntry(
+                            name=key,
+                            raw_name=raw,
+                            status="UNMAPPED",
+                            source=source,
+                            category="unmapped",
+                            detail="Listed as unmapped capability",
+                        )
+                    )
                 else:
-                    entries.append(FeatureEntry(
-                        name=key, raw_name=raw, status="DONE",
-                        source=source, category=section,
-                        detail=f"Missing from {section.replace('_', ' ')}"))
+                    entries.append(
+                        FeatureEntry(
+                            name=key,
+                            raw_name=raw,
+                            status="DONE",
+                            source=source,
+                            category=section,
+                            detail=f"Missing from {section.replace('_', ' ')}",
+                        )
+                    )
 
         # Table rows with backtick capability names (mapped/ui_coverage sections)
         if section in ("mapped", "ui_coverage") and stripped.startswith("| `"):
@@ -203,10 +243,16 @@ def parse_capability_matrix(text: str) -> List[FeatureEntry]:
                         surfaces = {"API": cols[1], "CLI": cols[2], "SDK": cols[3], "UI": cols[4]}
                         missing = [s for s, v in surfaces.items() if v.strip() == "-"]
                         detail = f"Missing: {', '.join(missing)}" if missing else "Full coverage"
-                entries.append(FeatureEntry(
-                    name=key, raw_name=raw, status="DONE",
-                    source=source, category=section,
-                    detail=detail or "Mapped capability"))
+                entries.append(
+                    FeatureEntry(
+                        name=key,
+                        raw_name=raw,
+                        status="DONE",
+                        source=source,
+                        category=section,
+                        detail=detail or "Mapped capability",
+                    )
+                )
 
     return entries
 
@@ -227,19 +273,23 @@ def parse_ga_checklist(text: str) -> List[FeatureEntry]:
             continue
 
         # Checkbox items: - [x] **Name** - description  OR  - [ ] **Name** - description
-        cb_match = re.match(
-            r"^-\s+\[([ xX])\]\s+\*\*(.+?)\*\*(.*)$", line_stripped
-        )
+        cb_match = re.match(r"^-\s+\[([ xX])\]\s+\*\*(.+?)\*\*(.*)$", line_stripped)
         if cb_match:
             checked = cb_match.group(1).strip().lower() == "x"
             raw_name = cb_match.group(2).strip()
             detail = cb_match.group(3).strip().lstrip("-").strip()
             key = normalise_feature_name(raw_name)
             status = "DONE" if checked else "PENDING"
-            entries.append(FeatureEntry(
-                name=key, raw_name=raw_name, status=status,
-                source=source, category=current_section,
-                detail=detail))
+            entries.append(
+                FeatureEntry(
+                    name=key,
+                    raw_name=raw_name,
+                    status=status,
+                    source=source,
+                    category=current_section,
+                    detail=detail,
+                )
+            )
 
     # Also parse the GA Blockers table
     in_blocker_table = False
@@ -257,10 +307,16 @@ def parse_ga_checklist(text: str) -> List[FeatureEntry]:
                     status = normalise_status(status_raw)
                     if status == "UNKNOWN" and "not started" in status_raw.lower():
                         status = "PENDING"
-                    entries.append(FeatureEntry(
-                        name=key, raw_name=raw_name,
-                        status=status, source=source,
-                        category="GA Blockers", detail=status_raw))
+                    entries.append(
+                        FeatureEntry(
+                            name=key,
+                            raw_name=raw_name,
+                            status=status,
+                            source=source,
+                            category="GA Blockers",
+                            detail=status_raw,
+                        )
+                    )
             elif line.strip().startswith("## "):
                 in_blocker_table = False
 
@@ -279,7 +335,10 @@ def parse_status_md(text: str) -> List[FeatureEntry]:
         stripped = line.strip()
 
         # Detect table section headers
-        if re.match(r"^###\s+(Fully Integrated|Recently Surfaced|Handler .+ Status|Handler Test Coverage)", stripped):
+        if re.match(
+            r"^###\s+(Fully Integrated|Recently Surfaced|Handler .+ Status|Handler Test Coverage)",
+            stripped,
+        ):
             in_table = True
             m = re.match(r"^###\s+(.+?)(?:\s+\(\d+\))?$", stripped)
             table_name = m.group(1) if m else stripped
@@ -291,7 +350,10 @@ def parse_status_md(text: str) -> List[FeatureEntry]:
                 in_table = False
                 table_name = ""
                 # Check if new table
-                if re.match(r"^###\s+(Fully Integrated|Recently Surfaced|Handler .+ Status|Handler Test Coverage)", stripped):
+                if re.match(
+                    r"^###\s+(Fully Integrated|Recently Surfaced|Handler .+ Status|Handler Test Coverage)",
+                    stripped,
+                ):
                     in_table = True
                     m = re.match(r"^###\s+(.+?)(?:\s+\(\d+\))?$", stripped)
                     table_name = m.group(1) if m else stripped
@@ -314,23 +376,37 @@ def parse_status_md(text: str) -> List[FeatureEntry]:
                     if not key:
                         continue
                     status = normalise_status(status_raw)
-                    entries.append(FeatureEntry(
-                        name=key, raw_name=raw_name, status=status,
-                        source=source, category=table_name,
-                        detail=status_raw))
+                    entries.append(
+                        FeatureEntry(
+                            name=key,
+                            raw_name=raw_name,
+                            status=status,
+                            source=source,
+                            category=table_name,
+                            detail=status_raw,
+                        )
+                    )
 
     # Also extract named features from prose that declare STABLE/PRODUCTION status
     for line in text.splitlines():
-        m = re.match(r"^-\s+\*\*(.+?)\*\*\s*[-:]?\s*(STABLE|PRODUCTION|BETA|ALPHA|DEPRECATED)", line.strip())
+        m = re.match(
+            r"^-\s+\*\*(.+?)\*\*\s*[-:]?\s*(STABLE|PRODUCTION|BETA|ALPHA|DEPRECATED)", line.strip()
+        )
         if m:
             raw_name = m.group(1)
             status_raw = m.group(2)
             key = normalise_feature_name(raw_name)
             status = normalise_status(status_raw)
-            entries.append(FeatureEntry(
-                name=key, raw_name=raw_name, status=status,
-                source=source, category="inline_status",
-                detail=f"Declared {status_raw} in prose"))
+            entries.append(
+                FeatureEntry(
+                    name=key,
+                    raw_name=raw_name,
+                    status=status,
+                    source=source,
+                    category="inline_status",
+                    detail=f"Declared {status_raw} in prose",
+                )
+            )
 
     # Extract from Channel Production Readiness table
     in_channel_table = False
@@ -352,10 +428,16 @@ def parse_status_md(text: str) -> List[FeatureEntry]:
                         status = "DONE" if pct >= 90 else "IN_PROGRESS" if pct >= 50 else "PENDING"
                     else:
                         status = normalise_status(readiness)
-                    entries.append(FeatureEntry(
-                        name=key, raw_name=raw_name, status=status,
-                        source=source, category="Channel Readiness",
-                        detail=readiness))
+                    entries.append(
+                        FeatureEntry(
+                            name=key,
+                            raw_name=raw_name,
+                            status=status,
+                            source=source,
+                            category="Channel Readiness",
+                            detail=readiness,
+                        )
+                    )
             elif stripped.startswith("### ") and in_channel_table:
                 in_channel_table = False
 
@@ -390,10 +472,16 @@ def parse_roadmap(text: str) -> List[FeatureEntry]:
             name_part = re.split(r"\s+[-\(]", raw_name)[0].strip()
             key = normalise_feature_name(name_part)
             status = "DONE" if checked else "PENDING"
-            entries.append(FeatureEntry(
-                name=key, raw_name=name_part, status=status,
-                source=source, category=current_section,
-                detail=raw_name))
+            entries.append(
+                FeatureEntry(
+                    name=key,
+                    raw_name=name_part,
+                    status=status,
+                    source=source,
+                    category=current_section,
+                    detail=raw_name,
+                )
+            )
 
     # Feature Requests table
     in_feature_table = False
@@ -416,10 +504,16 @@ def parse_roadmap(text: str) -> List[FeatureEntry]:
                         status = "PENDING"
                     else:
                         status = normalise_status(status_raw)
-                    entries.append(FeatureEntry(
-                        name=key, raw_name=raw_name, status=status,
-                        source=source, category="Feature Requests",
-                        detail=status_raw))
+                    entries.append(
+                        FeatureEntry(
+                            name=key,
+                            raw_name=raw_name,
+                            status=status,
+                            source=source,
+                            category="Feature Requests",
+                            detail=status_raw,
+                        )
+                    )
             elif stripped.startswith("## "):
                 in_feature_table = False
 
@@ -572,7 +666,10 @@ def detect_discrepancies(
                     continue
 
                 # Skip if one is UNKNOWN or UNMAPPED (not a real contradiction)
-                if entry_a.status in ("UNKNOWN", "UNMAPPED") or entry_b.status in ("UNKNOWN", "UNMAPPED"):
+                if entry_a.status in ("UNKNOWN", "UNMAPPED") or entry_b.status in (
+                    "UNKNOWN",
+                    "UNMAPPED",
+                ):
                     continue
 
                 # Determine severity
@@ -580,7 +677,7 @@ def detect_discrepancies(
 
                 # CRITICAL: GA checklist says PENDING but another doc says DONE
                 # (or vice versa -- indicates either stale checklist or false completion)
-                if (entry_a.source == "GA_CHECKLIST" or entry_b.source == "GA_CHECKLIST"):
+                if entry_a.source == "GA_CHECKLIST" or entry_b.source == "GA_CHECKLIST":
                     ga_entry = entry_a if entry_a.source == "GA_CHECKLIST" else entry_b
                     other_entry = entry_b if entry_a.source == "GA_CHECKLIST" else entry_a
                     if ga_entry.status == "PENDING" and other_entry.status == "DONE":
@@ -591,8 +688,9 @@ def detect_discrepancies(
                         severity = "WARNING"
 
                 # WARNING: Roadmap says PENDING but STATUS says DONE (stale roadmap)
-                if (entry_a.source == "ROADMAP" and entry_b.source == "STATUS") or \
-                   (entry_b.source == "ROADMAP" and entry_a.source == "STATUS"):
+                if (entry_a.source == "ROADMAP" and entry_b.source == "STATUS") or (
+                    entry_b.source == "ROADMAP" and entry_a.source == "STATUS"
+                ):
                     road_entry = entry_a if entry_a.source == "ROADMAP" else entry_b
                     stat_entry = entry_b if entry_a.source == "ROADMAP" else entry_a
                     if road_entry.status == "PENDING" and stat_entry.status == "DONE":
@@ -608,12 +706,17 @@ def detect_discrepancies(
                     f"but '{entry_b.raw_name}' is {entry_b.status} in {src_b}"
                 )
 
-                discrepancies.append(Discrepancy(
-                    feature=canonical,
-                    doc_a=src_a, status_a=entry_a.status,
-                    doc_b=src_b, status_b=entry_b.status,
-                    severity=severity, message=message,
-                ))
+                discrepancies.append(
+                    Discrepancy(
+                        feature=canonical,
+                        doc_a=src_a,
+                        status_a=entry_a.status,
+                        doc_b=src_b,
+                        status_b=entry_b.status,
+                        severity=severity,
+                        message=message,
+                    )
+                )
 
     return discrepancies
 
@@ -639,6 +742,7 @@ def detect_cross_doc_gaps(
 # ---------------------------------------------------------------------------
 # Report formatting
 # ---------------------------------------------------------------------------
+
 
 def format_report(
     all_entries: List[FeatureEntry],
@@ -738,7 +842,9 @@ def format_report(
         lines.append("ROADMAP ITEMS ALREADY COMPLETED (roadmap may be stale)")
         lines.append("-" * 72)
         for road_name, done_src, done_name in already_done:
-            lines.append(f"  - '{road_name}' (PENDING in ROADMAP) -> DONE in {done_src} as '{done_name}'")
+            lines.append(
+                f"  - '{road_name}' (PENDING in ROADMAP) -> DONE in {done_src} as '{done_name}'"
+            )
         lines.append("")
 
     # -- Features unique to one document --
@@ -785,6 +891,7 @@ def format_report(
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent
 
@@ -805,8 +912,7 @@ def main() -> int:
             missing_docs.append(str(path))
 
     if missing_docs:
-        print(f"ERROR: Missing documents:\n  " + "\n  ".join(missing_docs),
-              file=sys.stderr)
+        print(f"ERROR: Missing documents:\n  " + "\n  ".join(missing_docs), file=sys.stderr)
         return 1
 
     # Parse each document

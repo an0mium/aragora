@@ -56,9 +56,7 @@ class TestTeamsGet:
 
         result = client.teams.get("team_123")
 
-        mock_request.assert_called_once_with(
-            "GET", "/api/v1/teams/team_123"
-        )
+        mock_request.assert_called_once_with("GET", "/api/v1/teams/team_123")
         assert result["name"] == "Engineering"
         assert result["member_count"] == 15
 
@@ -151,9 +149,7 @@ class TestTeamsDelete:
 
         result = client.teams.delete("team_123")
 
-        mock_request.assert_called_once_with(
-            "DELETE", "/api/v1/teams/team_123"
-        )
+        mock_request.assert_called_once_with("DELETE", "/api/v1/teams/team_123")
         assert result["deleted"] is True
 
 
@@ -169,9 +165,7 @@ class TestTeamsMembers:
 
         result = client.teams.list_members("team_123")
 
-        mock_request.assert_called_once_with(
-            "GET", "/api/v1/teams/team_123/members"
-        )
+        mock_request.assert_called_once_with("GET", "/api/v1/teams/team_123/members")
         assert len(result) == 2
         assert result[0]["role"] == "admin"
 
@@ -238,9 +232,7 @@ class TestTeamsStats:
 
         result = client.teams.get_stats("team_123")
 
-        mock_request.assert_called_once_with(
-            "GET", "/api/v1/teams/team_123/stats"
-        )
+        mock_request.assert_called_once_with("GET", "/api/v1/teams/team_123/stats")
         assert result["member_count"] == 10
         assert result["debates_count"] == 42
 

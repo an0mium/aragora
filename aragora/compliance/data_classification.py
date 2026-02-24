@@ -384,9 +384,7 @@ class DataClassifier:
         highest = DataClassification.PUBLIC
         sensitivity_order = list(DataClassification)
 
-        combined_text = " ".join(
-            str(k) + " " + str(v) for k, v in data.items()
-        ).lower()
+        combined_text = " ".join(str(k) + " " + str(v) for k, v in data.items()).lower()
         context_lower = context.lower()
 
         for level in reversed(sensitivity_order):
@@ -442,25 +440,19 @@ class DataClassifier:
 
         # 2. Encryption check
         if policy.encryption_required and not is_encrypted:
-            violations.append(
-                f"Encryption is required for {classification.value} data"
-            )
+            violations.append(f"Encryption is required for {classification.value} data")
             recommendations.append("Encrypt data using AES-256-GCM before processing")
 
         # 3. Region check
         if policy.allowed_regions and region and region.lower() not in policy.allowed_regions:
-            violations.append(
-                f"Region '{region}' is not allowed for {classification.value} data"
-            )
+            violations.append(f"Region '{region}' is not allowed for {classification.value} data")
             recommendations.append(
                 f"Restrict processing to allowed regions: {', '.join(policy.allowed_regions)}"
             )
 
         # 4. Consent check
         if policy.requires_consent and not has_consent:
-            violations.append(
-                f"User consent is required for {classification.value} data"
-            )
+            violations.append(f"User consent is required for {classification.value} data")
             recommendations.append("Obtain explicit user consent before processing")
 
         # 5. Audit logging advisory
@@ -539,13 +531,9 @@ class DataClassifier:
             ),
             "levels": [level.value for level in DataClassification],
             "policies": {
-                level.value: self._policies[level].to_dict()
-                for level in DataClassification
+                level.value: self._policies[level].to_dict() for level in DataClassification
             },
-            "keywords": {
-                level.value: kws
-                for level, kws in _CLASSIFICATION_KEYWORDS.items()
-            },
+            "keywords": {level.value: kws for level, kws in _CLASSIFICATION_KEYWORDS.items()},
             "sensitivity_order": [level.value for level in SENSITIVITY_ORDER],
         }
 
@@ -628,8 +616,7 @@ class PolicyEnforcer:
                 f"exposed in '{target_classification.value}' context"
             )
             recommendations.append(
-                f"Restrict access to contexts at '{source_classification.value}' "
-                f"level or higher"
+                f"Restrict access to contexts at '{source_classification.value}' level or higher"
             )
             logger.warning(
                 "Classification enforcement violation: %s data blocked from %s context",

@@ -50,6 +50,4 @@ class AsyncChannelsAPI:
 
     async def get_channel_health(self, channel_id: str) -> dict[str, Any]:
         """Get health status for a specific channel."""
-        return await self._client.request(
-            "GET", f"/api/v1/channels/{channel_id}/health"
-        )
+        return await self._client.request("GET", f"/api/v1/channels/{channel_id}/health")

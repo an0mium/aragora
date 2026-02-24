@@ -69,7 +69,9 @@ class TestBudgetCheckAllow:
         assert result.warning is False
 
     @pytest.mark.asyncio
-    async def test_allows_with_estimated_cost_under_limit(self, enforcer: ChannelBudgetEnforcer) -> None:
+    async def test_allows_with_estimated_cost_under_limit(
+        self, enforcer: ChannelBudgetEnforcer
+    ) -> None:
         result = await enforcer.check_budget("slack", "C01", "T01", estimated_cost_usd=1.0)
         assert result.allowed is True
 
@@ -83,7 +85,9 @@ class TestBudgetCheckBlock:
     """Tests for budget checks that should block debates."""
 
     @pytest.mark.asyncio
-    async def test_blocks_when_channel_budget_exceeded(self, small_budget_enforcer: ChannelBudgetEnforcer) -> None:
+    async def test_blocks_when_channel_budget_exceeded(
+        self, small_budget_enforcer: ChannelBudgetEnforcer
+    ) -> None:
         # Spend up to the limit
         await small_budget_enforcer.record_spend("slack", "C01", "T01", cost_usd=5.5)
 
@@ -93,7 +97,9 @@ class TestBudgetCheckBlock:
         assert "exceeded" in result.message.lower()
 
     @pytest.mark.asyncio
-    async def test_blocks_when_workspace_budget_exceeded(self, small_budget_enforcer: ChannelBudgetEnforcer) -> None:
+    async def test_blocks_when_workspace_budget_exceeded(
+        self, small_budget_enforcer: ChannelBudgetEnforcer
+    ) -> None:
         # Spend across multiple channels to exceed workspace
         await small_budget_enforcer.record_spend("slack", "C01", "T01", cost_usd=4.0)
         await small_budget_enforcer.record_spend("slack", "C02", "T01", cost_usd=4.0)
@@ -103,9 +109,13 @@ class TestBudgetCheckBlock:
         assert result.blocked is True
 
     @pytest.mark.asyncio
-    async def test_blocks_with_estimated_cost_exceeding_limit(self, small_budget_enforcer: ChannelBudgetEnforcer) -> None:
+    async def test_blocks_with_estimated_cost_exceeding_limit(
+        self, small_budget_enforcer: ChannelBudgetEnforcer
+    ) -> None:
         await small_budget_enforcer.record_spend("slack", "C01", "T01", cost_usd=4.0)
-        result = await small_budget_enforcer.check_budget("slack", "C01", "T01", estimated_cost_usd=2.0)
+        result = await small_budget_enforcer.check_budget(
+            "slack", "C01", "T01", estimated_cost_usd=2.0
+        )
         assert result.blocked is True
 
 

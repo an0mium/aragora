@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
 
+
 class EmailDebateAPI:
     """
     Synchronous Email Debate API.
@@ -88,6 +89,7 @@ class EmailDebateAPI:
             data["user_id"] = user_id
         return self._client.request("POST", "/api/v1/email/prioritize", json=data)
 
+
 class AsyncEmailDebateAPI:
     """
     Asynchronous Email Debate API.
@@ -134,4 +136,3 @@ class AsyncEmailDebateAPI:
         if user_id is not None:
             data["user_id"] = user_id
         return await self._client.request("POST", "/api/v1/email/prioritize", json=data)
-

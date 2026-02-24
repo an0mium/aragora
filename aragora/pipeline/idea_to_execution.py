@@ -884,7 +884,9 @@ class IdeaToExecutionPipeline:
                             rounds = meta.get("debate_rounds")
                             if rounds and isinstance(rounds, int):
                                 cfg.debate_rounds = rounds
-                                logger.info("MetaLearner tuned debate_rounds to %d", cfg.debate_rounds)
+                                logger.info(
+                                    "MetaLearner tuned debate_rounds to %d", cfg.debate_rounds
+                                )
                                 break
             except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
                 logger.debug("MetaLearner tuning unavailable: %s", exc)
@@ -922,9 +924,7 @@ class IdeaToExecutionPipeline:
                 )
 
                 pipeline_adapter = get_pipeline_adapter()
-                similar = await pipeline_adapter.find_similar_pipelines(
-                    input_text, limit=3
-                )
+                similar = await pipeline_adapter.find_similar_pipelines(input_text, limit=3)
                 if similar:
                     km_context["similar_pipelines"] = [s.to_dict() for s in similar]
                     logger.info(
@@ -940,7 +940,14 @@ class IdeaToExecutionPipeline:
                 patterns = await pipeline_adapter.get_high_roi_patterns(limit=3)
                 if patterns:
                     km_context["high_roi_patterns"] = patterns
-            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as exc:
+            except (
+                ImportError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+                AttributeError,
+                OSError,
+            ) as exc:
                 logger.debug("Pipeline KM context enrichment unavailable: %s", exc)
 
         # Enrich input with KM context for ideation (non-destructive append)
@@ -953,9 +960,7 @@ class IdeaToExecutionPipeline:
                 if desc:
                     lessons.append(f"- [{status}] {desc}")
             if lessons:
-                enriched_input += (
-                    "\n\nContext from similar past pipelines:\n" + "\n".join(lessons)
-                )
+                enriched_input += "\n\nContext from similar past pipelines:\n" + "\n".join(lessons)
 
         self._emit(cfg, "started", {"pipeline_id": pipeline_id, "stages": cfg.stages_to_run})
 
@@ -1055,9 +1060,7 @@ class IdeaToExecutionPipeline:
                             )
 
                             ws_bridge = WorkspacePipelineBridge()
-                            marked = await ws_bridge.mark_completed_goals(
-                                goal_graph, workspace_ctx
-                            )
+                            marked = await ws_bridge.mark_completed_goals(goal_graph, workspace_ctx)
                             if marked:
                                 logger.info(
                                     "Marked %d goals as already done from workspace",
@@ -1337,7 +1340,17 @@ class IdeaToExecutionPipeline:
                 },
             )
             _spectate("pipeline.stage_completed", "stage=ideation")
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+            ConnectionError,
+            TimeoutError,
+        ) as exc:
             sr.status = "failed"
             sr.error = "Ideation stage failed"
             sr.duration = time.monotonic() - start
@@ -1367,9 +1380,7 @@ class IdeaToExecutionPipeline:
             canvas = None
             if ideas_output and ideas_output.get("canvas"):
                 src_canvas = ideas_output["canvas"]
-                canvas_data = (
-                    src_canvas.to_dict() if hasattr(src_canvas, "to_dict") else {}
-                )
+                canvas_data = src_canvas.to_dict() if hasattr(src_canvas, "to_dict") else {}
             else:
                 canvas_data = {}
 
@@ -1390,7 +1401,17 @@ class IdeaToExecutionPipeline:
                 },
             )
             _spectate("pipeline.stage_completed", "stage=principles")
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+            ConnectionError,
+            TimeoutError,
+        ) as exc:
             sr.status = "failed"
             sr.error = "Principles extraction failed"
             sr.duration = time.monotonic() - start
@@ -1607,7 +1628,17 @@ class IdeaToExecutionPipeline:
                 },
             )
             _spectate("pipeline.stage_completed", "stage=goals")
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+            ConnectionError,
+            TimeoutError,
+        ) as exc:
             sr.status = "failed"
             sr.error = "Goal extraction failed"
             sr.duration = time.monotonic() - start
@@ -1676,7 +1707,17 @@ class IdeaToExecutionPipeline:
                 },
             )
             _spectate("pipeline.stage_completed", "stage=actions")
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+            ConnectionError,
+            TimeoutError,
+        ) as exc:
             sr.status = "failed"
             sr.error = "Workflow generation failed"
             sr.duration = time.monotonic() - start
@@ -1788,7 +1829,9 @@ class IdeaToExecutionPipeline:
                         if task_result["status"] == "completed":
                             await ws_mgr.complete_bead(task["id"])
                         else:
-                            await ws_mgr.fail_bead(task["id"], error=task_result.get("error", "failed"))
+                            await ws_mgr.fail_bead(
+                                task["id"], error=task_result.get("error", "failed")
+                            )
                     except (AttributeError, KeyError, TypeError, RuntimeError):
                         pass
 
@@ -1832,7 +1875,17 @@ class IdeaToExecutionPipeline:
                 },
             )
             _spectate("pipeline.stage_completed", "stage=orchestration")
-        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
+        except (
+            ImportError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+            ConnectionError,
+            TimeoutError,
+        ) as exc:
             sr.status = "failed"
             sr.error = "Orchestration failed"
             sr.duration = time.monotonic() - start
@@ -1921,9 +1974,8 @@ class IdeaToExecutionPipeline:
                     if outcome:
                         lessons.append(f"- {outcome}")
                 if lessons:
-                    instruction += (
-                        "\n\nHistorical insights from similar tasks:\n"
-                        + "\n".join(lessons)
+                    instruction += "\n\nHistorical insights from similar tasks:\n" + "\n".join(
+                        lessons
                     )
 
             # Get agent performance data to suggest best agents
@@ -1933,9 +1985,7 @@ class IdeaToExecutionPipeline:
             )
             if agent_perf and agent_perf.get("success_rate", 0) > 0:
                 rate = agent_perf["success_rate"]
-                instruction += (
-                    f"\n\nAgent historical success rate for this domain: {rate:.0%}"
-                )
+                instruction += f"\n\nAgent historical success rate for this domain: {rate:.0%}"
         except (ImportError, AttributeError, TypeError, RuntimeError, ValueError) as exc:
             logger.debug("Pipeline KM feedback skipped: %s", exc)
 
@@ -2015,7 +2065,15 @@ class IdeaToExecutionPipeline:
                 }
             except ImportError:
                 logger.debug("Arena not available, falling back to next backend")
-            except (RuntimeError, ValueError, OSError, TypeError, AttributeError, ConnectionError, TimeoutError) as exc:
+            except (
+                RuntimeError,
+                ValueError,
+                OSError,
+                TypeError,
+                AttributeError,
+                ConnectionError,
+                TimeoutError,
+            ) as exc:
                 logger.warning("Arena mini-debate failed, falling back: %s", exc)
 
         # Backend 3: DebugLoop (default)
@@ -2045,8 +2103,14 @@ class IdeaToExecutionPipeline:
                 "output": {"reason": "execution_engine_unavailable"},
             }
         except (
-            RuntimeError, ValueError, TypeError, OSError,
-            AttributeError, KeyError, ConnectionError, TimeoutError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            OSError,
+            AttributeError,
+            KeyError,
+            ConnectionError,
+            TimeoutError,
         ) as exc:
             # Harness config errors, path validation, etc.
             # Individual task failures must not crash the entire stage.
@@ -2265,9 +2329,7 @@ class IdeaToExecutionPipeline:
                         len(result.goal_graph.goals),
                     )
             except (TypeError, ValueError, AttributeError) as exc:
-                logger.debug(
-                    "Principle-based goal extraction failed, falling back: %s", exc
-                )
+                logger.debug("Principle-based goal extraction failed, falling back: %s", exc)
                 # Fall through to standard extraction below
                 result.goal_graph = None
 
@@ -2871,15 +2933,11 @@ class IdeaToExecutionPipeline:
                         _domain_rankings[domain] = ranked
                         elo_used = True
                         # Capture per-agent scoring breakdown for transparency
-                        reasoning = getattr(
-                            team_selector, "_last_selection_reasoning", {}
-                        )
+                        reasoning = getattr(team_selector, "_last_selection_reasoning", {})
                         if reasoning:
                             _domain_reasoning[domain] = dict(reasoning)
                 except (TypeError, AttributeError, ValueError, RuntimeError) as exc:
-                    logger.debug(
-                        "TeamSelector scoring failed for domain %s: %s", domain, exc
-                    )
+                    logger.debug("TeamSelector scoring failed for domain %s: %s", domain, exc)
 
         # ------------------------------------------------------------------
         # Static fallback: map step phases to best-fit agent id
@@ -2949,8 +3007,7 @@ class IdeaToExecutionPipeline:
 
                 if elo_score is not None:
                     selection_rationale = (
-                        f"TeamSelector top-ranked for {domain}"
-                        f" (score={elo_score:.4f})"
+                        f"TeamSelector top-ranked for {domain} (score={elo_score:.4f})"
                     )
                 else:
                     selection_rationale = f"TeamSelector top-ranked for {domain}"

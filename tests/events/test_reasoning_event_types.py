@@ -42,7 +42,11 @@ class TestReasoningEventTypes:
             data={
                 "agent": "gpt-4",
                 "sources": [
-                    {"title": "Research Paper A", "url": "https://example.com/a", "relevance": 0.95},
+                    {
+                        "title": "Research Paper A",
+                        "url": "https://example.com/a",
+                        "relevance": 0.95,
+                    },
                     {"title": "Research Paper B", "relevance": 0.72},
                 ],
                 "query": "rate limiter design patterns",
@@ -91,6 +95,14 @@ class TestReasoningEventTypes:
 
     def test_reasoning_types_distinct_from_token_types(self):
         """Reasoning types should be distinct from token streaming types."""
-        token_types = {StreamEventType.TOKEN_START, StreamEventType.TOKEN_DELTA, StreamEventType.TOKEN_END}
-        reasoning_types = {StreamEventType.AGENT_THINKING, StreamEventType.AGENT_EVIDENCE, StreamEventType.AGENT_CONFIDENCE}
+        token_types = {
+            StreamEventType.TOKEN_START,
+            StreamEventType.TOKEN_DELTA,
+            StreamEventType.TOKEN_END,
+        }
+        reasoning_types = {
+            StreamEventType.AGENT_THINKING,
+            StreamEventType.AGENT_EVIDENCE,
+            StreamEventType.AGENT_CONFIDENCE,
+        }
         assert token_types.isdisjoint(reasoning_types)

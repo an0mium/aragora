@@ -70,6 +70,7 @@ class TestDebatesCreate:
             assert call_args[1]["json"]["workspace_id"] == "ws_123"
             client.close()
 
+
 class TestDebatesList:
     """Tests for listing debates."""
 
@@ -116,6 +117,7 @@ class TestDebatesList:
             assert call_args[1]["params"]["status"] == "completed"
             client.close()
 
+
 class TestDebatesMessages:
     """Tests for debate message operations."""
 
@@ -154,6 +156,7 @@ class TestDebatesMessages:
             )
             client.close()
 
+
 class TestDebatesExport:
     """Tests for debate export."""
 
@@ -182,6 +185,7 @@ class TestDebatesExport:
             assert call_args[1]["params"]["format"] == "pdf"
             client.close()
 
+
 class TestDebatesCancel:
     """Tests for cancelling debates."""
 
@@ -196,6 +200,7 @@ class TestDebatesCancel:
             mock_request.assert_called_once_with("POST", "/api/v1/debates/deb_123/cancel")
             assert result["cancelled"] is True
             client.close()
+
 
 class TestAsyncDebates:
     """Tests for async debates API."""
@@ -226,6 +231,7 @@ class TestAsyncDebates:
                 mock_request.assert_called_once_with(
                     "GET", "/api/v1/debates", params={"limit": 10, "offset": 5}
                 )
+
 
 class TestDebatesAdvancedFeatures:
     """Tests for advanced debate features."""
@@ -290,6 +296,7 @@ class TestDebatesAdvancedFeatures:
             )
             client.close()
 
+
 class TestDebatesAnalysis:
     """Tests for debate analysis methods."""
 
@@ -304,6 +311,7 @@ class TestDebatesAnalysis:
             mock_request.assert_called_once_with("GET", "/api/v1/debates/deb_123/summary")
             assert result["verdict"] == "Adopt microservices"
             client.close()
+
 
 class TestDebatesRoundsAgentsVotes:
     """Tests for rounds, agents, and votes methods."""
@@ -325,6 +333,7 @@ class TestDebatesRoundsAgentsVotes:
             )
             assert result["evidence_id"] == "ev_123"
             client.close()
+
 
 class TestDebatesBatchOperations:
     """Tests for batch operations."""
@@ -373,6 +382,7 @@ class TestDebatesBatchOperations:
             mock_request.assert_called_once_with("GET", "/api/v1/debates/queue/status")
             assert result["pending_count"] == 5
             client.close()
+
 
 class TestDebatesSearch:
     """Tests for search functionality."""

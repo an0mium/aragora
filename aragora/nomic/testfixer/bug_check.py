@@ -101,9 +101,7 @@ class PostFixBugChecker:
 
         # Normalize mixed enum/string severities before checking threshold.
         high_severity_new = [
-            b
-            for b in all_new
-            if _severity_name(getattr(b, "severity", None)) in _HIGH_SEVERITIES
+            b for b in all_new if _severity_name(getattr(b, "severity", None)) in _HIGH_SEVERITIES
         ]
 
         passes = len(high_severity_new) == 0

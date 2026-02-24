@@ -72,9 +72,7 @@ class CalibrationAPI:
             predicted probabilities, and actual frequencies.
         """
         if agent:
-            return self._client.request(
-                "GET", f"/api/v1/agent/{agent}/calibration-curve"
-            )
+            return self._client.request("GET", f"/api/v1/agent/{agent}/calibration-curve")
         return self.get_visualization()
 
     def get_history(
@@ -127,9 +125,7 @@ class AsyncCalibrationAPI:
     async def get_curve(self, agent: str | None = None) -> dict[str, Any]:
         """Get calibration curve data."""
         if agent:
-            return await self._client.request(
-                "GET", f"/api/v1/agent/{agent}/calibration-curve"
-            )
+            return await self._client.request("GET", f"/api/v1/agent/{agent}/calibration-curve")
         return await self.get_visualization()
 
     async def get_history(

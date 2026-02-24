@@ -36,6 +36,7 @@ from aragora.auth.mfa_enforcement import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FakeUserContext:
     """Minimal stand-in for AuthorizationContext."""
@@ -68,6 +69,7 @@ def _make_middleware(
 # ---------------------------------------------------------------------------
 # Admin users blocked without MFA
 # ---------------------------------------------------------------------------
+
 
 class TestAdminBlockedWithoutMFA:
     """Admin users must be denied if MFA is not enabled."""
@@ -158,6 +160,7 @@ class TestAdminBlockedWithoutMFA:
 # Non-admin users pass through
 # ---------------------------------------------------------------------------
 
+
 class TestNonAdminPassThrough:
     """Non-admin users should not be affected by MFA enforcement."""
 
@@ -206,6 +209,7 @@ class TestNonAdminPassThrough:
 # ---------------------------------------------------------------------------
 # Grace period logic
 # ---------------------------------------------------------------------------
+
 
 class TestGracePeriod:
     """Newly-promoted admins get a grace period to set up MFA."""
@@ -334,20 +338,24 @@ class TestGracePeriod:
 # Exempt paths
 # ---------------------------------------------------------------------------
 
+
 class TestExemptPaths:
     """Certain paths should bypass MFA enforcement entirely."""
 
-    @pytest.mark.parametrize("path", [
-        "/health",
-        "/healthz",
-        "/ready",
-        "/metrics",
-        "/api/docs",
-        "/openapi.json",
-        "/api/auth/login",
-        "/api/auth/mfa/verify",
-        "/api/auth/mfa/setup",
-    ])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/health",
+            "/healthz",
+            "/ready",
+            "/metrics",
+            "/api/docs",
+            "/openapi.json",
+            "/api/auth/login",
+            "/api/auth/mfa/verify",
+            "/api/auth/mfa/setup",
+        ],
+    )
     def test_default_exempt_paths(self, path: str):
         ctx = FakeUserContext(user_id="admin-1", roles={"admin"})
         mw = _make_middleware()
@@ -356,11 +364,14 @@ class TestExemptPaths:
         assert decision.allowed
         assert decision.result == MFAEnforcementResult.EXEMPT_PATH
 
-    @pytest.mark.parametrize("path", [
-        "/api/auth/oauth/google",
-        "/api/auth/oauth/github/callback",
-        "/api/auth/sso/metadata",
-    ])
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/auth/oauth/google",
+            "/api/auth/oauth/github/callback",
+            "/api/auth/sso/metadata",
+        ],
+    )
     def test_default_exempt_prefixes(self, path: str):
         ctx = FakeUserContext(user_id="admin-1", roles={"admin"})
         mw = _make_middleware()
@@ -404,6 +415,7 @@ class TestExemptPaths:
 # Service account bypass
 # ---------------------------------------------------------------------------
 
+
 class TestServiceAccountBypass:
     """Service accounts with valid bypass should be allowed."""
 
@@ -439,6 +451,7 @@ class TestServiceAccountBypass:
 # ---------------------------------------------------------------------------
 # Policy configuration
 # ---------------------------------------------------------------------------
+
 
 class TestPolicyConfiguration:
     """Test policy customization and the enabled toggle."""
@@ -484,6 +497,7 @@ class TestPolicyConfiguration:
 # ---------------------------------------------------------------------------
 # Utility functions
 # ---------------------------------------------------------------------------
+
 
 class TestCheckMFARequired:
     """Tests for the check_mfa_required helper."""
@@ -562,6 +576,7 @@ class TestGetMFAStatus:
 # Decision dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestMFAEnforcementDecision:
     """Test decision defaults and structure."""
 
@@ -593,7 +608,16 @@ class TestDefaultMFARoles:
     """Verify the default required roles set."""
 
     def test_contains_expected_roles(self):
-        expected = {"admin", "owner", "superadmin", "super_admin", "org_admin", "workspace_admin", "security_admin", "compliance_officer"}
+        expected = {
+            "admin",
+            "owner",
+            "superadmin",
+            "super_admin",
+            "org_admin",
+            "workspace_admin",
+            "security_admin",
+            "compliance_officer",
+        }
         assert expected == set(DEFAULT_MFA_REQUIRED_ROLES)
 
     def test_is_frozenset(self):
@@ -659,6 +683,7 @@ def _attach_check_admin_mfa(instance: _FakeAuthChecksMixin):
     from aragora.server.auth_checks import AuthChecksMixin
 
     import types
+
     instance._check_admin_mfa = types.MethodType(AuthChecksMixin._check_admin_mfa, instance)
 
 
@@ -820,7 +845,9 @@ class TestCheckAdminMFA:
         """Unauthenticated requests are not blocked by MFA (handled by RBAC)."""
         mock_settings.return_value = _FakeSettings()
         mock_extract.return_value = _FakeBillingUser(
-            authenticated=False, user_id=None, role="",
+            authenticated=False,
+            user_id=None,
+            role="",
         )
 
         handler = self._make_handler()

@@ -18,6 +18,7 @@ from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 # Sync: Search
 # ---------------------------------------------------------------------------
 
+
 class TestKnowledgeChatSearch:
     """Tests for search() method."""
 
@@ -285,9 +286,11 @@ class TestKnowledgeChatSearch:
         assert "channel_id" not in request_json
         assert "user_id" not in request_json
 
+
 # ---------------------------------------------------------------------------
 # Sync: Inject
 # ---------------------------------------------------------------------------
+
 
 class TestKnowledgeChatInject:
     """Tests for inject() method."""
@@ -428,9 +431,11 @@ class TestKnowledgeChatInject:
         # Default (5) should not be sent
         assert "max_context_items" not in request_json
 
+
 # ---------------------------------------------------------------------------
 # Sync: Store
 # ---------------------------------------------------------------------------
+
 
 class TestKnowledgeChatStore:
     """Tests for store() method."""
@@ -693,9 +698,11 @@ class TestKnowledgeChatStore:
         assert "platform" not in request_json  # default is "unknown"
         assert "node_type" not in request_json  # default is "chat_context"
 
+
 # ---------------------------------------------------------------------------
 # Sync: Get Channel Summary
 # ---------------------------------------------------------------------------
+
 
 class TestAsyncKnowledgeChatSearch:
     """Tests for async search() method."""
@@ -752,9 +759,11 @@ class TestAsyncKnowledgeChatSearch:
             assert request_json["max_results"] == 5
             assert result["total"] == 1
 
+
 # ---------------------------------------------------------------------------
 # Async Tests: Inject
 # ---------------------------------------------------------------------------
+
 
 class TestAsyncKnowledgeChatInject:
     """Tests for async inject() method."""
@@ -807,9 +816,11 @@ class TestAsyncKnowledgeChatInject:
             assert request_json["max_context_items"] == 20
             assert result["count"] == 1
 
+
 # ---------------------------------------------------------------------------
 # Async Tests: Store
 # ---------------------------------------------------------------------------
+
 
 class TestAsyncKnowledgeChatStore:
     """Tests for async store() method."""
@@ -891,7 +902,7 @@ class TestAsyncKnowledgeChatStore:
             assert request_json["node_type"] == "insight"
             assert result["message_count"] == 3
 
+
 # ---------------------------------------------------------------------------
 # Async Tests: Get Channel Summary
 # ---------------------------------------------------------------------------
-

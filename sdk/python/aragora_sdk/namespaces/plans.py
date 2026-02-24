@@ -87,15 +87,11 @@ class AsyncPlansAPI:
 
     async def update(self, plan_id: str, **kwargs: Any) -> dict[str, Any]:
         """Update a plan."""
-        return await self._client.request(
-            "PUT", f"/api/v1/plans/{plan_id}", json=kwargs
-        )
+        return await self._client.request("PUT", f"/api/v1/plans/{plan_id}", json=kwargs)
 
     async def approve(self, plan_id: str) -> dict[str, Any]:
         """Approve a decision plan for execution."""
-        return await self._client.request(
-            "POST", f"/api/v1/plans/{plan_id}/approve"
-        )
+        return await self._client.request("POST", f"/api/v1/plans/{plan_id}/approve")
 
     async def reject(self, plan_id: str, reason: str = "") -> dict[str, Any]:
         """Reject a decision plan."""
@@ -105,6 +101,4 @@ class AsyncPlansAPI:
 
     async def execute(self, plan_id: str) -> dict[str, Any]:
         """Execute an approved decision plan."""
-        return await self._client.request(
-            "POST", f"/api/v1/plans/{plan_id}/execute"
-        )
+        return await self._client.request("POST", f"/api/v1/plans/{plan_id}/execute")

@@ -26,9 +26,7 @@ if TYPE_CHECKING:
 # Default buffer size per debate (overridable via env var).
 # 1000 events covers ~5 minutes of a high-throughput debate with token
 # streaming, giving reconnecting clients a generous replay window.
-EVENT_REPLAY_BUFFER_SIZE = int(
-    os.getenv("ARAGORA_EVENT_REPLAY_BUFFER_SIZE", "1000")
-)
+EVENT_REPLAY_BUFFER_SIZE = int(os.getenv("ARAGORA_EVENT_REPLAY_BUFFER_SIZE", "1000"))
 
 
 class EventReplayBuffer:

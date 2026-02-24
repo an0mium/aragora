@@ -230,7 +230,9 @@ a consensus proof with supporting evidence chain.
                     }
                 },
             },
-            "responses": {"200": _ok_response("Consensus detection result", "ConsensusDetectionResponse")},
+            "responses": {
+                "200": _ok_response("Consensus detection result", "ConsensusDetectionResponse")
+            },
             "security": [{"bearerAuth": []}],
         },
     },

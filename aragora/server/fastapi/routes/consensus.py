@@ -582,9 +582,7 @@ async def get_risk_warnings(
             RiskWarning(
                 domain=(r.metadata or {}).get("domain", "general"),
                 risk_type=_safe_dissent_type_str(r.dissent_type).replace("_", " ").title(),
-                severity=_infer_severity(
-                    r.confidence, _safe_dissent_type_str(r.dissent_type)
-                ),
+                severity=_infer_severity(r.confidence, _safe_dissent_type_str(r.dissent_type)),
                 description=r.content or "",
                 mitigation=r.rebuttal if r.rebuttal else None,
                 detected_at=_safe_timestamp_str(r.timestamp),
@@ -751,9 +749,7 @@ async def detect_consensus(
                 agent=agent,
                 vote=vote_type,
                 confidence=confidence,
-                reasoning=(
-                    "Agreed with consensus" if consensus_reached else "Partial agreement"
-                ),
+                reasoning=("Agreed with consensus" if consensus_reached else "Partial agreement"),
             )
 
         final_claim = contents[0][:500] if contents else body.task

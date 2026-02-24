@@ -61,21 +61,33 @@ async def cmd_debate_async(args: argparse.Namespace) -> int:
         print(f"  Rounds: {args.rounds}")
 
         try:
-            result = await client.request("POST", "/api/v1/debates", json={
-                "task": args.topic,
-                "agents": args.agents,
-                "rounds": args.rounds,
-            })
+            result = await client.request(
+                "POST",
+                "/api/v1/debates",
+                json={
+                    "task": args.topic,
+                    "agents": args.agents,
+                    "rounds": args.rounds,
+                },
+            )
 
             consensus = result.get("consensus", {})
             print("\nResults:")
             print(f"  Consensus: {'Yes' if consensus.get('reached') else 'No'}")
             confidence = consensus.get("confidence", 0)
-            print(f"  Confidence: {confidence:.1%}" if isinstance(confidence, float) else f"  Confidence: {confidence}")
-            print(f"  Rounds completed: {result.get('rounds_completed', result.get('rounds', 'N/A'))}")
+            print(
+                f"  Confidence: {confidence:.1%}"
+                if isinstance(confidence, float)
+                else f"  Confidence: {confidence}"
+            )
+            print(
+                f"  Rounds completed: {result.get('rounds_completed', result.get('rounds', 'N/A'))}"
+            )
 
             print("\nFinal Answer:")
-            answer = consensus.get("conclusion", consensus.get("final_answer", "No answer generated"))
+            answer = consensus.get(
+                "conclusion", consensus.get("final_answer", "No answer generated")
+            )
             for line in str(answer).split("\n"):
                 print(f"  {line}")
 

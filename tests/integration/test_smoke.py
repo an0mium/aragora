@@ -68,9 +68,7 @@ class SmokeAgent(Agent):
         )
 
     async def vote(self, proposals: dict[str, str], task: str) -> Vote:
-        choice = self._vote_choice or (
-            list(proposals.keys())[0] if proposals else self.name
-        )
+        choice = self._vote_choice or (list(proposals.keys())[0] if proposals else self.name)
         return Vote(
             agent=self.name,
             choice=choice,

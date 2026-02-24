@@ -307,7 +307,9 @@ class TestHandleRouting:
         """
         with patch.object(handler, "_handle_void_envelope", new_callable=AsyncMock) as mock_method:
             mock_method.return_value = MagicMock(status_code=200)
-            result = await handler.handle(mock_request, "/api/v1/legal/envelopes/env123/void", "POST")
+            result = await handler.handle(
+                mock_request, "/api/v1/legal/envelopes/env123/void", "POST"
+            )
             mock_method.assert_called_once()
 
     @pytest.mark.asyncio
@@ -317,7 +319,9 @@ class TestHandleRouting:
             handler, "_handle_resend_envelope", new_callable=AsyncMock
         ) as mock_method:
             mock_method.return_value = MagicMock(status_code=200)
-            result = await handler.handle(mock_request, "/api/v1/legal/envelopes/env123/resend", "POST")
+            result = await handler.handle(
+                mock_request, "/api/v1/legal/envelopes/env123/resend", "POST"
+            )
             mock_method.assert_called_once()
 
     @pytest.mark.asyncio

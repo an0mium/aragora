@@ -82,7 +82,7 @@ class TestLocalEnvRotator:
 
     def test_read_env_quoted_values(self, tmp_path):
         env_file = tmp_path / ".env"
-        env_file.write_text('KEY1="value with spaces"\nKEY2=\'single quoted\'\n')
+        env_file.write_text("KEY1=\"value with spaces\"\nKEY2='single quoted'\n")
         rotator = LocalEnvRotator(env_path=env_file)
         env = rotator.read_env()
         assert env["KEY1"] == "value with spaces"
@@ -90,9 +90,7 @@ class TestLocalEnvRotator:
 
     def test_update_existing_secret(self, tmp_path):
         env_file = tmp_path / ".env"
-        env_file.write_text(
-            "# API Keys\nANTHROPIC_API_KEY=old_value\nOPENAI_API_KEY=keep_this\n"
-        )
+        env_file.write_text("# API Keys\nANTHROPIC_API_KEY=old_value\nOPENAI_API_KEY=keep_this\n")
         rotator = LocalEnvRotator(env_path=env_file)
         result = rotator.update_secret("ANTHROPIC_API_KEY", "new_value")
 
@@ -228,9 +226,7 @@ class TestRotationPipeline:
             health_checker=lambda tt: False,  # Would fail
         )
 
-        result = pipeline.execute(
-            TokenType.PYPI, "pypi-test123", skip_health_check=True
-        )
+        result = pipeline.execute(TokenType.PYPI, "pypi-test123", skip_health_check=True)
 
         assert result.success is True
         # Should have: rotation_started, rotation_completed (no health_check)

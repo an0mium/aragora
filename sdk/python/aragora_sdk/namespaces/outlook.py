@@ -88,11 +88,15 @@ class OutlookAPI:
 
     def move_message(self, message_id: str, **kwargs: Any) -> dict[str, Any]:
         """Move a message to a different folder."""
-        return self._client.request("POST", f"/api/v1/outlook/messages/{message_id}/move", json=kwargs)
+        return self._client.request(
+            "POST", f"/api/v1/outlook/messages/{message_id}/move", json=kwargs
+        )
 
     def mark_read(self, message_id: str, **kwargs: Any) -> dict[str, Any]:
         """Mark a message as read/unread."""
-        return self._client.request("PATCH", f"/api/v1/outlook/messages/{message_id}/read", json=kwargs)
+        return self._client.request(
+            "PATCH", f"/api/v1/outlook/messages/{message_id}/read", json=kwargs
+        )
 
     # ===========================================================================
     # Folders & Search
@@ -178,11 +182,15 @@ class AsyncOutlookAPI:
 
     async def move_message(self, message_id: str, **kwargs: Any) -> dict[str, Any]:
         """Move a message to a different folder."""
-        return await self._client.request("POST", f"/api/v1/outlook/messages/{message_id}/move", json=kwargs)
+        return await self._client.request(
+            "POST", f"/api/v1/outlook/messages/{message_id}/move", json=kwargs
+        )
 
     async def mark_read(self, message_id: str, **kwargs: Any) -> dict[str, Any]:
         """Mark a message as read/unread."""
-        return await self._client.request("PATCH", f"/api/v1/outlook/messages/{message_id}/read", json=kwargs)
+        return await self._client.request(
+            "PATCH", f"/api/v1/outlook/messages/{message_id}/read", json=kwargs
+        )
 
     async def list_folders(self) -> dict[str, Any]:
         """List email folders."""

@@ -388,9 +388,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
 
         # Optional: delegate to HierarchicalCoordinator (plan→execute→judge loop)
         if self.hardened_config.enable_hierarchical_coordination:
-            hc_result = await self._delegate_to_hierarchical_coordinator(
-                goal, tracks, context
-            )
+            hc_result = await self._delegate_to_hierarchical_coordinator(goal, tracks, context)
             if hc_result is not None:
                 return hc_result
 
@@ -1208,9 +1206,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                 duration_seconds=hc_result.duration_seconds,
             )
         except ImportError:
-            logger.debug(
-                "HierarchicalCoordinator not available, falling back to standard pipeline"
-            )
+            logger.debug("HierarchicalCoordinator not available, falling back to standard pipeline")
             return None
         except (RuntimeError, ValueError, TypeError, OSError) as exc:
             logger.warning(
@@ -1574,10 +1570,15 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
                 )
                 suggested_fix = fixer.suggest_fix(diagnosis)
                 fix_list: list[dict[str, str]] = (
-                    [{"description": suggested_fix.description,
-                      "file": suggested_fix.file_path,
-                      "fix": suggested_fix.new_content}]
-                    if suggested_fix else []
+                    [
+                        {
+                            "description": suggested_fix.description,
+                            "file": suggested_fix.file_path,
+                            "fix": suggested_fix.new_content,
+                        }
+                    ]
+                    if suggested_fix
+                    else []
                 )
                 forward_diagnosis = {
                     "failure_type": diagnosis.failure_type.value,
@@ -2080,9 +2081,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             plan_fn = getattr(bridge, "plan_actions", None)
             exec_fn = getattr(bridge, "execute_action", None)
             if not plan_fn or not exec_fn:
-                logger.warning(
-                    "computer_use_bridge lacks plan_actions/execute_action, skipping"
-                )
+                logger.warning("computer_use_bridge lacks plan_actions/execute_action, skipping")
                 return None
 
             actions = plan_fn(assignment.subtask.description)
@@ -2551,7 +2550,11 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
 
             # Build commit message
             subtask_title = assignment.subtask.title
-            track = assignment.track.value if hasattr(assignment.track, "value") else str(assignment.track)
+            track = (
+                assignment.track.value
+                if hasattr(assignment.track, "value")
+                else str(assignment.track)
+            )
             msg = (
                 f"feat({track}): {subtask_title}\n\n"
                 f"Auto-committed by HardenedOrchestrator after verification.\n"

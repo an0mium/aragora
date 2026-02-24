@@ -1140,13 +1140,15 @@ class SelfImprovePipeline:
                 except RuntimeError as exc:
                     logger.warning("worktree_create_failed task=%s: %s", task.task_id, exc)
                     dispatcher.fail(task.task_id, str(exc))
-                    results.append({
-                        "success": False,
-                        "subtask": task.title[:100],
-                        "files_changed": [],
-                        "tests_passed": 0,
-                        "tests_failed": 0,
-                    })
+                    results.append(
+                        {
+                            "success": False,
+                            "subtask": task.title[:100],
+                            "files_changed": [],
+                            "tests_passed": 0,
+                            "tests_failed": 0,
+                        }
+                    )
                     continue
 
                 # Assign and start the task
@@ -1159,9 +1161,7 @@ class SelfImprovePipeline:
                 if hasattr(original_subtask, "__dict__"):
                     original_subtask.worktree_path = str(wt_state.path)
 
-                exec_result = await self._execute_single(
-                    original_subtask, cycle_id
-                )
+                exec_result = await self._execute_single(original_subtask, cycle_id)
 
                 # Update dispatcher and track results
                 if exec_result.get("success"):

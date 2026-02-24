@@ -89,9 +89,7 @@ class CRMAPI:
     # Contacts
     # =========================================================================
 
-    def list_contacts(
-        self, search: str | None = None, limit: int = 20
-    ) -> dict[str, Any]:
+    def list_contacts(self, search: str | None = None, limit: int = 20) -> dict[str, Any]:
         """
         List CRM contacts across all connected platforms.
 
@@ -107,9 +105,7 @@ class CRMAPI:
             params["search"] = search
         return self._client.request("GET", "/api/v1/crm/contacts", params=params)
 
-    def list_platform_contacts(
-        self, platform: str, limit: int = 20
-    ) -> dict[str, Any]:
+    def list_platform_contacts(self, platform: str, limit: int = 20) -> dict[str, Any]:
         """
         List contacts for a specific CRM platform.
 
@@ -121,9 +117,7 @@ class CRMAPI:
             Dict with platform-specific contacts.
         """
         params: dict[str, Any] = {"limit": limit}
-        return self._client.request(
-            "GET", f"/api/v1/crm/{platform}/contacts", params=params
-        )
+        return self._client.request("GET", f"/api/v1/crm/{platform}/contacts", params=params)
 
     def get_contact(self, platform: str, contact_id: str) -> dict[str, Any]:
         """
@@ -136,13 +130,9 @@ class CRMAPI:
         Returns:
             Dict with contact details.
         """
-        return self._client.request(
-            "GET", f"/api/v1/crm/{platform}/contacts/{contact_id}"
-        )
+        return self._client.request("GET", f"/api/v1/crm/{platform}/contacts/{contact_id}")
 
-    def create_contact(
-        self, email: str, name: str | None = None, **fields: Any
-    ) -> dict[str, Any]:
+    def create_contact(self, email: str, name: str | None = None, **fields: Any) -> dict[str, Any]:
         """
         Create a contact (cross-platform).
 
@@ -176,9 +166,7 @@ class CRMAPI:
         params: dict[str, Any] = {"limit": limit}
         return self._client.request("GET", "/api/v1/crm/companies", params=params)
 
-    def list_platform_companies(
-        self, platform: str, limit: int = 20
-    ) -> dict[str, Any]:
+    def list_platform_companies(self, platform: str, limit: int = 20) -> dict[str, Any]:
         """
         List companies for a specific CRM platform.
 
@@ -190,9 +178,7 @@ class CRMAPI:
             Dict with platform-specific companies.
         """
         params: dict[str, Any] = {"limit": limit}
-        return self._client.request(
-            "GET", f"/api/v1/crm/{platform}/companies", params=params
-        )
+        return self._client.request("GET", f"/api/v1/crm/{platform}/companies", params=params)
 
     def get_company(self, platform: str, company_id: str) -> dict[str, Any]:
         """
@@ -205,17 +191,13 @@ class CRMAPI:
         Returns:
             Dict with company details.
         """
-        return self._client.request(
-            "GET", f"/api/v1/crm/{platform}/companies/{company_id}"
-        )
+        return self._client.request("GET", f"/api/v1/crm/{platform}/companies/{company_id}")
 
     # =========================================================================
     # Deals
     # =========================================================================
 
-    def list_deals(
-        self, stage: str | None = None, limit: int = 20
-    ) -> dict[str, Any]:
+    def list_deals(self, stage: str | None = None, limit: int = 20) -> dict[str, Any]:
         """
         List deals across all connected platforms.
 
@@ -231,9 +213,7 @@ class CRMAPI:
             params["stage"] = stage
         return self._client.request("GET", "/api/v1/crm/deals", params=params)
 
-    def list_platform_deals(
-        self, platform: str, limit: int = 20
-    ) -> dict[str, Any]:
+    def list_platform_deals(self, platform: str, limit: int = 20) -> dict[str, Any]:
         """
         List deals for a specific CRM platform.
 
@@ -245,9 +225,7 @@ class CRMAPI:
             Dict with platform-specific deals.
         """
         params: dict[str, Any] = {"limit": limit}
-        return self._client.request(
-            "GET", f"/api/v1/crm/{platform}/deals", params=params
-        )
+        return self._client.request("GET", f"/api/v1/crm/{platform}/deals", params=params)
 
     def get_deal(self, platform: str, deal_id: str) -> dict[str, Any]:
         """
@@ -260,13 +238,9 @@ class CRMAPI:
         Returns:
             Dict with deal details.
         """
-        return self._client.request(
-            "GET", f"/api/v1/crm/{platform}/deals/{deal_id}"
-        )
+        return self._client.request("GET", f"/api/v1/crm/{platform}/deals/{deal_id}")
 
-    def create_deal(
-        self, name: str, contact_id: str, value: float | None = None
-    ) -> dict[str, Any]:
+    def create_deal(self, name: str, contact_id: str, value: float | None = None) -> dict[str, Any]:
         """
         Create a deal (cross-platform).
 
@@ -377,29 +351,21 @@ class AsyncCRMAPI:
     # Contacts
     # =========================================================================
 
-    async def list_contacts(
-        self, search: str | None = None, limit: int = 20
-    ) -> dict[str, Any]:
+    async def list_contacts(self, search: str | None = None, limit: int = 20) -> dict[str, Any]:
         """List CRM contacts across all connected platforms."""
         params: dict[str, Any] = {"limit": limit}
         if search:
             params["search"] = search
         return await self._client.request("GET", "/api/v1/crm/contacts", params=params)
 
-    async def list_platform_contacts(
-        self, platform: str, limit: int = 20
-    ) -> dict[str, Any]:
+    async def list_platform_contacts(self, platform: str, limit: int = 20) -> dict[str, Any]:
         """List contacts for a specific CRM platform."""
         params: dict[str, Any] = {"limit": limit}
-        return await self._client.request(
-            "GET", f"/api/v1/crm/{platform}/contacts", params=params
-        )
+        return await self._client.request("GET", f"/api/v1/crm/{platform}/contacts", params=params)
 
     async def get_contact(self, platform: str, contact_id: str) -> dict[str, Any]:
         """Get contact details from a specific platform."""
-        return await self._client.request(
-            "GET", f"/api/v1/crm/{platform}/contacts/{contact_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/crm/{platform}/contacts/{contact_id}")
 
     async def create_contact(
         self, email: str, name: str | None = None, **fields: Any
@@ -419,48 +385,34 @@ class AsyncCRMAPI:
         params: dict[str, Any] = {"limit": limit}
         return await self._client.request("GET", "/api/v1/crm/companies", params=params)
 
-    async def list_platform_companies(
-        self, platform: str, limit: int = 20
-    ) -> dict[str, Any]:
+    async def list_platform_companies(self, platform: str, limit: int = 20) -> dict[str, Any]:
         """List companies for a specific CRM platform."""
         params: dict[str, Any] = {"limit": limit}
-        return await self._client.request(
-            "GET", f"/api/v1/crm/{platform}/companies", params=params
-        )
+        return await self._client.request("GET", f"/api/v1/crm/{platform}/companies", params=params)
 
     async def get_company(self, platform: str, company_id: str) -> dict[str, Any]:
         """Get company details from a specific platform."""
-        return await self._client.request(
-            "GET", f"/api/v1/crm/{platform}/companies/{company_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/crm/{platform}/companies/{company_id}")
 
     # =========================================================================
     # Deals
     # =========================================================================
 
-    async def list_deals(
-        self, stage: str | None = None, limit: int = 20
-    ) -> dict[str, Any]:
+    async def list_deals(self, stage: str | None = None, limit: int = 20) -> dict[str, Any]:
         """List deals across all connected platforms."""
         params: dict[str, Any] = {"limit": limit}
         if stage:
             params["stage"] = stage
         return await self._client.request("GET", "/api/v1/crm/deals", params=params)
 
-    async def list_platform_deals(
-        self, platform: str, limit: int = 20
-    ) -> dict[str, Any]:
+    async def list_platform_deals(self, platform: str, limit: int = 20) -> dict[str, Any]:
         """List deals for a specific CRM platform."""
         params: dict[str, Any] = {"limit": limit}
-        return await self._client.request(
-            "GET", f"/api/v1/crm/{platform}/deals", params=params
-        )
+        return await self._client.request("GET", f"/api/v1/crm/{platform}/deals", params=params)
 
     async def get_deal(self, platform: str, deal_id: str) -> dict[str, Any]:
         """Get deal details from a specific platform."""
-        return await self._client.request(
-            "GET", f"/api/v1/crm/{platform}/deals/{deal_id}"
-        )
+        return await self._client.request("GET", f"/api/v1/crm/{platform}/deals/{deal_id}")
 
     async def create_deal(
         self, name: str, contact_id: str, value: float | None = None
@@ -477,9 +429,7 @@ class AsyncCRMAPI:
 
     async def get_pipeline(self, **kwargs: Any) -> dict[str, Any]:
         """Get sales pipeline overview."""
-        return await self._client.request(
-            "GET", "/api/v1/crm/pipeline", params=kwargs or None
-        )
+        return await self._client.request("GET", "/api/v1/crm/pipeline", params=kwargs or None)
 
     async def enrich(self, **kwargs: Any) -> dict[str, Any]:
         """Enrich contact or company data with external sources."""

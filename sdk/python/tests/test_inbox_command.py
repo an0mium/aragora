@@ -10,6 +10,3 @@ Tests cover:
 """
 
 from __future__ import annotations
-
-
-

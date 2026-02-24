@@ -272,10 +272,7 @@ class GoalProposer:
                 count = len(stale_items)
                 candidates.append(
                     GoalCandidate(
-                        goal_text=(
-                            f"Refresh {count} stale knowledge items "
-                            f"(older than 30 days)"
-                        ),
+                        goal_text=(f"Refresh {count} stale knowledge items (older than 30 days)"),
                         confidence=min(0.6 + count * 0.02, 0.9),
                         signal_source="staleness",
                         estimated_effort=1.0 + count * 0.1,
@@ -314,9 +311,7 @@ class GoalProposer:
             for drift_type, type_warnings in by_type.items():
                 agents = list({w.agent_name for w in type_warnings})
                 severity_map = {"low": 0.6, "medium": 0.8, "high": 0.95}
-                max_severity = max(
-                    severity_map.get(w.severity, 0.6) for w in type_warnings
-                )
+                max_severity = max(severity_map.get(w.severity, 0.6) for w in type_warnings)
 
                 candidates.append(
                     GoalCandidate(
@@ -340,7 +335,6 @@ class GoalProposer:
             logger.debug("calibration_signal_failed: %s", e)
 
         return candidates
-
 
     # ------------------------------------------------------------------
     # Signal: Coverage Gaps
@@ -370,8 +364,7 @@ class GoalProposer:
                     candidates.append(
                         GoalCandidate(
                             goal_text=(
-                                f"Improve overall test coverage "
-                                f"(currently {pct:.1f}%, target 70%)"
+                                f"Improve overall test coverage (currently {pct:.1f}%, target 70%)"
                             ),
                             confidence=min(0.7 + (70 - pct) * 0.005, 0.95),
                             signal_source="coverage",
@@ -436,8 +429,7 @@ class GoalProposer:
                         candidates.append(
                             GoalCandidate(
                                 goal_text=(
-                                    f"Add test coverage for {len(untested)} "
-                                    f"untested modules"
+                                    f"Add test coverage for {len(untested)} untested modules"
                                 ),
                                 confidence=min(0.6 + len(untested) * 0.005, 0.85),
                                 signal_source="coverage",

@@ -50,9 +50,7 @@ def _make_summary(
     # Populate round history for influence-drop detection
     if round_influences is not None:
         for i, inf in enumerate(round_influences):
-            summary.round_history.append(
-                RoundMetrics(round_number=i + 1, argument_influence=inf)
-            )
+            summary.round_history.append(RoundMetrics(round_number=i + 1, argument_influence=inf))
     return summary
 
 
@@ -363,9 +361,7 @@ class TestGenesisIntegration:
             adjusted = bridge.feed_genesis(recs)
 
         assert adjusted == 1
-        mock_manager.update_fitness.assert_called_once_with(
-            "genome-abc", fitness_delta=-0.1
-        )
+        mock_manager.update_fitness.assert_called_once_with("genome-abc", fitness_delta=-0.1)
 
     def test_feed_genesis_skips_low_severity(self) -> None:
         """Low-severity recommendations do not adjust genesis fitness."""
@@ -420,9 +416,7 @@ class TestCustomThresholds:
         assert len(proposal_recs) == 0
 
         # With stricter threshold (0.50), 30% triggers a rec
-        bridge_strict = IntrospectionEvolutionBridge(
-            thresholds={"proposal_acceptance_rate": 0.50}
-        )
+        bridge_strict = IntrospectionEvolutionBridge(thresholds={"proposal_acceptance_rate": 0.50})
         recs = bridge_strict.analyze_summaries({"claude": summary})
         proposal_recs = [r for r in recs if r.metric_name == "proposal_acceptance_rate"]
         assert len(proposal_recs) == 1

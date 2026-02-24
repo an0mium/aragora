@@ -185,7 +185,6 @@ class SkillsAPI:
             data["timeout"] = timeout
         return self._client.request("POST", f"/api/skills/{name}/invoke", json=data)
 
-
     # =========================================================================
     # Skills Marketplace
     # =========================================================================
@@ -202,7 +201,8 @@ class SkillsAPI:
             Dict with matching marketplace skills.
         """
         return self._client.request(
-            "GET", "/api/skills/marketplace/search",
+            "GET",
+            "/api/skills/marketplace/search",
             params={"query": query, "limit": limit},
         )
 
@@ -320,7 +320,8 @@ class AsyncSkillsAPI:
     async def marketplace_search(self, query: str, limit: int = 20) -> dict[str, Any]:
         """Search the skills marketplace."""
         return await self._client.request(
-            "GET", "/api/skills/marketplace/search",
+            "GET",
+            "/api/skills/marketplace/search",
             params={"query": query, "limit": limit},
         )
 

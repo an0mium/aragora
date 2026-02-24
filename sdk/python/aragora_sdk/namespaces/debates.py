@@ -363,9 +363,7 @@ class DebatesAPI:
         payload: dict[str, Any] = {"compression_ratio": compression_ratio}
         if target_levels:
             payload["target_levels"] = target_levels
-        return self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/compress", json=payload
-        )
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/compress", json=payload)
 
     def get_context_level(self, debate_id: str, level: str) -> dict[str, Any]:
         """Get debate content at a specific abstraction level.
@@ -377,9 +375,7 @@ class DebatesAPI:
         Returns:
             Context at the requested level with content, token_count, and nodes
         """
-        return self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/context/{level}"
-        )
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/context/{level}")
 
     def query_rlm(
         self,
@@ -421,9 +417,7 @@ class DebatesAPI:
         Returns:
             Refinement status with active_queries, cached_contexts, and status
         """
-        return self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/refinement-status"
-        )
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/refinement-status")
 
     # ========== Decision Integrity ==========
 
@@ -439,9 +433,7 @@ class DebatesAPI:
         Returns:
             Decision integrity package with receipt and implementation plan
         """
-        return self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/decision-integrity"
-        )
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/decision-integrity")
 
     # ========== Cost Estimation ==========
 
@@ -467,9 +459,7 @@ class DebatesAPI:
         }
         if model_types:
             params["model_types"] = ",".join(model_types)
-        return self._client.request(
-            "GET", "/api/v1/debates/estimate-cost", params=params
-        )
+        return self._client.request("GET", "/api/v1/debates/estimate-cost", params=params)
 
     # ========== Quick Debate ==========
 
@@ -492,17 +482,23 @@ class DebatesAPI:
 
     def archive_batch(self, debate_ids: _List[str]) -> dict[str, Any]:
         """Archive multiple debates."""
-        return self._client.request("POST", "/api/v1/debates/archive/batch", json={"debate_ids": debate_ids})
+        return self._client.request(
+            "POST", "/api/v1/debates/archive/batch", json={"debate_ids": debate_ids}
+        )
 
     def list_archived(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
         """List archived debates."""
-        return self._client.request("GET", "/api/v1/debates/archived", params={"limit": limit, "offset": offset})
+        return self._client.request(
+            "GET", "/api/v1/debates/archived", params={"limit": limit, "offset": offset}
+        )
 
     # ========== Compare & Import ==========
 
     def compare(self, debate_ids: _List[str]) -> dict[str, Any]:
         """Compare multiple debates."""
-        return self._client.request("POST", "/api/v1/debates/compare", json={"debate_ids": debate_ids})
+        return self._client.request(
+            "POST", "/api/v1/debates/compare", json={"debate_ids": debate_ids}
+        )
 
     def get_health(self) -> dict[str, Any]:
         """Get debate system health."""
@@ -518,7 +514,9 @@ class DebatesAPI:
 
     def stream_debate(self, debate_id: str) -> dict[str, Any]:
         """Get streaming info for a debate."""
-        return self._client.request("GET", "/api/v1/debates/stream", params={"debate_id": debate_id})
+        return self._client.request(
+            "GET", "/api/v1/debates/stream", params={"debate_id": debate_id}
+        )
 
     # ========== Stats & Diagnostics ==========
 
@@ -985,9 +983,7 @@ class AsyncDebatesAPI:
         Returns:
             Context at the requested level with content, token_count, and nodes
         """
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/context/{level}"
-        )
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/context/{level}")
 
     async def query_rlm(
         self,
@@ -1029,9 +1025,7 @@ class AsyncDebatesAPI:
         Returns:
             Refinement status with active_queries, cached_contexts, and status
         """
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/refinement-status"
-        )
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/refinement-status")
 
     # ========== Decision Integrity ==========
 
@@ -1047,9 +1041,7 @@ class AsyncDebatesAPI:
         Returns:
             Decision integrity package with receipt and implementation plan
         """
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/decision-integrity"
-        )
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/decision-integrity")
 
     # ========== Cost Estimation ==========
 
@@ -1075,9 +1067,7 @@ class AsyncDebatesAPI:
         }
         if model_types:
             params["model_types"] = ",".join(model_types)
-        return await self._client.request(
-            "GET", "/api/v1/debates/estimate-cost", params=params
-        )
+        return await self._client.request("GET", "/api/v1/debates/estimate-cost", params=params)
 
     # ========== Quick Debate ==========
 
@@ -1100,17 +1090,23 @@ class AsyncDebatesAPI:
 
     async def archive_batch(self, debate_ids: _List[str]) -> dict[str, Any]:
         """Archive multiple debates."""
-        return await self._client.request("POST", "/api/v1/debates/archive/batch", json={"debate_ids": debate_ids})
+        return await self._client.request(
+            "POST", "/api/v1/debates/archive/batch", json={"debate_ids": debate_ids}
+        )
 
     async def list_archived(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
         """List archived debates."""
-        return await self._client.request("GET", "/api/v1/debates/archived", params={"limit": limit, "offset": offset})
+        return await self._client.request(
+            "GET", "/api/v1/debates/archived", params={"limit": limit, "offset": offset}
+        )
 
     # ========== Compare & Import ==========
 
     async def compare(self, debate_ids: _List[str]) -> dict[str, Any]:
         """Compare multiple debates."""
-        return await self._client.request("POST", "/api/v1/debates/compare", json={"debate_ids": debate_ids})
+        return await self._client.request(
+            "POST", "/api/v1/debates/compare", json={"debate_ids": debate_ids}
+        )
 
     async def get_health(self) -> dict[str, Any]:
         """Get debate system health."""
@@ -1126,7 +1122,9 @@ class AsyncDebatesAPI:
 
     async def stream_debate(self, debate_id: str) -> dict[str, Any]:
         """Get streaming info for a debate."""
-        return await self._client.request("GET", "/api/v1/debates/stream", params={"debate_id": debate_id})
+        return await self._client.request(
+            "GET", "/api/v1/debates/stream", params={"debate_id": debate_id}
+        )
 
     # ========== Stats & Diagnostics ==========
 

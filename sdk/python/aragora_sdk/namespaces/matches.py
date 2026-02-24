@@ -85,9 +85,7 @@ class MatchesAPI:
             params["agent"] = agent
         if period:
             params["period"] = period
-        return self._client.request(
-            "GET", "/api/v1/matches/stats", params=params or None
-        )
+        return self._client.request("GET", "/api/v1/matches/stats", params=params or None)
 
 
 class AsyncMatchesAPI:
@@ -126,6 +124,4 @@ class AsyncMatchesAPI:
             params["agent"] = agent
         if period:
             params["period"] = period
-        return await self._client.request(
-            "GET", "/api/v1/matches/stats", params=params or None
-        )
+        return await self._client.request("GET", "/api/v1/matches/stats", params=params or None)

@@ -11,9 +11,6 @@ Tests both PartnerAPI (sync) and AsyncPartnerAPI (async) classes for:
 from __future__ import annotations
 
 
-
-
 # =========================================================================
 # Registration
 # =========================================================================
-

@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 DeviceType = Literal["android", "ios", "web", "alexa", "google_home"]
 NotificationStatus = Literal["sent", "delivered", "failed", "pending"]
 
+
 class Device(TypedDict, total=False):
     """Registered device."""
 
@@ -30,6 +31,7 @@ class Device(TypedDict, total=False):
     notification_count: int
     created_at: str
 
+
 class NotificationMessage(TypedDict, total=False):
     """Push notification message."""
 
@@ -41,6 +43,7 @@ class NotificationMessage(TypedDict, total=False):
     badge: int | None
     sound: str | None
 
+
 class NotificationResult(TypedDict, total=False):
     """Notification delivery result."""
 
@@ -49,6 +52,7 @@ class NotificationResult(TypedDict, total=False):
     message_id: str | None
     status: str
     error: str | None
+
 
 class ConnectorHealth(TypedDict, total=False):
     """Device connector health status."""
@@ -60,6 +64,7 @@ class ConnectorHealth(TypedDict, total=False):
     alexa: dict[str, Any] | None
     google_home: dict[str, Any] | None
     error: str | None
+
 
 class DevicesAPI:
     """

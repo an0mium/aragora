@@ -899,9 +899,12 @@ class TestExchangeCodeForTokens:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
-            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
-            return_value=mock_response,
+        with (
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")),
+            patch(
+                "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+                return_value=mock_response,
+            ),
         ):
             result = handler._exchange_code_for_tokens("auth-code-123")
 
@@ -914,9 +917,12 @@ class TestExchangeCodeForTokens:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
-            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
-            return_value=mock_response,
+        with (
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")),
+            patch(
+                "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+                return_value=mock_response,
+            ),
         ):
             with pytest.raises(ValueError, match="Empty response"):
                 handler._exchange_code_for_tokens("auth-code")
@@ -928,9 +934,12 @@ class TestExchangeCodeForTokens:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
-            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
-            return_value=mock_response,
+        with (
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")),
+            patch(
+                "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+                return_value=mock_response,
+            ),
         ):
             with pytest.raises(ValueError, match="Invalid JSON"):
                 handler._exchange_code_for_tokens("auth-code")
@@ -1022,9 +1031,12 @@ class TestGetGoogleUserInfo:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
-            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
-            return_value=mock_response,
+        with (
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")),
+            patch(
+                "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+                return_value=mock_response,
+            ),
         ):
             result = handler._get_google_user_info("access-token")
 
@@ -1050,9 +1062,12 @@ class TestGetGoogleUserInfo:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
-            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
-            return_value=mock_response,
+        with (
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")),
+            patch(
+                "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+                return_value=mock_response,
+            ),
         ):
             result = handler._get_google_user_info("access-token")
 
@@ -1066,9 +1081,12 @@ class TestGetGoogleUserInfo:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
-            "aragora.server.handlers._oauth.google.urllib_request.urlopen",
-            return_value=mock_response,
+        with (
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")),
+            patch(
+                "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+                return_value=mock_response,
+            ),
         ):
             with pytest.raises(ValueError, match="Invalid JSON"):
                 handler._get_google_user_info("access-token")
@@ -1274,8 +1292,12 @@ class TestEdgeCases:
             mock_resp.__exit__ = MagicMock(return_value=False)
             return mock_resp
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
-            "aragora.server.handlers._oauth.google.urllib_request.urlopen", side_effect=mock_urlopen
+        with (
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")),
+            patch(
+                "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+                side_effect=mock_urlopen,
+            ),
         ):
             result = handler._exchange_code_for_tokens("my-auth-code")
 
@@ -1304,8 +1326,12 @@ class TestEdgeCases:
             mock_resp.__exit__ = MagicMock(return_value=False)
             return mock_resp
 
-        with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")), patch(
-            "aragora.server.handlers._oauth.google.urllib_request.urlopen", side_effect=mock_urlopen
+        with (
+            patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")),
+            patch(
+                "aragora.server.handlers._oauth.google.urllib_request.urlopen",
+                side_effect=mock_urlopen,
+            ),
         ):
             result = handler._get_google_user_info("my-bearer-token")
 

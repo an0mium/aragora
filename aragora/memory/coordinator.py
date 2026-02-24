@@ -1395,7 +1395,7 @@ class MemoryCoordinator:
         query = " ".join(list(content_keywords)[:10])
 
         try:
-            results = self.continuum_memory.search(query=query, limit=max_targets * 2)
+            results = self.continuum_memory.retrieve(query=query, limit=max_targets * 2)
         except (TypeError, AttributeError):
             return []
 

@@ -221,11 +221,11 @@ class AgentStep(BaseStep):
         pool = self._normalize_agent_pool(step_config.get("agent_pool")) or self.agent_pool
         if pool:
             result = await self._execute_agent_pool(prompt, context, pool, step_config)
-        elif isinstance(
-            step_config.get("coding_harness") or self.coding_harness, dict
-        ) and (step_config.get("coding_harness") or self.coding_harness or {}).get(
-            "harness"
-        ) == "kilocode":
+        elif (
+            isinstance(step_config.get("coding_harness") or self.coding_harness, dict)
+            and (step_config.get("coding_harness") or self.coding_harness or {}).get("harness")
+            == "kilocode"
+        ):
             # Check if we should use a coding harness (e.g., KiloCode for Gemini)
             harness_config = step_config.get("coding_harness") or self.coding_harness
             result = await self._execute_with_kilocode(prompt, context, harness_config)

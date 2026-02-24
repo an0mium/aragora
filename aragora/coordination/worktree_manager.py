@@ -73,10 +73,7 @@ class WorktreeManager:
     ):
         self.repo_path = (repo_path or Path.cwd()).resolve()
         self.config = config or WorktreeManagerConfig()
-        self._worktree_dir = (
-            self.config.worktree_dir
-            or self.repo_path.parent / "aragora-worktrees"
-        )
+        self._worktree_dir = self.config.worktree_dir or self.repo_path.parent / "aragora-worktrees"
         self._worktrees: dict[str, WorktreeState] = {}
 
     @property
@@ -141,14 +138,16 @@ class WorktreeManager:
         self._worktree_dir.mkdir(parents=True, exist_ok=True)
 
         result = self._run_git(
-            "worktree", "add", "-b", branch_name,
-            str(worktree_path), base,
+            "worktree",
+            "add",
+            "-b",
+            branch_name,
+            str(worktree_path),
+            base,
             check=False,
         )
         if result.returncode != 0:
-            raise RuntimeError(
-                f"Failed to create worktree: {result.stderr.strip()}"
-            )
+            raise RuntimeError(f"Failed to create worktree: {result.stderr.strip()}")
 
         # Get the initial commit SHA
         sha_result = self._run_git("rev-parse", "HEAD", cwd=worktree_path, check=False)
@@ -167,7 +166,10 @@ class WorktreeManager:
 
         logger.info(
             "worktree_created id=%s branch=%s path=%s track=%s",
-            worktree_id, branch_name, worktree_path, track,
+            worktree_id,
+            branch_name,
+            worktree_path,
+            track,
         )
         return state
 
@@ -200,7 +202,8 @@ class WorktreeManager:
             else:
                 logger.warning(
                     "worktree_remove_failed id=%s err=%s",
-                    worktree_id, result.stderr.strip(),
+                    worktree_id,
+                    result.stderr.strip(),
                 )
                 return False
 
@@ -290,7 +293,8 @@ class WorktreeManager:
         if not state:
             return 0
         result = self._run_git(
-            "rev-list", "--count",
+            "rev-list",
+            "--count",
             f"{state.base_branch}..{state.branch_name}",
             check=False,
         )
@@ -304,7 +308,8 @@ class WorktreeManager:
         if not state:
             return []
         result = self._run_git(
-            "diff", "--name-only",
+            "diff",
+            "--name-only",
             f"{state.base_branch}...{state.branch_name}",
             check=False,
         )
