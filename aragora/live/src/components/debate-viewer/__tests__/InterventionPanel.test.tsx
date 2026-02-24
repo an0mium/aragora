@@ -125,7 +125,7 @@ describe('InterventionPanel', () => {
     it('shows inject button', () => {
       render(<InterventionPanel {...defaultProps} />);
 
-      expect(screen.getByText(/INJECT ARGUMENT/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /INJECT ARGUMENT/ })).toBeInTheDocument();
     });
 
     it('calls inject API with argument', async () => {
@@ -134,9 +134,7 @@ describe('InterventionPanel', () => {
       const textarea = screen.getByPlaceholderText('Add your argument to the debate...');
       fireEvent.change(textarea, { target: { value: 'My argument' } });
 
-      const injectButtons = screen.getAllByText(/INJECT ARGUMENT/);
-      const submitButton = injectButtons.find(el => el.tagName === 'BUTTON');
-      fireEvent.click(submitButton!);
+      fireEvent.click(screen.getByRole('button', { name: /INJECT ARGUMENT/ }));
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
@@ -152,9 +150,7 @@ describe('InterventionPanel', () => {
     it('disables inject button when textarea empty', () => {
       render(<InterventionPanel {...defaultProps} />);
 
-      const injectButtons = screen.getAllByText(/INJECT ARGUMENT/);
-      const submitButton = injectButtons.find(el => el.tagName === 'BUTTON');
-      expect(submitButton).toBeDisabled();
+      expect(screen.getByRole('button', { name: /INJECT ARGUMENT/ })).toBeDisabled();
     });
   });
 
@@ -187,7 +183,7 @@ describe('InterventionPanel', () => {
       const input = screen.getByPlaceholderText('e.g., Consider the economic implications...');
       fireEvent.change(input, { target: { value: 'Focus on scalability' } });
 
-      fireEvent.click(screen.getByText('NUDGE DIRECTION'));
+      fireEvent.click(screen.getByRole('button', { name: /NUDGE DIRECTION/ }));
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(
@@ -209,7 +205,9 @@ describe('InterventionPanel', () => {
       );
       fireEvent.change(textarea, { target: { value: 'That claim lacks evidence' } });
 
-      fireEvent.click(screen.getByText('CHALLENGE CLAIM'));
+      // Use getByRole to specifically target the button (not the label)
+      const challengeButton = screen.getByRole('button', { name: /CHALLENGE CLAIM/ });
+      fireEvent.click(challengeButton);
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith(

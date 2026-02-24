@@ -490,6 +490,19 @@ async def init_key_rotation_scheduler() -> bool:
         # Start the scheduler
         await scheduler.start()
 
+        # Also initialize the security module's scheduler for health endpoint visibility
+        try:
+            from aragora.security.key_rotation import (
+                get_or_create_key_rotation_scheduler,
+                KeyRotationConfig as SecurityKeyRotationConfig,
+            )
+
+            sec_scheduler = get_or_create_key_rotation_scheduler()
+            sec_scheduler.config = SecurityKeyRotationConfig.from_env()
+            await sec_scheduler.start()
+        except (ImportError, RuntimeError, OSError) as e:
+            logger.debug("Security key rotation scheduler not started: %s", e)
+
         # Set initial key metrics
         try:
             from aragora.security.encryption import get_encryption_service

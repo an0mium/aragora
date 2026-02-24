@@ -196,6 +196,76 @@ def encryption_health(handler: Any) -> HandlerResult:
         }
         issues.append("Encrypt/decrypt roundtrip test failed")
 
+    # Check 5: Key rotation scheduler status
+    try:
+        scheduler = None
+        try:
+            from aragora.ops.key_rotation import get_key_rotation_scheduler as _get_ops
+
+            scheduler = _get_ops()
+        except ImportError:
+            pass
+        if scheduler is None:
+            try:
+                from aragora.security.key_rotation import (
+                    get_key_rotation_scheduler as _get_sec,
+                )
+
+                scheduler = _get_sec()
+            except ImportError:
+                pass
+        if scheduler is not None:
+            # security.key_rotation has get_stats() (sync, SchedulerStats)
+            # ops.key_rotation has get_status() (async, dict)
+            if hasattr(scheduler, "get_stats"):
+                stats = scheduler.get_stats()
+                health["key_rotation_scheduler"] = {
+                    "healthy": stats.status.value == "running",
+                    "status": stats.status.value,
+                    "total_rotations": stats.total_rotations,
+                    "successful_rotations": stats.successful_rotations,
+                    "failed_rotations": stats.failed_rotations,
+                    "last_rotation_at": (
+                        stats.last_rotation_at.isoformat()
+                        if stats.last_rotation_at
+                        else None
+                    ),
+                    "next_check_at": (
+                        stats.next_check_at.isoformat()
+                        if stats.next_check_at
+                        else None
+                    ),
+                    "keys_tracked": stats.keys_tracked,
+                    "keys_expiring_soon": stats.keys_expiring_soon,
+                    "uptime_seconds": round(stats.uptime_seconds, 1),
+                }
+                if stats.failed_rotations > 0:
+                    warnings.append(
+                        f"Key rotation scheduler has {stats.failed_rotations} failed rotation(s)"
+                    )
+            else:
+                running = getattr(scheduler, "_running", False)
+                health["key_rotation_scheduler"] = {
+                    "healthy": running,
+                    "status": "running" if running else "stopped",
+                    "config": {
+                        "rotation_interval_days": getattr(
+                            getattr(scheduler, "config", None),
+                            "rotation_interval_days",
+                            None,
+                        ),
+                    },
+                }
+        else:
+            health["key_rotation_scheduler"] = {
+                "healthy": True,
+                "status": "not_started",
+                "note": "Enable with ARAGORA_KEY_ROTATION_ENABLED=true",
+            }
+    except (ImportError, AttributeError, RuntimeError) as e:
+        logger.debug("Key rotation scheduler status unavailable: %s", e)
+        health["key_rotation_scheduler"] = {"healthy": True, "status": "unavailable"}
+
     # Calculate overall status
     response_time_ms = round((time.time() - start_time) * 1000, 2)
 
