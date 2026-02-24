@@ -13,7 +13,9 @@ Full integration with Pipedrive CRM API:
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import random
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -681,6 +683,11 @@ class PipedriveClient:
             await self._client.aclose()
             self._client = None
 
+    # Retry configuration
+    _MAX_RETRIES = 3
+    _BASE_DELAY = 1.0
+    _MAX_DELAY = 30.0
+
     async def _request(
         self,
         method: str,
@@ -688,37 +695,108 @@ class PipedriveClient:
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make authenticated API request."""
+        """Make authenticated API request with retry and exponential backoff.
+
+        Retries on 429 (rate limit) and 5xx (server error) responses,
+        as well as transient network errors, up to ``_MAX_RETRIES`` times.
+        """
+        import httpx as _httpx
+
         if not self._client:
             raise RuntimeError("Client not initialized. Use async context manager.")
 
-        # Add API token to params
-        params = params or {}
-        params["api_token"] = self.credentials.api_token
+        last_exc: Exception | None = None
 
-        response = await self._client.request(
-            method,
-            endpoint,
-            params=params,
-            json=json,
-        )
+        for attempt in range(self._MAX_RETRIES + 1):
+            try:
+                # Add API token to params (fresh copy each attempt)
+                req_params = dict(params or {})
+                req_params["api_token"] = self.credentials.api_token
 
-        if response.status_code >= 400:
-            error_data = response.json() if response.content else {}
-            raise PipedriveError(
-                message=error_data.get("error", f"HTTP {response.status_code}"),
-                status_code=response.status_code,
-                error_code=error_data.get("error_code"),
-            )
+                response = await self._client.request(
+                    method,
+                    endpoint,
+                    params=req_params,
+                    json=json,
+                )
 
-        data = response.json()
-        if not data.get("success", True):
-            raise PipedriveError(
-                message=data.get("error", "Unknown error"),
-                error_code=data.get("error_code"),
-            )
+                if response.status_code == 429 or response.status_code >= 500:
+                    if attempt < self._MAX_RETRIES:
+                        delay = min(
+                            self._BASE_DELAY * (2 ** attempt), self._MAX_DELAY,
+                        )
+                        jitter = delay * 0.3 * random.random()
+                        retry_after = response.headers.get("Retry-After")
+                        if retry_after:
+                            try:
+                                delay = float(retry_after)
+                            except (ValueError, TypeError):
+                                pass
+                        logger.warning(
+                            "Pipedrive %s %s returned %d, retrying in %.1fs "
+                            "(attempt %d/%d)",
+                            method,
+                            endpoint,
+                            response.status_code,
+                            delay + jitter,
+                            attempt + 1,
+                            self._MAX_RETRIES,
+                        )
+                        await asyncio.sleep(delay + jitter)
+                        continue
 
-        return data
+                if response.status_code >= 400:
+                    error_data = response.json() if response.content else {}
+                    raise PipedriveError(
+                        message=error_data.get(
+                            "error", f"HTTP {response.status_code}",
+                        ),
+                        status_code=response.status_code,
+                        error_code=error_data.get("error_code"),
+                    )
+
+                data = response.json()
+                if not data.get("success", True):
+                    raise PipedriveError(
+                        message=data.get("error", "Unknown error"),
+                        error_code=data.get("error_code"),
+                    )
+
+                return data
+
+            except PipedriveError:
+                raise
+            except (
+                _httpx.TimeoutException,
+                _httpx.ConnectError,
+                OSError,
+            ) as e:
+                last_exc = e
+                if attempt < self._MAX_RETRIES:
+                    delay = min(
+                        self._BASE_DELAY * (2 ** attempt), self._MAX_DELAY,
+                    )
+                    jitter = delay * 0.3 * random.random()
+                    logger.warning(
+                        "Pipedrive %s %s network error: %s, retrying in "
+                        "%.1fs (attempt %d/%d)",
+                        method,
+                        endpoint,
+                        type(e).__name__,
+                        delay + jitter,
+                        attempt + 1,
+                        self._MAX_RETRIES,
+                    )
+                    await asyncio.sleep(delay + jitter)
+                    continue
+                raise PipedriveError(
+                    f"Network error after {self._MAX_RETRIES} retries: "
+                    f"{type(e).__name__}",
+                ) from e
+
+        raise PipedriveError(
+            f"Request failed after {self._MAX_RETRIES} retries",
+        ) from last_exc
 
     # -------------------------------------------------------------------------
     # Persons (Contacts)

@@ -198,6 +198,7 @@ __all__ = [
     "KMCheckpointHandler",
     "KMAdapterStatusHandler",
     "KnowledgeVelocityHandler",
+    "KnowledgeGapHandler",
     # Knowledge handlers
     "KnowledgeHandler",
     "KnowledgeMoundHandler",

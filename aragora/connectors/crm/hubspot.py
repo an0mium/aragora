@@ -355,6 +355,11 @@ class HubSpotConnector:
             )
         return self._client
 
+    # Retry configuration
+    _MAX_RETRIES = 3
+    _BASE_DELAY = 1.0  # seconds
+    _MAX_DELAY = 30.0  # seconds
+
     async def _request(
         self,
         method: str,
@@ -362,27 +367,96 @@ class HubSpotConnector:
         params: dict | None = None,
         json_data: Any = None,
     ) -> dict[str, Any]:
-        """Make API request."""
-        client = await self._get_client()
-        response = await client.request(method, path, params=params, json=json_data)
+        """Make API request with retry and exponential backoff.
 
-        if response.status_code >= 400:
+        Retries on 429 (rate limit) and 5xx (server error) responses,
+        as well as transient network errors, up to ``_MAX_RETRIES`` times.
+        """
+        last_exc: Exception | None = None
+
+        for attempt in range(self._MAX_RETRIES + 1):
             try:
-                error_data = response.json()
-                raise HubSpotError(
-                    message=error_data.get("message", response.text),
-                    status_code=response.status_code,
-                    details=error_data,
-                )
-            except ValueError:
-                raise HubSpotError(
-                    f"HTTP {response.status_code}: {response.text}",
-                    status_code=response.status_code,
+                client = await self._get_client()
+                response = await client.request(
+                    method, path, params=params, json=json_data,
                 )
 
-        if response.status_code == 204:
-            return {}
-        return response.json()
+                if response.status_code == 429 or response.status_code >= 500:
+                    if attempt < self._MAX_RETRIES:
+                        delay = min(
+                            self._BASE_DELAY * (2 ** attempt), self._MAX_DELAY,
+                        )
+                        jitter = delay * 0.3 * random.random()
+                        retry_after = response.headers.get("Retry-After")
+                        if retry_after:
+                            try:
+                                delay = float(retry_after)
+                            except (ValueError, TypeError):
+                                pass
+                        logger.warning(
+                            "HubSpot %s %s returned %d, retrying in %.1fs "
+                            "(attempt %d/%d)",
+                            method,
+                            path,
+                            response.status_code,
+                            delay + jitter,
+                            attempt + 1,
+                            self._MAX_RETRIES,
+                        )
+                        await asyncio.sleep(delay + jitter)
+                        continue
+
+                if response.status_code >= 400:
+                    try:
+                        error_data = response.json()
+                        raise HubSpotError(
+                            message=error_data.get("message", response.text),
+                            status_code=response.status_code,
+                            details=error_data,
+                        )
+                    except ValueError:
+                        raise HubSpotError(
+                            f"HTTP {response.status_code}: {response.text}",
+                            status_code=response.status_code,
+                        )
+
+                if response.status_code == 204:
+                    return {}
+                return response.json()
+
+            except HubSpotError:
+                raise
+            except (
+                httpx.TimeoutException,
+                httpx.ConnectError,
+                OSError,
+            ) as e:
+                last_exc = e
+                if attempt < self._MAX_RETRIES:
+                    delay = min(
+                        self._BASE_DELAY * (2 ** attempt), self._MAX_DELAY,
+                    )
+                    jitter = delay * 0.3 * random.random()
+                    logger.warning(
+                        "HubSpot %s %s network error: %s, retrying in %.1fs "
+                        "(attempt %d/%d)",
+                        method,
+                        path,
+                        type(e).__name__,
+                        delay + jitter,
+                        attempt + 1,
+                        self._MAX_RETRIES,
+                    )
+                    await asyncio.sleep(delay + jitter)
+                    continue
+                raise HubSpotError(
+                    f"Network error after {self._MAX_RETRIES} retries: "
+                    f"{type(e).__name__}",
+                ) from e
+
+        raise HubSpotError(
+            f"Request failed after {self._MAX_RETRIES} retries",
+        ) from last_exc
 
     # =========================================================================
     # Contacts
