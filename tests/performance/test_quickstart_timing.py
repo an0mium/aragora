@@ -122,26 +122,17 @@ class TestMeasureRepoSize:
         assert size_mb > 0
         assert dur >= 0
 
-    @patch("scripts.measure_quickstart_time.Path")
-    def test_missing_git_dir_returns_negative(self, mock_path_cls):
+    def test_missing_git_dir_returns_negative(self, tmp_path):
         """Returns (-1, 0) when .git does not exist."""
-        mock_instance = MagicMock()
-        mock_path_cls.return_value = mock_instance
-        mock_resolved = MagicMock()
-        mock_instance.resolve.return_value = mock_resolved
-        mock_resolved.parent = MagicMock()
-        git_dir = MagicMock()
-        git_dir.exists.return_value = False
-        mock_resolved.parent.__truediv__ = lambda self, key: git_dir
-        # Cannot easily replace Path(__file__) so test the real function
-        # with a non-git tmp dir instead
-        import tempfile
+        # Point the function at a temp directory that has no .git
+        fake_script = tmp_path / "scripts" / "fake.py"
+        fake_script.parent.mkdir(parents=True, exist_ok=True)
+        fake_script.touch()
 
-        with tempfile.TemporaryDirectory() as td:
-            with patch("scripts.measure_quickstart_time.__file__", str(Path(td) / "scripts" / "fake.py")):
-                dur, size_mb = measure_repo_size()
-                assert dur == -1.0
-                assert size_mb == 0.0
+        with patch("scripts.measure_quickstart_time.__file__", str(fake_script)):
+            dur, size_mb = measure_repo_size()
+            assert dur == -1.0
+            assert size_mb == 0.0
 
 
 class TestMeasureImportTime:

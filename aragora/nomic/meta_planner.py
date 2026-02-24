@@ -140,6 +140,17 @@ class MetaPlanner:
         except (ImportError, RuntimeError):
             pass
 
+        # Goal proposer: telemetry-driven goal generation
+        self._goal_proposer = None
+        try:
+            from aragora.nomic.goal_proposer import GoalProposer
+            from aragora.nomic.cycle_telemetry import CycleTelemetryCollector
+
+            telemetry = CycleTelemetryCollector()
+            self._goal_proposer = GoalProposer(telemetry=telemetry)
+        except ImportError:
+            pass
+
     async def prioritize_work(
         self,
         objective: str | None = None,
@@ -319,6 +330,129 @@ class MetaPlanner:
         except (RuntimeError, OSError, ValueError) as e:
             logger.exception("Meta-planning failed: %s", e)
             return self._heuristic_prioritize(objective, available_tracks)
+
+    async def propose_goals(
+        self,
+        available_tracks: list[Track] | None = None,
+        min_confidence: float = 0.6,
+    ) -> list[PrioritizedGoal]:
+        """Autonomously propose improvement goals from telemetry and codebase signals.
+
+        Bridges GoalProposer (telemetry-driven: test failures, slow cycles,
+        coverage gaps, lint regressions, calibration drift, knowledge staleness)
+        with MetaPlanner's scan mode (codebase-driven: git changes, TODOs,
+        pipeline goals, feedback queue, strategic scanner).
+
+        Unlike ``prioritize_work()``, this method requires no human-supplied
+        objective — the system chooses its own goals from quality signals.
+
+        Args:
+            available_tracks: Tracks to consider. Defaults to all tracks.
+            min_confidence: Minimum confidence for GoalProposer candidates.
+
+        Returns:
+            Merged, deduplicated, and ranked list of PrioritizedGoal.
+        """
+        available_tracks = available_tracks or list(Track)
+        all_goals: list[PrioritizedGoal] = []
+
+        # Source 1: GoalProposer — telemetry-driven signals
+        if self._goal_proposer is not None:
+            try:
+                candidates = self._goal_proposer.propose_goals(
+                    max_goals=self.config.max_goals,
+                    min_confidence=min_confidence,
+                )
+                for i, candidate in enumerate(candidates):
+                    track = self._infer_track(candidate.goal_text, available_tracks)
+                    impact = (
+                        "high" if candidate.estimated_impact >= 1.5
+                        else "medium" if candidate.estimated_impact >= 0.8
+                        else "low"
+                    )
+                    all_goals.append(
+                        PrioritizedGoal(
+                            id=f"telemetry_{i}",
+                            track=track,
+                            description=candidate.goal_text,
+                            rationale=(
+                                f"Signal: {candidate.signal_source} "
+                                f"(confidence={candidate.confidence:.2f}, "
+                                f"score={candidate.score:.2f})"
+                            ),
+                            estimated_impact=impact,
+                            priority=i + 1,
+                            focus_areas=[candidate.signal_source],
+                        )
+                    )
+                if candidates:
+                    logger.info(
+                        "propose_goals_telemetry count=%d top=%s",
+                        len(candidates),
+                        candidates[0].goal_text[:60] if candidates else "none",
+                    )
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+                logger.debug("GoalProposer failed: %s", e)
+
+        # Source 2: Scan mode — codebase-driven signals
+        try:
+            scan_goals = await self._scan_prioritize(None, available_tracks)
+            for goal in scan_goals:
+                goal.id = f"scan_{goal.id}" if not goal.id.startswith("scan_") else goal.id
+            all_goals.extend(scan_goals)
+            if scan_goals:
+                logger.info(
+                    "propose_goals_scan count=%d",
+                    len(scan_goals),
+                )
+        except (RuntimeError, ValueError, OSError) as e:
+            logger.debug("Scan prioritize failed: %s", e)
+
+        # Source 3: Debate outcome patterns
+        try:
+            outcome_goals = await self.generate_goals_from_debate_outcomes()
+            for goal in outcome_goals:
+                goal.id = f"outcome_{goal.id}"
+            all_goals.extend(outcome_goals)
+            if outcome_goals:
+                logger.info(
+                    "propose_goals_outcomes count=%d",
+                    len(outcome_goals),
+                )
+        except (RuntimeError, ValueError, OSError, TypeError) as e:
+            logger.debug("Outcome-based goals failed: %s", e)
+
+        if not all_goals:
+            logger.info("propose_goals: no signals detected, using heuristic")
+            return self._heuristic_prioritize(
+                "self-directed codebase improvement", available_tracks
+            )
+
+        # Deduplicate by description similarity (exact prefix match)
+        seen_prefixes: set[str] = set()
+        unique_goals: list[PrioritizedGoal] = []
+        for goal in all_goals:
+            prefix = goal.description[:80].lower().strip()
+            if prefix not in seen_prefixes:
+                seen_prefixes.add(prefix)
+                unique_goals.append(goal)
+
+        # Re-rank by business context
+        if self.config.use_business_context:
+            unique_goals = self._rerank_with_business_context(unique_goals)
+
+        # Assign sequential priorities
+        for i, goal in enumerate(unique_goals):
+            goal.priority = i + 1
+
+        result = unique_goals[: self.config.max_goals]
+        logger.info(
+            "propose_goals_complete total_candidates=%d unique=%d selected=%d",
+            len(all_goals),
+            len(unique_goals),
+            len(result),
+        )
+        return result
 
     def _enrich_context_with_metrics(self, context: PlanningContext) -> PlanningContext:
         """Enrich planning context with codebase metrics.

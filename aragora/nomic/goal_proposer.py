@@ -342,6 +342,218 @@ class GoalProposer:
         return candidates
 
 
+    # ------------------------------------------------------------------
+    # Signal: Coverage Gaps
+    # ------------------------------------------------------------------
+
+    def _signal_coverage_gaps(self) -> list[GoalCandidate]:
+        """Detect modules with low or missing test coverage.
+
+        Reads coverage data from .coverage or coverage.json if available,
+        and falls back to scanning for untested modules by checking
+        whether corresponding test files exist.
+        """
+        candidates: list[GoalCandidate] = []
+
+        # Strategy 1: Parse coverage.json if available
+        try:
+            import json as _json
+            from pathlib import Path as _P
+
+            for cov_path in [_P("coverage.json"), _P("htmlcov/status.json")]:
+                if not cov_path.exists():
+                    continue
+                data = _json.loads(cov_path.read_text())
+                totals = data.get("totals", {})
+                pct = totals.get("percent_covered", None)
+                if pct is not None and pct < 70:
+                    candidates.append(
+                        GoalCandidate(
+                            goal_text=(
+                                f"Improve overall test coverage "
+                                f"(currently {pct:.1f}%, target 70%)"
+                            ),
+                            confidence=min(0.7 + (70 - pct) * 0.005, 0.95),
+                            signal_source="coverage",
+                            estimated_effort=2.0,
+                            estimated_impact=1.5,
+                            metadata={"coverage_pct": pct},
+                        )
+                    )
+
+                # Find per-file gaps
+                files = data.get("files", {})
+                low_cov_files = []
+                for filepath, fdata in files.items():
+                    file_pct = fdata.get("summary", {}).get("percent_covered", 100)
+                    if file_pct < 30 and "test" not in filepath:
+                        low_cov_files.append((filepath, file_pct))
+
+                if low_cov_files:
+                    low_cov_files.sort(key=lambda x: x[1])
+                    top_gaps = low_cov_files[:5]
+                    file_list = ", ".join(f"{f} ({p:.0f}%)" for f, p in top_gaps)
+                    candidates.append(
+                        GoalCandidate(
+                            goal_text=(
+                                f"Add tests for {len(low_cov_files)} under-covered "
+                                f"modules: {file_list}"
+                            ),
+                            confidence=min(0.65 + len(low_cov_files) * 0.02, 0.95),
+                            signal_source="coverage",
+                            estimated_effort=1.0 + len(low_cov_files) * 0.3,
+                            estimated_impact=1.5,
+                            metadata={
+                                "low_coverage_count": len(low_cov_files),
+                                "worst_files": top_gaps,
+                            },
+                        )
+                    )
+                break  # Only process the first coverage file found
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+
+        # Strategy 2: Scan for production modules without test files
+        if not candidates:
+            try:
+                from pathlib import Path as _P
+
+                src_dir = _P("aragora")
+                test_dir = _P("tests")
+                if src_dir.is_dir() and test_dir.is_dir():
+                    untested = []
+                    for py_file in sorted(src_dir.rglob("*.py")):
+                        if py_file.name.startswith("_"):
+                            continue
+                        # Check if a corresponding test file exists
+                        relative = py_file.relative_to(src_dir)
+                        test_name = f"test_{relative.name}"
+                        test_candidates = list(test_dir.rglob(test_name))
+                        if not test_candidates:
+                            untested.append(str(py_file))
+
+                    if len(untested) > 10:
+                        candidates.append(
+                            GoalCandidate(
+                                goal_text=(
+                                    f"Add test coverage for {len(untested)} "
+                                    f"untested modules"
+                                ),
+                                confidence=min(0.6 + len(untested) * 0.005, 0.85),
+                                signal_source="coverage",
+                                estimated_effort=2.5,
+                                estimated_impact=1.3,
+                                metadata={
+                                    "untested_count": len(untested),
+                                    "sample_files": untested[:5],
+                                },
+                            )
+                        )
+            except (OSError, ValueError):
+                pass
+
+        return candidates
+
+    # ------------------------------------------------------------------
+    # Signal: Lint Regressions
+    # ------------------------------------------------------------------
+
+    def _signal_lint_regressions(self) -> list[GoalCandidate]:
+        """Run ruff and detect lint violations, proposing cleanup goals.
+
+        Groups violations by rule code (e.g. F821, E501) and proposes
+        goals for the most prevalent categories.
+        """
+        candidates: list[GoalCandidate] = []
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ["ruff", "check", "--quiet", "--output-format=concise", "."],
+                capture_output=True,
+                text=True,
+                timeout=20,
+                cwd=".",
+            )
+            if not result.stdout:
+                return candidates
+
+            lines = result.stdout.strip().splitlines()
+            total_violations = len(lines)
+
+            if total_violations == 0:
+                return candidates
+
+            # Group by rule code
+            rule_counts: dict[str, int] = {}
+            rule_files: dict[str, list[str]] = {}
+            for line in lines:
+                # Format: "path/to/file.py:42:1 E501 line too long"
+                parts = line.split()
+                if len(parts) >= 2:
+                    rule = parts[1] if ":" in parts[0] else ""
+                    if rule:
+                        rule_counts[rule] = rule_counts.get(rule, 0) + 1
+                        filepath = parts[0].split(":")[0]
+                        rule_files.setdefault(rule, []).append(filepath)
+
+            # Propose goals for the most prevalent rule violations
+            sorted_rules = sorted(rule_counts.items(), key=lambda kv: kv[1], reverse=True)
+            for rule, count in sorted_rules[:3]:
+                if count < 3:
+                    continue
+
+                # Higher-severity rules get higher confidence
+                severity_boost = 0.0
+                if rule.startswith("F"):  # Pyflakes (undefined names, unused imports)
+                    severity_boost = 0.15
+                elif rule.startswith("E"):  # Style errors
+                    severity_boost = 0.05
+
+                unique_files = len(set(rule_files.get(rule, [])))
+                candidates.append(
+                    GoalCandidate(
+                        goal_text=(
+                            f"Fix {count} lint violations for rule {rule} "
+                            f"across {unique_files} file(s)"
+                        ),
+                        confidence=min(0.6 + count * 0.02 + severity_boost, 0.95),
+                        signal_source="lint",
+                        estimated_effort=0.5 + count * 0.05,
+                        estimated_impact=0.8 + severity_boost * 3,
+                        metadata={
+                            "rule": rule,
+                            "violation_count": count,
+                            "file_count": unique_files,
+                        },
+                    )
+                )
+
+            # Also propose a general lint cleanup if total is high
+            if total_violations > 50 and not candidates:
+                candidates.append(
+                    GoalCandidate(
+                        goal_text=(
+                            f"Reduce lint violations from {total_violations} "
+                            f"(top rules: {', '.join(r for r, _ in sorted_rules[:3])})"
+                        ),
+                        confidence=min(0.6 + total_violations * 0.002, 0.9),
+                        signal_source="lint",
+                        estimated_effort=3.0,
+                        estimated_impact=1.0,
+                        metadata={
+                            "total_violations": total_violations,
+                            "top_rules": dict(sorted_rules[:5]),
+                        },
+                    )
+                )
+
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            pass
+
+        return candidates
+
+
 __all__ = [
     "GoalCandidate",
     "GoalProposer",
