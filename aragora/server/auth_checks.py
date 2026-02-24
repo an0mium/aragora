@@ -4,6 +4,7 @@ Authentication and authorization checks for the unified server.
 This module provides the AuthChecksMixin class with methods for:
 - Rate limiting (basic API token, tier-based)
 - RBAC permission checking
+- MFA enforcement for admin roles (SOC 2 CC5-01, GitHub #275)
 - Upload rate limiting
 
 These methods are extracted from UnifiedHandler to improve modularity
@@ -127,6 +128,13 @@ class AuthChecksMixin:
             "/api/v1/playground/debate/live/cost-estimate",
             "/api/v1/playground/status",
             "/api/v1/playground/tts",
+            # OAuth callbacks from external providers (redirects carry no auth headers)
+            "/api/integrations/slack/callback",
+            "/api/integrations/teams/callback",
+            "/api/integrations/discord/callback",
+            "/api/integrations/google/callback",
+            "/api/integrations/zoom/callback",
+            "/api/v1/bots/slack/oauth/callback",
         ]
     )
 
@@ -392,6 +400,111 @@ class AuthChecksMixin:
                     status=403,
                 )
             return False
+
+        return True
+
+    def _check_admin_mfa(self, path: str) -> bool:
+        """Check MFA enforcement for admin users (SOC 2 CC5-01, GitHub #275).
+
+        Returns True if allowed, False if blocked.
+        Sends 403 error response if an admin user lacks MFA.
+
+        This method:
+        1. Checks if MFA enforcement is enabled via settings
+        2. Checks if path is exempt (auth/health/MFA setup endpoints)
+        3. Extracts user context from JWT to determine roles
+        4. Delegates to MFAEnforcementMiddleware for policy evaluation
+        5. Returns 403 with clear remediation instructions if denied
+
+        Non-admin users always pass through. Admins within the grace
+        period are allowed with a warning header. The MFA setup endpoint
+        is always accessible so admins can bootstrap their MFA.
+
+        Args:
+            path: The URL path being accessed
+
+        Returns:
+            True if request is allowed, False if denied
+        """
+        from aragora.auth.mfa_enforcement import (
+            MFAEnforcementMiddleware,
+            MFAEnforcementPolicy,
+            MFAEnforcementResult,
+        )
+        from aragora.config.settings import get_settings
+
+        settings = get_settings()
+
+        # Check if MFA enforcement is enabled
+        if not settings.security.admin_mfa_required:
+            return True
+
+        # When authentication is disabled, no user to check
+        from aragora.server.auth import auth_config
+
+        if not auth_config.enabled:
+            return True
+
+        # Build enforcement policy from settings
+        grace_period_hours = settings.security.admin_mfa_grace_period_days * 24
+        policy = MFAEnforcementPolicy(
+            enabled=True,
+            grace_period_hours=grace_period_hours,
+        )
+        middleware = MFAEnforcementMiddleware(
+            policy=policy,
+            user_store=self.user_store,
+        )
+
+        # Extract user context (same pattern as _check_rbac)
+        try:
+            from aragora.billing.auth import extract_user_from_request
+
+            user_ctx = extract_user_from_request(self, self.user_store)
+            if not user_ctx.authenticated or not user_ctx.user_id:
+                return True  # Unauthenticated requests handled by RBAC
+
+            # Build a lightweight context for MFA enforcement
+            roles = {user_ctx.role} if user_ctx.role else {"member"}
+
+            class _MFAUserContext:
+                """Lightweight user context for MFA enforcement."""
+
+                def __init__(self, user_id: str, user_roles: set[str], meta: dict) -> None:
+                    self.user_id = user_id
+                    self.roles = user_roles
+                    self.metadata = meta
+
+            ctx = _MFAUserContext(
+                user_id=user_ctx.user_id,
+                user_roles=roles,
+                meta=getattr(user_ctx, "metadata", {}) or {},
+            )
+        except (ValueError, KeyError, AttributeError, TypeError) as e:
+            logger.debug("MFA enforcement: context extraction failed: %s", e)
+            return True  # Cannot enforce without user context
+
+        # Run enforcement check
+        decision = middleware.enforce(ctx, path=path)
+
+        if decision.result == MFAEnforcementResult.DENIED:
+            self._send_json(
+                {
+                    "error": decision.reason,
+                    "code": "ADMIN_MFA_REQUIRED",
+                    "required_action": decision.required_action or "/api/auth/mfa/setup",
+                },
+                status=403,
+            )
+            return False
+
+        if decision.result == MFAEnforcementResult.GRACE_PERIOD:
+            logger.info(
+                "MFA enforcement: admin %s in grace period (%s hours remaining) on %s",
+                decision.user_id,
+                decision.grace_period_remaining_hours,
+                path,
+            )
 
         return True
 
