@@ -251,7 +251,10 @@ _EXPORT_MAP = {
     "ExploitDetection": ("aragora.debate.adversarial_protocols", "ExploitDetection"),
     "BenchmarkScorecard": ("aragora.debate.adversarial_protocols", "BenchmarkScorecard"),
     "SycophancyDetector": ("aragora.debate.adversarial_protocols", "SycophancyDetector"),
-    "AppealToAuthorityDetector": ("aragora.debate.adversarial_protocols", "AppealToAuthorityDetector"),
+    "AppealToAuthorityDetector": (
+        "aragora.debate.adversarial_protocols",
+        "AppealToAuthorityDetector",
+    ),
     "VerboseBullshitDetector": ("aragora.debate.adversarial_protocols", "VerboseBullshitDetector"),
     "ConsensusGamingDetector": ("aragora.debate.adversarial_protocols", "ConsensusGamingDetector"),
     "MetricGamingDetector": ("aragora.debate.adversarial_protocols", "MetricGamingDetector"),
