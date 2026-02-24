@@ -917,7 +917,8 @@ async def handle_debate_completion(
                     generator = ComplianceArtifactGenerator()
                     receipt_dict = ctx.result.to_dict() if hasattr(ctx.result, "to_dict") else {}
                     bundle = generator.generate(receipt_dict)
-                    ctx.result.compliance_artifacts = bundle.to_dict()
+                    if hasattr(ctx.result, "metadata") and isinstance(ctx.result.metadata, dict):
+                        ctx.result.metadata["compliance_artifacts"] = bundle.to_dict()
                     logger.info(
                         "Attached compliance artifacts for debate %s (risk=%s)",
                         state.debate_id,
@@ -1212,7 +1213,7 @@ async def _auto_execute_plan(
 
         approval_mode_str = getattr(arena, "auto_approval_mode", "risk_based")
         max_risk_str = getattr(arena, "auto_max_risk", "low")
-        execution_mode = getattr(arena, "auto_execution_mode", "workflow")
+        execution_mode: str = getattr(arena, "auto_execution_mode", "workflow")
 
         plan = DecisionPlanFactory.from_debate_result(
             result,
@@ -1230,7 +1231,7 @@ async def _auto_execute_plan(
 
         # Execute if auto-approved or no approval needed
         if not plan.requires_human_approval:
-            executor = PlanExecutor(execution_mode=execution_mode)
+            executor = PlanExecutor(execution_mode=execution_mode)  # type: ignore[arg-type]
             outcome = await executor.execute(plan)
             result.metadata["plan_outcome"] = {
                 "success": outcome.success,

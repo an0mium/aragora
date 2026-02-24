@@ -627,24 +627,25 @@ class DebateRoundsPhase:
             try:
                 from aragora.debate.forking import ForkDetector
 
-                fork_threshold = getattr(ctx, "fork_disagreement_threshold", 0.7)
-                detector = ForkDetector(disagreement_threshold=fork_threshold)
+                detector = ForkDetector()
                 fork_decision = detector.should_fork(
                     messages=ctx.result.messages if ctx.result else [],
                     round_num=round_num,
+                    agents=ctx.agents if hasattr(ctx, "agents") else [],
                 )
                 if fork_decision and fork_decision.should_fork:
+                    branch_agents = [b.get("lead_agent", "") for b in fork_decision.branches]
                     logger.info(
                         "fork_detected round=%s reason=%s agents=%s",
                         round_num,
                         fork_decision.reason,
-                        fork_decision.disagreeing_agents,
+                        branch_agents,
                     )
                     if ctx.result and ctx.result.metadata is not None:
                         ctx.result.metadata["fork_detected"] = {
                             "round": round_num,
                             "reason": fork_decision.reason,
-                            "agents": fork_decision.disagreeing_agents,
+                            "agents": branch_agents,
                         }
             except (ImportError, Exception) as e:
                 logger.debug("Fork detection unavailable: %s", e)

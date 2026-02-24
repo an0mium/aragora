@@ -299,20 +299,16 @@ class PostDebateCoordinator:
     ) -> dict[str, Any] | None:
         """Step 2: Create decision plan, enriched with explanation context."""
         try:
-            from aragora.pipeline.decision_plan.core import DecisionPlanFactory
+            from aragora.pipeline.decision_plan.factory import DecisionPlanFactory
 
-            factory = DecisionPlanFactory()
-
-            # Include explanation in plan context if available
-            context = {"debate_id": debate_id, "task": task}
+            # Include explanation in plan metadata if available
+            metadata = {"debate_id": debate_id, "task": task}
             if explanation:
-                context["explanation"] = explanation.get("explanation", "")
+                metadata["explanation"] = explanation.get("explanation", "")
 
-            plan = factory.create_from_debate(
-                debate_id=debate_id,
-                task=task,
-                result=debate_result,
-                context=context,
+            plan = DecisionPlanFactory.from_debate_result(
+                debate_result,
+                metadata=metadata,
             )
 
             logger.info("Decision plan created for %s", debate_id)
@@ -340,7 +336,7 @@ class PostDebateCoordinator:
             from aragora.notifications.service import notify_debate_completed
 
             # Build notification with context from prior steps
-            extra_context = {}
+            extra_context: dict[str, Any] = {}
             if explanation:
                 extra_context["has_explanation"] = True
             if plan:
@@ -349,12 +345,19 @@ class PostDebateCoordinator:
                 if plan_obj and hasattr(plan_obj, "status"):
                     extra_context["plan_status"] = str(plan_obj.status)
 
-            notify_debate_completed(
+            import asyncio
+
+            coro = notify_debate_completed(
                 debate_id=debate_id,
                 task=getattr(debate_result, "task", ""),
-                consensus_reached=bool(getattr(debate_result, "consensus", None)),
+                verdict=str(getattr(debate_result, "final_answer", "")),
                 confidence=getattr(debate_result, "confidence", 0.0),
             )
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(coro)
+            except RuntimeError:
+                asyncio.run(coro)
 
             logger.info("Post-debate notification sent for %s", debate_id)
             return True
@@ -611,20 +614,23 @@ class PostDebateCoordinator:
         try:
             from aragora.gauntlet.runner import GauntletRunner
 
+            import asyncio
+
             runner = GauntletRunner()
-            verdict = runner.run(
-                claim=str(
-                    getattr(debate_result, "final_answer", getattr(debate_result, "consensus", ""))
-                ),
-                context=task,
-                categories=["logic", "assumptions"],
-                attacks_per_category=2,
+            input_content = str(
+                getattr(debate_result, "final_answer", getattr(debate_result, "consensus", ""))
             )
+            coro = runner.run(input_content=input_content, context=task)
+            try:
+                loop = asyncio.get_running_loop()
+                verdict = loop.run_until_complete(coro)
+            except RuntimeError:
+                verdict = asyncio.run(coro)
 
             logger.info(
                 "Gauntlet validation completed for %s: %s",
                 debate_id,
-                verdict.get("verdict", "unknown"),
+                getattr(verdict, "verdict", "unknown"),
             )
             return {
                 "debate_id": debate_id,
@@ -929,7 +935,7 @@ class PostDebateCoordinator:
                             )
 
                 if cartographer.nodes:
-                    export_data = cartographer.export()
+                    export_data = cartographer.to_dict()
             except (ImportError, AttributeError, TypeError, RuntimeError):
                 pass
 

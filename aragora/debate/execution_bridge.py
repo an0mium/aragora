@@ -303,12 +303,19 @@ class ExecutionBridge:
         try:
             from aragora.notifications.service import notify_debate_completed
 
-            notify_debate_completed(
+            import asyncio
+
+            coro = notify_debate_completed(
                 debate_id=context["debate_id"],
                 task=context.get("task", ""),
-                consensus_reached=context.get("consensus_reached", False),
+                verdict=str(context.get("final_answer", "")),
                 confidence=context.get("confidence", 0.0),
             )
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(coro)
+            except RuntimeError:
+                asyncio.run(coro)
             return ActionResult(
                 rule_name=rule.name,
                 action_type=ActionType.NOTIFICATION,
@@ -372,16 +379,20 @@ class ExecutionBridge:
             )
 
         try:
-            from aragora.nomic.improvement_queue import get_improvement_queue
+            from aragora.nomic.improvement_queue import (
+                ImprovementSuggestion,
+                get_improvement_queue,
+            )
 
             queue = get_improvement_queue()
-            queue.add(
-                source="execution_bridge",
-                suggestion=f"Debate outcome for '{context.get('task', '')[:100]}' "
-                f"(confidence={context.get('confidence', 0):.2f}, domain={context.get('domain', 'general')})",
-                priority=int(context.get("confidence", 0.5) * 10),
-                metadata={"debate_id": context["debate_id"], "domain": context.get("domain")},
-            )
+            queue.enqueue(ImprovementSuggestion(
+                debate_id=context["debate_id"],
+                task=context.get("task", "")[:100],
+                suggestion=f"Debate outcome (confidence={context.get('confidence', 0):.2f}, "
+                f"domain={context.get('domain', 'general')})",
+                category="code_quality",
+                confidence=context.get("confidence", 0.5),
+            ))
             return ActionResult(
                 rule_name=rule.name,
                 action_type=ActionType.IMPROVEMENT_QUEUE,
@@ -459,14 +470,11 @@ class ExecutionBridge:
 
         try:
             from aragora.pipeline.executor import PlanExecutor
-            from aragora.pipeline.decision_plan.core import DecisionPlanFactory
+            from aragora.pipeline.decision_plan.factory import DecisionPlanFactory
 
-            factory = DecisionPlanFactory()
-            plan = factory.create_from_debate(
-                debate_id=context["debate_id"],
-                task=context.get("task", ""),
-                result=debate_result,
-                context=context,
+            plan = DecisionPlanFactory.from_debate_result(
+                debate_result,
+                metadata={"debate_id": context["debate_id"], "task": context.get("task", "")},
             )
             if plan:
                 executor = PlanExecutor()

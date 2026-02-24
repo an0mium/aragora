@@ -353,6 +353,11 @@ class Arena(ArenaDelegatesMixin):
     enable_introspection: bool
     active_introspection_tracker: Any
 
+    # Selection feedback / cost / health (initialized by orchestrator_setup helpers)
+    _selection_feedback_loop: Any
+    _cost_tracker: Any
+    _health_registry: Any
+
     def __init__(
         self,
         environment: Environment,

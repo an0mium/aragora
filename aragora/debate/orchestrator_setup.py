@@ -322,10 +322,14 @@ def init_cost_tracking(arena: Arena) -> None:
         budget_limit = getattr(arena, "budget_limit_usd", None)
         if budget_limit and budget_limit > 0:
             try:
-                tracker.set_budget_limit(budget_limit)
+                from decimal import Decimal as _Decimal
+
+                from aragora.billing.cost_tracker import Budget
+
+                tracker.set_budget(Budget(per_debate_limit_usd=_Decimal(str(budget_limit))))
                 logger.info(f"[cost_tracking] Budget limit set: ${budget_limit:.2f}")
-            except (AttributeError, TypeError):
-                pass  # set_budget_limit may not exist yet
+            except (AttributeError, TypeError, ImportError):
+                pass  # Budget/set_budget may not exist yet
 
         logger.debug("[cost_tracking] CostTracker attached to arena")
     except ImportError:
@@ -365,9 +369,9 @@ def init_health_registry(arena: Arena) -> None:
 
         for name, healthy in subsystem_checks.items():
             try:
-                registry.register(name, lambda _n=name: True)
+                checker = registry.register(name)
                 if healthy:
-                    registry.record_success(name)
+                    checker.record_success()
             except (AttributeError, TypeError):
                 pass  # register/record_success may not exist
 

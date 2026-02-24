@@ -637,7 +637,7 @@ class DebateProtocol:
             "auto_create_plan": True,
         }
         defaults.update(kwargs)
-        return cls(**defaults)
+        return cls(**defaults)  # type: ignore[arg-type]
 
 
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:

@@ -577,9 +577,9 @@ class ConsensusPhase:
                         calibration_tracker=self.calibration_tracker,
                     )
                 )
-                # Store explanation in result for audit trail
-                if ctx.result:
-                    ctx.result.adaptive_threshold_explanation = explanation
+                # Store explanation in result metadata for audit trail
+                if ctx.result and hasattr(ctx.result, "metadata") and isinstance(ctx.result.metadata, dict):
+                    ctx.result.metadata["adaptive_threshold_explanation"] = explanation
                 logger.info(
                     "adaptive_consensus_threshold=%.4f for %d agents",
                     threshold_override,

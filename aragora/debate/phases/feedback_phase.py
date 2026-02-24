@@ -319,9 +319,7 @@ class FeedbackPhase:
         # still intercept the call.  Uses instance method resolution so
         # unittest.mock.patch on the class attribute works correctly.
         _phase_ref = self
-        self._calibration_feedback._store_calibration_in_mound = (  # type: ignore[method-assign]
-            lambda ctx_arg, deltas: _phase_ref._store_calibration_in_mound(ctx_arg, deltas)
-        )
+        self._calibration_feedback._store_calibration_in_mound = lambda ctx_arg, deltas: _phase_ref._store_calibration_in_mound(ctx_arg, deltas)  # type: ignore[assignment,method-assign]
         self._knowledge_feedback = KnowledgeFeedback(
             knowledge_mound=knowledge_mound,
             enable_knowledge_ingestion=enable_knowledge_ingestion,
@@ -836,7 +834,8 @@ class FeedbackPhase:
                 agent_count=len(getattr(ctx, "agents", []) or []),
             )
 
-            result.decision_memo = memo
+            if hasattr(result, "metadata") and isinstance(result.metadata, dict):
+                result.metadata["decision_memo"] = memo
             logger.info(
                 "[pipeline] Generated DecisionMemo for debate %s (%.0f%% confidence)",
                 debate_id,
@@ -1950,7 +1949,7 @@ class FeedbackPhase:
                         registry.check_and_promote(
                             agent_name=agent.name,
                             domain=dom,
-                            current_elo=synthetic_elo,
+                            elo_rating=synthetic_elo,
                         )
 
             except (TypeError, ValueError, AttributeError, KeyError, RuntimeError) as e:

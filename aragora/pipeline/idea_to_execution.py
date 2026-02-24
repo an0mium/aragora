@@ -132,6 +132,8 @@ class PipelineConfig:
             "orchestration": "orchestrator",
         }
     )
+    # Transient state: introspection data captured during debate for agent ranking
+    _introspection_data: Any | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -866,14 +868,24 @@ class IdeaToExecutionPipeline:
         if cfg.enable_meta_tuning:
             try:
                 from aragora.knowledge.bridges import KnowledgeBridgeHub
+                from aragora.knowledge.mound import get_knowledge_mound
 
-                hub = KnowledgeBridgeHub()
-                meta_bridge = hub.get_meta_learner_bridge()
-                if meta_bridge:
-                    tuning = await meta_bridge.get_debate_tuning()
-                    if tuning and "debate_rounds" in tuning:
-                        cfg.debate_rounds = tuning["debate_rounds"]
-                        logger.info("MetaLearner tuned debate_rounds to %d", cfg.debate_rounds)
+                mound = get_knowledge_mound()
+                if mound:
+                    hub = KnowledgeBridgeHub(mound)
+                    # Query past pipeline runs for debate round tuning hints
+                    precedents = await hub.query_precedents(  # type: ignore[attr-defined]
+                        topic="debate rounds optimal count", limit=3
+                    )
+                    if precedents:
+                        # Extract rounds from most recent successful precedent
+                        for p in precedents:
+                            meta = getattr(p, "metadata", {}) or {}
+                            rounds = meta.get("debate_rounds")
+                            if rounds and isinstance(rounds, int):
+                                cfg.debate_rounds = rounds
+                                logger.info("MetaLearner tuned debate_rounds to %d", cfg.debate_rounds)
+                                break
             except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
                 logger.debug("MetaLearner tuning unavailable: %s", exc)
 
@@ -991,7 +1003,8 @@ class IdeaToExecutionPipeline:
                     for link in result.provenance:
                         provenance_chain.add_record(
                             content=getattr(link, "content_hash", ""),
-                            source_type=SourceType.DERIVED,
+                            source_type=SourceType.SYNTHESIS,
+                            source_id=getattr(link, "id", "pipeline"),
                         )
                 except (AttributeError, TypeError, ValueError):
                     pass
@@ -1063,7 +1076,8 @@ class IdeaToExecutionPipeline:
                     for link in result.provenance:
                         provenance_chain.add_record(
                             content=getattr(link, "content_hash", ""),
-                            source_type=SourceType.DERIVED,
+                            source_type=SourceType.SYNTHESIS,
+                            source_id=getattr(link, "id", "pipeline"),
                         )
                 except (AttributeError, TypeError, ValueError):
                     pass
@@ -1133,19 +1147,20 @@ class IdeaToExecutionPipeline:
             if cfg.enable_meta_tuning:
                 try:
                     from aragora.knowledge.bridges import KnowledgeBridgeHub
+                    from aragora.knowledge.mound import get_knowledge_mound
 
-                    hub = KnowledgeBridgeHub()
-                    meta_bridge = hub.get_meta_learner_bridge()
-                    if meta_bridge:
-                        await meta_bridge.evaluate_learning_efficiency(
-                            {
-                                "pipeline_id": pipeline_id,
-                                "duration": result.duration,
-                                "stages_completed": sum(
-                                    1 for s in result.stage_status.values() if s == "complete"
-                                ),
-                            }
-                        )
+                    _mound = get_knowledge_mound()
+                    if not _mound:
+                        raise ImportError("Knowledge Mound not available")
+                    hub = KnowledgeBridgeHub(_mound)
+                    await hub.store_pipeline_run(  # type: ignore[attr-defined]
+                        pipeline_id=pipeline_id,
+                        topic=getattr(result, "topic", "pipeline"),
+                        duration=result.duration,
+                        stages_completed=sum(
+                            1 for s in result.stage_status.values() if s == "complete"
+                        ),
+                    )
                 except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
                     logger.debug("MetaLearner feedback failed: %s", exc)
 
@@ -1296,7 +1311,7 @@ class IdeaToExecutionPipeline:
                     from aragora.genesis.fractal import FractalOrchestrator
 
                     fractal = FractalOrchestrator(max_depth=2)
-                    fractal_result = await fractal.run(input_text)
+                    fractal_result = await fractal.run(task=input_text, agents=[])
                     # Map sub-debates to additional canvas nodes
                     sub_debates = getattr(fractal_result, "sub_debates", [])
                     for i, sub in enumerate(sub_debates):
@@ -1548,8 +1563,8 @@ class IdeaToExecutionPipeline:
                         )
 
                     if similar_cycles:
-                        recommendations = []
-                        past_failures = []
+                        recommendations: list[str] = []
+                        past_failures: list[str] = []
                         for cycle in similar_cycles:
                             recommendations.extend(getattr(cycle, "recommendations", []))
                             past_failures.extend(getattr(cycle, "what_failed", []))
@@ -1713,17 +1728,19 @@ class IdeaToExecutionPipeline:
                     from aragora.workspace.manager import WorkspaceManager
 
                     ws_mgr = WorkspaceManager()
-                    rig = ws_mgr.create_rig(f"pipeline-{pipeline_id}")
+                    rig = await ws_mgr.create_rig(f"pipeline-{pipeline_id}")
                     bead_specs = [
                         {"name": t["name"], "description": t.get("description", "")}
                         for t in execution_plan["tasks"]
                         if t["type"] != "human_gate"
                     ]
-                    convoy = ws_mgr.create_convoy(rig, bead_specs=bead_specs)
+                    rig_id = rig.id if hasattr(rig, "id") else str(rig)
+                    convoy = await ws_mgr.create_convoy(rig_id, bead_specs=bead_specs)
                     bead_manager = {"convoy": convoy, "rig": rig, "ws_mgr": ws_mgr}
 
                     # Use topological order from bead dependencies
-                    ready = ws_mgr.get_ready_beads(convoy)
+                    convoy_id = convoy.id if hasattr(convoy, "id") else str(convoy)
+                    ready = await ws_mgr.get_ready_beads(convoy_id)
                     if ready:
                         logger.info("Bead order: %d ready of %d total", len(ready), len(bead_specs))
                 except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
@@ -1767,11 +1784,11 @@ class IdeaToExecutionPipeline:
                 # Update bead lifecycle
                 if bead_manager:
                     try:
-                        ws_mgr = bead_manager["ws_mgr"]
+                        ws_mgr = bead_manager["ws_mgr"]  # type: ignore[assignment]
                         if task_result["status"] == "completed":
-                            ws_mgr.complete_bead(task["id"])
+                            await ws_mgr.complete_bead(task["id"])
                         else:
-                            ws_mgr.fail_bead(task["id"])
+                            await ws_mgr.fail_bead(task["id"], error=task_result.get("error", "failed"))
                     except (AttributeError, KeyError, TypeError, RuntimeError):
                         pass
 
@@ -2007,7 +2024,7 @@ class IdeaToExecutionPipeline:
 
             loop_cfg = DebugLoopConfig(max_retries=2)
             loop = DebugLoop(loop_cfg)
-            result = await loop.execute_with_retry(
+            debug_result = await loop.execute_with_retry(
                 instruction=instruction,
                 worktree_path=getattr(cfg, "worktree_path", None) or "/tmp/aragora-worktree",
                 test_scope=task.get("test_scope", []),
@@ -2015,8 +2032,8 @@ class IdeaToExecutionPipeline:
             return {
                 "task_id": task["id"],
                 "name": task["name"],
-                "status": "completed" if result.success else "failed",
-                "output": result.to_dict() if hasattr(result, "to_dict") else {},
+                "status": "completed" if debug_result.success else "failed",
+                "output": debug_result.to_dict() if hasattr(debug_result, "to_dict") else {},
                 "backend": "debug_loop",
             }
         except (ImportError, AttributeError):
@@ -2763,7 +2780,7 @@ class IdeaToExecutionPipeline:
         # ------------------------------------------------------------------
         # Agent pool with diverse model providers for adversarial vetting
         # ------------------------------------------------------------------
-        agents = [
+        agents: list[dict[str, Any]] = [
             {
                 "id": "agent-researcher",
                 "name": "Researcher",
