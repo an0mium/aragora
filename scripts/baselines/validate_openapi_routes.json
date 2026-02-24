@@ -107,6 +107,7 @@
     "/api/v1/outcome-dashboard/calibration",
     "/api/v1/outcome-dashboard/history",
     "/api/v1/outcome-dashboard/quality",
+    "/api/v1/platform/config",
     "/api/v1/rbac/assignments/{param}",
     "/api/v1/rbac/permissions/{param}",
     "/api/v1/rbac/roles/{param}",
@@ -185,7 +186,7 @@
     "POST /api/v1/pipeline/{param}/agents/{param}/reject",
     "PUT /api/v1/canvas/pipeline/{param}"
   ],
-  "missing_in_spec_count": 182,
+  "missing_in_spec_count": 183,
   "orphaned_in_spec": [
     "/api/v1/accounting/report",
     "/api/v1/canvas/convert/debate",

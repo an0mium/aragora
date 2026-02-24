@@ -164,6 +164,13 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/{workflow_id}/simulate
    */
   async simulate(workflowId: string, inputs?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    if (typeof (this.client as CompatClient).request === 'function') {
+      return this.request<Record<string, unknown>>(
+        'POST',
+        `/api/v1/workflows/${encodeURIComponent(workflowId)}/simulate`,
+        { body: inputs }
+      );
+    }
     return this.invoke<Record<string, unknown>>(
       'simulateWorkflow',
       [workflowId, inputs],
@@ -178,6 +185,12 @@ export class WorkflowsAPI {
    * @route GET /api/v1/workflows/{workflow_id}/status
    */
   async getStatus(workflowId: string): Promise<Record<string, unknown>> {
+    if (typeof (this.client as CompatClient).request === 'function') {
+      return this.request<Record<string, unknown>>(
+        'GET',
+        `/api/v1/workflows/${encodeURIComponent(workflowId)}/status`
+      );
+    }
     return this.invoke<Record<string, unknown>>(
       'getWorkflowStatus',
       [workflowId],
@@ -204,6 +217,12 @@ export class WorkflowsAPI {
    * @route POST /api/v1/workflows/{workflow_id}/versions/{version}/restore
    */
   async restoreVersion(workflowId: string, version: number): Promise<Record<string, unknown>> {
+    if (typeof (this.client as CompatClient).request === 'function') {
+      return this.request<Record<string, unknown>>(
+        'POST',
+        `/api/v1/workflows/${encodeURIComponent(workflowId)}/versions/${version}/restore`
+      );
+    }
     return this.invoke<Record<string, unknown>>(
       'restoreWorkflowVersion',
       [workflowId, version],
@@ -614,6 +633,13 @@ export class WorkflowsAPI {
       reason?: string;
     }
   ): Promise<Record<string, unknown>> {
+    if (typeof (this.client as CompatClient).request === 'function') {
+      return this.request<Record<string, unknown>>(
+        'POST',
+        `/api/v1/workflow-approvals/${encodeURIComponent(requestId)}/resolve`,
+        { body }
+      );
+    }
     return this.invoke<Record<string, unknown>>(
       'resolveWorkflowApproval',
       [requestId, body],
@@ -632,6 +658,9 @@ export class WorkflowsAPI {
    * @route GET /api/v1/sme/workflows
    */
   async listSMEWorkflows(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    if (typeof (this.client as CompatClient).request === 'function') {
+      return this.request<Record<string, unknown>>('GET', '/api/v1/sme/workflows', { params });
+    }
     return this.invoke<Record<string, unknown>>(
       'listSMEWorkflows',
       [params],
