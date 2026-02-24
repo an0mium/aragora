@@ -572,6 +572,10 @@ DEFAULT_ROUTE_PERMISSIONS = [
     # ── Content classification ──
     RoutePermission(r"^/api/(v1/)?classify$", "POST", "data_classification.classify"),
     RoutePermission(r"^/api/(v1/)?classify/policy/[^/]+$", "GET", "data_classification.read"),
+    RoutePermission(r"^/api/(v1/)?data-classification/policy$", "GET", "data_classification.read"),
+    RoutePermission(r"^/api/(v1/)?data-classification/classify$", "POST", "data_classification.classify"),
+    RoutePermission(r"^/api/(v1/)?data-classification/validate$", "POST", "data_classification.read"),
+    RoutePermission(r"^/api/(v1/)?data-classification/enforce$", "POST", "data_classification.read"),
     # ── Audit entries ──
     RoutePermission(r"^/api/(v1/)?audit/entries$", "GET", "audit_log.read"),
     RoutePermission(r"^/api/(v1/)?audit/report$", "GET", "audit_log.read"),

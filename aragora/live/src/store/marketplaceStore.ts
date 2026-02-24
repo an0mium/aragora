@@ -105,6 +105,53 @@ export const TYPE_LABELS: Record<TemplateType, string> = {
 };
 
 // ============================================================================
+// Catalog Listing Types - Maps to aragora/marketplace/catalog.py
+// ============================================================================
+
+export type ListingType = 'template' | 'agent_pack' | 'skill' | 'connector';
+
+export interface CatalogListing {
+  id: string;
+  name: string;
+  type: ListingType;
+  description: string;
+  author: string;
+  version: string;
+  downloads: number;
+  rating: number;
+  tags: string[];
+  requirements: string[];
+  install_command: string;
+  featured: boolean;
+  created_at: string;
+  average_rating: number;
+  total_ratings: number;
+}
+
+export interface CatalogListingsResponse {
+  data: {
+    items: CatalogListing[];
+    total: number;
+    limit: number;
+    offset: number;
+  };
+}
+
+export const LISTING_TYPE_LABELS: Record<ListingType, string> = {
+  template: 'Template',
+  agent_pack: 'Agent Pack',
+  skill: 'Skill',
+  connector: 'Connector',
+};
+
+export const LISTING_TYPE_COLORS: Record<ListingType, { color: string; bgColor: string }> = {
+  template: { color: 'text-acid-green', bgColor: 'bg-acid-green/10' },
+  agent_pack: { color: 'text-acid-cyan', bgColor: 'bg-acid-cyan/10' },
+  skill: { color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
+  connector: { color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
+};
+
+// ============================================================================
 // Store State
 // ============================================================================
 
@@ -112,6 +159,13 @@ interface MarketplaceState {
   // Templates
   templates: Template[];
   featuredTemplates: Template[];
+
+  // Catalog Listings (pilot)
+  catalogListings: CatalogListing[];
+  featuredListings: CatalogListing[];
+  selectedListing: CatalogListing | null;
+  listingTypeFilter: ListingType | 'all';
+  installedListings: string[]; // listing IDs
 
   // Filters
   selectedCategory: TemplateCategory | 'all';
@@ -123,6 +177,7 @@ interface MarketplaceState {
   isLoading: boolean;
   error: string | null;
   selectedTemplate: Template | null;
+  activeTab: 'templates' | 'catalog';
 
   // User's templates
   myTemplates: Template[];
@@ -135,6 +190,16 @@ interface MarketplaceActions {
   fetchFeatured: () => Promise<void>;
   fetchMyTemplates: () => Promise<void>;
   fetchTemplateById: (id: string) => Promise<Template | null>;
+
+  // Catalog listing actions (pilot)
+  fetchCatalogListings: (params?: { type?: string; search?: string; tag?: string }) => Promise<void>;
+  fetchFeaturedListings: () => Promise<void>;
+  installListing: (listingId: string) => Promise<void>;
+  rateListing: (listingId: string, score: number, review?: string) => Promise<void>;
+  selectListing: (listing: CatalogListing | null) => void;
+  setListingTypeFilter: (type: ListingType | 'all') => void;
+  setActiveTab: (tab: 'templates' | 'catalog') => void;
+  getFilteredListings: () => CatalogListing[];
 
   // Filter actions
   setCategory: (category: TemplateCategory | 'all') => void;
@@ -169,6 +234,11 @@ interface MarketplaceActions {
 const initialState: MarketplaceState = {
   templates: [],
   featuredTemplates: [],
+  catalogListings: [],
+  featuredListings: [],
+  selectedListing: null,
+  listingTypeFilter: 'all',
+  installedListings: [],
   selectedCategory: 'all',
   selectedType: 'all',
   searchQuery: '',
@@ -176,6 +246,7 @@ const initialState: MarketplaceState = {
   isLoading: false,
   error: null,
   selectedTemplate: null,
+  activeTab: 'catalog',
   myTemplates: [],
   installedTemplates: [],
 };
@@ -244,6 +315,117 @@ export const useMarketplaceStore = create<MarketplaceState & MarketplaceActions>
         } catch {
           // Featured is non-critical
         }
+      },
+
+      // Catalog listing actions (pilot)
+      fetchCatalogListings: async (params?: { type?: string; search?: string; tag?: string }) => {
+        set({ isLoading: true, error: null });
+        try {
+          const queryParts: string[] = [];
+          if (params?.type) queryParts.push(`type=${encodeURIComponent(params.type)}`);
+          if (params?.search) queryParts.push(`search=${encodeURIComponent(params.search)}`);
+          if (params?.tag) queryParts.push(`tag=${encodeURIComponent(params.tag)}`);
+          const qs = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+          const resp = await fetchApi<CatalogListingsResponse>(`/api/v1/marketplace/listings${qs}`);
+          const items = resp?.data?.items ?? [];
+          set({ catalogListings: items, isLoading: false });
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : 'Failed to fetch listings',
+            isLoading: false,
+          });
+        }
+      },
+
+      fetchFeaturedListings: async () => {
+        try {
+          const resp = await fetchApi<CatalogListingsResponse>('/api/v1/marketplace/listings/featured');
+          const items = resp?.data?.items ?? [];
+          set({ featuredListings: items });
+        } catch {
+          // Featured is non-critical
+        }
+      },
+
+      installListing: async (listingId: string) => {
+        try {
+          await fetchApi('/api/v1/marketplace/listings/' + listingId + '/install', {
+            method: 'POST',
+          });
+          set((state) => ({
+            installedListings: [...state.installedListings, listingId],
+            catalogListings: state.catalogListings.map((l) =>
+              l.id === listingId ? { ...l, downloads: l.downloads + 1 } : l
+            ),
+          }));
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : 'Failed to install listing',
+          });
+        }
+      },
+
+      rateListing: async (listingId: string, score: number, review?: string) => {
+        try {
+          const body: Record<string, unknown> = { score };
+          if (review) body.review = review;
+          await fetchApi('/api/v1/marketplace/listings/' + listingId + '/rate', {
+            method: 'POST',
+            body: JSON.stringify(body),
+          });
+          // Refresh listings to get updated ratings
+          get().fetchCatalogListings();
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : 'Failed to rate listing',
+          });
+        }
+      },
+
+      selectListing: (selectedListing) => {
+        set({ selectedListing });
+      },
+
+      setListingTypeFilter: (listingTypeFilter) => {
+        set({ listingTypeFilter });
+      },
+
+      setActiveTab: (activeTab) => {
+        set({ activeTab });
+      },
+
+      getFilteredListings: () => {
+        const { catalogListings, listingTypeFilter, searchQuery, sortBy } = get();
+        let filtered = [...catalogListings];
+
+        if (listingTypeFilter !== 'all') {
+          filtered = filtered.filter((l) => l.type === listingTypeFilter);
+        }
+
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          filtered = filtered.filter(
+            (l) =>
+              l.name.toLowerCase().includes(query) ||
+              l.description.toLowerCase().includes(query) ||
+              l.tags.some((tag) => tag.toLowerCase().includes(query))
+          );
+        }
+
+        filtered.sort((a, b) => {
+          switch (sortBy) {
+            case 'downloads':
+              return b.downloads - a.downloads;
+            case 'stars':
+              return b.average_rating - a.average_rating;
+            case 'recent':
+              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            default:
+              return 0;
+          }
+        });
+
+        return filtered;
       },
 
       fetchMyTemplates: async () => {

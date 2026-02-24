@@ -211,7 +211,7 @@ class TestConstants:
         assert isinstance(ADMIN_ROLES, set)
 
     def test_admin_roles_size(self):
-        assert len(ADMIN_ROLES) == 2
+        assert len(ADMIN_ROLES) == 8
 
 
 class TestModuleExports:

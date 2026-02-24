@@ -633,10 +633,14 @@ class TestResponseContent:
 
         assert result is not None
         assert result.status_code == 200
-        # Parse the response body
+        # Parse the response body - wrapped in {"data": ...} envelope
         body = json.loads(result.body.decode("utf-8"))
-        assert "overall_healthy" in body
-        assert "slos" in body or "timestamp" in body
+        assert "data" in body
+        data = body["data"]
+        assert "overall_healthy" in data
+        assert "slos" in data or "timestamp" in data
+        # Enforcer status is merged into the response
+        assert "enforcer" in data
 
     @patch("aragora.server.handlers.slo.check_availability_slo")
     @patch("aragora.server.handlers.slo._slo_limiter")

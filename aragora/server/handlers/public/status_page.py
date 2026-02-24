@@ -4,10 +4,18 @@ Public Status Page Handler.
 Provides a public-facing status page for service health visibility.
 Designed for deployment at status.aragora.ai.
 
-Endpoints:
+All endpoints are PUBLIC and do not require authentication.
+
+Versioned Endpoints (return ``{"data": ...}`` envelope):
+- GET /api/v1/status - Overall system status (operational/degraded/down)
+- GET /api/v1/status/components - Per-component status grid
+- GET /api/v1/status/incidents - Recent incidents with timeline
+- GET /api/v1/status/uptime - Uptime percentages (24h, 7d, 30d)
+
+Legacy Endpoints (kept for backwards compatibility):
 - GET /status - HTML status page (human-readable)
-- GET /api/status - JSON status summary
-- GET /api/status/history - Historical uptime data (24h, 7d, 30d)
+- GET /api/status - JSON status summary (no envelope)
+- GET /api/status/history - Historical uptime data
 - GET /api/status/components - Individual component status
 - GET /api/status/incidents - Current and recent incidents
 
@@ -89,6 +97,11 @@ class StatusPageHandler(BaseHandler):
         "/api/status/history",
         "/api/status/components",
         "/api/status/incidents",
+        # Versioned v1 routes (public, no auth, return {"data": ...} envelope)
+        "/api/v1/status",
+        "/api/v1/status/components",
+        "/api/v1/status/incidents",
+        "/api/v1/status/uptime",
     ]
 
     # Component definitions with health check functions
@@ -115,25 +128,165 @@ class StatusPageHandler(BaseHandler):
         {"id": "auth", "name": "Authentication", "description": "Login and authorization"},
     ]
 
+    # Mark versioned endpoints as public (no auth required)
+    PUBLIC_ROUTES = {
+        "/api/v1/status",
+        "/api/v1/status/components",
+        "/api/v1/status/incidents",
+        "/api/v1/status/uptime",
+    }
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path in self.ROUTES or path.startswith("/api/status/")
+        return (
+            path in self.ROUTES
+            or path.startswith("/api/status/")
+            or path.startswith("/api/v1/status")
+        )
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route status page requests."""
         handlers = {
+            # Legacy (unversioned) routes
             "/status": lambda: self._html_status_page(),
             "/api/status": self._json_status_summary,
             "/api/status/summary": self._json_status_summary,
             "/api/status/history": self._uptime_history,
             "/api/status/components": self._component_status,
             "/api/status/incidents": self._incidents,
+            # Versioned v1 routes (public, {"data": ...} envelope)
+            "/api/v1/status": self._v1_status,
+            "/api/v1/status/components": self._v1_components,
+            "/api/v1/status/incidents": self._v1_incidents,
+            "/api/v1/status/uptime": self._v1_uptime,
         }
 
         endpoint_handler = handlers.get(path)
         if endpoint_handler:
             return endpoint_handler()
         return None
+
+    # -------------------------------------------------------------------------
+    # Versioned v1 endpoints (public, return {"data": ...} envelope)
+    # -------------------------------------------------------------------------
+
+    def _v1_status(self) -> HandlerResult:
+        """GET /api/v1/status - Overall system status."""
+        components = self._check_all_components()
+        overall = self._get_overall_status()
+        uptime_seconds = time.time() - _SERVER_START_TIME
+
+        # Map status to simplified category
+        status_category = "operational"
+        if overall in (ServiceStatus.MAJOR_OUTAGE,):
+            status_category = "down"
+        elif overall in (ServiceStatus.DEGRADED, ServiceStatus.PARTIAL_OUTAGE):
+            status_category = "degraded"
+        elif overall == ServiceStatus.MAINTENANCE:
+            status_category = "maintenance"
+
+        # Include SLA latency percentiles if available
+        sla_metrics = self._get_sla_metrics()
+
+        return json_response(
+            {
+                "data": {
+                    "status": status_category,
+                    "status_detail": overall.value,
+                    "message": self._status_message(overall),
+                    "uptime_seconds": round(uptime_seconds, 2),
+                    "uptime_formatted": self._format_uptime(uptime_seconds),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "components_summary": {
+                        "total": len(components),
+                        "operational": sum(
+                            1 for c in components
+                            if c.status == ServiceStatus.OPERATIONAL
+                        ),
+                        "degraded": sum(
+                            1 for c in components
+                            if c.status in (ServiceStatus.DEGRADED, ServiceStatus.PARTIAL_OUTAGE)
+                        ),
+                        "down": sum(
+                            1 for c in components
+                            if c.status == ServiceStatus.MAJOR_OUTAGE
+                        ),
+                    },
+                    "sla": sla_metrics,
+                }
+            }
+        )
+
+    def _v1_components(self) -> HandlerResult:
+        """GET /api/v1/status/components - Per-component status."""
+        components = self._check_all_components()
+
+        return json_response(
+            {
+                "data": {
+                    "components": [
+                        {
+                            "id": self.COMPONENTS[i]["id"],
+                            "name": c.name,
+                            "description": self.COMPONENTS[i]["description"],
+                            "status": c.status.value,
+                            "response_time_ms": c.response_time_ms,
+                            "last_check": c.last_check.isoformat() if c.last_check else None,
+                            "message": c.message,
+                        }
+                        for i, c in enumerate(components)
+                    ],
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            }
+        )
+
+    def _v1_incidents(self) -> HandlerResult:
+        """GET /api/v1/status/incidents - Recent incidents with timeline."""
+        now = datetime.now(timezone.utc)
+
+        try:
+            from aragora.observability.incident_store import get_incident_store
+
+            store = get_incident_store()
+            active = [i.to_dict() for i in store.get_active_incidents()]
+            recent = [i.to_dict() for i in store.get_recent_incidents(days=7)]
+        except (ImportError, RuntimeError, OSError, AttributeError, KeyError) as e:
+            logger.debug("Incident store unavailable: %s", e)
+            active = []
+            recent = []
+
+        return json_response(
+            {
+                "data": {
+                    "active": active,
+                    "recent": recent,
+                    "scheduled_maintenance": [],
+                    "timestamp": now.isoformat(),
+                }
+            }
+        )
+
+    def _v1_uptime(self) -> HandlerResult:
+        """GET /api/v1/status/uptime - Uptime percentages (24h, 7d, 30d)."""
+        now = datetime.now(timezone.utc)
+        uptime_seconds = time.time() - _SERVER_START_TIME
+
+        # Try to get real SLA-tracked uptime from SLATracker
+        sla_uptime = self._get_sla_uptime()
+
+        return json_response(
+            {
+                "data": {
+                    "current": {
+                        "status": self._get_overall_status().value,
+                        "uptime_seconds": round(uptime_seconds, 2),
+                    },
+                    "periods": sla_uptime,
+                    "timestamp": now.isoformat(),
+                }
+            }
+        )
 
     def _get_overall_status(self) -> ServiceStatus:
         """Calculate overall service status from components."""
@@ -636,6 +789,62 @@ class StatusPageHandler(BaseHandler):
             content_type="text/html; charset=utf-8",
             body=html.encode("utf-8"),
         )
+
+    # -------------------------------------------------------------------------
+    # SLA Integration Helpers
+    # -------------------------------------------------------------------------
+
+    def _get_sla_metrics(self) -> dict[str, Any]:
+        """Get SLA metrics from the SLATracker if available."""
+        try:
+            from aragora.observability.sla_instrumentation import get_sla_tracker
+
+            tracker = get_sla_tracker()
+            latency = tracker.get_latency_percentiles(window_seconds=86_400)
+            error_rate = tracker.get_error_rate(window_seconds=86_400)
+
+            return {
+                "latency": latency.to_dict(),
+                "error_rate": error_rate,
+            }
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("SLA tracker unavailable: %s", e)
+            return {
+                "latency": {"p50": 0, "p95": 0, "p99": 0, "count": 0,
+                            "mean": 0, "min": 0, "max": 0},
+                "error_rate": {"total_requests": 0, "error_count": 0, "error_rate": 0},
+            }
+
+    def _get_sla_uptime(self) -> dict[str, Any]:
+        """Get uptime data from the SLATracker."""
+        try:
+            from aragora.observability.sla_instrumentation import get_sla_tracker
+
+            tracker = get_sla_tracker()
+            return tracker.get_uptime()
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("SLA tracker unavailable for uptime: %s", e)
+            uptime_seconds = time.time() - _SERVER_START_TIME
+            return {
+                "24h": {
+                    "uptime_percent": 100.0 if uptime_seconds < 86400 else 99.9,
+                    "total_requests": 0,
+                    "error_count": 0,
+                    "incidents": 0,
+                },
+                "7d": {
+                    "uptime_percent": 99.95,
+                    "total_requests": 0,
+                    "error_count": 0,
+                    "incidents": 0,
+                },
+                "30d": {
+                    "uptime_percent": 99.9,
+                    "total_requests": 0,
+                    "error_count": 0,
+                    "incidents": 0,
+                },
+            }
 
     def _status_message(self, status: ServiceStatus) -> str:
         """Get human-readable status message."""

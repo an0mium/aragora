@@ -13,6 +13,8 @@ Endpoints:
 - GET /api/slos/violations - Recent SLO violations
 - GET /api/slos/targets - Configured SLO targets
 - GET /api/v1/slos/status - Versioned endpoint
+- GET /api/v1/slo/status - SLO enforcer real-time compliance status
+- GET /api/v1/slo/budget - SLO enforcer error budget remaining
 
 RBAC Permissions:
 - slo:read - View SLO status, details, error budgets, violations, and targets
@@ -29,6 +31,12 @@ Usage:
 
     # Get error budget information
     curl http://localhost:8080/api/slos/error-budget
+
+    # Get real-time SLO enforcer compliance
+    curl http://localhost:8080/api/v1/slo/status
+
+    # Get remaining error budget from enforcer
+    curl http://localhost:8080/api/v1/slo/budget
 """
 
 from __future__ import annotations
@@ -41,6 +49,7 @@ from aragora.observability.slo import (
     check_availability_slo,
     check_debate_success_slo,
     check_latency_slo,
+    get_slo_enforcer,
     get_slo_status,
     get_slo_status_json,
     get_slo_targets,
@@ -102,6 +111,7 @@ class SLOHandler(BaseHandler):
         "/api/slos/debate-success",
         # SDK v2 aliases (singular /api/slo/)
         "/api/slo/status",
+        "/api/slo/budget",
         "/api/v2/slo/status",
     ]
 
@@ -155,6 +165,8 @@ class SLOHandler(BaseHandler):
         try:
             if path == "/api/slos/status":
                 return self._handle_slo_status()
+            elif path == "/api/slos/budget":
+                return self._handle_enforcer_budget()
             elif path == "/api/slos/error-budget":
                 return self._handle_error_budget()
             elif path == "/api/slos/violations":
@@ -190,13 +202,33 @@ class SLOHandler(BaseHandler):
             return error_response("Internal server error", 500, code="INTERNAL_ERROR")
 
     def _handle_slo_status(self) -> HandlerResult:
-        """GET /api/slos/status - Overall SLO compliance status."""
+        """GET /api/slos/status - Overall SLO compliance status.
+
+        Merges the existing SLO check data with real-time enforcer metrics.
+        Returns ``{"data": {...}}`` envelope.
+        """
         try:
             status_json = get_slo_status_json()
-            return json_response(status_json)
+            enforcer = get_slo_enforcer()
+            enforcer_status = enforcer.get_compliance_status()
+            status_json["enforcer"] = enforcer_status
+            return json_response({"data": status_json})
         except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
             logger.exception("Failed to get SLO status: %s", e)
             return error_response("Internal server error", 500, code="SLO_STATUS_ERROR")
+
+    def _handle_enforcer_budget(self) -> HandlerResult:
+        """GET /api/v1/slo/budget - Remaining error budget from enforcer.
+
+        Returns ``{"data": {...}}`` envelope with per-SLO error budget data.
+        """
+        try:
+            enforcer = get_slo_enforcer()
+            budget = enforcer.get_error_budget()
+            return json_response({"data": budget})
+        except (KeyError, ValueError, AttributeError, TypeError, RuntimeError, OSError) as e:
+            logger.exception("Failed to get SLO budget: %s", e)
+            return error_response("Internal server error", 500, code="SLO_BUDGET_ERROR")
 
     def _handle_slo_detail(self, slo_name: str) -> HandlerResult:
         """GET /api/slos/{slo_name} - Individual SLO details."""

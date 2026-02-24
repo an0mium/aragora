@@ -601,21 +601,25 @@ class TestBackupSchedulerExecution:
 class TestBackupSchedulerDRDrill:
     """Tests for DR drill execution."""
 
+    def _make_drill_report(self, status="passed", backup_id="backup-001", errors=None):
+        """Create a mock RestoreDrillReport for scheduler tests."""
+        report = MagicMock()
+        report.drill_id = "drill-test-001"
+        report.backup_id = backup_id
+        report.status = status
+        report.tables_verified = 3
+        report.rows_verified = 100
+        report.checksum_valid = status == "passed"
+        report.schema_valid = status == "passed"
+        report.integrity_valid = status == "passed"
+        report.errors = errors or []
+        return report
+
     @pytest.mark.asyncio
     async def test_dr_drill_success(self):
         """Should execute DR drill successfully."""
-        mock_backup = MagicMock()
-        mock_backup.id = "backup-001"
-        mock_backup.created_at = datetime.now(timezone.utc) - timedelta(hours=1)
-
-        mock_verify = MagicMock()
-        mock_verify.verified = True
-        mock_verify.checksum_valid = True
-
         manager = MagicMock()
-        manager.list_backups.return_value = [mock_backup]
-        manager.verify_backup.return_value = mock_verify
-        manager.restore_backup.return_value = True
+        manager.restore_drill.return_value = self._make_drill_report(status="passed")
 
         scheduler = BackupScheduler(backup_manager=manager)
 
@@ -623,60 +627,45 @@ class TestBackupSchedulerDRDrill:
 
         assert result["success"] is True
         assert "rto_seconds" in result
-        assert "rpo_seconds" in result
-        assert len(result["steps"]) >= 3
+        assert "drill_id" in result
+        assert len(result["steps"]) >= 1
 
     @pytest.mark.asyncio
     async def test_dr_drill_no_backups(self):
         """Should handle case with no backups available."""
         manager = MagicMock()
-        manager.list_backups.return_value = []
+        manager.restore_drill.return_value = self._make_drill_report(
+            status="failed",
+            backup_id="none",
+            errors=["No verified backups available for restore drill"],
+        )
 
         scheduler = BackupScheduler(backup_manager=manager)
 
         result = await scheduler._execute_dr_drill()
 
         assert result["success"] is False
-        assert "No backups available" in result.get("error", "")
 
     @pytest.mark.asyncio
     async def test_dr_drill_verification_failure(self):
         """Should handle verification failure during DR drill."""
-        mock_backup = MagicMock()
-        mock_backup.id = "backup-001"
-        mock_backup.created_at = datetime.now(timezone.utc) - timedelta(hours=1)
-
-        mock_verify = MagicMock()
-        mock_verify.verified = False
-        mock_verify.checksum_valid = False
-        mock_verify.errors = ["Checksum mismatch"]
-
         manager = MagicMock()
-        manager.list_backups.return_value = [mock_backup]
-        manager.verify_backup.return_value = mock_verify
+        manager.restore_drill.return_value = self._make_drill_report(
+            status="failed",
+            errors=["Checksum mismatch"],
+        )
 
         scheduler = BackupScheduler(backup_manager=manager)
 
         result = await scheduler._execute_dr_drill()
 
         assert result["success"] is False
-        assert "verification failed" in result.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_dr_drill_updates_stats(self):
         """Should update DR drill stats on success."""
-        mock_backup = MagicMock()
-        mock_backup.id = "backup-001"
-        mock_backup.created_at = datetime.now(timezone.utc)
-
-        mock_verify = MagicMock()
-        mock_verify.verified = True
-        mock_verify.checksum_valid = True
-
         manager = MagicMock()
-        manager.list_backups.return_value = [mock_backup]
-        manager.verify_backup.return_value = mock_verify
-        manager.restore_backup.return_value = True
+        manager.restore_drill.return_value = self._make_drill_report(status="passed")
 
         scheduler = BackupScheduler(backup_manager=manager)
 
@@ -689,18 +678,8 @@ class TestBackupSchedulerDRDrill:
     @pytest.mark.asyncio
     async def test_dr_drill_emits_event(self):
         """Should emit dr_drill_completed event."""
-        mock_backup = MagicMock()
-        mock_backup.id = "backup-001"
-        mock_backup.created_at = datetime.now(timezone.utc)
-
-        mock_verify = MagicMock()
-        mock_verify.verified = True
-        mock_verify.checksum_valid = True
-
         manager = MagicMock()
-        manager.list_backups.return_value = [mock_backup]
-        manager.verify_backup.return_value = mock_verify
-        manager.restore_backup.return_value = True
+        manager.restore_drill.return_value = self._make_drill_report(status="passed")
 
         callback = MagicMock()
         scheduler = BackupScheduler(

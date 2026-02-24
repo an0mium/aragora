@@ -1,0 +1,9 @@
+# Aragora Document Analysis Pipeline
+# Install: pip install -r requirements.txt
+
+# Core dependency (install from repo root or PyPI)
+# pip install -e ../..   # development install
+# pip install aragora    # PyPI install
+
+# Optional: load .env files
+python-dotenv>=1.0.0

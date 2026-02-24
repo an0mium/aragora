@@ -8,6 +8,16 @@ Tests cover:
 - DataClassifier.get_policy() per-level policy lookup
 - DataClassifier.validate_handling() operation validation
 - DataClassifier.scan_for_pii() regex-based PII detection
+- DataClassifier.tag() classification metadata generation
+- DataClassifier.get_active_policy() full policy summary
+- ClassificationMetadata dataclass and serialization
+- EnforcementResult dataclass and serialization
+- PolicyEnforcer.enforce_access() cross-context enforcement
+- PolicyEnforcer.audit_label() audit log labeling
+- PolicyEnforcer.classify_debate_result() debate result enrichment
+- PolicyEnforcer.classify_knowledge_item() knowledge item enrichment
+- PolicyEnforcer.classify_api_response() API response enrichment
+- sensitivity_index() ordering utility
 - Default policies (encryption, audit, retention, regions, consent)
 """
 
@@ -17,12 +27,17 @@ import pytest
 
 from aragora.compliance.data_classification import (
     DEFAULT_POLICIES,
+    SENSITIVITY_ORDER,
+    ClassificationMetadata,
     ClassificationPolicy,
     DataClassification,
     DataClassifier,
+    EnforcementResult,
     Operation,
     PIIDetection,
+    PolicyEnforcer,
     ValidationResult,
+    sensitivity_index,
 )
 
 
@@ -496,3 +511,548 @@ class TestScanForPII:
         detections = self.classifier.scan_for_pii("Phone: 555.123.4567")
         types = [d.type for d in detections]
         assert "phone" in types
+
+
+# =============================================================================
+# Sensitivity Ordering Tests
+# =============================================================================
+
+
+class TestSensitivityOrder:
+    """Test sensitivity ordering utilities."""
+
+    def test_order_list(self):
+        assert SENSITIVITY_ORDER == list(DataClassification)
+
+    def test_sensitivity_index_public_is_lowest(self):
+        assert sensitivity_index(DataClassification.PUBLIC) == 0
+
+    def test_sensitivity_index_pii_is_highest(self):
+        assert sensitivity_index(DataClassification.PII) == 4
+
+    def test_ascending_order(self):
+        indices = [sensitivity_index(level) for level in DataClassification]
+        assert indices == sorted(indices)
+
+    def test_restricted_more_sensitive_than_internal(self):
+        assert sensitivity_index(DataClassification.RESTRICTED) > sensitivity_index(
+            DataClassification.INTERNAL
+        )
+
+    def test_confidential_between_internal_and_restricted(self):
+        assert (
+            sensitivity_index(DataClassification.INTERNAL)
+            < sensitivity_index(DataClassification.CONFIDENTIAL)
+            < sensitivity_index(DataClassification.RESTRICTED)
+        )
+
+
+# =============================================================================
+# ClassificationMetadata Tests
+# =============================================================================
+
+
+class TestClassificationMetadata:
+    """Test ClassificationMetadata dataclass."""
+
+    def test_creation(self):
+        meta = ClassificationMetadata(
+            classification=DataClassification.INTERNAL,
+            label="internal",
+            classified_at="2026-01-01T00:00:00+00:00",
+            context="test_context",
+        )
+        assert meta.classification == DataClassification.INTERNAL
+        assert meta.label == "internal"
+        assert meta.context == "test_context"
+        assert meta.pii_detected is False
+        assert meta.pii_types == []
+
+    def test_with_pii(self):
+        meta = ClassificationMetadata(
+            classification=DataClassification.PII,
+            label="pii",
+            classified_at="2026-01-01T00:00:00+00:00",
+            pii_detected=True,
+            pii_types=["email", "phone"],
+        )
+        assert meta.pii_detected is True
+        assert "email" in meta.pii_types
+
+    def test_to_dict(self):
+        meta = ClassificationMetadata(
+            classification=DataClassification.CONFIDENTIAL,
+            label="confidential",
+            classified_at="2026-01-01T00:00:00+00:00",
+            context="finance",
+            pii_detected=False,
+            pii_types=[],
+        )
+        d = meta.to_dict()
+        assert d["classification"] == "confidential"
+        assert d["label"] == "confidential"
+        assert d["context"] == "finance"
+        assert d["pii_detected"] is False
+        assert d["pii_types"] == []
+        assert "classified_at" in d
+
+
+# =============================================================================
+# EnforcementResult Tests
+# =============================================================================
+
+
+class TestEnforcementResult:
+    """Test EnforcementResult dataclass."""
+
+    def test_allowed(self):
+        result = EnforcementResult(
+            allowed=True,
+            source_classification=DataClassification.INTERNAL,
+            target_classification=DataClassification.INTERNAL,
+        )
+        assert result.allowed is True
+
+    def test_blocked(self):
+        result = EnforcementResult(
+            allowed=False,
+            source_classification=DataClassification.RESTRICTED,
+            target_classification=DataClassification.PUBLIC,
+            violations=["Cannot flow to lower context"],
+        )
+        assert result.allowed is False
+        assert len(result.violations) == 1
+
+    def test_to_dict(self):
+        result = EnforcementResult(
+            allowed=False,
+            source_classification=DataClassification.RESTRICTED,
+            target_classification=DataClassification.PUBLIC,
+            violations=["blocked"],
+            recommendations=["upgrade context"],
+        )
+        d = result.to_dict()
+        assert d["allowed"] is False
+        assert d["source_classification"] == "restricted"
+        assert d["target_classification"] == "public"
+        assert d["violations"] == ["blocked"]
+
+
+# =============================================================================
+# DataClassifier.tag() Tests
+# =============================================================================
+
+
+class TestTag:
+    """Test DataClassifier.tag() metadata generation."""
+
+    def setup_method(self):
+        self.classifier = DataClassifier()
+
+    def test_tag_public_data(self):
+        meta = self.classifier.tag({"title": "Hello World"})
+        assert meta.classification == DataClassification.PUBLIC
+        assert meta.label == "public"
+        assert meta.pii_detected is False
+        assert meta.classified_at  # non-empty timestamp
+
+    def test_tag_pii_data(self):
+        meta = self.classifier.tag({"note": "Email me at test@example.com"})
+        assert meta.classification == DataClassification.PII
+        assert meta.label == "pii"
+        assert meta.pii_detected is True
+        assert "email" in meta.pii_types
+
+    def test_tag_with_context(self):
+        meta = self.classifier.tag({"data": "report"}, context="financial")
+        assert meta.classification == DataClassification.CONFIDENTIAL
+        assert meta.context == "financial"
+
+    def test_tag_restricted_data(self):
+        meta = self.classifier.tag({"api_key": "sk-secret-xxx"})
+        assert meta.classification == DataClassification.RESTRICTED
+        assert meta.label == "restricted"
+
+    def test_tag_returns_metadata_instance(self):
+        meta = self.classifier.tag({"x": "y"})
+        assert isinstance(meta, ClassificationMetadata)
+
+    def test_tag_serializable(self):
+        meta = self.classifier.tag({"email": "user@test.com"})
+        d = meta.to_dict()
+        assert isinstance(d, dict)
+        assert "classification" in d
+        assert "classified_at" in d
+
+
+# =============================================================================
+# DataClassifier.get_active_policy() Tests
+# =============================================================================
+
+
+class TestGetActivePolicy:
+    """Test DataClassifier.get_active_policy() summary."""
+
+    def setup_method(self):
+        self.classifier = DataClassifier()
+
+    def test_returns_dict(self):
+        policy = self.classifier.get_active_policy()
+        assert isinstance(policy, dict)
+
+    def test_has_version(self):
+        policy = self.classifier.get_active_policy()
+        assert "version" in policy
+        assert policy["version"] == "1.0"
+
+    def test_has_name_and_description(self):
+        policy = self.classifier.get_active_policy()
+        assert "name" in policy
+        assert "description" in policy
+        assert "Aragora" in policy["name"]
+
+    def test_has_all_levels(self):
+        policy = self.classifier.get_active_policy()
+        assert "levels" in policy
+        for level in DataClassification:
+            assert level.value in policy["levels"]
+
+    def test_has_policies_for_all_levels(self):
+        policy = self.classifier.get_active_policy()
+        assert "policies" in policy
+        for level in DataClassification:
+            assert level.value in policy["policies"]
+            level_policy = policy["policies"][level.value]
+            assert "encryption_required" in level_policy
+            assert "audit_logging" in level_policy
+            assert "retention_days" in level_policy
+
+    def test_has_keywords(self):
+        policy = self.classifier.get_active_policy()
+        assert "keywords" in policy
+        assert "pii" in policy["keywords"]
+        assert "email" in policy["keywords"]["pii"]
+
+    def test_has_sensitivity_order(self):
+        policy = self.classifier.get_active_policy()
+        assert "sensitivity_order" in policy
+        assert policy["sensitivity_order"][0] == "public"
+        assert policy["sensitivity_order"][-1] == "pii"
+
+    def test_custom_policies_reflected(self):
+        custom = DEFAULT_POLICIES.copy()
+        custom[DataClassification.PUBLIC] = ClassificationPolicy(
+            classification=DataClassification.PUBLIC,
+            encryption_required=True,
+        )
+        classifier = DataClassifier(policies=custom)
+        policy = classifier.get_active_policy()
+        assert policy["policies"]["public"]["encryption_required"] is True
+
+
+# =============================================================================
+# DataClassifier.policies property Tests
+# =============================================================================
+
+
+class TestPoliciesProperty:
+    """Test DataClassifier.policies read-only accessor."""
+
+    def test_returns_dict(self):
+        classifier = DataClassifier()
+        assert isinstance(classifier.policies, dict)
+
+    def test_has_all_levels(self):
+        classifier = DataClassifier()
+        for level in DataClassification:
+            assert level in classifier.policies
+
+    def test_returns_copy(self):
+        classifier = DataClassifier()
+        p1 = classifier.policies
+        p2 = classifier.policies
+        assert p1 is not p2  # new dict each time
+
+
+# =============================================================================
+# PolicyEnforcer.enforce_access() Tests
+# =============================================================================
+
+
+class TestPolicyEnforcer:
+    """Test PolicyEnforcer cross-context enforcement."""
+
+    def setup_method(self):
+        self.enforcer = PolicyEnforcer()
+
+    def test_same_level_allowed(self):
+        result = self.enforcer.enforce_access(
+            data={"info": "test"},
+            source_classification=DataClassification.INTERNAL,
+            target_classification=DataClassification.INTERNAL,
+        )
+        assert result.allowed is True
+
+    def test_higher_target_allowed(self):
+        """Data can flow to a more sensitive context."""
+        result = self.enforcer.enforce_access(
+            data={"info": "test"},
+            source_classification=DataClassification.PUBLIC,
+            target_classification=DataClassification.CONFIDENTIAL,
+        )
+        assert result.allowed is True
+
+    def test_restricted_to_public_blocked(self):
+        """RESTRICTED data must not flow to PUBLIC context."""
+        result = self.enforcer.enforce_access(
+            data={"secret": "value"},
+            source_classification=DataClassification.RESTRICTED,
+            target_classification=DataClassification.PUBLIC,
+            is_encrypted=True,
+            has_consent=True,
+        )
+        assert result.allowed is False
+        assert any("cannot be exposed" in v.lower() for v in result.violations)
+
+    def test_restricted_to_internal_blocked(self):
+        """RESTRICTED data must not flow to INTERNAL context."""
+        result = self.enforcer.enforce_access(
+            data={"secret": "value"},
+            source_classification=DataClassification.RESTRICTED,
+            target_classification=DataClassification.INTERNAL,
+            is_encrypted=True,
+            has_consent=True,
+        )
+        assert result.allowed is False
+
+    def test_confidential_to_public_blocked(self):
+        """CONFIDENTIAL data must not flow to PUBLIC context."""
+        result = self.enforcer.enforce_access(
+            data={"salary": "100000"},
+            source_classification=DataClassification.CONFIDENTIAL,
+            target_classification=DataClassification.PUBLIC,
+            is_encrypted=True,
+        )
+        assert result.allowed is False
+
+    def test_pii_to_internal_blocked(self):
+        """PII data must not flow to INTERNAL context."""
+        result = self.enforcer.enforce_access(
+            data={"email": "user@example.com"},
+            source_classification=DataClassification.PII,
+            target_classification=DataClassification.INTERNAL,
+            is_encrypted=True,
+            has_consent=True,
+        )
+        assert result.allowed is False
+
+    def test_internal_to_public_blocked(self):
+        """INTERNAL data must not flow to PUBLIC context."""
+        result = self.enforcer.enforce_access(
+            data={"project": "roadmap"},
+            source_classification=DataClassification.INTERNAL,
+            target_classification=DataClassification.PUBLIC,
+        )
+        assert result.allowed is False
+
+    def test_public_to_public_allowed(self):
+        result = self.enforcer.enforce_access(
+            data={"title": "Hello"},
+            source_classification=DataClassification.PUBLIC,
+            target_classification=DataClassification.PUBLIC,
+        )
+        assert result.allowed is True
+
+    def test_enforcement_with_handling_violations(self):
+        """Enforcement also checks standard handling rules."""
+        result = self.enforcer.enforce_access(
+            data={"secret": "value"},
+            source_classification=DataClassification.RESTRICTED,
+            target_classification=DataClassification.RESTRICTED,
+            is_encrypted=False,
+            has_consent=False,
+        )
+        # Same level so no level violation, but encryption + consent missing
+        assert result.allowed is False
+        assert any("Encryption" in v for v in result.violations)
+        assert any("consent" in v.lower() for v in result.violations)
+
+    def test_enforcement_result_type(self):
+        result = self.enforcer.enforce_access(
+            data={"x": "y"},
+            source_classification=DataClassification.PUBLIC,
+            target_classification=DataClassification.PUBLIC,
+        )
+        assert isinstance(result, EnforcementResult)
+
+    def test_recommendations_included(self):
+        result = self.enforcer.enforce_access(
+            data={"secret": "value"},
+            source_classification=DataClassification.RESTRICTED,
+            target_classification=DataClassification.PUBLIC,
+            is_encrypted=True,
+            has_consent=True,
+        )
+        assert len(result.recommendations) > 0
+
+    def test_custom_classifier(self):
+        """PolicyEnforcer should use the provided classifier."""
+        classifier = DataClassifier()
+        enforcer = PolicyEnforcer(classifier)
+        assert enforcer.classifier is classifier
+
+    def test_default_classifier(self):
+        """PolicyEnforcer should create a default classifier if none provided."""
+        enforcer = PolicyEnforcer()
+        assert enforcer.classifier is not None
+
+
+# =============================================================================
+# PolicyEnforcer.audit_label() Tests
+# =============================================================================
+
+
+class TestAuditLabel:
+    """Test PolicyEnforcer.audit_label() for audit log labeling."""
+
+    def setup_method(self):
+        self.enforcer = PolicyEnforcer()
+
+    def test_public_audit_label(self):
+        label = self.enforcer.audit_label({"title": "Hello"})
+        assert label["classification"] == "public"
+        assert label["label"] == "public"
+        assert label["pii_detected"] is False
+        assert label["audit_logging_required"] is False
+        assert "timestamp" in label
+
+    def test_pii_audit_label(self):
+        label = self.enforcer.audit_label({"note": "Email user@test.com"})
+        assert label["classification"] == "pii"
+        assert label["pii_detected"] is True
+        assert "email" in label["pii_types"]
+        assert label["audit_logging_required"] is True
+        assert label["encryption_required"] is True
+
+    def test_restricted_audit_label(self):
+        label = self.enforcer.audit_label({"api_key": "sk-xxx"})
+        assert label["classification"] == "restricted"
+        assert label["audit_logging_required"] is True
+        assert label["encryption_required"] is True
+
+    def test_context_passed_through(self):
+        label = self.enforcer.audit_label({"data": "report"}, context="financial")
+        assert label["classification"] == "confidential"
+
+
+# =============================================================================
+# PolicyEnforcer.classify_debate_result() Tests
+# =============================================================================
+
+
+class TestClassifyDebateResult:
+    """Test PolicyEnforcer.classify_debate_result()."""
+
+    def setup_method(self):
+        self.enforcer = PolicyEnforcer()
+
+    def test_debate_result_enriched(self):
+        result = {"outcome": "approved", "summary": "No issues found"}
+        enriched = self.enforcer.classify_debate_result(result)
+        assert "_classification" in enriched
+        assert enriched["_classification"]["classification"] == "public"
+        # Original fields preserved
+        assert enriched["outcome"] == "approved"
+
+    def test_debate_result_with_sensitive_content(self):
+        result = {"outcome": "flagged", "summary": "Contains salary data $120k"}
+        enriched = self.enforcer.classify_debate_result(result)
+        assert enriched["_classification"]["classification"] == "confidential"
+
+    def test_debate_result_with_pii(self):
+        result = {"outcome": "approved", "summary": "User test@example.com approved"}
+        enriched = self.enforcer.classify_debate_result(result)
+        assert enriched["_classification"]["classification"] == "pii"
+        assert enriched["_classification"]["pii_detected"] is True
+
+    def test_debate_result_with_list_arguments(self):
+        result = {"arguments": ["Point 1", "Internal roadmap details"]}
+        enriched = self.enforcer.classify_debate_result(result)
+        assert "_classification" in enriched
+
+    def test_debate_result_with_dict_fields(self):
+        result = {"reasoning": {"step1": "secret handling"}}
+        enriched = self.enforcer.classify_debate_result(result)
+        assert "_classification" in enriched
+
+    def test_empty_debate_result(self):
+        result = {"id": "123"}
+        enriched = self.enforcer.classify_debate_result(result)
+        assert "_classification" in enriched
+
+
+# =============================================================================
+# PolicyEnforcer.classify_knowledge_item() Tests
+# =============================================================================
+
+
+class TestClassifyKnowledgeItem:
+    """Test PolicyEnforcer.classify_knowledge_item()."""
+
+    def setup_method(self):
+        self.enforcer = PolicyEnforcer()
+
+    def test_knowledge_item_enriched(self):
+        item = {"title": "Best practices", "content": "Use encryption"}
+        enriched = self.enforcer.classify_knowledge_item(item)
+        assert "_classification" in enriched
+        assert enriched["title"] == "Best practices"
+
+    def test_knowledge_item_with_tags(self):
+        item = {"content": "Budget report", "tags": ["financial", "quarterly"]}
+        enriched = self.enforcer.classify_knowledge_item(item)
+        assert enriched["_classification"]["classification"] == "confidential"
+
+    def test_knowledge_item_with_pii(self):
+        item = {"content": "Contact john@example.com for details"}
+        enriched = self.enforcer.classify_knowledge_item(item)
+        assert enriched["_classification"]["pii_detected"] is True
+
+    def test_knowledge_item_empty(self):
+        item = {"id": "abc"}
+        enriched = self.enforcer.classify_knowledge_item(item)
+        assert "_classification" in enriched
+
+
+# =============================================================================
+# PolicyEnforcer.classify_api_response() Tests
+# =============================================================================
+
+
+class TestClassifyApiResponse:
+    """Test PolicyEnforcer.classify_api_response()."""
+
+    def setup_method(self):
+        self.enforcer = PolicyEnforcer()
+
+    def test_api_response_enriched(self):
+        data = {"status": "ok", "count": 5}
+        enriched = self.enforcer.classify_api_response(data)
+        assert "_classification" in enriched
+        assert enriched["status"] == "ok"
+
+    def test_api_response_with_context(self):
+        data = {"report": "Q1 numbers"}
+        enriched = self.enforcer.classify_api_response(data, context="financial")
+        assert enriched["_classification"]["classification"] == "confidential"
+
+    def test_api_response_with_pii(self):
+        data = {"user_email": "user@example.com"}
+        enriched = self.enforcer.classify_api_response(data)
+        assert enriched["_classification"]["pii_detected"] is True
+
+    def test_api_response_preserves_original(self):
+        data = {"key1": "val1", "key2": "val2"}
+        enriched = self.enforcer.classify_api_response(data)
+        assert enriched["key1"] == "val1"
+        assert enriched["key2"] == "val2"

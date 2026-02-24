@@ -251,6 +251,11 @@ class TestRoutes:
             "/api/status/history",
             "/api/status/components",
             "/api/status/incidents",
+            # Versioned v1 routes (public, no auth, return {"data": ...} envelope)
+            "/api/v1/status",
+            "/api/v1/status/components",
+            "/api/v1/status/incidents",
+            "/api/v1/status/uptime",
         ]
         assert StatusPageHandler.ROUTES == expected
 

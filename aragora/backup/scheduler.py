@@ -98,6 +98,10 @@ class BackupSchedule:
     enable_dr_drills: bool = True
     dr_drill_interval_days: int = 30  # Monthly DR drills
 
+    # Offsite backup integration
+    enable_offsite: bool = False
+    offsite_after_backup: bool = True  # Upload to offsite after each local backup
+
     def get_next_backup_time(
         self,
         schedule_type: ScheduleType,
@@ -236,6 +240,7 @@ class BackupScheduler:
         schedule: BackupSchedule | None = None,
         event_callback: EventCallback | None = None,
         storage_path: Path | None = None,
+        offsite_manager: Any | None = None,
     ):
         """
         Initialize the backup scheduler.
@@ -245,6 +250,7 @@ class BackupScheduler:
             schedule: Backup schedule configuration
             event_callback: Optional callback for events
             storage_path: Path to store scheduler state
+            offsite_manager: Optional OffsiteBackupManager for cloud uploads
         """
         self._manager = backup_manager
         self._schedule = schedule or BackupSchedule(
@@ -252,6 +258,7 @@ class BackupScheduler:
         )
         self._event_callback = event_callback
         self._storage_path = storage_path
+        self._offsite_manager = offsite_manager
 
         self._status = SchedulerStatus.STOPPED
         self._started_at: datetime | None = None
@@ -434,6 +441,26 @@ class BackupScheduler:
                     if not result.verified:
                         logger.warning("Backup verification failed: %s", result.errors)
                         job.metadata["verification_errors"] = result.errors
+
+                # Upload to offsite storage if configured
+                if (
+                    self._offsite_manager is not None
+                    and self._schedule.enable_offsite
+                    and self._schedule.offsite_after_backup
+                ):
+                    try:
+                        backup_path = backup_metadata.backup_path
+                        offsite_record = self._offsite_manager.upload_backup(
+                            backup_path,
+                            {"source_backup_id": backup_metadata.id},
+                        )
+                        job.metadata["offsite_id"] = offsite_record.id
+                        logger.info(
+                            "Offsite upload completed: %s", offsite_record.id
+                        )
+                    except (OSError, RuntimeError) as e:
+                        logger.error("Offsite upload failed: %s", e)
+                        job.metadata["offsite_error"] = str(e)
 
                 # Cleanup expired backups
                 if cleanup and self._schedule.retention_cleanup_after:
@@ -655,7 +682,12 @@ class BackupScheduler:
                 await asyncio.sleep(3600)
 
     async def _execute_dr_drill(self) -> dict[str, Any]:
-        """Execute a DR drill for backup verification."""
+        """Execute a DR drill for backup verification.
+
+        Uses the BackupManager's ``restore_drill()`` method when available
+        (produces a full ``RestoreDrillReport`` with compliance evidence).
+        Falls back to the legacy dry-run approach if the method is missing.
+        """
         import time as time_module
 
         logger.info("Starting DR drill: backup restoration test")
@@ -671,7 +703,56 @@ class BackupScheduler:
         }
 
         try:
-            # Step 1: Get latest backup
+            # Use restore_drill() if available (BackupManager enhancement)
+            restore_drill_fn = getattr(self._manager, "restore_drill", None)
+            if callable(restore_drill_fn):
+                drill_report = restore_drill_fn()
+                rto_seconds = time_module.time() - start_time
+
+                result["drill_id"] = drill_report.drill_id
+                result["backup_id"] = drill_report.backup_id
+                result["success"] = drill_report.status == "passed"
+                result["rto_seconds"] = rto_seconds
+                result["steps"].append(
+                    {
+                        "step": "restore_drill",
+                        "status": drill_report.status,
+                        "tables_verified": drill_report.tables_verified,
+                        "rows_verified": drill_report.rows_verified,
+                        "checksum_valid": drill_report.checksum_valid,
+                        "schema_valid": drill_report.schema_valid,
+                        "integrity_valid": drill_report.integrity_valid,
+                        "errors": drill_report.errors,
+                    }
+                )
+
+                if result["success"]:
+                    self._stats.dr_drills_completed += 1
+                    self._stats.last_dr_drill_at = datetime.now(timezone.utc)
+
+                    self._emit_event(
+                        "dr_drill_completed",
+                        {
+                            "drill_type": "backup_restoration",
+                            "success": True,
+                            "drill_id": drill_report.drill_id,
+                            "rto_seconds": rto_seconds,
+                        },
+                    )
+                else:
+                    self._emit_event(
+                        "dr_drill_failed",
+                        {
+                            "drill_type": "backup_restoration",
+                            "drill_id": drill_report.drill_id,
+                            "errors": drill_report.errors,
+                        },
+                    )
+
+                result["completed_at"] = datetime.now(timezone.utc).isoformat()
+                return result
+
+            # Fallback: legacy dry-run approach
             backups = self._manager.list_backups()
             if not backups:
                 result["error"] = "No backups available for DR drill"
@@ -680,7 +761,7 @@ class BackupScheduler:
             latest_backup = backups[0]
             result["backup_id"] = latest_backup.id
 
-            # Step 2: Calculate RPO
+            # Calculate RPO
             rpo_seconds = (datetime.now(timezone.utc) - latest_backup.created_at).total_seconds()
             result["rpo_seconds"] = rpo_seconds
             result["steps"].append(
@@ -691,7 +772,7 @@ class BackupScheduler:
                 }
             )
 
-            # Step 3: Verify backup integrity
+            # Verify backup integrity
             verify_result = self._manager.verify_backup(latest_backup.id)
             result["steps"].append(
                 {
@@ -706,8 +787,7 @@ class BackupScheduler:
                 result["error"] = f"Backup verification failed: {verify_result.errors}"
                 return result
 
-            # Step 4: Test restore (dry run)
-            # Create a temp directory for test restore path
+            # Test restore (dry run)
             with tempfile.TemporaryDirectory(prefix="dr_drill_") as temp_dir:
                 temp_restore_path = Path(temp_dir) / "test_restore.db"
                 restore_success = self._manager.restore_backup(
@@ -724,7 +804,7 @@ class BackupScheduler:
                 }
             )
 
-            # Step 5: Calculate RTO
+            # Calculate RTO
             rto_seconds = time_module.time() - start_time
             result["rto_seconds"] = rto_seconds
             result["steps"].append(

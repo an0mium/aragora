@@ -1,0 +1,12 @@
+# Aragora Workflow Automation Example
+# Install: pip install -r requirements.txt
+
+# Core dependency (install from repo root or PyPI)
+# pip install -e ../..   # development install
+# pip install aragora    # PyPI install
+
+# Required for workflow engine YAML support
+pyyaml>=6.0
+
+# Optional: load .env files
+python-dotenv>=1.0.0

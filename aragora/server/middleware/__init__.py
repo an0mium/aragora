@@ -70,6 +70,7 @@ from .mfa import (
     require_admin_mfa,
     require_admin_with_mfa,
     require_mfa,
+    require_mfa_fresh,
 )
 from .cache import (
     CACHE_INVALIDATION_MAP,
@@ -371,6 +372,7 @@ __all__ = [
     "require_mfa",
     "require_admin_mfa",
     "require_admin_with_mfa",
+    "require_mfa_fresh",
     "check_mfa_status",
     "enforce_admin_mfa_policy",
     # Multi-tenancy

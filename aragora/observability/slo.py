@@ -98,7 +98,9 @@ class SLOStatus:
 
 # Default SLO targets
 DEFAULT_AVAILABILITY_TARGET = 0.999  # 99.9%
-DEFAULT_LATENCY_P99_MS = 500  # 500ms
+DEFAULT_LATENCY_P95_MS = 500  # 500ms
+DEFAULT_LATENCY_P99_MS = 2000  # 2000ms
+DEFAULT_ERROR_RATE_TARGET = 0.01  # 1%
 DEFAULT_DEBATE_SUCCESS_TARGET = 0.95  # 95%
 
 # Streaming SLO targets
@@ -117,7 +119,11 @@ def get_slo_targets() -> dict[str, SLOTarget]:
     availability_target = float(
         os.getenv("SLO_AVAILABILITY_TARGET", str(DEFAULT_AVAILABILITY_TARGET))
     )
+    latency_p95_ms = float(os.getenv("SLO_LATENCY_P95_TARGET_MS", str(DEFAULT_LATENCY_P95_MS)))
     latency_p99_ms = float(os.getenv("SLO_LATENCY_P99_TARGET_MS", str(DEFAULT_LATENCY_P99_MS)))
+    error_rate_target = float(
+        os.getenv("SLO_ERROR_RATE_TARGET", str(DEFAULT_ERROR_RATE_TARGET))
+    )
     debate_success_target = float(
         os.getenv("SLO_DEBATE_SUCCESS_TARGET", str(DEFAULT_DEBATE_SUCCESS_TARGET))
     )
@@ -144,11 +150,25 @@ def get_slo_targets() -> dict[str, SLOTarget]:
             description="Percentage of successful requests (non-5xx)",
             comparison="gte",
         ),
+        "latency_p95": SLOTarget(
+            name="p95 Latency",
+            target=latency_p95_ms / 1000,  # Convert to seconds
+            unit="seconds",
+            description="95th percentile request latency",
+            comparison="lte",
+        ),
         "latency_p99": SLOTarget(
             name="p99 Latency",
             target=latency_p99_ms / 1000,  # Convert to seconds
             unit="seconds",
             description="99th percentile request latency",
+            comparison="lte",
+        ),
+        "error_rate": SLOTarget(
+            name="Error Rate",
+            target=error_rate_target,
+            unit="ratio",
+            description="Percentage of requests resulting in errors",
             comparison="lte",
         ),
         "debate_success": SLOTarget(
@@ -1376,6 +1396,490 @@ def configure_slo_alerting(
 
 
 # =============================================================================
+# SLO Enforcer - Real-time metric tracking and enforcement
+# =============================================================================
+
+
+@dataclass
+class SLOViolation:
+    """Record of an SLO violation detected by the enforcer."""
+
+    slo_name: str
+    target_value: float
+    actual_value: float
+    timestamp: datetime
+    message: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "slo_name": self.slo_name,
+            "target_value": self.target_value,
+            "actual_value": self.actual_value,
+            "timestamp": self.timestamp.isoformat(),
+            "message": self.message,
+        }
+
+
+class SLOEnforcer:
+    """Tracks real-time request metrics and enforces SLO targets.
+
+    Records individual request outcomes (latency, success/failure) and
+    computes SLO compliance over a configurable rolling window. Produces
+    alerts when SLO targets are breached.
+
+    SLO targets enforced:
+        - API latency p95 < 500ms
+        - API latency p99 < 2000ms
+        - Error rate < 1%
+        - Uptime > 99.9%
+
+    Usage:
+        enforcer = SLOEnforcer()
+
+        # Record request metrics as they occur
+        enforcer.record_request(latency_ms=45.0, success=True)
+        enforcer.record_request(latency_ms=1200.0, success=False)
+
+        # Check current compliance
+        status = enforcer.get_compliance_status()
+        budget = enforcer.get_error_budget()
+        violations = enforcer.check_violations()
+    """
+
+    def __init__(
+        self,
+        window_seconds: float = 3600.0,
+        on_violation: AlertCallback | None = None,
+    ) -> None:
+        """Initialize the SLO enforcer.
+
+        Args:
+            window_seconds: Rolling window for metric aggregation (default: 1 hour)
+            on_violation: Optional callback invoked when a violation is detected
+        """
+        self._window_seconds = window_seconds
+        self._on_violation = on_violation
+        self._requests: list[dict[str, Any]] = []
+        self._violations: list[SLOViolation] = []
+        self._start_time = datetime.now(timezone.utc)
+        self._targets = get_slo_targets()
+
+    def record_request(
+        self,
+        latency_ms: float,
+        success: bool,
+        endpoint: str | None = None,
+    ) -> None:
+        """Record a single request outcome.
+
+        Args:
+            latency_ms: Request latency in milliseconds
+            success: Whether the request was successful (non-5xx)
+            endpoint: Optional endpoint path for per-route tracking
+        """
+        now = datetime.now(timezone.utc)
+        self._requests.append({
+            "timestamp": now,
+            "latency_ms": latency_ms,
+            "success": success,
+            "endpoint": endpoint,
+        })
+        self._prune_old_requests(now)
+
+    def _prune_old_requests(self, now: datetime) -> None:
+        """Remove requests outside the rolling window."""
+        cutoff = now - timedelta(seconds=self._window_seconds)
+        self._requests = [r for r in self._requests if r["timestamp"] > cutoff]
+
+    def _get_latencies(self) -> list[float]:
+        """Get all latency values in the current window."""
+        return [r["latency_ms"] for r in self._requests]
+
+    def _percentile(self, values: list[float], pct: float) -> float:
+        """Calculate percentile of a sorted list of values.
+
+        Args:
+            values: List of numeric values
+            pct: Percentile to compute (0-100)
+
+        Returns:
+            The percentile value, or 0.0 if no values
+        """
+        if not values:
+            return 0.0
+        sorted_values = sorted(values)
+        idx = (pct / 100.0) * (len(sorted_values) - 1)
+        lower = int(idx)
+        upper = min(lower + 1, len(sorted_values) - 1)
+        frac = idx - lower
+        return sorted_values[lower] * (1 - frac) + sorted_values[upper] * frac
+
+    def get_metrics(self) -> dict[str, Any]:
+        """Get current aggregated metrics over the rolling window.
+
+        Returns:
+            Dictionary with latency percentiles, error rate, throughput, and uptime
+        """
+        now = datetime.now(timezone.utc)
+        self._prune_old_requests(now)
+
+        latencies = self._get_latencies()
+        total = len(self._requests)
+        successful = sum(1 for r in self._requests if r["success"])
+        failed = total - successful
+
+        if total == 0:
+            return {
+                "total_requests": 0,
+                "successful_requests": 0,
+                "failed_requests": 0,
+                "latency_p50_ms": 0.0,
+                "latency_p95_ms": 0.0,
+                "latency_p99_ms": 0.0,
+                "error_rate": 0.0,
+                "uptime": 1.0,
+                "throughput_rps": 0.0,
+                "window_seconds": self._window_seconds,
+            }
+
+        error_rate = failed / total
+        uptime = successful / total
+
+        elapsed = (now - self._start_time).total_seconds()
+        throughput = total / max(elapsed, 1.0)
+
+        return {
+            "total_requests": total,
+            "successful_requests": successful,
+            "failed_requests": failed,
+            "latency_p50_ms": self._percentile(latencies, 50),
+            "latency_p95_ms": self._percentile(latencies, 95),
+            "latency_p99_ms": self._percentile(latencies, 99),
+            "error_rate": error_rate,
+            "uptime": uptime,
+            "throughput_rps": throughput,
+            "window_seconds": self._window_seconds,
+        }
+
+    def check_violations(self) -> list[SLOViolation]:
+        """Check all SLO targets and return any violations.
+
+        Returns:
+            List of SLOViolation objects for each breached SLO
+        """
+        metrics = self.get_metrics()
+        now = datetime.now(timezone.utc)
+        violations: list[SLOViolation] = []
+
+        if metrics["total_requests"] == 0:
+            return violations
+
+        targets = self._targets
+
+        # Check p95 latency: target is in seconds, metric is in ms
+        p95_target = targets["latency_p95"]
+        p95_ms = metrics["latency_p95_ms"]
+        p95_target_ms = p95_target.target * 1000
+        if p95_ms > p95_target_ms:
+            v = SLOViolation(
+                slo_name="latency_p95",
+                target_value=p95_target_ms,
+                actual_value=p95_ms,
+                timestamp=now,
+                message=f"p95 latency {p95_ms:.1f}ms exceeds target {p95_target_ms:.0f}ms",
+            )
+            violations.append(v)
+
+        # Check p99 latency
+        p99_target = targets["latency_p99"]
+        p99_ms = metrics["latency_p99_ms"]
+        p99_target_ms = p99_target.target * 1000
+        if p99_ms > p99_target_ms:
+            v = SLOViolation(
+                slo_name="latency_p99",
+                target_value=p99_target_ms,
+                actual_value=p99_ms,
+                timestamp=now,
+                message=f"p99 latency {p99_ms:.1f}ms exceeds target {p99_target_ms:.0f}ms",
+            )
+            violations.append(v)
+
+        # Check error rate
+        error_target = targets["error_rate"]
+        if metrics["error_rate"] > error_target.target:
+            v = SLOViolation(
+                slo_name="error_rate",
+                target_value=error_target.target,
+                actual_value=metrics["error_rate"],
+                timestamp=now,
+                message=(
+                    f"Error rate {metrics['error_rate']:.4f} "
+                    f"exceeds target {error_target.target:.4f}"
+                ),
+            )
+            violations.append(v)
+
+        # Check uptime / availability
+        avail_target = targets["availability"]
+        if metrics["uptime"] < avail_target.target:
+            v = SLOViolation(
+                slo_name="availability",
+                target_value=avail_target.target,
+                actual_value=metrics["uptime"],
+                timestamp=now,
+                message=(
+                    f"Uptime {metrics['uptime']:.4f} "
+                    f"below target {avail_target.target:.4f}"
+                ),
+            )
+            violations.append(v)
+
+        # Store violations and invoke callback
+        if violations:
+            self._violations.extend(violations)
+            if self._on_violation is not None:
+                for v in violations:
+                    try:
+                        result = self._on_violation(v)
+                        if asyncio.iscoroutine(result):
+                            # If called from a sync context, skip the coroutine
+                            result.close()
+                    except Exception:  # noqa: BLE001
+                        logger.debug("SLO violation callback failed")
+
+        return violations
+
+    def get_compliance_status(self) -> dict[str, Any]:
+        """Get current SLO compliance status for all enforced targets.
+
+        Returns a dictionary suitable for the GET /api/v1/slo/status endpoint.
+
+        Returns:
+            Dictionary with per-SLO compliance data wrapped in {"data": ...}
+        """
+        metrics = self.get_metrics()
+        now = datetime.now(timezone.utc)
+        targets = self._targets
+        window_start = now - timedelta(seconds=self._window_seconds)
+
+        slos = {}
+
+        # Latency p95
+        p95_target = targets["latency_p95"]
+        p95_ms = metrics["latency_p95_ms"]
+        p95_target_ms = p95_target.target * 1000
+        p95_compliant = p95_ms <= p95_target_ms
+        slos["latency_p95"] = {
+            "name": p95_target.name,
+            "target_ms": p95_target_ms,
+            "current_ms": p95_ms,
+            "compliant": p95_compliant,
+        }
+
+        # Latency p99
+        p99_target = targets["latency_p99"]
+        p99_ms = metrics["latency_p99_ms"]
+        p99_target_ms = p99_target.target * 1000
+        p99_compliant = p99_ms <= p99_target_ms
+        slos["latency_p99"] = {
+            "name": p99_target.name,
+            "target_ms": p99_target_ms,
+            "current_ms": p99_ms,
+            "compliant": p99_compliant,
+        }
+
+        # Error rate
+        error_target = targets["error_rate"]
+        error_compliant = metrics["error_rate"] <= error_target.target
+        slos["error_rate"] = {
+            "name": error_target.name,
+            "target": error_target.target,
+            "current": metrics["error_rate"],
+            "compliant": error_compliant,
+        }
+
+        # Availability / uptime
+        avail_target = targets["availability"]
+        avail_compliant = metrics["uptime"] >= avail_target.target
+        slos["availability"] = {
+            "name": avail_target.name,
+            "target": avail_target.target,
+            "current": metrics["uptime"],
+            "compliant": avail_compliant,
+        }
+
+        overall_healthy = all(s["compliant"] for s in slos.values())
+        violations = self.check_violations()
+
+        return {
+            "timestamp": now.isoformat(),
+            "overall_healthy": overall_healthy,
+            "window": {
+                "start": window_start.isoformat(),
+                "end": now.isoformat(),
+                "duration_seconds": self._window_seconds,
+            },
+            "slos": slos,
+            "metrics": metrics,
+            "violation_count": len(violations),
+        }
+
+    def get_error_budget(self) -> dict[str, Any]:
+        """Get remaining error budget for all enforced SLOs.
+
+        Returns a dictionary suitable for the GET /api/v1/slo/budget endpoint.
+
+        Returns:
+            Dictionary with per-SLO error budget data
+        """
+        metrics = self.get_metrics()
+        now = datetime.now(timezone.utc)
+        targets = self._targets
+        window_start = now - timedelta(seconds=self._window_seconds)
+
+        budgets: list[dict[str, Any]] = []
+
+        # Availability budget (gte comparison)
+        avail_target = targets["availability"]
+        avail_budget_total = 1.0 - avail_target.target  # e.g. 0.001
+        avail_errors_used = max(0, avail_target.target - metrics["uptime"])
+        if avail_budget_total > 0:
+            avail_remaining_pct = max(
+                0, (avail_budget_total - avail_errors_used) / avail_budget_total
+            ) * 100
+            avail_burn = avail_errors_used / avail_budget_total
+        else:
+            avail_remaining_pct = 0.0
+            avail_burn = float("inf")
+
+        budgets.append({
+            "slo_name": avail_target.name,
+            "slo_id": "availability",
+            "target": avail_target.target,
+            "error_budget_total_pct": 100.0,
+            "error_budget_remaining_pct": avail_remaining_pct,
+            "error_budget_consumed_pct": 100.0 - avail_remaining_pct,
+            "burn_rate": avail_burn,
+        })
+
+        # Error rate budget (lte comparison)
+        error_target = targets["error_rate"]
+        error_budget_total = error_target.target  # e.g. 0.01
+        error_used = max(0, metrics["error_rate"] - 0)  # current rate
+        if error_budget_total > 0:
+            error_remaining_pct = max(
+                0, (error_budget_total - error_used) / error_budget_total
+            ) * 100
+            error_burn = error_used / error_budget_total
+        else:
+            error_remaining_pct = 0.0
+            error_burn = float("inf")
+
+        budgets.append({
+            "slo_name": error_target.name,
+            "slo_id": "error_rate",
+            "target": error_target.target,
+            "error_budget_total_pct": 100.0,
+            "error_budget_remaining_pct": error_remaining_pct,
+            "error_budget_consumed_pct": 100.0 - error_remaining_pct,
+            "burn_rate": error_burn,
+        })
+
+        # Latency p95 budget
+        p95_target = targets["latency_p95"]
+        p95_target_ms = p95_target.target * 1000
+        p95_budget = p95_target_ms * 0.5  # 50% overage allowed
+        p95_overage = max(0, metrics["latency_p95_ms"] - p95_target_ms)
+        if p95_budget > 0:
+            p95_remaining_pct = max(0, (p95_budget - p95_overage) / p95_budget) * 100
+            p95_burn = p95_overage / p95_budget
+        else:
+            p95_remaining_pct = 0.0
+            p95_burn = float("inf")
+
+        budgets.append({
+            "slo_name": p95_target.name,
+            "slo_id": "latency_p95",
+            "target_ms": p95_target_ms,
+            "error_budget_total_pct": 100.0,
+            "error_budget_remaining_pct": p95_remaining_pct,
+            "error_budget_consumed_pct": 100.0 - p95_remaining_pct,
+            "burn_rate": p95_burn,
+        })
+
+        # Latency p99 budget
+        p99_target = targets["latency_p99"]
+        p99_target_ms = p99_target.target * 1000
+        p99_budget = p99_target_ms * 0.5
+        p99_overage = max(0, metrics["latency_p99_ms"] - p99_target_ms)
+        if p99_budget > 0:
+            p99_remaining_pct = max(0, (p99_budget - p99_overage) / p99_budget) * 100
+            p99_burn = p99_overage / p99_budget
+        else:
+            p99_remaining_pct = 0.0
+            p99_burn = float("inf")
+
+        budgets.append({
+            "slo_name": p99_target.name,
+            "slo_id": "latency_p99",
+            "target_ms": p99_target_ms,
+            "error_budget_total_pct": 100.0,
+            "error_budget_remaining_pct": p99_remaining_pct,
+            "error_budget_consumed_pct": 100.0 - p99_remaining_pct,
+            "burn_rate": p99_burn,
+        })
+
+        return {
+            "timestamp": now.isoformat(),
+            "window": {
+                "start": window_start.isoformat(),
+                "end": now.isoformat(),
+                "duration_seconds": self._window_seconds,
+            },
+            "budgets": budgets,
+        }
+
+    def get_recent_violations(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Get recent SLO violations.
+
+        Args:
+            limit: Maximum number of violations to return
+
+        Returns:
+            List of violation dictionaries
+        """
+        return [v.to_dict() for v in self._violations[-limit:]]
+
+    def reset(self) -> None:
+        """Reset all tracked metrics and violations."""
+        self._requests.clear()
+        self._violations.clear()
+        self._start_time = datetime.now(timezone.utc)
+
+
+# =============================================================================
+# Global SLO Enforcer Instance
+# =============================================================================
+
+_global_enforcer: SLOEnforcer | None = None
+
+
+def get_slo_enforcer() -> SLOEnforcer:
+    """Get or create the global SLO enforcer instance."""
+    global _global_enforcer
+    if _global_enforcer is None:
+        _global_enforcer = SLOEnforcer()
+    return _global_enforcer
+
+
+def reset_slo_enforcer() -> None:
+    """Reset the global SLO enforcer (primarily for testing)."""
+    global _global_enforcer
+    _global_enforcer = None
+
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -1386,6 +1890,7 @@ __all__ = [
     "SLOStatus",
     "SLOAlert",
     "SLOBreach",
+    "SLOViolation",
     # SLO Checks
     "get_slo_targets",
     "check_availability_slo",
@@ -1411,4 +1916,8 @@ __all__ = [
     "webhook_alert_callback",
     "create_slack_alert_callback",
     "create_notification_callback",
+    # SLO Enforcer
+    "SLOEnforcer",
+    "get_slo_enforcer",
+    "reset_slo_enforcer",
 ]

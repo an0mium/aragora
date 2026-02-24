@@ -41,16 +41,16 @@ export default function ApiExplorerPage() {
                 [DASHBOARD]
               </Link>
               <Link
-                href="/debates"
+                href="/developer"
                 className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
               >
-                [DEBATES]
+                [DEVELOPER]
               </Link>
               <Link
-                href="/settings"
+                href="/api-docs"
                 className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
               >
-                [SETTINGS]
+                [API DOCS]
               </Link>
               <BackendSelector compact />
               <ThemeToggle />
@@ -62,10 +62,11 @@ export default function ApiExplorerPage() {
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
             <h1 className="text-2xl font-mono text-acid-green mb-2">
-              API Explorer
+              Interactive API Explorer
             </h1>
             <p className="text-text-muted font-mono text-sm">
-              Browse and test all available API endpoints interactively.
+              Browse all API endpoints from the live OpenAPI spec. Filter by path, method, or tag.
+              Fill in parameters and make test requests with the &quot;Try It&quot; button.
             </p>
           </div>
 
@@ -80,7 +81,7 @@ export default function ApiExplorerPage() {
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">
-            {'>'} ARAGORA // API EXPLORER
+            {'>'} ARAGORA // INTERACTIVE API EXPLORER
           </p>
         </footer>
       </main>

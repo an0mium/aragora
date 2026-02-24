@@ -90,6 +90,11 @@ AuditSessionsHandler = _safe_import(
     "aragora.server.handlers.features.audit_sessions", "AuditSessionsHandler"
 )
 
+# Data classification handler
+DataClassificationHandler = _safe_import(
+    "aragora.server.handlers.data_classification_handler", "DataClassificationHandler"
+)
+
 # CSP report handler
 CSPReportHandler = _safe_import("aragora.server.handlers.security", "CSPReportHandler")
 
@@ -438,6 +443,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_audit_trail_handler", AuditTrailHandler),
     ("_audit_sessions_handler", AuditSessionsHandler),
     ("_csp_report_handler", CSPReportHandler),
+    ("_data_classification_handler", DataClassificationHandler),
     # Gateway
     ("_gateway_handler", GatewayHandler),
     ("_openclaw_gateway_handler", OpenClawGatewayHandler),
@@ -601,6 +607,7 @@ __all__ = [
     "AuditTrailHandler",
     "AuditSessionsHandler",
     "CSPReportHandler",
+    "DataClassificationHandler",
     # Gateway
     "GatewayHandler",
     "OpenClawGatewayHandler",

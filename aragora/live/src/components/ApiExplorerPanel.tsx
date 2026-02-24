@@ -1,188 +1,18 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
-import { API_BASE_URL } from '@/config';
+import {
+  useApiExplorer,
+  type ParsedEndpoint,
+  type HttpMethod,
+  type OpenApiSchema,
+  type OpenApiResponse,
+} from '@/hooks/useApiExplorer';
 
 // ---------------------------------------------------------------------------
-// Types
+// Shared constants
 // ---------------------------------------------------------------------------
-
-interface Endpoint {
-  path: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  summary: string;
-  description?: string;
-  auth?: boolean;
-  rateLimit?: string;
-  requestBody?: {
-    required?: boolean;
-    example?: Record<string, unknown>;
-  };
-  queryParams?: Array<{
-    name: string;
-    type: string;
-    required?: boolean;
-    description?: string;
-  }>;
-  pathParams?: Array<{
-    name: string;
-    type: string;
-    description?: string;
-  }>;
-}
-
-interface EndpointCategory {
-  name: string;
-  icon: string;
-  description: string;
-  endpoints: Endpoint[];
-}
-
-// ---------------------------------------------------------------------------
-// Endpoint Catalog (~50 most-used endpoints across 12 categories)
-// ---------------------------------------------------------------------------
-
-const API_CATALOG: EndpointCategory[] = [
-  {
-    name: 'Debates',
-    icon: '#',
-    description: 'Core debate management, forking, and history',
-    endpoints: [
-      { path: '/api/debates', method: 'GET', summary: 'List all debates', auth: true, queryParams: [{ name: 'limit', type: 'integer', description: 'Max results (1-100)' }, { name: 'offset', type: 'integer', description: 'Pagination offset' }] },
-      { path: '/api/debates', method: 'POST', summary: 'Create new debate', auth: true, rateLimit: '10/min', requestBody: { required: true, example: { topic: 'Should AI be regulated?', agents: ['claude', 'gpt4'], rounds: 3 } } },
-      { path: '/api/debates/{id}', method: 'GET', summary: 'Get debate by ID', pathParams: [{ name: 'id', type: 'string', description: 'Debate UUID' }] },
-      { path: '/api/debates/slug/{slug}', method: 'GET', summary: 'Get debate by slug', pathParams: [{ name: 'slug', type: 'string' }] },
-      { path: '/api/debates/{id}/export/{format}', method: 'GET', summary: 'Export debate', auth: true, pathParams: [{ name: 'id', type: 'string' }, { name: 'format', type: 'string', description: 'json, csv, or html' }] },
-      { path: '/api/debates/{id}/fork', method: 'POST', summary: 'Fork debate at branch point', auth: true, requestBody: { required: true, example: { branch_point: 2, modified_context: 'Alternative scenario' } } },
-      { path: '/api/debates/{id}/convergence', method: 'GET', summary: 'Get convergence metrics', pathParams: [{ name: 'id', type: 'string' }] },
-      { path: '/api/debates/{id}/citations', method: 'GET', summary: 'Get evidence citations', auth: true, pathParams: [{ name: 'id', type: 'string' }] },
-    ],
-  },
-  {
-    name: 'Batch Debates',
-    icon: '=',
-    description: 'Submit and manage batch debate operations',
-    endpoints: [
-      { path: '/api/debates/batch', method: 'POST', summary: 'Submit batch of debates', auth: true, rateLimit: '10/min', requestBody: { required: true, example: { items: [{ question: 'Should we use microservices?', agents: 'claude,gpt4', rounds: 3 }], webhook_url: 'https://example.com/callback' } } },
-      { path: '/api/debates/batch', method: 'GET', summary: 'List batch requests', auth: true, queryParams: [{ name: 'limit', type: 'integer' }, { name: 'status', type: 'string', description: 'pending, processing, completed, failed' }] },
-      { path: '/api/debates/batch/{batch_id}/status', method: 'GET', summary: 'Get batch status', auth: true, pathParams: [{ name: 'batch_id', type: 'string' }] },
-    ],
-  },
-  {
-    name: 'Agents',
-    icon: '&',
-    description: 'Agent profiles, rankings, and performance',
-    endpoints: [
-      { path: '/api/agents/available', method: 'GET', summary: 'List available agents' },
-      { path: '/api/leaderboard', method: 'GET', summary: 'Get agent rankings', queryParams: [{ name: 'limit', type: 'integer' }, { name: 'domain', type: 'string' }] },
-      { path: '/api/agent/{name}/history', method: 'GET', summary: 'Get agent match history', pathParams: [{ name: 'name', type: 'string', description: 'Agent name (e.g. claude)' }] },
-      { path: '/api/agent/{name}/consistency', method: 'GET', summary: 'Get consistency score', pathParams: [{ name: 'name', type: 'string' }] },
-      { path: '/api/agent/{name}/network', method: 'GET', summary: 'Get relationship network', pathParams: [{ name: 'name', type: 'string' }] },
-      { path: '/api/agent/compare', method: 'GET', summary: 'Compare multiple agents', queryParams: [{ name: 'agents', type: 'string', required: true, description: 'Comma-separated agent names' }] },
-    ],
-  },
-  {
-    name: 'Auth',
-    icon: '>',
-    description: 'Authentication, API keys, and user management',
-    endpoints: [
-      { path: '/api/auth/me', method: 'GET', summary: 'Get current user info', auth: true },
-      { path: '/api/auth/login', method: 'POST', summary: 'Login with credentials', requestBody: { required: true, example: { email: 'user@example.com', password: 'password' } } },
-      { path: '/api/auth/register', method: 'POST', summary: 'Register new user', requestBody: { required: true, example: { email: 'user@example.com', password: 'password', name: 'User' } } },
-      { path: '/api/auth/api-key', method: 'POST', summary: 'Generate API key', auth: true },
-      { path: '/api/auth/api-key', method: 'DELETE', summary: 'Revoke API key', auth: true },
-    ],
-  },
-  {
-    name: 'Memory',
-    icon: '=',
-    description: 'Continuum memory management across tiers',
-    endpoints: [
-      { path: '/api/memory/query', method: 'GET', summary: 'Query memory', auth: true, queryParams: [{ name: 'query', type: 'string', required: true }, { name: 'tier', type: 'string', description: 'fast, medium, slow, glacial' }, { name: 'limit', type: 'integer' }] },
-      { path: '/api/memory/store', method: 'POST', summary: 'Store memory entry', auth: true, requestBody: { required: true, example: { key: 'debate-123', content: 'Key insight from debate', tier: 'medium', ttl: 3600 } } },
-      { path: '/api/memory/stats', method: 'GET', summary: 'Memory statistics', auth: true },
-    ],
-  },
-  {
-    name: 'Knowledge',
-    icon: '?',
-    description: 'Knowledge Mound search, adapters, and federation',
-    endpoints: [
-      { path: '/api/v1/knowledge/search', method: 'GET', summary: 'Semantic knowledge search', auth: true, queryParams: [{ name: 'q', type: 'string', required: true, description: 'Search query' }, { name: 'limit', type: 'integer' }, { name: 'adapter', type: 'string' }] },
-      { path: '/api/v1/knowledge/adapters', method: 'GET', summary: 'List KM adapters', auth: true },
-      { path: '/api/v1/knowledge/stats', method: 'GET', summary: 'Knowledge store statistics', auth: true },
-      { path: '/api/v1/knowledge/entries', method: 'POST', summary: 'Store knowledge entry', auth: true, requestBody: { required: true, example: { content: 'Insight text', source: 'debate', metadata: { debate_id: 'abc-123' } } } },
-    ],
-  },
-  {
-    name: 'Billing',
-    icon: '$',
-    description: 'Usage tracking, costs, and budget management',
-    endpoints: [
-      { path: '/api/billing/usage', method: 'GET', summary: 'Get usage statistics', auth: true },
-      { path: '/api/v1/billing/costs', method: 'GET', summary: 'Get cost breakdown', auth: true, queryParams: [{ name: 'time_range', type: 'string', description: '7d, 30d, 90d' }] },
-      { path: '/api/v1/billing/budget', method: 'GET', summary: 'Get budget status', auth: true },
-      { path: '/api/v1/billing/budget', method: 'PUT', summary: 'Update budget limits', auth: true, requestBody: { required: true, example: { monthly_limit_usd: 100, alert_threshold: 0.8 } } },
-    ],
-  },
-  {
-    name: 'Analytics',
-    icon: '~',
-    description: 'Debate metrics, trends, and performance analytics',
-    endpoints: [
-      { path: '/api/v1/analytics/debates/overview', method: 'GET', summary: 'Debate overview metrics', queryParams: [{ name: 'time_range', type: 'string', description: '7d, 30d, 90d' }] },
-      { path: '/api/v1/analytics/debates/trends', method: 'GET', summary: 'Debate activity trends', queryParams: [{ name: 'time_range', type: 'string' }, { name: 'granularity', type: 'string', description: 'daily, weekly, monthly' }] },
-      { path: '/api/v1/analytics/agents/leaderboard', method: 'GET', summary: 'Agent leaderboard', queryParams: [{ name: 'limit', type: 'integer' }] },
-      { path: '/api/v1/analytics/usage/tokens', method: 'GET', summary: 'Token usage analytics', auth: true, queryParams: [{ name: 'time_range', type: 'string' }] },
-      { path: '/api/v1/analytics/usage/costs', method: 'GET', summary: 'Cost analytics', auth: true, queryParams: [{ name: 'time_range', type: 'string' }] },
-      { path: '/api/dashboard', method: 'GET', summary: 'Dashboard metrics' },
-    ],
-  },
-  {
-    name: 'Compliance',
-    icon: '\u2713',
-    description: 'SOC 2 controls, GDPR, and audit trails',
-    endpoints: [
-      { path: '/api/v1/compliance/status', method: 'GET', summary: 'Compliance status overview', auth: true },
-      { path: '/api/v1/compliance/controls', method: 'GET', summary: 'List compliance controls', auth: true, queryParams: [{ name: 'framework', type: 'string', description: 'soc2, gdpr, hipaa' }] },
-      { path: '/api/v1/compliance/audit-log', method: 'GET', summary: 'Get audit log entries', auth: true, queryParams: [{ name: 'limit', type: 'integer' }, { name: 'action', type: 'string' }] },
-    ],
-  },
-  {
-    name: 'Control Plane',
-    icon: '\u25CE',
-    description: 'Agent registry, scheduling, and policy governance',
-    endpoints: [
-      { path: '/api/v1/control-plane/agents', method: 'GET', summary: 'List registered agents', auth: true },
-      { path: '/api/v1/control-plane/health', method: 'GET', summary: 'Control plane health', auth: true },
-      { path: '/api/v1/control-plane/policies', method: 'GET', summary: 'List active policies', auth: true },
-      { path: '/api/v1/control-plane/policies', method: 'POST', summary: 'Create policy', auth: true, requestBody: { required: true, example: { name: 'rate-limit-policy', type: 'rate_limit', config: { max_requests: 100, window_seconds: 60 } } } },
-    ],
-  },
-  {
-    name: 'Workflows',
-    icon: '>',
-    description: 'DAG-based workflow automation',
-    endpoints: [
-      { path: '/api/v1/workflows', method: 'GET', summary: 'List workflows', auth: true },
-      { path: '/api/v1/workflows', method: 'POST', summary: 'Create workflow', auth: true, requestBody: { required: true, example: { name: 'review-pipeline', nodes: [{ type: 'debate', config: { topic: 'Review code change' } }] } } },
-      { path: '/api/v1/workflows/{id}', method: 'GET', summary: 'Get workflow details', auth: true, pathParams: [{ name: 'id', type: 'string' }] },
-      { path: '/api/v1/workflows/{id}/execute', method: 'POST', summary: 'Execute workflow', auth: true, pathParams: [{ name: 'id', type: 'string' }] },
-    ],
-  },
-  {
-    name: 'System',
-    icon: '!',
-    description: 'Health checks and system status',
-    endpoints: [
-      { path: '/api/health', method: 'GET', summary: 'Health check' },
-      { path: '/api/health/detailed', method: 'GET', summary: 'Detailed health status', auth: true },
-      { path: '/api/health/ws', method: 'GET', summary: 'WebSocket health' },
-      { path: '/api/status', method: 'GET', summary: 'System status' },
-    ],
-  },
-];
 
 const METHOD_COLORS: Record<string, string> = {
   GET: 'text-acid-cyan bg-acid-cyan/10 border-acid-cyan/30',
@@ -190,6 +20,8 @@ const METHOD_COLORS: Record<string, string> = {
   PUT: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
   DELETE: 'text-red-400 bg-red-400/10 border-red-400/30',
   PATCH: 'text-purple-400 bg-purple-400/10 border-purple-400/30',
+  HEAD: 'text-text-muted bg-text-muted/10 border-text-muted/30',
+  OPTIONS: 'text-text-muted bg-text-muted/10 border-text-muted/30',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -204,35 +36,207 @@ function getStatusColor(status: number): string {
   return STATUS_COLORS[key] || 'text-text-muted';
 }
 
+const METHOD_LIST: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+
 // ---------------------------------------------------------------------------
-// TryItForm -- request builder with headers, auth, response display
+// SchemaViewer -- renders OpenAPI schema as a readable tree
 // ---------------------------------------------------------------------------
 
-interface TryItFormProps {
-  endpoint: Endpoint;
-  baseUrl: string;
+function SchemaViewer({
+  schema,
+  resolveRef,
+  getTypeString,
+  depth = 0,
+}: {
+  schema: OpenApiSchema | undefined;
+  resolveRef: (s: OpenApiSchema | undefined) => OpenApiSchema | undefined;
+  getTypeString: (s: OpenApiSchema | undefined) => string;
+  depth?: number;
+}) {
+  if (!schema || depth > 4) return null;
+
+  const resolved = resolveRef(schema) || schema;
+
+  if (resolved.type === 'object' && resolved.properties) {
+    return (
+      <div className="space-y-1">
+        {Object.entries(resolved.properties).map(([key, propSchema]) => {
+          const isRequired = resolved.required?.includes(key);
+          const prop = resolveRef(propSchema) || propSchema;
+          return (
+            <div key={key} style={{ paddingLeft: depth * 16 }}>
+              <div className="flex items-baseline gap-2">
+                <span className="text-acid-cyan font-mono text-xs">{key}</span>
+                {isRequired && <span className="text-red-400 text-[10px]">*</span>}
+                <span className="text-text-muted font-mono text-[10px]">
+                  {getTypeString(propSchema)}
+                </span>
+              </div>
+              {prop.description && (
+                <p className="text-[10px] text-text-muted/70 font-mono" style={{ paddingLeft: 8 }}>
+                  {prop.description}
+                </p>
+              )}
+              {prop.type === 'object' && prop.properties && (
+                <SchemaViewer
+                  schema={prop}
+                  resolveRef={resolveRef}
+                  getTypeString={getTypeString}
+                  depth={depth + 1}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (resolved.type === 'array' && resolved.items) {
+    return (
+      <div style={{ paddingLeft: depth * 16 }}>
+        <span className="text-text-muted font-mono text-[10px]">
+          items: {getTypeString(resolved.items)}
+        </span>
+        {(resolveRef(resolved.items) || resolved.items)?.type === 'object' && (
+          <SchemaViewer
+            schema={resolved.items}
+            resolveRef={resolveRef}
+            getTypeString={getTypeString}
+            depth={depth + 1}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ paddingLeft: depth * 16 }}>
+      <span className="text-text-muted font-mono text-[10px]">{getTypeString(resolved)}</span>
+      {resolved.description && (
+        <p className="text-[10px] text-text-muted/70 font-mono">{resolved.description}</p>
+      )}
+    </div>
+  );
 }
 
-function TryItForm({ endpoint, baseUrl }: TryItFormProps) {
-  const [pathValues, setPathValues] = useState<Record<string, string>>({});
-  const [queryValues, setQueryValues] = useState<Record<string, string>>({});
-  const [bodyValue, setBodyValue] = useState(
-    endpoint.requestBody?.example ? JSON.stringify(endpoint.requestBody.example, null, 2) : ''
+// ---------------------------------------------------------------------------
+// ResponseSchemaSection -- shows response schemas for an endpoint
+// ---------------------------------------------------------------------------
+
+function ResponseSchemaSection({
+  responses,
+  resolveRef,
+  getTypeString,
+}: {
+  responses: Record<string, OpenApiResponse>;
+  resolveRef: (s: OpenApiSchema | undefined) => OpenApiSchema | undefined;
+  getTypeString: (s: OpenApiSchema | undefined) => string;
+}) {
+  const entries = Object.entries(responses);
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      {entries.map(([code, resp]) => {
+        const schema = resp.content?.['application/json']?.schema;
+        return (
+          <div key={code} className="border border-acid-green/15 bg-black/20 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`font-mono text-xs font-bold ${getStatusColor(parseInt(code, 10) || 0)}`}>
+                {code}
+              </span>
+              <span className="text-xs font-mono text-text-muted">{resp.description}</span>
+            </div>
+            {schema && (
+              <div className="pl-2 border-l border-acid-green/20">
+                <SchemaViewer
+                  schema={schema}
+                  resolveRef={resolveRef}
+                  getTypeString={getTypeString}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
-  const [customHeaders, setCustomHeaders] = useState<Array<{ key: string; value: string }>>([]);
-  const [response, setResponse] = useState<{
+}
+
+// ---------------------------------------------------------------------------
+// RequestHistoryBar -- compact history display
+// ---------------------------------------------------------------------------
+
+function RequestHistoryBar({
+  history,
+  onClear,
+}: {
+  history: Array<{
+    id: string;
+    timestamp: number;
+    method: HttpMethod;
+    url: string;
     status: number;
     statusText: string;
-    headers: Record<string, string>;
-    data: unknown;
     elapsed: number;
-  } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  }>;
+  onClear: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (history.length === 0) return null;
+
+  return (
+    <div className="border border-acid-green/20 bg-surface/30">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-mono text-text-muted hover:text-text transition-colors"
+      >
+        <span>[{expanded ? '-' : '+'}] REQUEST HISTORY ({history.length})</span>
+        {expanded && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onClear(); }}
+            className="text-red-400/70 hover:text-red-400 text-[10px]"
+          >
+            CLEAR
+          </button>
+        )}
+      </button>
+      {expanded && (
+        <div className="px-3 pb-2 max-h-48 overflow-y-auto space-y-1">
+          {history.map(entry => (
+            <div key={entry.id} className="flex items-center gap-2 text-[10px] font-mono">
+              <span className={`px-1 border ${METHOD_COLORS[entry.method]} shrink-0`}>
+                {entry.method}
+              </span>
+              <span className={`font-bold ${getStatusColor(entry.status)}`}>{entry.status}</span>
+              <span className="text-text truncate flex-1">{entry.url}</span>
+              <span className="text-text-muted shrink-0">{entry.elapsed}ms</span>
+              <span className="text-text-muted shrink-0">
+                {new Date(entry.timestamp).toLocaleTimeString()}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ApiExplorerPanel -- main exported component
+// ---------------------------------------------------------------------------
+
+export function ApiExplorerPanel() {
+  const explorer = useApiExplorer();
   const [showHeaders, setShowHeaders] = useState(false);
   const [showResponseHeaders, setShowResponseHeaders] = useState(false);
+  const [activeTab, setActiveTab] = useState<'try-it' | 'schema'>('try-it');
 
-  // Auto-detect auth token from localStorage
+  // Auth token display
   const authToken = useMemo(() => {
     if (typeof window === 'undefined') return null;
     const stored = localStorage.getItem('aragora_tokens');
@@ -244,468 +248,612 @@ function TryItForm({ endpoint, baseUrl }: TryItFormProps) {
     }
   }, []);
 
-  // Reset form when endpoint changes
-  useEffect(() => {
-    setPathValues({});
-    setQueryValues({});
-    setBodyValue(
-      endpoint.requestBody?.example ? JSON.stringify(endpoint.requestBody.example, null, 2) : ''
+  // Loading state
+  if (explorer.specLoading) {
+    return (
+      <div className="border border-acid-green/30 bg-surface/30 p-8 text-center">
+        <div className="text-acid-green font-mono text-sm animate-pulse">
+          Loading OpenAPI specification...
+        </div>
+        <p className="text-xs text-text-muted font-mono mt-2">
+          Fetching from /api/openapi.json
+        </p>
+      </div>
     );
-    setResponse(null);
-    setError(null);
-  }, [endpoint]);
+  }
 
-  const buildUrl = useCallback(() => {
-    let url = `${baseUrl}${endpoint.path}`;
+  // Error state with fallback note
+  if (explorer.specError && !explorer.spec) {
+    return (
+      <div className="border border-acid-green/30 bg-surface/30 p-8 text-center space-y-4">
+        <div className="text-yellow-400 font-mono text-sm">
+          Could not load live OpenAPI spec
+        </div>
+        <p className="text-xs text-text-muted font-mono">
+          {explorer.specError}
+        </p>
+        <button
+          onClick={explorer.reloadSpec}
+          className="px-4 py-2 border border-acid-green/50 text-acid-green font-mono text-xs hover:bg-acid-green/10 transition-colors"
+        >
+          RETRY
+        </button>
+      </div>
+    );
+  }
 
-    for (const [key, value] of Object.entries(pathValues)) {
-      url = url.replace(`{${key}}`, encodeURIComponent(value));
-    }
-
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(queryValues)) {
-      if (value) params.append(key, value);
-    }
-    const queryString = params.toString();
-    if (queryString) url += `?${queryString}`;
-
-    return url;
-  }, [baseUrl, endpoint.path, pathValues, queryValues]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setResponse(null);
-
-    const start = performance.now();
-
-    try {
-      const url = buildUrl();
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      // Auto-inject auth token
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
-      }
-
-      // Add custom headers
-      for (const h of customHeaders) {
-        if (h.key.trim()) {
-          headers[h.key.trim()] = h.value;
-        }
-      }
-
-      const options: RequestInit = {
-        method: endpoint.method,
-        headers,
-      };
-
-      if (endpoint.method !== 'GET' && bodyValue) {
-        options.body = bodyValue;
-      }
-
-      const res = await fetch(url, options);
-      const elapsed = Math.round(performance.now() - start);
-      const data = await res.json().catch(() => res.text());
-
-      // Collect response headers
-      const resHeaders: Record<string, string> = {};
-      res.headers.forEach((value, key) => {
-        resHeaders[key] = value;
-      });
-
-      setResponse({ status: res.status, statusText: res.statusText, headers: resHeaders, data, elapsed });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Request failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addHeader = () => {
-    setCustomHeaders([...customHeaders, { key: '', value: '' }]);
-  };
-
-  const removeHeader = (idx: number) => {
-    setCustomHeaders(customHeaders.filter((_, i) => i !== idx));
-  };
-
-  const updateHeader = (idx: number, field: 'key' | 'value', val: string) => {
-    const next = [...customHeaders];
-    next[idx] = { ...next[idx], [field]: val };
-    setCustomHeaders(next);
-  };
+  const ep = explorer.selectedEndpoint;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Path Parameters */}
-      {endpoint.pathParams && endpoint.pathParams.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">Path Parameters</h4>
-          {endpoint.pathParams.map(param => (
-            <div key={param.name} className="flex items-center gap-2">
-              <label className="text-sm font-mono w-28 text-acid-cyan shrink-0">{param.name}:</label>
-              <input
-                type="text"
-                value={pathValues[param.name] || ''}
-                onChange={e => setPathValues(p => ({ ...p, [param.name]: e.target.value }))}
-                placeholder={param.description || param.type}
-                className="flex-1 bg-black/30 border border-acid-green/30 px-2 py-1.5 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Query Parameters */}
-      {endpoint.queryParams && endpoint.queryParams.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">Query Parameters</h4>
-          {endpoint.queryParams.map(param => (
-            <div key={param.name} className="flex items-center gap-2">
-              <label className="text-sm font-mono w-28 text-acid-cyan shrink-0">
-                {param.name}{param.required && <span className="text-red-400">*</span>}:
-              </label>
-              <input
-                type="text"
-                value={queryValues[param.name] || ''}
-                onChange={e => setQueryValues(p => ({ ...p, [param.name]: e.target.value }))}
-                placeholder={param.description || param.type}
-                className="flex-1 bg-black/30 border border-acid-green/30 px-2 py-1.5 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Request Body */}
-      {endpoint.method !== 'GET' && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
-            Request Body {endpoint.requestBody?.required && <span className="text-red-400">*</span>}
-          </h4>
-          <textarea
-            value={bodyValue}
-            onChange={e => setBodyValue(e.target.value)}
-            rows={8}
-            className="w-full bg-black/30 border border-acid-green/30 px-3 py-2 text-sm font-mono text-acid-green focus:border-acid-green focus:outline-none resize-y"
-            placeholder="JSON request body"
-            spellCheck={false}
-          />
-        </div>
-      )}
-
-      {/* Headers Section */}
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={() => setShowHeaders(!showHeaders)}
-          className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-        >
-          [{showHeaders ? '-' : '+'}] HEADERS
-          {authToken && <span className="text-acid-green/60 ml-2">(auth token detected)</span>}
-        </button>
-
-        {showHeaders && (
-          <div className="space-y-2 border border-acid-green/20 p-3 bg-black/20">
-            {/* Auto-injected auth */}
-            {authToken && (
-              <div className="flex items-center gap-2 opacity-60">
-                <span className="text-xs font-mono w-28 text-acid-green shrink-0">Authorization:</span>
-                <span className="text-xs font-mono text-text truncate">Bearer {authToken.slice(0, 20)}...</span>
-                <span className="text-xs font-mono text-acid-green/50 ml-auto">(auto)</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2 opacity-60">
-              <span className="text-xs font-mono w-28 text-acid-green shrink-0">Content-Type:</span>
-              <span className="text-xs font-mono text-text">application/json</span>
-              <span className="text-xs font-mono text-acid-green/50 ml-auto">(auto)</span>
-            </div>
-
-            {/* Custom headers */}
-            {customHeaders.map((h, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={h.key}
-                  onChange={e => updateHeader(idx, 'key', e.target.value)}
-                  placeholder="Header name"
-                  className="w-28 bg-black/30 border border-acid-green/30 px-2 py-1 text-xs font-mono text-text focus:border-acid-green focus:outline-none shrink-0"
-                />
-                <input
-                  type="text"
-                  value={h.value}
-                  onChange={e => updateHeader(idx, 'value', e.target.value)}
-                  placeholder="Value"
-                  className="flex-1 bg-black/30 border border-acid-green/30 px-2 py-1 text-xs font-mono text-text focus:border-acid-green focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeHeader(idx)}
-                  className="text-red-400 hover:text-red-300 text-xs font-mono px-1"
-                >
-                  x
-                </button>
-              </div>
-            ))}
-
-            <button
-              type="button"
-              onClick={addHeader}
-              className="text-xs font-mono text-acid-green/70 hover:text-acid-green transition-colors"
-            >
-              + Add Header
-            </button>
-          </div>
+    <div className="space-y-4">
+      {/* Stats bar */}
+      <div className="flex items-center gap-4 flex-wrap text-xs font-mono text-text-muted">
+        <span>
+          {explorer.spec?.info.title || 'Aragora API'} v{explorer.spec?.info.version || '?'}
+        </span>
+        <span>|</span>
+        <span>{explorer.totalCount} endpoints</span>
+        <span>|</span>
+        <span>{explorer.allTags.length} tags</span>
+        {explorer.spec?.openapi && (
+          <>
+            <span>|</span>
+            <span>OpenAPI {explorer.spec.openapi}</span>
+          </>
         )}
       </div>
 
-      {/* URL Preview */}
-      <div className="p-2 bg-black/30 border border-acid-green/20">
-        <span className="text-xs font-mono text-text-muted">URL: </span>
-        <code className="text-xs font-mono text-acid-cyan break-all">{buildUrl()}</code>
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* ---- Left Sidebar: Filters + Endpoint Tree ---- */}
+        <div className="lg:col-span-4 space-y-4">
+          {/* Search + Filters */}
+          <div className="border border-acid-green/30 bg-surface/30 p-3 space-y-3">
+            {/* Search box */}
+            <div className="relative">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-acid-green/50 font-mono text-sm">
+                /
+              </span>
+              <input
+                type="text"
+                value={explorer.searchQuery}
+                onChange={e => explorer.setSearchQuery(e.target.value)}
+                placeholder="Search endpoints..."
+                className="w-full bg-black/30 border border-acid-green/30 pl-6 pr-3 py-2 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+              />
+            </div>
 
-      {/* Send Button */}
-      <button
-        type="submit"
-        disabled={loading}
-        className="px-6 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors disabled:opacity-50"
-      >
-        {loading ? 'SENDING...' : `SEND ${endpoint.method}`}
-      </button>
-
-      {/* Error */}
-      {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/30">
-          <span className="text-sm font-mono text-red-400">{error}</span>
-        </div>
-      )}
-
-      {/* Response */}
-      {response && (
-        <div className="space-y-3 border-t border-acid-green/20 pt-4">
-          {/* Status line */}
-          <div className="flex items-center gap-4 font-mono text-sm">
-            <span className="text-text-muted">Status:</span>
-            <span className={`font-bold ${getStatusColor(response.status)}`}>
-              {response.status} {response.statusText}
-            </span>
-            <span className="text-text-muted text-xs ml-auto">{response.elapsed}ms</span>
-          </div>
-
-          {/* Response Headers toggle */}
-          <button
-            type="button"
-            onClick={() => setShowResponseHeaders(!showResponseHeaders)}
-            className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
-          >
-            [{showResponseHeaders ? '-' : '+'}] RESPONSE HEADERS ({Object.keys(response.headers).length})
-          </button>
-
-          {showResponseHeaders && (
-            <div className="bg-black/30 border border-acid-green/20 p-3 max-h-40 overflow-y-auto">
-              {Object.entries(response.headers).map(([key, value]) => (
-                <div key={key} className="text-xs font-mono">
-                  <span className="text-acid-cyan">{key}</span>
-                  <span className="text-text-muted">: </span>
-                  <span className="text-text">{value}</span>
-                </div>
+            {/* Method filter pills */}
+            <div className="flex flex-wrap gap-1">
+              <button
+                onClick={() => explorer.setMethodFilter(null)}
+                className={`px-2 py-0.5 text-[10px] font-mono border transition-colors ${
+                  !explorer.methodFilter
+                    ? 'border-acid-green bg-acid-green/20 text-acid-green'
+                    : 'border-acid-green/20 text-text-muted hover:text-text'
+                }`}
+              >
+                ALL
+              </button>
+              {METHOD_LIST.map(m => (
+                <button
+                  key={m}
+                  onClick={() => explorer.setMethodFilter(explorer.methodFilter === m ? null : m)}
+                  className={`px-2 py-0.5 text-[10px] font-mono border transition-colors ${
+                    explorer.methodFilter === m
+                      ? METHOD_COLORS[m]
+                      : 'border-acid-green/20 text-text-muted hover:text-text'
+                  }`}
+                >
+                  {m}
+                </button>
               ))}
             </div>
-          )}
 
-          {/* Response Body */}
-          <div>
-            <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider mb-2">Response Body</h4>
-            <pre className="p-3 bg-black/30 border border-acid-green/20 overflow-x-auto text-xs font-mono text-acid-green max-h-80 overflow-y-auto whitespace-pre-wrap">
-              {typeof response.data === 'string'
-                ? response.data
-                : JSON.stringify(response.data, null, 2)}
-            </pre>
-          </div>
-        </div>
-      )}
-    </form>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ApiExplorerPanel -- main exported component
-// ---------------------------------------------------------------------------
-
-export function ApiExplorerPanel() {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [baseUrl, setBaseUrl] = useState(
-    typeof window !== 'undefined' ? window.location.origin : API_BASE_URL
-  );
-
-  const filteredCategories = useMemo(() => {
-    if (!searchQuery) return API_CATALOG;
-
-    const query = searchQuery.toLowerCase();
-    return API_CATALOG.map(category => ({
-      ...category,
-      endpoints: category.endpoints.filter(
-        ep =>
-          ep.path.toLowerCase().includes(query) ||
-          ep.summary.toLowerCase().includes(query) ||
-          ep.method.toLowerCase().includes(query) ||
-          ep.description?.toLowerCase().includes(query)
-      ),
-    })).filter(cat => cat.endpoints.length > 0);
-  }, [searchQuery]);
-
-  const totalEndpoints = API_CATALOG.reduce((sum, cat) => sum + cat.endpoints.length, 0);
-  const filteredCount = filteredCategories.reduce((sum, cat) => sum + cat.endpoints.length, 0);
-
-  const selectEndpoint = (endpoint: Endpoint, categoryName: string) => {
-    setSelectedEndpoint(endpoint);
-    setSelectedCategory(categoryName);
-  };
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      {/* ── Left Sidebar: Category Tree ────────────────────────────────── */}
-      <div className="lg:col-span-4 space-y-4">
-        {/* Search */}
-        <div className="border border-acid-green/30 bg-surface/30 p-3">
-          <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-acid-green/50 font-mono text-sm">
-              /
-            </span>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search endpoints..."
-              className="w-full bg-black/30 border border-acid-green/30 pl-6 pr-3 py-2 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
-            />
-          </div>
-          <p className="text-xs font-mono text-text-muted mt-2">
-            {searchQuery ? `${filteredCount} of ${totalEndpoints}` : `${totalEndpoints}`} endpoints
-          </p>
-        </div>
-
-        {/* Category Tree */}
-        <div className="border border-acid-green/30 bg-surface/30 p-3 space-y-1 max-h-[calc(100vh-16rem)] overflow-y-auto">
-          {filteredCategories.map(category => (
-            <CollapsibleSection
-              key={category.name}
-              id={`api-cat-${category.name.toLowerCase().replace(/\s+/g, '-')}`}
-              title={`${category.icon} ${category.name}`}
-              defaultOpen={selectedCategory === category.name || !!searchQuery}
+            {/* Tag filter dropdown */}
+            <select
+              value={explorer.tagFilter || ''}
+              onChange={e => explorer.setTagFilter(e.target.value || null)}
+              className="w-full bg-black/30 border border-acid-green/30 px-2 py-1.5 text-xs font-mono text-text focus:border-acid-green focus:outline-none"
             >
-              <p className="text-xs font-mono text-text-muted mb-2 px-1">
-                {category.description}
-              </p>
-              <div className="space-y-0.5">
-                {category.endpoints.map(endpoint => {
-                  const isSelected =
-                    selectedEndpoint?.path === endpoint.path &&
-                    selectedEndpoint?.method === endpoint.method;
-                  return (
+              <option value="">All tags ({explorer.allTags.length})</option>
+              {explorer.allTags.map(tag => (
+                <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
+
+            {/* Count */}
+            <p className="text-xs font-mono text-text-muted">
+              {explorer.searchQuery || explorer.methodFilter || explorer.tagFilter
+                ? `${explorer.filteredCount} of ${explorer.totalCount}`
+                : `${explorer.totalCount}`} endpoints
+            </p>
+          </div>
+
+          {/* Endpoint tree */}
+          <div className="border border-acid-green/30 bg-surface/30 p-3 space-y-1 max-h-[calc(100vh-24rem)] overflow-y-auto">
+            {explorer.filteredGroups.map(group => (
+              <CollapsibleSection
+                key={group.tag}
+                id={`api-cat-${group.tag.toLowerCase().replace(/\s+/g, '-')}`}
+                title={`${group.tag} (${group.endpoints.length})`}
+                defaultOpen={
+                  (ep && ep.tag === group.tag) ||
+                  !!(explorer.searchQuery || explorer.tagFilter)
+                }
+              >
+                <div className="space-y-0.5">
+                  {group.endpoints.map(endpoint => {
+                    const isSelected =
+                      ep?.path === endpoint.path && ep?.method === endpoint.method;
+                    return (
+                      <button
+                        key={`${endpoint.method}-${endpoint.path}`}
+                        onClick={() => explorer.selectEndpoint(endpoint)}
+                        className={`w-full text-left px-2 py-1.5 transition-colors ${
+                          isSelected
+                            ? 'bg-acid-green/15 border-l-2 border-acid-green'
+                            : 'hover:bg-acid-green/5 border-l-2 border-transparent'
+                        } ${endpoint.deprecated ? 'opacity-50' : ''}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[10px] font-mono font-bold px-1 py-0.5 border ${
+                              METHOD_COLORS[endpoint.method] || 'border-text-muted/30 text-text-muted'
+                            } shrink-0 w-12 text-center`}
+                          >
+                            {endpoint.method}
+                          </span>
+                          <span className="text-xs font-mono text-text truncate">
+                            {endpoint.path}
+                          </span>
+                          {endpoint.deprecated && (
+                            <span className="text-[9px] font-mono text-yellow-400 border border-yellow-400/30 px-1">
+                              DEP
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-text-muted mt-0.5 truncate pl-14">
+                          {endpoint.summary}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </CollapsibleSection>
+            ))}
+
+            {explorer.filteredGroups.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-text-muted font-mono text-sm">No endpoints match your filters</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ---- Main Panel: Endpoint Detail + Try It ---- */}
+        <div className="lg:col-span-8 space-y-4">
+          {ep ? (
+            <>
+              {/* Endpoint header */}
+              <div className="border border-acid-green/30 bg-surface/30 p-5">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
+                  <span
+                    className={`text-sm font-mono font-bold px-2 py-1 border ${
+                      METHOD_COLORS[ep.method] || ''
+                    }`}
+                  >
+                    {ep.method}
+                  </span>
+                  <code className="text-base font-mono text-acid-cyan break-all">
+                    {ep.path}
+                  </code>
+                  {ep.deprecated && (
+                    <span className="text-xs font-mono text-yellow-400 border border-yellow-400/30 px-1.5 py-0.5">
+                      DEPRECATED
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-lg font-mono text-acid-green">{ep.summary}</h2>
+                {ep.description && (
+                  <p className="text-sm text-text-muted mt-1 font-mono">{ep.description}</p>
+                )}
+                <div className="flex gap-4 mt-2 text-xs font-mono flex-wrap">
+                  {ep.requiresAuth && (
+                    <span className="text-yellow-400 border border-yellow-400/30 px-1.5 py-0.5">
+                      AUTH REQUIRED
+                    </span>
+                  )}
+                  {ep.operation.operationId && (
+                    <span className="text-text-muted border border-text-muted/30 px-1.5 py-0.5">
+                      {ep.operation.operationId}
+                    </span>
+                  )}
+                  <span className="text-text-muted border border-text-muted/30 px-1.5 py-0.5">
+                    {ep.tag}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-0 border-b border-acid-green/30">
+                <button
+                  onClick={() => setActiveTab('try-it')}
+                  className={`px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
+                    activeTab === 'try-it'
+                      ? 'border-acid-green text-acid-green'
+                      : 'border-transparent text-text-muted hover:text-text'
+                  }`}
+                >
+                  TRY IT
+                </button>
+                <button
+                  onClick={() => setActiveTab('schema')}
+                  className={`px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
+                    activeTab === 'schema'
+                      ? 'border-acid-green text-acid-green'
+                      : 'border-transparent text-text-muted hover:text-text'
+                  }`}
+                >
+                  SCHEMA
+                </button>
+              </div>
+
+              {/* Tab content */}
+              {activeTab === 'try-it' && (
+                <div className="border border-acid-green/30 bg-surface/30 p-5 space-y-5">
+                  {/* Base URL */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                      Base URL
+                    </label>
+                    <input
+                      type="text"
+                      value={explorer.baseUrl}
+                      onChange={e => explorer.setBaseUrl(e.target.value)}
+                      className="w-full bg-black/30 border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Path Parameters */}
+                  {ep.pathParams.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                        Path Parameters
+                      </h4>
+                      {ep.pathParams.map(param => (
+                        <div key={param.name} className="flex items-center gap-2">
+                          <label className="text-sm font-mono w-32 text-acid-cyan shrink-0">
+                            {param.name}
+                            {param.required && <span className="text-red-400">*</span>}:
+                          </label>
+                          <input
+                            type="text"
+                            value={explorer.pathValues[param.name] || ''}
+                            onChange={e => explorer.setPathValue(param.name, e.target.value)}
+                            placeholder={param.description || param.schema?.type || 'string'}
+                            className="flex-1 bg-black/30 border border-acid-green/30 px-2 py-1.5 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Query Parameters */}
+                  {ep.queryParams.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                        Query Parameters
+                      </h4>
+                      {ep.queryParams.map(param => (
+                        <div key={param.name} className="flex items-center gap-2">
+                          <label className="text-sm font-mono w-32 text-acid-cyan shrink-0">
+                            {param.name}
+                            {param.required && <span className="text-red-400">*</span>}:
+                          </label>
+                          <input
+                            type="text"
+                            value={explorer.queryValues[param.name] || ''}
+                            onChange={e => explorer.setQueryValue(param.name, e.target.value)}
+                            placeholder={param.description || param.schema?.type || 'string'}
+                            className="flex-1 bg-black/30 border border-acid-green/30 px-2 py-1.5 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                          />
+                          {param.schema?.enum && (
+                            <span className="text-[10px] font-mono text-text-muted shrink-0">
+                              [{param.schema.enum.slice(0, 4).join(', ')}
+                              {param.schema.enum.length > 4 ? '...' : ''}]
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Request Body */}
+                  {ep.method !== 'GET' && ep.method !== 'HEAD' && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                        Request Body
+                        {ep.requestBody?.required && (
+                          <span className="text-red-400 ml-1">*</span>
+                        )}
+                      </h4>
+                      <textarea
+                        value={explorer.bodyValue}
+                        onChange={e => explorer.setBodyValue(e.target.value)}
+                        rows={10}
+                        className="w-full bg-black/30 border border-acid-green/30 px-3 py-2 text-sm font-mono text-acid-green focus:border-acid-green focus:outline-none resize-y"
+                        placeholder="JSON request body"
+                        spellCheck={false}
+                      />
+                    </div>
+                  )}
+
+                  {/* Headers */}
+                  <div className="space-y-2">
                     <button
-                      key={`${endpoint.method}-${endpoint.path}`}
-                      onClick={() => selectEndpoint(endpoint, category.name)}
-                      className={`w-full text-left px-2 py-1.5 transition-colors ${
-                        isSelected
-                          ? 'bg-acid-green/15 border-l-2 border-acid-green'
-                          : 'hover:bg-acid-green/5 border-l-2 border-transparent'
-                      }`}
+                      type="button"
+                      onClick={() => setShowHeaders(!showHeaders)}
+                      className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
                     >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-[10px] font-mono font-bold px-1 py-0.5 border ${METHOD_COLORS[endpoint.method]} shrink-0 w-12 text-center`}
+                      [{showHeaders ? '-' : '+'}] HEADERS
+                      {authToken && (
+                        <span className="text-acid-green/60 ml-2">(auth token detected)</span>
+                      )}
+                    </button>
+
+                    {showHeaders && (
+                      <div className="space-y-2 border border-acid-green/20 p-3 bg-black/20">
+                        {authToken && (
+                          <div className="flex items-center gap-2 opacity-60">
+                            <span className="text-xs font-mono w-28 text-acid-green shrink-0">
+                              Authorization:
+                            </span>
+                            <span className="text-xs font-mono text-text truncate">
+                              Bearer {authToken.slice(0, 20)}...
+                            </span>
+                            <span className="text-xs font-mono text-acid-green/50 ml-auto">
+                              (auto)
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 opacity-60">
+                          <span className="text-xs font-mono w-28 text-acid-green shrink-0">
+                            Content-Type:
+                          </span>
+                          <span className="text-xs font-mono text-text">application/json</span>
+                          <span className="text-xs font-mono text-acid-green/50 ml-auto">
+                            (auto)
+                          </span>
+                        </div>
+
+                        {explorer.customHeaders.map((h, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={h.key}
+                              onChange={e => explorer.updateHeader(idx, 'key', e.target.value)}
+                              placeholder="Header name"
+                              className="w-28 bg-black/30 border border-acid-green/30 px-2 py-1 text-xs font-mono text-text focus:border-acid-green focus:outline-none shrink-0"
+                            />
+                            <input
+                              type="text"
+                              value={h.value}
+                              onChange={e => explorer.updateHeader(idx, 'value', e.target.value)}
+                              placeholder="Value"
+                              className="flex-1 bg-black/30 border border-acid-green/30 px-2 py-1 text-xs font-mono text-text focus:border-acid-green focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => explorer.removeHeader(idx)}
+                              className="text-red-400 hover:text-red-300 text-xs font-mono px-1"
+                            >
+                              x
+                            </button>
+                          </div>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={explorer.addHeader}
+                          className="text-xs font-mono text-acid-green/70 hover:text-acid-green transition-colors"
                         >
-                          {endpoint.method}
+                          + Add Header
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* URL Preview */}
+                  <div className="p-2 bg-black/30 border border-acid-green/20">
+                    <span className="text-xs font-mono text-text-muted">URL: </span>
+                    <code className="text-xs font-mono text-acid-cyan break-all">
+                      {explorer.builtUrl}
+                    </code>
+                  </div>
+
+                  {/* Send button */}
+                  <button
+                    type="button"
+                    onClick={explorer.sendRequest}
+                    disabled={explorer.requestLoading}
+                    className="px-6 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+                  >
+                    {explorer.requestLoading ? 'SENDING...' : `TRY IT - ${ep.method}`}
+                  </button>
+
+                  {/* Error */}
+                  {explorer.requestError && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/30">
+                      <span className="text-sm font-mono text-red-400">
+                        {explorer.requestError}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Response */}
+                  {explorer.response && (
+                    <div className="space-y-3 border-t border-acid-green/20 pt-4">
+                      {/* Status line */}
+                      <div className="flex items-center gap-4 font-mono text-sm">
+                        <span className="text-text-muted">Status:</span>
+                        <span
+                          className={`font-bold ${getStatusColor(explorer.response.status)}`}
+                        >
+                          {explorer.response.status} {explorer.response.statusText}
                         </span>
-                        <span className="text-xs font-mono text-text truncate">
-                          {endpoint.path}
+                        <span className="text-text-muted text-xs ml-auto">
+                          {explorer.response.elapsed}ms
                         </span>
                       </div>
-                      <p className="text-[11px] text-text-muted mt-0.5 truncate pl-14">
-                        {endpoint.summary}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </CollapsibleSection>
-          ))}
 
-          {filteredCategories.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-text-muted font-mono text-sm">No endpoints match your search</p>
+                      {/* Response headers toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setShowResponseHeaders(!showResponseHeaders)}
+                        className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                      >
+                        [{showResponseHeaders ? '-' : '+'}] RESPONSE HEADERS (
+                        {Object.keys(explorer.response.headers).length})
+                      </button>
+
+                      {showResponseHeaders && (
+                        <div className="bg-black/30 border border-acid-green/20 p-3 max-h-40 overflow-y-auto">
+                          {Object.entries(explorer.response.headers).map(([key, value]) => (
+                            <div key={key} className="text-xs font-mono">
+                              <span className="text-acid-cyan">{key}</span>
+                              <span className="text-text-muted">: </span>
+                              <span className="text-text">{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Response body */}
+                      <div>
+                        <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider mb-2">
+                          Response Body
+                        </h4>
+                        <pre className="p-3 bg-black/30 border border-acid-green/20 overflow-x-auto text-xs font-mono text-acid-green max-h-96 overflow-y-auto whitespace-pre-wrap">
+                          {typeof explorer.response.body === 'string'
+                            ? explorer.response.body
+                            : JSON.stringify(explorer.response.body, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'schema' && (
+                <div className="border border-acid-green/30 bg-surface/30 p-5 space-y-5">
+                  {/* Request schema */}
+                  {ep.requestBody?.content?.['application/json']?.schema && (
+                    <div>
+                      <h3 className="text-sm font-mono text-acid-green mb-3">
+                        REQUEST BODY SCHEMA
+                      </h3>
+                      <div className="bg-black/20 border border-acid-green/15 p-3">
+                        <SchemaViewer
+                          schema={ep.requestBody.content['application/json'].schema}
+                          resolveRef={explorer.resolveSchemaRef}
+                          getTypeString={explorer.getSchemaTypeString}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Parameters summary */}
+                  {(ep.pathParams.length > 0 || ep.queryParams.length > 0) && (
+                    <div>
+                      <h3 className="text-sm font-mono text-acid-green mb-3">PARAMETERS</h3>
+                      <div className="bg-black/20 border border-acid-green/15 overflow-hidden">
+                        <table className="w-full text-xs font-mono">
+                          <thead>
+                            <tr className="border-b border-acid-green/20">
+                              <th className="text-left px-3 py-2 text-text-muted">Name</th>
+                              <th className="text-left px-3 py-2 text-text-muted">In</th>
+                              <th className="text-left px-3 py-2 text-text-muted">Type</th>
+                              <th className="text-left px-3 py-2 text-text-muted">Required</th>
+                              <th className="text-left px-3 py-2 text-text-muted">Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[...ep.pathParams, ...ep.queryParams].map(param => (
+                              <tr
+                                key={`${param.in}-${param.name}`}
+                                className="border-b border-acid-green/10"
+                              >
+                                <td className="px-3 py-1.5 text-acid-cyan">{param.name}</td>
+                                <td className="px-3 py-1.5 text-text-muted">{param.in}</td>
+                                <td className="px-3 py-1.5 text-text">
+                                  {param.schema?.type || 'string'}
+                                </td>
+                                <td className="px-3 py-1.5">
+                                  {param.required ? (
+                                    <span className="text-red-400">yes</span>
+                                  ) : (
+                                    <span className="text-text-muted">no</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-1.5 text-text-muted">
+                                  {param.description || '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Response schemas */}
+                  {Object.keys(ep.responses).length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-mono text-acid-green mb-3">RESPONSES</h3>
+                      <ResponseSchemaSection
+                        responses={ep.responses}
+                        resolveRef={explorer.resolveSchemaRef}
+                        getTypeString={explorer.getSchemaTypeString}
+                      />
+                    </div>
+                  )}
+
+                  {/* No schema info */}
+                  {!ep.requestBody?.content?.['application/json']?.schema &&
+                    ep.pathParams.length === 0 &&
+                    ep.queryParams.length === 0 &&
+                    Object.keys(ep.responses).length === 0 && (
+                      <div className="text-center py-8">
+                        <p className="text-text-muted font-mono text-sm">
+                          No schema information available for this endpoint
+                        </p>
+                      </div>
+                    )}
+                </div>
+              )}
+
+              {/* Request history */}
+              <RequestHistoryBar
+                history={explorer.history}
+                onClear={explorer.clearHistory}
+              />
+            </>
+          ) : (
+            <div className="border border-acid-green/30 bg-surface/30 flex items-center justify-center h-96">
+              <div className="text-center space-y-3">
+                <div className="text-4xl font-mono text-acid-green/30">{'{}'}</div>
+                <p className="text-text-muted font-mono text-sm">
+                  Select an endpoint to explore
+                </p>
+                <p className="text-xs text-text-muted/70 font-mono">
+                  {explorer.totalCount > 0
+                    ? `Browse ${explorer.totalCount} endpoints across ${explorer.allTags.length} categories`
+                    : 'Loading endpoints from OpenAPI spec...'}
+                </p>
+              </div>
             </div>
           )}
         </div>
-      </div>
-
-      {/* ── Main Panel: Request Builder + Response ─────────────────────── */}
-      <div className="lg:col-span-8">
-        {selectedEndpoint ? (
-          <div className="border border-acid-green/30 bg-surface/30 p-6 space-y-6">
-            {/* Endpoint Header */}
-            <div>
-              <div className="flex items-center gap-3 mb-2 flex-wrap">
-                <span
-                  className={`text-sm font-mono font-bold px-2 py-1 border ${METHOD_COLORS[selectedEndpoint.method]}`}
-                >
-                  {selectedEndpoint.method}
-                </span>
-                <code className="text-base font-mono text-acid-cyan break-all">
-                  {selectedEndpoint.path}
-                </code>
-              </div>
-              <h2 className="text-lg font-mono text-acid-green">{selectedEndpoint.summary}</h2>
-              {selectedEndpoint.description && (
-                <p className="text-sm text-text-muted mt-1 font-mono">{selectedEndpoint.description}</p>
-              )}
-              <div className="flex gap-4 mt-2 text-xs font-mono flex-wrap">
-                {selectedEndpoint.auth && (
-                  <span className="text-yellow-400 border border-yellow-400/30 px-1.5 py-0.5">AUTH REQUIRED</span>
-                )}
-                {selectedEndpoint.rateLimit && (
-                  <span className="text-purple-400 border border-purple-400/30 px-1.5 py-0.5">RATE LIMIT: {selectedEndpoint.rateLimit}</span>
-                )}
-              </div>
-            </div>
-
-            {/* Base URL */}
-            <div className="space-y-1">
-              <label className="text-xs font-mono text-text-muted uppercase tracking-wider">Base URL</label>
-              <input
-                type="text"
-                value={baseUrl}
-                onChange={e => setBaseUrl(e.target.value)}
-                className="w-full bg-black/30 border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
-              />
-            </div>
-
-            {/* Request Builder */}
-            <CollapsibleSection id="api-try-it" title="REQUEST BUILDER" defaultOpen={true}>
-              <TryItForm endpoint={selectedEndpoint} baseUrl={baseUrl} />
-            </CollapsibleSection>
-          </div>
-        ) : (
-          <div className="border border-acid-green/30 bg-surface/30 flex items-center justify-center h-96">
-            <div className="text-center space-y-3">
-              <div className="text-4xl font-mono text-acid-green/30">{'{}'}</div>
-              <p className="text-text-muted font-mono text-sm">
-                Select an endpoint to explore
-              </p>
-              <p className="text-xs text-text-muted/70 font-mono">
-                Browse categories on the left or search by path
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

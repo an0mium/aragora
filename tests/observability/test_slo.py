@@ -162,8 +162,8 @@ class TestDefaultTargets:
         assert DEFAULT_AVAILABILITY_TARGET == 0.999
 
     def test_default_latency_target(self):
-        """Default p99 latency is 500ms."""
-        assert DEFAULT_LATENCY_P99_MS == 500
+        """Default p99 latency is 2000ms."""
+        assert DEFAULT_LATENCY_P99_MS == 2000
 
     def test_default_debate_success_target(self):
         """Default debate success is 95%."""
@@ -183,7 +183,7 @@ class TestGetSLOTargets:
             assert "debate_success" in targets
 
             assert targets["availability"].target == 0.999
-            assert targets["latency_p99"].target == 0.5  # 500ms in seconds
+            assert targets["latency_p99"].target == 2.0  # 2000ms in seconds
             assert targets["debate_success"].target == 0.95
 
     def test_overrides_from_env(self):

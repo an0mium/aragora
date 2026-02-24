@@ -77,8 +77,10 @@ __all__ = [
     "require_admin",
     "require_org_access",
     "require_self_or_admin",
+    "require_mfa",
     "with_permission_context",
     # Exceptions
+    "MFARequiredError",
     "PermissionDeniedError",
     "RoleRequiredError",
 ]
@@ -110,6 +112,31 @@ class RoleRequiredError(Exception):
         super().__init__(message)
         self.required_roles = required_roles
         self.actual_roles = actual_roles
+
+
+class MFARequiredError(Exception):
+    """Raised when MFA verification is required but not present.
+
+    Attributes:
+        user_id: The user who failed the MFA check.
+        roles: The user's roles that triggered the MFA requirement.
+        required_action: URL for MFA setup/verification.
+        grace_period_remaining_hours: Hours remaining in grace period, if applicable.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        user_id: str | None = None,
+        roles: set[str] | None = None,
+        required_action: str = "/api/auth/mfa/setup",
+        grace_period_remaining_hours: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.user_id = user_id
+        self.roles = roles or set()
+        self.required_action = required_action
+        self.grace_period_remaining_hours = grace_period_remaining_hours
 
 
 def _get_context_from_args(
@@ -536,6 +563,145 @@ def require_self_or_admin(
                 return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
 
             raise PermissionDeniedError("Can only modify own data or requires admin role")
+
+        import asyncio
+
+        if asyncio.iscoroutinefunction(func):
+            return cast(Callable[P, T], async_wrapper)
+        return cast(Callable[P, T], sync_wrapper)
+
+    return decorator
+
+
+def require_mfa(
+    context_param: str = "context",
+    policy: Any = None,
+    user_store: Any = None,
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """
+    Decorator to require MFA for admin-role operations.
+
+    Integrates the MFA enforcement policy with the RBAC AuthorizationContext.
+    Admin roles (admin, owner, superadmin, org_admin, workspace_admin,
+    security_admin, compliance_officer) must have MFA enabled.
+
+    Non-admin users are allowed through without MFA checks.
+
+    SOC 2 Control: CC5-01 - Enforce MFA for administrative access.
+
+    Args:
+        context_param: Parameter name for AuthorizationContext (default: "context").
+        policy: Optional MFAEnforcementPolicy override. If None, uses defaults.
+        user_store: Optional user storage backend for MFA status resolution.
+
+    Raises:
+        MFARequiredError: If the user holds an admin role but MFA is not verified.
+
+    Usage:
+        @require_mfa()
+        async def admin_action(context: AuthorizationContext, ...):
+            ...
+
+        @require_permission("admin:system_config")
+        @require_mfa()
+        async def sensitive_admin_action(context: AuthorizationContext, ...):
+            ...
+    """
+    from aragora.auth.mfa_enforcement import (
+        MFAEnforcementMiddleware,
+        MFAEnforcementPolicy,
+        MFAEnforcementResult,
+    )
+
+    enforcement_policy = policy if policy is not None else MFAEnforcementPolicy()
+    middleware = MFAEnforcementMiddleware(
+        policy=enforcement_policy,
+        user_store=user_store,
+    )
+
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        @functools.wraps(func)
+        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            context = _get_context_from_args(args, kwargs, context_param)
+            if context is None:
+                # When auth is disabled, allow anonymous access
+                try:
+                    from aragora.server.auth import auth_config
+
+                    if not auth_config.enabled:
+                        return func(*args, **kwargs)
+                except ImportError:
+                    pass
+                raise MFARequiredError(
+                    "No AuthorizationContext found for MFA check",
+                )
+
+            decision = middleware.enforce(context)
+
+            if not decision.allowed:
+                logger.warning(
+                    "MFA enforcement denied access for user %s (roles: %s): %s",
+                    context.user_id,
+                    context.roles,
+                    decision.reason,
+                )
+                raise MFARequiredError(
+                    decision.reason,
+                    user_id=context.user_id,
+                    roles=context.roles,
+                    required_action=decision.required_action or "/api/auth/mfa/setup",
+                    grace_period_remaining_hours=decision.grace_period_remaining_hours,
+                )
+
+            if decision.result == MFAEnforcementResult.GRACE_PERIOD:
+                logger.info(
+                    "MFA grace period active for user %s (%d hours remaining)",
+                    context.user_id,
+                    decision.grace_period_remaining_hours or 0,
+                )
+
+            return func(*args, **kwargs)
+
+        @functools.wraps(func)
+        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            context = _get_context_from_args(args, kwargs, context_param)
+            if context is None:
+                try:
+                    from aragora.server.auth import auth_config
+
+                    if not auth_config.enabled:
+                        return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
+                except ImportError:
+                    pass
+                raise MFARequiredError(
+                    "No AuthorizationContext found for MFA check",
+                )
+
+            decision = middleware.enforce(context)
+
+            if not decision.allowed:
+                logger.warning(
+                    "MFA enforcement denied access for user %s (roles: %s): %s",
+                    context.user_id,
+                    context.roles,
+                    decision.reason,
+                )
+                raise MFARequiredError(
+                    decision.reason,
+                    user_id=context.user_id,
+                    roles=context.roles,
+                    required_action=decision.required_action or "/api/auth/mfa/setup",
+                    grace_period_remaining_hours=decision.grace_period_remaining_hours,
+                )
+
+            if decision.result == MFAEnforcementResult.GRACE_PERIOD:
+                logger.info(
+                    "MFA grace period active for user %s (%d hours remaining)",
+                    context.user_id,
+                    decision.grace_period_remaining_hours or 0,
+                )
+
+            return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
 
         import asyncio
 
