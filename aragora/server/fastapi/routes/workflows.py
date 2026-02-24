@@ -659,3 +659,192 @@ async def get_workflow_status(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error getting workflow status %s: %s", workflow_id, e)
         raise HTTPException(status_code=500, detail="Failed to get workflow status")
+
+
+# =============================================================================
+# New Endpoints (Templates, History, Approve)
+# =============================================================================
+
+
+@router.get("/workflows/templates", response_model=TemplateListResponse)
+async def list_workflow_templates(
+    request: Request,
+    category: str | None = Query(None, description="Filter by category"),
+) -> TemplateListResponse:
+    """List available workflow templates."""
+    try:
+        templates: list[TemplateSummary] = []
+
+        try:
+            from aragora.workflow.templates import list_templates
+
+            raw_templates = list_templates(category=category)
+            for t in raw_templates:
+                if isinstance(t, dict):
+                    templates.append(TemplateSummary(
+                        name=t.get("name", t.get("id", "")),
+                        description=t.get("description", ""),
+                        category=t.get("category", ""),
+                        node_count=len(t.get("nodes", [])),
+                        tags=t.get("tags", []),
+                    ))
+                else:
+                    templates.append(TemplateSummary(
+                        name=getattr(t, "name", getattr(t, "id", "")),
+                        description=getattr(t, "description", ""),
+                        category=getattr(t, "category", ""),
+                        node_count=len(getattr(t, "nodes", [])),
+                        tags=getattr(t, "tags", []),
+                    ))
+        except (ImportError, RuntimeError, ValueError, TypeError) as e:
+            logger.debug("Workflow templates not available: %s", e)
+
+        return TemplateListResponse(templates=templates, total=len(templates))
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error listing workflow templates: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to list workflow templates")
+
+
+@router.get(
+    "/workflows/{workflow_id}/history", response_model=WorkflowHistoryResponse
+)
+async def get_workflow_history(
+    workflow_id: str,
+    limit: int = Query(20, ge=1, le=100, description="Max entries to return"),
+    engine=Depends(get_workflow_engine),
+) -> WorkflowHistoryResponse:
+    """Get execution history for a workflow."""
+    if not engine:
+        raise HTTPException(status_code=503, detail="Workflow engine not available")
+
+    try:
+        # Verify workflow exists
+        wf = None
+        if hasattr(engine, "get_workflow"):
+            wf = engine.get_workflow(workflow_id)
+        elif hasattr(engine, "get"):
+            wf = engine.get(workflow_id)
+
+        if not wf:
+            raise NotFoundError(f"Workflow {workflow_id} not found")
+
+        executions: list[HistoryEntry] = []
+
+        # Try to get execution history
+        raw_history: list[Any] = []
+        if hasattr(engine, "get_execution_history"):
+            raw_history = engine.get_execution_history(workflow_id, limit=limit)
+        elif hasattr(engine, "get_history"):
+            raw_history = engine.get_history(workflow_id, limit=limit)
+        elif hasattr(engine, "list_executions"):
+            raw_history = engine.list_executions(workflow_id, limit=limit)
+
+        for entry in raw_history:
+            if isinstance(entry, dict):
+                executions.append(HistoryEntry(
+                    execution_id=entry.get("execution_id", entry.get("id", "")),
+                    status=entry.get("status", "completed"),
+                    started_at=entry.get("started_at"),
+                    completed_at=entry.get("completed_at"),
+                    duration_seconds=entry.get("duration_seconds", 0.0),
+                    result=entry.get("result"),
+                    error=entry.get("error"),
+                ))
+            else:
+                executions.append(HistoryEntry(
+                    execution_id=getattr(
+                        entry, "execution_id", getattr(entry, "id", "")
+                    ),
+                    status=getattr(entry, "status", "completed"),
+                    started_at=str(getattr(entry, "started_at", ""))
+                    if hasattr(entry, "started_at") else None,
+                    completed_at=str(getattr(entry, "completed_at", ""))
+                    if hasattr(entry, "completed_at") else None,
+                    duration_seconds=getattr(entry, "duration_seconds", 0.0),
+                    result=getattr(entry, "result", None),
+                    error=getattr(entry, "error", None),
+                ))
+
+        return WorkflowHistoryResponse(
+            workflow_id=workflow_id,
+            executions=executions,
+            total=len(executions),
+        )
+
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception(
+            "Error getting workflow history %s: %s", workflow_id, e
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to get workflow history"
+        )
+
+
+@router.post(
+    "/workflows/{workflow_id}/approve", response_model=ApproveStepResponse
+)
+async def approve_workflow_step(
+    workflow_id: str,
+    body: ApproveStepRequest,
+    auth: AuthorizationContext = Depends(require_permission("workflows:execute")),
+    engine=Depends(get_workflow_engine),
+) -> ApproveStepResponse:
+    """Approve a pending workflow step. Requires workflows:execute permission."""
+    if not engine:
+        raise HTTPException(status_code=503, detail="Workflow engine not available")
+
+    try:
+        # Verify workflow exists
+        wf = None
+        if hasattr(engine, "get_workflow"):
+            wf = engine.get_workflow(workflow_id)
+        elif hasattr(engine, "get"):
+            wf = engine.get(workflow_id)
+
+        if not wf:
+            raise NotFoundError(f"Workflow {workflow_id} not found")
+
+        # Try to approve the step
+        approved = False
+        if hasattr(engine, "approve_step"):
+            approved = engine.approve_step(
+                workflow_id, body.step_id, comment=body.comment
+            )
+        elif hasattr(engine, "approve"):
+            approved = engine.approve(
+                workflow_id, body.step_id, comment=body.comment
+            )
+        else:
+            raise HTTPException(
+                status_code=501,
+                detail="Workflow engine does not support step approval",
+            )
+
+        logger.info(
+            "Approved step %s in workflow %s", body.step_id, workflow_id
+        )
+
+        return ApproveStepResponse(
+            success=bool(approved),
+            workflow_id=workflow_id,
+            step_id=body.step_id,
+            status="approved" if approved else "pending",
+        )
+
+    except NotFoundError:
+        raise
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception(
+            "Error approving step %s in workflow %s: %s",
+            body.step_id,
+            workflow_id,
+            e,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to approve workflow step"
+        )

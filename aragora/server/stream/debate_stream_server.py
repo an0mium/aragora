@@ -677,6 +677,8 @@ class DebateStreamServer(ServerBase):
 
         Heartbeats are application-level JSON frames that let the frontend
         distinguish "server is alive but quiet" from "connection stalled".
+        Each heartbeat includes ``last_seq`` for the client's subscribed
+        debate so the frontend can detect missed events and request replay.
         """
         while self._running:
             await asyncio.sleep(self._HEARTBEAT_INTERVAL_S)
@@ -686,16 +688,22 @@ class DebateStreamServer(ServerBase):
                 clients = list(self.clients)
             if not clients:
                 continue
-            heartbeat = json.dumps({
-                "type": "heartbeat",
-                "data": {
-                    "server_time": time.time(),
-                    "active_debates": len(self.debate_states),
-                    "connected_clients": len(clients),
-                },
-            })
+
+            base_data = {
+                "server_time": time.time(),
+                "active_debates": len(self.debate_states),
+                "connected_clients": len(clients),
+            }
+
             for ws in clients:
                 try:
+                    ws_id = id(ws)
+                    data = dict(base_data)
+                    # Include last_seq for the client's subscribed debate
+                    sub_id = self._client_subscriptions.get(ws_id)
+                    if sub_id:
+                        data["last_seq"] = self._replay_buffer.get_latest_seq(sub_id)
+                    heartbeat = json.dumps({"type": "heartbeat", "data": data})
                     await asyncio.wait_for(ws.send(heartbeat), timeout=2.0)
                 except (asyncio.TimeoutError, OSError, RuntimeError):
                     pass  # Skip slow/closed clients

@@ -511,22 +511,6 @@ export function useDebateWebSocket({
     setReconnectTrigger(prev => prev + 1);
   }, [clearReconnectTimeout, clearDebateStartTimeout, clearHeartbeatTimeout, stopPolling]);
 
-  // Helper to add message with deduplication
-  const addMessageIfNew = useCallback((msg: TranscriptMessage) => {
-    let msgKey: string;
-
-    if (msg.role === 'critic') {
-      msgKey = `${msg.agent}-critic-r${msg.round || 0}`;
-    } else {
-      msgKey = `${msg.agent}-${msg.content.slice(0, 100)}`;
-    }
-
-    if (seenMessagesRef.current.has(msgKey)) return false;
-    seenMessagesRef.current.add(msgKey);
-    setMessages(prev => [...prev, msg]);
-    return true;
-  }, []);
-
   // Handle incoming WebSocket message
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
