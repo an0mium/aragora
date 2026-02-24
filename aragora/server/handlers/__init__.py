@@ -175,6 +175,7 @@ if TYPE_CHECKING:
     from .belief import BeliefHandler
     from .benchmarking import BenchmarkingHandler
     from .bindings import BindingsHandler
+    from .differentiation import DifferentiationHandler
     from .bots import (
         DiscordHandler,
         GoogleChatHandler,
@@ -850,6 +851,7 @@ __all__ = [
     # top-level handlers
     "AuditTrailHandler",
     "BenchmarkingHandler",
+    "DifferentiationHandler",
     "ComplianceReportHandler",
     "ContextBudgetHandler",
     "DRHandler",

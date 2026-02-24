@@ -304,8 +304,8 @@ class TestOpenRouterModelFallback:
         # Qwen -> DeepSeek
         assert OPENROUTER_FALLBACK_MODELS["qwen/qwen-2.5-72b-instruct"] == "deepseek/deepseek-chat"
 
-        # DeepSeek -> GPT-4o-mini
-        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-chat"] == "openai/gpt-4o-mini"
+        # DeepSeek -> GPT-4.1-mini
+        assert OPENROUTER_FALLBACK_MODELS["deepseek/deepseek-chat"] == "openai/gpt-4.1-mini"
 
 
 class TestOpenRouterGenerateStream:

@@ -19,6 +19,33 @@ from aragora.server.stream.events import StreamEvent, StreamEventType
 
 logger = logging.getLogger(__name__)
 
+# Patterns that indicate confidence levels in agent responses
+_CONFIDENCE_PATTERNS: list[tuple[str, float]] = [
+    ("i am highly confident", 0.9),
+    ("i'm highly confident", 0.9),
+    ("with high confidence", 0.85),
+    ("i am confident", 0.8),
+    ("i'm confident", 0.8),
+    ("strongly believe", 0.8),
+    ("i believe", 0.65),
+    ("likely", 0.6),
+    ("uncertain", 0.4),
+    ("i'm not sure", 0.3),
+    ("unclear", 0.3),
+]
+
+
+def _extract_confidence(text: str) -> float | None:
+    """Extract a confidence signal from response text.
+
+    Returns a float [0,1] if a confidence pattern is found, else None.
+    """
+    lower = text.lower()
+    for pattern, score in _CONFIDENCE_PATTERNS:
+        if pattern in lower:
+            return score
+    return None
+
 
 def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: str) -> Any:
     """Wrap an agent to emit token streaming events.
@@ -55,6 +82,19 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
                 agent.name,
                 task_id,
             )
+
+        # Emit thinking event — agent is formulating response
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_THINKING,
+                data={
+                    "step": "Formulating response",
+                    "phase": "reasoning",
+                },
+                agent=agent.name,
+                loop_id=debate_id,
+            )
+        )
 
         # Emit start event
         emitter.emit(
@@ -111,6 +151,18 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
                     task_id=task_id,
                 )
             )
+
+            # Emit confidence based on response analysis
+            confidence = _extract_confidence(full_response)
+            if confidence is not None:
+                emitter.emit(
+                    StreamEvent(
+                        type=StreamEventType.AGENT_CONFIDENCE,
+                        data={"confidence": confidence},
+                        agent=agent.name,
+                        loop_id=debate_id,
+                    )
+                )
 
             return full_response
 
@@ -186,6 +238,30 @@ def _create_lifecycle_hooks(
                 loop_id=loop_id,
             )
         )
+
+        # Emit dedicated confidence event for frontend reasoning UI
+        if confidence_score is not None:
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.AGENT_CONFIDENCE,
+                    data={"confidence": confidence_score},
+                    agent=agent,
+                    round=round_num,
+                    loop_id=loop_id,
+                )
+            )
+
+        # Emit thinking event if reasoning phase is provided
+        if reasoning_phase:
+            emitter.emit(
+                StreamEvent(
+                    type=StreamEventType.AGENT_THINKING,
+                    data={"step": content[:200], "phase": reasoning_phase},
+                    agent=agent,
+                    round=round_num,
+                    loop_id=loop_id,
+                )
+            )
 
     def on_debate_end(duration: float, rounds: int) -> None:
         emitter.emit(

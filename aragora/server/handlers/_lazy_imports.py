@@ -194,6 +194,7 @@ HANDLER_MODULES: dict[str, str] = {
     "BeliefHandler": "aragora.server.handlers.belief",
     "BenchmarkingHandler": "aragora.server.handlers.benchmarking",
     "BindingsHandler": "aragora.server.handlers.bindings",
+    "DifferentiationHandler": "aragora.server.handlers.differentiation",
     "BreakpointsHandler": "aragora.server.handlers.breakpoints",
     "BudgetHandler": "aragora.server.handlers.budgets",
     "CanvasHandler": "aragora.server.handlers.canvas",
@@ -624,6 +625,7 @@ ALL_HANDLER_NAMES: list[str] = [
     # top-level handlers
     "AuditTrailHandler",
     "BenchmarkingHandler",
+    "DifferentiationHandler",
     "ComplianceReportHandler",
     "ContextBudgetHandler",
     "DRHandler",
