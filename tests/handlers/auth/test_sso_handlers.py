@@ -18,7 +18,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
@@ -743,8 +743,8 @@ class TestHandleSSOCallback:
                 return_value=mock_user_store,
             ),
             patch(
-                "aragora.billing.jwt_auth.create_access_token",
-                return_value="jwt-updated",
+                "aragora.billing.jwt_auth.create_token_pair",
+                return_value=MockTokenPair(),
             ),
         ):
             result = await handle_sso_callback(
@@ -755,7 +755,9 @@ class TestHandleSSOCallback:
             )
 
         assert _status(result) == 200
-        mock_user_store.update_user.assert_called_once_with("u1", name="SSO Updated")
+        # Handler calls update_user for name change and again for last_login_at
+        name_call = call("u1", name="SSO Updated")
+        assert name_call in mock_user_store.update_user.call_args_list
 
     @pytest.mark.asyncio
     async def test_callback_missing_code_and_state(self, mock_state_store):
