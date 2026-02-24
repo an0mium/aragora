@@ -78,6 +78,7 @@ class WebSocketHandlerMixin:
         revoke_ws_auth: Any
         mark_ws_token_validated: Any
         set_ws_auth_state: Any
+        get_ws_auth_state: Any
         remove_ws_auth_state: Any
         _active_loops_lock: Any
         active_loops: Any

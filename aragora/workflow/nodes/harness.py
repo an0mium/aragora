@@ -136,7 +136,7 @@ class HarnessStep(BaseStep):
                             "title": af.title,
                             "severity": af.severity,
                             "description": af.description,
-                            "file_path": af.file_path,
+                            "file_path": af.document_id,
                         }
                         for af in audit_findings
                     ]

@@ -347,7 +347,7 @@ class TTSEventBridge:
 
             agent, text = item
             try:
-                sessions_sent = await self.tts.synthesize_for_debate(
+                sessions_sent = await self.tts.synthesize_for_debate(  # type: ignore[attr-defined]
                     debate_id=debate_id,
                     agent_name=agent,
                     text=text,
@@ -399,7 +399,7 @@ def _add_synthesize_for_debate(tts_cls: type) -> None:
             message=text,
         )
 
-    tts_cls.synthesize_for_debate = synthesize_for_debate
+    tts_cls.synthesize_for_debate = synthesize_for_debate  # type: ignore[attr-defined]
 
 
 # Apply the patch at import time so the bridge can always call it.

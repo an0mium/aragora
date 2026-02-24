@@ -1459,8 +1459,10 @@ Reply to this email to continue the discussion.
         return {"status": "sent", "provider": "smtp"}
     except smtplib.SMTPAuthenticationError as e:
         logger.error("SMTP authentication error: %s", e)
+        return None
     except smtplib.SMTPException as e:
         logger.error("SMTP protocol error: %s: %s", type(e).__name__, e)
+        return None
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.error("SMTP connection error: %s: %s", type(e).__name__, e)
         return None

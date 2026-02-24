@@ -817,9 +817,10 @@ async def export_debate(
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported format: {export_format}")
 
-        content = result.content
-        if isinstance(content, bytes):
-            content = content.decode("utf-8")
+        raw_content = result.content
+        content: str | bytes = raw_content
+        if isinstance(raw_content, bytes):
+            content = raw_content.decode("utf-8")
 
         return Response(
             content=content,

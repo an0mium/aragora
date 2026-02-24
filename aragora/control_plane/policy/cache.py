@@ -191,7 +191,7 @@ class RedisPolicyCache:
             self._stats["misses"] += 1
             return None
 
-        except (*REDIS_CONNECTION_ERRORS, json.JSONDecodeError) as e:
+        except _REDIS_AND_JSON_ERRORS as e:
             self._stats["errors"] += 1
             logger.debug("policy_cache_get_error", error=str(e))
             return None
@@ -229,7 +229,7 @@ class RedisPolicyCache:
             self._stats["sets"] += 1
             return True
 
-        except (*REDIS_CONNECTION_ERRORS, TypeError) as e:
+        except _REDIS_AND_TYPE_ERRORS as e:
             self._stats["errors"] += 1
             logger.debug("policy_cache_set_error", error=str(e))
             return False

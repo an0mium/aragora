@@ -189,9 +189,9 @@ async def get_compliance_framework(request: Request):
 
     # Fall back to global compliance framework
     try:
-        from aragora.compliance.framework import get_compliance_framework as _get_fw
+        from aragora.compliance.framework import ComplianceFramework
 
-        return _get_fw()
+        return ComplianceFramework()
     except (ImportError, RuntimeError, OSError, ValueError) as e:
         logger.debug("Compliance framework not available: %s", e)
         return None
@@ -207,7 +207,7 @@ async def get_audit_store(request: Request):
 
     # Fall back to global audit store
     try:
-        from aragora.audit.log import get_audit_store as _get_store
+        from aragora.audit.log import get_audit_log as _get_store
 
         return _get_store()
     except (ImportError, RuntimeError, OSError, ValueError) as e:

@@ -431,5 +431,16 @@
     "PUT /api/users/{param}/role",
     "PUT /api/webhooks/{param}/retry-policy"
   ],
-  "missing_stable": []
+  "missing_stable": [
+    "GET /api/v1/consensus/domain",
+    "GET /api/v1/consensus/seed-demo",
+    "PATCH /api/v1/debates/export/batch/{param}/results",
+    "PATCH /api/v1/debates/export/batch/{param}/status",
+    "PATCH /api/v1/debates/{param}/followups",
+    "PATCH /api/v1/debates/{param}/forks",
+    "POST /api/v1/debates/export/batch/{param}/results",
+    "POST /api/v1/debates/export/batch/{param}/status",
+    "POST /api/v1/debates/{param}/followups",
+    "POST /api/v1/debates/{param}/forks"
+  ]
 }

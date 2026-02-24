@@ -470,7 +470,14 @@ class WorkflowScheduler:
             store = get_workflow_store()
 
             # Look up the workflow definition from the persistent store
-            execution = store.get_execution(entry.workflow_id)
+            import inspect
+
+            execution_result = store.get_execution(entry.workflow_id)
+            execution = (
+                await execution_result
+                if inspect.isawaitable(execution_result)
+                else execution_result
+            )
             if execution and "definition" in execution:
                 from aragora.workflow.types import WorkflowDefinition
 

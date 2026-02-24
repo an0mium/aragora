@@ -839,7 +839,7 @@ async def run_debate(
 
     # Apply post-init configuration flags
     if enable_cartographer is not None:
-        arena.enable_cartographer = enable_cartographer
+        setattr(arena, "enable_cartographer", enable_cartographer)
     if enable_introspection is not None:
         arena.enable_introspection = enable_introspection
 
@@ -868,7 +868,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
         task = task_brief.goal  # The core goal is now the task
         context += f"\n\n--- Structured Task Brief (Confidence: {task_brief.confidence:.2f}) ---\n"
         if getattr(task_brief, "objective", None):
-            context += f"Objective: {task_brief.objective}\n"
+            context += f"Objective: {getattr(task_brief, 'objective', '')}\n"
         if task_brief.assumptions:
             context += "Assumptions:\n" + "\n".join(f"- {a}" for a in task_brief.assumptions)
         # Non-goals and evaluation_criteria are not in V1, but check defensively

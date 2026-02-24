@@ -92,7 +92,7 @@ class DebateTemplate:
     difficulty: float = 0.5
     tags: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate template fields after initialization."""
         # This post_init can be used for template-level validation.
         # Runtime validation of topic_prompt should happen at the orchestration layer.

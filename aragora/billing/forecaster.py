@@ -848,15 +848,17 @@ async def run_budget_runway_check(
             # Trigger notification for warning/critical
             if result.alert_level in (AlertSeverity.WARNING, AlertSeverity.CRITICAL):
                 try:
+                    from aragora.notifications.models import Notification
                     from aragora.notifications.service import get_notification_service
 
                     svc = get_notification_service()
-                    await svc.send_notification(
-                        event_type="budget_runway_alert",
+                    notification = Notification(
                         title=f"Budget Alert: {result.alert_level.value.upper()}",
                         message=result.message,
-                        metadata=result.to_dict(),
+                        severity=result.alert_level.value,
+                        resource_type="budget_runway_alert",
                     )
+                    await svc.notify(notification)
                 except (
                     ImportError,
                     RuntimeError,
