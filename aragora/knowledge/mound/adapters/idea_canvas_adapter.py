@@ -101,7 +101,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
 
         _node = KnowledgeNode(
             id=km_node_id,
-            node_type=cast(NodeType, km_type),
+            node_type=km_type,
             content=content,
             confidence=float(data.get("confidence", 0.5)),
             provenance=ProvenanceChain(
@@ -167,7 +167,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
             id=kr_id,
             from_node_id=self._node_map.get(edge.get("source_id", edge.get("source", "")), ""),
             to_node_id=self._node_map.get(edge.get("target_id", edge.get("target", "")), ""),
-            relationship_type=cast(RelationshipType, relationship_type),
+            relationship_type=relationship_type,
             metadata={
                 "canvas_id": canvas_id,
                 "canvas_edge_id": edge.get("id", ""),

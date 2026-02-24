@@ -2,6 +2,18 @@
 
 Aragora is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels. It implements structured vetted decisionmaking through a society of heterogeneous AI agents. This document describes the agent system architecture.
 
+## Worktree Autopilot (High-Churn Sessions)
+
+When many agents are committing concurrently, use disposable worktrees with frequent reconciliation.
+
+- Start sessions with `./scripts/codex_session.sh` (or `make codex-session`).
+- Auto-heal unexpected worktree/branch drift with:
+  `python3 scripts/codex_worktree_autopilot.py ensure --agent codex --base main --reconcile --print-path`
+- Reconcile managed sessions with:
+  `python3 scripts/codex_worktree_autopilot.py reconcile --all --base main`
+- Remove stale managed worktrees with:
+  `python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24`
+
 ## Agent Types
 
 Aragora currently registers 42 agent types across CLI, direct API, OpenRouter, local inference, and external framework proxies. Use `list_available_agents()` to see the full registry at runtime. Server-side validation uses the allowlist in `aragora/config/settings.py` (`ALLOWED_AGENT_TYPES`, 34 types as of 2026-02-12). Entries marked **opt-in** are registered but not allowlisted by default.
