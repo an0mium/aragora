@@ -1340,8 +1340,8 @@ class TestIntegration:
         for url in [google_redirect, github_redirect, ms_redirect, apple_redirect, oidc_redirect]:
             assert "localhost" in url
 
-    def test_production_mode_requires_explicit_config(self, monkeypatch):
-        """In production mode, nothing defaults - all empty without env vars."""
+    def test_production_mode_uses_defaults(self, monkeypatch):
+        """In production mode, sensible defaults are used without env vars."""
         with patch.dict(sys.modules, {"aragora.config.secrets": None}):
             with patch.object(cfg, "_is_production", return_value=True):
                 google_redirect = cfg._get_google_redirect_uri()
@@ -1353,14 +1353,14 @@ class TestIntegration:
                 error_url = cfg._get_oauth_error_url()
                 hosts = cfg._get_allowed_redirect_hosts()
 
-        assert google_redirect == ""
-        assert github_redirect == ""
-        assert ms_redirect == ""
-        assert apple_redirect == ""
-        assert oidc_redirect == ""
-        assert success_url == ""
-        assert error_url == ""
-        assert hosts == frozenset()
+        assert google_redirect == "https://api.aragora.ai/api/auth/oauth/google/callback"
+        assert github_redirect == "https://api.aragora.ai/api/auth/oauth/github/callback"
+        assert ms_redirect == "https://api.aragora.ai/api/auth/oauth/microsoft/callback"
+        assert apple_redirect == "https://api.aragora.ai/api/auth/oauth/apple/callback"
+        assert oidc_redirect == "https://api.aragora.ai/api/auth/oauth/oidc/callback"
+        assert success_url == "https://aragora.ai/auth/callback"
+        assert error_url == "https://aragora.ai/auth/error"
+        assert hosts == frozenset({"aragora.ai", "www.aragora.ai", "api.aragora.ai"})
 
     def test_mixed_providers_validation(self, monkeypatch):
         """Validate with one provider fully configured and another partially."""

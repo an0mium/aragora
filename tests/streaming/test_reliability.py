@@ -795,15 +795,6 @@ class TestReliableKafkaConsumer:
             policy=ReconnectPolicy(max_retries=2, base_delay=0.01, jitter=False),
         )
 
-        # Mock _do_connect to succeed
-        connect_count = 0
-
-        async def mock_connect():
-            nonlocal connect_count
-            connect_count += 1
-
-        consumer._do_connect = mock_connect
-
         # Set up a mock consumer that fails then stops
         mock_kafka_consumer = AsyncMock()
         call_count = 0
@@ -816,6 +807,15 @@ class TestReliableKafkaConsumer:
             raise StopAsyncIteration
 
         mock_kafka_consumer.__anext__ = mock_anext
+        # Mock _do_connect to succeed and restore the consumer after reconnect.
+        connect_count = 0
+
+        async def mock_connect():
+            nonlocal connect_count
+            connect_count += 1
+            consumer._consumer = mock_kafka_consumer
+
+        consumer._do_connect = mock_connect
         consumer._consumer = mock_kafka_consumer
 
         # Mark as connected
