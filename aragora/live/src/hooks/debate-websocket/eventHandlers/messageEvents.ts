@@ -96,6 +96,20 @@ export function handleAgentMessageEvent(data: ParsedEventData, ctx: EventHandler
     timestamp: (data.timestamp as number) || (eventData?.timestamp as number) || Date.now() / 1000,
   };
 
+  // Include reasoning visibility fields when present in event data
+  const confidenceScore = (eventData?.confidence_score as number | undefined)
+    ?? (eventData?.confidence as number | undefined)
+    ?? null;
+  if (confidenceScore !== null && confidenceScore !== undefined) {
+    msg.confidence_score = confidenceScore;
+  }
+  if (eventData?.reasoning_phase) {
+    msg.reasoning_phase = eventData.reasoning_phase as string;
+  }
+  if (eventData?.thinking) {
+    msg.thinking = eventData.thinking as string;
+  }
+
   if (msg.content && ctx.addMessageIfNew(msg)) {
     const agentName = msg.agent;
     if (agentName) {
@@ -103,14 +117,24 @@ export function handleAgentMessageEvent(data: ParsedEventData, ctx: EventHandler
     }
   }
 
-  // Also track as stream event
+  // Also track as stream event with reasoning fields forwarded
+  const streamEventData: Record<string, unknown> = {
+    agent: (data.agent as string) || (eventData?.agent as string) || 'unknown',
+    content: (eventData?.content as string) || '',
+    role: (eventData?.role as string) || '',
+  };
+  if (confidenceScore !== null && confidenceScore !== undefined) {
+    streamEventData.confidence_score = confidenceScore;
+  }
+  if (eventData?.reasoning_phase) {
+    streamEventData.reasoning_phase = eventData.reasoning_phase;
+  }
+  if (eventData?.thinking) {
+    streamEventData.thinking = eventData.thinking;
+  }
   const streamEvent: StreamEvent = {
     type: 'agent_message',
-    data: {
-      agent: (data.agent as string) || (eventData?.agent as string) || 'unknown',
-      content: (eventData?.content as string) || '',
-      role: (eventData?.role as string) || '',
-    },
+    data: streamEventData,
     timestamp: (data.timestamp as number) || Date.now() / 1000,
     round: (data.round as number) || (eventData?.round as number),
     agent: (data.agent as string) || (eventData?.agent as string),

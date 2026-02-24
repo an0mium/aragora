@@ -127,7 +127,9 @@ const navSections: NavSection[] = [
       { label: 'Uncertainty', href: '/uncertainty', icon: '\u00B1', minMode: 'advanced' },
       { label: 'Quality', href: '/quality', icon: '\u2605', minMode: 'advanced' },
       { label: 'Costs', href: '/costs', icon: '\u00A2', minMode: 'standard' },
+      { label: 'Spend Analytics', href: '/analytics/spend', icon: '\u00A4', minMode: 'standard' },
       { label: 'Usage', href: '/usage', icon: '%', minMode: 'standard' },
+      { label: 'Argument Analysis', href: '/argument-analysis', icon: '\u2726', minMode: 'standard' },
     ],
   },
 
@@ -208,6 +210,7 @@ const navSections: NavSection[] = [
       { label: 'Command Center', href: '/command-center', icon: '\u2318' },
       { label: 'Workflow Builder', href: '/workflows/builder', icon: '\u2692' },
       { label: 'Workflow Runtime', href: '/workflows/runtime', icon: '\u25B6' },
+      { label: 'Self-Improve', href: '/self-improve', icon: '\u21BB', minMode: 'advanced' },
     ],
   },
 

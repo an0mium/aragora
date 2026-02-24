@@ -288,9 +288,15 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             # Expose internal state if available
             states = getattr(loop, "_agent_states", {})
             adjustments = getattr(loop, "_selection_adjustments", {})
-            selection_adjustments = {
-                name: adj for name, adj in adjustments.items()
-            }
+            for name, adj in adjustments.items():
+                state = states.get(name)
+                wins = getattr(state, "wins", 0)
+                total = getattr(state, "debates_participated", 0)
+                selection_adjustments[name] = {
+                    "win_rate": round(wins / total, 4) if total > 0 else 0.0,
+                    "total_debates": total,
+                    "adjustment": round(adj, 4),
+                }
             feedback_metrics["agents_tracked"] = len(states)
             feedback_metrics["debates_processed"] = sum(
                 getattr(s, "debates_participated", 0) for s in states.values()

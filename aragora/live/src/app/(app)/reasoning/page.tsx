@@ -1,23 +1,27 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
-import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
 interface CruxClaim {
+  claim_id?: string;
   claim: string;
   probability: number;
   sensitivity: number;
+  source_agent?: string;
 }
 
 interface LoadBearingClaim {
+  claim_id?: string;
   claim: string;
   centrality: number;
+  source_agent?: string;
 }
 
 interface ClaimNode {
@@ -77,6 +81,16 @@ const STANCE_COLORS: Record<string, string> = {
   strongly_disagree: '#ef4444',
 };
 
+const STANCE_LABELS: Record<string, string> = {
+  strongly_agree: 'STRONG YES',
+  agree: 'AGREE',
+  lean_agree: 'LEAN YES',
+  neutral: 'NEUTRAL',
+  lean_disagree: 'LEAN NO',
+  disagree: 'DISAGREE',
+  strongly_disagree: 'STRONG NO',
+};
+
 function stanceColor(stance: string): string {
   return STANCE_COLORS[stance] ?? '#a3a3a3';
 }
@@ -109,7 +123,7 @@ export default function ReasoningPage() {
     if (!debateId.trim()) return;
     setLoading(true);
     setError(null);
-    const id = debateId.trim();
+    const id = encodeURIComponent(debateId.trim());
 
     try {
       const [cruxRes, lbRes, graphRes, posRes] = await Promise.allSettled([
@@ -119,23 +133,28 @@ export default function ReasoningPage() {
         fetch(`${backendUrl}/api/v1/debates/${id}/positions`),
       ]);
 
+      let anyOk = false;
+
       if (cruxRes.status === 'fulfilled' && cruxRes.value.ok) {
         const d = await cruxRes.value.json();
-        setCruxes(d.cruxes || d.data?.cruxes || []);
+        setCruxes(d.cruxes ?? d.data?.cruxes ?? []);
+        anyOk = true;
       } else {
         setCruxes([]);
       }
 
       if (lbRes.status === 'fulfilled' && lbRes.value.ok) {
         const d = await lbRes.value.json();
-        setLoadBearing(d.claims || d.data?.claims || []);
+        setLoadBearing(d.load_bearing_claims ?? d.claims ?? d.data?.load_bearing_claims ?? []);
+        anyOk = true;
       } else {
         setLoadBearing([]);
       }
 
       if (graphRes.status === 'fulfilled' && graphRes.value.ok) {
         const d = await graphRes.value.json();
-        setClaims(d.nodes || d.data?.nodes || []);
+        setClaims(d.nodes ?? d.graph?.nodes ?? d.data?.nodes ?? []);
+        anyOk = true;
       } else {
         setClaims([]);
       }
@@ -143,11 +162,20 @@ export default function ReasoningPage() {
       if (posRes.status === 'fulfilled' && posRes.value.ok) {
         const d = await posRes.value.json();
         setPositions(d);
+        anyOk = true;
       } else {
         setPositions(null);
       }
 
-      setLoadedId(id);
+      if (!anyOk) {
+        const firstFailed =
+          cruxRes.status === 'fulfilled'
+            ? `HTTP ${cruxRes.value.status}`
+            : 'Network error';
+        setError(`Failed to load reasoning data: ${firstFailed}`);
+      }
+
+      setLoadedId(debateId.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {

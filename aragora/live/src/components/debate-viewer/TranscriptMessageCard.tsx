@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import { TrustBadge } from '@/components/TrustBadge';
 import type { TranscriptMessageCardProps, CruxClaim } from './types';
@@ -178,6 +178,20 @@ export function TranscriptMessageCard({ message, cruxes, onChallenge }: Transcri
   }
 
   // Standard rendering for non-synthesis messages
+  const [showThinking, setShowThinking] = useState(false);
+  const hasThinking = !!message.thinking;
+  const confidenceValue = message.confidence_score;
+  const hasConfidence = confidenceValue !== null && confidenceValue !== undefined;
+
+  // Color-coded confidence dot: green (>=80%), yellow (>=50%), red (<50%)
+  const confidenceDotColor = hasConfidence
+    ? confidenceValue >= 0.8
+      ? 'bg-acid-green'
+      : confidenceValue >= 0.5
+        ? 'bg-acid-yellow'
+        : 'bg-red-400'
+    : '';
+
   return (
     <div className={`${colors.bg} border ${colors.border} p-4 group/card`}>
       <div className="flex items-center justify-between mb-2">
@@ -185,15 +199,39 @@ export function TranscriptMessageCard({ message, cruxes, onChallenge }: Transcri
           <span className={`font-mono font-bold text-sm ${colors.text}`}>
             {(message.agent || 'SYSTEM').toUpperCase()}
           </span>
+          {/* Confidence indicator: colored dot + percentage */}
+          {hasConfidence && (
+            <span className="flex items-center gap-1" title={`Confidence: ${Math.round(confidenceValue * 100)}%`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${confidenceDotColor}`} />
+              <span className="text-[10px] font-mono text-text-muted">
+                {Math.round(confidenceValue * 100)}%
+              </span>
+            </span>
+          )}
           {message.calibration && <TrustBadge calibration={message.calibration} size="sm" />}
           {message.role && (
             <span className="text-xs text-text-muted border border-text-muted/30 px-1">{message.role}</span>
+          )}
+          {/* Reasoning phase label */}
+          {message.reasoning_phase && (
+            <span className="text-[10px] font-mono text-acid-green/70 border border-acid-green/20 px-1 uppercase tracking-wider">
+              {message.reasoning_phase}
+            </span>
           )}
           {message.round !== undefined && message.round > 0 && (
             <span className="text-xs text-text-muted">R{message.round}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Toggle for expandable thinking section */}
+          {hasThinking && (
+            <button
+              onClick={() => setShowThinking(!showThinking)}
+              className="text-[10px] font-mono text-text-muted hover:text-acid-cyan transition-colors border border-border px-1"
+            >
+              {showThinking ? '[HIDE THINKING]' : '[THINKING]'}
+            </button>
+          )}
           {onChallenge && message.agent && (
             <button
               onClick={() => onChallenge(message.content.slice(0, 200), message.agent)}
@@ -210,6 +248,17 @@ export function TranscriptMessageCard({ message, cruxes, onChallenge }: Transcri
           )}
         </div>
       </div>
+
+      {/* Collapsible thinking section */}
+      {showThinking && message.thinking && (
+        <div className="mb-3 border border-acid-cyan/20 bg-bg/50 p-2">
+          <div className="text-[10px] font-mono text-acid-cyan uppercase mb-1">Agent Thinking</div>
+          <div className="text-xs text-text-muted font-mono whitespace-pre-wrap pl-2 border-l border-acid-cyan/30">
+            {message.thinking}
+          </div>
+        </div>
+      )}
+
       <div className="text-sm text-text whitespace-pre-wrap">
         <HighlightedContent content={message.content} cruxes={cruxes} />
       </div>

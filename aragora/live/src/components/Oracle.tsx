@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo, FormEvent } from 'react';
 import { API_BASE_URL } from '@/config';
 import { useOracleWebSocket } from '@/hooks';
+import type { OraclePhase } from '@/hooks/useOracleWebSocket';
+import { OraclePhaseProgress } from './OraclePhaseProgress';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -934,6 +936,19 @@ export default function Oracle() {
     }
   }, [oracle.phase, oracle.fallbackMode, loading]);
 
+  // Derive an effective phase for the progress indicator.
+  // In WebSocket mode, oracle.phase is authoritative. In fetch fallback mode,
+  // we map loading/debating state to the closest Oracle phase.
+  const effectivePhase: OraclePhase = useMemo(() => {
+    if (!oracle.fallbackMode && oracle.connected) {
+      return oracle.phase;
+    }
+    // Fetch fallback — derive from loading/debating state
+    if (loading) return 'deep';
+    if (debating) return 'tentacles';
+    return 'idle';
+  }, [oracle.fallbackMode, oracle.connected, oracle.phase, loading, debating]);
+
   // When streaming completes (synthesis received), commit tokens to messages
   useEffect(() => {
     if (oracle.phase === 'synthesis' && oracle.tokens) {
@@ -1226,59 +1241,7 @@ export default function Oracle() {
         </div>
 
         {/* Oracle Phase Progress Indicator */}
-        {oracle.phase !== 'idle' && (
-          <div className="mb-6">
-            <div className="flex items-center gap-1">
-              {(['reflex', 'deep', 'tentacles', 'synthesis'] as const).map((phase, idx) => {
-                const labels: Record<string, { label: string; desc: string }> = {
-                  reflex: { label: 'REFLEX', desc: 'Initial sensing' },
-                  deep: { label: 'DEEP', desc: 'Deep channeling' },
-                  tentacles: { label: 'TENTACLES', desc: 'Multi-agent debate' },
-                  synthesis: { label: 'SYNTHESIS', desc: 'Convergence' },
-                };
-                const phaseOrder = ['reflex', 'deep', 'tentacles', 'synthesis'];
-                const currentIdx = phaseOrder.indexOf(oracle.phase);
-                const isComplete = idx < currentIdx;
-                const isActive = idx === currentIdx;
-                const info = labels[phase];
-                return (
-                  <div key={phase} className="flex items-center flex-1">
-                    {/* Step circle + label */}
-                    <div className="flex flex-col items-center flex-1">
-                      <div
-                        className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-[10px] font-mono font-bold transition-all duration-500 ${
-                          isComplete
-                            ? 'border-[var(--acid-green)] bg-[var(--acid-green)]/20 text-[var(--acid-green)]'
-                            : isActive
-                              ? 'border-[var(--acid-magenta)] bg-[var(--acid-magenta)]/20 text-[var(--acid-magenta)] animate-pulse'
-                              : 'border-[var(--border)] bg-transparent text-[var(--text-muted)]/40'
-                        }`}
-                      >
-                        {isComplete ? '\u2713' : idx + 1}
-                      </div>
-                      <span
-                        className={`text-[9px] font-mono mt-1 tracking-wider ${
-                          isActive ? 'text-[var(--acid-magenta)]' : isComplete ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]/40'
-                        }`}
-                      >
-                        {info.label}
-                      </span>
-                      <span className="text-[8px] text-[var(--text-muted)]/40">{info.desc}</span>
-                    </div>
-                    {/* Connector line */}
-                    {idx < 3 && (
-                      <div
-                        className={`h-[2px] flex-1 mx-1 transition-all duration-500 ${
-                          isComplete ? 'bg-[var(--acid-green)]/60' : 'bg-[var(--border)]/30'
-                        }`}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <OraclePhaseProgress currentPhase={effectivePhase} />
 
         {/* Input */}
         <form onSubmit={consultOracle} className="flex gap-3 mb-4">

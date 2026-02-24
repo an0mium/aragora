@@ -29,6 +29,7 @@ from aragora.billing.budget_manager import get_budget_manager
 from aragora.billing.cost_tracker import get_cost_tracker
 
 if TYPE_CHECKING:
+    from aragora.billing.debate_costs import DebateCostSummary
     from aragora.core import Agent, DebateResult
     from aragora.debate.context import DebateContext
 
@@ -54,6 +55,7 @@ class ArenaExtensions:
     workspace_id: str = ""  # For cost attribution
     usage_tracker: Any = None  # UsageTracker instance
     cost_tracker: Any = None  # CostTracker instance for per-agent costs
+    _debate_cost_tracker: Any = field(default=None, repr=False)  # DebateCostTracker
     debate_budget_limit_usd: float | None = None  # Per-debate cost limit
     enforce_budget_limit: bool = True  # Raise error when budget exceeded
 
@@ -431,6 +433,16 @@ class ArenaExtensions:
                 # No running loop - skip async recording
                 pass
 
+            # Also record to DebateCostTracker for per-debate cost summaries
+            self._record_to_debate_cost_tracker(
+                debate_id=debate_id,
+                agent_name=agent_name,
+                provider=provider,
+                model=model,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+            )
+
             logger.debug(
                 "agent_cost_recorded agent=%s cost=$%.6f tokens=%d",
                 agent_name,
@@ -442,6 +454,60 @@ class ArenaExtensions:
             raise
         except (RuntimeError, ValueError, TypeError, AttributeError, ImportError) as e:
             logger.debug("agent_cost_recording_failed: %s", e)
+
+    def _record_to_debate_cost_tracker(
+        self,
+        debate_id: str,
+        agent_name: str,
+        provider: str,
+        model: str,
+        tokens_in: int,
+        tokens_out: int,
+        round_number: int = 0,
+        operation: str = "",
+    ) -> None:
+        """Record an agent call to the per-debate DebateCostTracker.
+
+        Lazily initializes the DebateCostTracker singleton on first use.
+        """
+        try:
+            if self._debate_cost_tracker is None:
+                from aragora.billing.debate_costs import get_debate_cost_tracker
+
+                self._debate_cost_tracker = get_debate_cost_tracker()
+
+            self._debate_cost_tracker.record_agent_call(
+                debate_id=debate_id,
+                agent_name=agent_name,
+                provider=provider,
+                model=model,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                round_number=round_number,
+                operation=operation,
+            )
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("debate_cost_tracker_record_failed: %s", e)
+
+    def get_debate_cost_summary(self, debate_id: str) -> DebateCostSummary | None:
+        """Get the per-debate cost summary from DebateCostTracker.
+
+        Returns a DebateCostSummary with per-agent, per-round, and per-model
+        breakdowns, or None if the tracker is not available.
+        """
+        try:
+            if self._debate_cost_tracker is None:
+                from aragora.billing.debate_costs import get_debate_cost_tracker
+
+                self._debate_cost_tracker = get_debate_cost_tracker()
+
+            summary = self._debate_cost_tracker.get_debate_cost(debate_id)
+            if summary and summary.total_calls > 0:
+                return summary
+            return None
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("debate_cost_summary_failed: %s", e)
+            return None
 
     def _sync_usage_to_stripe(self) -> None:
         """Sync usage data to Stripe for metered billing.
