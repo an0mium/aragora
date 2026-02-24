@@ -132,6 +132,7 @@ class MetaPlanner:
 
     def __init__(self, config: MetaPlannerConfig | None = None):
         self.config = config or MetaPlannerConfig()
+        self._agent: Any | None = None
         self._feedback_loop = None
         try:
             from aragora.debate.selection_feedback import SelectionFeedbackLoop
@@ -602,11 +603,11 @@ class MetaPlanner:
             # Query recurring failures to avoid
             try:
                 recurring = await adapter.find_recurring_failures(min_occurrences=2, limit=5)
-                for failure in recurring:
-                    tracks_str = ", ".join(failure.get("affected_tracks", [])[:3])
+                for rec_failure in recurring:
+                    tracks_str = ", ".join(rec_failure.get("affected_tracks", [])[:3])
                     context.past_failures_to_avoid.append(
-                        f"[recurring_failure] '{failure['pattern']}' "
-                        f"({failure['occurrences']}x"
+                        f"[recurring_failure] '{rec_failure['pattern']}' "
+                        f"({rec_failure['occurrences']}x"
                         f"{', tracks: ' + tracks_str if tracks_str else ''})"
                     )
                 if recurring:
@@ -624,9 +625,9 @@ class MetaPlanner:
             from aragora.pipeline.plan_store import get_plan_store
 
             store = get_plan_store()
-            outcomes = store.get_recent_outcomes(limit=5)
+            outcomes = store.get_recent_outcomes(limit=5) if store else []
 
-            for outcome in outcomes:
+            for outcome in (outcomes or []):
                 status = outcome.get("status", "unknown")
                 task = outcome.get("task", "unknown task")
                 exec_error = outcome.get("execution_error")
@@ -728,13 +729,13 @@ class MetaPlanner:
                 )
 
             # Boost recurring findings
-            recurring = sm_store.get_recurring_findings(min_occurrences=2)
-            for finding in recurring[:5]:
+            recurring_findings = sm_store.get_recurring_findings(min_occurrences=2)
+            for finding in recurring_findings[:5]:
                 context.recent_issues.append(
                     f"[recurring:{finding.category}] {finding.description[:100]}"
                 )
-            if recurring:
-                logger.info("strategic_memory_recurring count=%d", len(recurring))
+            if recurring_findings:
+                logger.info("strategic_memory_recurring count=%d", len(recurring_findings))
         except ImportError:
             logger.debug("Strategic memory not available")
         except (RuntimeError, ValueError, OSError) as exc:
@@ -968,15 +969,13 @@ class MetaPlanner:
 
             async def _ingest() -> None:
                 try:
-                    from aragora.knowledge.mound.core import KnowledgeItem
-
-                    item = KnowledgeItem(
-                        content=summary[:2000],
-                        source="meta_planner_explanation",
-                        tags=["self_explanation", "meta_planner"]
+                    item = {
+                        "content": summary[:2000],
+                        "source": "meta_planner_explanation",
+                        "tags": ["self_explanation", "meta_planner"]
                         + [g.track.value for g in goals[:5]],
-                    )
-                    await adapter.ingest(item)
+                    }
+                    adapter.ingest(item)
                 except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
                     logger.debug("KM explanation ingestion failed: %s", exc)
 
@@ -1323,11 +1322,11 @@ class MetaPlanner:
 
         # Signal 10: Pipeline Goal Canvas — approved but unexecuted goals
         try:
-            from aragora.server.handlers.pipeline.universal_graph import UniversalGraph
+            from aragora.pipeline.plan_store import get_plan_store as _get_plan_store
 
-            graph = UniversalGraph()
-            # Query goals stage for approved, unexecuted items
-            pipeline_goals = graph.query(stage="goals", status="approved")
+            _pstore = _get_plan_store()
+            # Query plan store for approved, unexecuted items
+            pipeline_goals = _pstore.get_recent_outcomes(limit=10) if _pstore else []
             for pg in (pipeline_goals or [])[:10]:
                 pg_data = pg if isinstance(pg, dict) else getattr(pg, "__dict__", {})
                 track_name = pg_data.get("track", "core")
@@ -1945,7 +1944,7 @@ class MetaPlanner:
 
             km = get_knowledge_mound()
             if km:
-                recent = km.search(query="recent issues bugs failures", limit=5)
+                recent = await km.query(query="recent issues bugs failures", limit=5)
                 if recent:
                     context.recent_issues = [
                         getattr(r, "title", str(r)) for r in recent
@@ -2013,8 +2012,8 @@ class MetaPlanner:
             from aragora.pipeline.plan_store import get_plan_store
 
             store = get_plan_store()
-            recent = store.get_recent_outcomes(limit=50)
-            for entry in recent:
+            recent = store.get_recent_outcomes(limit=50) if store else []
+            for entry in (recent or []):
                 outcomes.append({
                     "objective": entry.get("task", ""),
                     "status": entry.get("status", "unknown"),

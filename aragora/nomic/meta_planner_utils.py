@@ -280,7 +280,7 @@ PAST FAILURES TO AVOID (learn from these mistakes):
         from aragora.goals.extractor import GoalExtractor
 
         extractor = GoalExtractor()
-        goal_graph = extractor.extract_from_text(objective)
+        goal_graph = extractor.extract_from_raw_ideas([objective])
         if goal_graph and hasattr(goal_graph, "goals") and goal_graph.goals:
             topic += "\nPRE-EXTRACTED GOALS (from GoalExtractor, use as starting points):\n"
             for g in goal_graph.goals[:5]:
