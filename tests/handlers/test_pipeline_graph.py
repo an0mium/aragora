@@ -1028,4 +1028,4 @@ class TestConstructor:
 
 class TestRoutes:
     def test_route_count(self):
-        assert len(PipelineGraphHandler.ROUTES) == 11
+        assert len(PipelineGraphHandler.ROUTES) == 13
