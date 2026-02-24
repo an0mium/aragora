@@ -347,7 +347,7 @@ class TestKeyRotationScheduler:
         scheduler = KeyRotationScheduler()
 
         with patch("aragora.security.encryption.get_encryption_service") as mock_service:
-            mock_service.side_effect = Exception("Service unavailable")
+            mock_service.side_effect = RuntimeError("Service unavailable")
             result = await scheduler.check_rotation_due()
 
         assert result is False
