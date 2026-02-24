@@ -122,7 +122,10 @@ const navSections: NavSection[] = [
     items: [
       { label: 'Insights', href: '/insights', icon: '\u272A' },
       { label: 'Intelligence', href: '/intelligence', icon: '\u269B' },
+      { label: 'System Intelligence', href: '/system-intelligence', icon: '\u2328' },
+      { label: 'Outcome Dashboard', href: '/outcome-dashboard', icon: '\u2611' },
       { label: 'Leaderboard', href: '/leaderboard', icon: '^' },
+      { label: 'Agent Performance', href: '/agent-performance', icon: '\u2261' },
       { label: 'Tournaments', href: '/tournaments', icon: '\u2295' },
       { label: 'Calibration', href: '/calibration', icon: '\u2316', minMode: 'advanced' },
       { label: 'Evaluation', href: '/evaluation', icon: '\u2606', minMode: 'advanced' },
@@ -180,7 +183,10 @@ const navSections: NavSection[] = [
     minMode: 'standard',
     items: [
       { label: 'Memory', href: '/memory', icon: '=' },
+      { label: 'Memory Gateway', href: '/memory-gateway', icon: '\u2194' },
       { label: 'Supermemory', href: '/supermemory', icon: '\u221E', minMode: 'standard' },
+      { label: 'Knowledge Flow', href: '/knowledge-flow', icon: '\u21C4' },
+      { label: 'Cross-Debate', href: '/cross-debate', icon: '\u2728', minMode: 'standard' },
       { label: 'Pulse', href: '/pulse', icon: '\u2665', minMode: 'standard' },
       { label: 'Memory Analytics', href: '/memory-analytics', icon: '\u2261', minMode: 'advanced' },
       { label: 'Evidence', href: '/evidence', icon: '\u2690' },

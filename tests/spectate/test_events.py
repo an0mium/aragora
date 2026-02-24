@@ -166,9 +166,9 @@ class TestSpectatorEventsAllUnique:
             assert len(val) > 0, "Found empty event value"
 
     def test_expected_event_count(self):
-        """There should be exactly 60 event constants (23 base + 29 self-improvement + 8 observability)."""
+        """There should be exactly 66 event constants (23 base + 29 self-improvement + 8 observability + 6 live debate)."""
         values = self._all_event_values()
-        assert len(values) == 60
+        assert len(values) == 66
 
 
 # ---------------------------------------------------------------------------

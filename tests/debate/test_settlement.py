@@ -857,8 +857,8 @@ class TestCalibrationReport:
         assert report.total_claims == 10
         assert report.settled_claims == 10
 
-        # All claims at 80% confidence go to the "60-80%" bucket
-        bucket = report.calibration_buckets.get("60-80%")
+        # 80% confidence -> pct=80 falls into the "80-100%" bucket
+        bucket = report.calibration_buckets.get("80-100%")
         assert bucket is not None
         assert bucket.count == 10
         assert bucket.predicted == pytest.approx(0.8)
@@ -934,8 +934,8 @@ class TestCalibrationReport:
         report = tracker.get_calibration_score()
         d = report.to_dict()
         assert d["total_claims"] == 10
-        assert "60-80%" in d["calibration_buckets"]
-        assert d["calibration_buckets"]["60-80%"]["count"] == 10
+        assert "80-100%" in d["calibration_buckets"]
+        assert d["calibration_buckets"]["80-100%"]["count"] == 10
 
     def test_multiple_buckets(self):
         tracker = ClaimCalibrationTracker()

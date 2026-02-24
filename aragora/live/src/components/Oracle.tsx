@@ -360,11 +360,11 @@ function DebateEventMessage({ event }: { event: DebateEvent }) {
               {(event.agent || 'unknown').toUpperCase()}
             </span>
             <span className="text-[var(--crimson,#ff3333)]">CRITIQUE</span>
-            {event.data?.target && (
+            {event.data?.target ? (
               <span className="text-[var(--text-muted)]">
                 of {String(event.data.target).toUpperCase()}
               </span>
-            )}
+            ) : null}
           </div>
           <div
             className="border-l-2 border-[var(--crimson,#ff3333)] pl-4 py-2 pr-3 text-sm leading-relaxed whitespace-pre-wrap ml-1 rounded-r-lg"
@@ -401,11 +401,11 @@ function DebateEventMessage({ event }: { event: DebateEvent }) {
               Confidence: {((event.data.confidence as number) * 100).toFixed(0)}%
             </div>
           )}
-          {event.data?.answer && (
+          {event.data?.answer ? (
             <div className="text-sm text-[var(--text)] mt-1 whitespace-pre-wrap">
               {String(event.data.answer).slice(0, 500)}
             </div>
-          )}
+          ) : null}
         </div>
       );
 
@@ -414,8 +414,8 @@ function DebateEventMessage({ event }: { event: DebateEvent }) {
         <div className="prophecy-reveal text-xs text-[var(--acid-magenta)] py-2">
           <span style={{ filter: 'drop-shadow(0 0 5px var(--acid-magenta))' }}>DEBATE COMPLETE</span>
           <span className="text-[var(--text-muted)]">
-            {' '}&middot; {event.data?.rounds || 0} round(s)
-            {event.data?.duration !== undefined && ` &middot; ${(event.data.duration as number).toFixed(1)}s`}
+            {' '}&middot; {String(event.data?.rounds ?? 0)} round(s)
+            {event.data?.duration !== undefined ? ` \u00B7 ${(event.data.duration as number).toFixed(1)}s` : null}
           </span>
         </div>
       );
