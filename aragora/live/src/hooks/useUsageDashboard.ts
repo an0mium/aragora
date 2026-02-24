@@ -286,14 +286,32 @@ export function useCostBreakdown(
 // ============================================================================
 
 /**
- * Unified hook for all usage dashboard data
- * Combines usage summary, ROI, budget status, and forecast
+ * Unified hook for all usage dashboard data.
+ * Combines usage summary, ROI, budget status, and forecast.
+ *
+ * @param timeRange  Time window for the summary / ROI data.
+ * @param options.refreshInterval  Override the default SWR polling intervals
+ *   (e.g. use a longer interval when WebSocket push is active).
  */
-export function useUsageDashboard(timeRange: TimeRange = '30d') {
-  const { summary, isLoading: summaryLoading, error: summaryError } = useUsageSummary(timeRange);
-  const { roi, isLoading: roiLoading, error: roiError } = useROIAnalysis(timeRange);
-  const { budget, isLoading: budgetLoading, error: budgetError } = useBudgetStatus();
-  const { forecast, isLoading: forecastLoading, error: forecastError } = useUsageForecast();
+export function useUsageDashboard(
+  timeRange: TimeRange = '30d',
+  options?: { refreshInterval?: number }
+) {
+  const ri = options?.refreshInterval;
+  const { summary, isLoading: summaryLoading, error: summaryError } = useUsageSummary(
+    timeRange,
+    ri != null ? { refreshInterval: ri } : undefined
+  );
+  const { roi, isLoading: roiLoading, error: roiError } = useROIAnalysis(
+    timeRange,
+    ri != null ? { refreshInterval: Math.max(ri, 60_000) } : undefined
+  );
+  const { budget, isLoading: budgetLoading, error: budgetError } = useBudgetStatus(
+    ri != null ? { refreshInterval: ri } : undefined
+  );
+  const { forecast, isLoading: forecastLoading, error: forecastError } = useUsageForecast(
+    ri != null ? { refreshInterval: Math.max(ri, 120_000) } : undefined
+  );
 
   const isLoading = summaryLoading || roiLoading || budgetLoading || forecastLoading;
   const error = summaryError || roiError || budgetError || forecastError;

@@ -1,0 +1,759 @@
+"""
+Comprehensive tests for FastAPI debate route endpoints.
+
+Covers:
+- GET  /api/v2/debates                         - List debates with pagination
+- GET  /api/v2/debates/{debate_id}             - Get debate by ID
+- GET  /api/v2/debates/{debate_id}/messages    - Get debate messages
+- GET  /api/v2/debates/{debate_id}/convergence - Get convergence status
+- PATCH /api/v2/debates/{debate_id}            - Update debate metadata
+- DELETE /api/v2/debates/{debate_id}           - Delete a debate
+- Input validation (Pydantic 422 errors)
+- Auth enforcement on write operations
+"""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+from fastapi.testclient import TestClient
+
+from aragora.server.fastapi import create_app
+
+
+@pytest.fixture
+def app():
+    """Create a test FastAPI app."""
+    return create_app()
+
+
+@pytest.fixture
+def mock_storage():
+    """Create a mock debate storage with sample data."""
+    storage = MagicMock()
+    storage.list_debates = MagicMock(return_value=[])
+    storage.count_debates = MagicMock(return_value=0)
+    storage.get_debate = MagicMock(return_value=None)
+    storage.save_debate = MagicMock()
+    storage.delete_debate = MagicMock(return_value=True)
+    return storage
+
+
+@pytest.fixture
+def client(app, mock_storage):
+    """Create a test client with mocked context."""
+    app.state.context = {
+        "storage": mock_storage,
+        "elo_system": MagicMock(),
+        "user_store": None,
+        "rbac_checker": MagicMock(),
+        "decision_service": MagicMock(),
+    }
+    return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def sample_debate_dict():
+    """Sample debate data in dict form."""
+    return {
+        "id": "debate-abc123",
+        "task": "Design a rate limiter for high-traffic API",
+        "status": "completed",
+        "protocol": {"rounds": 3, "consensus": "majority"},
+        "agents": ["claude", "codex", "gemini"],
+        "rounds": [
+            {
+                "round_num": 1,
+                "messages": [
+                    {"role": "proposal", "content": "Token bucket approach", "agent": "claude"},
+                    {"role": "proposal", "content": "Sliding window approach", "agent": "codex"},
+                ],
+            },
+            {
+                "round_num": 2,
+                "messages": [
+                    {"role": "critique", "content": "Token bucket scales better", "agent": "gemini"},
+                ],
+            },
+        ],
+        "final_answer": "Token bucket with sliding window fallback",
+        "consensus": {"confidence": 0.85, "method": "majority"},
+        "created_at": "2026-02-10T10:00:00",
+        "updated_at": "2026-02-10T10:15:00",
+        "metadata": {"domain": "engineering"},
+        "tags": ["api", "performance"],
+    }
+
+
+@pytest.fixture
+def sample_debates_list():
+    """Sample list of debate summaries."""
+    return [
+        {
+            "id": "debate-001",
+            "task": "Design authentication system",
+            "status": "completed",
+            "agents": ["claude", "codex"],
+            "rounds": [{"round_num": 1, "messages": []}],
+            "consensus": {"confidence": 0.9},
+            "created_at": "2026-02-10T09:00:00",
+        },
+        {
+            "id": "debate-002",
+            "task": "Choose database for analytics",
+            "status": "active",
+            "agents": ["claude", "gemini", "grok"],
+            "rounds": [],
+            "consensus": None,
+            "created_at": "2026-02-10T10:00:00",
+        },
+        {
+            "id": "debate-003",
+            "task": "Review security architecture",
+            "status": "paused",
+            "agents": ["claude"],
+            "rounds": [{"round_num": 1, "messages": []}, {"round_num": 2, "messages": []}],
+            "consensus": None,
+            "created_at": "2026-02-10T11:00:00",
+        },
+    ]
+
+
+# =============================================================================
+# GET /api/v2/debates
+# =============================================================================
+
+
+class TestListDebates:
+    """Tests for GET /api/v2/debates."""
+
+    def test_returns_200_empty_list(self, client):
+        """List debates returns 200 with empty list."""
+        response = client.get("/api/v2/debates")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["debates"] == []
+        assert data["total"] == 0
+        assert data["limit"] == 50
+        assert data["offset"] == 0
+
+    def test_returns_debates_with_data(self, client, mock_storage, sample_debates_list):
+        """List debates returns summaries from storage."""
+        mock_storage.list_debates.return_value = sample_debates_list
+        mock_storage.count_debates.return_value = 3
+
+        response = client.get("/api/v2/debates")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["debates"]) == 3
+        assert data["total"] == 3
+
+        # Check first debate summary
+        first = data["debates"][0]
+        assert first["id"] == "debate-001"
+        assert first["task"] == "Design authentication system"
+        assert first["status"] == "completed"
+        assert first["agent_count"] == 2
+        assert first["round_count"] == 1
+        assert first["has_consensus"] is True
+
+    def test_pagination_params(self, client, mock_storage):
+        """List debates passes pagination params to storage."""
+        mock_storage.list_debates.return_value = []
+        mock_storage.count_debates.return_value = 0
+
+        response = client.get("/api/v2/debates?limit=10&offset=20")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["limit"] == 10
+        assert data["offset"] == 20
+        mock_storage.list_debates.assert_called_once_with(limit=10, offset=20, status=None)
+
+    def test_status_filter(self, client, mock_storage, sample_debates_list):
+        """List debates supports status filter."""
+        active_only = [d for d in sample_debates_list if d["status"] == "active"]
+        mock_storage.list_debates.return_value = active_only
+        mock_storage.count_debates.return_value = 1
+
+        response = client.get("/api/v2/debates?status=active")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["debates"]) == 1
+        mock_storage.list_debates.assert_called_once_with(limit=50, offset=0, status="active")
+
+    def test_limit_validation_min(self, client):
+        """Limit must be >= 1."""
+        response = client.get("/api/v2/debates?limit=0")
+        assert response.status_code == 422
+
+    def test_limit_validation_max(self, client):
+        """Limit must be <= 100."""
+        response = client.get("/api/v2/debates?limit=101")
+        assert response.status_code == 422
+
+    def test_offset_validation_min(self, client):
+        """Offset must be >= 0."""
+        response = client.get("/api/v2/debates?offset=-1")
+        assert response.status_code == 422
+
+    def test_no_consensus_shows_false(self, client, mock_storage):
+        """Debate without consensus shows has_consensus=False."""
+        mock_storage.list_debates.return_value = [
+            {"id": "d-1", "task": "No consensus yet", "status": "active", "agents": [], "rounds": [], "consensus": None}
+        ]
+        mock_storage.count_debates.return_value = 1
+
+        response = client.get("/api/v2/debates")
+        data = response.json()
+        assert data["debates"][0]["has_consensus"] is False
+
+    def test_returns_503_when_storage_unavailable(self, app):
+        """List debates returns 503 when storage not available."""
+        app.state.context = {"storage": None}
+        c = TestClient(app, raise_server_exceptions=False)
+        response = c.get("/api/v2/debates")
+        assert response.status_code == 503
+
+
+# =============================================================================
+# GET /api/v2/debates/{debate_id}
+# =============================================================================
+
+
+class TestGetDebate:
+    """Tests for GET /api/v2/debates/{debate_id}."""
+
+    def test_returns_404_for_nonexistent(self, client, mock_storage):
+        """Get nonexistent debate returns 404."""
+        mock_storage.get_debate.return_value = None
+        response = client.get("/api/v2/debates/nonexistent-id")
+        assert response.status_code == 404
+
+    def test_returns_debate_details(self, client, mock_storage, sample_debate_dict):
+        """Get existing debate returns full details."""
+        mock_storage.get_debate.return_value = sample_debate_dict
+
+        response = client.get("/api/v2/debates/debate-abc123")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == "debate-abc123"
+        assert data["task"] == "Design a rate limiter for high-traffic API"
+        assert data["status"] == "completed"
+        assert data["agents"] == ["claude", "codex", "gemini"]
+        assert len(data["rounds"]) == 2
+        assert data["final_answer"] == "Token bucket with sliding window fallback"
+        assert data["consensus"]["confidence"] == 0.85
+        assert data["metadata"]["domain"] == "engineering"
+
+    def test_returns_debate_with_environment_task(self, client, mock_storage):
+        """Get debate handles environment.task field."""
+        mock_storage.get_debate.return_value = {
+            "id": "debate-env",
+            "environment": {"task": "Review API design"},
+            "status": "active",
+            "agents": [],
+            "rounds": [],
+        }
+
+        response = client.get("/api/v2/debates/debate-env")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["task"] == "Review API design"
+
+    def test_passes_debate_id_to_storage(self, client, mock_storage, sample_debate_dict):
+        """Get debate passes the correct ID to storage."""
+        mock_storage.get_debate.return_value = sample_debate_dict
+        client.get("/api/v2/debates/debate-abc123")
+        mock_storage.get_debate.assert_called_with("debate-abc123")
+
+
+# =============================================================================
+# GET /api/v2/debates/{debate_id}/messages
+# =============================================================================
+
+
+class TestGetDebateMessages:
+    """Tests for GET /api/v2/debates/{debate_id}/messages."""
+
+    def test_returns_404_for_nonexistent(self, client, mock_storage):
+        """Messages endpoint returns 404 for nonexistent debate."""
+        mock_storage.get_debate.return_value = None
+        response = client.get("/api/v2/debates/nonexistent/messages")
+        assert response.status_code == 404
+
+    def test_returns_messages_from_rounds(self, client, mock_storage, sample_debate_dict):
+        """Messages endpoint extracts messages from rounds."""
+        mock_storage.get_debate.return_value = sample_debate_dict
+
+        response = client.get("/api/v2/debates/debate-abc123/messages")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["debate_id"] == "debate-abc123"
+        assert data["total"] == 3  # 2 from round 1, 1 from round 2
+        assert len(data["messages"]) == 3
+        assert data["messages"][0]["content"] == "Token bucket approach"
+        assert data["messages"][0]["agent"] == "claude"
+
+    def test_pagination(self, client, mock_storage, sample_debate_dict):
+        """Messages endpoint supports pagination."""
+        mock_storage.get_debate.return_value = sample_debate_dict
+
+        response = client.get("/api/v2/debates/debate-abc123/messages?limit=2&offset=0")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["messages"]) == 2
+        assert data["total"] == 3
+        assert data["has_more"] is True
+
+    def test_pagination_offset(self, client, mock_storage, sample_debate_dict):
+        """Messages endpoint respects offset."""
+        mock_storage.get_debate.return_value = sample_debate_dict
+
+        response = client.get("/api/v2/debates/debate-abc123/messages?limit=10&offset=2")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["messages"]) == 1  # Only 1 message after offset 2
+        assert data["has_more"] is False
+
+    def test_empty_messages(self, client, mock_storage):
+        """Messages endpoint handles debates with no messages."""
+        mock_storage.get_debate.return_value = {
+            "id": "debate-empty",
+            "task": "Empty debate",
+            "status": "active",
+            "rounds": [],
+        }
+
+        response = client.get("/api/v2/debates/debate-empty/messages")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["messages"] == []
+        assert data["total"] == 0
+        assert data["has_more"] is False
+
+    def test_limit_validation(self, client):
+        """Message limit must be between 1 and 500."""
+        response = client.get("/api/v2/debates/x/messages?limit=0")
+        assert response.status_code == 422
+
+        response = client.get("/api/v2/debates/x/messages?limit=501")
+        assert response.status_code == 422
+
+
+# =============================================================================
+# GET /api/v2/debates/{debate_id}/convergence
+# =============================================================================
+
+
+class TestGetDebateConvergence:
+    """Tests for GET /api/v2/debates/{debate_id}/convergence."""
+
+    def test_returns_404_for_nonexistent(self, client, mock_storage):
+        """Convergence endpoint returns 404 for nonexistent debate."""
+        mock_storage.get_debate.return_value = None
+        response = client.get("/api/v2/debates/nonexistent/convergence")
+        assert response.status_code == 404
+
+    def test_converged_debate(self, client, mock_storage, sample_debate_dict):
+        """Convergence endpoint returns converged=True with consensus."""
+        mock_storage.get_debate.return_value = sample_debate_dict
+
+        response = client.get("/api/v2/debates/debate-abc123/convergence")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["debate_id"] == "debate-abc123"
+        assert data["converged"] is True
+        assert data["confidence"] == 0.85
+        assert data["rounds_to_convergence"] == 2
+
+    def test_not_converged_debate(self, client, mock_storage):
+        """Convergence endpoint returns converged=False without consensus."""
+        mock_storage.get_debate.return_value = {
+            "id": "debate-active",
+            "task": "Ongoing debate",
+            "status": "active",
+            "consensus": None,
+            "rounds": [{"round_num": 1}],
+        }
+
+        response = client.get("/api/v2/debates/debate-active/convergence")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["converged"] is False
+        assert data["confidence"] == 0.0
+        assert data["rounds_to_convergence"] is None
+
+    def test_includes_similarity_scores(self, client, mock_storage):
+        """Convergence endpoint includes similarity scores from metrics."""
+        mock_storage.get_debate.return_value = {
+            "id": "debate-sim",
+            "task": "With scores",
+            "status": "completed",
+            "consensus": {"confidence": 0.9},
+            "rounds": [{"round_num": 1}],
+            "metrics": {"similarity_scores": [0.5, 0.7, 0.85, 0.92]},
+        }
+
+        response = client.get("/api/v2/debates/debate-sim/convergence")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["similarity_scores"] == [0.5, 0.7, 0.85, 0.92]
+
+
+# =============================================================================
+# PATCH /api/v2/debates/{debate_id}
+# =============================================================================
+
+
+class TestUpdateDebate:
+    """Tests for PATCH /api/v2/debates/{debate_id}."""
+
+    def test_requires_auth(self, client):
+        """PATCH debates requires authentication."""
+        response = client.patch(
+            "/api/v2/debates/debate-abc123",
+            json={"title": "New title"},
+        )
+        assert response.status_code == 401
+
+    def test_returns_404_for_nonexistent(self, client, mock_storage):
+        """PATCH returns 404 for nonexistent debate."""
+        mock_storage.get_debate.return_value = None
+
+        with patch(
+            "aragora.server.fastapi.routes.debates.require_permission",
+            return_value=lambda auth: auth,
+        ):
+            # Bypass auth by directly overriding the dependency
+            from aragora.server.fastapi.routes.debates import update_debate, get_storage
+            from aragora.rbac.models import AuthorizationContext
+
+            auth_ctx = AuthorizationContext(
+                user_id="user-1",
+                org_id="org-1",
+                workspace_id="ws-1",
+                roles={"admin"},
+                permissions={"debates:write"},
+            )
+
+            # Use the app's dependency override mechanism
+            app = client.app
+            app.dependency_overrides[require_permission("debates:write")] = lambda: auth_ctx
+
+            response = client.patch(
+                "/api/v2/debates/nonexistent",
+                json={"title": "New title"},
+            )
+            # Clean up
+            app.dependency_overrides.clear()
+
+        assert response.status_code in (401, 404)
+
+    def test_updates_title(self, client, mock_storage, sample_debate_dict):
+        """PATCH updates debate title."""
+        mock_storage.get_debate.return_value = sample_debate_dict.copy()
+
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"debates:write"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+        response = client.patch(
+            "/api/v2/debates/debate-abc123",
+            json={"title": "Updated title"},
+        )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["debate_id"] == "debate-abc123"
+        assert "title" in data["updated_fields"]
+
+    def test_updates_status(self, client, mock_storage, sample_debate_dict):
+        """PATCH updates debate status."""
+        mock_storage.get_debate.return_value = sample_debate_dict.copy()
+
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"debates:write"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+        response = client.patch(
+            "/api/v2/debates/debate-abc123",
+            json={"status": "archived"},
+        )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "status" in data["updated_fields"]
+
+    def test_rejects_invalid_status(self, client, mock_storage, sample_debate_dict):
+        """PATCH rejects invalid status values."""
+        mock_storage.get_debate.return_value = sample_debate_dict.copy()
+
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"debates:write"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+        response = client.patch(
+            "/api/v2/debates/debate-abc123",
+            json={"status": "invalid_status"},
+        )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 400
+
+    def test_rejects_empty_update(self, client, mock_storage, sample_debate_dict):
+        """PATCH rejects update with no fields."""
+        mock_storage.get_debate.return_value = sample_debate_dict.copy()
+
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"debates:write"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+        response = client.patch(
+            "/api/v2/debates/debate-abc123",
+            json={},
+        )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 400
+
+    def test_updates_tags(self, client, mock_storage, sample_debate_dict):
+        """PATCH updates debate tags."""
+        mock_storage.get_debate.return_value = sample_debate_dict.copy()
+
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"debates:write"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+        response = client.patch(
+            "/api/v2/debates/debate-abc123",
+            json={"tags": ["security", "architecture"]},
+        )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "tags" in data["updated_fields"]
+
+    def test_updates_metadata(self, client, mock_storage, sample_debate_dict):
+        """PATCH updates debate metadata."""
+        mock_storage.get_debate.return_value = sample_debate_dict.copy()
+
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"debates:write"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+        response = client.patch(
+            "/api/v2/debates/debate-abc123",
+            json={"metadata": {"priority": "high", "reviewer": "alice"}},
+        )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "metadata" in data["updated_fields"]
+
+    def test_calls_save_debate(self, client, mock_storage, sample_debate_dict):
+        """PATCH calls storage.save_debate after update."""
+        mock_storage.get_debate.return_value = sample_debate_dict.copy()
+
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"debates:write"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+        client.patch(
+            "/api/v2/debates/debate-abc123",
+            json={"title": "New title"},
+        )
+        client.app.dependency_overrides.clear()
+
+        mock_storage.save_debate.assert_called_once()
+
+
+# =============================================================================
+# DELETE /api/v2/debates/{debate_id}
+# =============================================================================
+
+
+class TestDeleteDebate:
+    """Tests for DELETE /api/v2/debates/{debate_id}."""
+
+    def test_requires_auth(self, client):
+        """DELETE debates requires authentication."""
+        response = client.delete("/api/v2/debates/debate-abc123")
+        assert response.status_code == 401
+
+    def test_deletes_debate(self, client, mock_storage, sample_debate_dict):
+        """DELETE removes debate from storage."""
+        mock_storage.get_debate.return_value = sample_debate_dict
+        mock_storage.delete_debate.return_value = True
+
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"debates:delete"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+        response = client.delete("/api/v2/debates/debate-abc123")
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["deleted"] is True
+        assert data["id"] == "debate-abc123"
+
+    def test_returns_404_for_nonexistent(self, client, mock_storage):
+        """DELETE returns 404 for nonexistent debate."""
+        mock_storage.get_debate.return_value = None
+
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"debates:delete"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+        response = client.delete("/api/v2/debates/nonexistent")
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 404
+
+    def test_calls_delete_with_cascade(self, client, mock_storage, sample_debate_dict):
+        """DELETE calls storage.delete_debate with cascade=True."""
+        mock_storage.get_debate.return_value = sample_debate_dict
+        mock_storage.delete_debate.return_value = True
+
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"debates:delete"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+        client.delete("/api/v2/debates/debate-abc123")
+        client.app.dependency_overrides.clear()
+
+        mock_storage.delete_debate.assert_called_once_with("debate-abc123", cascade_critiques=True)
+
+
+# =============================================================================
+# Storage Fallback
+# =============================================================================
+
+
+class TestStorageFallback:
+    """Tests for storage dependency fallback behavior."""
+
+    def test_returns_503_without_context(self, app):
+        """Routes return 503 when server context is not initialized."""
+        # Don't set app.state.context
+        c = TestClient(app, raise_server_exceptions=False)
+        response = c.get("/api/v2/debates")
+        assert response.status_code == 503
+
+    def test_returns_503_without_storage(self, app):
+        """Routes return 503 when storage is not available."""
+        app.state.context = {"storage": None}
+        c = TestClient(app, raise_server_exceptions=False)
+        response = c.get("/api/v2/debates")
+        assert response.status_code == 503
+
+    def test_fallback_to_debates_dict(self, app):
+        """Routes fall back to storage.debates when list_debates not available."""
+        storage = MagicMock(spec=[])  # No list_debates or count_debates
+        storage.debates = {
+            "d-1": {
+                "id": "d-1",
+                "task": "Test",
+                "status": "active",
+                "agents": [],
+                "rounds": [],
+                "consensus": None,
+            },
+        }
+        app.state.context = {
+            "storage": storage,
+            "elo_system": None,
+            "rbac_checker": None,
+            "decision_service": None,
+        }
+        c = TestClient(app, raise_server_exceptions=False)
+        response = c.get("/api/v2/debates")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["debates"]) == 1

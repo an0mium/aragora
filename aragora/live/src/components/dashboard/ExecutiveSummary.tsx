@@ -9,10 +9,10 @@ interface ExecutiveSummaryProps {
 }
 
 export function ExecutiveSummary({
-  refreshInterval: _refreshInterval = 30000,
+  refreshInterval = 30000,
 }: ExecutiveSummaryProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
-  const { dashboardData, isLoading, error } = useUsageDashboard(timeRange);
+  const { dashboardData, isLoading, error } = useUsageDashboard(timeRange, { refreshInterval });
 
   const formatNumber = (num: number): string => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
