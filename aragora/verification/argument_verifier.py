@@ -408,7 +408,8 @@ class ArgumentStructureVerifier:
             if source.node_type not in claim_types or target.node_type not in claim_types:
                 continue
 
-            pair_key = tuple(sorted([edge.source_id, edge.target_id]))
+            a, b = sorted([edge.source_id, edge.target_id])
+            pair_key = (a, b)
             if pair_key in seen_pairs:
                 continue
             seen_pairs.add(pair_key)

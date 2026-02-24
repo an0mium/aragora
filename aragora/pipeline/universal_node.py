@@ -305,11 +305,10 @@ class UniversalGraph:
 
     def to_react_flow(self, stage_filter: PipelineStage | None = None) -> dict[str, Any]:
         """Export as React Flow JSON, optionally filtered to one stage."""
-        nodes = self.nodes.values()
         if stage_filter is not None:
-            nodes = [n for n in nodes if n.stage == stage_filter]
+            nodes = [n for n in self.nodes.values() if n.stage == stage_filter]
         else:
-            nodes = list(nodes)
+            nodes = list(self.nodes.values())
 
         node_ids = {n.id for n in nodes}
         edges = [

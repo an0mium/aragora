@@ -764,7 +764,7 @@ def create_handlers(
         Dict mapping states to handlers
     """
     # Import phase implementations lazily to avoid circular imports
-    from scripts.nomic.phases import (
+    from aragora.nomic.phases import (
         CommitPhase,
         ContextPhase,
         DebatePhase,

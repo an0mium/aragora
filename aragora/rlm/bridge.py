@@ -1267,9 +1267,8 @@ Please provide an improved answer based on the feedback."""
     def __enter__(self) -> "AragoraRLM":
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self.close()
-        return False
 
     def get_trajectory_log_path(self) -> str | None:
         """Get the trajectory log directory path."""
@@ -1292,9 +1291,9 @@ Please provide an improved answer based on the feedback."""
             debate_id: Optional debate ID for context
         """
         try:
-            from aragora.audit.log import AuditLog
+            from aragora.audit.log import get_audit_log
 
-            audit = AuditLog.get_instance()
+            audit = get_audit_log()
             audit.log(
                 action="rlm_query",
                 category="rlm",

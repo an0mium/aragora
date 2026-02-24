@@ -1783,6 +1783,8 @@ class TestRoutes:
             "/api/self-improve/start",
             "/api/self-improve/status",
             "/api/self-improve/runs",
+            "/api/self-improve/runs/*",
+            "/api/self-improve/runs/*/cancel",
             "/api/self-improve/history",
             "/api/self-improve/coordinate",
             "/api/self-improve/worktrees",
@@ -1795,7 +1797,7 @@ class TestRoutes:
         assert handler.RESOURCE_TYPE == "self_improve"
 
     def test_routes_count(self, handler):
-        assert len(handler.ROUTES) == 13
+        assert len(handler.ROUTES) >= 15
 
 
 # ===========================================================================

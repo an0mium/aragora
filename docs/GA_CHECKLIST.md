@@ -1,7 +1,7 @@
 # Self-Hosted GA Readiness Checklist
 
 Status: **In Progress**
-Last updated: 2026-02-16
+Last updated: 2026-02-24
 
 This checklist tracks all items required before declaring Aragora self-hosted GA (Generally Available). Items are grouped by category with clear pass/fail criteria.
 
@@ -19,7 +19,7 @@ This checklist tracks all items required before declaring Aragora self-hosted GA
 - [x] **SSRF protection** - Built-in URL validation
 - [x] **Skill scanner** - AST-based malware detection for marketplace skills
 - [ ] **External penetration test** - Third-party security assessment
-  - Blocker: Need to engage vendor, estimated 2-4 weeks
+  - Blocker: Vendor outreach initiated on 2026-02-13, follow-up sent on 2026-02-24, kickoff target 2026-03-03
 - [x] **Dependency audit** - Trivy scans in CI (CRITICAL/HIGH severity gate)
 
 ## Authentication & Authorization
@@ -100,7 +100,7 @@ This checklist tracks all items required before declaring Aragora self-hosted GA
 
 | Blocker | Owner | Status | ETA |
 |---------|-------|--------|-----|
-| External pen test | Security | Not started | 2-4 weeks |
+| External pen test | Security | Vendor outreach in progress | Kickoff target: 2026-03-03 |
 
 ## GA Criteria Summary
 
