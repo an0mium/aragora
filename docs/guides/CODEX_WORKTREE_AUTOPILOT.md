@@ -12,6 +12,9 @@ Use this guide when many Codex/Claude sessions are modifying Aragora simultaneou
 # Start Codex in an auto-managed worktree
 ./scripts/codex_session.sh
 
+# Start a named lane in an isolated managed-dir
+./scripts/codex_session.sh --agent codex-ci --managed-dir .worktrees/codex-auto-ci
+
 # Ensure or create a managed worktree for an agent
 python3 scripts/codex_worktree_autopilot.py ensure --agent codex --base main --reconcile
 
@@ -21,6 +24,9 @@ python3 scripts/codex_worktree_autopilot.py reconcile --all --base main
 # Cleanup stale/expired managed worktrees
 python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24
 
+# One-shot maintenance (reconcile + cleanup)
+python3 scripts/codex_worktree_autopilot.py maintain --base main --ttl-hours 24
+
 # Inspect managed sessions
 python3 scripts/codex_worktree_autopilot.py status
 ```
@@ -28,8 +34,8 @@ python3 scripts/codex_worktree_autopilot.py status
 ## Recommended Operating Loop
 
 1. Start each agent with `./scripts/codex_session.sh --agent <name>`.
-2. Before major test/fix cycles, run `... reconcile --all --base main`.
-3. After merges/pushes, run `... cleanup --ttl-hours 24`.
+2. Before major test/fix cycles, run `... maintain --base main --ttl-hours 24`.
+3. Use `... reconcile --all --base main` when you need explicit sync reporting.
 4. Use short-lived worktrees; do not keep long-running stale session trees.
 
 ## Makefile Shortcuts
@@ -39,4 +45,5 @@ make codex-session
 make worktree-ensure
 make worktree-reconcile
 make worktree-cleanup
+make worktree-maintain
 ```

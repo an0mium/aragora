@@ -611,6 +611,49 @@ class PipelineAPI:
         return self._client.request("POST", "/api/v1/pipeline/transitions", json=payload)
 
     # =========================================================================
+    # Pipeline Transition Helpers
+    # =========================================================================
+
+    def ideas_to_goals(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Run idea-to-goals transition helper."""
+        return self._client.request(
+            "POST",
+            "/api/v1/pipeline/transitions/ideas-to-goals",
+            json=body,
+        )
+
+    def goals_to_tasks(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Run goals-to-tasks transition helper."""
+        return self._client.request(
+            "POST",
+            "/api/v1/pipeline/transitions/goals-to-tasks",
+            json=body,
+        )
+
+    def tasks_to_workflow(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Run tasks-to-workflow transition helper."""
+        return self._client.request(
+            "POST",
+            "/api/v1/pipeline/transitions/tasks-to-workflow",
+            json=body,
+        )
+
+    def execute_transitions(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Execute a transition plan."""
+        return self._client.request(
+            "POST",
+            "/api/v1/pipeline/transitions/execute",
+            json=body,
+        )
+
+    def get_transition_provenance(self, node_id: str) -> dict[str, Any]:
+        """Get provenance for a transition node."""
+        return self._client.request(
+            "GET",
+            f"/api/v1/pipeline/transitions/{node_id}/provenance",
+        )
+
+    # =========================================================================
     # Universal Pipeline Graph CRUD
     # =========================================================================
 
@@ -653,6 +696,19 @@ class PipelineAPI:
         return self._client.request(
             "POST",
             f"/api/v1/pipeline/graph/{graph_id}/node",
+            json=node_data,
+        )
+
+    def update_graph_node(
+        self,
+        graph_id: str,
+        node_id: str,
+        node_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Update a node in a universal pipeline graph."""
+        return self._client.request(
+            "PUT",
+            f"/api/v1/pipeline/graph/{graph_id}/node/{node_id}",
             json=node_data,
         )
 
@@ -1231,6 +1287,49 @@ class AsyncPipelineAPI:
         return await self._client.request("POST", "/api/v1/pipeline/transitions", json=payload)
 
     # =========================================================================
+    # Pipeline Transition Helpers
+    # =========================================================================
+
+    async def ideas_to_goals(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Run idea-to-goals transition helper."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/pipeline/transitions/ideas-to-goals",
+            json=body,
+        )
+
+    async def goals_to_tasks(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Run goals-to-tasks transition helper."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/pipeline/transitions/goals-to-tasks",
+            json=body,
+        )
+
+    async def tasks_to_workflow(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Run tasks-to-workflow transition helper."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/pipeline/transitions/tasks-to-workflow",
+            json=body,
+        )
+
+    async def execute_transitions(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Execute a transition plan."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/pipeline/transitions/execute",
+            json=body,
+        )
+
+    async def get_transition_provenance(self, node_id: str) -> dict[str, Any]:
+        """Get provenance for a transition node."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/pipeline/transitions/{node_id}/provenance",
+        )
+
+    # =========================================================================
     # Universal Pipeline Graph CRUD
     # =========================================================================
 
@@ -1251,6 +1350,19 @@ class AsyncPipelineAPI:
         return await self._client.request(
             "POST",
             f"/api/v1/pipeline/graph/{graph_id}/node",
+            json=node_data,
+        )
+
+    async def update_graph_node(
+        self,
+        graph_id: str,
+        node_id: str,
+        node_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Update a node in a universal pipeline graph."""
+        return await self._client.request(
+            "PUT",
+            f"/api/v1/pipeline/graph/{graph_id}/node/{node_id}",
             json=node_data,
         )
 

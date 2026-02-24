@@ -436,9 +436,12 @@ def _parse_ts(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        return datetime.fromisoformat(value)
+        ts = datetime.fromisoformat(value)
     except ValueError:
         return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=UTC)
+    return ts.astimezone(UTC)
 
 
 def _branch_ahead_count(repo_root: Path, base: str, branch: str) -> int:
@@ -561,6 +564,77 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_maintain(args: argparse.Namespace) -> int:
+    script_path = str(Path(__file__).resolve())
+    reconcile_proc = subprocess.run(
+        [
+            sys.executable,
+            script_path,
+            "--repo",
+            args.repo,
+            "--managed-dir",
+            args.managed_dir,
+            "reconcile",
+            "--all",
+            "--base",
+            args.base,
+            "--json",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    cleanup_cmd = [
+        sys.executable,
+        script_path,
+        "--repo",
+        args.repo,
+        "--managed-dir",
+        args.managed_dir,
+        "cleanup",
+        "--base",
+        args.base,
+        "--ttl-hours",
+        str(args.ttl_hours),
+        "--json",
+    ]
+    if args.force_unmerged:
+        cleanup_cmd.append("--force-unmerged")
+    if not args.delete_branches:
+        cleanup_cmd.append("--no-delete-branches")
+    cleanup_proc = subprocess.run(
+        cleanup_cmd,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    reconcile_out: dict[str, Any] = {"ok": False, "error": reconcile_proc.stderr.strip()}
+    cleanup_out: dict[str, Any] = {"ok": False, "error": cleanup_proc.stderr.strip()}
+    if reconcile_proc.returncode == 0 and reconcile_proc.stdout.strip():
+        try:
+            reconcile_out = json.loads(reconcile_proc.stdout)
+        except json.JSONDecodeError:
+            reconcile_out = {"ok": False, "error": "invalid_reconcile_output"}
+    if cleanup_proc.returncode == 0 and cleanup_proc.stdout.strip():
+        try:
+            cleanup_out = json.loads(cleanup_proc.stdout)
+        except json.JSONDecodeError:
+            cleanup_out = {"ok": False, "error": "invalid_cleanup_output"}
+
+    ok = bool(reconcile_out.get("ok")) and bool(cleanup_out.get("ok"))
+    payload = {"ok": ok, "reconcile": reconcile_out, "cleanup": cleanup_out}
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(
+            "maintain complete: "
+            f"reconcile_ok={bool(reconcile_out.get('ok'))} "
+            f"cleanup_ok={bool(cleanup_out.get('ok'))}"
+        )
+    return 0 if ok else 2
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Autopilot worktree lifecycle for Codex sessions."
@@ -599,9 +673,34 @@ def _build_parser() -> argparse.ArgumentParser:
     cleanup.add_argument("--base", default="main")
     cleanup.add_argument("--ttl-hours", type=int, default=24)
     cleanup.add_argument("--force-unmerged", action="store_true")
-    cleanup.add_argument("--delete-branches", action="store_true", default=True)
+    cleanup.add_argument("--delete-branches", dest="delete_branches", action="store_true")
+    cleanup.add_argument(
+        "--no-delete-branches",
+        dest="delete_branches",
+        action="store_false",
+        help="Keep local codex/* branches while removing stale worktrees",
+    )
+    cleanup.set_defaults(delete_branches=True)
     cleanup.add_argument("--json", action="store_true")
     cleanup.set_defaults(func=cmd_cleanup)
+
+    maintain = sub.add_parser(
+        "maintain",
+        help="Reconcile all managed worktrees then cleanup stale/expired sessions",
+    )
+    maintain.add_argument("--base", default="main")
+    maintain.add_argument("--ttl-hours", type=int, default=24)
+    maintain.add_argument("--force-unmerged", action="store_true")
+    maintain.add_argument("--delete-branches", dest="delete_branches", action="store_true")
+    maintain.add_argument(
+        "--no-delete-branches",
+        dest="delete_branches",
+        action="store_false",
+        help="Keep local codex/* branches while removing stale worktrees",
+    )
+    maintain.set_defaults(delete_branches=True)
+    maintain.add_argument("--json", action="store_true")
+    maintain.set_defaults(func=cmd_maintain)
 
     status = sub.add_parser("status", help="Show managed session status")
     status.add_argument("--json", action="store_true")

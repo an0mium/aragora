@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import uuid
-from typing import Any, cast
+from typing import Any
 
 from aragora.knowledge.mound.adapters._base import (
     EventCallback,
