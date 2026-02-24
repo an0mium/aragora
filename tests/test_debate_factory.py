@@ -279,7 +279,7 @@ class TestDebateFactoryCreateAgents:
             result = factory.create_agents(specs)
 
             assert result.failure_count == 1
-            assert "Missing API key" in result.failed[0][1]
+            assert "Agent creation failed" in result.failed[0][1]
 
     def test_create_agents_with_stream_wrapper(self):
         """Applies stream wrapper to created agents."""
