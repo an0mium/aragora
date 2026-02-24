@@ -159,9 +159,8 @@ class MemoryUnifiedHandler(BaseHandler):
         """Query Knowledge Mound."""
         try:
             from aragora.knowledge.mound import KnowledgeMound
-            from aragora.knowledge.mound.core import MoundConfig
 
-            km: Any = KnowledgeMound(config=MoundConfig())
+            km: Any = KnowledgeMound()  # type: ignore[abstract]
             entries = km.query(query, limit=limit)
             return [
                 {
