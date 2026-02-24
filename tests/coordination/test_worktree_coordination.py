@@ -51,12 +51,13 @@ class TestWorktreeManager:
     """Tests for WorktreeManager lifecycle and health tracking."""
 
     def _make_manager(self, **kwargs):
-        config = WorktreeManagerConfig(
-            max_worktrees=5,
-            stall_timeout_seconds=60,
-            abandon_timeout_seconds=300,
-            **kwargs,
-        )
+        defaults = {
+            "max_worktrees": 5,
+            "stall_timeout_seconds": 60,
+            "abandon_timeout_seconds": 300,
+        }
+        defaults.update(kwargs)
+        config = WorktreeManagerConfig(**defaults)
         return WorktreeManager(repo_path=Path("/tmp/fake-repo"), config=config)
 
     @pytest.mark.asyncio
@@ -651,11 +652,12 @@ class TestGitReconciler:
     """Tests for GitReconciler conflict detection and merge logic."""
 
     def _make_reconciler(self, **kwargs):
-        config = ReconcilerConfig(
-            pre_merge_tests=False,
-            post_merge_tests=False,
-            **kwargs,
-        )
+        defaults = {
+            "pre_merge_tests": False,
+            "post_merge_tests": False,
+        }
+        defaults.update(kwargs)
+        config = ReconcilerConfig(**defaults)
         return GitReconciler(repo_path=Path("/tmp/fake-repo"), config=config)
 
     def test_conflict_classification_test_file(self):

@@ -101,7 +101,9 @@ describe('AgentPerformancePage', () => {
 
   it('renders breadcrumb navigation', () => {
     render(<AgentPerformancePage />);
-    expect(screen.getByText('Agents')).toBeInTheDocument();
+    // "Agents" link in breadcrumb (there may be multiple "Agents" text nodes)
+    const breadcrumbLink = screen.getAllByText('Agents')[0];
+    expect(breadcrumbLink).toBeInTheDocument();
     expect(screen.getByText('Performance')).toBeInTheDocument();
   });
 
