@@ -1136,7 +1136,7 @@ class IdeaToExecutionPipeline:
             )
             _spectate("pipeline.completed", f"pipeline_id={pipeline_id}")
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - top-level pipeline handler must report all failures
             result.duration = time.monotonic() - start_time
             logger.warning("Pipeline %s failed: %s", pipeline_id, exc)
             self._emit(
@@ -1259,7 +1259,7 @@ class IdeaToExecutionPipeline:
                 },
             )
             _spectate("pipeline.stage_completed", "stage=ideation")
-        except Exception as exc:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
             sr.status = "failed"
             sr.error = "Ideation stage failed"
             sr.duration = time.monotonic() - start
@@ -1311,7 +1311,7 @@ class IdeaToExecutionPipeline:
                 },
             )
             _spectate("pipeline.stage_completed", "stage=principles")
-        except Exception as exc:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
             sr.status = "failed"
             sr.error = "Principles extraction failed"
             sr.duration = time.monotonic() - start
@@ -1527,7 +1527,7 @@ class IdeaToExecutionPipeline:
                 },
             )
             _spectate("pipeline.stage_completed", "stage=goals")
-        except Exception as exc:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
             sr.status = "failed"
             sr.error = "Goal extraction failed"
             sr.duration = time.monotonic() - start
@@ -1595,7 +1595,7 @@ class IdeaToExecutionPipeline:
                 },
             )
             _spectate("pipeline.stage_completed", "stage=actions")
-        except Exception as exc:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
             sr.status = "failed"
             sr.error = "Workflow generation failed"
             sr.duration = time.monotonic() - start
@@ -1748,7 +1748,7 @@ class IdeaToExecutionPipeline:
                 },
             )
             _spectate("pipeline.stage_completed", "stage=orchestration")
-        except Exception as exc:
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ConnectionError, TimeoutError) as exc:
             sr.status = "failed"
             sr.error = "Orchestration failed"
             sr.duration = time.monotonic() - start
@@ -1911,7 +1911,10 @@ class IdeaToExecutionPipeline:
                 "status": "planned",
                 "output": {"reason": "execution_engine_unavailable"},
             }
-        except Exception as exc:
+        except (
+            RuntimeError, ValueError, TypeError, OSError,
+            AttributeError, KeyError, ConnectionError, TimeoutError,
+        ) as exc:
             # Harness config errors, path validation, etc.
             # Individual task failures must not crash the entire stage.
             logger.warning("Task %s failed: %s", task["id"], exc)

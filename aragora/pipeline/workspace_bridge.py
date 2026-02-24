@@ -187,8 +187,8 @@ class WorkspacePipelineBridge:
 
             self._bead_manager = BeadManager()
             return True
-        except Exception:
-            logger.debug("Workspace BeadManager unavailable; bridge disabled")
+        except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError) as exc:
+            logger.debug("Workspace BeadManager unavailable; bridge disabled: %s", exc)
             return False
 
     @property
@@ -229,8 +229,8 @@ class WorkspacePipelineBridge:
 
         try:
             all_beads = await self._bead_manager.list_beads()
-        except Exception:
-            logger.debug("Failed to list beads from workspace store")
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+            logger.debug("Failed to list beads from workspace store: %s", exc)
             return ctx
 
         seen_titles: set[str] = set()
