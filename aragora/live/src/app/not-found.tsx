@@ -2,12 +2,12 @@ import Link from 'next/link';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full border border-warning bg-surface p-6 font-mono">
+    <div className="min-h-screen bg-bg flex items-center justify-center p-4 relative crt-overlay">
+      <div className="max-w-2xl w-full border border-warning bg-surface p-6 font-mono relative z-10 crt-flicker">
         <div className="flex items-start gap-3 mb-4">
           <div className="text-warning text-2xl glow-text-subtle">{'>'}</div>
           <div>
-            <div className="text-warning font-bold mb-2 text-xl">
+            <div className="text-warning font-bold mb-2 text-xl glow-text-subtle">
               404 - PAGE NOT FOUND
             </div>
             <div className="text-text-muted text-sm mb-2">
@@ -66,10 +66,10 @@ export default function NotFound() {
         <div className="mt-6 p-3 bg-surface border border-border text-text-muted text-xs">
           <div className="font-bold mb-1 text-text">{'>'} NEED HELP?</div>
           <ul className="pl-4 space-y-1">
-            <li>• Check the URL for typos</li>
-            <li>• Use the navigation above</li>
+            <li>* Check the URL for typos</li>
+            <li>* Use the navigation above</li>
             <li>
-              • Contact{' '}
+              * Contact{' '}
               <a
                 href="mailto:support@aragora.ai"
                 className="text-accent hover:underline"

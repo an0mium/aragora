@@ -310,6 +310,7 @@ class AragoraClient:
         from .namespaces.self_improve import SelfImproveAPI
         from .namespaces.services import ServicesAPI
         from .namespaces.shared_inbox import SharedInboxAPI
+        from .namespaces.skills import SkillsAPI
         from .namespaces.slo import SLOAPI
         from .namespaces.sme import SMEAPI
         from .namespaces.social import SocialAPI
@@ -325,9 +326,11 @@ class AragoraClient:
         from .namespaces.threat_intel import ThreatIntelAPI
         from .namespaces.tournaments import TournamentsAPI
         from .namespaces.training import TrainingAPI
+        from .namespaces.transcription import TranscriptionAPI
         from .namespaces.uncertainty import UncertaintyAPI
         from .namespaces.unified_inbox import UnifiedInboxAPI
         from .namespaces.usage import UsageAPI
+        from .namespaces.usage_metering import UsageMeteringAPI
         from .namespaces.users import UsersAPI
         from .namespaces.verification import VerificationAPI
         from .namespaces.verticals import VerticalsAPI
@@ -361,6 +364,7 @@ class AragoraClient:
         self.backups = BackupsAPI(self)
         self.batch = BatchAPI(self)
         self.belief = BeliefAPI(self)
+        self.belief_network = BeliefNetworkAPI(self)
         self.benchmarks = BenchmarksAPI(self)
         self.bots = BotsAPI(self)
         self.breakpoints = BreakpointsAPI(self)
@@ -402,6 +406,7 @@ class AragoraClient:
         self.documents = DocumentsAPI(self)
         self.ecommerce = EcommerceAPI(self)
         self.email_debate = EmailDebateAPI(self)
+        self.email_priority = EmailPriorityAPI(self)
         self.email_services = EmailServicesAPI(self)
         self.evaluation = EvaluationAPI(self)
         self.evolution = EvolutionAPI(self)
