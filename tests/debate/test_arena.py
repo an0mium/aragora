@@ -238,7 +238,7 @@ class TestArenaInitialization:
         env = _make_env()
         agents = _make_agents(2)
         protocol = _make_protocol()
-        cb = CircuitBreaker(failure_threshold=3, reset_timeout=60.0)
+        cb = CircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
 
         arena = Arena(
             environment=env,
