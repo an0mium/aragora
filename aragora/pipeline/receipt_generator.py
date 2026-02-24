@@ -1,7 +1,7 @@
 """Pipeline provenance receipt generator.
 
 Generates DecisionReceipts that capture the full Idea-to-Execution
-provenance chain: ideas → goals → actions → orchestration results.
+provenance chain: ideas -> goals -> actions -> orchestration results.
 """
 
 from __future__ import annotations
