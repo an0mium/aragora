@@ -39,6 +39,9 @@ Usage:
     # Use pipeline with hybrid execution mode (Claude + Codex)
     python scripts/self_develop.py --goal "Refactor auth" --use-pipeline --pipeline-mode hybrid
 
+    # Auto mode: low-risk auto-execute, budget capped at 10 files
+    python scripts/self_develop.py --goal "Fix lint and test issues" --auto
+
     # Fall back to base orchestrator (no hardening)
     python scripts/self_develop.py --goal "Simple fix" --standard
 """
@@ -603,6 +606,9 @@ Examples:
 
   # Full autonomous run
   %(prog)s --goal "Improve SME experience" --tracks sme developer --max-parallel 2
+
+  # Auto mode: low-risk goals execute without approval, budget capped at 10 files
+  %(prog)s --goal "Fix lint and test issues" --auto
         """,
     )
 

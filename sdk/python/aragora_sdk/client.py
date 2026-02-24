@@ -178,6 +178,7 @@ class AragoraClient:
         from .namespaces.backups import BackupsAPI
         from .namespaces.batch import BatchAPI
         from .namespaces.belief import BeliefAPI
+        from .namespaces.belief_network import BeliefNetworkAPI
         from .namespaces.benchmarks import BenchmarksAPI
         from .namespaces.billing import BillingAPI
         from .namespaces.blockchain import BlockchainAPI
@@ -216,13 +217,16 @@ class AragoraClient:
         from .namespaces.documents import DocumentsAPI
         from .namespaces.ecommerce import EcommerceAPI
         from .namespaces.email_debate import EmailDebateAPI
+        from .namespaces.email_priority import EmailPriorityAPI
         from .namespaces.email_services import EmailServicesAPI
         from .namespaces.evaluation import EvaluationAPI
         from .namespaces.evolution import EvolutionAPI
         from .namespaces.expenses import ExpensesAPI
         from .namespaces.explainability import ExplainabilityAPI
+        from .namespaces.external_agents import ExternalAgentsAPI
         from .namespaces.facts import FactsAPI
         from .namespaces.feature_flags import FeatureFlagsAPI
+        from .namespaces.features import FeaturesAPI
         from .namespaces.feedback import FeedbackAPI
         from .namespaces.flips import FlipsAPI
         from .namespaces.gateway import GatewayAPI
@@ -232,15 +236,20 @@ class AragoraClient:
         from .namespaces.gmail import GmailAPI
         from .namespaces.graph_debates import GraphDebatesAPI
         from .namespaces.health import HealthAPI
+        from .namespaces.history import HistoryAPI
         from .namespaces.hybrid_debates import HybridDebatesAPI
         from .namespaces.ideas import IdeasAPI
         from .namespaces.inbox_command import InboxCommandAPI
         from .namespaces.index import IndexAPI
         from .namespaces.insights import InsightsAPI
         from .namespaces.integrations import IntegrationsAPI
+        from .namespaces.introspection import IntrospectionAPI
         from .namespaces.invoice_processing import InvoiceProcessingAPI
         from .namespaces.knowledge import KnowledgeAPI
         from .namespaces.knowledge_chat import KnowledgeChatAPI
+        from .namespaces.laboratory import LaboratoryAPI
+        from .namespaces.leaderboard import LeaderboardAPI
+        from .namespaces.learning import LearningAPI
         from .namespaces.marketplace import MarketplaceAPI
         from .namespaces.matches import MatchesAPI
         from .namespaces.media import MediaAPI
