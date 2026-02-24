@@ -172,13 +172,23 @@ def validate_workflow(definition: Any) -> ValidationResult:
                 if color[neighbor] == GRAY:
                     # Back edge found — cycle
                     step = step_map.get(node)
-                    if step and step.step_type == "loop":
+                    neighbor_step = step_map.get(neighbor)
+                    # DFS start order over step IDs is not stable; classify loop cycles
+                    # as informational if either side of the back edge is a loop step.
+                    if (step and step.step_type == "loop") or (
+                        neighbor_step and neighbor_step.step_type == "loop"
+                    ):
+                        loop_step_id = (
+                            node
+                            if (step and step.step_type == "loop")
+                            else neighbor
+                        )
                         _add(
                             result,
                             "info",
                             "LOOP_CYCLE",
-                            f"Loop step '{node}' forms a cycle (expected)",
-                            step_id=node,
+                            f"Loop step '{loop_step_id}' forms a cycle (expected)",
+                            step_id=loop_step_id,
                         )
                     else:
                         _add(
