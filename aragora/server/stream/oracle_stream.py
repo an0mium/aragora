@@ -1000,143 +1000,177 @@ async def _drain_emitter_to_ws(
 
             try:
                 if event_type == "debate_start":
-                    await ws.send_json({
-                        "type": "debate_start",
-                        "debate_id": debate_id,
-                        "task": data.get("task", ""),
-                        "agents": data.get("agents", []),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "debate_start",
+                            "debate_id": debate_id,
+                            "task": data.get("task", ""),
+                            "agents": data.get("agents", []),
+                        }
+                    )
 
                 elif event_type == "round_start":
-                    await ws.send_json({
-                        "type": "round_start",
-                        "round": data.get("round", 0),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "round_start",
+                            "round": data.get("round", 0),
+                        }
+                    )
 
                 elif event_type == "agent_message":
                     content = data.get("content", "")
                     role = data.get("role", "proposer")
-                    await ws.send_json({
-                        "type": "agent_message",
-                        "agent": agent,
-                        "content": content,
-                        "role": role,
-                        "round": event_dict.get("round", 0),
-                        "confidence_score": data.get("confidence_score"),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "agent_message",
+                            "agent": agent,
+                            "content": content,
+                            "role": role,
+                            "round": event_dict.get("round", 0),
+                            "confidence_score": data.get("confidence_score"),
+                        }
+                    )
 
                     # TTS hook: emit event for audio synthesis
                     if tts_integration and tts_integration.is_available and content:
-                        await ws.send_json({
-                            "type": "tts_hook",
-                            "agent": agent,
-                            "text": content[:2000],
-                            "debate_id": debate_id,
-                        })
+                        await ws.send_json(
+                            {
+                                "type": "tts_hook",
+                                "agent": agent,
+                                "text": content[:2000],
+                                "debate_id": debate_id,
+                            }
+                        )
 
                 elif event_type == "agent_thinking":
-                    await ws.send_json({
-                        "type": "agent_thinking",
-                        "agent": agent,
-                        "step": data.get("step", ""),
-                        "phase": data.get("phase", "reasoning"),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "agent_thinking",
+                            "agent": agent,
+                            "step": data.get("step", ""),
+                            "phase": data.get("phase", "reasoning"),
+                        }
+                    )
 
                 elif event_type == "critique":
-                    await ws.send_json({
-                        "type": "critique",
-                        "agent": agent,
-                        "target": data.get("target", ""),
-                        "issues": data.get("issues", []),
-                        "severity": data.get("severity", 0.0),
-                        "content": data.get("content", ""),
-                        "round": event_dict.get("round", 0),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "critique",
+                            "agent": agent,
+                            "target": data.get("target", ""),
+                            "issues": data.get("issues", []),
+                            "severity": data.get("severity", 0.0),
+                            "content": data.get("content", ""),
+                            "round": event_dict.get("round", 0),
+                        }
+                    )
 
                 elif event_type == "vote":
-                    await ws.send_json({
-                        "type": "vote",
-                        "agent": agent,
-                        "vote": data.get("vote", ""),
-                        "confidence": data.get("confidence", 0.0),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "vote",
+                            "agent": agent,
+                            "vote": data.get("vote", ""),
+                            "confidence": data.get("confidence", 0.0),
+                        }
+                    )
 
                 elif event_type == "consensus":
-                    await ws.send_json({
-                        "type": "consensus",
-                        "reached": data.get("reached", False),
-                        "confidence": data.get("confidence", 0.0),
-                        "answer": data.get("answer", ""),
-                        "synthesis": data.get("synthesis", ""),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "consensus",
+                            "reached": data.get("reached", False),
+                            "confidence": data.get("confidence", 0.0),
+                            "answer": data.get("answer", ""),
+                            "synthesis": data.get("synthesis", ""),
+                        }
+                    )
 
                 elif event_type == "debate_end":
-                    await ws.send_json({
-                        "type": "debate_end",
-                        "duration": data.get("duration", 0.0),
-                        "rounds": data.get("rounds", 0),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "debate_end",
+                            "duration": data.get("duration", 0.0),
+                            "rounds": data.get("rounds", 0),
+                        }
+                    )
                     return  # Debate complete
 
                 elif event_type == "phase_progress":
-                    await ws.send_json({
-                        "type": "phase_progress",
-                        "phase": data.get("phase", ""),
-                        "completed": data.get("completed", 0),
-                        "total": data.get("total", 0),
-                        "current_agent": data.get("current_agent", ""),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "phase_progress",
+                            "phase": data.get("phase", ""),
+                            "completed": data.get("completed", 0),
+                            "total": data.get("total", 0),
+                            "current_agent": data.get("current_agent", ""),
+                        }
+                    )
 
                 elif event_type == "agent_error":
-                    await ws.send_json({
-                        "type": "agent_error",
-                        "agent": agent,
-                        "error_type": data.get("error_type", "unknown"),
-                        "message": data.get("message", ""),
-                        "recoverable": data.get("recoverable", True),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "agent_error",
+                            "agent": agent,
+                            "error_type": data.get("error_type", "unknown"),
+                            "message": data.get("message", ""),
+                            "recoverable": data.get("recoverable", True),
+                        }
+                    )
 
                 elif event_type == "token_start":
-                    await ws.send_json({
-                        "type": "token_start",
-                        "agent": agent,
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "token_start",
+                            "agent": agent,
+                        }
+                    )
 
                 elif event_type == "token_delta":
-                    await ws.send_json({
-                        "type": "token_delta",
-                        "agent": agent,
-                        "token": data.get("token", ""),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "token_delta",
+                            "agent": agent,
+                            "token": data.get("token", ""),
+                        }
+                    )
 
                 elif event_type == "token_end":
-                    await ws.send_json({
-                        "type": "token_end",
-                        "agent": agent,
-                        "full_response": data.get("full_response", ""),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "token_end",
+                            "agent": agent,
+                            "full_response": data.get("full_response", ""),
+                        }
+                    )
 
                 elif event_type == "error":
-                    await ws.send_json({
-                        "type": "error",
-                        "message": data.get("error", "Debate error"),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "error",
+                            "message": data.get("error", "Debate error"),
+                        }
+                    )
                     return  # Fatal error
 
                 elif event_type == "synthesis":
-                    await ws.send_json({
-                        "type": "synthesis",
-                        "text": data.get("content", ""),
-                        "agent": data.get("agent", "synthesis-agent"),
-                        "confidence": data.get("confidence", 0.0),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "synthesis",
+                            "text": data.get("content", ""),
+                            "agent": data.get("agent", "synthesis-agent"),
+                            "confidence": data.get("confidence", 0.0),
+                        }
+                    )
 
                 elif event_type == "heartbeat":
-                    await ws.send_json({
-                        "type": "heartbeat",
-                        "phase": data.get("phase", ""),
-                        "status": data.get("status", "alive"),
-                    })
+                    await ws.send_json(
+                        {
+                            "type": "heartbeat",
+                            "phase": data.get("phase", ""),
+                            "status": data.get("status", "alive"),
+                        }
+                    )
 
             except (ConnectionError, OSError, RuntimeError) as exc:
                 logger.warning("Failed to send debate event to Oracle WS: %s", exc)
@@ -1195,13 +1229,15 @@ async def _handle_debate(
             return
 
         # Signal debate start to client
-        await ws.send_json({
-            "type": "debate_setup",
-            "debate_id": debate_id,
-            "question": question,
-            "mode": mode,
-            "rounds": rounds,
-        })
+        await ws.send_json(
+            {
+                "type": "debate_setup",
+                "debate_id": debate_id,
+                "question": question,
+                "mode": mode,
+                "rounds": rounds,
+            }
+        )
 
         # Run debate in background thread
         loop = asyncio.get_event_loop()
@@ -1218,9 +1254,7 @@ async def _handle_debate(
         )
 
         # Start draining events from the emitter to the WebSocket
-        drain_task = asyncio.create_task(
-            _drain_emitter_to_ws(ws, emitter, session, debate_id)
-        )
+        drain_task = asyncio.create_task(_drain_emitter_to_ws(ws, emitter, session, debate_id))
 
         # Wait for debate completion or cancellation
         try:
@@ -1255,10 +1289,12 @@ async def _handle_debate(
         session.stream_error = True
         logger.exception("Oracle debate consultation failed")
         if not ws.closed:
-            await ws.send_json({
-                "type": "error",
-                "message": "The Oracle's debate failed. Try again.",
-            })
+            await ws.send_json(
+                {
+                    "type": "error",
+                    "message": "The Oracle's debate failed. Try again.",
+                }
+            )
     finally:
         if session.completed:
             record_oracle_session_outcome("completed")

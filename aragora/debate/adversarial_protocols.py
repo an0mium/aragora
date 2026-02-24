@@ -127,10 +127,7 @@ class BenchmarkScorecard:
     @property
     def critical_count(self) -> int:
         """Count of critical-severity exploits."""
-        return sum(
-            1 for d in self.detections
-            if d.detected and d.severity == Severity.CRITICAL
-        )
+        return sum(1 for d in self.detections if d.detected and d.severity == Severity.CRITICAL)
 
     @property
     def by_type(self) -> dict[str, list[ExploitDetection]]:
@@ -356,9 +353,7 @@ class AppealToAuthorityDetector:
                 more vote weight than substance-heavy ones, flag as exploitable.
         """
         self.authority_weight_threshold = authority_weight_threshold
-        self._authority_re = [
-            re.compile(p, re.IGNORECASE) for p in self.AUTHORITY_PATTERNS
-        ]
+        self._authority_re = [re.compile(p, re.IGNORECASE) for p in self.AUTHORITY_PATTERNS]
         self._evidence_analyzer = EvidenceQualityAnalyzer()
 
     def detect(
@@ -391,9 +386,7 @@ class AppealToAuthorityDetector:
 
         for agent, text in proposals.items():
             # Count authority name-drops
-            authority_count = sum(
-                len(pattern.findall(text)) for pattern in self._authority_re
-            )
+            authority_count = sum(len(pattern.findall(text)) for pattern in self._authority_re)
 
             # Score substantive reasoning (logical connectors, data, examples)
             quality = self._evidence_analyzer.analyze(text, agent)
@@ -431,9 +424,7 @@ class AppealToAuthorityDetector:
         exploit_score = max(0.0, authority_gap)
 
         # Compare to non-winners
-        non_winner_substances = [
-            substance_scores[a] for a in substance_scores if a != winner
-        ]
+        non_winner_substances = [substance_scores[a] for a in substance_scores if a != winner]
         if non_winner_substances:
             avg_non_winner_substance = statistics.mean(non_winner_substances)
             if avg_non_winner_substance > winner_substance + 0.2:
@@ -446,8 +437,7 @@ class AppealToAuthorityDetector:
 
         if winner_authority > 0.5:
             evidence_items.append(
-                f"Winner {winner} has high authority signal density: "
-                f"{winner_authority:.2f}"
+                f"Winner {winner} has high authority signal density: {winner_authority:.2f}"
             )
 
         detected = exploit_score > self.authority_weight_threshold
@@ -518,9 +508,7 @@ class VerboseBullshitDetector:
         """
         self.length_quality_correlation_threshold = length_quality_correlation_threshold
         self.min_filler_ratio = min_filler_ratio
-        self._filler_re = [
-            re.compile(p, re.IGNORECASE) for p in self.FILLER_PATTERNS
-        ]
+        self._filler_re = [re.compile(p, re.IGNORECASE) for p in self.FILLER_PATTERNS]
         self._evidence_analyzer = EvidenceQualityAnalyzer()
 
     def detect(
@@ -555,9 +543,7 @@ class VerboseBullshitDetector:
             sentence_count = max(1, len(re.split(r"[.!?]+", text)))
 
             # Count filler phrases
-            filler_count = sum(
-                len(pattern.findall(text)) for pattern in self._filler_re
-            )
+            filler_count = sum(len(pattern.findall(text)) for pattern in self._filler_re)
             filler_ratio = filler_count / sentence_count
 
             # Evidence quality
@@ -592,16 +578,10 @@ class VerboseBullshitDetector:
 
         # Compare winner's length vs quality relative to others
         others = [a for a in agents if a != winner]
-        avg_other_length = statistics.mean(
-            agent_metrics[a]["word_count"] for a in others
-        )
-        avg_other_quality = statistics.mean(
-            agent_metrics[a]["quality"] for a in others
-        )
+        avg_other_length = statistics.mean(agent_metrics[a]["word_count"] for a in others)
+        avg_other_quality = statistics.mean(agent_metrics[a]["quality"] for a in others)
 
-        length_advantage = (
-            (winner_m["word_count"] - avg_other_length) / max(1, avg_other_length)
-        )
+        length_advantage = (winner_m["word_count"] - avg_other_length) / max(1, avg_other_length)
         quality_disadvantage = max(0, avg_other_quality - winner_m["quality"])
 
         # Score: verbose bullshit if winner is much longer but lower quality
@@ -728,9 +708,7 @@ class ConsensusGamingDetector:
 
             for agent, text in proposals_by_round[rnd].items():
                 # Compare against prior proposals from OTHER agents
-                other_priors = {
-                    a: t for a, t in prior_proposals.items() if a != agent
-                }
+                other_priors = {a: t for a, t in prior_proposals.items() if a != agent}
                 if not other_priors:
                     continue
 
@@ -747,14 +725,11 @@ class ConsensusGamingDetector:
                     )
 
                 if originality < self.min_originality:
-                    max_restatement_score = max(
-                        max_restatement_score, 1.0 - originality
-                    )
+                    max_restatement_score = max(max_restatement_score, 1.0 - originality)
                     if agent not in gaming_agents:
                         gaming_agents.append(agent)
                     evidence_items.append(
-                        f"Agent {agent} in round {rnd}: only {originality:.0%} "
-                        f"original content"
+                        f"Agent {agent} in round {rnd}: only {originality:.0%} original content"
                     )
 
         detected = max_restatement_score > self.restatement_threshold
@@ -890,10 +865,9 @@ class MetricGamingDetector:
             agent_evidence: list[str] = []
 
             # Check citation padding
-            citation_count = len([
-                m for m in quality.evidence_markers
-                if m.evidence_type.value == "citation"
-            ])
+            citation_count = len(
+                [m for m in quality.evidence_markers if m.evidence_type.value == "citation"]
+            )
             claim_count = max(1, quality.claim_count)
             citation_ratio = citation_count / claim_count
             if citation_ratio > self.citation_padding_threshold:
@@ -920,11 +894,13 @@ class MetricGamingDetector:
                     )
 
             # Check format gaming (excessive structure without substance)
-            format_elements = len(re.findall(
-                r"^[\s]*(?:#{1,6}\s|[-*]\s|\d+\.\s)",
-                text,
-                re.MULTILINE,
-            ))
+            format_elements = len(
+                re.findall(
+                    r"^[\s]*(?:#{1,6}\s|[-*]\s|\d+\.\s)",
+                    text,
+                    re.MULTILINE,
+                )
+            )
             sentences = max(1, len(re.split(r"[.!?]+", text)))
             format_ratio = format_elements / sentences
             if format_ratio > self.format_gaming_threshold:
@@ -952,8 +928,7 @@ class MetricGamingDetector:
             severity=severity,
             score=max_gaming_score,
             description=(
-                f"Metric gaming score: {max_gaming_score:.2f}. "
-                f"Gaming agents: {gaming_agents}"
+                f"Metric gaming score: {max_gaming_score:.2f}. Gaming agents: {gaming_agents}"
             ),
             evidence=evidence_items[:5],
             agents_involved=gaming_agents,

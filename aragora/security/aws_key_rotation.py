@@ -128,9 +128,7 @@ class RotationConfig:
     """Configuration for AWS Secrets Manager rotation."""
 
     # Rotation intervals per secret type (days)
-    rotation_intervals: dict[str, int] = field(
-        default_factory=lambda: dict(DEFAULT_ROTATION_DAYS)
-    )
+    rotation_intervals: dict[str, int] = field(default_factory=lambda: dict(DEFAULT_ROTATION_DAYS))
 
     # AWS region for Secrets Manager
     aws_region: str = ""
@@ -165,9 +163,7 @@ class RotationConfig:
         """Load rotation configuration from environment variables."""
         config = cls()
         config.aws_region = (
-            os.environ.get("AWS_REGION")
-            or os.environ.get("AWS_DEFAULT_REGION")
-            or "us-east-1"
+            os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
         )
         config.db_host = os.environ.get("ARAGORA_DB_HOST", "")
         config.db_port = int(os.environ.get("ARAGORA_DB_PORT", "5432"))
@@ -235,9 +231,7 @@ class RotationStatus:
         return {
             "secret_id": self.secret_id,
             "secret_type": self.secret_type.value,
-            "last_rotated_at": (
-                self.last_rotated_at.isoformat() if self.last_rotated_at else None
-            ),
+            "last_rotated_at": (self.last_rotated_at.isoformat() if self.last_rotated_at else None),
             "next_rotation_at": (
                 self.next_rotation_at.isoformat() if self.next_rotation_at else None
             ),
@@ -256,10 +250,7 @@ class RotationStatus:
 
 def _generate_db_password(config: RotationConfig) -> str:
     """Generate a strong random database password."""
-    return "".join(
-        secrets.choice(config.password_chars)
-        for _ in range(config.password_length)
-    )
+    return "".join(secrets.choice(config.password_chars) for _ in range(config.password_length))
 
 
 def _generate_api_key(config: RotationConfig) -> str:
@@ -279,10 +270,7 @@ def _generate_jwt_signing_key(config: RotationConfig) -> str:
 
 def _generate_redis_password(config: RotationConfig) -> str:
     """Generate a strong random Redis password."""
-    return "".join(
-        secrets.choice(config.password_chars)
-        for _ in range(config.password_length)
-    )
+    return "".join(secrets.choice(config.password_chars) for _ in range(config.password_length))
 
 
 _GENERATORS: dict[SecretType, Any] = {
@@ -328,9 +316,7 @@ def _test_db_credential(secret_value: dict[str, Any], config: RotationConfig) ->
         return False
 
 
-def _test_redis_credential(
-    secret_value: dict[str, Any], config: RotationConfig
-) -> bool:
+def _test_redis_credential(secret_value: dict[str, Any], config: RotationConfig) -> bool:
     """Test that a Redis password works."""
     try:
         import redis as redis_lib  # type: ignore[import-untyped]
@@ -339,9 +325,7 @@ def _test_redis_credential(
         port = secret_value.get("port") or config.redis_port
         password = secret_value.get("password", "")
 
-        r = redis_lib.Redis(
-            host=host, port=port, password=password, socket_timeout=5
-        )
+        r = redis_lib.Redis(host=host, port=port, password=password, socket_timeout=5)
         r.ping()
         r.close()
         return True
@@ -362,9 +346,7 @@ def _test_api_key(secret_value: dict[str, Any], _config: RotationConfig) -> bool
     return True
 
 
-def _test_encryption_key(
-    secret_value: dict[str, Any], _config: RotationConfig
-) -> bool:
+def _test_encryption_key(secret_value: dict[str, Any], _config: RotationConfig) -> bool:
     """Test that an encryption key is valid AES-256 material."""
     key_hex = secret_value.get("encryption_key") or secret_value.get("key", "")
     if not key_hex:
@@ -484,9 +466,7 @@ class AWSSecretRotator:
 
     # -- Four rotation steps -------------------------------------------------
 
-    def create_secret(
-        self, secret_id: str, client_request_token: str
-    ) -> dict[str, Any]:
+    def create_secret(self, secret_id: str, client_request_token: str) -> dict[str, Any]:
         """Step 1: Generate new credential material and store as AWSPENDING.
 
         Retrieves the current AWSCURRENT secret to determine its type, generates
@@ -496,9 +476,7 @@ class AWSSecretRotator:
 
         # Get current secret to determine type
         try:
-            current = client.get_secret_value(
-                SecretId=secret_id, VersionStage="AWSCURRENT"
-            )
+            current = client.get_secret_value(SecretId=secret_id, VersionStage="AWSCURRENT")
             current_value = json.loads(current["SecretString"])
         except (ClientError, json.JSONDecodeError, KeyError) as e:
             logger.error("Failed to retrieve current secret %s: %s", secret_id, e)
@@ -564,9 +542,7 @@ class AWSSecretRotator:
 
         return new_value
 
-    def set_secret(
-        self, secret_id: str, client_request_token: str
-    ) -> None:
+    def set_secret(self, secret_id: str, client_request_token: str) -> None:
         """Step 2: Set the new secret in the target service.
 
         For database credentials, this would ALTER the user's password.
@@ -582,9 +558,7 @@ class AWSSecretRotator:
             )
             pending_value = json.loads(pending["SecretString"])
         except (ClientError, json.JSONDecodeError, KeyError) as e:
-            logger.error(
-                "Failed to retrieve AWSPENDING for %s: %s", secret_id, e
-            )
+            logger.error("Failed to retrieve AWSPENDING for %s: %s", secret_id, e)
             raise
 
         secret_type = self._detect_secret_type(pending_value)
@@ -606,9 +580,7 @@ class AWSSecretRotator:
             )
         )
 
-    def test_secret(
-        self, secret_id: str, client_request_token: str
-    ) -> bool:
+    def test_secret(self, secret_id: str, client_request_token: str) -> bool:
         """Step 3: Verify the new credential works.
 
         Retrieves the AWSPENDING secret and runs the appropriate tester.
@@ -623,9 +595,7 @@ class AWSSecretRotator:
             )
             pending_value = json.loads(pending["SecretString"])
         except (ClientError, json.JSONDecodeError, KeyError) as e:
-            logger.error(
-                "Failed to retrieve AWSPENDING for test %s: %s", secret_id, e
-            )
+            logger.error("Failed to retrieve AWSPENDING for test %s: %s", secret_id, e)
             raise
 
         secret_type = self._detect_secret_type(pending_value)
@@ -648,15 +618,11 @@ class AWSSecretRotator:
         )
 
         if not result:
-            raise ValueError(
-                f"New secret for {secret_id} failed validation test"
-            )
+            raise ValueError(f"New secret for {secret_id} failed validation test")
 
         return result
 
-    def finish_secret(
-        self, secret_id: str, client_request_token: str
-    ) -> None:
+    def finish_secret(self, secret_id: str, client_request_token: str) -> None:
         """Step 4: Promote AWSPENDING to AWSCURRENT.
 
         Moves the version stages so the new secret becomes active and the
@@ -918,9 +884,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> None:
         # Verify the token is valid
         versions = metadata.get("VersionIdsToStages", {})
         if token not in versions:
-            raise ValueError(
-                f"Secret version {token} has no stage for rotation of {secret_id}"
-            )
+            raise ValueError(f"Secret version {token} has no stage for rotation of {secret_id}")
 
     if step == RotationStep.CREATE_SECRET.value:
         rotator.create_secret(secret_id, token)
@@ -997,9 +961,7 @@ class RotationMonitor:
 
         self._running = True
         self._task = asyncio.create_task(self._monitor_loop())
-        logger.info(
-            "Rotation monitor started (check every %ds)", self._check_interval
-        )
+        logger.info("Rotation monitor started (check every %ds)", self._check_interval)
 
     async def stop(self) -> None:
         """Stop the background rotation monitor."""
@@ -1073,9 +1035,7 @@ class RotationMonitor:
         return {
             "running": self._running,
             "check_interval_seconds": self._check_interval,
-            "last_check_at": (
-                self._last_check_at.isoformat() if self._last_check_at else None
-            ),
+            "last_check_at": (self._last_check_at.isoformat() if self._last_check_at else None),
             "reload_count": self._reload_count,
             "secrets_tracked": len(self._rotator.get_all_rotation_statuses()),
             "secrets_due": len(self._rotator.check_secrets_due()),
@@ -1156,17 +1116,13 @@ async def init_rotation_on_startup() -> RotationMonitor | None:
 
         manager = get_secret_manager()
         if not manager.config.use_aws:
-            logger.debug(
-                "AWS Secrets Manager not configured; rotation monitor disabled"
-            )
+            logger.debug("AWS Secrets Manager not configured; rotation monitor disabled")
             return None
 
         config = RotationConfig.from_env()
         monitor = await start_rotation_monitor(
             config=config,
-            check_interval_seconds=int(
-                os.environ.get("ARAGORA_ROTATION_CHECK_INTERVAL", "300")
-            ),
+            check_interval_seconds=int(os.environ.get("ARAGORA_ROTATION_CHECK_INTERVAL", "300")),
         )
 
         # Log initial status

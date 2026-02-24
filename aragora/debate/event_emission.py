@@ -474,7 +474,6 @@ class EventEmitter:
             duration_ms=duration_ms,
         )
 
-
     def emit_agent_thinking(
         self,
         agent_name: str,

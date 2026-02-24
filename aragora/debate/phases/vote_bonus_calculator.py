@@ -298,8 +298,7 @@ class VoteBonusCalculator:
                     vote_counts[canonical] = max(0.0, current - penalty)
 
                     logger.debug(
-                        "epistemic_hygiene_penalty agent=%s score=%.2f penalty=%.3f "
-                        "missing=%s",
+                        "epistemic_hygiene_penalty agent=%s score=%.2f penalty=%.3f missing=%s",
                         agent_name,
                         score.score,
                         penalty,

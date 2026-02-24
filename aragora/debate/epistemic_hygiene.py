@@ -184,12 +184,14 @@ class EpistemicScore:
     @property
     def score(self) -> float:
         """Composite epistemic score (0.0 = none present, 1.0 = all present)."""
-        total = sum([
-            self.has_alternatives,
-            self.has_falsifiers,
-            self.has_confidence,
-            self.has_unknowns,
-        ])
+        total = sum(
+            [
+                self.has_alternatives,
+                self.has_falsifiers,
+                self.has_confidence,
+                self.has_unknowns,
+            ]
+        )
         return total / 4.0
 
     @property

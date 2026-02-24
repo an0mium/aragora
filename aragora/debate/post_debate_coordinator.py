@@ -241,9 +241,7 @@ class PostDebateCoordinator:
 
         # Step 7.9: Settlement tracking — extract verifiable claims for future resolution
         if self.config.auto_settlement_tracking:
-            result.settlement_batch = self._step_settlement_tracking(
-                debate_id, debate_result
-            )
+            result.settlement_batch = self._step_settlement_tracking(debate_id, debate_result)
 
         # Step 8.5: Canvas pipeline — auto-trigger idea-to-execution visualization
         if self.config.auto_trigger_canvas and confidence >= self.config.canvas_min_confidence:

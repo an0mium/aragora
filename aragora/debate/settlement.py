@@ -325,9 +325,7 @@ class SettlementTracker:
 
         record = self._records[settlement_id]
         if record.status != SettlementStatus.PENDING:
-            raise ValueError(
-                f"Settlement {settlement_id} already resolved: {record.status.value}"
-            )
+            raise ValueError(f"Settlement {settlement_id} already resolved: {record.status.value}")
 
         # Parse outcome
         if isinstance(outcome, str):
@@ -783,20 +781,14 @@ class SettlementTracker:
     def get_summary(self) -> dict[str, Any]:
         """Get an overall summary of settlement activity."""
         total = len(self._records)
-        pending = sum(
-            1 for r in self._records.values() if r.status == SettlementStatus.PENDING
-        )
+        pending = sum(1 for r in self._records.values() if r.status == SettlementStatus.PENDING)
         settled = total - pending
 
-        correct = sum(
-            1 for r in self._records.values() if r.outcome == SettlementOutcome.CORRECT
-        )
+        correct = sum(1 for r in self._records.values() if r.outcome == SettlementOutcome.CORRECT)
         incorrect = sum(
             1 for r in self._records.values() if r.outcome == SettlementOutcome.INCORRECT
         )
-        partial = sum(
-            1 for r in self._records.values() if r.outcome == SettlementOutcome.PARTIAL
-        )
+        partial = sum(1 for r in self._records.values() if r.outcome == SettlementOutcome.PARTIAL)
 
         # Collect per-agent stats
         agents: set[str] = set()

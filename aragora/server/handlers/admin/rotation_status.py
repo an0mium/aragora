@@ -75,9 +75,7 @@ class RotationStatusHandler(SecureHandler):
         # RBAC check
         if not RBAC_AVAILABLE:
             if rbac_fail_closed():
-                return error_response(
-                    "Service unavailable: access control module not loaded", 503
-                )
+                return error_response("Service unavailable: access control module not loaded", 503)
         elif hasattr(handler, "auth_context"):
             decision = check_permission(handler.auth_context, ROTATION_STATUS_PERMISSION)
             if not decision.allowed:
@@ -124,9 +122,7 @@ class RotationStatusHandler(SecureHandler):
             # 4. Summary
             all_secrets = result["secrets"]
             due_count = sum(1 for s in all_secrets if s.get("is_due", False))
-            pending_count = sum(
-                1 for s in all_secrets if s.get("pending_rotation", False)
-            )
+            pending_count = sum(1 for s in all_secrets if s.get("pending_rotation", False))
             result["summary"] = {
                 "total_tracked": len(all_secrets),
                 "due_for_rotation": due_count,
@@ -186,13 +182,9 @@ class RotationStatusHandler(SecureHandler):
                 "successful_rotations": stats.successful_rotations,
                 "failed_rotations": stats.failed_rotations,
                 "last_rotation_at": (
-                    stats.last_rotation_at.isoformat()
-                    if stats.last_rotation_at
-                    else None
+                    stats.last_rotation_at.isoformat() if stats.last_rotation_at else None
                 ),
-                "next_check_at": (
-                    stats.next_check_at.isoformat() if stats.next_check_at else None
-                ),
+                "next_check_at": (stats.next_check_at.isoformat() if stats.next_check_at else None),
                 "keys_tracked": stats.keys_tracked,
                 "keys_expiring_soon": stats.keys_expiring_soon,
                 "uptime_seconds": round(stats.uptime_seconds, 1),
@@ -202,14 +194,10 @@ class RotationStatusHandler(SecureHandler):
                         "provider": k.provider,
                         "version": k.version,
                         "last_rotated_at": (
-                            k.last_rotated_at.isoformat()
-                            if k.last_rotated_at
-                            else None
+                            k.last_rotated_at.isoformat() if k.last_rotated_at else None
                         ),
                         "next_rotation_at": (
-                            k.next_rotation_at.isoformat()
-                            if k.next_rotation_at
-                            else None
+                            k.next_rotation_at.isoformat() if k.next_rotation_at else None
                         ),
                         "is_active": k.is_active,
                     }
