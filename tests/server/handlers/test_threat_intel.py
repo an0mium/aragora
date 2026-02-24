@@ -42,6 +42,17 @@ with patch.dict(
         register_threat_intel_routes,
     )
 
+# Re-register the handler module in sys.modules so that string-based
+# patch() calls can resolve "aragora.server.handlers.threat_intel.X"
+# after the patch.dict context manager restores sys.modules.
+import sys as _sys
+
+import aragora.server.handlers.threat_intel as _threat_mod  # noqa: E402
+
+_sys.modules.setdefault(
+    "aragora.server.handlers.threat_intel", _threat_mod
+)
+
 
 # ===========================================================================
 # Helpers
