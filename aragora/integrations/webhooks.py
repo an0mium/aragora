@@ -639,7 +639,7 @@ class WebhookDispatcher:
                 logger.warning("Webhook %s blocked by SSRF protection: %s", cfg.name, cfg.url)
                 return False
             except (TimeoutError, ConnectionError, OSError) as e:
-                # Network errors: retry
+                # Network errors (stdlib): retry
                 if attempt < cfg.max_retries - 1:
                     backoff = cfg.backoff_base_s * (2**attempt) + random.uniform(0, 0.5)
                     logger.debug(
@@ -648,6 +648,22 @@ class WebhookDispatcher:
                     )
                     time.sleep(backoff)
                     continue
+            except Exception as e:  # noqa: BLE001 — httpx transport errors
+                # httpx.ConnectError, httpx.ReadTimeout, etc. are not subclasses
+                # of stdlib OSError/ConnectionError. Catch and retry.
+                import httpx as _httpx
+
+                if isinstance(e, _httpx.TransportError):
+                    if attempt < cfg.max_retries - 1:
+                        backoff = cfg.backoff_base_s * (2**attempt) + random.uniform(0, 0.5)
+                        logger.debug(
+                            f"Webhook {cfg.name} attempt {attempt + 1} transport error: {e}, "
+                            f"retrying in {backoff:.1f}s"
+                        )
+                        time.sleep(backoff)
+                        continue
+                else:
+                    raise
 
         # All retries exhausted - record circuit failure
         circuit.record_failure()
