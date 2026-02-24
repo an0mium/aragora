@@ -308,7 +308,7 @@ class KnowledgeFlowHandler(BaseHandler):
 
     def _get_km_outcome_bridge(self) -> Any:
         """Get the KMOutcomeBridge instance if available."""
-        ctx = self.server_context or {}
+        ctx = self.ctx or {}
         bridge = ctx.get("km_outcome_bridge")
         if bridge is not None:
             return bridge
@@ -325,7 +325,7 @@ class KnowledgeFlowHandler(BaseHandler):
         try:
             from aragora.debate.knowledge_injection import DebateKnowledgeInjector
 
-            ctx = self.server_context or {}
+            ctx = self.ctx or {}
             injector = ctx.get("knowledge_injector")
             if injector is not None:
                 return injector
@@ -337,7 +337,7 @@ class KnowledgeFlowHandler(BaseHandler):
     def _get_knowledge_mound(self) -> Any:
         """Get the KnowledgeMound instance if available."""
         try:
-            ctx = self.server_context or {}
+            ctx = self.ctx or {}
             mound = ctx.get("knowledge_mound")
             if mound is not None:
                 return mound
