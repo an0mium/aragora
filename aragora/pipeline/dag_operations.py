@@ -46,10 +46,12 @@ class DAGOperationsCoordinator:
         graph: UniversalGraph,
         store: Any | None = None,
         control_plane: Any | None = None,
+        federation_coordinator: Any | None = None,
     ) -> None:
         self.graph = graph
         self._store = store
         self._control_plane = control_plane
+        self._federation_coordinator = federation_coordinator
 
     def _save(self) -> None:
         """Persist graph to store if available."""

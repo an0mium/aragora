@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { getAgentColors } from '@/utils/agentColors';
 import { UserParticipation } from '@/components/UserParticipation';
 import { CitationsPanel } from '@/components/CitationsPanel';
@@ -19,7 +19,9 @@ import { AudioDownloadSection } from './AudioDownloadSection';
 import { InlineDownloadPanel } from './InlineDownloadPanel';
 import { PhaseIndicator } from './PhaseIndicator';
 import { InterventionPanel } from './InterventionPanel';
+import { DebateTimeline } from './DebateTimeline';
 import { API_BASE_URL } from '@/config';
+import { logger } from '@/utils/logger';
 import type { LiveDebateViewProps } from './types';
 
 const STATUS_CONFIG = {

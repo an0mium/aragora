@@ -473,17 +473,37 @@ jobs:
             --query 'Command.CommandId' \
             --output text)
 
-          # Poll for command completion (up to 5 minutes)
-          for i in {1..60}; do
+          # Poll for command completion (up to 5 minutes) with error handling and backoff
+          MAX_POLL=60
+          CONSECUTIVE_ERRORS=0
+          MAX_CONSECUTIVE_ERRORS=5
+          BACKOFF=5
+          for i in $(seq 1 $MAX_POLL); do
             STATUS=$(aws ssm get-command-invocation \
               --command-id "$COMMAND_ID" \
               --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
               --query 'Status' \
-              --output text 2>/dev/null || echo "Pending")
+              --output text 2>/dev/null)
+            EXIT_CODE=$?
+
+            if [[ $EXIT_CODE -ne 0 ]]; then
+              CONSECUTIVE_ERRORS=$((CONSECUTIVE_ERRORS + 1))
+              echo "::warning::SSM API error (attempt $i, consecutive errors: $CONSECUTIVE_ERRORS/$MAX_CONSECUTIVE_ERRORS)"
+              if [[ $CONSECUTIVE_ERRORS -ge $MAX_CONSECUTIVE_ERRORS ]]; then
+                echo "::error::Too many consecutive SSM API errors ($CONSECUTIVE_ERRORS), aborting"
+                exit 1
+              fi
+              BACKOFF=$((BACKOFF * 2 > 30 ? 30 : BACKOFF * 2))
+              sleep $BACKOFF
+              continue
+            fi
+
+            CONSECUTIVE_ERRORS=0
+            BACKOFF=5
 
             if [[ "$STATUS" == "Success" ]]; then
               echo "Production deploy completed successfully"
-              exit 0
+              break
             elif [[ "$STATUS" == "Failed" ]] || [[ "$STATUS" == "Cancelled" ]] || [[ "$STATUS" == "TimedOut" ]]; then
               echo "::error::Production deploy failed with status: $STATUS"
               echo "=== SSM STDOUT ==="
@@ -500,11 +520,14 @@ jobs:
                 --output text || true
               exit 1
             fi
-            echo "Waiting for SSM command... attempt $i/60 (status: $STATUS)"
+            echo "Waiting for SSM command... attempt $i/$MAX_POLL (status: $STATUS)"
             sleep 5
           done
-          echo "::error::Production deploy timed out"
-          exit 1
+
+          if [[ "$STATUS" != "Success" ]]; then
+            echo "::error::Production deploy timed out after $MAX_POLL attempts"
+            exit 1
+          fi
 
   notify:
     needs: [deploy-cloudflare, deploy-ec2-staging, deploy-ec2-production]

@@ -164,12 +164,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Fetch user's organizations
   const fetchOrganizations = useCallback(async (accessToken: string): Promise<UserOrganization[]> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
     try {
       const response = await fetch(`${API_BASE}/api/v1/user/organizations`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
@@ -177,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return [];
     } catch {
+      clearTimeout(timeoutId);
       return [];
     }
   }, []);
@@ -316,12 +323,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
       try {
       const response = await fetch(`${API_BASE}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${tokens.access_token}`,
         },
+        signal: controller.signal,
       });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           throw new Error(`Auth validation failed: ${response.status}`);
@@ -347,8 +360,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             isLoadingOrganizations: false,
           });
         }
-      } catch {
-        logger.warn('[AuthContext] Stored session invalid, clearing auth');
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          // Timeout: backend unreachable — clear auth and show app
+          logger.warn('[AuthContext] Session validation timed out, clearing auth');
+        } else {
+          logger.warn('[AuthContext] Stored session invalid, clearing auth');
+        }
         clearAuth();
         if (active) {
           setState({
