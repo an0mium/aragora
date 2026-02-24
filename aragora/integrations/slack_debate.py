@@ -1512,7 +1512,8 @@ class SlackDebateLifecycle:
             from aragora.storage.receipt_store import get_receipt_store
 
             store = get_receipt_store()
-            data = store.get_by_debate(debate_id)
+            results = store.list(debate_id=debate_id, limit=1)
+            data = results[0] if results else None
             if data:
                 from aragora.export.decision_receipt import DecisionReceipt
 

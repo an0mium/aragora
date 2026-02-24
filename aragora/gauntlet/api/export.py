@@ -109,6 +109,7 @@ def export_receipt(
     """
     opts = options or ExportOptions()
 
+    result: str | bytes
     if format == ReceiptExportFormat.JSON:
         result = _export_receipt_json(receipt, opts)
     elif format == ReceiptExportFormat.MARKDOWN:

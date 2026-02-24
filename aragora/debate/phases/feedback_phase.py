@@ -319,9 +319,9 @@ class FeedbackPhase:
         # still intercept the call.  Uses instance method resolution so
         # unittest.mock.patch on the class attribute works correctly.
         _phase_ref = self
-        self._calibration_feedback._store_calibration_in_mound = (
+        self._calibration_feedback._store_calibration_in_mound = (  # type: ignore[method-assign,assignment]
             lambda ctx_arg, deltas: _phase_ref._store_calibration_in_mound(ctx_arg, deltas)
-        )  # type: ignore[assignment,method-assign]
+        )
         self._knowledge_feedback = KnowledgeFeedback(
             knowledge_mound=knowledge_mound,
             enable_knowledge_ingestion=enable_knowledge_ingestion,

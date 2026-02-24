@@ -417,7 +417,7 @@ def main() -> None:
         default=True,
         help="Use mock debate engine (default: True)",
     )
-    args = parser.parse_args()
+    _args = parser.parse_args()  # noqa: F841 — reserved for future CLI options
     run_demo()
 
 

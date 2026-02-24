@@ -129,7 +129,7 @@ async def simple_recovery_handler(context: StateContext, event: Event):
     # In production, use RecoveryManager to make intelligent decisions
     # For demo, just retry the previous state once
     if context.previous_state and context.retry_counts.get(context.previous_state.name, 0) < 1:
-        logger.info(f"RECOVERY: Retrying {context.previous_state.name}")
+        logger.info("RECOVERY: Retrying %s", context.previous_state.name)
         return context.previous_state, {"action": "retry"}
     else:
         logger.info("RECOVERY: Max retries exceeded, failing")

@@ -34,7 +34,7 @@ import hashlib
 import logging
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 
@@ -77,7 +77,7 @@ def _subtask_to_implement_task(
         id=f"task-{index}",
         description=subtask.description,
         files=subtask.file_scope,
-        complexity=complexity,
+        complexity=cast(Literal["simple", "moderate", "complex"], complexity),
         dependencies=dependencies,
     )
 

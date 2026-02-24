@@ -14,6 +14,9 @@ from typing import Any
 from aragora.observability import get_logger
 from aragora.exceptions import REDIS_CONNECTION_ERRORS
 
+_REDIS_AND_JSON_ERRORS: tuple[type[Exception], ...] = (*REDIS_CONNECTION_ERRORS, json.JSONDecodeError)
+_REDIS_AND_TYPE_ERRORS: tuple[type[Exception], ...] = (*REDIS_CONNECTION_ERRORS, TypeError)
+
 from .types import (
     EnforcementLevel,
     PolicyDecision,

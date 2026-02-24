@@ -297,12 +297,15 @@ class KnowledgeMoundCore:
         """
         # Try KnowledgeVectorStore first (higher-level, KnowledgeNode-aware)
         try:
-            from aragora.knowledge.vector_store import KnowledgeVectorStore
+            from aragora.knowledge.vector_store import KnowledgeVectorStore, KnowledgeVectorConfig
 
+            _vec_config = KnowledgeVectorConfig(
+                url=self.config.weaviate_url or "http://localhost:8080",
+                api_key=self.config.weaviate_api_key,
+            )
             self._vector_store = KnowledgeVectorStore(
                 workspace_id=self.workspace_id,
-                weaviate_url=self.config.weaviate_url,
-                weaviate_api_key=self.config.weaviate_api_key,
+                config=_vec_config,
             )
             await self._vector_store.connect()
             logger.debug("KnowledgeVectorStore initialized (KnowledgeNode-aware)")

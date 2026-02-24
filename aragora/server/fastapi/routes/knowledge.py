@@ -188,6 +188,7 @@ class StalenessResponse(BaseModel):
     stale_percent: float = 0.0
     items: list[StalenessItem] = Field(default_factory=list)
     threshold_days: float = 30.0
+    storage_backend: str = ""
 
 
 class DeleteKnowledgeResponse(BaseModel):
@@ -499,7 +500,7 @@ async def get_knowledge_gaps(
                     )
 
             raw_contradictions = await detector.detect_contradictions()
-            contradictions = [
+            contradictions: list[dict[str, Any]] = [
                 c.to_dict() if hasattr(c, "to_dict") else c for c in raw_contradictions[:50]
             ]
 

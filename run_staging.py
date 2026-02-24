@@ -96,18 +96,18 @@ def main():
     # Resolve nomic directory
     nomic_dir = args.nomic_dir.resolve() if args.nomic_dir else None
     if nomic_dir and not nomic_dir.exists():
-        logging.warning(f"Creating nomic directory: {nomic_dir}")
+        logging.warning("Creating nomic directory: %s", nomic_dir)
         nomic_dir.mkdir(parents=True, exist_ok=True)
 
     # Resolve static directory
     static_dir = args.static_dir.resolve() if args.static_dir else None
 
     logging.info("Starting Aragora staging server")
-    logging.info(f"  HTTP port: {http_port}")
-    logging.info(f"  WebSocket port: {ws_port}")
-    logging.info(f"  Nomic dir: {nomic_dir}")
+    logging.info("  HTTP port: %s", http_port)
+    logging.info("  WebSocket port: %s", ws_port)
+    logging.info("  Nomic dir: %s", nomic_dir)
     if static_dir:
-        logging.info(f"  Static dir: {static_dir}")
+        logging.info("  Static dir: %s", static_dir)
 
     # Run the server
     try:
@@ -121,8 +121,8 @@ def main():
         )
     except KeyboardInterrupt:
         logging.info("Server stopped by user")
-    except Exception as e:
-        logging.error(f"Server error: {e}")
+    except Exception as e:  # noqa: BLE001 — top-level server catch-all
+        logging.error("Server error: %s", e)
         sys.exit(1)
 
 

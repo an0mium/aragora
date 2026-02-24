@@ -34,7 +34,7 @@ async def generate_pipeline_receipt(
     # Load pipeline graph for provenance data
     stages: dict[str, list[dict[str, Any]]] = {}
     try:
-        from aragora.server.handlers.pipeline.universal_graph import UniversalGraph
+        from aragora.pipeline.universal_node import UniversalGraph
 
         graph = UniversalGraph()
         for stage_name in ("ideas", "goals", "actions", "orchestration"):

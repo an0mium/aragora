@@ -345,7 +345,7 @@ def run_demo() -> None:
 def run_live() -> None:
     """Run with live OpenClaw API (requires running server)."""
     try:
-        from aragora.client import AragoraClient
+        from aragora.client import AragoraClient  # noqa: F401 — availability check
     except ImportError:
         print("Error: aragora package required for live mode.")
         print("Use --demo for mock mode, or install aragora.")

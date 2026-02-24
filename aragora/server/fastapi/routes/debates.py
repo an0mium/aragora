@@ -697,9 +697,18 @@ async def create_debate(
             raise HTTPException(status_code=400, detail="Invalid debate request")
 
         try:
-            from aragora.server.debate_controller import get_debate_controller
+            from aragora.server.debate_controller import DebateController
 
-            controller = get_debate_controller()
+            # Retrieve controller from app state or context
+            controller: DebateController | None = getattr(
+                request.app.state, "debate_controller", None
+            )
+            if controller is None:
+                ctx = getattr(request.app.state, "context", None)
+                if ctx:
+                    controller = ctx.get("debate_controller")
+            if controller is None:
+                raise ImportError("No debate controller in app state")
             response = controller.start_debate(debate_request)
         except ImportError:
             logger.warning("Debate controller not available")

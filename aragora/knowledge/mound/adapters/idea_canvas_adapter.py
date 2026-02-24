@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import uuid
-from typing import Any
+from typing import Any, cast
 
 from aragora.knowledge.mound.adapters._base import (
     EventCallback,
@@ -22,6 +22,8 @@ from aragora.knowledge.mound.adapters._base import (
 from aragora.knowledge.mound_types import (
     KnowledgeNode,
     KnowledgeRelationship,
+    NodeType,
+    RelationshipType,
     ProvenanceChain,
     ProvenanceType,
 )
@@ -98,7 +100,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
 
         _node = KnowledgeNode(
             id=km_node_id,
-            node_type=km_type,
+            node_type=cast(NodeType, km_type),
             content=content,
             confidence=float(data.get("confidence", 0.5)),
             provenance=ProvenanceChain(
@@ -164,7 +166,7 @@ class IdeaCanvasAdapter(KnowledgeMoundAdapter):
             id=kr_id,
             from_node_id=self._node_map.get(edge.get("source_id", edge.get("source", "")), ""),
             to_node_id=self._node_map.get(edge.get("target_id", edge.get("target", "")), ""),
-            relationship_type=relationship_type,
+            relationship_type=cast(RelationshipType, relationship_type),
             metadata={
                 "canvas_id": canvas_id,
                 "canvas_edge_id": edge.get("id", ""),

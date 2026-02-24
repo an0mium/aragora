@@ -265,7 +265,7 @@ class TestEvidencePoweredTrickster:
         )
 
         # Round 2 should be in cooldown
-        result = trickster.check_and_intervene(
+        _result = trickster.check_and_intervene(  # noqa: F841
             responses=vague,
             convergence_similarity=0.95,
             round_num=2,
