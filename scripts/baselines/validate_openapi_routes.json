@@ -1,5 +1,5 @@
 {
-  "handler_routes_count": 1932,
+  "handler_routes_count": 1950,
   "openapi_routes_count": 2504,
   "missing_in_spec": [
     "/api/v1/admin/feature-flags/{param}",
@@ -33,6 +33,9 @@
     "/api/v1/chat/telegram/webhook",
     "/api/v1/chat/webhook",
     "/api/v1/chat/whatsapp/webhook",
+    "/api/v1/checkpoints/{param}",
+    "/api/v1/checkpoints/{param}/intervention",
+    "/api/v1/checkpoints/{param}/resume",
     "/api/v1/consensus/detect",
     "/api/v1/costs/analytics/budget-utilization",
     "/api/v1/costs/analytics/by-agent",
@@ -63,6 +66,14 @@
     "/api/v1/gateway/credentials/{param}",
     "/api/v1/health/build",
     "/api/v1/health/slos",
+    "/api/v1/ideas",
+    "/api/v1/ideas/{param}",
+    "/api/v1/ideas/{param}/edges",
+    "/api/v1/ideas/{param}/edges/{param}",
+    "/api/v1/ideas/{param}/export",
+    "/api/v1/ideas/{param}/nodes",
+    "/api/v1/ideas/{param}/nodes/{param}",
+    "/api/v1/ideas/{param}/promote",
     "/api/v1/incidents/{param}",
     "/api/v1/keys/{param}",
     "/api/v1/knowledge/adapters/health",
@@ -79,6 +90,9 @@
     "/api/v1/memory/unified/retention",
     "/api/v1/memory/unified/sources",
     "/api/v1/memory/{param}",
+    "/api/v1/moderation/config",
+    "/api/v1/moderation/items/{param}/approve",
+    "/api/v1/moderation/items/{param}/reject",
     "/api/v1/observability/crashes",
     "/api/v1/observability/crashes/stats",
     "/api/v1/observability/dashboard",
@@ -108,6 +122,8 @@
     "/api/v1/self-improve/metrics/comparison",
     "/api/v1/self-improve/metrics/summary",
     "/api/v1/self-improve/regression-history",
+    "/api/v1/self-improve/runs/{param}",
+    "/api/v1/self-improve/runs/{param}/cancel",
     "/api/v1/self-improve/trends/cycles",
     "/api/v1/services/{param}",
     "/api/v1/shared/{param}",
@@ -169,7 +185,7 @@
     "POST /api/v1/pipeline/{param}/agents/{param}/reject",
     "PUT /api/v1/canvas/pipeline/{param}"
   ],
-  "missing_in_spec_count": 166,
+  "missing_in_spec_count": 182,
   "orphaned_in_spec": [
     "/api/v1/accounting/report",
     "/api/v1/canvas/convert/debate",
@@ -200,8 +216,6 @@
     "/api/v1/knowledge/mound/graph",
     "/api/v1/memory",
     "/api/v1/memory/tier",
-    "/api/v1/moderation/queue",
-    "/api/v1/moderation/stats",
     "/api/v1/notifications/delivery-stats",
     "/api/v1/notifications/preferences",
     "/api/v1/orchestration/status",
@@ -220,7 +234,7 @@
     "/api/v1/workflows/step-types",
     "/api/v1/workflows/validate"
   ],
-  "orphaned_in_spec_count": 48,
+  "orphaned_in_spec_count": 46,
   "dynamic_routes_skipped": 235,
-  "coverage_percentage": 91.4
+  "coverage_percentage": 90.7
 }
