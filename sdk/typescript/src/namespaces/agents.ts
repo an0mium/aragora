@@ -314,6 +314,26 @@ export class AgentsAPI {
   }
 
   /**
+   * Get agent recommendations using the compatibility route.
+   */
+  async getAgentRecommendations(params?: {
+    domain?: string;
+    limit?: number;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/agents/recommend', { params });
+  }
+
+  /**
+   * Get agent leaderboard using the compatibility route.
+   */
+  async getAgentLeaderboard(params?: {
+    domain?: string;
+    limit?: number;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/agents/leaderboard', { params });
+  }
+
+  /**
    * Compare two agents' performance.
    *
    * @param agent1 - First agent name

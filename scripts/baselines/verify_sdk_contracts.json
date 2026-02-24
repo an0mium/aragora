@@ -275,6 +275,7 @@
     "GET /api/self-improve/worktrees",
     "GET /api/services/{param}",
     "GET /api/skills/{param}",
+    "GET /api/debates/{param}/spectate/public",
     "GET /api/spectate/{param}/stream",
     "GET /api/support/auto-respond",
     "GET /api/support/connect",

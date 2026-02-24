@@ -44,7 +44,7 @@ export class WorkflowsAPI {
     if (typeof request !== 'function') {
       throw new TypeError('this.client.request is not a function');
     }
-    return request(method, path, options) as Promise<T>;
+    return request.apply(this.client, [method, path, options]) as Promise<T>;
   }
 
   private invoke<T>(

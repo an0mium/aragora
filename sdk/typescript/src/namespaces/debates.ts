@@ -2025,6 +2025,24 @@ export class DebatesAPI {
   }
 
   /**
+   * Get debate statistics using the compatibility route.
+   */
+  async getStats(period: string = 'all'): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/debates/stats', {
+      params: { period },
+    });
+  }
+
+  /**
+   * Get per-agent debate statistics using the compatibility route.
+   */
+  async getStatsAgents(limit: number = 20): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/debates/stats/agents', {
+      params: { limit },
+    });
+  }
+
+  /**
    * Get agent performance statistics across debates.
    *
    * @param options - Filter options
@@ -2672,6 +2690,46 @@ export class DebatesAPI {
     implementation_plan: Record<string, unknown>;
   }> {
     return this.client.request('POST', `/api/v1/debates/${debateId}/decision-integrity`);
+  }
+
+  /**
+   * Get decision package JSON using the compatibility route.
+   */
+  async getPackage(debateId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/debates/${encodeURIComponent(debateId)}/package`
+    );
+  }
+
+  /**
+   * Get decision package markdown using the compatibility route.
+   */
+  async getPackageMarkdown(debateId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/debates/${encodeURIComponent(debateId)}/package/markdown`
+    );
+  }
+
+  /**
+   * Enable public sharing for a debate.
+   */
+  async share(debateId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/debates/${encodeURIComponent(debateId)}/share`
+    );
+  }
+
+  /**
+   * Get public spectate status for a shared debate.
+   */
+  async getPublicSpectate(debateId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/debates/${encodeURIComponent(debateId)}/spectate/public`
+    );
   }
 
   // ===========================================================================

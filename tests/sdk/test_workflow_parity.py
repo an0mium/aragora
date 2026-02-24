@@ -96,15 +96,35 @@ def _extract_ts_paths(filepath: Path) -> list[tuple[str, str]]:
     source = filepath.read_text()
     endpoints = []
 
-    pattern = re.compile(
-        r"this\.client\.request[^(]*\(\s*['\"](\w+)['\"],\s*"
+    # Match this.request('METHOD', '/path') pattern
+    request_pattern = re.compile(
+        r"this\.(?:client\.)?request[^(]*\(\s*['\"](\w+)['\"],\s*"
         r"(?:['\"]([^'\"]+)['\"]|`([^`]+)`)"
     )
+    # Match this.invoke<T>('name', [args], 'METHOD', '/path') pattern
+    invoke_pattern = re.compile(
+        r"this\.invoke[^(]*\([^,]+,\s*\[[^\]]*\],\s*['\"](\w+)['\"],\s*"
+        r"(?:['\"]([^'\"]+)['\"]|`([^`]+)`)",
+        re.DOTALL,
+    )
+    # Also extract from @route JSDoc comments as fallback
+    jsdoc_pattern = re.compile(r"@route\s+(\w+)\s+(/api/v1/\S+)")
 
-    for match in pattern.finditer(source):
+    for match in request_pattern.finditer(source):
         method = match.group(1)
         path = match.group(2) or match.group(3)
         path = re.sub(r"\$\{[^}]+\}", "{id}", path)
+        endpoints.append((method, _normalize_path(path)))
+
+    for match in invoke_pattern.finditer(source):
+        method = match.group(1)
+        path = match.group(2) or match.group(3)
+        path = re.sub(r"\$\{[^}]+\}", "{id}", path)
+        endpoints.append((method, _normalize_path(path)))
+
+    for match in jsdoc_pattern.finditer(source):
+        method = match.group(1)
+        path = re.sub(r"\{[a-z_]+\}", "{id}", match.group(2))
         endpoints.append((method, _normalize_path(path)))
 
     return endpoints

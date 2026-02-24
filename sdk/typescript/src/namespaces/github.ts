@@ -73,6 +73,20 @@ export class GitHubNamespace {
     );
   }
 
+  /** Trigger a PR review using the compatibility route. */
+  async triggerPRReview(request: {
+    repository: string;
+    pr_number: number;
+    review_type?: string;
+    workspace_id?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/github/pr/review',
+      { body: request }
+    );
+  }
+
   /** Get PR details. */
   async getPullRequest(repo: string, prNumber: number): Promise<PullRequest> {
     return this.client.request<PullRequest>(
