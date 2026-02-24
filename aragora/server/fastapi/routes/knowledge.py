@@ -501,7 +501,8 @@ async def get_knowledge_gaps(
 
             raw_contradictions = await detector.detect_contradictions()
             contradictions: list[dict[str, Any]] = [
-                c.to_dict() if hasattr(c, "to_dict") else c for c in raw_contradictions[:50]
+                c.to_dict() if hasattr(c, "to_dict") else c  # type: ignore[misc]
+                for c in raw_contradictions[:50]
             ]
 
             return KnowledgeGapsResponse(

@@ -54,7 +54,7 @@ class FakeSupermemoryResult:
 
 def _make_continuum_mock(entries: list[FakeContinuumEntry] | None = None):
     mock = MagicMock()
-    mock.search.return_value = entries or [FakeContinuumEntry()]
+    mock.retrieve.return_value = entries or [FakeContinuumEntry()]
     return mock
 
 
@@ -199,7 +199,7 @@ class TestQueryFanOut:
     @pytest.mark.asyncio
     async def test_query_handles_source_error(self):
         cm = _make_continuum_mock()
-        cm.search.side_effect = RuntimeError("connection lost")
+        cm.retrieve.side_effect = RuntimeError("connection lost")
         gw = MemoryGateway(continuum_memory=cm)
         resp = await gw.query(UnifiedMemoryQuery(query="test"))
         assert "continuum" in resp.errors
@@ -300,7 +300,7 @@ class TestGracefulDegradation:
     @pytest.mark.asyncio
     async def test_single_source_failure_doesnt_break_others(self):
         bad_cm = _make_continuum_mock()
-        bad_cm.search.side_effect = OSError("disk error")
+        bad_cm.retrieve.side_effect = OSError("disk error")
         gw = MemoryGateway(
             continuum_memory=bad_cm,
             knowledge_mound=_make_km_mock(),
@@ -312,7 +312,7 @@ class TestGracefulDegradation:
     @pytest.mark.asyncio
     async def test_all_sources_fail(self):
         bad_cm = _make_continuum_mock()
-        bad_cm.search.side_effect = OSError("fail")
+        bad_cm.retrieve.side_effect = OSError("fail")
         bad_km = _make_km_mock()
         bad_km.query.side_effect = OSError("fail")
         gw = MemoryGateway(continuum_memory=bad_cm, knowledge_mound=bad_km)

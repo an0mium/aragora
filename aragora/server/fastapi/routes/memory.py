@@ -210,7 +210,7 @@ async def search_memories(
         try:
             from aragora.memory.continuum import MemoryTier as _MemoryTier
 
-            MemoryTierCls: type | None = _MemoryTier
+            MemoryTierCls: Any = _MemoryTier
         except ImportError:
             MemoryTierCls = None
 
@@ -362,7 +362,7 @@ async def recall_memories(
         try:
             from aragora.memory.continuum import MemoryTier as _MemoryTier
 
-            MemoryTierCls: type | None = _MemoryTier
+            MemoryTierCls: Any = _MemoryTier
         except ImportError:
             MemoryTierCls = None
 
