@@ -148,6 +148,36 @@ class SLOAPI:
             params["all_windows"] = "true"
         return self._client.request("GET", "/api/health/slos", params=params)
 
+    def get_enforcer_budget(self) -> dict[str, Any]:
+        """
+        Get SLO enforcer error budget data.
+
+        Returns:
+            Dict with per-SLO remaining/consumed error budget from the enforcer.
+        """
+        return self._client.request("GET", "/api/v1/slo/budget")
+
+    def get_debate_health(
+        self,
+        *,
+        window: str = "1h",
+        all_windows: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Get debate SLO health with optional window selection.
+
+        Args:
+            window: Time window to evaluate ("1h", "24h", "7d").
+            all_windows: When true, returns multi-window health data.
+
+        Returns:
+            Dict containing debate SLO health data.
+        """
+        params: dict[str, Any] = {"window": window}
+        if all_windows:
+            params["all_windows"] = "true"
+        return self._client.request("GET", "/api/health/slos", params=params)
+
     # =========================================================================
     # Violations
     # =========================================================================
@@ -225,6 +255,22 @@ class AsyncSLOAPI:
     async def get_error_budget(self) -> dict[str, Any]:
         """Get error budget timeline across all SLOs."""
         return await self._client.request("GET", "/api/slos/error-budget")
+
+    async def get_enforcer_budget(self) -> dict[str, Any]:
+        """Get SLO enforcer error budget data."""
+        return await self._client.request("GET", "/api/v1/slo/budget")
+
+    async def get_debate_health(
+        self,
+        *,
+        window: str = "1h",
+        all_windows: bool = False,
+    ) -> dict[str, Any]:
+        """Get debate SLO health with optional window selection."""
+        params: dict[str, Any] = {"window": window}
+        if all_windows:
+            params["all_windows"] = "true"
+        return await self._client.request("GET", "/api/health/slos", params=params)
 
     async def get_enforcer_budget(self) -> dict[str, Any]:
         """Get SLO enforcer error budget data."""
