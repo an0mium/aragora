@@ -828,6 +828,23 @@ class Arena(ArenaDelegatesMixin):
         _participation_init_event_bus(self)
 
     @property
+    def event_bus(self) -> Any:
+        """Public accessor for the debate EventBus.
+
+        Returns the :class:`EventBus` instance used for pub/sub event handling
+        during debates.  Server integrations (e.g. TTS bridge) use this to
+        subscribe to live debate events such as ``agent_message``.
+
+        Returns ``None`` before the bus has been initialised (i.e. before
+        ``__init__`` completes).
+        """
+        return self._event_bus
+
+    @event_bus.setter
+    def event_bus(self, value: Any) -> None:
+        self._event_bus = value
+
+    @property
     def user_votes(self) -> deque[dict[str, Any]]:
         return self.audience_manager._votes
 

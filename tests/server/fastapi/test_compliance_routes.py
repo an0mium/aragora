@@ -508,3 +508,317 @@ class TestAuditLog:
         data = response.json()
         assert data["entries"] == []
         assert data["total"] == 0
+
+
+# =============================================================================
+# GET /api/v2/compliance/frameworks
+# =============================================================================
+
+
+class TestListFrameworks:
+    """Tests for GET /api/v2/compliance/frameworks."""
+
+    def test_list_returns_200(self, client):
+        """List returns frameworks (may include fallback data)."""
+        response = client.get("/api/v2/compliance/frameworks")
+        assert response.status_code == 200
+        data = response.json()
+        assert "frameworks" in data
+        assert "total" in data
+        assert data["total"] >= 0
+
+    def test_list_returns_frameworks(self, client, mock_compliance_framework):
+        """List returns frameworks from manager."""
+        mock_compliance_framework.list_frameworks = MagicMock(return_value=[
+            {
+                "id": "soc2",
+                "name": "SOC 2 Type II",
+                "description": "Service Organization Control 2",
+                "version": "2017",
+                "category": "security",
+                "rule_count": 64,
+                "applicable_verticals": ["saas", "fintech"],
+            },
+            {
+                "id": "gdpr",
+                "name": "GDPR",
+                "description": "General Data Protection Regulation",
+                "version": "2018",
+                "category": "privacy",
+                "rule_count": 99,
+                "applicable_verticals": ["all"],
+            },
+        ])
+
+        response = client.get("/api/v2/compliance/frameworks")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        assert data["frameworks"][0]["id"] == "soc2"
+        assert data["frameworks"][0]["rule_count"] == 64
+        assert data["frameworks"][1]["id"] == "gdpr"
+        assert data["frameworks"][1]["category"] == "privacy"
+
+
+# =============================================================================
+# GET /api/v2/compliance/frameworks/{framework_id}
+# =============================================================================
+
+
+class TestGetFrameworkDetail:
+    """Tests for GET /api/v2/compliance/frameworks/{framework_id}."""
+
+    def test_get_found(self, client, mock_compliance_framework):
+        """Get existing framework returns detail."""
+        mock_compliance_framework.get_framework = MagicMock(return_value={
+            "id": "soc2",
+            "name": "SOC 2 Type II",
+            "description": "Service Organization Control 2",
+            "version": "2017",
+            "category": "security",
+            "rule_count": 64,
+            "applicable_verticals": ["saas"],
+        })
+
+        response = client.get("/api/v2/compliance/frameworks/soc2")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == "soc2"
+        assert data["name"] == "SOC 2 Type II"
+        assert data["rule_count"] == 64
+
+    def test_get_not_found(self, client, mock_compliance_framework):
+        """Get nonexistent framework returns 404."""
+        mock_compliance_framework.get_framework = MagicMock(return_value=None)
+
+        response = client.get("/api/v2/compliance/frameworks/nonexistent")
+        assert response.status_code == 404
+
+    def test_get_unavailable_manager(self, app):
+        """Get returns 404 or 503 when framework manager/framework unavailable."""
+        from aragora.server.fastapi.routes.compliance import get_compliance_framework as _dep
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "compliance_framework": None,
+        }
+        app.dependency_overrides[_dep] = lambda: None
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/compliance/frameworks/soc2")
+        app.dependency_overrides.clear()
+        assert response.status_code in (404, 503)
+
+
+# =============================================================================
+# POST /api/v2/compliance/check
+# =============================================================================
+
+
+class TestComplianceCheck:
+    """Tests for POST /api/v2/compliance/check."""
+
+    def test_check_returns_200(self, client, mock_compliance_framework):
+        """Check returns compliance result."""
+        mock_result = MagicMock()
+        mock_result.to_dict.return_value = {
+            "compliant": False,
+            "score": 0.75,
+            "issue_count": 2,
+            "critical_count": 0,
+            "high_count": 1,
+        }
+        mock_result.compliant = False
+        mock_result.score = 0.75
+        mock_result.frameworks_checked = ["soc2"]
+        mock_result.issues = []
+        mock_result.checked_at = MagicMock()
+        mock_result.checked_at.isoformat.return_value = "2026-02-23T12:00:00+00:00"
+
+        mock_compliance_framework.check = MagicMock(return_value=mock_result)
+
+        response = client.post(
+            "/api/v2/compliance/check",
+            json={"content": "Some content to check"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["compliant"] is False
+        assert data["score"] == 0.75
+        assert "soc2" in data["frameworks_checked"]
+
+    def test_check_requires_content(self, client):
+        """Check without content returns 422."""
+        response = client.post(
+            "/api/v2/compliance/check",
+            json={},
+        )
+        assert response.status_code == 422
+
+    def test_check_with_frameworks_filter(self, client, mock_compliance_framework):
+        """Check passes framework filter."""
+        mock_compliance_framework.check = MagicMock(return_value={
+            "compliant": True,
+            "score": 1.0,
+            "frameworks_checked": ["gdpr"],
+            "issues": [],
+        })
+
+        response = client.post(
+            "/api/v2/compliance/check",
+            json={"content": "Test content", "frameworks": ["gdpr"]},
+        )
+        assert response.status_code == 200
+        mock_compliance_framework.check.assert_called_once_with(
+            "Test content", frameworks=["gdpr"],
+        )
+
+    def test_check_unavailable_manager(self, app):
+        """Check returns 503 when manager unavailable (both dependency and fallback patched)."""
+        from unittest.mock import patch
+        from aragora.server.fastapi.routes.compliance import get_compliance_framework as _dep
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "compliance_framework": None,
+        }
+        app.dependency_overrides[_dep] = lambda: None
+        client = TestClient(app, raise_server_exceptions=False)
+
+        with patch(
+            "aragora.server.fastapi.routes.compliance._get_framework_manager",
+            return_value=None,
+        ):
+            response = client.post(
+                "/api/v2/compliance/check",
+                json={"content": "Test"},
+            )
+        app.dependency_overrides.clear()
+        assert response.status_code == 503
+
+
+# =============================================================================
+# GET /api/v2/compliance/violations
+# =============================================================================
+
+
+class TestListViolations:
+    """Tests for GET /api/v2/compliance/violations."""
+
+    def test_list_returns_200_empty(self, client, mock_compliance_framework):
+        """List returns empty when no violations."""
+        mock_compliance_framework.list_violations = MagicMock(return_value=[])
+        mock_compliance_framework.count_violations = MagicMock(return_value=0)
+
+        response = client.get("/api/v2/compliance/violations")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["violations"] == []
+        assert data["total"] == 0
+
+    def test_list_returns_violations(self, client, mock_compliance_framework):
+        """List returns violations from framework."""
+        mock_compliance_framework.list_violations = MagicMock(return_value=[
+            {
+                "id": "viol-001",
+                "framework": "soc2",
+                "rule_id": "CC-1.1",
+                "severity": "high",
+                "description": "Missing access control",
+                "resource_type": "api",
+                "resource_id": "endpoint-x",
+                "detected_at": "2026-02-20T10:00:00",
+                "status": "active",
+            },
+        ])
+
+        response = client.get("/api/v2/compliance/violations")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["violations"]) == 1
+        assert data["violations"][0]["id"] == "viol-001"
+        assert data["violations"][0]["severity"] == "high"
+
+    def test_list_with_filters(self, client, mock_compliance_framework):
+        """List passes filter parameters."""
+        mock_compliance_framework.list_violations = MagicMock(return_value=[])
+
+        response = client.get(
+            "/api/v2/compliance/violations?framework=gdpr&severity=critical&status=active"
+        )
+        assert response.status_code == 200
+        mock_compliance_framework.list_violations.assert_called_once_with(
+            limit=50, offset=0, framework="gdpr", severity="critical", status="active",
+        )
+
+    def test_list_pagination(self, client, mock_compliance_framework):
+        """List passes pagination params."""
+        mock_compliance_framework.list_violations = MagicMock(return_value=[])
+
+        response = client.get("/api/v2/compliance/violations?limit=10&offset=5")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["limit"] == 10
+        assert data["offset"] == 5
+
+    def test_list_when_framework_unavailable(self, app):
+        """List returns empty when framework unavailable."""
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "compliance_framework": None,
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/compliance/violations")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["violations"] == []
+        assert data["total"] == 0
+
+
+# =============================================================================
+# GET /api/v2/compliance/report/{debate_id}
+# =============================================================================
+
+
+class TestComplianceReport:
+    """Tests for GET /api/v2/compliance/report/{debate_id}."""
+
+    def test_report_returns_200(self, client):
+        """Report returns compliance analysis for debate."""
+        response = client.get("/api/v2/compliance/report/debate-001")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["debate_id"] == "debate-001"
+        assert data["overall_compliant"] is True
+        assert "generated_at" in data
+
+    def test_report_with_frameworks_param(self, client):
+        """Report passes frameworks query param."""
+        response = client.get(
+            "/api/v2/compliance/report/debate-001?frameworks=soc2,gdpr"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["debate_id"] == "debate-001"
+
+    def test_report_fallback_when_no_debate(self, client):
+        """Report returns default when debate content not available."""
+        response = client.get("/api/v2/compliance/report/nonexistent-debate")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["debate_id"] == "nonexistent-debate"
+        assert data["overall_compliant"] is True
+        assert data["score"] == 1.0

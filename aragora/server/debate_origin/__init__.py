@@ -44,6 +44,11 @@ from .formatting import (
     _format_result_message,
     _format_receipt_summary,
     format_error_for_chat,
+    format_consensus_event,
+    format_compliance_event,
+    format_knowledge_event,
+    format_graph_debate_event,
+    format_workflow_event,
 )
 
 # Re-export voice synthesis
@@ -71,6 +76,7 @@ from .registry import (
 from .router import (
     USE_DOCK_ROUTING,
     route_debate_result,
+    route_capability_event,
     route_plan_result,
     post_receipt_to_channel,
     send_error_to_channel,
@@ -109,6 +115,7 @@ __all__ = [
     "get_debate_origin_async",
     "mark_result_sent",
     "route_debate_result",
+    "route_capability_event",
     "route_plan_result",
     "route_result_to_all_sessions",
     "get_sessions_for_debate",
@@ -131,6 +138,11 @@ __all__ = [
     # Formatting (internal but exported for testing)
     "_format_result_message",
     "_format_receipt_summary",
+    "format_consensus_event",
+    "format_compliance_event",
+    "format_knowledge_event",
+    "format_graph_debate_event",
+    "format_workflow_event",
     # Voice
     "_synthesize_voice",
     # Sessions

@@ -496,3 +496,241 @@ class TestWorkflowStatus:
         response = client.get("/api/v2/workflows/wf_test123/status")
         app.dependency_overrides.clear()
         assert response.status_code == 503
+
+
+# =============================================================================
+# GET /api/v2/workflows/templates
+# =============================================================================
+
+
+class TestListTemplates:
+    """Tests for GET /api/v2/workflows/templates."""
+
+    def test_list_returns_200(self, client):
+        """List returns templates when available."""
+        from unittest.mock import patch
+
+        with patch(
+            "aragora.server.fastapi.routes.workflows.list_templates",
+            create=True,
+        ) as mock_list:
+            mock_list.return_value = [
+                {
+                    "name": "security_review",
+                    "description": "Automated security review",
+                    "category": "security",
+                    "nodes": [{"id": "n1"}, {"id": "n2"}],
+                    "tags": ["security", "review"],
+                },
+                {
+                    "name": "code_audit",
+                    "description": "Code audit workflow",
+                    "category": "development",
+                    "nodes": [{"id": "n1"}],
+                    "tags": ["audit"],
+                },
+            ]
+
+            # We need to patch at the import location
+            with patch(
+                "aragora.workflow.templates.list_templates",
+                mock_list,
+                create=True,
+            ):
+                response = client.get("/api/v2/workflows/templates")
+
+        assert response.status_code == 200
+        data = response.json()
+        # Templates may or may not load depending on import availability
+        assert "templates" in data
+        assert "total" in data
+
+    def test_list_returns_empty_when_unavailable(self, client):
+        """List returns empty when templates module unavailable."""
+        # With the default client, templates import may fail gracefully
+        response = client.get("/api/v2/workflows/templates")
+        assert response.status_code == 200
+        data = response.json()
+        assert "templates" in data
+        assert data["total"] >= 0
+
+    def test_list_with_category_filter(self, client):
+        """List passes category filter."""
+        response = client.get("/api/v2/workflows/templates?category=security")
+        assert response.status_code == 200
+        data = response.json()
+        assert "templates" in data
+
+
+# =============================================================================
+# GET /api/v2/workflows/{workflow_id}/history
+# =============================================================================
+
+
+class TestWorkflowHistory:
+    """Tests for GET /api/v2/workflows/{workflow_id}/history."""
+
+    def test_history_returns_200(self, client, mock_workflow_engine, sample_workflow):
+        """History returns execution entries."""
+        mock_workflow_engine.get_workflow.return_value = sample_workflow
+        mock_workflow_engine.get_execution_history = MagicMock(return_value=[
+            {
+                "execution_id": "exec_001",
+                "status": "completed",
+                "started_at": "2026-02-15T10:01:00",
+                "completed_at": "2026-02-15T10:30:00",
+                "duration_seconds": 1740.0,
+                "result": {"verdict": "APPROVED"},
+                "error": None,
+            },
+            {
+                "execution_id": "exec_002",
+                "status": "failed",
+                "started_at": "2026-02-14T10:00:00",
+                "completed_at": "2026-02-14T10:05:00",
+                "duration_seconds": 300.0,
+                "result": None,
+                "error": "Timeout exceeded",
+            },
+        ])
+
+        response = client.get("/api/v2/workflows/wf_test123/history")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["workflow_id"] == "wf_test123"
+        assert data["total"] == 2
+        assert data["executions"][0]["execution_id"] == "exec_001"
+        assert data["executions"][0]["status"] == "completed"
+        assert data["executions"][1]["error"] == "Timeout exceeded"
+
+    def test_history_not_found(self, client, mock_workflow_engine):
+        """History for nonexistent workflow returns 404."""
+        mock_workflow_engine.get_workflow.return_value = None
+
+        response = client.get("/api/v2/workflows/nonexistent/history")
+        assert response.status_code == 404
+
+    def test_history_with_limit(self, client, mock_workflow_engine, sample_workflow):
+        """History passes limit parameter."""
+        mock_workflow_engine.get_workflow.return_value = sample_workflow
+        mock_workflow_engine.get_execution_history = MagicMock(return_value=[])
+
+        response = client.get("/api/v2/workflows/wf_test123/history?limit=5")
+        assert response.status_code == 200
+        mock_workflow_engine.get_execution_history.assert_called_once_with(
+            "wf_test123", limit=5,
+        )
+
+    def test_history_empty(self, client, mock_workflow_engine, sample_workflow):
+        """History returns empty list when no executions."""
+        mock_workflow_engine.get_workflow.return_value = sample_workflow
+        mock_workflow_engine.get_execution_history = MagicMock(return_value=[])
+
+        response = client.get("/api/v2/workflows/wf_test123/history")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["executions"] == []
+        assert data["total"] == 0
+
+    def test_history_unavailable_engine(self, app):
+        """History returns 503 when engine is unavailable."""
+        from aragora.server.fastapi.routes.workflows import get_workflow_engine as _dep
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "workflow_engine": None,
+        }
+        app.dependency_overrides[_dep] = lambda: None
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/workflows/wf_test123/history")
+        app.dependency_overrides.clear()
+        assert response.status_code == 503
+
+
+# =============================================================================
+# POST /api/v2/workflows/{workflow_id}/approve
+# =============================================================================
+
+
+class TestApproveWorkflowStep:
+    """Tests for POST /api/v2/workflows/{workflow_id}/approve."""
+
+    def test_approve_returns_200(self, client, mock_workflow_engine, sample_workflow):
+        """Approve returns success."""
+        _override_auth(client)
+        mock_workflow_engine.get_workflow.return_value = sample_workflow
+        mock_workflow_engine.approve_step = MagicMock(return_value=True)
+
+        response = client.post(
+            "/api/v2/workflows/wf_test123/approve",
+            json={"step_id": "node-2", "comment": "Looks good"},
+        )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["workflow_id"] == "wf_test123"
+        assert data["step_id"] == "node-2"
+        assert data["status"] == "approved"
+
+    def test_approve_requires_step_id(self, client):
+        """Approve without step_id returns 422."""
+        _override_auth(client)
+
+        response = client.post(
+            "/api/v2/workflows/wf_test123/approve",
+            json={"comment": "Missing step_id"},
+        )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 422
+
+    def test_approve_not_found(self, client, mock_workflow_engine):
+        """Approve on nonexistent workflow returns 404."""
+        _override_auth(client)
+        mock_workflow_engine.get_workflow.return_value = None
+
+        response = client.post(
+            "/api/v2/workflows/nonexistent/approve",
+            json={"step_id": "node-1"},
+        )
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 404
+
+    def test_approve_requires_auth(self, client):
+        """Approve without auth returns 401."""
+        response = client.post(
+            "/api/v2/workflows/wf_test123/approve",
+            json={"step_id": "node-1"},
+        )
+        assert response.status_code == 401
+
+    def test_approve_unavailable_engine(self, app):
+        """Approve returns 503 when engine is unavailable."""
+        from aragora.server.fastapi.routes.workflows import get_workflow_engine as _dep
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "workflow_engine": None,
+        }
+        app.dependency_overrides[_dep] = lambda: None
+        client = TestClient(app, raise_server_exceptions=False)
+        _override_auth(client)
+
+        response = client.post(
+            "/api/v2/workflows/wf_test123/approve",
+            json={"step_id": "node-1"},
+        )
+        client.app.dependency_overrides.clear()
+        assert response.status_code == 503

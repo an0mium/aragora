@@ -93,8 +93,23 @@ async def route_debate_result(
         "decision_plan",
         "execution_progress",
         "execution_complete",
+        # Capability events routed via route_capability_event()
+        "consensus_proof",
+        "consensus_detection",
+        "compliance_check",
+        "compliance_framework",
+        "knowledge_update",
+        "knowledge_mound",
+        "graph_debate",
+        "workflow_event",
+        "workflow_engine",
     }
-    is_aux_event = event_type in aux_events or "package" in result or "progress" in result
+    is_aux_event = (
+        event_type in aux_events
+        or "package" in result
+        or "progress" in result
+        or result.get("_capability_event")
+    )
 
     if origin.result_sent and not is_aux_event:
         logger.debug("Result already sent for debate %s", debate_id)
@@ -305,6 +320,75 @@ async def send_error_to_channel(
     except (OSError, RuntimeError, ValueError) as e:
         logger.error("Failed to send error to %s: %s", platform, e)
         return False
+
+
+async def route_capability_event(
+    debate_id: str,
+    event_type: str,
+    payload: dict[str, Any],
+) -> bool:
+    """Route a non-debate capability event to the originating channel.
+
+    Extends channel support beyond debate_orchestration and decision_integrity
+    to capabilities like consensus_detection, compliance_framework,
+    knowledge_mound, graph_debates, and workflow_engine.
+
+    Args:
+        debate_id: ID of the associated debate or session
+        event_type: Capability event type (e.g. 'consensus_proof',
+            'compliance_check', 'knowledge_update', 'graph_debate',
+            'workflow_event')
+        payload: Event-specific data dict
+
+    Returns:
+        True if the event was routed successfully
+    """
+    from .formatting import (
+        format_consensus_event,
+        format_compliance_event,
+        format_knowledge_event,
+        format_graph_debate_event,
+        format_workflow_event,
+    )
+
+    origin = get_debate_origin(debate_id)
+    if not origin:
+        logger.debug("No origin for capability event %s on %s", event_type, debate_id)
+        return False
+
+    _FORMATTERS = {
+        "consensus_proof": format_consensus_event,
+        "consensus_detection": format_consensus_event,
+        "compliance_check": format_compliance_event,
+        "compliance_framework": format_compliance_event,
+        "knowledge_update": format_knowledge_event,
+        "knowledge_mound": format_knowledge_event,
+        "graph_debate": format_graph_debate_event,
+        "workflow_event": format_workflow_event,
+        "workflow_engine": format_workflow_event,
+    }
+
+    formatter = _FORMATTERS.get(event_type)
+    if not formatter:
+        logger.debug("No formatter for capability event type: %s", event_type)
+        return False
+
+    message = formatter(payload)
+    if not message:
+        return False
+
+    # Route as a result with the formatted message embedded
+    result = {
+        "event": event_type,
+        "final_answer": message,
+        "consensus_reached": True,
+        "confidence": payload.get("confidence", 0.0),
+        "participants": payload.get("participants", []),
+        "task": payload.get("topic", payload.get("task", "")),
+        "_capability_event": True,
+    }
+
+    return await route_debate_result(debate_id, result)
 
 
 async def route_result_to_all_sessions(

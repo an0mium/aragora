@@ -19,6 +19,10 @@ def _format_result_message(
     html: bool = False,
 ) -> str:
     """Format debate result as a message."""
+    # Capability events are pre-formatted; return as-is
+    if result.get("_capability_event"):
+        return result.get("final_answer", "")
+
     event_type = result.get("event")
     if (
         event_type
@@ -266,3 +270,153 @@ def format_error_for_chat(error: str, debate_id: str) -> str:
         f"We encountered an issue processing your request. Please try again.\n\n"
         f"_Debate ID: {debate_id}_"
     )
+
+
+# ---------------------------------------------------------------------------
+# Capability-specific formatters for channel routing
+# ---------------------------------------------------------------------------
+
+
+def format_consensus_event(result: dict[str, Any]) -> str:
+    """Format a consensus detection result for channel delivery."""
+    consensus = result.get("consensus_reached", False)
+    method = result.get("method", "unknown")
+    confidence = result.get("confidence", 0.0)
+    participants = result.get("participants", [])
+    topic = result.get("topic", result.get("task", ""))
+
+    status = "Consensus Reached" if consensus else "No Consensus"
+    lines = [f"**{status}**"]
+    if topic:
+        lines.append(f"**Topic:** {str(topic)[:200]}")
+    if isinstance(confidence, (int, float)):
+        lines.append(f"**Confidence:** {confidence:.0%}")
+    lines.append(f"**Method:** {method}")
+    if participants:
+        lines.append(f"**Agents:** {', '.join(str(p) for p in participants[:5])}")
+
+    proof = result.get("proof")
+    if isinstance(proof, dict):
+        hash_val = proof.get("hash", "")[:12]
+        if hash_val:
+            lines.append(f"**Proof:** `{hash_val}...`")
+
+    return "\n".join(lines)
+
+
+def format_compliance_event(result: dict[str, Any]) -> str:
+    """Format a compliance check result for channel delivery."""
+    compliant = result.get("compliant", True)
+    score = result.get("score", 1.0)
+    frameworks = result.get("frameworks_checked", [])
+    issues = result.get("issues", [])
+
+    status = "Compliant" if compliant else "Non-Compliant"
+    icon = "passed" if compliant else "FAILED"
+    lines = [f"**Compliance Check: {icon}**"]
+    lines.append(f"**Status:** {status}")
+    if isinstance(score, (int, float)):
+        lines.append(f"**Score:** {score:.0%}")
+    if frameworks:
+        lines.append(f"**Frameworks:** {', '.join(str(f) for f in frameworks[:5])}")
+
+    if issues:
+        critical = sum(1 for i in issues if i.get("severity") == "critical")
+        high = sum(1 for i in issues if i.get("severity") == "high")
+        lines.append(f"**Issues:** {len(issues)} total ({critical} critical, {high} high)")
+        for issue in issues[:3]:
+            desc = str(issue.get("description", ""))[:120]
+            sev = issue.get("severity", "info")
+            lines.append(f"  - [{sev}] {desc}")
+        if len(issues) > 3:
+            lines.append(f"  - ...and {len(issues) - 3} more")
+
+    return "\n".join(lines)
+
+
+def format_knowledge_event(result: dict[str, Any]) -> str:
+    """Format a knowledge mound event for channel delivery."""
+    event_type = result.get("km_event", result.get("event", "update"))
+    item_count = result.get("item_count", 0)
+    topic = result.get("topic", "")
+    source = result.get("source", "")
+
+    title_map = {
+        "ingestion_complete": "Knowledge Ingested",
+        "staleness_detected": "Stale Knowledge Detected",
+        "contradiction_found": "Knowledge Contradiction Found",
+        "search_complete": "Knowledge Search Complete",
+    }
+    title = title_map.get(event_type, "Knowledge Update")
+    lines = [f"**{title}**"]
+    if topic:
+        lines.append(f"**Topic:** {str(topic)[:200]}")
+    if source:
+        lines.append(f"**Source:** {source}")
+    if item_count:
+        lines.append(f"**Items:** {item_count}")
+
+    items = result.get("items", [])
+    for item in items[:3]:
+        title_val = item.get("title", item.get("id", ""))
+        score = item.get("relevance_score", item.get("score"))
+        line = f"  - {str(title_val)[:100]}"
+        if isinstance(score, (int, float)):
+            line += f" ({score:.0%})"
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
+def format_graph_debate_event(result: dict[str, Any]) -> str:
+    """Format a graph debate result for channel delivery."""
+    status = result.get("status", "complete")
+    node_count = result.get("node_count", 0)
+    edge_count = result.get("edge_count", 0)
+    topic = result.get("topic", result.get("task", ""))
+    conclusion = result.get("conclusion", result.get("final_answer", ""))
+
+    lines = [f"**Graph Debate {status.title()}**"]
+    if topic:
+        lines.append(f"**Topic:** {str(topic)[:200]}")
+    if node_count or edge_count:
+        lines.append(f"**Graph:** {node_count} claims, {edge_count} connections")
+    if conclusion:
+        lines.append(f"**Conclusion:** {str(conclusion)[:300]}")
+
+    return "\n".join(lines)
+
+
+def format_workflow_event(result: dict[str, Any]) -> str:
+    """Format a workflow engine event for channel delivery."""
+    event_type = result.get("wf_event", result.get("event", "update"))
+    workflow_name = result.get("workflow_name", result.get("name", ""))
+    status = result.get("status", "running")
+
+    title_map = {
+        "workflow_started": "Workflow Started",
+        "step_completed": "Workflow Step Complete",
+        "workflow_completed": "Workflow Complete",
+        "workflow_failed": "Workflow Failed",
+        "approval_required": "Approval Required",
+    }
+    title = title_map.get(event_type, f"Workflow {status.title()}")
+    lines = [f"**{title}**"]
+    if workflow_name:
+        lines.append(f"**Workflow:** {workflow_name}")
+
+    step = result.get("current_step", result.get("step"))
+    if isinstance(step, dict):
+        lines.append(f"**Step:** {step.get('name', step.get('id', ''))}")
+    elif isinstance(step, str):
+        lines.append(f"**Step:** {step}")
+
+    completed = result.get("completed_steps", 0)
+    total = result.get("total_steps", 0)
+    if total:
+        lines.append(f"**Progress:** {completed}/{total}")
+
+    if event_type == "approval_required":
+        lines.append("**Action needed:** Please approve or reject this step.")
+
+    return "\n".join(lines)

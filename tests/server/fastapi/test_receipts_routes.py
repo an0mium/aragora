@@ -281,3 +281,218 @@ class TestExportReceipt:
 
         response = client.get("/api/v2/receipts/rcpt_test123/export?format=pdf_invalid")
         assert response.status_code == 422
+
+
+# =============================================================================
+# GET /api/v2/receipts/search
+# =============================================================================
+
+
+class TestSearchReceipts:
+    """Tests for GET /api/v2/receipts/search."""
+
+    def test_search_returns_200_empty(self, client, mock_receipt_store):
+        """Search with no results returns 200 with empty list."""
+        mock_receipt_store.search = MagicMock(return_value=[])
+        mock_receipt_store.search_count = MagicMock(return_value=0)
+
+        response = client.get("/api/v2/receipts/search?q=test")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["receipts"] == []
+        assert data["query"] == "test"
+        assert data["total"] == 0
+
+    def test_search_requires_query(self, client):
+        """Search without query returns 422."""
+        response = client.get("/api/v2/receipts/search")
+        assert response.status_code == 422
+
+    def test_search_returns_results(self, client, mock_receipt_store, sample_receipt_dict):
+        """Search returns matching receipts."""
+        mock_receipt_store.search = MagicMock(return_value=[sample_receipt_dict])
+        mock_receipt_store.search_count = MagicMock(return_value=1)
+
+        response = client.get("/api/v2/receipts/search?q=security")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["receipts"]) == 1
+        assert data["receipts"][0]["receipt_id"] == "rcpt_test123"
+        assert data["total"] == 1
+
+    def test_search_with_filters(self, client, mock_receipt_store):
+        """Search passes verdict and risk_level filters."""
+        mock_receipt_store.search = MagicMock(return_value=[])
+        mock_receipt_store.search_count = MagicMock(return_value=0)
+
+        response = client.get(
+            "/api/v2/receipts/search?q=test&verdict=APPROVED&risk_level=LOW"
+        )
+        assert response.status_code == 200
+        mock_receipt_store.search.assert_called_once()
+        call_kwargs = mock_receipt_store.search.call_args
+        assert call_kwargs.kwargs.get("verdict") == "APPROVED"
+        assert call_kwargs.kwargs.get("risk_level") == "LOW"
+
+    def test_search_with_pagination(self, client, mock_receipt_store):
+        """Search supports pagination."""
+        mock_receipt_store.search = MagicMock(return_value=[])
+        mock_receipt_store.search_count = MagicMock(return_value=0)
+
+        response = client.get("/api/v2/receipts/search?q=test&limit=10&offset=5")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["limit"] == 10
+        assert data["offset"] == 5
+
+
+# =============================================================================
+# GET /api/v2/receipts/stats
+# =============================================================================
+
+
+class TestReceiptStats:
+    """Tests for GET /api/v2/receipts/stats."""
+
+    def test_stats_returns_200(self, client, mock_receipt_store):
+        """Stats returns aggregate statistics."""
+        mock_receipt_store.get_stats = MagicMock(return_value={
+            "total": 100,
+            "verified": 85,
+            "by_verdict": {"APPROVED": 70, "REJECTED": 30},
+            "by_risk_level": {"LOW": 50, "MEDIUM": 30, "HIGH": 20},
+        })
+
+        response = client.get("/api/v2/receipts/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 100
+        assert data["verified"] == 85
+        assert data["by_verdict"]["APPROVED"] == 70
+        assert data["by_risk_level"]["LOW"] == 50
+        assert "generated_at" in data
+
+    def test_stats_empty_store(self, client, mock_receipt_store):
+        """Stats with empty store returns zeros."""
+        mock_receipt_store.get_stats = MagicMock(return_value={})
+
+        response = client.get("/api/v2/receipts/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 0
+
+
+# =============================================================================
+# POST /api/v2/receipts/batch-verify
+# =============================================================================
+
+
+class TestBatchVerify:
+    """Tests for POST /api/v2/receipts/batch-verify."""
+
+    def test_batch_verify_returns_200(self, client, mock_receipt_store, sample_receipt_dict):
+        """Batch verify returns results for each receipt."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-verify",
+            json={"receipt_ids": ["rcpt_test123"]},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert len(data["results"]) == 1
+        assert data["results"][0]["receipt_id"] == "rcpt_test123"
+        assert "verified" in data["results"][0]
+
+    def test_batch_verify_not_found(self, client, mock_receipt_store):
+        """Batch verify handles missing receipts."""
+        mock_receipt_store.get.return_value = None
+
+        response = client.post(
+            "/api/v2/receipts/batch-verify",
+            json={"receipt_ids": ["nonexistent"]},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["results"][0]["verified"] is False
+        assert data["results"][0]["error"] == "Receipt not found"
+        assert data["failed_count"] == 1
+
+    def test_batch_verify_empty_list(self, client):
+        """Batch verify with empty list returns 422."""
+        response = client.post(
+            "/api/v2/receipts/batch-verify",
+            json={"receipt_ids": []},
+        )
+        assert response.status_code == 422
+
+    def test_batch_verify_multiple(self, client, mock_receipt_store, sample_receipt_dict):
+        """Batch verify handles multiple receipts."""
+        mock_receipt_store.get.side_effect = [sample_receipt_dict, None]
+
+        response = client.post(
+            "/api/v2/receipts/batch-verify",
+            json={"receipt_ids": ["rcpt_1", "rcpt_missing"]},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+
+
+# =============================================================================
+# POST /api/v2/receipts/batch-export
+# =============================================================================
+
+
+class TestBatchExport:
+    """Tests for POST /api/v2/receipts/batch-export."""
+
+    def test_batch_export_json(self, client, mock_receipt_store, sample_receipt_dict):
+        """Batch export returns exported items."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "json"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["exported_count"] == 1
+        assert data["total_requested"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["format"] == "json"
+        assert data["items"][0]["receipt_id"] == "rcpt_test123"
+
+    def test_batch_export_missing_receipt(self, client, mock_receipt_store):
+        """Batch export adds missing receipts to failed_ids."""
+        mock_receipt_store.get.return_value = None
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["missing"], "format": "json"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["exported_count"] == 0
+        assert data["failed_ids"] == ["missing"]
+
+    def test_batch_export_empty_list(self, client):
+        """Batch export with empty list returns 422."""
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": []},
+        )
+        assert response.status_code == 422
+
+    def test_batch_export_markdown_format(self, client, mock_receipt_store, sample_receipt_dict):
+        """Batch export in markdown format."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "markdown"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"][0]["format"] == "markdown"

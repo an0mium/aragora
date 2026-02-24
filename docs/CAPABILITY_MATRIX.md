@@ -8,7 +8,7 @@
 | Surface | Inventory | Capability Coverage |
 |---------|-----------|---------------------|
 | **HTTP API** | 1772 paths / 2100 operations | 100.0% |
-| **CLI** | 75 commands | 85.7% |
+| **CLI** | 75 commands | 100.0% |
 | **SDK (Python)** | 184 namespaces | 100.0% |
 | **SDK (TypeScript)** | 183 namespaces | 100.0% |
 | **UI** | 14/14 capabilities | 100.0% |
@@ -19,21 +19,21 @@
 | Capability | API | CLI | SDK | UI | Channels |
 |------------|-----|-----|-----|----|----------|
 | `agent_team_selection` | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `compliance_framework` | ✅ | ❌ | ✅ | ✅ | ❌ |
-| `consensus_detection` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `compliance_framework` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `consensus_detection` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `continuum_memory` | ✅ | ✅ | ✅ | ✅ | ❌ |
 | `debate_orchestration` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `decision_integrity` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `graph_debates` | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `knowledge_mound` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `graph_debates` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `knowledge_mound` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `marketplace` | ✅ | ✅ | ✅ | ✅ | ❌ |
 | `matrix_debates` | ✅ | ✅ | ✅ | ✅ | ❌ |
 | `nomic_loop` | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `rbac_v2` | ✅ | ❌ | ✅ | ✅ | ❌ |
+| `rbac_v2` | ✅ | ✅ | ✅ | ✅ | ❌ |
 | `vertical_specialists` | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `workflow_engine` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| `workflow_engine` | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-**Coverage:** API 14/14 (100%) | CLI 12/14 (85.7%) | SDK 14/14 (100%) | UI 14/14 (100%) | Channels 2/14 (14.3%)
+**Coverage:** API 14/14 (100%) | CLI 14/14 (100%) | SDK 14/14 (100%) | UI 14/14 (100%) | Channels 7/14 (50.0%)
 
 ## Surface Gaps
 
@@ -41,10 +41,9 @@
 
 - None
 
-### Missing CLI (2)
+### Missing CLI (0)
 
-- `compliance_framework`
-- `rbac_v2`
+- None
 
 ### Missing SDK (0)
 
@@ -54,20 +53,15 @@
 
 - None
 
-### Missing CHANNELS (12)
+### Missing CHANNELS (7)
 
 - `agent_team_selection`
-- `compliance_framework`
-- `consensus_detection`
 - `continuum_memory`
-- `graph_debates`
-- `knowledge_mound`
 - `marketplace`
 - `matrix_debates`
 - `nomic_loop`
 - `rbac_v2`
 - `vertical_specialists`
-- `workflow_engine`
 
 ## Unmapped Capabilities (23)
 

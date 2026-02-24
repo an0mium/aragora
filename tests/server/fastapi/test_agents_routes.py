@@ -357,3 +357,212 @@ class TestRegisterAgent:
             json={"name": "unauthorized-agent"},
         )
         assert response.status_code == 401
+
+
+# =============================================================================
+# GET /api/v2/agents/domains
+# =============================================================================
+
+
+class TestGetDomains:
+    """Tests for GET /api/v2/agents/domains."""
+
+    def test_domains_returns_200(self, client):
+        """Domains returns list of agent domains."""
+        response = client.get("/api/v2/agents/domains")
+        assert response.status_code == 200
+        data = response.json()
+        assert "domains" in data
+        assert "total" in data
+        assert data["total"] > 0
+
+    def test_domains_fallback_list(self, client, mock_elo_system):
+        """Domains falls back to default list when ELO has no get_domains."""
+        # Default mock_elo_system doesn't have get_domains
+        response = client.get("/api/v2/agents/domains")
+        assert response.status_code == 200
+        data = response.json()
+        domain_names = [d["name"] for d in data["domains"]]
+        assert "security" in domain_names
+        assert "general" in domain_names
+
+    def test_domains_from_elo(self, client, mock_elo_system):
+        """Domains returns ELO domains when available."""
+        mock_elo_system.get_domains = MagicMock(return_value=[
+            {"name": "security", "description": "Security domain", "agent_count": 5},
+            {"name": "coding", "description": "Coding domain", "agent_count": 8},
+        ])
+
+        response = client.get("/api/v2/agents/domains")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        assert data["domains"][0]["name"] == "security"
+        assert data["domains"][0]["agent_count"] == 5
+
+    def test_domains_not_treated_as_agent_id(self, client):
+        """Ensure /agents/domains is not matched as /agents/{agent_id}='domains'."""
+        response = client.get("/api/v2/agents/domains")
+        assert response.status_code == 200
+        data = response.json()
+        assert "domains" in data
+        assert "name" not in data  # Not an agent detail response
+
+    def test_domains_when_no_elo(self, app):
+        """Domains returns defaults when ELO unavailable."""
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": None,
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/agents/domains")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] > 0
+
+
+# =============================================================================
+# GET /api/v2/agents/{agent_id}/stats
+# =============================================================================
+
+
+class TestGetAgentStats:
+    """Tests for GET /api/v2/agents/{agent_id}/stats."""
+
+    def test_stats_returns_200(self, client):
+        """Stats returns agent performance data."""
+        response = client.get("/api/v2/agents/claude/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "claude"
+        assert data["elo"] == 1650.5
+        assert data["matches"] == 120
+        assert data["wins"] == 80
+        assert data["win_rate"] == round(80 / 120, 3)
+
+    def test_stats_not_found(self, client, mock_elo_system):
+        """Stats for unknown agent returns 404."""
+        mock_elo_system.get_leaderboard.return_value = []
+
+        with patch(
+            "aragora.server.fastapi.routes.agents._get_known_agents",
+            return_value=["claude", "codex"],
+        ):
+            response = client.get("/api/v2/agents/nonexistent-agent/stats")
+            assert response.status_code == 404
+
+    def test_stats_known_agent_default(self, client, mock_elo_system):
+        """Stats for known agent without ELO data returns defaults."""
+        mock_elo_system.get_leaderboard.return_value = []
+        mock_elo_system.get_agent.return_value = None
+
+        with patch(
+            "aragora.server.fastapi.routes.agents._get_known_agents",
+            return_value=["claude", "codex", "grok"],
+        ):
+            response = client.get("/api/v2/agents/grok/stats")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["name"] == "grok"
+            assert data["elo"] == 1500.0
+            assert data["matches"] == 0
+
+    def test_stats_with_extended_data(self, client, mock_elo_system):
+        """Stats includes extended data from ELO."""
+        mock_elo_system.get_agent_stats = MagicMock(return_value={
+            "recent_performance": [
+                {"debate_id": "d1", "outcome": "win"},
+                {"debate_id": "d2", "outcome": "loss"},
+            ],
+            "domains": ["security", "architecture"],
+            "avg_confidence": 0.82,
+        })
+
+        response = client.get("/api/v2/agents/claude/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["recent_performance"]) == 2
+        assert "security" in data["domains"]
+        assert data["avg_confidence"] == 0.82
+
+
+# =============================================================================
+# GET /api/v2/agents/{agent_id}/calibration
+# =============================================================================
+
+
+class TestGetAgentCalibration:
+    """Tests for GET /api/v2/agents/{agent_id}/calibration."""
+
+    def test_calibration_returns_200(self, client, mock_elo_system):
+        """Calibration returns data for known agent."""
+        response = client.get("/api/v2/agents/claude/calibration")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "claude"
+
+    def test_calibration_with_buckets(self, client, mock_elo_system):
+        """Calibration returns bucket data."""
+        mock_elo_system.get_calibration_by_bucket = MagicMock(return_value=[
+            {
+                "bucket": "0.0-0.2",
+                "predicted": 0.1,
+                "actual": 0.12,
+                "count": 50,
+            },
+            {
+                "bucket": "0.2-0.4",
+                "predicted": 0.3,
+                "actual": 0.28,
+                "count": 75,
+            },
+        ])
+        mock_elo_system.get_calibration_leaderboard = MagicMock(return_value=[
+            {
+                "name": "claude",
+                "calibration_score": 0.95,
+            },
+        ])
+
+        response = client.get("/api/v2/agents/claude/calibration")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["calibration_score"] == 0.95
+        assert len(data["buckets"]) == 2
+        assert data["buckets"][0]["bucket"] == "0.0-0.2"
+        assert data["total_predictions"] == 125
+
+    def test_calibration_with_domain(self, client, mock_elo_system):
+        """Calibration passes domain filter."""
+        mock_elo_system.get_calibration_by_bucket = MagicMock(return_value=[])
+        mock_elo_system.get_calibration_leaderboard = MagicMock(return_value=[])
+
+        response = client.get("/api/v2/agents/claude/calibration?domain=security")
+        assert response.status_code == 200
+        mock_elo_system.get_calibration_by_bucket.assert_called_once_with(
+            "claude", domain="security",
+        )
+
+    def test_calibration_not_found(self, client, mock_elo_system):
+        """Calibration for unknown agent returns 404."""
+        mock_elo_system.get_leaderboard.return_value = []
+
+        with patch(
+            "aragora.server.fastapi.routes.agents._get_known_agents",
+            return_value=["claude", "codex"],
+        ):
+            response = client.get("/api/v2/agents/nonexistent/calibration")
+            assert response.status_code == 404
+
+    def test_calibration_known_agent_no_data(self, client, mock_elo_system):
+        """Calibration for known agent with no calibration data returns defaults."""
+        # claude is in leaderboard, so it's found
+        response = client.get("/api/v2/agents/claude/calibration")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "claude"
+        assert data["buckets"] == []

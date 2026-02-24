@@ -394,6 +394,46 @@ async def list_workflows(
         raise HTTPException(status_code=500, detail="Failed to list workflows")
 
 
+@router.get("/workflows/templates", response_model=TemplateListResponse)
+async def list_workflow_templates(
+    request: Request,
+    category: str | None = Query(None, description="Filter by category"),
+) -> TemplateListResponse:
+    """List available workflow templates."""
+    try:
+        templates: list[TemplateSummary] = []
+
+        try:
+            from aragora.workflow.templates import list_templates
+
+            raw_templates = list_templates(category=category)
+            for t in raw_templates:
+                if isinstance(t, dict):
+                    templates.append(TemplateSummary(
+                        name=t.get("name", t.get("id", "")),
+                        description=t.get("description", ""),
+                        category=t.get("category", ""),
+                        node_count=len(t.get("nodes", [])),
+                        tags=t.get("tags", []),
+                    ))
+                else:
+                    templates.append(TemplateSummary(
+                        name=getattr(t, "name", getattr(t, "id", "")),
+                        description=getattr(t, "description", ""),
+                        category=getattr(t, "category", ""),
+                        node_count=len(getattr(t, "nodes", [])),
+                        tags=getattr(t, "tags", []),
+                    ))
+        except (ImportError, RuntimeError, ValueError, TypeError) as e:
+            logger.debug("Workflow templates not available: %s", e)
+
+        return TemplateListResponse(templates=templates, total=len(templates))
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error listing workflow templates: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to list workflow templates")
+
+
 @router.get("/workflows/{workflow_id}", response_model=WorkflowDetail)
 async def get_workflow(
     workflow_id: str,
@@ -662,48 +702,8 @@ async def get_workflow_status(
 
 
 # =============================================================================
-# New Endpoints (Templates, History, Approve)
+# New Endpoints (History, Approve)
 # =============================================================================
-
-
-@router.get("/workflows/templates", response_model=TemplateListResponse)
-async def list_workflow_templates(
-    request: Request,
-    category: str | None = Query(None, description="Filter by category"),
-) -> TemplateListResponse:
-    """List available workflow templates."""
-    try:
-        templates: list[TemplateSummary] = []
-
-        try:
-            from aragora.workflow.templates import list_templates
-
-            raw_templates = list_templates(category=category)
-            for t in raw_templates:
-                if isinstance(t, dict):
-                    templates.append(TemplateSummary(
-                        name=t.get("name", t.get("id", "")),
-                        description=t.get("description", ""),
-                        category=t.get("category", ""),
-                        node_count=len(t.get("nodes", [])),
-                        tags=t.get("tags", []),
-                    ))
-                else:
-                    templates.append(TemplateSummary(
-                        name=getattr(t, "name", getattr(t, "id", "")),
-                        description=getattr(t, "description", ""),
-                        category=getattr(t, "category", ""),
-                        node_count=len(getattr(t, "nodes", [])),
-                        tags=getattr(t, "tags", []),
-                    ))
-        except (ImportError, RuntimeError, ValueError, TypeError) as e:
-            logger.debug("Workflow templates not available: %s", e)
-
-        return TemplateListResponse(templates=templates, total=len(templates))
-
-    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
-        logger.exception("Error listing workflow templates: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to list workflow templates")
 
 
 @router.get(

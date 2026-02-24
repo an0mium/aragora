@@ -394,3 +394,314 @@ class TestIngestKnowledgeItem:
         client.app.dependency_overrides.clear()
 
         assert response.status_code == 503
+
+
+# =============================================================================
+# GET /api/v2/knowledge/adapters
+# =============================================================================
+
+
+class TestListAdapters:
+    """Tests for GET /api/v2/knowledge/adapters."""
+
+    def test_list_returns_200(self, client, mock_km):
+        """List returns adapters from KM."""
+        response = client.get("/api/v2/knowledge/adapters")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 3
+        assert data["adapters"][0]["name"] == "debate"
+        assert data["adapters"][1]["name"] == "consensus"
+        assert data["adapters"][2]["name"] == "elo"
+
+    def test_list_returns_empty_when_km_unavailable(self, app):
+        """List returns empty when KM is not available."""
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "knowledge_mound": None,
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/knowledge/adapters")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["adapters"] == []
+        assert data["total"] == 0
+
+    def test_list_handles_dict_adapters(self, client, mock_km):
+        """List handles dict adapter entries."""
+        mock_km.list_adapters.return_value = [
+            {"name": "debate", "description": "Debate adapter", "status": "active"},
+            {"name": "elo", "description": "ELO adapter", "status": "active"},
+        ]
+
+        response = client.get("/api/v2/knowledge/adapters")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        assert data["adapters"][0]["description"] == "Debate adapter"
+
+
+# =============================================================================
+# POST /api/v2/knowledge/query
+# =============================================================================
+
+
+class TestStructuredQuery:
+    """Tests for POST /api/v2/knowledge/query."""
+
+    def _override_auth(self, client):
+        """Override auth for operations."""
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"knowledge:read"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+
+    def test_query_returns_200(self, client, mock_km):
+        """Structured query returns results."""
+        mock_km.query = MagicMock(return_value=[])
+
+        response = client.post(
+            "/api/v2/knowledge/query",
+            json={"query": "security best practices"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["query"] == "security best practices"
+        assert data["items"] == []
+        assert data["total"] == 0
+
+    def test_query_with_filters(self, client, mock_km):
+        """Structured query passes filters."""
+        mock_km.query = MagicMock(return_value=[])
+
+        response = client.post(
+            "/api/v2/knowledge/query",
+            json={
+                "query": "test",
+                "content_type": "text",
+                "source": "debate",
+                "adapter": "consensus",
+                "tags": ["security"],
+                "min_confidence": 0.5,
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["filters_applied"]["content_type"] == "text"
+        assert data["filters_applied"]["source"] == "debate"
+        assert data["filters_applied"]["adapter"] == "consensus"
+        assert data["filters_applied"]["tags"] == ["security"]
+        assert data["filters_applied"]["min_confidence"] == 0.5
+
+    def test_query_requires_query_field(self, client):
+        """Structured query without query string returns 422."""
+        response = client.post(
+            "/api/v2/knowledge/query",
+            json={},
+        )
+        assert response.status_code == 422
+
+    def test_query_with_results(self, client, mock_km, sample_knowledge_item):
+        """Structured query returns matching items."""
+        mock_km.query = MagicMock(return_value=[sample_knowledge_item])
+
+        response = client.post(
+            "/api/v2/knowledge/query",
+            json={"query": "rate limiter"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == "ki_abc123def456"
+
+    def test_query_unavailable_km(self, app):
+        """Query returns 503 when KM is not available."""
+        from aragora.server.fastapi.routes.knowledge import get_knowledge_mound as _dep
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "knowledge_mound": None,
+        }
+        app.dependency_overrides[_dep] = lambda: None
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.post(
+            "/api/v2/knowledge/query",
+            json={"query": "test"},
+        )
+        app.dependency_overrides.clear()
+        assert response.status_code == 503
+
+
+# =============================================================================
+# GET /api/v2/knowledge/staleness
+# =============================================================================
+
+
+class TestStalenessAnalysis:
+    """Tests for GET /api/v2/knowledge/staleness."""
+
+    def test_staleness_returns_200(self, client, mock_km):
+        """Staleness returns analysis based on KM stats."""
+        response = client.get("/api/v2/knowledge/staleness")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_items"] == 42
+        assert data["threshold_days"] == 30.0
+
+    def test_staleness_with_custom_threshold(self, client, mock_km):
+        """Staleness accepts custom threshold_days."""
+        response = client.get("/api/v2/knowledge/staleness?threshold_days=7")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["threshold_days"] == 7.0
+
+    def test_staleness_with_dedicated_method(self, client, mock_km):
+        """Staleness uses dedicated get_staleness when available."""
+        mock_km.get_staleness = MagicMock(return_value={
+            "total_items": 100,
+            "stale_items": 15,
+            "stale_percent": 15.0,
+            "items": [
+                {
+                    "id": "ki_stale1",
+                    "title": "Old item",
+                    "stale": True,
+                    "age_days": 45.0,
+                },
+            ],
+        })
+
+        response = client.get("/api/v2/knowledge/staleness")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_items"] == 100
+        assert data["stale_items"] == 15
+        assert data["stale_percent"] == 15.0
+        assert len(data["items"]) == 1
+        assert data["items"][0]["stale"] is True
+
+    def test_staleness_when_km_unavailable(self, app):
+        """Staleness returns defaults when KM unavailable."""
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "knowledge_mound": None,
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/knowledge/staleness")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_items"] == 0
+
+    def test_staleness_threshold_validation(self, client):
+        """Staleness threshold_days must be between 1 and 365."""
+        response = client.get("/api/v2/knowledge/staleness?threshold_days=0.5")
+        assert response.status_code == 422
+
+        response = client.get("/api/v2/knowledge/staleness?threshold_days=400")
+        assert response.status_code == 422
+
+
+# =============================================================================
+# DELETE /api/v2/knowledge/{item_id}
+# =============================================================================
+
+
+class TestDeleteKnowledgeItem:
+    """Tests for DELETE /api/v2/knowledge/{item_id}."""
+
+    def _override_auth(self, client):
+        """Override auth for write operations."""
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"knowledge:write"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+        return auth_ctx
+
+    def test_delete_returns_200(self, client, mock_km, sample_knowledge_item):
+        """Delete existing item returns success."""
+        self._override_auth(client)
+        mock_km.get.return_value = sample_knowledge_item
+        mock_km.delete = MagicMock(return_value=True)
+
+        response = client.delete("/api/v2/knowledge/ki_abc123def456")
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["item_id"] == "ki_abc123def456"
+
+    def test_delete_not_found(self, client, mock_km):
+        """Delete nonexistent item returns 404."""
+        self._override_auth(client)
+        mock_km.get.return_value = None
+
+        response = client.delete("/api/v2/knowledge/nonexistent-id")
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 404
+
+    def test_delete_requires_auth(self, client):
+        """Delete without auth returns 401."""
+        response = client.delete("/api/v2/knowledge/ki_abc123def456")
+        assert response.status_code == 401
+
+    def test_delete_unavailable_km(self, app):
+        """Delete returns 503 when KM is not available."""
+        from aragora.server.fastapi.routes.knowledge import get_knowledge_mound as _dep
+        from aragora.server.fastapi.dependencies.auth import require_authenticated
+        from aragora.rbac.models import AuthorizationContext
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "knowledge_mound": None,
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        auth_ctx = AuthorizationContext(
+            user_id="user-1",
+            org_id="org-1",
+            workspace_id="ws-1",
+            roles={"admin"},
+            permissions={"knowledge:write"},
+        )
+        client.app.dependency_overrides[require_authenticated] = lambda: auth_ctx
+        client.app.dependency_overrides[_dep] = lambda: None
+
+        response = client.delete("/api/v2/knowledge/ki_abc123def456")
+        client.app.dependency_overrides.clear()
+
+        assert response.status_code == 503

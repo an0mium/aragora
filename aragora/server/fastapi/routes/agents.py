@@ -117,6 +117,61 @@ class RegisterAgentResponse(BaseModel):
     agent: AgentDetail
 
 
+class AgentStatsResponse(BaseModel):
+    """Response for agent performance stats."""
+
+    name: str
+    elo: float = 1500.0
+    matches: int = 0
+    wins: int = 0
+    losses: int = 0
+    win_rate: float = 0.0
+    avg_confidence: float = 0.0
+    domains: list[str] = Field(default_factory=list)
+    recent_performance: list[dict[str, Any]] = Field(default_factory=list)
+
+    model_config = {"extra": "allow"}
+
+
+class CalibrationBucket(BaseModel):
+    """A single calibration bucket."""
+
+    bucket: str = ""
+    predicted: float = 0.0
+    actual: float = 0.0
+    count: int = 0
+
+    model_config = {"extra": "allow"}
+
+
+class AgentCalibrationResponse(BaseModel):
+    """Response for agent calibration scores."""
+
+    name: str
+    calibration_score: float = 0.0
+    buckets: list[CalibrationBucket] = Field(default_factory=list)
+    total_predictions: int = 0
+
+    model_config = {"extra": "allow"}
+
+
+class DomainInfo(BaseModel):
+    """Information about an agent domain/specialization."""
+
+    name: str
+    description: str = ""
+    agent_count: int = 0
+
+    model_config = {"extra": "allow"}
+
+
+class DomainsResponse(BaseModel):
+    """Response for agent domains listing."""
+
+    domains: list[DomainInfo]
+    total: int
+
+
 # =============================================================================
 # Dependencies
 # =============================================================================
@@ -292,6 +347,52 @@ async def get_leaderboard(
         raise HTTPException(status_code=500, detail="Failed to get leaderboard")
 
 
+@router.get("/agents/domains", response_model=DomainsResponse)
+async def get_agent_domains(
+    request: Request,
+    elo=Depends(get_elo_system),
+) -> DomainsResponse:
+    """List available agent domains and specializations."""
+    try:
+        domains: list[DomainInfo] = []
+
+        # Try to get domains from ELO system
+        if elo and hasattr(elo, "get_domains"):
+            try:
+                raw_domains = elo.get_domains()
+                for d in raw_domains:
+                    if isinstance(d, str):
+                        domains.append(DomainInfo(name=d))
+                    elif isinstance(d, dict):
+                        domains.append(DomainInfo(
+                            name=d.get("name", d.get("id", "")),
+                            description=d.get("description", ""),
+                            agent_count=d.get("agent_count", 0),
+                        ))
+                    else:
+                        domains.append(DomainInfo(
+                            name=getattr(d, "name", str(d)),
+                            description=getattr(d, "description", ""),
+                            agent_count=getattr(d, "agent_count", 0),
+                        ))
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+                logger.debug("Could not get domains from ELO: %s", e)
+
+        # Fall back to known domain categories
+        if not domains:
+            default_domains = [
+                "security", "architecture", "testing", "performance",
+                "compliance", "general",
+            ]
+            domains = [DomainInfo(name=d) for d in default_domains]
+
+        return DomainsResponse(domains=domains, total=len(domains))
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error getting agent domains: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to get agent domains")
+
+
 @router.get("/agents/{agent_id}", response_model=AgentDetail)
 async def get_agent(
     agent_id: str,
@@ -419,3 +520,163 @@ async def register_agent(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error registering agent: %s", e)
         raise HTTPException(status_code=500, detail="Failed to register agent")
+
+
+# =============================================================================
+# New Endpoints (Stats, Calibration)
+# =============================================================================
+
+
+@router.get("/agents/{agent_id}/stats", response_model=AgentStatsResponse)
+async def get_agent_stats(
+    agent_id: str,
+    elo=Depends(get_elo_system),
+) -> AgentStatsResponse:
+    """Get per-agent performance statistics."""
+    try:
+        agent_data: dict[str, Any] | None = None
+
+        if elo:
+            try:
+                if hasattr(elo, "get_agent"):
+                    agent_obj = elo.get_agent(agent_id)
+                    if agent_obj:
+                        agent_data = _agent_to_dict(agent_obj)
+
+                if agent_data is None and hasattr(elo, "get_leaderboard"):
+                    rankings = elo.get_leaderboard(limit=500)
+                    for agent in rankings:
+                        d = _agent_to_dict(agent)
+                        if d.get("name") == agent_id:
+                            agent_data = d
+                            break
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+                logger.debug("Could not get agent %s from ELO: %s", agent_id, e)
+
+        # Check known agents as fallback
+        if agent_data is None:
+            known_agents = _get_known_agents()
+            if agent_id in known_agents:
+                agent_data = {"name": agent_id}
+            else:
+                raise NotFoundError(f"Agent {agent_id} not found")
+
+        matches = agent_data.get("matches", 0)
+        wins = agent_data.get("wins", 0)
+        win_rate = wins / matches if matches > 0 else 0.0
+
+        # Try to get extended stats
+        recent_performance: list[dict[str, Any]] = []
+        agent_domains: list[str] = []
+        avg_confidence = 0.0
+
+        if elo:
+            try:
+                if hasattr(elo, "get_agent_stats"):
+                    ext_stats = elo.get_agent_stats(agent_id)
+                    if isinstance(ext_stats, dict):
+                        recent_performance = ext_stats.get("recent_performance", [])
+                        agent_domains = ext_stats.get("domains", [])
+                        avg_confidence = ext_stats.get("avg_confidence", 0.0)
+            except (RuntimeError, ValueError, TypeError, AttributeError):
+                pass
+
+        return AgentStatsResponse(
+            name=agent_data.get("name", agent_id),
+            elo=agent_data.get("elo", 1500.0),
+            matches=matches,
+            wins=wins,
+            losses=agent_data.get("losses", 0),
+            win_rate=round(win_rate, 3),
+            avg_confidence=avg_confidence,
+            domains=agent_domains,
+            recent_performance=recent_performance,
+        )
+
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error getting stats for agent %s: %s", agent_id, e)
+        raise HTTPException(status_code=500, detail="Failed to get agent stats")
+
+
+@router.get(
+    "/agents/{agent_id}/calibration", response_model=AgentCalibrationResponse
+)
+async def get_agent_calibration(
+    agent_id: str,
+    domain: str | None = Query(None, description="Filter by domain"),
+    elo=Depends(get_elo_system),
+) -> AgentCalibrationResponse:
+    """Get calibration scores for a specific agent."""
+    try:
+        calibration_score = 0.0
+        buckets: list[CalibrationBucket] = []
+        total_predictions = 0
+
+        if elo:
+            # Try dedicated calibration methods
+            try:
+                if hasattr(elo, "get_calibration_by_bucket"):
+                    raw_buckets = elo.get_calibration_by_bucket(
+                        agent_id, domain=domain
+                    )
+                    for b in raw_buckets:
+                        if isinstance(b, dict):
+                            buckets.append(CalibrationBucket(
+                                bucket=b.get("bucket", ""),
+                                predicted=b.get("predicted", 0.0),
+                                actual=b.get("actual", 0.0),
+                                count=b.get("count", 0),
+                            ))
+                            total_predictions += b.get("count", 0)
+
+                if hasattr(elo, "get_calibration_leaderboard"):
+                    cal_lb = elo.get_calibration_leaderboard(limit=500)
+                    for entry in cal_lb:
+                        d = (
+                            entry
+                            if isinstance(entry, dict)
+                            else _agent_to_dict(entry)
+                        )
+                        if d.get("name") == agent_id:
+                            calibration_score = d.get(
+                                "calibration_score", d.get("score", 0.0)
+                            )
+                            break
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+                logger.debug(
+                    "Could not get calibration for %s: %s", agent_id, e
+                )
+
+        # Verify agent exists
+        if not buckets and calibration_score == 0.0:
+            known_agents = _get_known_agents()
+            found = False
+            if elo and hasattr(elo, "get_leaderboard"):
+                try:
+                    for a in elo.get_leaderboard(limit=500):
+                        if _agent_to_dict(a).get("name") == agent_id:
+                            found = True
+                            break
+                except (RuntimeError, ValueError, TypeError, AttributeError):
+                    pass
+            if not found and agent_id not in known_agents:
+                raise NotFoundError(f"Agent {agent_id} not found")
+
+        return AgentCalibrationResponse(
+            name=agent_id,
+            calibration_score=calibration_score,
+            buckets=buckets,
+            total_predictions=total_predictions,
+        )
+
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception(
+            "Error getting calibration for agent %s: %s", agent_id, e
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to get agent calibration"
+        )
