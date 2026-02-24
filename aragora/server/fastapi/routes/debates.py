@@ -1,11 +1,23 @@
 """
 Debate Endpoints (FastAPI v2).
 
+Migrated from: aragora/server/handlers/debates/ (aiohttp handler)
+
 Provides async debate management endpoints:
-- List debates with pagination
-- Get debate by ID
-- Get debate messages
-- Get debate convergence status
+- GET  /api/v2/debates                         - List debates with pagination
+- GET  /api/v2/debates/{debate_id}             - Get debate by ID
+- GET  /api/v2/debates/{debate_id}/messages    - Get debate messages
+- GET  /api/v2/debates/{debate_id}/convergence - Get convergence status
+- PATCH /api/v2/debates/{debate_id}            - Update debate metadata
+- DELETE /api/v2/debates/{debate_id}           - Delete a debate
+
+Migration Notes:
+    This module replaces the CrudOperationsMixin in the legacy debates handler
+    with native FastAPI routes. Key improvements:
+    - Pydantic request/response models with automatic validation
+    - FastAPI dependency injection for auth and storage
+    - Proper HTTP status codes (422 for validation, 404 for not found)
+    - OpenAPI schema auto-generation
 """
 
 from __future__ import annotations
@@ -16,6 +28,9 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from pydantic import BaseModel, Field
 
+from aragora.rbac.models import AuthorizationContext
+
+from ..dependencies.auth import require_permission
 from ..middleware.error_handling import NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -86,6 +101,34 @@ class ConvergenceResponse(BaseModel):
     confidence: float = 0.0
     rounds_to_convergence: int | None = None
     similarity_scores: list[float] = Field(default_factory=list)
+
+
+class UpdateDebateRequest(BaseModel):
+    """Request body for PATCH /debates/{debate_id}.
+
+    All fields are optional. Only provided fields are updated.
+    """
+
+    title: str | None = Field(None, max_length=500, description="Update debate title")
+    tags: list[str] | None = Field(None, max_length=50, description="Update tags")
+    status: str | None = Field(None, description="Update status (active, paused, concluded, archived)")
+    metadata: dict[str, Any] | None = Field(None, description="Update custom metadata")
+
+
+class UpdateDebateResponse(BaseModel):
+    """Response for PATCH /debates/{debate_id}."""
+
+    success: bool
+    debate_id: str
+    updated_fields: list[str]
+    debate: DebateSummary
+
+
+class DeleteDebateResponse(BaseModel):
+    """Response for DELETE /debates/{debate_id}."""
+
+    deleted: bool
+    id: str
 
 
 # =============================================================================
