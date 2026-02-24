@@ -131,6 +131,9 @@ class ConcreteAssembler(PromptAssemblyMixin):
         block = "\n\n".join(parts)
         return block, ""
 
+    def get_pulse_enrichment_context(self):
+        return ""
+
     def get_deliberation_template_context(self):
         return ""
 

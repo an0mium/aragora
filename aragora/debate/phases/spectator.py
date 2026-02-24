@@ -93,14 +93,22 @@ class SpectatorMixin:
             if not stream_type:
                 return  # Skip unmapped event types
 
-            # Build StreamEvent from spectator kwargs
+            # Build event data payload
+            ev_data: dict = {
+                "details": kwargs.get("details", ""),
+                "metric": kwargs.get("metric"),
+                "event_source": "spectator",
+            }
+            # Enrich agent_message events with reasoning visibility fields
+            if stream_type == StreamEventType.AGENT_MESSAGE:
+                for _k in ("content", "role", "reasoning_phase", "thinking"):
+                    if kwargs.get(_k):
+                        ev_data[_k] = kwargs[_k]
+                if kwargs.get("confidence_score") is not None:
+                    ev_data["confidence_score"] = kwargs["confidence_score"]
             stream_event = StreamEvent(
                 type=stream_type,
-                data={
-                    "details": kwargs.get("details", ""),
-                    "metric": kwargs.get("metric"),
-                    "event_source": "spectator",
-                },
+                data=ev_data,
                 round=kwargs.get("round_number", 0),
                 agent=kwargs.get("agent", ""),
                 loop_id=getattr(self, "loop_id", ""),

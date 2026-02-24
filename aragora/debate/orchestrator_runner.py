@@ -302,7 +302,13 @@ async def initialize_debate_context(
         if culture_hints:
             arena._apply_culture_hints(culture_hints)
 
-    await asyncio.gather(_init_km(), _init_culture(), return_exceptions=True)
+    _gather_results = await asyncio.gather(
+        _init_km(), _init_culture(), return_exceptions=True
+    )
+    # KM init (index 0) is critical – propagate its errors.
+    # Culture hints (index 1) are best-effort.
+    if isinstance(_gather_results[0], BaseException):
+        raise _gather_results[0]
 
     _init_elapsed_ms = (time.perf_counter() - _init_start) * 1000
     logger.debug("debate_context_setup elapsed_ms=%.1f", _init_elapsed_ms)
@@ -839,66 +845,81 @@ async def handle_debate_completion(
             state.debate_id, ctx.result, extensions=arena.extensions
         )
 
-    # Ingest high-confidence consensus into Knowledge Mound (with retry)
+    # Ingest high-confidence consensus into Knowledge Mound (background, non-blocking)
     if ctx.result:
-        _ingestion_succeeded = False
-        _last_error: Exception | None = None
-        for _attempt in range(3):
-            try:
-                await arena._ingest_debate_outcome(ctx.result)
-                _ingestion_succeeded = True
-                break
-            except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
-                _last_error = e
-                if _attempt < 2:
-                    await asyncio.sleep(2**_attempt)  # 1s, 2s backoff
-        if not _ingestion_succeeded and _last_error is not None:
-            logger.warning(
-                "Knowledge Mound ingestion failed after 3 attempts for debate %s: %s",
-                state.debate_id,
-                _last_error,
+
+        async def _km_ingest_background() -> None:
+            _ingestion_succeeded = False
+            _last_error: Exception | None = None
+            for _attempt in range(3):
+                try:
+                    await arena._ingest_debate_outcome(ctx.result)
+                    _ingestion_succeeded = True
+                    break
+                except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
+                    _last_error = e
+                    if _attempt < 2:
+                        await asyncio.sleep(2**_attempt)  # 1s, 2s backoff
+            if not _ingestion_succeeded and _last_error is not None:
+                logger.warning(
+                    "Knowledge Mound ingestion failed after 3 attempts for debate %s: %s",
+                    state.debate_id,
+                    _last_error,
+                )
+                try:
+                    from aragora.knowledge.mound.ingestion_queue import IngestionDeadLetterQueue
+
+                    dlq = IngestionDeadLetterQueue()
+                    result_dict = ctx.result.to_dict() if hasattr(ctx.result, "to_dict") else {}
+                    dlq.enqueue(state.debate_id, result_dict, str(_last_error))
+                except (ImportError, OSError, ValueError, TypeError, RuntimeError) as dlq_err:
+                    logger.debug("DLQ enqueue failed: %s", dlq_err)
+
+        _km_task = asyncio.create_task(_km_ingest_background())
+        _km_task.add_done_callback(
+            lambda t: logger.warning(
+                "[km-ingest] Background ingestion error: %s", t.exception()
             )
-            try:
-                from aragora.knowledge.mound.ingestion_queue import IngestionDeadLetterQueue
+            if not t.cancelled() and t.exception()
+            else None
+        )
 
-                dlq = IngestionDeadLetterQueue()
-                result_dict = ctx.result.to_dict() if hasattr(ctx.result, "to_dict") else {}
-                dlq.enqueue(state.debate_id, result_dict, str(_last_error))
-            except (ImportError, OSError, ValueError, TypeError, RuntimeError) as dlq_err:
-                logger.debug("DLQ enqueue failed: %s", dlq_err)
-
-    # Auto-attach compliance artifacts for regulated domains
+    # Auto-attach compliance artifacts for regulated domains (background, non-blocking)
     if ctx.result and getattr(ctx, "domain", "general") in {
         "healthcare",
         "finance",
         "legal",
         "compliance",
     }:
-        try:
-            from aragora.compliance.eu_ai_act import (
-                ComplianceArtifactGenerator,
-                RiskClassifier,
-            )
 
-            classifier = RiskClassifier()
-            task_desc = getattr(ctx.env, "task", "")
-            risk = classifier.classify(task_desc)
-            # LIMITED = index 2 in risk ordering (MINIMAL=0, LIMITED=1, HIGH=2, UNACCEPTABLE=3)
-            risk_levels = {"minimal": 0, "limited": 1, "high": 2, "unacceptable": 3}
-            if risk_levels.get(risk.risk_level.value, 0) >= 1:
-                generator = ComplianceArtifactGenerator()
-                receipt_dict = ctx.result.to_dict() if hasattr(ctx.result, "to_dict") else {}
-                bundle = generator.generate(receipt_dict)
-                ctx.result.compliance_artifacts = bundle.to_dict()
-                logger.info(
-                    "Attached compliance artifacts for debate %s (risk=%s)",
-                    state.debate_id,
-                    risk.risk_level.value,
+        def _attach_compliance() -> None:
+            try:
+                from aragora.compliance.eu_ai_act import (
+                    ComplianceArtifactGenerator,
+                    RiskClassifier,
                 )
-        except ImportError:
-            logger.debug("Compliance module not available for auto-attach")
-        except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
-            logger.debug("Compliance auto-attach failed (non-critical): %s", e)
+
+                classifier = RiskClassifier()
+                task_desc = getattr(ctx.env, "task", "")
+                risk = classifier.classify(task_desc)
+                risk_levels = {"minimal": 0, "limited": 1, "high": 2, "unacceptable": 3}
+                if risk_levels.get(risk.risk_level.value, 0) >= 1:
+                    generator = ComplianceArtifactGenerator()
+                    receipt_dict = ctx.result.to_dict() if hasattr(ctx.result, "to_dict") else {}
+                    bundle = generator.generate(receipt_dict)
+                    ctx.result.compliance_artifacts = bundle.to_dict()
+                    logger.info(
+                        "Attached compliance artifacts for debate %s (risk=%s)",
+                        state.debate_id,
+                        risk.risk_level.value,
+                    )
+            except ImportError:
+                logger.debug("Compliance module not available for auto-attach")
+            except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
+                logger.debug("Compliance auto-attach failed (non-critical): %s", e)
+
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(None, _attach_compliance)
 
     # Complete GUPP hook tracking for crash recovery
     if state.gupp_bead_id and state.gupp_hook_entries:

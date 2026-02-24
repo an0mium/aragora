@@ -1083,9 +1083,9 @@ class AutonomousOrchestrator:
 
         # Record in ELO system
         try:
-            from aragora.ranking.elo import get_elo_system
+            from aragora.ranking.elo import get_elo_store
 
-            elo = get_elo_system()
+            elo = get_elo_store()
             # Use a synthetic match: agent vs "baseline" where success = win
             elo.record_match(
                 debate_id=f"impl-{assignment.subtask.id}",

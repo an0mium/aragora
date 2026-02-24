@@ -58,7 +58,18 @@ class EventsMixin:
                 "• Show status: `@aragora status`\n"
                 "• List agents: `@aragora agents`"
             )
-        elif clean_text.lower().startswith("debate "):
+        elif clean_text.lower().startswith(("debate ", "decide ")):
+            # Start a full thread debate lifecycle if bot token is available
+            if SLACK_BOT_TOKEN:
+                keyword_len = 7 if clean_text.lower().startswith("debate ") else 7
+                topic = clean_text[keyword_len:].strip().strip("\"'")
+                if topic:
+                    create_tracked_task(
+                        self._start_thread_debate(event, topic),
+                        name=f"slack-debate-{channel}",
+                    )
+                    return json_response({"ok": True})
+            # Fallback when no bot token
             topic = clean_text[7:].strip().strip("\"'")
             response_text = f'To start a debate, use the slash command: `/aragora debate "{topic}"`'
         elif clean_text.lower().startswith("plan "):
@@ -147,6 +158,38 @@ class EventsMixin:
         except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.exception("Unexpected error posting Slack message: %s", e)
             return None
+
+    async def _start_thread_debate(self, event: dict[str, Any], topic: str) -> None:
+        """Instantiate SlackDebateLifecycle and start a debate from the mention.
+
+        This is called as a tracked background task so the event handler can
+        acknowledge quickly.
+
+        Args:
+            event: Original Slack event payload.
+            topic: Extracted debate topic.
+        """
+        from .._slack_impl import SLACK_BOT_TOKEN
+
+        lifecycle = None
+        try:
+            from aragora.integrations.slack_debate import SlackDebateLifecycle
+
+            lifecycle = SlackDebateLifecycle(bot_token=SLACK_BOT_TOKEN)
+            await lifecycle.handle_app_mention(event)
+        except (ImportError, RuntimeError, ValueError, OSError) as exc:
+            logger.error("Failed to start thread debate: %s", exc)
+            channel = event.get("channel", "")
+            thread_ts = event.get("thread_ts", "") or event.get("ts", "")
+            if channel and SLACK_BOT_TOKEN:
+                await self._post_message_async(
+                    channel,
+                    f"Failed to start debate: {topic[:50]}",
+                    thread_ts=thread_ts,
+                )
+        finally:
+            if lifecycle is not None:
+                await lifecycle.close()
 
     def handle_message_event(self, event: dict[str, Any]) -> HandlerResult:
         """Handle direct messages to the app.

@@ -49,7 +49,7 @@ export interface StreamingMessage {
   confidence: number | null;
 }
 
-export type DebateConnectionStatus = 'connecting' | 'streaming' | 'complete' | 'error';
+export type DebateConnectionStatus = 'connecting' | 'streaming' | 'polling' | 'complete' | 'error';
 
 export interface UseDebateWebSocketOptions {
   debateId: string;
@@ -67,6 +67,7 @@ export interface UseDebateWebSocketReturn {
   error: string | null;
   errorDetails: string | null;  // Detailed error message from server
   isConnected: boolean;
+  isPolling: boolean;
   reconnectAttempt: number;  // Expose for UI feedback
 
   // Debate data

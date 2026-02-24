@@ -565,3 +565,446 @@ async def query_audit_log(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error querying audit log: %s", e)
         raise HTTPException(status_code=500, detail="Failed to query audit log")
+
+
+# =============================================================================
+# New Pydantic Models (Frameworks, Check, Violations, Report)
+# =============================================================================
+
+
+class FrameworkDetail(BaseModel):
+    """Detail of a compliance framework."""
+
+    id: str
+    name: str
+    description: str = ""
+    version: str = ""
+    category: str = ""
+    rule_count: int = 0
+    applicable_verticals: list[str] = Field(default_factory=list)
+
+    model_config = {"extra": "allow"}
+
+
+class FrameworkListResponse(BaseModel):
+    """Response for framework listing."""
+
+    frameworks: list[FrameworkDetail]
+    total: int
+
+
+class ComplianceCheckRequest(BaseModel):
+    """Request body for POST /compliance/check."""
+
+    content: str = Field(..., min_length=1, description="Content to check for compliance")
+    frameworks: list[str] | None = Field(
+        None, description="Framework IDs to check (None = all)"
+    )
+    min_severity: str = Field("low", description="Minimum severity to report")
+
+
+class ComplianceIssueDetail(BaseModel):
+    """A single compliance issue found during a check."""
+
+    framework: str = ""
+    rule_id: str = ""
+    severity: str = ""
+    description: str = ""
+    recommendation: str = ""
+    matched_text: str = ""
+    line_number: int | None = None
+
+    model_config = {"extra": "allow"}
+
+
+class ComplianceCheckResponse(BaseModel):
+    """Response for compliance check."""
+
+    compliant: bool
+    score: float = 1.0
+    frameworks_checked: list[str] = Field(default_factory=list)
+    issue_count: int = 0
+    critical_count: int = 0
+    high_count: int = 0
+    issues: list[ComplianceIssueDetail] = Field(default_factory=list)
+    checked_at: str = ""
+
+
+class ViolationEntry(BaseModel):
+    """A single compliance violation."""
+
+    id: str = ""
+    framework: str = ""
+    rule_id: str = ""
+    severity: str = ""
+    description: str = ""
+    resource_type: str = ""
+    resource_id: str = ""
+    detected_at: str | None = None
+    status: str = "active"
+
+    model_config = {"extra": "allow"}
+
+
+class ViolationsResponse(BaseModel):
+    """Response for violations listing."""
+
+    violations: list[ViolationEntry]
+    total: int
+    limit: int
+    offset: int
+
+
+class ComplianceReportResponse(BaseModel):
+    """Response for compliance report generation."""
+
+    debate_id: str
+    frameworks_assessed: list[str] = Field(default_factory=list)
+    overall_compliant: bool = True
+    score: float = 1.0
+    issue_count: int = 0
+    issues: list[ComplianceIssueDetail] = Field(default_factory=list)
+    generated_at: str = ""
+
+
+# =============================================================================
+# New Endpoints (Frameworks, Check, Violations, Report)
+# =============================================================================
+
+
+def _get_framework_manager(fw: Any) -> Any:
+    """Get or create a ComplianceFrameworkManager."""
+    if fw and hasattr(fw, "list_frameworks"):
+        return fw
+    try:
+        from aragora.compliance.framework import ComplianceFrameworkManager
+
+        return ComplianceFrameworkManager()
+    except (ImportError, RuntimeError, ValueError) as e:
+        logger.debug("ComplianceFrameworkManager not available: %s", e)
+        return None
+
+
+@router.get("/compliance/frameworks", response_model=FrameworkListResponse)
+async def list_frameworks(
+    request: Request,
+    fw=Depends(get_compliance_framework),
+) -> FrameworkListResponse:
+    """List all available compliance frameworks."""
+    mgr = _get_framework_manager(fw)
+    if not mgr:
+        return FrameworkListResponse(frameworks=[], total=0)
+
+    try:
+        frameworks: list[FrameworkDetail] = []
+        raw_frameworks = mgr.list_frameworks()
+        for f in raw_frameworks:
+            if isinstance(f, dict):
+                frameworks.append(FrameworkDetail(
+                    id=f.get("id", ""),
+                    name=f.get("name", ""),
+                    description=f.get("description", ""),
+                    version=f.get("version", ""),
+                    category=f.get("category", ""),
+                    rule_count=f.get("rule_count", 0),
+                    applicable_verticals=f.get("applicable_verticals", []),
+                ))
+            else:
+                frameworks.append(FrameworkDetail(
+                    id=getattr(f, "id", ""),
+                    name=getattr(f, "name", ""),
+                    description=getattr(f, "description", ""),
+                    version=getattr(f, "version", ""),
+                    category=getattr(f, "category", ""),
+                    rule_count=len(getattr(f, "rules", [])),
+                    applicable_verticals=getattr(f, "applicable_verticals", []),
+                ))
+
+        return FrameworkListResponse(frameworks=frameworks, total=len(frameworks))
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error listing frameworks: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to list frameworks")
+
+
+@router.get(
+    "/compliance/frameworks/{framework_id}", response_model=FrameworkDetail
+)
+async def get_framework_detail(
+    framework_id: str,
+    fw=Depends(get_compliance_framework),
+) -> FrameworkDetail:
+    """Get compliance framework details by ID."""
+    mgr = _get_framework_manager(fw)
+    if not mgr:
+        raise HTTPException(status_code=503, detail="Compliance framework not available")
+
+    try:
+        framework_obj = None
+        if hasattr(mgr, "get_framework"):
+            framework_obj = mgr.get_framework(framework_id)
+
+        if not framework_obj:
+            raise NotFoundError(f"Framework {framework_id} not found")
+
+        if isinstance(framework_obj, dict):
+            return FrameworkDetail(
+                id=framework_obj.get("id", framework_id),
+                name=framework_obj.get("name", ""),
+                description=framework_obj.get("description", ""),
+                version=framework_obj.get("version", ""),
+                category=framework_obj.get("category", ""),
+                rule_count=framework_obj.get("rule_count", 0),
+                applicable_verticals=framework_obj.get("applicable_verticals", []),
+            )
+
+        return FrameworkDetail(
+            id=getattr(framework_obj, "id", framework_id),
+            name=getattr(framework_obj, "name", ""),
+            description=getattr(framework_obj, "description", ""),
+            version=getattr(framework_obj, "version", ""),
+            category=getattr(framework_obj, "category", ""),
+            rule_count=len(getattr(framework_obj, "rules", [])),
+            applicable_verticals=getattr(framework_obj, "applicable_verticals", []),
+        )
+
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error getting framework %s: %s", framework_id, e)
+        raise HTTPException(status_code=500, detail="Failed to get framework")
+
+
+@router.post("/compliance/check", response_model=ComplianceCheckResponse)
+async def check_compliance(
+    body: ComplianceCheckRequest,
+    fw=Depends(get_compliance_framework),
+) -> ComplianceCheckResponse:
+    """Run a compliance check on provided content against one or more frameworks."""
+    from datetime import datetime, timezone
+
+    mgr = _get_framework_manager(fw)
+    if not mgr:
+        raise HTTPException(status_code=503, detail="Compliance framework not available")
+
+    try:
+        check_kwargs: dict[str, Any] = {}
+        if body.frameworks:
+            check_kwargs["frameworks"] = body.frameworks
+
+        result = mgr.check(body.content, **check_kwargs)
+
+        def _issue_to_detail(i: Any) -> ComplianceIssueDetail:
+            if isinstance(i, dict):
+                return ComplianceIssueDetail(**i)
+            sev = getattr(i, "severity", "")
+            return ComplianceIssueDetail(
+                framework=getattr(i, "framework", ""),
+                rule_id=getattr(i, "rule_id", ""),
+                severity=sev.value if hasattr(sev, "value") else str(sev),
+                description=getattr(i, "description", ""),
+                recommendation=getattr(i, "recommendation", ""),
+                matched_text=getattr(i, "matched_text", ""),
+                line_number=getattr(i, "line_number", None),
+            )
+
+        if hasattr(result, "to_dict"):
+            result_dict = result.to_dict()
+            issues = [_issue_to_detail(i) for i in getattr(result, "issues", [])]
+            checked_at_val = getattr(result, "checked_at", None)
+            checked_at_str = (
+                checked_at_val.isoformat()
+                if hasattr(checked_at_val, "isoformat")
+                else datetime.now(timezone.utc).isoformat()
+            )
+            return ComplianceCheckResponse(
+                compliant=getattr(result, "compliant", True),
+                score=getattr(result, "score", 1.0),
+                frameworks_checked=getattr(result, "frameworks_checked", []),
+                issue_count=result_dict.get("issue_count", len(issues)),
+                critical_count=result_dict.get("critical_count", 0),
+                high_count=result_dict.get("high_count", 0),
+                issues=issues,
+                checked_at=checked_at_str,
+            )
+
+        if isinstance(result, dict):
+            issues = [_issue_to_detail(i) for i in result.get("issues", [])]
+            return ComplianceCheckResponse(
+                compliant=result.get("compliant", True),
+                score=result.get("score", 1.0),
+                frameworks_checked=result.get("frameworks_checked", []),
+                issue_count=result.get("issue_count", len(issues)),
+                critical_count=result.get("critical_count", 0),
+                high_count=result.get("high_count", 0),
+                issues=issues,
+                checked_at=result.get("checked_at", datetime.now(timezone.utc).isoformat()),
+            )
+
+        return ComplianceCheckResponse(
+            compliant=True,
+            score=1.0,
+            checked_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error running compliance check: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to run compliance check")
+
+
+@router.get("/compliance/violations", response_model=ViolationsResponse)
+async def list_violations(
+    request: Request,
+    limit: int = Query(50, ge=1, le=100, description="Max results to return"),
+    offset: int = Query(0, ge=0, description="Number of results to skip"),
+    framework: str | None = Query(None, description="Filter by framework"),
+    severity: str | None = Query(None, description="Filter by severity"),
+    status: str | None = Query(None, description="Filter by status (active, resolved)"),
+    fw=Depends(get_compliance_framework),
+) -> ViolationsResponse:
+    """List active compliance violations with optional filters."""
+    if not fw:
+        return ViolationsResponse(violations=[], total=0, limit=limit, offset=offset)
+
+    try:
+        query_kwargs: dict[str, Any] = {"limit": limit, "offset": offset}
+        if framework:
+            query_kwargs["framework"] = framework
+        if severity:
+            query_kwargs["severity"] = severity
+        if status:
+            query_kwargs["status"] = status
+
+        raw_violations: list[Any] = []
+        if hasattr(fw, "list_violations"):
+            raw_violations = fw.list_violations(**query_kwargs)
+        elif hasattr(fw, "get_violations"):
+            raw_violations = fw.get_violations(**query_kwargs)
+
+        violations: list[ViolationEntry] = []
+        for v in raw_violations:
+            if isinstance(v, dict):
+                violations.append(ViolationEntry(
+                    id=v.get("id", v.get("violation_id", "")),
+                    framework=v.get("framework", ""),
+                    rule_id=v.get("rule_id", ""),
+                    severity=v.get("severity", ""),
+                    description=v.get("description", ""),
+                    resource_type=v.get("resource_type", ""),
+                    resource_id=v.get("resource_id", ""),
+                    detected_at=v.get("detected_at"),
+                    status=v.get("status", "active"),
+                ))
+            else:
+                sev = getattr(v, "severity", "")
+                violations.append(ViolationEntry(
+                    id=getattr(v, "id", getattr(v, "violation_id", "")),
+                    framework=getattr(v, "framework", ""),
+                    rule_id=getattr(v, "rule_id", ""),
+                    severity=sev.value if hasattr(sev, "value") else str(sev),
+                    description=getattr(v, "description", ""),
+                    resource_type=getattr(v, "resource_type", ""),
+                    resource_id=getattr(v, "resource_id", ""),
+                    detected_at=str(getattr(v, "detected_at", ""))
+                    if hasattr(v, "detected_at") else None,
+                    status=getattr(v, "status", "active"),
+                ))
+
+        total = len(violations)
+        if hasattr(fw, "count_violations"):
+            total = fw.count_violations(
+                framework=framework, severity=severity, status=status
+            )
+
+        return ViolationsResponse(
+            violations=violations, total=total, limit=limit, offset=offset
+        )
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error listing violations: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to list violations")
+
+
+@router.get(
+    "/compliance/report/{debate_id}", response_model=ComplianceReportResponse
+)
+async def get_compliance_report(
+    debate_id: str,
+    frameworks: str | None = Query(
+        None, description="Comma-separated framework IDs to assess"
+    ),
+    fw=Depends(get_compliance_framework),
+) -> ComplianceReportResponse:
+    """Generate a compliance report for a specific debate."""
+    from datetime import datetime, timezone
+
+    try:
+        framework_list = (
+            [f.strip() for f in frameworks.split(",")] if frameworks else None
+        )
+
+        debate_content = ""
+        try:
+            from aragora.storage.debate_storage import DebateStorage
+
+            storage = DebateStorage()
+            debate_data = storage.get(debate_id)
+            if debate_data:
+                if isinstance(debate_data, dict):
+                    debate_content = str(
+                        debate_data.get("result", debate_data.get("task", ""))
+                    )
+                elif hasattr(debate_data, "result"):
+                    debate_content = str(getattr(debate_data, "result", ""))
+        except (ImportError, RuntimeError, OSError, ValueError, TypeError) as e:
+            logger.debug("Could not load debate %s: %s", debate_id, e)
+
+        mgr = _get_framework_manager(fw)
+        if mgr and debate_content and hasattr(mgr, "check"):
+            check_kwargs: dict[str, Any] = {}
+            if framework_list:
+                check_kwargs["frameworks"] = framework_list
+            result = mgr.check(debate_content, **check_kwargs)
+
+            issues: list[ComplianceIssueDetail] = []
+            for i in getattr(result, "issues", []):
+                sev = getattr(i, "severity", "")
+                issues.append(ComplianceIssueDetail(
+                    framework=getattr(i, "framework", ""),
+                    rule_id=getattr(i, "rule_id", ""),
+                    severity=sev.value if hasattr(sev, "value") else str(sev),
+                    description=getattr(i, "description", ""),
+                    recommendation=getattr(i, "recommendation", ""),
+                    matched_text=getattr(i, "matched_text", ""),
+                    line_number=getattr(i, "line_number", None),
+                ))
+
+            return ComplianceReportResponse(
+                debate_id=debate_id,
+                frameworks_assessed=getattr(
+                    result, "frameworks_checked", framework_list or []
+                ),
+                overall_compliant=getattr(result, "compliant", True),
+                score=getattr(result, "score", 1.0),
+                issue_count=len(issues),
+                issues=issues,
+                generated_at=datetime.now(timezone.utc).isoformat(),
+            )
+
+        return ComplianceReportResponse(
+            debate_id=debate_id,
+            frameworks_assessed=framework_list or [],
+            overall_compliant=True,
+            score=1.0,
+            generated_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception(
+            "Error generating compliance report for %s: %s", debate_id, e
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to generate compliance report"
+        )

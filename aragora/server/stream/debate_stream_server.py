@@ -27,6 +27,7 @@ from typing import Any
 
 from .emitter import TokenBucket
 from .events import AudienceMessage, StreamEvent, StreamEventType
+from .replay_buffer import EventReplayBuffer
 from .server_base import ServerBase
 from .state_manager import LoopInstance
 

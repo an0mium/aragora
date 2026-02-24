@@ -1116,10 +1116,34 @@ class AdapterFactory:
         return ADAPTER_SPECS.copy()
 
 
+def get_adapter(name: str, mound: Any = None) -> Any | None:
+    """Look up an adapter by name and return an instance.
+
+    Args:
+        name: Adapter name registered in ADAPTER_SPECS (e.g. "nomic_cycle", "insight").
+        mound: Optional KnowledgeMound instance to pass to the adapter constructor.
+
+    Returns:
+        An adapter instance, or ``None`` if the name is not registered.
+    """
+    spec = ADAPTER_SPECS.get(name)
+    if spec is None:
+        return None
+    try:
+        return spec.adapter_class(mound)
+    except (TypeError, RuntimeError, ValueError):
+        # Adapter may not accept mound positional arg — try no-arg
+        try:
+            return spec.adapter_class()
+        except (TypeError, RuntimeError, ValueError):
+            return None
+
+
 __all__ = [
     "AdapterFactory",
     "AdapterSpec",
     "CreatedAdapter",
     "ADAPTER_SPECS",
+    "get_adapter",
     "register_adapter_spec",
 ]

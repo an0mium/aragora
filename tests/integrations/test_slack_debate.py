@@ -11,7 +11,10 @@ from aragora.integrations.slack_debate import (
     SlackDebateLifecycle,
     _build_consensus_blocks,
     _build_debate_started_blocks,
+    _build_error_blocks,
+    _build_receipt_blocks,
     _build_round_update_blocks,
+    parse_mention_text,
 )
 
 

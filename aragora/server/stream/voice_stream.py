@@ -226,6 +226,10 @@ class VoiceStreamHandler:
         self._sessions: dict[str, VoiceSession] = {}
         self._sessions_lock = asyncio.Lock()
 
+        # WebSocket connections indexed by session_id for TTS audio delivery.
+        # Populated in handle_websocket(), cleaned up on disconnect.
+        self._voice_connections: dict[str, web.WebSocketResponse] = {}
+
         # Rate limiting by IP
         self._ip_sessions: dict[str, set[str]] = {}  # ip -> set of session_ids
         self._ip_bytes_minute: dict[str, list[tuple[float, int]]] = {}  # ip -> [(timestamp, bytes)]
@@ -305,6 +309,9 @@ class VoiceStreamHandler:
             "[Voice] Session %s started for debate %s from %s", session_id, debate_id, client_ip
         )
 
+        # Register WebSocket connection so _get_ws_for_session() can find it
+        self._voice_connections[session_id] = ws
+
         # Send ready message
         await ws.send_json(
             {
@@ -369,6 +376,9 @@ class VoiceStreamHandler:
                     await self._transcribe_buffer(session, ws, final=True)
                 except (ConnectorConfigError, ConnectorRateLimitError, RuntimeError, OSError) as e:
                     logger.warning("[Voice] Final transcription failed: %s", e)
+
+            # Unregister WebSocket connection
+            self._voice_connections.pop(session_id, None)
 
             # Remove session
             async with self._sessions_lock:
@@ -893,13 +903,17 @@ class VoiceStreamHandler:
     def _get_ws_for_session(self, session_id: str) -> web.WebSocketResponse | None:
         """Get WebSocket connection for a session ID.
 
-        Note: This requires the server to track WebSocket connections per session.
-        Override this method or use the server's connection registry.
+        Looks up the WebSocket registered during ``handle_websocket()``.
+        Falls back to the server's connection registry for backward
+        compatibility.
         """
-        # Try to get from server's connection registry
+        # Check local connection registry first (populated by handle_websocket)
+        ws = self._voice_connections.get(session_id)
+        if ws is not None:
+            return ws
+        # Fallback: try server-level registries
         if hasattr(self.server, "ws_connections"):
             return self.server.ws_connections.get(session_id)
-        # Alternative: try voice_connections
         if hasattr(self.server, "voice_connections"):
             return self.server.voice_connections.get(session_id)
         return None

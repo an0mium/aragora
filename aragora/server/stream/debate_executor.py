@@ -427,6 +427,8 @@ def execute_debate_thread(
     emitter: SyncEventEmitter,
     user_id: str = "",
     org_id: str = "",
+    on_arena_created: Any | None = None,
+    on_arena_finished: Any | None = None,
 ) -> None:
     """Execute a debate in a background thread.
 
@@ -442,6 +444,11 @@ def execute_debate_thread(
         emitter: Event emitter for streaming updates
         user_id: Optional user ID for usage tracking
         org_id: Optional organization ID for usage tracking
+        on_arena_created: Optional callback ``(arena) -> None`` invoked after
+            the Arena is constructed but before ``arena.run()`` begins.  Used
+            by the server to wire the TTS event bridge.
+        on_arena_finished: Optional callback ``(arena) -> None`` invoked after
+            the debate completes (success or failure) for cleanup.
     """
     import asyncio as _asyncio
 
@@ -545,6 +552,13 @@ def execute_debate_thread(
             f"[debate] {debate_id}: Arena created in {setup_time:.2f}s, starting execution..."
         )
 
+        # Notify caller that the arena is ready (e.g. to wire TTS bridge)
+        if on_arena_created is not None:
+            try:
+                on_arena_created(arena)
+            except (RuntimeError, TypeError, ValueError, OSError) as cb_err:
+                logger.warning("[debate] on_arena_created callback failed: %s", cb_err)
+
         # Run debate with timeout protection
         protocol_timeout = getattr(arena.protocol, "timeout_seconds", 0)
         timeout = (
@@ -558,7 +572,15 @@ def execute_debate_thread(
         async def run_with_timeout():
             return await _asyncio.wait_for(arena.run(), timeout=timeout)
 
-        result = _asyncio.run(run_with_timeout())
+        try:
+            result = _asyncio.run(run_with_timeout())
+        finally:
+            # Always notify caller for cleanup (e.g. stop TTS bridge)
+            if on_arena_finished is not None:
+                try:
+                    on_arena_finished(arena)
+                except (RuntimeError, TypeError, ValueError, OSError) as cb_err:
+                    logger.warning("[debate] on_arena_finished callback failed: %s", cb_err)
 
         total_time = time.time() - thread_start_time
         logger.info(

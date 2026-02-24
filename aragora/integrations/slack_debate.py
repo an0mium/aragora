@@ -32,7 +32,9 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -236,6 +238,213 @@ def _build_consensus_blocks(result: Any) -> list[dict[str, Any]]:
     )
 
     return blocks
+
+
+def _build_receipt_blocks(
+    receipt: Any,
+    debate_id: str = "",
+    receipt_url: str = "",
+) -> list[dict[str, Any]]:
+    """Build Block Kit blocks for a decision receipt message.
+
+    Args:
+        receipt: A DecisionReceipt (or duck-typed object) with attributes
+                 verdict, confidence, findings, key_arguments,
+                 dissenting_views/dissents, receipt_id.
+        debate_id: Optional debate ID for context.
+        receipt_url: Optional URL to the full receipt.
+    """
+    verdict = getattr(receipt, "verdict", "UNKNOWN")
+    verdict_emoji = {
+        "APPROVED": ":white_check_mark:",
+        "REJECTED": ":x:",
+        "NEEDS_REVIEW": ":warning:",
+        "APPROVED_WITH_CONDITIONS": ":large_yellow_circle:",
+    }.get(str(verdict).upper(), ":question:")
+
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"{verdict_emoji} Decision Receipt: {verdict}",
+                "emoji": True,
+            },
+        },
+    ]
+
+    # Verdict, confidence, and finding counts
+    confidence = getattr(receipt, "confidence", 0.0) or 0.0
+    findings = getattr(receipt, "findings", []) or []
+    critical_count = sum(
+        1
+        for f in findings
+        if getattr(f, "severity", getattr(f, "level", "")).lower() == "critical"
+    )
+    high_count = sum(
+        1
+        for f in findings
+        if getattr(f, "severity", getattr(f, "level", "")).lower() == "high"
+    )
+
+    fields = [
+        {"type": "mrkdwn", "text": f"*Verdict:*\n{verdict}"},
+        {"type": "mrkdwn", "text": f"*Confidence:*\n{confidence:.0%}"},
+        {
+            "type": "mrkdwn",
+            "text": (
+                f"*Findings:*\n"
+                f"{len(findings)} total"
+                f"{f' ({critical_count} critical)' if critical_count else ''}"
+                f"{f' ({high_count} high)' if high_count else ''}"
+            ),
+        },
+    ]
+    blocks.append({"type": "section", "fields": fields})
+
+    # Key arguments
+    key_arguments = getattr(receipt, "key_arguments", None)
+    if key_arguments is None:
+        # Fallback: extract from findings descriptions
+        key_arguments = [
+            getattr(f, "description", str(f))
+            for f in findings[:5]
+            if getattr(f, "description", None)
+        ]
+    if key_arguments:
+        arg_lines = "\n".join(f"  {i + 1}. {a}" for i, a in enumerate(key_arguments[:5]))
+        blocks.append({"type": "divider"})
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Key Arguments:*\n{arg_lines}",
+                },
+            }
+        )
+
+    # Dissenting views
+    dissenting_views = getattr(receipt, "dissenting_views", None) or getattr(
+        receipt, "dissents", None
+    )
+    if dissenting_views:
+        dissent_lines = "\n".join(
+            f"  - {d}" for d in (dissenting_views[:5] if isinstance(dissenting_views, list) else [str(dissenting_views)])
+        )
+        blocks.append({"type": "divider"})
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Dissenting Views:*\n{dissent_lines}",
+                },
+            }
+        )
+
+    # Action buttons
+    action_elements: list[dict[str, Any]] = []
+    if receipt_url:
+        action_elements.append(
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "View Full Receipt"},
+                "url": receipt_url,
+            }
+        )
+    action_elements.append(
+        {
+            "type": "button",
+            "text": {"type": "plain_text", "text": "Audit Trail"},
+            "action_id": "view_audit_trail",
+        }
+    )
+    blocks.append({"type": "actions", "elements": action_elements})
+
+    # Footer
+    receipt_id = getattr(receipt, "receipt_id", "")
+    blocks.append(
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": (
+                        f":receipt: Receipt `{receipt_id[:12]}...` | "
+                        f"{datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"
+                    ),
+                }
+            ],
+        }
+    )
+
+    return blocks
+
+
+def _build_error_blocks(
+    error_message: str,
+    debate_id: str = "",
+) -> list[dict[str, Any]]:
+    """Build Block Kit blocks for an error notification.
+
+    Args:
+        error_message: Human-readable error description.
+        debate_id: Optional debate ID for context.
+    """
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f":warning: *Error:* {error_message}",
+            },
+        },
+    ]
+    if debate_id:
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"Debate `{debate_id[:12]}...`",
+                    }
+                ],
+            }
+        )
+    return blocks
+
+
+def parse_mention_text(text: str) -> tuple[str, str]:
+    """Parse an @mention text to extract a debate/decide command and topic.
+
+    Strips the ``<@BOTID>`` mention pattern, then looks for ``debate`` or
+    ``decide`` keywords.
+
+    Args:
+        text: Raw event text from Slack (may contain ``<@U...>`` mention).
+
+    Returns:
+        A ``(command, topic)`` tuple.  ``command`` is ``"debate"`` or
+        ``"decide"`` if a keyword was found, ``""`` otherwise.  ``topic``
+        is the remaining text after the keyword (stripped of quotes), or
+        ``""`` if not found.
+    """
+    # Strip bot mention
+    clean = re.sub(r"<@[A-Z0-9]+>", "", text).strip()
+    clean = re.sub(r"\s+", " ", clean)  # collapse whitespace
+
+    if not clean:
+        return ("", "")
+
+    lower = clean.lower()
+    for keyword in ("debate", "decide"):
+        if lower.startswith(keyword):
+            rest = clean[len(keyword):].strip().strip("\"'")
+            return (keyword, rest)
+
+    return ("", "")
 
 
 # ---------------------------------------------------------------------------
@@ -446,6 +655,242 @@ class SlackDebateLifecycle:
         text = f"Debate complete: {task_preview} - Consensus {status}"
         return await self._post_to_thread(channel_id, thread_ts, text, blocks)
 
+    async def post_receipt(
+        self,
+        channel_id: str,
+        thread_ts: str,
+        receipt: Any,
+        debate_id: str = "",
+        receipt_url: str = "",
+    ) -> bool:
+        """Post a decision receipt to the thread.
+
+        Args:
+            channel_id: Slack channel ID.
+            thread_ts: Thread timestamp.
+            receipt: A DecisionReceipt or duck-typed object.
+            debate_id: Optional debate ID for context.
+            receipt_url: Optional URL to the full receipt page.
+
+        Returns:
+            True if posted successfully.
+        """
+        blocks = _build_receipt_blocks(receipt, debate_id, receipt_url)
+        verdict = getattr(receipt, "verdict", "UNKNOWN")
+        text = f"Decision receipt: {verdict}"
+        return await self._post_to_thread(channel_id, thread_ts, text, blocks)
+
+    async def post_error(
+        self,
+        channel_id: str,
+        thread_ts: str,
+        error_message: str,
+        debate_id: str = "",
+    ) -> bool:
+        """Post an error notification to the thread.
+
+        Args:
+            channel_id: Slack channel ID.
+            thread_ts: Thread timestamp.
+            error_message: Human-readable error description.
+            debate_id: Optional debate ID for context.
+
+        Returns:
+            True if posted successfully.
+        """
+        blocks = _build_error_blocks(error_message, debate_id)
+        text = f"Error: {error_message}"
+        return await self._post_to_thread(channel_id, thread_ts, text, blocks)
+
+    async def run_debate(
+        self,
+        channel_id: str,
+        thread_ts: str,
+        debate_id: str,
+        topic: str,
+        config: SlackDebateConfig | None = None,
+    ) -> Any:
+        """Run a debate and stream progress updates to the Slack thread.
+
+        Lazily imports the debate engine.  Posts round updates, the final
+        consensus, and optionally the decision receipt.
+
+        Args:
+            channel_id: Slack channel ID.
+            thread_ts: Thread timestamp.
+            debate_id: Previously-generated debate ID.
+            topic: The debate topic.
+            config: Optional debate configuration.
+
+        Returns:
+            The DebateResult if the debate completed, None otherwise.
+        """
+        config = config or SlackDebateConfig()
+
+        try:
+            from aragora import Arena, DebateProtocol, Environment
+        except ImportError:
+            logger.error("Debate engine not available (aragora core not installed)")
+            await self.post_error(
+                channel_id, thread_ts, "Debate engine is not available.", debate_id
+            )
+            return None
+
+        env = Environment(task=topic)
+        protocol = DebateProtocol(
+            rounds=config.rounds,
+            consensus=config.consensus_threshold,
+        )
+        arena = Arena(env, config.agents, protocol)
+
+        result = None
+        try:
+            result = await asyncio.wait_for(
+                arena.run(),
+                timeout=config.timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Debate %s timed out after %ss", debate_id, config.timeout_seconds)
+            await self.post_error(
+                channel_id, thread_ts, "Debate timed out.", debate_id
+            )
+            return None
+        except (RuntimeError, OSError, ValueError) as exc:
+            logger.error("Debate %s failed: %s", debate_id, exc)
+            await self.post_error(
+                channel_id, thread_ts, f"Debate failed: {exc}", debate_id
+            )
+            return None
+
+        # Post round updates from result data if available
+        rounds = getattr(result, "rounds", None) or []
+        for rd in rounds:
+            round_data: dict[str, Any] = {}
+            if isinstance(rd, dict):
+                round_data = rd
+            else:
+                round_data = {
+                    "round": getattr(rd, "round_number", 0),
+                    "total_rounds": config.rounds,
+                    "agent": getattr(rd, "agent", ""),
+                    "proposal": getattr(rd, "proposal", ""),
+                    "phase": getattr(rd, "phase", "proposal"),
+                }
+            await self.post_round_update(channel_id, thread_ts, round_data)
+
+        # Post consensus
+        await self.post_consensus(channel_id, thread_ts, result)
+
+        # Post receipt if available
+        receipt = getattr(result, "receipt", None)
+        if receipt:
+            await self.post_receipt(
+                channel_id, thread_ts, receipt, debate_id=debate_id
+            )
+
+        # Mark result as sent via debate_origin
+        try:
+            from aragora.server.debate_origin import mark_result_sent
+
+            mark_result_sent(debate_id)
+        except (ImportError, RuntimeError, OSError):
+            pass
+
+        return result
+
+    async def start_and_run_debate(
+        self,
+        channel_id: str,
+        thread_ts: str,
+        topic: str,
+        config: SlackDebateConfig | None = None,
+        user_id: str = "",
+    ) -> Any:
+        """Convenience: start a debate and immediately run it.
+
+        Combines ``start_debate_from_thread`` and ``run_debate``.
+
+        Returns:
+            The DebateResult if the debate completed, None otherwise.
+        """
+        debate_id = await self.start_debate_from_thread(
+            channel_id=channel_id,
+            thread_ts=thread_ts,
+            topic=topic,
+            config=config,
+            user_id=user_id,
+        )
+        return await self.run_debate(
+            channel_id=channel_id,
+            thread_ts=thread_ts,
+            debate_id=debate_id,
+            topic=topic,
+            config=config,
+        )
+
+    async def handle_app_mention(self, event: dict[str, Any]) -> str | None:
+        """Handle an @mention event that may contain a debate trigger.
+
+        Parses the mention text for ``debate`` or ``decide`` keywords
+        and starts a debate lifecycle if found.
+
+        Args:
+            event: Slack event payload.
+
+        Returns:
+            The debate_id if a debate was started, None otherwise.
+        """
+        text = event.get("text", "")
+        channel_id = event.get("channel", "")
+        user_id = event.get("user", "")
+        thread_ts = event.get("thread_ts", "") or event.get("ts", "")
+
+        command, topic = parse_mention_text(text)
+        if not command:
+            return None
+
+        if not topic:
+            await self._post_to_thread(
+                channel_id,
+                thread_ts,
+                f"Usage: `@aragora {command} \"Your topic here\"`",
+            )
+            return None
+
+        # Schedule the debate as a background task
+        debate_id = await self.start_debate_from_thread(
+            channel_id=channel_id,
+            thread_ts=thread_ts,
+            topic=topic,
+            user_id=user_id,
+        )
+        asyncio.create_task(
+            self._run_debate_background(channel_id, thread_ts, debate_id, topic),
+            name=f"slack-debate-{debate_id[:12]}",
+        )
+        return debate_id
+
+    async def _run_debate_background(
+        self,
+        channel_id: str,
+        thread_ts: str,
+        debate_id: str,
+        topic: str,
+    ) -> None:
+        """Run a debate in the background, handling errors gracefully."""
+        try:
+            await self.run_debate(
+                channel_id=channel_id,
+                thread_ts=thread_ts,
+                debate_id=debate_id,
+                topic=topic,
+            )
+        except (RuntimeError, OSError, ValueError, asyncio.CancelledError) as exc:
+            logger.error("Background debate %s failed: %s", debate_id, exc)
+            await self.post_error(
+                channel_id, thread_ts, f"Debate failed: {exc}", debate_id
+            )
+
     async def handle_slash_command(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Handle the ``/aragora-debate`` slash command from Slack.
 
@@ -512,4 +957,7 @@ class SlackDebateLifecycle:
 __all__ = [
     "SlackDebateConfig",
     "SlackDebateLifecycle",
+    "parse_mention_text",
+    "_build_receipt_blocks",
+    "_build_error_blocks",
 ]

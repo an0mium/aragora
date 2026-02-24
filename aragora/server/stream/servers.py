@@ -549,7 +549,61 @@ class AiohttpUnifiedServer(  # type: ignore[override]
             emitter=self.emitter,
             user_id=user_id,
             org_id=org_id,
+            on_arena_created=self._on_arena_created,
+            on_arena_finished=self._on_arena_finished,
         )
+
+    def _on_arena_created(self, arena: Any) -> None:
+        """Wire the TTS event bridge to the arena's event bus.
+
+        Called from the debate thread after the Arena is constructed but before
+        ``arena.run()`` begins.  Connects the TTS bridge so agent messages are
+        synthesized to speech for any active voice sessions.
+        """
+        event_bus = getattr(arena, "event_bus", None)
+        if event_bus is None:
+            return
+
+        try:
+            from aragora.server.stream.tts_integration import get_tts_integration
+
+            tts_integration = get_tts_integration()
+            if tts_integration is None:
+                return
+
+            # Use the DebateStreamServer's start_tts_bridge if available,
+            # otherwise register TTSIntegration directly on the event bus
+            if hasattr(self, "_debate_stream_server") and self._debate_stream_server is not None:
+                self._debate_stream_server.start_tts_bridge(
+                    event_bus, tts_integration, self._voice_handler
+                )
+            else:
+                tts_integration.register(event_bus)
+
+            logger.info("[server] TTS bridge wired to arena event_bus")
+        except (ImportError, RuntimeError, TypeError) as e:
+            logger.debug("[server] TTS bridge wiring skipped: %s", e)
+
+    def _on_arena_finished(self, arena: Any) -> None:
+        """Clean up the TTS event bridge after a debate completes.
+
+        Called from the debate thread after ``arena.run()`` finishes (success
+        or failure).  Schedules asynchronous TTS bridge shutdown.
+        """
+        if hasattr(self, "_debate_stream_server") and self._debate_stream_server is not None:
+            try:
+                import asyncio as _aio
+
+                loop = _aio.get_event_loop()
+                if loop.is_running():
+                    loop.call_soon_threadsafe(
+                        _aio.ensure_future, self._debate_stream_server.stop_tts_bridge()
+                    )
+                else:
+                    _aio.run(self._debate_stream_server.stop_tts_bridge())
+            except (RuntimeError, OSError) as e:
+                logger.debug("[server] TTS bridge cleanup skipped: %s", e)
+        logger.debug("[server] Arena finished callback completed")
 
     async def _handle_start_debate(self, request) -> aiohttp.web.Response:
         """POST /api/debate - Start an ad-hoc debate with specified question.

@@ -113,6 +113,76 @@ class KnowledgeStatsResponse(BaseModel):
     storage_backend: str = "unknown"
 
 
+class AdapterInfo(BaseModel):
+    """Information about a Knowledge Mound adapter."""
+
+    name: str
+    description: str = ""
+    status: str = "active"
+
+    model_config = {"extra": "allow"}
+
+
+class AdapterListResponse(BaseModel):
+    """Response for adapter listing."""
+
+    adapters: list[AdapterInfo]
+    total: int
+
+
+class StructuredQueryRequest(BaseModel):
+    """Request body for POST /knowledge/query."""
+
+    query: str = Field(..., min_length=1, description="Query string")
+    content_type: str | None = Field(None, description="Filter by content type")
+    source: str | None = Field(None, description="Filter by source")
+    adapter: str | None = Field(None, description="Filter by adapter")
+    tags: list[str] = Field(default_factory=list, description="Filter by tags")
+    min_confidence: float = Field(0.0, ge=0.0, le=1.0, description="Minimum confidence")
+    limit: int = Field(20, ge=1, le=100, description="Max results to return")
+
+
+class StructuredQueryResponse(BaseModel):
+    """Response for structured knowledge query."""
+
+    items: list[KnowledgeItemSummary]
+    total: int
+    query: str
+    filters_applied: dict[str, Any] = Field(default_factory=dict)
+
+
+class StalenessItem(BaseModel):
+    """A single item with staleness info."""
+
+    id: str
+    title: str = ""
+    source: str = ""
+    created_at: str | None = None
+    updated_at: str | None = None
+    age_days: float = 0.0
+    stale: bool = False
+
+    model_config = {"extra": "allow"}
+
+
+class StalenessResponse(BaseModel):
+    """Response for staleness analysis."""
+
+    total_items: int = 0
+    stale_items: int = 0
+    stale_percent: float = 0.0
+    items: list[StalenessItem] = Field(default_factory=list)
+    threshold_days: float = 30.0
+
+
+class DeleteKnowledgeResponse(BaseModel):
+    """Response for knowledge item deletion."""
+
+    success: bool
+    item_id: str
+    message: str = ""
+
+
 # =============================================================================
 # Dependencies
 # =============================================================================
@@ -403,3 +473,215 @@ async def ingest_knowledge_item(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error ingesting knowledge item: %s", e)
         raise HTTPException(status_code=500, detail="Failed to ingest knowledge item")
+
+
+# =============================================================================
+# New Endpoints (Adapters, Structured Query, Staleness, Delete)
+# =============================================================================
+
+
+@router.get("/knowledge/adapters", response_model=AdapterListResponse)
+async def list_adapters(
+    request: Request,
+    km=Depends(get_knowledge_mound),
+) -> AdapterListResponse:
+    """List available Knowledge Mound adapters."""
+    if not km:
+        return AdapterListResponse(adapters=[], total=0)
+
+    try:
+        adapters: list[AdapterInfo] = []
+
+        if hasattr(km, "list_adapters"):
+            raw_adapters = km.list_adapters()
+            for a in raw_adapters:
+                if isinstance(a, str):
+                    adapters.append(AdapterInfo(name=a))
+                elif isinstance(a, dict):
+                    adapters.append(AdapterInfo(
+                        name=a.get("name", a.get("id", "")),
+                        description=a.get("description", ""),
+                        status=a.get("status", "active"),
+                    ))
+                else:
+                    adapters.append(AdapterInfo(
+                        name=getattr(a, "name", getattr(a, "id", str(a))),
+                        description=getattr(a, "description", ""),
+                        status=getattr(a, "status", "active"),
+                    ))
+
+        return AdapterListResponse(adapters=adapters, total=len(adapters))
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error listing adapters: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to list adapters")
+
+
+@router.post("/knowledge/query", response_model=StructuredQueryResponse)
+async def structured_query(
+    body: StructuredQueryRequest,
+    km=Depends(get_knowledge_mound),
+) -> StructuredQueryResponse:
+    """Execute a structured query against the Knowledge Mound with filters."""
+    if not km:
+        raise HTTPException(status_code=503, detail="Knowledge Mound not available")
+
+    try:
+        items: list[KnowledgeItemSummary] = []
+        filters_applied: dict[str, Any] = {}
+
+        search_kwargs: dict[str, Any] = {"limit": body.limit}
+        if body.content_type:
+            search_kwargs["content_type"] = body.content_type
+            filters_applied["content_type"] = body.content_type
+        if body.source:
+            search_kwargs["source"] = body.source
+            filters_applied["source"] = body.source
+        if body.adapter:
+            search_kwargs["adapter"] = body.adapter
+            filters_applied["adapter"] = body.adapter
+        if body.tags:
+            search_kwargs["tags"] = body.tags
+            filters_applied["tags"] = body.tags
+        if body.min_confidence > 0:
+            search_kwargs["min_confidence"] = body.min_confidence
+            filters_applied["min_confidence"] = body.min_confidence
+
+        # Try structured query, fall back to search
+        if hasattr(km, "query"):
+            results = km.query(body.query, **search_kwargs)
+        elif hasattr(km, "search"):
+            results = km.search(body.query, **search_kwargs)
+        else:
+            results = []
+
+        for result in results:
+            if isinstance(result, tuple) and len(result) == 2:
+                item, score = result
+                items.append(_item_to_summary(item, relevance=float(score)))
+            else:
+                items.append(_item_to_summary(result))
+
+        return StructuredQueryResponse(
+            items=items[:body.limit],
+            total=len(items),
+            query=body.query,
+            filters_applied=filters_applied,
+        )
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error in structured query: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to execute structured query")
+
+
+@router.get("/knowledge/staleness", response_model=StalenessResponse)
+async def get_staleness_analysis(
+    request: Request,
+    threshold_days: float = Query(
+        30.0, ge=1.0, le=365.0, description="Days before an item is considered stale"
+    ),
+    limit: int = Query(50, ge=1, le=100, description="Max stale items to return"),
+    km=Depends(get_knowledge_mound),
+) -> StalenessResponse:
+    """Analyze staleness of knowledge items."""
+    if not km:
+        return StalenessResponse(storage_backend="not_initialized")
+
+    try:
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        stale_items: list[StalenessItem] = []
+        total_items = 0
+        stale_count = 0
+
+        # Try dedicated staleness method
+        if hasattr(km, "get_staleness"):
+            raw = km.get_staleness(threshold_days=threshold_days, limit=limit)
+            if isinstance(raw, dict):
+                return StalenessResponse(
+                    total_items=raw.get("total_items", 0),
+                    stale_items=raw.get("stale_items", 0),
+                    stale_percent=raw.get("stale_percent", 0.0),
+                    items=[
+                        StalenessItem(**i) if isinstance(i, dict) else StalenessItem(
+                            id=getattr(i, "id", ""),
+                            title=getattr(i, "title", ""),
+                        )
+                        for i in raw.get("items", [])
+                    ],
+                    threshold_days=threshold_days,
+                )
+
+        # Fall back to stats-based analysis
+        if hasattr(km, "get_stats"):
+            raw_stats = km.get_stats()
+            if isinstance(raw_stats, dict):
+                total_items = raw_stats.get("total_items", raw_stats.get("count", 0))
+
+        return StalenessResponse(
+            total_items=total_items,
+            stale_items=stale_count,
+            stale_percent=stale_count / total_items * 100 if total_items > 0 else 0.0,
+            items=stale_items,
+            threshold_days=threshold_days,
+        )
+
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error in staleness analysis: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to analyze staleness")
+
+
+@router.delete(
+    "/knowledge/{item_id}", response_model=DeleteKnowledgeResponse
+)
+async def delete_knowledge_item(
+    item_id: str,
+    auth: AuthorizationContext = Depends(require_permission("knowledge:write")),
+    km=Depends(get_knowledge_mound),
+) -> DeleteKnowledgeResponse:
+    """Delete a knowledge item by ID. Requires knowledge:write permission."""
+    if not km:
+        raise HTTPException(status_code=503, detail="Knowledge Mound not available")
+
+    try:
+        # Verify item exists
+        existing = None
+        if hasattr(km, "get"):
+            existing = km.get(item_id)
+        elif hasattr(km, "get_item"):
+            existing = km.get_item(item_id)
+
+        if not existing:
+            raise NotFoundError(f"Knowledge item {item_id} not found")
+
+        # Attempt deletion
+        deleted = False
+        if hasattr(km, "delete"):
+            deleted = km.delete(item_id)
+        elif hasattr(km, "delete_item"):
+            deleted = km.delete_item(item_id)
+        elif hasattr(km, "remove"):
+            deleted = km.remove(item_id)
+        else:
+            raise HTTPException(
+                status_code=501,
+                detail="Knowledge Mound does not support deletion",
+            )
+
+        if deleted is False:
+            raise HTTPException(status_code=500, detail="Failed to delete knowledge item")
+
+        logger.info("Deleted knowledge item: %s", item_id)
+
+        return DeleteKnowledgeResponse(
+            success=True, item_id=item_id, message="Item deleted successfully"
+        )
+
+    except NotFoundError:
+        raise
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error deleting knowledge item %s: %s", item_id, e)
+        raise HTTPException(status_code=500, detail="Failed to delete knowledge item")
