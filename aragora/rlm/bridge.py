@@ -1294,7 +1294,7 @@ Please provide an improved answer based on the feedback."""
             from aragora.audit.log import get_audit_log
 
             audit = get_audit_log()
-            audit.log(
+            audit.log(  # type: ignore[call-arg]
                 action="rlm_query",
                 category="rlm",
                 details={
