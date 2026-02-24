@@ -619,6 +619,111 @@ def _create_monitoring_hooks(
             )
         )
 
+    def on_agent_reasoning(
+        agent: str,
+        reasoning_chunk: str,
+        chain_position: int = 0,
+        total_steps: int = 0,
+        round_num: int = 0,
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.AGENT_REASONING,
+                data={
+                    "reasoning_chunk": reasoning_chunk[:1000],
+                    "chain_position": chain_position,
+                    "total_steps": total_steps,
+                },
+                agent=agent,
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_argument_strength(
+        agent: str,
+        argument_summary: str,
+        strength_score: float,
+        factors: dict | None = None,
+        round_num: int = 0,
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.ARGUMENT_STRENGTH,
+                data={
+                    "argument_summary": argument_summary[:300],
+                    "strength_score": strength_score,
+                    "factors": factors or {},
+                },
+                agent=agent,
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_crux_identified(
+        crux_description: str,
+        agents_disagreeing: list[str],
+        positions: dict | None = None,
+        severity: float = 0.5,
+        round_num: int = 0,
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.CRUX_IDENTIFIED,
+                data={
+                    "crux_description": crux_description[:500],
+                    "agents_disagreeing": agents_disagreeing,
+                    "positions": positions or {},
+                    "severity": severity,
+                },
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_intervention_window(
+        debate_id: str,
+        round_num: int,
+        window_type: str = "between_rounds",
+        expires_in_seconds: float = 30.0,
+        context_summary: str = "",
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.INTERVENTION_WINDOW,
+                data={
+                    "debate_id": debate_id,
+                    "round_num": round_num,
+                    "window_type": window_type,
+                    "expires_in_seconds": expires_in_seconds,
+                    "context_summary": context_summary[:300],
+                },
+                round=round_num,
+                loop_id=loop_id,
+            )
+        )
+
+    def on_intervention_applied(
+        intervention_id: str,
+        intervention_type: str,
+        content_summary: str,
+        applied_at_round: int,
+    ) -> None:
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.INTERVENTION_APPLIED,
+                data={
+                    "intervention_id": intervention_id,
+                    "intervention_type": intervention_type,
+                    "content_summary": content_summary[:300],
+                    "applied_at_round": applied_at_round,
+                },
+                round=applied_at_round,
+                loop_id=loop_id,
+            )
+        )
+
     return {
         "on_agent_error": on_agent_error,
         "on_phase_progress": on_phase_progress,
@@ -629,6 +734,11 @@ def _create_monitoring_hooks(
         "on_agent_thinking": on_agent_thinking,
         "on_agent_evidence": on_agent_evidence,
         "on_agent_confidence": on_agent_confidence,
+        "on_agent_reasoning": on_agent_reasoning,
+        "on_argument_strength": on_argument_strength,
+        "on_crux_identified": on_crux_identified,
+        "on_intervention_window": on_intervention_window,
+        "on_intervention_applied": on_intervention_applied,
     }
 
 

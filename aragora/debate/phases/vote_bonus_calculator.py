@@ -249,3 +249,70 @@ class VoteBonusCalculator:
             )
 
         return vote_counts
+
+    def apply_epistemic_hygiene_penalties(
+        self,
+        ctx: "DebateContext",
+        vote_counts: dict[str, float],
+        choice_mapping: dict[str, str],
+    ) -> dict[str, float]:
+        """Apply epistemic hygiene penalties to vote counts.
+
+        Scores each proposal on epistemic rigour (alternatives, falsifiers,
+        confidence intervals, explicit unknowns) and penalizes proposals that
+        lack required elements.
+
+        Args:
+            ctx: Debate context with proposals
+            vote_counts: Current vote count dictionary
+            choice_mapping: Maps vote choices to canonical agent names
+
+        Returns:
+            Updated vote counts with epistemic penalties applied
+        """
+        if not self.protocol or not getattr(self.protocol, "enable_epistemic_hygiene", False):
+            return vote_counts
+
+        proposals = getattr(ctx, "proposals", None)
+        if not proposals:
+            return vote_counts
+
+        try:
+            from aragora.debate.epistemic_hygiene import (
+                compute_epistemic_penalty,
+                score_response,
+            )
+        except ImportError:
+            logger.debug("Epistemic hygiene module not available")
+            return vote_counts
+
+        epistemic_scores: dict[str, float] = {}
+        for agent_name, proposal in proposals.items():
+            score = score_response(proposal, agent=agent_name)
+            penalty = compute_epistemic_penalty(score, self.protocol)
+
+            if penalty > 0:
+                canonical = choice_mapping.get(agent_name, agent_name)
+                if canonical in vote_counts:
+                    current = vote_counts[canonical]
+                    vote_counts[canonical] = max(0.0, current - penalty)
+
+                    logger.debug(
+                        "epistemic_hygiene_penalty agent=%s score=%.2f penalty=%.3f "
+                        "missing=%s",
+                        agent_name,
+                        score.score,
+                        penalty,
+                        ", ".join(score.missing),
+                    )
+
+            epistemic_scores[agent_name] = score.score
+
+        if epistemic_scores:
+            logger.info(
+                "epistemic_hygiene applied: %d proposals scored, avg=%.2f",
+                len(epistemic_scores),
+                sum(epistemic_scores.values()) / len(epistemic_scores),
+            )
+
+        return vote_counts

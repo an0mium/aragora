@@ -365,6 +365,11 @@ class DebateProtocol:
     # When enabled, agent prediction confidence is tracked against outcomes
     enable_calibration: bool = True  # Enable calibration tracking by default
 
+    # Settlement tracking: Map debate claims to measurable future outcomes
+    # When enabled, verifiable predictions are extracted from debate results
+    # and tracked for later resolution against actual outcomes.
+    enable_settlement_tracking: bool = False  # Opt-in: requires explicit resolution
+
     # Rhetorical observer: Passive commentary on debate dynamics
     # Detects patterns like concession, rebuttal, synthesis for audience engagement
     enable_rhetorical_observer: bool = True  # Enable rhetorical pattern detection

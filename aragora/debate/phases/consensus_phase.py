@@ -641,6 +641,11 @@ class ConsensusPhase:
             ctx, vote_counts, choice_mapping
         )
 
+        # Apply epistemic hygiene penalties if enabled
+        vote_counts = self._vote_bonus_calculator.apply_epistemic_hygiene_penalties(
+            ctx, vote_counts, choice_mapping
+        )
+
         ctx.vote_tally = dict(vote_counts)
 
         # Determine winner using WinnerSelector

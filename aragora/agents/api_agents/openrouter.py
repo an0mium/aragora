@@ -625,7 +625,7 @@ class DeepSeekReasonerAgent(OpenRouterAgent):
 
 
 class DeepSeekV3Agent(OpenRouterAgent):
-    """DeepSeek V3.2 via OpenRouter - integrated thinking + tool-use, GPT-5 class reasoning."""
+    """DeepSeek V3.2 via OpenRouter - integrated thinking + tool-use, frontier reasoning."""
 
     def __init__(
         self,
@@ -636,7 +636,7 @@ class DeepSeekV3Agent(OpenRouterAgent):
         super().__init__(
             name=name,
             role=role,
-            model="deepseek/deepseek-v3.2",  # V3.2 with integrated thinking + tool-use
+            model="deepseek/deepseek-v3.2",  # V3.2 with DeepSeek Sparse Attention + tool-use
             system_prompt=system_prompt,
         )
         self.agent_type = "deepseek-v3"
@@ -670,19 +670,19 @@ class LlamaAgent(OpenRouterAgent):
 
 @AgentRegistry.register(
     "mistral",
-    default_model="mistralai/mistral-large-2411",
+    default_model="mistralai/mistral-large-2512",
     agent_type="API (OpenRouter)",
     env_vars="OPENROUTER_API_KEY",
-    description="Mistral Large",
+    description="Mistral Large 3 - 675B MoE, 256K context, multimodal",
 )
 class MistralAgent(OpenRouterAgent):
-    """Mistral Large via OpenRouter."""
+    """Mistral Large 3 via OpenRouter - 675B MoE with 256K context."""
 
     def __init__(
         self,
         name: str = "mistral",
         role: AgentRole = "analyst",
-        model: str = "mistralai/mistral-large-2411",
+        model: str = "mistralai/mistral-large-2512",
         system_prompt: str | None = None,
     ):
         super().__init__(
@@ -744,6 +744,32 @@ class QwenMaxAgent(OpenRouterAgent):
             system_prompt=system_prompt,
         )
         self.agent_type = "qwen-max"
+
+
+@AgentRegistry.register(
+    "qwen-3.5",
+    default_model="qwen/qwen3.5-plus-02-15",
+    agent_type="API (OpenRouter)",
+    env_vars="OPENROUTER_API_KEY",
+    description="Qwen3.5 Plus - Alibaba's latest, native multimodal, 1M context (hosted)",
+)
+class Qwen35PlusAgent(OpenRouterAgent):
+    """Alibaba Qwen3.5 Plus via OpenRouter - native multimodal with 1M context."""
+
+    def __init__(
+        self,
+        name: str = "qwen-3.5",
+        role: AgentRole = "analyst",
+        model: str = "qwen/qwen3.5-plus-02-15",
+        system_prompt: str | None = None,
+    ):
+        super().__init__(
+            name=name,
+            role=role,
+            model=model,
+            system_prompt=system_prompt,
+        )
+        self.agent_type = "qwen-3.5"
 
 
 @AgentRegistry.register(
@@ -1092,6 +1118,7 @@ __all__ = [
     "MistralAgent",
     "QwenAgent",
     "QwenMaxAgent",
+    "Qwen35PlusAgent",
     "YiAgent",
     "KimiK2Agent",
     "KimiThinkingAgent",

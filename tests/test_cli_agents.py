@@ -433,6 +433,19 @@ Plain response body without codex header."""
             assert "`collab` is deprecated" not in result
 
     @pytest.mark.asyncio
+    async def test_generate_raises_when_codex_output_is_only_warning_noise(self):
+        """generate() should fail fast when codex returns warning-only output."""
+        agent = CodexAgent(name="test", model="test")
+        raw_response = """`collab` is deprecated. Use `[features].multi_agent` instead.
+Enable it with `--enable multi_agent` or `[features].multi_agent` in config.toml.
+See https://github.com/openai/codex/blob/main/docs/config.md#feature-flags for details."""
+
+        with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = raw_response
+            with pytest.raises(RuntimeError, match="unable to parse response"):
+                await agent.generate("Test")
+
+    @pytest.mark.asyncio
     async def test_critique_returns_critique_object(self):
         """critique() should return Critique object."""
         agent = CodexAgent(name="test", model="test")

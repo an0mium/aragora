@@ -60,6 +60,10 @@ class PostDebateConfig:
     # Execution bridge: auto-trigger downstream actions
     auto_execution_bridge: bool = True
     execution_bridge_min_confidence: float = 0.0  # Bridge has per-rule thresholds
+    # Settlement tracking: extract verifiable claims for future resolution
+    auto_settlement_tracking: bool = False
+    settlement_min_confidence: float = 0.3  # Min claim confidence for settlement
+    settlement_domain: str = "general"  # Default domain for settlement bucketing
     # LLM-as-Judge: quality evaluation of agent contributions
     auto_llm_judge: bool = True
     llm_judge_use_case: str = "debate"
@@ -90,6 +94,7 @@ class PostDebateResult:
     pipeline_id: str | None = None  # ID of auto-triggered canvas pipeline
     bridge_results: list[dict[str, Any]] = field(default_factory=list)
     llm_judge_scores: dict[str, Any] | None = None
+    settlement_batch: dict[str, Any] | None = None
     cost_breakdown: dict[str, Any] | None = None
     errors: list[str] = field(default_factory=list)
 

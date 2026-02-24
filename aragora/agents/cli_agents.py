@@ -523,8 +523,10 @@ class CodexAgent(CLIAgent):
         lines = result.split("\n")
         response_lines = []
         in_response = False
+        dropped_noise = False
         for line in lines:
             if self._is_codex_warning_noise(line):
+                dropped_noise = True
                 continue
             if line.strip() == "codex":
                 in_response = True
@@ -545,6 +547,8 @@ class CodexAgent(CLIAgent):
             filtered = filtered[1:]
 
         cleaned = "\n".join(filtered).strip()
+        if dropped_noise and not cleaned:
+            raise RuntimeError("cli error: unable to parse response (codex warning-only output)")
         return cleaned if cleaned else result
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
