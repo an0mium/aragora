@@ -35,6 +35,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://aragora:secret@postgres:5432/aragora
       - ARAGORA_DB_BACKEND=postgres
+      - ARAGORA_SECRETS_STRICT=true
       - ARAGORA_REDIS_MODE=sentinel
       - ARAGORA_REDIS_SENTINEL_HOSTS=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
       - ARAGORA_REDIS_SENTINEL_MASTER=mymaster
@@ -155,3 +156,16 @@ def test_fails_when_aragora_missing_rate_limit_backend(tmp_path: Path):
     assert result.returncode == 1
     assert "aragora service missing required env wiring" in result.stdout.lower()
     assert "aragora_rate_limit_backend" in result.stdout.lower()
+
+
+def test_fails_when_aragora_missing_secrets_strict_wiring(tmp_path: Path):
+    compose, env, runbook = _write_valid_fixture(tmp_path)
+    compose.write_text(
+        compose.read_text().replace("      - ARAGORA_SECRETS_STRICT=true\n", ""),
+        encoding="utf-8",
+    )
+
+    result = _run("--compose", str(compose), "--env-example", str(env), "--runbook", str(runbook))
+    assert result.returncode == 1
+    assert "aragora service missing required env wiring" in result.stdout.lower()
+    assert "aragora_secrets_strict" in result.stdout.lower()
