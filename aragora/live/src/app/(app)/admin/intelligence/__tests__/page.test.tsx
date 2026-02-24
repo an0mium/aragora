@@ -91,7 +91,8 @@ describe('Admin IntelligencePage', () => {
     render(<IntelligencePage />);
     fireEvent.click(screen.getByText('Agent Performance'));
     expect(screen.getByText('Agent Details')).toBeInTheDocument();
-    expect(screen.getByText('claude-opus')).toBeInTheDocument();
+    // claude-opus appears in both learning tab (topAgents) and agent tab, use getAllByText
+    expect(screen.getAllByText('claude-opus').length).toBeGreaterThan(0);
   });
 
   it('switches to institutional memory tab', () => {

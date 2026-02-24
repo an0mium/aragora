@@ -45,8 +45,8 @@ class TestModelProfiles:
     def test_claude_profile_has_expected_properties(self):
         """Verify Claude profile has correct properties."""
         claude = MODEL_PROFILES["claude"]
-        assert claude.model_id == "claude-sonnet-4-20250514"
-        assert claude.display_name == "Claude Sonnet 4"
+        assert claude.model_id == "claude-sonnet-4-6"
+        assert claude.display_name == "Claude Sonnet 4.6"
         assert claude.provider == "anthropic"
         assert claude.max_context_tokens == 200000
         assert claude.supports_vision is True

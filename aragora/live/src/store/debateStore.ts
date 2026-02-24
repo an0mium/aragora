@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { devtools, subscribeWithSelector } from 'zustand/middleware';
 import type { StreamEvent } from '@/types/events';
+import type { DebateConnectionStatus } from '@/hooks/debate-websocket/types';
 
 // ============================================================================
 // Types
