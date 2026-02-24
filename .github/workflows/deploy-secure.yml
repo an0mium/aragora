@@ -570,6 +570,8 @@ jobs:
               "sudo systemctl restart aragora",
               "sleep 8",
               "if ! systemctl is-active --quiet aragora; then echo \"=== SERVICE FAILED ===\"; echo \"Status:\"; systemctl status aragora --no-pager || true; echo \"Recent logs:\"; journalctl -u aragora -n 50 --no-pager || true; exit 1; fi",
+              "echo \"Running HTTP health check...\"; for i in $(seq 1 12); do if curl -sf http://localhost:8080/api/health > /dev/null 2>&1; then echo \"HTTP health OK on attempt $i\"; break; fi; echo \"Waiting... attempt $i/12\"; sleep 5; done",
+              "if ! curl -sf http://localhost:8080/api/health > /dev/null 2>&1; then echo \"HTTP health FAILED\"; journalctl -u aragora -n 30 --no-pager || true; exit 1; fi",
               "python scripts/seed_agents.py || echo \"Seed skipped (non-fatal)\"",
               "python scripts/validate_production.py --quick || echo \"Validation warnings (non-fatal)\"",
               "echo \"Production deploy complete\""

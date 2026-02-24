@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass, field
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, call, patch, PropertyMock
 
 import pytest
 
@@ -456,14 +456,21 @@ class TestInitializeDebateContext:
 
     @pytest.mark.asyncio
     async def test_classifies_question_with_prompt_builder(self, mock_arena):
-        """Test that question classification is called when prompt_builder exists."""
+        """Test that question classification is called when prompt_builder exists.
+
+        The runner does a two-phase classification: fast heuristic first
+        (use_llm=False), then a background LLM pass (use_llm=True).
+        """
         mock_arena.prompt_builder = MagicMock()
         mock_arena.prompt_builder.classify_question_async = AsyncMock()
 
         with patch("aragora.utils.env.is_offline_mode", return_value=False):
             await initialize_debate_context(mock_arena, "corr-123")
 
-        mock_arena.prompt_builder.classify_question_async.assert_called_once_with(use_llm=True)
+        # First call is the fast heuristic, second is the background LLM task
+        calls = mock_arena.prompt_builder.classify_question_async.call_args_list
+        assert len(calls) >= 1
+        assert calls[0] == call(use_llm=False)
 
     @pytest.mark.asyncio
     async def test_handles_question_classification_timeout(self, mock_arena):

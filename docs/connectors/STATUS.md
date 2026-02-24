@@ -285,8 +285,8 @@ Top-level evidence connectors extend `BaseConnector` and provide `search()`/`fet
 
 | Connector | Status | Features | Tests |
 |-----------|--------|----------|-------|
-| Klaviyo (`marketing/klaviyo.py`) | Beta | Lists, profiles, campaigns, flows, SMS | Yes |
-| Mailchimp (`marketing/mailchimp.py`) | Beta | Audiences, campaigns, subscribers, templates | Yes |
+| Klaviyo (`marketing/klaviyo.py`) | Production | Lists, profiles, campaigns, flows, SMS, retry with backoff | Yes |
+| Mailchimp (`marketing/mailchimp.py`) | Production | Audiences, campaigns, subscribers, templates, retry with backoff | Yes |
 
 ### Marketplace
 
