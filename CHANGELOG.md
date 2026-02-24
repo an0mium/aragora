@@ -5,6 +5,8 @@
 
 ### Added
 - **205K+ test suite:** Test count grew from 129K to 205K+; 19,776 handler tests across 130+ files
+- **Oracle stream observability:** Added TTFT/phase/stall metrics collection, dashboard wiring, and stream-recovery E2E coverage for Oracle flows
+- **Main branch discipline workflow:** Added CI guard to flag direct pushes to `main` without associated PRs (supports explicit emergency override tag)
 - **`@handle_errors` decorator:** All 193 handler write methods (POST/PUT/PATCH/DELETE) across 130 files now have the decorator as outermost wrapper, catching unhandled exceptions with sanitized responses
 - **Self-improvement E2E tests:** 66 tests validating assess→goals→execute pipeline against real codebase
 - **Deployment readiness tests:** API key validation wired into `/readyz/dependencies` endpoint
@@ -26,6 +28,7 @@
 
 ### Changed
 - **Exception elimination:** All bare `except Exception: pass` handlers eliminated across the entire codebase; 130+ files narrowed to specific exception types
+- **Contract drift governance artifacts:** Refreshed contract drift backlog + issue plan snapshots and weekly burndown targets to current baseline
 - **str(e) sanitization:** All handler/auth/security/client/middleware `str(e)` leaks replaced with static messages and `logger.warning("...: %s", e)` pattern
 - **f-string logging conversion:** 1,664 files converted from f-string to %-formatting in logger calls for security and performance
 - **CLI lazy loading:** All re-exports in `aragora/cli/main.py` lazy-loaded via `__getattr__`; module import time reduced from 13.4s to 0.7s (19x speedup)
