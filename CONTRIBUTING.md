@@ -185,6 +185,20 @@ git worktree list --porcelain
 4. Keep generated/runtime artifacts out of commits (`.nomic/`, `.tmp/`, `artifacts/`).
 5. Emergency direct pushes to `main` are discouraged; if unavoidable, annotate the commit message with `[allow-direct-main]` and follow up with a PR-level postmortem.
 
+Helper commands for PR-only flow:
+
+```bash
+# Create and switch to a feature branch from origin/main
+scripts/start_feature_branch.sh feat my-change
+# or
+make branch-start TYPE=feat SLUG=my-change
+
+# Push current branch and open/update PR via GitHub CLI
+scripts/open_pr.sh --draft
+# or
+make pr-open ARGS="--draft"
+```
+
 ## Architecture Overview
 
 Aragora is a **control plane for multi-agent robust decisionmaking**. Here's how the key systems fit together:

@@ -7,6 +7,7 @@
 - **205K+ test suite:** Test count grew from 129K to 205K+; 19,776 handler tests across 130+ files
 - **Oracle stream observability:** Added TTFT/phase/stall metrics collection, dashboard wiring, and stream-recovery E2E coverage for Oracle flows
 - **Main branch discipline workflow:** Added CI guard to flag direct pushes to `main` without associated PRs (supports explicit emergency override tag)
+- **PR flow helper scripts:** Added `scripts/start_feature_branch.sh` and `scripts/open_pr.sh` plus Makefile targets (`branch-start`, `pr-open`) for branch-first contribution flow
 - **`@handle_errors` decorator:** All 193 handler write methods (POST/PUT/PATCH/DELETE) across 130 files now have the decorator as outermost wrapper, catching unhandled exceptions with sanitized responses
 - **Self-improvement E2E tests:** 66 tests validating assess→goals→execute pipeline against real codebase
 - **Deployment readiness tests:** API key validation wired into `/readyz/dependencies` endpoint
