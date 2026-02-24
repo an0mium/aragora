@@ -194,7 +194,7 @@ async def _create_elevenlabs_key(current_key: str) -> dict[str, Any] | None:
                 logger.error("ElevenLabs key creation failed: %s %s", resp.status_code, resp.text)
                 return None
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - httpx/boto3 exceptions don't inherit builtins
         logger.error("ElevenLabs key creation request failed: %s", e)
         return None
 
@@ -229,7 +229,7 @@ async def _get_key_id_by_value(auth_key: str, target_key: str) -> str | None:
 
             return None
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - httpx/boto3 exceptions don't inherit builtins
         logger.error("Failed to list ElevenLabs keys: %s", e)
         return None
 
@@ -259,7 +259,7 @@ async def _delete_elevenlabs_key(auth_key: str, key_id: str) -> bool:
                 )
                 return False
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - httpx/boto3 exceptions don't inherit builtins
         logger.error("Failed to delete ElevenLabs key: %s", e)
         return False
 
@@ -298,7 +298,7 @@ async def _update_secrets_manager(
     except ImportError:
         logger.error("boto3 required for Secrets Manager updates")
         return False
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - httpx/boto3 exceptions don't inherit builtins
         logger.error("Failed to update %s: %s", secret_id, e)
         return False
 
@@ -320,7 +320,7 @@ async def _update_standalone_secret(
         logger.info("Updated standalone secret %s", secret_id)
         return True
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - httpx/boto3 exceptions don't inherit builtins
         logger.error("Failed to update standalone secret %s: %s", secret_id, e)
         return False
 
@@ -355,7 +355,7 @@ def _update_local_env(key_name: str, new_value: str) -> None:
                     f.writelines(new_lines)
                 logger.info("Updated %s in %s", key_name, env_path)
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, PermissionError) as e:
             logger.warning("Could not update %s: %s", env_path, e)
 
     # Also update the running process's env
