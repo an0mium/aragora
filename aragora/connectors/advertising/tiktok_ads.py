@@ -341,7 +341,10 @@ class TikTokAdsError(Exception):
 
 
 class TikTokAdsConnector:
-    """TikTok Ads API connector."""
+    """TikTok Ads API connector.
+
+    Production quality: circuit breaker, retry with backoff, query sanitization.
+    """
 
     BASE_URL = "https://business-api.tiktok.com/open_api/v1.3"
 
@@ -349,6 +352,15 @@ class TikTokAdsConnector:
         """Initialize with credentials."""
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
+        try:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            ProductionConnectorMixin._init_production_mixin(
+                self, connector_name="tiktok_ads", request_timeout=30.0,
+            )
+            self._has_production_mixin = True
+        except ImportError:
+            self._has_production_mixin = False
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -375,8 +387,7 @@ class TikTokAdsConnector:
         params: dict[str, Any] | None = None,
         json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make API request."""
-        client = await self._get_client()
+        """Make API request with retry and circuit breaker."""
         url = f"{self.BASE_URL}/{endpoint}"
 
         if json_data is not None and "advertiser_id" not in json_data:
@@ -387,23 +398,33 @@ class TikTokAdsConnector:
         if "advertiser_id" not in params:
             params["advertiser_id"] = self.credentials.advertiser_id
 
-        response = await client.request(
-            method=method,
-            url=url,
-            params=params,
-            json=json_data,
-        )
-
-        data = response.json()
-
-        if data.get("code") != 0:
-            raise TikTokAdsError(
-                message=data.get("message", f"API error: {response.status_code}"),
-                status_code=response.status_code,
-                error_code=data.get("code"),
+        async def _do_request() -> dict[str, Any]:
+            client = await self._get_client()
+            response = await client.request(
+                method=method,
+                url=url,
+                params=params,
+                json=json_data,
             )
+            response.raise_for_status()
+            data = response.json()
 
-        return data.get("data", {})
+            if data.get("code") != 0:
+                raise TikTokAdsError(
+                    message=data.get("message", f"API error: {response.status_code}"),
+                    status_code=response.status_code,
+                    error_code=data.get("code"),
+                )
+
+            return data.get("data", {})
+
+        if self._has_production_mixin:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            return await ProductionConnectorMixin._call_with_retry(
+                self, _do_request, operation=f"{method}_{endpoint}",
+            )
+        return await _do_request()
 
     # Campaign Operations
 

@@ -162,6 +162,17 @@ class EmergencyAccessHandler(SecureHandler):
         Body:
             access_id: str - Emergency access ID to deactivate (required)
         """
+        # Enforce MFA for admin users (SOC 2 CC5-01)
+        if user is not None:
+            user_store = self.ctx.get("user_store") if hasattr(self, "ctx") else None
+            if user_store:
+                mfa_result = enforce_admin_mfa_policy(user, user_store)
+                if mfa_result and mfa_result.get("enforced"):
+                    return error_response(
+                        "Administrative access requires MFA. Please enable MFA at /api/auth/mfa/setup",
+                        403,
+                    )
+
         from aragora.rbac.emergency import get_break_glass_access
         from aragora.server.http_utils import run_async
 

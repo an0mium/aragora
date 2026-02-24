@@ -27,6 +27,7 @@ from .admin import admin_secure_endpoint
 
 from aragora.events.handler_events import emit_handler_event, COMPLETED
 from aragora.rbac.decorators import require_permission
+from aragora.server.middleware.mfa import enforce_admin_mfa_policy
 
 try:
     from aragora.rbac.checker import check_permission  # noqa: F401
@@ -114,6 +115,19 @@ class SecurityHandler(SecureHandler):
     @require_permission("admin:security:write")
     def handle_post(self, path: str, data: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle POST requests for security endpoints."""
+        # Enforce MFA for admin users (SOC 2 CC5-01)
+        if hasattr(handler, "auth_context"):
+            user_store = self.ctx.get("user_store") if hasattr(self, "ctx") else None
+            if user_store:
+                user = user_store.get_user_by_id(handler.auth_context.user_id)
+                if user:
+                    mfa_result = enforce_admin_mfa_policy(user, user_store)
+                    if mfa_result and mfa_result.get("enforced"):
+                        return error_response(
+                            "Administrative access requires MFA. Please enable MFA at /api/auth/mfa/setup",
+                            403,
+                        )
+
         # RBAC inline check via rbac.checker if available
         if not RBAC_AVAILABLE:
             if rbac_fail_closed():

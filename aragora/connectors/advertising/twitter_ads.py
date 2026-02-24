@@ -311,7 +311,10 @@ class TwitterAdsError(Exception):
 
 
 class TwitterAdsConnector:
-    """Twitter/X Ads API connector."""
+    """Twitter/X Ads API connector.
+
+    Production quality: circuit breaker, retry with backoff.
+    """
 
     BASE_URL = "https://ads-api.twitter.com/12"
 
@@ -319,11 +322,19 @@ class TwitterAdsConnector:
         """Initialize with credentials."""
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
+        try:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            ProductionConnectorMixin._init_production_mixin(
+                self, connector_name="twitter_ads", request_timeout=30.0,
+            )
+            self._has_production_mixin = True
+        except ImportError:
+            self._has_production_mixin = False
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client with OAuth 1.0a authentication."""
         if self._client is None:
-            # Note: In production, use a proper OAuth 1.0a library like authlib
             self._client = httpx.AsyncClient(
                 headers={
                     "Content-Type": "application/json",
@@ -391,32 +402,44 @@ class TwitterAdsConnector:
         params: dict[str, Any] | None = None,
         json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make API request."""
-        client = await self._get_client()
+        """Make API request with retry and circuit breaker."""
         url = f"{self.BASE_URL}/accounts/{self.credentials.ads_account_id}/{endpoint}"
 
-        headers = {
-            "Authorization": self._oauth_header(method, url),
-        }
+        async def _do_request() -> dict[str, Any]:
+            client = await self._get_client()
+            headers = {
+                "Authorization": self._oauth_header(method, url),
+            }
 
-        response = await client.request(
-            method=method,
-            url=url,
-            params=params,
-            json=json_data,
-            headers=headers,
-        )
-
-        if response.status_code >= 400:
-            error_data = response.json() if response.content else {}
-            errors = error_data.get("errors", [{}])
-            raise TwitterAdsError(
-                message=errors[0].get("message", f"API error: {response.status_code}"),
-                status_code=response.status_code,
-                error_code=errors[0].get("code"),
+            response = await client.request(
+                method=method,
+                url=url,
+                params=params,
+                json=json_data,
+                headers=headers,
             )
 
-        return response.json()
+            if response.status_code == 429 or response.status_code >= 500:
+                response.raise_for_status()
+
+            if response.status_code >= 400:
+                error_data = response.json() if response.content else {}
+                errors = error_data.get("errors", [{}])
+                raise TwitterAdsError(
+                    message=errors[0].get("message", f"API error: {response.status_code}"),
+                    status_code=response.status_code,
+                    error_code=errors[0].get("code"),
+                )
+
+            return response.json()
+
+        if self._has_production_mixin:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            return await ProductionConnectorMixin._call_with_retry(
+                self, _do_request, operation=f"{method}_{endpoint}",
+            )
+        return await _do_request()
 
     # Campaign Operations
 

@@ -322,12 +322,23 @@ class MetabaseConnector:
     - Dashboard and card management
     - Collection organization
     - Database metadata
+
+    Production quality: circuit breaker, retry with backoff.
     """
 
     def __init__(self, credentials: MetabaseCredentials):
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
         self._session_token: str | None = credentials.session_token
+        try:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            ProductionConnectorMixin._init_production_mixin(
+                self, connector_name="metabase", request_timeout=60.0,
+            )
+            self._has_production_mixin = True
+        except ImportError:
+            self._has_production_mixin = False
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
