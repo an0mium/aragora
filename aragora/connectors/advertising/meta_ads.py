@@ -28,6 +28,10 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0
+_MAX_DELAY = 30.0
+
 
 class CampaignObjective(str, Enum):
     """Campaign objectives."""
@@ -391,7 +395,7 @@ class MetaAdsConnector:
         params: dict | None = None,
         json_data: dict | None = None,
     ) -> dict[str, Any]:
-        """Make API request."""
+        """Make API request with retry and exponential backoff."""
         client = await self._get_client()
 
         # Add access token to params
@@ -399,19 +403,58 @@ class MetaAdsConnector:
             params = {}
         params["access_token"] = self.credentials.access_token
 
-        response = await client.request(method, path, params=params, json=json_data)
+        last_error: Exception | None = None
 
-        data = response.json()
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                response = await client.request(method, path, params=params, json=json_data)
 
-        if "error" in data:
-            error = data["error"]
-            raise MetaAdsError(
-                message=error.get("message", "Unknown error"),
-                code=error.get("code"),
-                error_subcode=error.get("error_subcode"),
-            )
+                if response.status_code == 429:
+                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    jitter = random.uniform(0, retry_after * 0.3)
+                    delay = min(retry_after + jitter, _MAX_DELAY)
+                    logger.warning("Meta Ads rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
 
-        return data
+                if response.status_code >= 500 and attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Meta Ads server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                data = response.json()
+
+                if "error" in data:
+                    error = data["error"]
+                    raise MetaAdsError(
+                        message=error.get("message", "Unknown error"),
+                        code=error.get("code"),
+                        error_subcode=error.get("error_subcode"),
+                    )
+
+                return data
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Meta Ads request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except httpx.ConnectError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Meta Ads connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except MetaAdsError:
+                raise
+
+        raise MetaAdsError(
+            message=f"Request failed after {_MAX_RETRIES + 1} attempts: {last_error}",
+        )
 
     # =========================================================================
     # Ad Account

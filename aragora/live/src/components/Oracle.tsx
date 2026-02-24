@@ -1301,6 +1301,39 @@ export default function Oracle() {
               &#x1F50A;
             </button>
           )}
+          {/* Streaming audio controls (WebSocket TTS) */}
+          {oracle.connected && oracle.phase !== 'idle' && (
+            <>
+              {oracle.audio.isPlaying() && (
+                <button
+                  type="button"
+                  onClick={() => oracle.audio.pause()}
+                  className="px-3 py-3 border border-[var(--acid-green)]/40 text-[var(--acid-green)] text-sm hover:bg-[var(--acid-green)]/20 transition-all rounded-xl"
+                  title="Pause audio"
+                >
+                  &#x23F8;
+                </button>
+              )}
+              {oracle.audio.isPaused() && (
+                <button
+                  type="button"
+                  onClick={() => oracle.audio.resume()}
+                  className="px-3 py-3 border border-[var(--acid-green)]/40 text-[var(--acid-green)] text-sm hover:bg-[var(--acid-green)]/20 transition-all rounded-xl"
+                  title="Resume audio"
+                >
+                  &#x25B6;
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => oracle.audio.stop()}
+                className="px-3 py-3 border border-[var(--crimson,#ff3333)]/40 text-[var(--crimson,#ff3333)] text-sm hover:bg-[var(--crimson,#ff3333)]/20 transition-all rounded-xl"
+                title="Stop audio"
+              >
+                &#x23F9;
+              </button>
+            </>
+          )}
         </form>
 
         {/* Chat area */}

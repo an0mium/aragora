@@ -22,6 +22,10 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0
+_MAX_DELAY = 30.0
+
 
 class ProfileSubscriptionStatus(Enum):
     """Klaviyo profile subscription status."""
@@ -509,27 +513,66 @@ class KlaviyoConnector:
         params: dict[str, Any] | None = None,
         json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make API request."""
+        """Make API request with retry and exponential backoff."""
         client = await self._get_client()
         url = f"{self.BASE_URL}/{endpoint}"
 
-        response = await client.request(
-            method=method,
-            url=url,
-            params=params,
-            json=json_data,
+        last_error: Exception | None = None
+
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    json=json_data,
+                )
+
+                if response.status_code == 429:
+                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    jitter = random.uniform(0, retry_after * 0.3)
+                    delay = min(retry_after + jitter, _MAX_DELAY)
+                    logger.warning("Klaviyo rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 500 and attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Klaviyo server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 400:
+                    error_data = response.json() if response.content else {}
+                    errors = error_data.get("errors", [{}])
+                    raise KlaviyoError(
+                        message=errors[0].get("detail", f"API error: {response.status_code}"),
+                        status_code=response.status_code,
+                        error_id=errors[0].get("id"),
+                    )
+
+                return response.json() if response.content else {}
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Klaviyo request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except httpx.ConnectError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Klaviyo connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except KlaviyoError:
+                raise
+
+        raise KlaviyoError(
+            message=f"Request failed after {_MAX_RETRIES + 1} attempts: {last_error}",
         )
-
-        if response.status_code >= 400:
-            error_data = response.json() if response.content else {}
-            errors = error_data.get("errors", [{}])
-            raise KlaviyoError(
-                message=errors[0].get("detail", f"API error: {response.status_code}"),
-                status_code=response.status_code,
-                error_id=errors[0].get("id"),
-            )
-
-        return response.json() if response.content else {}
 
     async def _paginated_request(
         self,

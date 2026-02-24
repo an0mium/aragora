@@ -19,6 +19,7 @@ export type {
   DebateStatus,
   EventData,
   ParsedEvent,
+  ConnectionQuality,
 } from './types';
 
 // Re-export constants

@@ -21,6 +21,10 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0
+_MAX_DELAY = 30.0
+
 
 class CampaignStatus(Enum):
     """LinkedIn campaign status."""
@@ -437,30 +441,69 @@ class LinkedInAdsConnector:
         json_data: dict[str, Any] | None = None,
         use_rest_api: bool = True,
     ) -> dict[str, Any]:
-        """Make API request."""
+        """Make API request with retry and exponential backoff."""
         client = await self._get_client()
         base_url = self.REST_URL if use_rest_api else self.BASE_URL
         url = f"{base_url}/{endpoint}"
 
-        response = await client.request(
-            method=method,
-            url=url,
-            params=params,
-            json=json_data,
+        last_error: Exception | None = None
+
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    json=json_data,
+                )
+
+                if response.status_code == 429:
+                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    jitter = random.uniform(0, retry_after * 0.3)
+                    delay = min(retry_after + jitter, _MAX_DELAY)
+                    logger.warning("LinkedIn Ads rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 500 and attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("LinkedIn Ads server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 400:
+                    error_data = response.json() if response.content else {}
+                    raise LinkedInAdsError(
+                        message=error_data.get("message", f"API error: {response.status_code}"),
+                        status_code=response.status_code,
+                        error_code=error_data.get("code"),
+                    )
+
+                if response.status_code == 204 or not response.content:
+                    return {}
+
+                return response.json()
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("LinkedIn Ads request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except httpx.ConnectError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("LinkedIn Ads connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except LinkedInAdsError:
+                raise
+
+        raise LinkedInAdsError(
+            message=f"Request failed after {_MAX_RETRIES + 1} attempts: {last_error}",
         )
-
-        if response.status_code >= 400:
-            error_data = response.json() if response.content else {}
-            raise LinkedInAdsError(
-                message=error_data.get("message", f"API error: {response.status_code}"),
-                status_code=response.status_code,
-                error_code=error_data.get("code"),
-            )
-
-        if response.status_code == 204 or not response.content:
-            return {}
-
-        return response.json()
 
     # Campaign Group Operations
 

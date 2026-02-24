@@ -45,23 +45,23 @@ OPENROUTER_FALLBACK_MODELS: dict[str, str] = {
     "qwen/qwen-2.5-72b-instruct": "deepseek/deepseek-chat",
     "qwen/qwen3-235b-a22b": "deepseek/deepseek-chat",
     "qwen/qwen3-max": "deepseek/deepseek-chat",
-    # DeepSeek -> GPT-4o-mini (fast, reliable)
-    "deepseek/deepseek-chat": "openai/gpt-4o-mini",
-    "deepseek/deepseek-chat-v3-0324": "openai/gpt-4o-mini",
-    "deepseek/deepseek-v3.2": "openai/gpt-4o-mini",
-    "deepseek/deepseek-reasoner": "anthropic/claude-3-haiku",
-    # Kimi -> Claude Haiku
-    "moonshotai/kimi-k2-0905": "anthropic/claude-3-haiku",
-    "moonshotai/kimi-k2-thinking": "anthropic/claude-3-haiku",
-    "moonshot/moonshot-v1-128k": "anthropic/claude-3-haiku",
-    # Mistral -> GPT-4o-mini
-    "mistralai/mistral-large-2411": "openai/gpt-4o-mini",
+    # DeepSeek -> GPT-4.1-mini (fast, reliable, 1M context)
+    "deepseek/deepseek-chat": "openai/gpt-4.1-mini",
+    "deepseek/deepseek-chat-v3-0324": "openai/gpt-4.1-mini",
+    "deepseek/deepseek-v3.2": "openai/gpt-4.1-mini",
+    "deepseek/deepseek-reasoner": "anthropic/claude-haiku-4.5",
+    # Kimi -> Claude Haiku 4.5
+    "moonshotai/kimi-k2-0905": "anthropic/claude-haiku-4.5",
+    "moonshotai/kimi-k2-thinking": "anthropic/claude-haiku-4.5",
+    "moonshot/moonshot-v1-128k": "anthropic/claude-haiku-4.5",
+    # Mistral -> GPT-4.1-mini
+    "mistralai/mistral-large-2411": "openai/gpt-4.1-mini",
     # Yi -> DeepSeek
     "01-ai/yi-large": "deepseek/deepseek-chat",
-    # Llama -> GPT-4o-mini
-    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-4o-mini",
-    "meta-llama/llama-4-maverick": "openai/gpt-4o-mini",
-    "meta-llama/llama-4-scout": "openai/gpt-4o-mini",
+    # Llama -> GPT-4.1-mini
+    "meta-llama/llama-3.3-70b-instruct": "openai/gpt-4.1-mini",
+    "meta-llama/llama-4-maverick": "openai/gpt-4.1-mini",
+    "meta-llama/llama-4-scout": "openai/gpt-4.1-mini",
 }
 
 

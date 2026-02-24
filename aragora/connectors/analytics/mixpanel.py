@@ -13,8 +13,10 @@ Requires Mixpanel project token and API secret.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
+import random
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import Enum
@@ -23,6 +25,10 @@ from typing import Any
 import httpx
 
 logger = logging.getLogger(__name__)
+
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0
+_MAX_DELAY = 30.0
 
 
 class Unit(str, Enum):
@@ -239,7 +245,7 @@ class MixpanelConnector:
         json_data: dict | list | None = None,
         use_service_account: bool = False,
     ) -> dict[str, Any] | list[Any]:
-        """Make API request."""
+        """Make API request with retry and exponential backoff."""
         client = await self._get_client()
 
         headers = dict(client.headers)
@@ -249,28 +255,68 @@ class MixpanelConnector:
         else:
             headers["Authorization"] = f"Basic {self.credentials.basic_auth}"
 
-        response = await client.request(
-            method,
-            url,
-            params=params,
-            json=json_data,
-            headers=headers,
-        )
+        last_error: Exception | None = None
 
-        if response.status_code >= 400:
+        for attempt in range(_MAX_RETRIES + 1):
             try:
-                error_data = response.json()
-                raise MixpanelError(
-                    message=error_data.get("error", response.text),
-                    status_code=response.status_code,
-                    error_details=error_data,
-                )
-            except ValueError:
-                raise MixpanelError(
-                    f"HTTP {response.status_code}: {response.text}", response.status_code
+                response = await client.request(
+                    method,
+                    url,
+                    params=params,
+                    json=json_data,
+                    headers=headers,
                 )
 
-        return response.json()
+                if response.status_code == 429:
+                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    jitter = random.uniform(0, retry_after * 0.3)
+                    delay = min(retry_after + jitter, _MAX_DELAY)
+                    logger.warning("Mixpanel rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 500 and attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Mixpanel server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 400:
+                    try:
+                        error_data = response.json()
+                        raise MixpanelError(
+                            message=error_data.get("error", response.text),
+                            status_code=response.status_code,
+                            error_details=error_data,
+                        )
+                    except ValueError:
+                        raise MixpanelError(
+                            f"HTTP {response.status_code}: {response.text}", response.status_code
+                        )
+
+                return response.json()
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Mixpanel request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except httpx.ConnectError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Mixpanel connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except MixpanelError:
+                raise
+
+        raise MixpanelError(
+            f"Request failed after {_MAX_RETRIES + 1} attempts: {last_error}",
+            status_code=None,
+        )
 
     # =========================================================================
     # Event Tracking

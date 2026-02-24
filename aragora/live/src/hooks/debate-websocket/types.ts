@@ -61,6 +61,16 @@ export interface UseDebateWebSocketOptions {
   onAuthRevoked?: () => void;
 }
 
+/** Connection quality metrics reported by the server heartbeat. */
+export interface ConnectionQuality {
+  reconnectCount: number;
+  avgLatencyMs: number;
+  uptimeSeconds: number;
+  lastSeq: number;
+  bufferSize: number;
+  oldestSeq: number;
+}
+
 export interface UseDebateWebSocketReturn {
   // Connection state
   status: DebateConnectionStatus;
@@ -69,6 +79,7 @@ export interface UseDebateWebSocketReturn {
   isConnected: boolean;
   isPolling: boolean;
   reconnectAttempt: number;  // Expose for UI feedback
+  connectionQuality: ConnectionQuality | null;  // Server-reported quality metrics
 
   // Debate data
   task: string;
@@ -84,6 +95,7 @@ export interface UseDebateWebSocketReturn {
   registerAckCallback: (callback: (msgType: string) => void) => () => void;
   registerErrorCallback: (callback: (message: string) => void) => () => void;
   reconnect: () => void;  // Manual reconnect trigger
+  sendPing: () => void;  // Application-level latency measurement ping
 }
 
 // Debate status from server API

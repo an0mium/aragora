@@ -34,26 +34,28 @@ class DebateStatsHandler(BaseHandler):
         return stripped in ("/api/debates/stats", "/api/debates/stats/agents")
 
     @require_permission("debates:read")
-    async def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         if handler.command != "GET":
             return error_response("Method not allowed", 405)
 
         stripped = strip_version_prefix(path)
 
         if stripped == "/api/debates/stats":
-            return await self._get_stats(query_params, handler)
+            return self._get_stats(query_params, handler)
         if stripped == "/api/debates/stats/agents":
-            return await self._get_agent_stats(query_params, handler)
+            return self._get_agent_stats(query_params, handler)
 
         return None
 
-    async def _get_stats(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+    def _get_stats(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         period = query_params.get("period", "all")
         _period_to_days = {"all": 3650, "day": 1, "week": 7, "month": 30}
         if period not in _period_to_days:
             return error_response("period must be one of: all, day, week, month", 400)
 
         try:
+            import asyncio
+
             from aragora.analytics.debate_analytics import DebateAnalytics
 
             storage = self.ctx.get("storage")
@@ -61,7 +63,13 @@ class DebateStatsHandler(BaseHandler):
                 return error_response("Storage not available", 503)
 
             service = DebateAnalytics(storage)
-            stats = await service.get_debate_stats(days_back=_period_to_days[period])
+            coro = service.get_debate_stats(days_back=_period_to_days[period])
+            try:
+                loop = asyncio.get_running_loop()
+                # Already in async context — schedule and return sync fallback
+                stats = loop.run_until_complete(coro)
+            except RuntimeError:
+                stats = asyncio.run(coro)
             return json_response(stats.to_dict())
         except (
             ImportError,
@@ -75,10 +83,12 @@ class DebateStatsHandler(BaseHandler):
             logger.error("Failed to get debate stats: %s", exc)
             return error_response("Failed to get debate stats", 500)
 
-    async def _get_agent_stats(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
+    def _get_agent_stats(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
 
         try:
+            import asyncio
+
             from aragora.analytics.debate_analytics import DebateAnalytics
 
             storage = self.ctx.get("storage")
@@ -86,10 +96,15 @@ class DebateStatsHandler(BaseHandler):
                 return error_response("Storage not available", 503)
 
             service = DebateAnalytics(storage)
-            agents = await service.get_agent_leaderboard(limit=limit)
+            coro = service.get_agent_leaderboard(limit=limit)
+            try:
+                loop = asyncio.get_running_loop()
+                agents = loop.run_until_complete(coro)
+            except RuntimeError:
+                agents = asyncio.run(coro)
             return json_response(
                 {
-                    "agents": [a.to_dict() for a in agents] if hasattr(agents[0], "to_dict") else agents if agents else [],
+                    "agents": [a.to_dict() for a in agents] if agents and hasattr(agents[0], "to_dict") else [],
                     "count": len(agents),
                 }
             )

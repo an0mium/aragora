@@ -500,6 +500,16 @@ async def setup_debate_infrastructure(
     # Initialize per-debate budget tracking in extensions
     arena.extensions.setup_debate_budget(state.debate_id)
 
+    # Wire per-call cost tracking into the AutonomicExecutor so that
+    # every agent call records its cost with round number and operation.
+    try:
+        from aragora.billing.debate_costs import get_debate_cost_tracker
+
+        debate_cost_tracker = get_debate_cost_tracker()
+        arena.autonomic.set_debate_cost_tracker(debate_cost_tracker, state.debate_id)
+    except (ImportError, RuntimeError, TypeError, AttributeError) as e:
+        logger.debug("Per-call cost tracking setup skipped: %s", e)
+
     # Initialize GUPP hook tracking for crash recovery
     if getattr(arena.protocol, "enable_hook_tracking", False):
         try:
@@ -1108,6 +1118,9 @@ async def cleanup_debate_resources(
                 logger.debug("[checkpoint] Cleaned up %s checkpoints for completed debate", deleted)
         except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.debug("[checkpoint] Cleanup failed (non-critical): %s", e)
+
+    # Clear per-debate cost tracker reference from AutonomicExecutor
+    arena.autonomic.set_debate_cost_tracker(None, "")
 
     # Cleanup debate-scoped embedding cache to free memory
     arena._cleanup_convergence_cache()

@@ -1,8 +1,8 @@
 """
-Cross-Workspace Coordination Module.
+Coordination Module.
 
-Enables workflows and agent operations that span multiple workspaces
-with proper isolation, permission management, and federation.
+Multi-agent worktree coordination, cross-workspace federation, and
+hierarchical task dispatch for parallel development.
 
 Features:
 - Cross-workspace data sharing with consent
@@ -10,6 +10,10 @@ Features:
 - Multi-workspace workflow orchestration
 - Secure inter-workspace communication
 - Permission delegation and scoping
+- Git worktree lifecycle management
+- Hierarchical task dispatch with dependencies
+- Health watchdog with stall detection and auto-recovery
+- Safe git reconciliation with conflict classification
 """
 
 from aragora.coordination.cross_workspace import (
@@ -21,8 +25,32 @@ from aragora.coordination.cross_workspace import (
     DataSharingConsent,
     SharingScope,
 )
+from aragora.coordination.worktree_manager import (
+    WorktreeManager,
+    WorktreeManagerConfig,
+    WorktreeState,
+)
+from aragora.coordination.task_dispatcher import (
+    TaskDispatcher,
+    DispatcherConfig,
+    Task,
+)
+from aragora.coordination.health_watchdog import (
+    HealthWatchdog,
+    WatchdogConfig,
+    HealthEvent,
+    RecoveryStats,
+)
+from aragora.coordination.reconciler import (
+    GitReconciler,
+    ReconcilerConfig,
+    MergeAttempt,
+    ConflictInfo,
+    ConflictCategory,
+)
 
 __all__ = [
+    # Cross-workspace
     "CrossWorkspaceCoordinator",
     "FederatedWorkspace",
     "FederationPolicy",
@@ -30,4 +58,23 @@ __all__ = [
     "CrossWorkspaceResult",
     "DataSharingConsent",
     "SharingScope",
+    # Worktree management
+    "WorktreeManager",
+    "WorktreeManagerConfig",
+    "WorktreeState",
+    # Task dispatch
+    "TaskDispatcher",
+    "DispatcherConfig",
+    "Task",
+    # Health watchdog
+    "HealthWatchdog",
+    "WatchdogConfig",
+    "HealthEvent",
+    "RecoveryStats",
+    # Git reconciliation
+    "GitReconciler",
+    "ReconcilerConfig",
+    "MergeAttempt",
+    "ConflictInfo",
+    "ConflictCategory",
 ]

@@ -27,6 +27,7 @@ import type {
   UseDebateWebSocketOptions,
   UseDebateWebSocketReturn,
   DebateStatus,
+  ConnectionQuality,
 } from './types';
 
 // Import constants from local module
@@ -52,6 +53,7 @@ export type {
   DebateConnectionStatus,
   UseDebateWebSocketOptions,
   UseDebateWebSocketReturn,
+  ConnectionQuality,
 };
 
 export function useDebateWebSocket({
@@ -73,6 +75,7 @@ export function useDebateWebSocket({
   const [hasCitations, setHasCitations] = useState(false);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [hasReceivedDebateStart, setHasReceivedDebateStart] = useState(false);
+  const [connectionQuality, setConnectionQuality] = useState<ConnectionQuality | null>(null);
 
   // Polling fallback state -- activated after permanent WebSocket failure
   const [isPolling, setIsPolling] = useState(false);
@@ -295,6 +298,16 @@ export function useDebateWebSocket({
     return true;
   }, []);
 
+  // Send application-level ping for latency measurement
+  const sendPing = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'ping',
+        ts: Date.now(),
+      }));
+    }
+  }, []);
+
   // Create event handler context for extracted handlers
   const createHandlerContext = useCallback((): EventHandlerContext => ({
     debateId,
@@ -309,6 +322,7 @@ export function useDebateWebSocket({
     addMessageIfNew,
     addStreamEvent,
     clearDebateStartTimeout,
+    setConnectionQuality,
     errorCallbackRef,
     ackCallbackRef,
     seenMessagesRef,
@@ -694,6 +708,7 @@ export function useDebateWebSocket({
     isConnected: status === 'streaming' || status === 'polling',
     isPolling,
     reconnectAttempt,
+    connectionQuality,
     task,
     agents,
     messages,
@@ -705,5 +720,6 @@ export function useDebateWebSocket({
     registerAckCallback,
     registerErrorCallback,
     reconnect,
+    sendPing,
   };
 }

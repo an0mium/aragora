@@ -1070,3 +1070,103 @@ class TestStreamTTS:
 
         # ws.closed is True, so no bytes should be sent
         ws.send_bytes.assert_not_called()
+
+
+# =========================================================================
+# Feature flag — enable_oracle_streaming
+# =========================================================================
+
+
+class TestFeatureFlag:
+    """Test enable_oracle_streaming feature flag toggling."""
+
+    @pytest.mark.asyncio
+    async def test_disabled_flag_rejects_connection(self):
+        """When enable_oracle_streaming is False, connections get an error and close."""
+        from aragora.server.stream.oracle_stream import oracle_websocket_handler
+
+        ws = AsyncMock()
+        ws.closed = False
+        ws.prepare = AsyncMock()
+        ws.send_json = AsyncMock()
+        ws.close = AsyncMock()
+
+        request = MagicMock()
+
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream.web.WebSocketResponse",
+                return_value=ws,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._is_oracle_streaming_enabled",
+                return_value=False,
+            ),
+        ):
+            await oracle_websocket_handler(request)
+
+        # Should have sent error and closed
+        error_calls = [c for c in ws.send_json.call_args_list if c.args[0].get("type") == "error"]
+        assert len(error_calls) == 1
+        assert "disabled" in error_calls[0].args[0]["message"].lower()
+        ws.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_enabled_flag_allows_connection(self):
+        """When enable_oracle_streaming is True, connections proceed normally."""
+        from aragora.server.stream.oracle_stream import oracle_websocket_handler
+
+        ws = _make_ws_mock([{"type": "ping"}])
+
+        request = MagicMock()
+
+        with (
+            patch(
+                "aragora.server.stream.oracle_stream.web.WebSocketResponse",
+                return_value=ws,
+            ),
+            patch(
+                "aragora.server.stream.oracle_stream._is_oracle_streaming_enabled",
+                return_value=True,
+            ),
+        ):
+            await oracle_websocket_handler(request)
+
+        # Should have sent connected (not error)
+        sent_types = [c.args[0].get("type") for c in ws.send_json.call_args_list]
+        assert "connected" in sent_types
+
+    def test_flag_defaults_to_enabled_on_import_error(self):
+        """When feature flag registry is unavailable, streaming defaults to enabled."""
+        from aragora.server.stream.oracle_stream import _is_oracle_streaming_enabled
+
+        with patch.dict("sys.modules", {"aragora.config.feature_flags": None}):
+            # Force re-import to hit the ImportError path
+            assert _is_oracle_streaming_enabled() is True
+
+    def test_flag_reads_from_registry(self):
+        """Feature flag reads from the registry when available."""
+        from aragora.server.stream.oracle_stream import _is_oracle_streaming_enabled
+
+        with patch(
+            "aragora.config.feature_flags.is_enabled",
+            return_value=False,
+        ):
+            assert _is_oracle_streaming_enabled() is False
+
+        with patch(
+            "aragora.config.feature_flags.is_enabled",
+            return_value=True,
+        ):
+            assert _is_oracle_streaming_enabled() is True
+
+    def test_flag_registered_in_registry(self):
+        """The enable_oracle_streaming flag is registered in the feature flag registry."""
+        from aragora.config.feature_flags import FeatureFlagRegistry
+
+        registry = FeatureFlagRegistry()
+        assert registry.is_registered("enable_oracle_streaming")
+        flag = registry.get_definition("enable_oracle_streaming")
+        assert flag is not None
+        assert flag.default is True
+        assert flag.flag_type is bool

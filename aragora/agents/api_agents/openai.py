@@ -35,7 +35,7 @@ _WEB_SEARCH_PATTERNS = [
 
 @AgentRegistry.register(
     "openai-api",
-    default_model="gpt-5.2",
+    default_model="gpt-4.1",
     default_name="openai-api",
     agent_type="API",
     env_vars="OPENAI_API_KEY",
@@ -54,20 +54,22 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
     """
 
     OPENROUTER_MODEL_MAP = {
+        "gpt-4.1": "openai/gpt-4.1",
+        "gpt-4.1-mini": "openai/gpt-4.1-mini",
+        "gpt-4.1-nano": "openai/gpt-4.1-nano",
         "gpt-4o": "openai/gpt-4o",
         "gpt-4o-mini": "openai/gpt-4o-mini",
         "gpt-4-turbo": "openai/gpt-4-turbo",
         "gpt-4": "openai/gpt-4",
         "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
-        "gpt-5.2": "openai/gpt-4o",  # Fallback to gpt-4o if gpt-5.2 not available
         "gpt-4o-search-preview": "openai/gpt-4o",  # Search model fallback
     }
-    DEFAULT_FALLBACK_MODEL = "openai/gpt-4o"
+    DEFAULT_FALLBACK_MODEL = "openai/gpt-4.1"
 
     def __init__(
         self,
         name: str = "openai-api",
-        model: str = "gpt-5.2",
+        model: str = "gpt-4.1",
         role: AgentRole = "proposer",
         timeout: int = 120,
         api_key: str | None = None,

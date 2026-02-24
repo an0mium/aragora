@@ -74,7 +74,7 @@ _PHASE_TAG_SYNTHESIS = 0x03
 _SENTENCE_BOUNDARY = re.compile(r"[.!?](?:\s|\n|$)")
 
 # Reflex model — fast, cheap, low-latency
-_REFLEX_MODEL_OPENROUTER = "anthropic/claude-3-5-haiku-20241022"
+_REFLEX_MODEL_OPENROUTER = "anthropic/claude-haiku-4-5-20251001"
 _REFLEX_MODEL_OPENAI = "gpt-4o-mini"
 
 # ---------------------------------------------------------------------------
@@ -520,10 +520,32 @@ async def _stream_phase(
 
     accumulator = SentenceAccumulator()
     tts_tasks: list[asyncio.Task[None]] = []
+    t_start = time.monotonic()
+    first_token_emitted = False
+    first_audio_emitted = False
+
+    async def _tts_with_latency(
+        ws: web.WebSocketResponse, text: str, tag: int, voice_id: str | None = None,
+    ) -> None:
+        nonlocal first_audio_emitted
+        await _stream_tts(ws, text, tag, voice_id=voice_id)
+        if not first_audio_emitted:
+            first_audio_emitted = True
+            ttfa = time.monotonic() - t_start
+            logger.info(
+                "[Oracle Latency] phase=%s time_to_first_audio=%.3fs", phase, ttfa,
+            )
 
     async for token in _call_provider_llm_stream(provider, model, prompt, max_tokens):
         if session.cancelled or ws.closed:
             break
+
+        if not first_token_emitted:
+            first_token_emitted = True
+            ttft = time.monotonic() - t_start
+            logger.info(
+                "[Oracle Latency] phase=%s time_to_first_token=%.3fs", phase, ttft,
+            )
 
         # Send token event
         await ws.send_json(
@@ -546,7 +568,7 @@ async def _stream_phase(
                 }
             )
             # Stream TTS for this sentence (fire and forget, bounded)
-            task = asyncio.create_task(_stream_tts(ws, sentence, phase_tag))
+            task = asyncio.create_task(_tts_with_latency(ws, sentence, phase_tag))
             tts_tasks.append(task)
 
     # Flush remaining text
@@ -559,13 +581,14 @@ async def _stream_phase(
                 "phase": phase,
             }
         )
-        task = asyncio.create_task(_stream_tts(ws, remainder, phase_tag))
+        task = asyncio.create_task(_tts_with_latency(ws, remainder, phase_tag))
         tts_tasks.append(task)
 
     # Wait for all TTS to finish
     if tts_tasks:
         await asyncio.gather(*tts_tasks, return_exceptions=True)
 
+    total_elapsed = time.monotonic() - t_start
     full_text = _filter_oracle_response(accumulator.full_text)
 
     if not session.cancelled and not ws.closed:
@@ -574,6 +597,7 @@ async def _stream_phase(
                 "type": "phase_done",
                 "phase": phase,
                 "full_text": full_text,
+                "latency_ms": round(total_elapsed * 1000),
             }
         )
 
@@ -893,11 +917,33 @@ def _check_ws_rate_limit(client_ip: str) -> tuple[bool, int]:
 # ---------------------------------------------------------------------------
 
 
+def _is_oracle_streaming_enabled() -> bool:
+    """Check whether Oracle streaming is enabled via feature flag."""
+    try:
+        from aragora.config.feature_flags import is_enabled
+
+        return is_enabled("enable_oracle_streaming")
+    except ImportError:
+        # Feature flag registry unavailable — default to enabled
+        return True
+
+
 async def oracle_websocket_handler(request: web.Request) -> web.WebSocketResponse:
     """WebSocket handler for real-time Oracle streaming.
 
     Endpoint: /ws/oracle
     """
+    # Check feature flag
+    if not _is_oracle_streaming_enabled():
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        await ws.send_json({
+            "type": "error",
+            "message": "Oracle streaming is disabled",
+        })
+        await ws.close()
+        return ws
+
     # Get client IP (supports X-Forwarded-For behind reverse proxy)
     client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
     if not client_ip:

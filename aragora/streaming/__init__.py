@@ -11,10 +11,12 @@ Usage:
         ReliableWebSocket,
         ReliableKafkaConsumer,
         ConnectionState,
+        ConnectionQualityMetrics,
     )
 """
 
 from .reliability import (
+    ConnectionQualityMetrics,
     ConnectionState,
     ReconnectPolicy,
     ReliableConnection,
@@ -23,6 +25,7 @@ from .reliability import (
 )
 
 __all__ = [
+    "ConnectionQualityMetrics",
     "ConnectionState",
     "ReconnectPolicy",
     "ReliableConnection",

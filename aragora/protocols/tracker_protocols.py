@@ -28,6 +28,7 @@ class EloSystemProtocol(Protocol):
         participants: list[str],
         scores: dict[str, float],
         domain: str = "",
+        confidence_weight: float = 1.0,
         winner: str | None = None,
         loser: str | None = None,
         margin: float = 1.0,

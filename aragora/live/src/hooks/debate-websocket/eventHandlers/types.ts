@@ -3,7 +3,7 @@
  */
 
 import type { StreamEvent } from '@/types/events';
-import type { TranscriptMessage, StreamingMessage, DebateConnectionStatus } from '../types';
+import type { TranscriptMessage, StreamingMessage, DebateConnectionStatus, ConnectionQuality } from '../types';
 
 /**
  * Context provided to all event handlers for state access
@@ -25,6 +25,7 @@ export interface EventHandlerContext {
   addMessageIfNew: (msg: TranscriptMessage) => boolean;
   addStreamEvent: (event: StreamEvent) => void;
   clearDebateStartTimeout: () => void;
+  setConnectionQuality: React.Dispatch<React.SetStateAction<ConnectionQuality | null>>;
 
   // Refs for callbacks
   errorCallbackRef: React.MutableRefObject<((message: string) => void) | null>;

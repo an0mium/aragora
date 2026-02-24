@@ -631,6 +631,15 @@ class FeatureFlagRegistry:
             FlagCategory.BILLING,
         )
 
+        # Oracle streaming
+        self.register(
+            "enable_oracle_streaming",
+            bool,
+            True,
+            "Enable real-time WebSocket streaming for the Shoggoth Oracle with live TTS",
+            FlagCategory.CORE,
+        )
+
         # Debug flags
         self.register(
             "enable_n1_detection",

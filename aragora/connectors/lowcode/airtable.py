@@ -13,7 +13,9 @@ Requires Airtable personal access token.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import random
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -24,6 +26,9 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _MAX_PAGES = 1000  # Safety cap for pagination loops
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0
+_MAX_DELAY = 30.0
 
 
 class FieldType(str, Enum):
@@ -259,7 +264,7 @@ class AirtableConnector:
         params: dict | None = None,
         json_data: dict | None = None,
     ) -> dict[str, Any]:
-        """Make API request."""
+        """Make API request with retry and exponential backoff."""
         client = await self._get_client()
         # Normalize AsyncMock side_effect lists to iterators (test safety).
         try:
@@ -271,26 +276,67 @@ class AirtableConnector:
                     client.request.side_effect = iter(side_effect)
         except (ImportError, AttributeError, TypeError) as e:
             logger.debug("Mock side_effect normalization skipped: %s", e)
-        response = await client.request(method, url, params=params, json=json_data)
 
-        if response.status_code >= 400:
+        last_error: Exception | None = None
+
+        for attempt in range(_MAX_RETRIES + 1):
             try:
-                error_data = response.json()
-                error = error_data.get("error", {})
-                raise AirtableError(
-                    message=error.get("message", response.text),
-                    error_type=error.get("type"),
-                    status_code=response.status_code,
-                )
-            except ValueError:
-                raise AirtableError(
-                    f"HTTP {response.status_code}: {response.text}",
-                    status_code=response.status_code,
-                )
+                response = await client.request(method, url, params=params, json=json_data)
 
-        if response.status_code == 204:
-            return {}
-        return response.json()
+                if response.status_code == 429:
+                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    jitter = random.uniform(0, retry_after * 0.3)
+                    delay = min(retry_after + jitter, _MAX_DELAY)
+                    logger.warning("Airtable rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 500 and attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Airtable server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 400:
+                    try:
+                        error_data = response.json()
+                        error = error_data.get("error", {})
+                        raise AirtableError(
+                            message=error.get("message", response.text),
+                            error_type=error.get("type"),
+                            status_code=response.status_code,
+                        )
+                    except ValueError:
+                        raise AirtableError(
+                            f"HTTP {response.status_code}: {response.text}",
+                            status_code=response.status_code,
+                        )
+
+                if response.status_code == 204:
+                    return {}
+                return response.json()
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Airtable request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except httpx.ConnectError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Airtable connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except AirtableError:
+                raise
+
+        raise AirtableError(
+            f"Request failed after {_MAX_RETRIES + 1} attempts: {last_error}",
+            status_code=None,
+        )
 
     # =========================================================================
     # Bases

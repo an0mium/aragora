@@ -94,8 +94,9 @@ export function handleHeartbeatEvent(data: ParsedEventData, ctx: EventHandlerCon
   // Update last activity timestamp (used by stall detection)
   ctx.lastActivityRef.current = Date.now();
 
-  // Check for sequence gaps via server-reported last_seq
   const eventData = data.data;
+
+  // Check for sequence gaps via server-reported last_seq
   const serverLastSeq = eventData?.last_seq as number | undefined;
   if (serverLastSeq && typeof serverLastSeq === 'number' && serverLastSeq > 0) {
     const clientLastSeq = ctx.lastSeqRef.current;
@@ -108,6 +109,20 @@ export function handleHeartbeatEvent(data: ParsedEventData, ctx: EventHandlerCon
       }
     }
   }
+
+  // Extract connection quality metrics from heartbeat data
+  const quality = eventData?.connection_quality as Record<string, unknown> | undefined;
+  const bufferSize = (eventData?.buffer_size as number) || 0;
+  const oldestSeq = (eventData?.oldest_seq as number) || 0;
+
+  ctx.setConnectionQuality({
+    reconnectCount: (quality?.reconnect_count as number) || 0,
+    avgLatencyMs: (quality?.avg_latency_ms as number) || 0,
+    uptimeSeconds: (quality?.uptime_seconds as number) || 0,
+    lastSeq: (serverLastSeq as number) || 0,
+    bufferSize,
+    oldestSeq,
+  });
 }
 
 /**

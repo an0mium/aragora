@@ -57,7 +57,7 @@ GEMINI_MODEL_ALIASES = {
     "gemini-1.5-flash": "gemini-1.5-flash",
     "gemini-1.5-pro": "gemini-1.5-pro",
     "gemini-pro": "gemini-1.5-pro",
-    "gemini-flash": "gemini-1.5-flash",
+    "gemini-flash": "gemini-3-flash-preview",
     # Keep versioned names as-is
     "gemini-1.5-flash-latest": "gemini-1.5-flash",
     "gemini-1.5-flash-001": "gemini-1.5-flash-001",
@@ -67,8 +67,10 @@ GEMINI_MODEL_ALIASES = {
     "gemini-1.5-pro-002": "gemini-1.5-pro-002",
     "gemini-2.0-flash": "gemini-2.0-flash",
     "gemini-2.0-flash-001": "gemini-2.0-flash-001",
+    # Gemini 3 series
     "gemini-3-pro-preview": "gemini-3.1-pro-preview",  # Upgraded to 3.1
     "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
+    "gemini-3-flash-preview": "gemini-3-flash-preview",
 }
 
 
@@ -106,6 +108,7 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
     # Model mapping from Gemini to OpenRouter format (used by QuotaFallbackMixin)
     OPENROUTER_MODEL_MAP = {
         "gemini-3.1-pro-preview": "google/gemini-3.1-pro-preview",
+        "gemini-3-flash-preview": "google/gemini-3-flash-preview",
         "gemini-3-pro-preview": "google/gemini-3.1-pro-preview",
         "gemini-2.5-pro": "google/gemini-3.1-pro-preview",
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",

@@ -778,6 +778,15 @@ class WebhookRetryQueue:
         Returns:
             Tuple of (success, status_code, error_message)
         """
+        # SSRF protection: validate webhook URL before sending
+        try:
+            from aragora.security.ssrf_protection import is_url_safe
+            if not is_url_safe(delivery.url):
+                logger.warning("Webhook URL blocked by SSRF protection: %s", delivery.url)
+                return False, 0, "URL blocked by SSRF protection"
+        except ImportError:
+            pass
+
         try:
             import aiohttp
         except ImportError:

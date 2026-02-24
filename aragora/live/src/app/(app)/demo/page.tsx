@@ -627,6 +627,12 @@ export default function PipelineDemoPage() {
                 </div>
               )}
               <Link
+                href="/demo/instant"
+                className="text-xs font-mono text-purple-400 hover:text-purple-300 transition-colors border border-purple-500/50 px-3 py-1.5 hover:border-purple-500"
+              >
+                [DEBATE DEMO]
+              </Link>
+              <Link
                 href="/"
                 className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors border border-[var(--border)] px-3 py-1.5 hover:border-[var(--acid-green)]/50"
               >

@@ -390,8 +390,25 @@ export default function Home() {
     });
   };
 
+  // Show loading state while auth is being verified
+  // Prevents half-rendered dashboard shell during /api/auth/me validation
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="font-mono text-[var(--acid-green)] text-2xl tracking-widest animate-pulse">
+            ARAGORA
+          </div>
+          <div className="font-mono text-[var(--text-muted)] text-xs">
+            Verifying session...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Show marketing landing page for unauthenticated visitors (skip in demo mode)
-  if (!authLoading && !isAuthenticated && !isDemoMode) {
+  if (!isAuthenticated && !isDemoMode) {
     return (
       <LandingPage
         apiBase={apiBase}
@@ -593,7 +610,7 @@ export default function Home() {
         />
 
         {/* Show login prompt for unauthenticated users */}
-        {!authLoading && !isAuthenticated && (
+        {!isAuthenticated && (
           <div className="bg-surface/50 border border-acid-green/30 rounded-lg p-6 text-center">
             <p className="text-text-muted font-mono text-sm mb-4">
               Log in to access the full dashboard with debate history, analytics, and agent rankings.

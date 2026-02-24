@@ -305,8 +305,8 @@ class CodebaseAdapter(KnowledgeMoundAdapter):
         try:
             from aragora.connectors.repository_crawler import RepositoryCrawler
 
-            crawler = RepositoryCrawler(source)
-            crawl_result = await crawler.crawl()
+            crawler = RepositoryCrawler()
+            crawl_result = await crawler.crawl(source=source)
             return await self.sync_to_km(crawl_result, workspace_id=workspace_id)
         except ImportError:
             logger.warning("RepositoryCrawler not available")

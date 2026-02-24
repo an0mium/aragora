@@ -243,7 +243,7 @@ jobs:
               "cd /home/ec2-user/aragora",
               "git config --global --add safe.directory /home/ec2-user/aragora",
               "PREVIOUS_COMMIT=$(git rev-parse HEAD)",
-              "echo \"Rollback point: $PREVIOUS_COMMIT\" > /tmp/aragora_deploy_state",
+              "echo \"PREVIOUS_COMMIT=$PREVIOUS_COMMIT\" > /tmp/aragora_deploy_state",
               "sudo -u ec2-user git stash --include-untracked || true",
               "sudo chown -R ec2-user:ec2-user /home/ec2-user/aragora/.git || true",
               "sudo -u ec2-user git fetch origin main",
@@ -366,8 +366,8 @@ jobs:
               "for i in $(seq 1 12); do if curl -sf http://localhost:8080/api/health; then echo; echo HEALTH_OK; break; fi; echo \"Waiting for server... attempt $i/12\"; sleep 5; done",
               "if ! curl -sf http://localhost:8080/api/health > /dev/null; then echo HEALTH_FAIL; exit 1; fi",
               "echo Verifying build SHA...",
-              "BUILD_RESPONSE=$(curl -sf http://localhost:8080/health/build || echo {})",
-              "echo Build response: $BUILD_RESPONSE",
+              "DEPLOYED_SHA=$(cd /home/ec2-user/aragora && git rev-parse HEAD)",
+              "echo DEPLOYED_SHA=$DEPLOYED_SHA",
               "echo HEALTH_OK"
             ]' \
             --timeout-seconds 90 \
@@ -533,7 +533,7 @@ jobs:
               "cd /home/ec2-user/aragora",
               "git config --global --add safe.directory /home/ec2-user/aragora",
               "PREVIOUS_COMMIT=$(git rev-parse HEAD)",
-              "echo \"Rollback point: $PREVIOUS_COMMIT\" > /tmp/aragora_deploy_state",
+              "echo \"PREVIOUS_COMMIT=$PREVIOUS_COMMIT\" > /tmp/aragora_deploy_state",
               "sudo -u ec2-user git stash --include-untracked || true",
               "sudo chown -R ec2-user:ec2-user /home/ec2-user/aragora/.git || true",
               "sudo -u ec2-user git fetch origin main",

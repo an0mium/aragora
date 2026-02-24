@@ -8,12 +8,21 @@ Integration with Segment CDP (Customer Data Platform):
 - Manage audiences and personas
 """
 
+import asyncio
+import logging
+import random
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
+
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0
+_MAX_DELAY = 30.0
 
 
 class SourceType(Enum):
@@ -396,21 +405,60 @@ class SegmentConnector:
         endpoint: str,
         json_data: dict[str, Any],
     ) -> dict[str, Any]:
-        """Make tracking API request."""
+        """Make tracking API request with retry and exponential backoff."""
         client = await self._get_tracking_client()
         url = f"{self.TRACKING_URL}/{endpoint}"
 
-        response = await client.post(url, json=json_data)
+        last_error: Exception | None = None
 
-        if response.status_code >= 400:
-            error_data = response.json() if response.content else {}
-            raise SegmentError(
-                message=error_data.get("message", f"API error: {response.status_code}"),
-                status_code=response.status_code,
-                error_code=error_data.get("code"),
-            )
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                response = await client.post(url, json=json_data)
 
-        return response.json() if response.content else {"success": True}
+                if response.status_code == 429:
+                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    jitter = random.uniform(0, retry_after * 0.3)
+                    delay = min(retry_after + jitter, _MAX_DELAY)
+                    logger.warning("Segment tracking rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 500 and attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Segment tracking server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 400:
+                    error_data = response.json() if response.content else {}
+                    raise SegmentError(
+                        message=error_data.get("message", f"API error: {response.status_code}"),
+                        status_code=response.status_code,
+                        error_code=error_data.get("code"),
+                    )
+
+                return response.json() if response.content else {"success": True}
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Segment tracking request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except httpx.ConnectError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Segment tracking connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except SegmentError:
+                raise
+
+        raise SegmentError(
+            message=f"Request failed after {_MAX_RETRIES + 1} attempts: {last_error}",
+        )
 
     async def _config_request(
         self,
@@ -419,26 +467,65 @@ class SegmentConnector:
         params: dict[str, Any] | None = None,
         json_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make config API request."""
+        """Make config API request with retry and exponential backoff."""
         client = await self._get_config_client()
         url = f"{self.CONFIG_URL}/{endpoint}"
 
-        response = await client.request(
-            method=method,
-            url=url,
-            params=params,
-            json=json_data,
+        last_error: Exception | None = None
+
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    json=json_data,
+                )
+
+                if response.status_code == 429:
+                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    jitter = random.uniform(0, retry_after * 0.3)
+                    delay = min(retry_after + jitter, _MAX_DELAY)
+                    logger.warning("Segment config rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 500 and attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Segment config server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 400:
+                    error_data = response.json() if response.content else {}
+                    raise SegmentError(
+                        message=error_data.get("message", f"API error: {response.status_code}"),
+                        status_code=response.status_code,
+                        error_code=error_data.get("code"),
+                    )
+
+                return response.json() if response.content else {}
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Segment config request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except httpx.ConnectError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Segment config connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except SegmentError:
+                raise
+
+        raise SegmentError(
+            message=f"Request failed after {_MAX_RETRIES + 1} attempts: {last_error}",
         )
-
-        if response.status_code >= 400:
-            error_data = response.json() if response.content else {}
-            raise SegmentError(
-                message=error_data.get("message", f"API error: {response.status_code}"),
-                status_code=response.status_code,
-                error_code=error_data.get("code"),
-            )
-
-        return response.json() if response.content else {}
 
     async def _profiles_request(
         self,
@@ -446,25 +533,64 @@ class SegmentConnector:
         endpoint: str,
         params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Make profiles API request."""
+        """Make profiles API request with retry and exponential backoff."""
         client = await self._get_profiles_client()
         url = f"{self.PROFILES_URL}/{endpoint}"
 
-        response = await client.request(
-            method=method,
-            url=url,
-            params=params,
+        last_error: Exception | None = None
+
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                )
+
+                if response.status_code == 429:
+                    retry_after = float(response.headers.get("Retry-After", _BASE_DELAY * (2 ** attempt)))
+                    jitter = random.uniform(0, retry_after * 0.3)
+                    delay = min(retry_after + jitter, _MAX_DELAY)
+                    logger.warning("Segment profiles rate limited, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 500 and attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Segment profiles server error %d, retrying in %.1fs (attempt %d/%d)", response.status_code, delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+
+                if response.status_code >= 400:
+                    error_data = response.json() if response.content else {}
+                    raise SegmentError(
+                        message=error_data.get("message", f"API error: {response.status_code}"),
+                        status_code=response.status_code,
+                        error_code=error_data.get("code"),
+                    )
+
+                return response.json() if response.content else {}
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Segment profiles request timeout, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except httpx.ConnectError as e:
+                last_error = e
+                if attempt < _MAX_RETRIES:
+                    delay = min(_BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), _MAX_DELAY)
+                    logger.warning("Segment profiles connection error, retrying in %.1fs (attempt %d/%d)", delay, attempt + 1, _MAX_RETRIES)
+                    await asyncio.sleep(delay)
+                    continue
+            except SegmentError:
+                raise
+
+        raise SegmentError(
+            message=f"Request failed after {_MAX_RETRIES + 1} attempts: {last_error}",
         )
-
-        if response.status_code >= 400:
-            error_data = response.json() if response.content else {}
-            raise SegmentError(
-                message=error_data.get("message", f"API error: {response.status_code}"),
-                status_code=response.status_code,
-                error_code=error_data.get("code"),
-            )
-
-        return response.json() if response.content else {}
 
     # Tracking API
 

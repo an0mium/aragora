@@ -523,13 +523,18 @@ class ReliableWebSocket(ReliableConnection):
     """Reliable WebSocket client with automatic reconnection.
 
     Wraps the ``websockets`` library (lazy import) and provides message
-    buffering, health-check ping/pong, and integration with CircuitBreaker.
+    buffering, health-check ping/pong, sequence-aware reconnection with
+    event replay, and integration with CircuitBreaker.
+
+    On reconnect, sends ``replay_from_seq`` in the subscribe message
+    so the server can replay missed events from its ring buffer.
 
     Usage:
         ws = ReliableWebSocket("ws://localhost:8765")
         await ws.connect()
         await ws.send("hello")
         msg = await ws.recv()
+        quality = ws.get_quality_metrics()
         await ws.disconnect()
     """
 
@@ -541,7 +546,9 @@ class ReliableWebSocket(ReliableConnection):
         circuit_breaker: CircuitBreaker | None = None,
         buffer_size: int = 1000,
         health_check_interval: float = 30.0,
+        heartbeat_timeout: float = 90.0,
         extra_headers: dict[str, str] | None = None,
+        on_degraded: Callable[[], Awaitable[None] | None] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -554,6 +561,10 @@ class ReliableWebSocket(ReliableConnection):
         self._url = url
         self._ws: Any | None = None
         self._extra_headers = extra_headers or {}
+        self._heartbeat_timeout = heartbeat_timeout
+        self._on_degraded = on_degraded
+        self._last_heartbeat_at: float = 0.0
+        self._heartbeat_monitor_task: asyncio.Task[None] | None = None
 
     @property
     def url(self) -> str:
@@ -566,8 +577,10 @@ class ReliableWebSocket(ReliableConnection):
             self._url,
             additional_headers=self._extra_headers,
         )
+        self._last_heartbeat_at = time.time()
 
     async def _do_disconnect(self) -> None:
+        self._stop_heartbeat_monitor()
         if self._ws is not None:
             await self._ws.close()
             self._ws = None
@@ -593,6 +606,7 @@ class ReliableWebSocket(ReliableConnection):
 
         try:
             await self._ws.send(message)
+            self._total_messages_sent += 1
             return True
         except Exception:  # noqa: BLE001 - buffer on any send failure
             self.buffer_message(message)
@@ -604,12 +618,93 @@ class ReliableWebSocket(ReliableConnection):
         """Receive a message from the WebSocket.
 
         Raises ConnectionError if not connected.
+        Automatically updates last_seen_seq and heartbeat timestamp
+        if the received message is JSON with a ``seq`` field.
         """
         if self._ws is None:
             raise ConnectionError("WebSocket is not connected")
         if timeout is not None:
-            return await asyncio.wait_for(self._ws.recv(), timeout=timeout)
-        return await self._ws.recv()
+            raw = await asyncio.wait_for(self._ws.recv(), timeout=timeout)
+        else:
+            raw = await self._ws.recv()
+
+        # Auto-track sequence number and heartbeat from incoming events
+        self._last_heartbeat_at = time.time()
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    seq = parsed.get("seq")
+                    if isinstance(seq, int) and seq > 0:
+                        self.update_last_seen_seq(seq)
+                    if parsed.get("type") == "pong":
+                        client_ts = parsed.get("data", {}).get("client_ts", 0)
+                        if client_ts > 0:
+                            rtt = time.time() * 1000 - client_ts
+                            if rtt > 0:
+                                self.record_latency(rtt)
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                pass
+
+        return raw
+
+    async def send_subscribe(self, debate_id: str) -> None:
+        """Send a subscribe message, including replay_from_seq if reconnecting.
+
+        This sends the appropriate subscribe payload to the Aragora debate
+        stream server, requesting event replay from the last seen sequence
+        number on reconnection.
+        """
+        msg: dict[str, Any] = {"type": "subscribe", "debate_id": debate_id}
+        if self._last_seen_seq > 0:
+            msg["replay_from_seq"] = self._last_seen_seq
+            logger.info(
+                "[ReliableWS] Requesting replay from seq %d for debate %s",
+                self._last_seen_seq,
+                debate_id,
+            )
+        await self.send(json.dumps(msg))
+
+    async def send_ping(self) -> None:
+        """Send an application-level ping for latency measurement."""
+        msg = json.dumps({"type": "ping", "ts": time.time() * 1000})
+        await self.send(msg)
+
+    def _start_heartbeat_monitor(self) -> None:
+        """Start monitoring for heartbeat timeout."""
+        self._stop_heartbeat_monitor()
+        self._heartbeat_monitor_task = asyncio.ensure_future(
+            self._heartbeat_monitor_loop()
+        )
+
+    def _stop_heartbeat_monitor(self) -> None:
+        """Stop the heartbeat monitor task."""
+        if self._heartbeat_monitor_task and not self._heartbeat_monitor_task.done():
+            self._heartbeat_monitor_task.cancel()
+            self._heartbeat_monitor_task = None
+
+    async def _heartbeat_monitor_loop(self) -> None:
+        """Monitor for heartbeat timeout and trigger reconnect/degradation."""
+        try:
+            while self._state == ConnectionState.CONNECTED:
+                await asyncio.sleep(self._heartbeat_timeout / 3)
+                if self._state != ConnectionState.CONNECTED:
+                    break
+                elapsed = time.time() - self._last_heartbeat_at
+                if elapsed > self._heartbeat_timeout:
+                    logger.warning(
+                        "[ReliableWS] No heartbeat in %.0fs (timeout=%.0fs), triggering reconnect",
+                        elapsed,
+                        self._heartbeat_timeout,
+                    )
+                    # Try reconnect first
+                    reconnected = await self.reconnect()
+                    if not reconnected:
+                        # Fire degradation hook (e.g. switch to polling)
+                        await self._fire_hook(self._on_degraded)
+                    break
+        except asyncio.CancelledError:
+            pass
 
     async def _flush_buffer(self) -> int:
         """Re-send buffered messages after reconnection."""
@@ -620,6 +715,7 @@ class ReliableWebSocket(ReliableConnection):
             msg = self._buffer.popleft()
             try:
                 await self._ws.send(msg)
+                self._total_messages_sent += 1
                 flushed += 1
             except Exception:  # noqa: BLE001 - stop flushing on first failure
                 self._buffer.appendleft(msg)
@@ -748,6 +844,7 @@ class ReliableKafkaConsumer(ReliableConnection):
 
 
 __all__ = [
+    "ConnectionQualityMetrics",
     "ConnectionState",
     "ReconnectPolicy",
     "ReliableConnection",

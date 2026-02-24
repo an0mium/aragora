@@ -17,8 +17,14 @@ interface UseStreamingAudio {
   endSegment: () => void;
   /** Stop all playback and reset. */
   stop: () => void;
+  /** Pause audio playback (resumable). */
+  pause: () => void;
+  /** Resume paused audio playback. */
+  resume: () => void;
   /** Whether audio is currently playing. */
   isPlaying: () => boolean;
+  /** Whether audio is currently paused. */
+  isPaused: () => boolean;
 }
 
 /**
@@ -181,13 +187,41 @@ export function useStreamingAudio(): UseStreamingAudio {
     fallbackChunksRef.current = [];
   }, []);
 
+  const pause = useCallback(() => {
+    if (audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
+    }
+    if (fallbackAudioRef.current && !fallbackAudioRef.current.paused) {
+      fallbackAudioRef.current.pause();
+    }
+  }, []);
+
+  const resume = useCallback(() => {
+    if (audioRef.current?.paused) {
+      audioRef.current.play().catch((err) => {
+        console.warn('[useStreamingAudio] Resume playback failed:', err);
+      });
+    }
+    if (fallbackAudioRef.current?.paused) {
+      fallbackAudioRef.current.play().catch((err) => {
+        console.warn('[useStreamingAudio] Resume fallback playback failed:', err);
+      });
+    }
+  }, []);
+
   const isPlaying = useCallback(() => {
     if (audioRef.current && !audioRef.current.paused) return true;
     if (fallbackAudioRef.current && !fallbackAudioRef.current.paused) return true;
     return false;
   }, []);
 
-  return { appendChunk, endSegment, stop, isPlaying };
+  const isPaused = useCallback(() => {
+    if (audioRef.current?.paused && audioRef.current.currentTime > 0) return true;
+    if (fallbackAudioRef.current?.paused && fallbackAudioRef.current.currentTime > 0) return true;
+    return false;
+  }, []);
+
+  return { appendChunk, endSegment, stop, pause, resume, isPlaying, isPaused };
 }
 
 export default useStreamingAudio;
