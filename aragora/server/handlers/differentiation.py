@@ -102,7 +102,7 @@ class DifferentiationHandler(BaseHandler):
         )
 
         # Calibration from ELO
-        calibration_data = {}
+        calibration_data: dict[str, Any] = {}
         if elo_system:
             try:
                 cal = getattr(elo_system, "get_calibration_stats", None)

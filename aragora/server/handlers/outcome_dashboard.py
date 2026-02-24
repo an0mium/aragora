@@ -302,12 +302,12 @@ class OutcomeDashboardHandler(SecureHandler):
                 elo_sys = EloSystem()
                 cal_lb = elo_sys.get_calibration_leaderboard(limit=50)
                 for entry in cal_lb:
-                    agent_name = entry.get("agent_name", entry.get("agent", ""))
+                    agent_name = entry.agent_name
                     if agent_name:
                         calibration_map[agent_name] = {
-                            "brier_score": entry.get("brier_score", None),
-                            "accuracy": entry.get("accuracy", None),
-                            "count": entry.get("count", 0),
+                            "brier_score": entry.calibration_brier_score,
+                            "accuracy": entry.calibration_accuracy,
+                            "count": entry.calibration_total,
                         }
             except _SAFE_EXCEPTIONS as e:
                 logger.debug("Calibration data unavailable: %s", e)

@@ -23,7 +23,7 @@ from __future__ import annotations
 __all__ = ["DecisionPipelineHandler"]
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.pipeline.decision_plan.factory import normalize_execution_mode
 from aragora.resilience import get_circuit_breaker
@@ -39,6 +39,7 @@ from ..utils.rate_limit import RateLimiter
 
 if TYPE_CHECKING:
     from aragora.protocols import HTTPRequestHandler
+    from aragora.pipeline.executor import ExecutionMode
 
 logger = logging.getLogger(__name__)
 
@@ -65,17 +66,17 @@ def _normalize_string_list(value: Any, field_name: str) -> list[str] | None:
     if value is None:
         return None
     if isinstance(value, str):
-        items = [item.strip() for item in value.split(",") if item.strip()]
-        return items or None
+        split_items = [item.strip() for item in value.split(",") if item.strip()]
+        return split_items or None
     if isinstance(value, (list, tuple)):
-        items: list[str] = []
+        normalized_items: list[str] = []
         for item in value:
             if not isinstance(item, str):
                 raise ValueError(f"{field_name} must be a string or list of strings")
             normalized = item.strip()
             if normalized:
-                items.append(normalized)
-        return items or None
+                normalized_items.append(normalized)
+        return normalized_items or None
     raise ValueError(f"{field_name} must be a string or list of strings")
 
 
@@ -645,6 +646,7 @@ class DecisionPipelineHandler(SecureHandler):
                     f"Invalid execution_mode: {raw_execution_mode}. Allowed values: {allowed}",
                     400,
                 )
+        execution_mode_typed = cast("ExecutionMode | None", execution_mode)
 
         parallel_execution = body.get("parallel_execution")
         if parallel_execution is not None and not isinstance(parallel_execution, bool):
@@ -686,7 +688,7 @@ class DecisionPipelineHandler(SecureHandler):
                 executor.execute(
                     plan,
                     auth_context=auth_context,
-                    execution_mode=execution_mode,
+                    execution_mode=execution_mode_typed,
                     parallel_execution=parallel_execution,
                 )
             )

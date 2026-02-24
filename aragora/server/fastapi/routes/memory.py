@@ -207,23 +207,26 @@ async def search_memories(
         tiers_list: list[Any] = []
         tiers_searched: list[str] = []
 
+        memory_tier_cls: Any | None = None
         try:
-            from aragora.memory.continuum import MemoryTier
-        except ImportError:
-            MemoryTier = None
+            from aragora.memory.continuum import MemoryTier as _MemoryTier
 
-        if tier and MemoryTier:
+            memory_tier_cls = _MemoryTier
+        except ImportError:
+            pass
+
+        if tier and memory_tier_cls:
             for tier_name in tier.split(","):
                 tier_name = tier_name.strip().lower()
                 if tier_name in _VALID_TIERS:
                     try:
-                        tiers_list.append(MemoryTier[tier_name.upper()])
+                        tiers_list.append(memory_tier_cls[tier_name.upper()])
                         tiers_searched.append(tier_name)
                     except KeyError:
                         continue
-        elif MemoryTier:
-            tiers_list = list(MemoryTier)
-            tiers_searched = [t.name.lower() for t in MemoryTier]
+        elif memory_tier_cls:
+            tiers_list = list(memory_tier_cls)
+            tiers_searched = [t.name.lower() for t in memory_tier_cls]
         else:
             tiers_searched = list(_VALID_TIERS)
 
@@ -357,23 +360,26 @@ async def recall_memories(
         tiers_list: list[Any] = []
         tiers_searched: list[str] = []
 
+        memory_tier_cls: Any | None = None
         try:
-            from aragora.memory.continuum import MemoryTier
-        except ImportError:
-            MemoryTier = None
+            from aragora.memory.continuum import MemoryTier as _MemoryTier
 
-        if tier and MemoryTier:
+            memory_tier_cls = _MemoryTier
+        except ImportError:
+            pass
+
+        if tier and memory_tier_cls:
             for tier_name in tier.split(","):
                 tier_name = tier_name.strip().lower()
                 if tier_name in _VALID_TIERS:
                     try:
-                        tiers_list.append(MemoryTier[tier_name.upper()])
+                        tiers_list.append(memory_tier_cls[tier_name.upper()])
                         tiers_searched.append(tier_name)
                     except KeyError:
                         continue
-        elif MemoryTier:
-            tiers_list = list(MemoryTier)
-            tiers_searched = [t.name.lower() for t in MemoryTier]
+        elif memory_tier_cls:
+            tiers_list = list(memory_tier_cls)
+            tiers_searched = [t.name.lower() for t in memory_tier_cls]
         else:
             tiers_searched = list(_VALID_TIERS)
 

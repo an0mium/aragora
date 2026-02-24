@@ -75,6 +75,7 @@ class WebSocketHandlerMixin:
         is_ws_authenticated: Any
         should_revalidate_ws_token: Any
         get_ws_token: Any
+        get_ws_auth_state: Any
         revoke_ws_auth: Any
         mark_ws_token_validated: Any
         set_ws_auth_state: Any

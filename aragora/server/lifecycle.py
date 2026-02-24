@@ -37,7 +37,10 @@ try:
             "Number of threads registered with the lifecycle manager",
         )
     except ValueError:
-        REGISTERED_THREADS_GAUGE = REGISTRY._names_to_collectors.get("aragora_registered_threads")
+        existing_threads_gauge = REGISTRY._names_to_collectors.get("aragora_registered_threads")
+        REGISTERED_THREADS_GAUGE = (
+            existing_threads_gauge if isinstance(existing_threads_gauge, Gauge) else None
+        )
 
     try:
         SHUTDOWN_DURATION_HISTOGRAM: Histogram | None = Histogram(
@@ -46,8 +49,13 @@ try:
             buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
         )
     except ValueError:
-        SHUTDOWN_DURATION_HISTOGRAM = REGISTRY._names_to_collectors.get(
+        existing_shutdown_histogram = REGISTRY._names_to_collectors.get(
             "aragora_shutdown_duration_seconds"
+        )
+        SHUTDOWN_DURATION_HISTOGRAM = (
+            existing_shutdown_histogram
+            if isinstance(existing_shutdown_histogram, Histogram)
+            else None
         )
 except ImportError:
     REGISTERED_THREADS_GAUGE = None

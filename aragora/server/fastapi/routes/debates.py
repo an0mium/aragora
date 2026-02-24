@@ -686,9 +686,12 @@ async def create_debate(
             raise HTTPException(status_code=400, detail="Invalid debate request")
 
         try:
-            from aragora.server.debate_controller import get_debate_controller
+            import aragora.server.debate_controller as debate_controller_mod
 
-            controller = get_debate_controller()
+            controller_getter = getattr(debate_controller_mod, "get_debate_controller", None)
+            if not callable(controller_getter):
+                raise HTTPException(status_code=503, detail="Debate orchestrator not available")
+            controller = controller_getter()
             response = controller.start_debate(debate_request)
         except ImportError:
             logger.warning("Debate controller not available")
@@ -789,9 +792,8 @@ async def export_debate(
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported format: {export_format}")
 
-        content = result.content
-        if isinstance(content, bytes):
-            content = content.decode("utf-8")
+        raw_content = result.content
+        content = raw_content.decode("utf-8") if isinstance(raw_content, bytes) else raw_content
 
         return Response(
             content=content,

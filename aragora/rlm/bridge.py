@@ -1291,23 +1291,28 @@ Please provide an improved answer based on the feedback."""
             debate_id: Optional debate ID for context
         """
         try:
-            from aragora.audit.log import get_audit_log
+            from aragora.audit.log import AuditCategory, AuditEvent, get_audit_log
 
             audit = get_audit_log()
             audit.log(
-                action="rlm_query",
-                category="rlm",
-                details={
-                    "query": query[:500],
-                    "answer_preview": result.answer[:200],
-                    "used_true_rlm": result.used_true_rlm,
-                    "confidence": result.confidence,
-                    "tokens_processed": result.tokens_processed,
-                    "trajectory_log_path": result.trajectory_log_path,
-                    "rlm_iterations": result.rlm_iterations,
-                    "code_blocks_executed": result.code_blocks_executed,
-                    "debate_id": debate_id,
-                },
+                AuditEvent(
+                    category=AuditCategory.SYSTEM,
+                    action="rlm_query",
+                    actor_id="system:rlm",
+                    resource_type="rlm",
+                    resource_id=debate_id or "",
+                    details={
+                        "query": query[:500],
+                        "answer_preview": result.answer[:200],
+                        "used_true_rlm": result.used_true_rlm,
+                        "confidence": result.confidence,
+                        "tokens_processed": result.tokens_processed,
+                        "trajectory_log_path": result.trajectory_log_path,
+                        "rlm_iterations": result.rlm_iterations,
+                        "code_blocks_executed": result.code_blocks_executed,
+                        "debate_id": debate_id,
+                    },
+                )
             )
         except (ImportError, RuntimeError, ValueError, OSError, AttributeError) as e:
             logger.debug("Audit logging skipped: %s", e)

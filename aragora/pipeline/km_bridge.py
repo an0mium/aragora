@@ -30,9 +30,11 @@ class PipelineKMBridge:
         self._km = knowledge_mound
         if self._km is None:
             try:
-                from aragora.knowledge.mound.core import get_knowledge_mound
+                from aragora.knowledge.mound import core as mound_core
 
-                self._km = get_knowledge_mound()
+                factory = getattr(mound_core, "get_knowledge_mound", None)
+                if callable(factory):
+                    self._km = factory()
             except (ImportError, Exception):
                 logger.debug("KnowledgeMound not available for pipeline bridge")
 
@@ -433,8 +435,10 @@ class PipelineKMBridge:
             )
 
             adapter = DecisionPlanAdapter(self._km)
-            adapter.store(result_dict)
-            return True
+            store_method = getattr(adapter, "store", None)
+            if callable(store_method):
+                store_method(result_dict)
+                return True
         except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
             pass
 

@@ -692,7 +692,7 @@ class DebateStreamServer(ServerBase):
             if not clients:
                 continue
 
-            base_data = {
+            base_data: dict[str, Any] = {
                 "server_time": time.time(),
                 "active_debates": len(self.debate_states),
                 "connected_clients": len(clients),

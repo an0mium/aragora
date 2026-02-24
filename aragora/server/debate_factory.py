@@ -702,7 +702,7 @@ class DebateFactory:
 
         # Apply per-debate budget cap if specified
         if config.budget_limit_usd and config.budget_limit_usd > 0:
-            arena.budget_limit_usd = config.budget_limit_usd
+            setattr(arena, "budget_limit_usd", config.budget_limit_usd)
             if hasattr(arena, "extensions") and arena.extensions is not None:
                 arena.extensions.debate_budget_limit_usd = config.budget_limit_usd
                 arena.extensions.enforce_budget_limit = True

@@ -23,7 +23,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -42,6 +42,9 @@ logger = logging.getLogger(__name__)
 
 # Active run tasks for cancellation support
 _active_tasks: dict[str, asyncio.Task[Any]] = {}
+
+if TYPE_CHECKING:
+    from aragora.nomic.stores.run_store import SelfImproveRunStore
 
 
 def _extract_run_id(path: str) -> str | None:
@@ -88,7 +91,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
     def __init__(self, server_context: dict[str, Any]) -> None:
         super().__init__(server_context)
-        self._store = None
+        self._store: SelfImproveRunStore | None = None
 
     def _get_store(self) -> Any:
         """Lazy-load the run store."""
@@ -362,16 +365,16 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
         # Get ELO changes from recent debates/executions
         try:
-            from aragora.ranking.elo import EloTracker
+            from aragora.ranking.elo import EloSystem
 
-            tracker = EloTracker()
-            history = getattr(tracker, "get_recent_changes", lambda n: [])(10)
-            for change in history:
+            elo_system = EloSystem()
+            history: list[Any] = list(elo_system.get_leaderboard(limit=10))
+            for rating in history:
                 elo_changes.append({
-                    "agent": getattr(change, "agent_name", str(change)),
-                    "delta": getattr(change, "delta", 0),
-                    "new_rating": getattr(change, "new_rating", 0),
-                    "reason": getattr(change, "reason", ""),
+                    "agent": rating.agent_name,
+                    "delta": 0,
+                    "new_rating": rating.elo,
+                    "reason": "current_rating",
                 })
         except (ImportError, RuntimeError, TypeError, AttributeError):
             pass
@@ -382,13 +385,24 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
             bridge = PipelineKMBridge()
             if bridge.available and pipeline_id:
-                entries = bridge.get_entries_for_pipeline(pipeline_id)
-                for entry in (entries if isinstance(entries, list) else []):
-                    km_entries.append({
-                        "id": getattr(entry, "id", str(entry)),
-                        "type": getattr(entry, "entry_type", "unknown"),
-                        "confidence": getattr(entry, "confidence", 0.5),
-                    })
+                grouped_entries = bridge.query_all_adapter_precedents(pipeline_id, limit=5)
+                for entry_type, entries in grouped_entries.items():
+                    normalized_type = entry_type.rstrip("s")
+                    for entry in entries:
+                        confidence = entry.get("confidence", entry.get("impact_score", 0.5))
+                        if not isinstance(confidence, (int, float)):
+                            confidence = 0.5
+                        entry_id = (
+                            entry.get("receipt_id")
+                            or entry.get("outcome_id")
+                            or entry.get("debate_id")
+                            or ""
+                        )
+                        km_entries.append({
+                            "id": str(entry_id),
+                            "type": normalized_type,
+                            "confidence": float(confidence),
+                        })
         except (ImportError, RuntimeError, TypeError, AttributeError):
             pass
 
@@ -428,14 +442,14 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
             queue = ImprovementQueue()
             pending = queue.peek(limit=limit)
-            for g in pending:
+            for pending_goal in pending:
                 goals.append({
-                    "goal": g.goal,
-                    "source": g.source,
-                    "priority": g.priority,
-                    "context": g.context,
-                    "estimated_impact": g.context.get("estimated_impact", "medium"),
-                    "track": g.context.get("track", "core"),
+                    "goal": pending_goal.goal,
+                    "source": pending_goal.source,
+                    "priority": pending_goal.priority,
+                    "context": pending_goal.context,
+                    "estimated_impact": pending_goal.context.get("estimated_impact", "medium"),
+                    "track": pending_goal.context.get("track", "core"),
                     "status": "pending",
                 })
         except (ImportError, OSError, RuntimeError) as e:
@@ -446,14 +460,14 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             from aragora.nomic.feedback_orchestrator import ImprovementQueue as IQ
 
             legacy_queue = IQ.load()
-            for fg in legacy_queue.goals[-limit:]:
+            for legacy_goal in legacy_queue.goals[-limit:]:
                 goals.append({
-                    "goal": fg.description,
-                    "source": fg.source,
-                    "priority": fg.priority,
-                    "context": fg.metadata,
-                    "estimated_impact": fg.estimated_impact,
-                    "track": fg.track,
+                    "goal": legacy_goal.description,
+                    "source": legacy_goal.source,
+                    "priority": legacy_goal.priority,
+                    "context": legacy_goal.metadata,
+                    "estimated_impact": legacy_goal.estimated_impact,
+                    "track": legacy_goal.track,
                     "status": "pending",
                 })
         except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
@@ -462,14 +476,14 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         # Deduplicate by goal text
         seen: set[str] = set()
         deduped: list[dict[str, Any]] = []
-        for g in goals:
-            key = g["goal"]
+        for goal_item in goals:
+            key = goal_item["goal"]
             if key not in seen:
                 seen.add(key)
-                deduped.append(g)
+                deduped.append(goal_item)
 
         # Sort by priority descending
-        deduped.sort(key=lambda g: g.get("priority", 0), reverse=True)
+        deduped.sort(key=lambda goal_item: goal_item.get("priority", 0), reverse=True)
 
         return json_response({
             "data": {
@@ -875,7 +889,11 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 "goal": goal,
                 "tracks": tracks or [],
                 "subtasks": [
-                    {"description": st.description, "track": st.track, "priority": st.priority}
+                    {
+                        "description": getattr(st, "description", str(st)),
+                        "track": getattr(st, "track", "core"),
+                        "priority": getattr(st, "priority", 0),
+                    }
                     for st in (result.subtasks if hasattr(result, "subtasks") else [])
                 ],
                 "complexity": getattr(result, "complexity_score", 0),
@@ -1000,7 +1018,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                 use_worktree_isolation=True,
             )
 
-            result = await orchestrator.execute_goal_coordinated(
+            orchestration_result = await orchestrator.execute_goal_coordinated(
                 goal=goal,
                 tracks=tracks,
                 max_cycles=max_cycles,
@@ -1008,20 +1026,20 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
             store.update_run(
                 run_id,
-                status="completed" if result.success else "failed",
+                status="completed" if orchestration_result.success else "failed",
                 completed_at=datetime.now(timezone.utc).isoformat(),
-                total_subtasks=result.total_subtasks,
-                completed_subtasks=result.completed_subtasks,
-                failed_subtasks=result.failed_subtasks,
-                summary=result.summary,
-                error=result.error,
+                total_subtasks=orchestration_result.total_subtasks,
+                completed_subtasks=orchestration_result.completed_subtasks,
+                failed_subtasks=orchestration_result.failed_subtasks,
+                summary=orchestration_result.summary,
+                error=orchestration_result.error,
             )
 
             # Emit loop_stopped
             try:
                 if stream:
                     await stream.emit_loop_stopped(
-                        reason=result.summary or "Orchestration complete"
+                        reason=orchestration_result.summary or "Orchestration complete"
                     )
             except (RuntimeError, OSError) as e:
                 logger.debug("WebSocket emit skipped: %s", type(e).__name__)

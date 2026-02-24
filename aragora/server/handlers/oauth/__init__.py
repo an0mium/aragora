@@ -25,6 +25,8 @@ Imports are deferred to avoid circular dependency:
 
 from __future__ import annotations
 
+from typing import Any
+
 from .config import get_oauth_config_status
 
 __all__ = [
@@ -75,7 +77,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     """Lazy imports to break circular dependency with _oauth/base.py."""
     if name == "_OAUTH_STATES":
         from .._oauth_impl import _OAUTH_STATES
