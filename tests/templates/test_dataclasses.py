@@ -389,6 +389,51 @@ class TestDebateTemplate:
         for field in expected_fields:
             assert field in field_names
 
+    def test_debate_template_new_topic_and_policy_fields(
+        self, sample_roles, sample_phases
+    ):
+        """Test the new topic_prompt and evidence_policy fields."""
+        template = DebateTemplate(
+            template_id="new-fields-test",
+            template_type=TemplateType.CODE_REVIEW,
+            name="Test New Fields",
+            description="A test for topic and policy",
+            roles=sample_roles,
+            phases=sample_phases,
+            recommended_agents=2,
+            max_rounds=3,
+            consensus_threshold=0.7,
+            rubric={},
+            output_format="",
+            domain="testing",
+        )
+
+        # Verify defaults
+        assert hasattr(template, "topic_prompt")
+        assert hasattr(template, "evidence_policy")
+        assert template.topic_prompt == ""
+        assert template.evidence_policy == "allow-cited"
+
+        # Verify setting values
+        template_with_topic = DebateTemplate(
+            template_id="new-fields-test-2",
+            template_type=TemplateType.CODE_REVIEW,
+            name="Test New Fields 2",
+            description="A test for topic and policy",
+            roles=sample_roles,
+            phases=sample_phases,
+            recommended_agents=2,
+            max_rounds=3,
+            consensus_threshold=0.7,
+            rubric={},
+            output_format="",
+            domain="testing",
+            topic_prompt="Is this a good topic?",
+            evidence_policy="disallow-external",
+        )
+        assert template_with_topic.topic_prompt == "Is this a good topic?"
+        assert template_with_topic.evidence_policy == "disallow-external"
+
 
 class TestDataclassImmutability:
     """Tests for dataclass behavior and mutability."""

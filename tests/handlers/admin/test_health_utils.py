@@ -1070,18 +1070,18 @@ class TestCheckSlackHealth:
             assert "warning" in result
 
     def test_timeout_exception(self, monkeypatch):
-        """httpx.TimeoutException -> unhealthy with 'Request timeout'."""
+        """Timeout -> unhealthy with 'Health check failed'."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test-token")
 
         mock_httpx = MagicMock()
-        timeout_exc = type("TimeoutException", (Exception,), {})
+        timeout_exc = type("TimeoutException", (TimeoutError,), {})
         mock_httpx.TimeoutException = timeout_exc
         mock_httpx.post.side_effect = timeout_exc("timed out")
 
         with patch.dict("sys.modules", {"httpx": mock_httpx}):
             result = check_slack_health()
             assert result["healthy"] is False
-            assert result["error"] == "Request timeout"
+            assert result["error"] == "Health check failed"
 
     def test_connection_error(self, monkeypatch):
         """ConnectionError -> unhealthy."""

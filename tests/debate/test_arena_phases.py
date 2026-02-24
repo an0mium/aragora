@@ -582,7 +582,7 @@ class TestFeedbackPhaseDecisionMemo:
     """Tests for _generate_decision_memo in FeedbackPhase."""
 
     def test_generates_memo_with_proposals(self):
-        """_generate_decision_memo produces a DecisionMemo on the result."""
+        """_generate_decision_memo stores a DecisionMemo in result.metadata."""
         from aragora.debate.phases import FeedbackPhase
 
         fp = FeedbackPhase()
@@ -596,13 +596,14 @@ class TestFeedbackPhaseDecisionMemo:
         result.rationale = "Combines best of both"
         result.confidence = 0.85
         result.rounds_used = 3
+        result.metadata = {}
         ctx.result = result
         ctx.agents = [MagicMock(), MagicMock()]
 
         fp._generate_decision_memo(ctx)
 
-        assert hasattr(result, "decision_memo")
-        memo = result.decision_memo
+        assert "decision_memo" in result.metadata
+        memo = result.metadata["decision_memo"]
         assert memo.debate_id == "debate-123"
         assert memo.title == "Design a rate limiter"
         assert memo.consensus_confidence == 0.85

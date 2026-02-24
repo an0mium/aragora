@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from aragora.debate.protocol import DebateProtocol
@@ -32,6 +32,10 @@ class TemplateType(Enum):
     PRODUCT_STRATEGY = "product_strategy"
     HEALTHCARE_COMPLIANCE = "healthcare_compliance"
     FINANCIAL_RISK = "financial_risk"
+
+
+# NEW: Define the evidence policy types
+EvidencePolicy = Literal["allow-any", "allow-cited", "disallow-external"]
 
 
 @dataclass
@@ -81,8 +85,19 @@ class DebateTemplate:
 
     # Metadata
     domain: str
+
+    # New fields with defaults
+    topic_prompt: str = ""
+    evidence_policy: EvidencePolicy = "allow-cited"
     difficulty: float = 0.5
     tags: list[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Validate template fields after initialization."""
+        # This post_init can be used for template-level validation.
+        # Runtime validation of topic_prompt should happen at the orchestration layer.
+        pass
+
 
 
 # ============================================================================

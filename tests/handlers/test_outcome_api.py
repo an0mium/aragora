@@ -114,7 +114,7 @@ class TestOutcomeHandlerRegistration:
 
 
 class TestHandleDispatch:
-    """Tests for the top-level handle() method that dispatches to sub-handlers."""
+    """Tests for the top-level handle()/handle_post() that dispatch to sub-handlers."""
 
     @patch("aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter")
     def test_post_outcome_dispatches(self, mock_get_adapter, handler):
@@ -122,13 +122,13 @@ class TestHandleDispatch:
         mock_get_adapter.return_value = MagicMock(ingest=MagicMock(return_value=True))
         mock_http = _mock_post_handler(_valid_outcome_body())
 
-        result = handler.handle("POST", "/api/v1/decisions/dec_x/outcome", mock_http)
+        result = handler.handle_post("/api/v1/decisions/dec_x/outcome", {}, mock_http)
         assert result["status"] == 201
 
     def test_get_outcomes_dispatches(self, handler):
         """GET to /outcomes path dispatches to _handle_list_outcomes."""
         mock_http = MagicMock()
-        result = handler.handle("GET", "/api/v1/decisions/dec_x/outcomes", mock_http)
+        result = handler.handle("/api/v1/decisions/dec_x/outcomes", {}, mock_http)
         assert result["status"] == 200
         body = json.loads(result["body"])
         assert body["decision_id"] == "dec_x"
@@ -136,20 +136,20 @@ class TestHandleDispatch:
     def test_search_dispatches(self, handler):
         """GET to /outcomes/search dispatches to _handle_search_outcomes."""
         mock_http = _mock_get_handler("")
-        result = handler.handle("GET", "/api/v1/outcomes/search", mock_http)
+        result = handler.handle("/api/v1/outcomes/search", {}, mock_http)
         assert result["status"] == 200
 
     def test_impact_dispatches(self, handler):
         """GET to /outcomes/impact dispatches to _handle_impact_analytics."""
         mock_http = MagicMock()
-        result = handler.handle("GET", "/api/v1/outcomes/impact", mock_http)
+        result = handler.handle("/api/v1/outcomes/impact", {}, mock_http)
         assert result["status"] == 200
 
-    def test_unknown_path_returns_404(self, handler):
-        """Unrecognized paths return 404."""
+    def test_unknown_path_returns_none(self, handler):
+        """Unrecognized paths return None (not handled by this handler)."""
         mock_http = MagicMock()
-        result = handler.handle("GET", "/api/v1/unknown/path", mock_http)
-        assert result["status"] == 404
+        result = handler.handle("/api/v1/unknown/path", {}, mock_http)
+        assert result is None
 
 
 # ============================================================================
@@ -299,7 +299,7 @@ class TestImpactAnalyticsAggregation:
             "lessons_learned": "",
         }
 
-        result = handler._handle_impact_analytics(MagicMock())
+        result = handler._handle_impact_analytics()
         body = json.loads(result["body"])
         assert body["avg_impact_score"] == 0.5
 
@@ -316,7 +316,7 @@ class TestImpactAnalyticsAggregation:
             "lessons_learned": "",
         }
 
-        result = handler._handle_impact_analytics(MagicMock())
+        result = handler._handle_impact_analytics()
         body = json.loads(result["body"])
         assert body["by_type"]["success"]["avg_impact"] == 0.7
         assert body["by_type"]["success"]["count"] == 2
@@ -339,7 +339,7 @@ class TestImpactAnalyticsAggregation:
             "lessons_learned": "Mid impact lesson",
         }
 
-        result = handler._handle_impact_analytics(MagicMock())
+        result = handler._handle_impact_analytics()
         body = json.loads(result["body"])
 
         lessons = body["top_lessons"]

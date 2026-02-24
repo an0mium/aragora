@@ -316,7 +316,7 @@ class TestEmailOriginRedisPersistence:
     @patch("aragora.integrations.email_reply_loop._store_email_origin_redis")
     def test_register_origin_continues_on_redis_failure(self, mock_store_redis):
         """Test that registration succeeds even if Redis fails."""
-        mock_store_redis.side_effect = Exception("Redis unavailable")
+        mock_store_redis.side_effect = ConnectionError("Redis unavailable")
 
         # Should not raise, just log warning
         origin = register_email_origin(

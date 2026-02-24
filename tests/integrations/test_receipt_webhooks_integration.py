@@ -239,7 +239,7 @@ class TestReceiptWebhookNotifier:
         assert "error_message" not in payload
 
     def test_emit_handles_exception(self, mock_dispatcher):
-        mock_dispatcher.emit.side_effect = Exception("dispatch failed")
+        mock_dispatcher.emit.side_effect = RuntimeError("dispatch failed")
         notifier = ReceiptWebhookNotifier(dispatcher=mock_dispatcher)
         # Should not raise
         notifier.notify_receipt_generated(
