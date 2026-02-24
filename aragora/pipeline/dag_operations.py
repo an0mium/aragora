@@ -86,7 +86,7 @@ class DAGOperationsCoordinator:
 
                 for agent_name in agents:
                     try:
-                        debate_agents.append(create_agent(agent_name))
+                        debate_agents.append(create_agent(agent_name))  # type: ignore[arg-type]
                     except (RuntimeError, ImportError, ValueError):
                         pass
 
@@ -311,7 +311,7 @@ class DAGOperationsCoordinator:
                 available_agents = []
                 for name in ("claude", "gpt", "gemini", "mistral", "grok"):
                     try:
-                        available_agents.append(create_agent(name))
+                        available_agents.append(create_agent(name))  # type: ignore[arg-type]
                     except (RuntimeError, ImportError, ValueError):
                         pass
             except ImportError:
