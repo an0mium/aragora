@@ -159,36 +159,6 @@ class ReceiptsAPI:
     def deliver_v1(
         self,
         receipt_id: str,
-        channel: str,
-        destination: str,
-        *,
-        workspace_id: str | None = None,
-        message: str | None = None,
-        options: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Deliver a receipt using the v1 bridge endpoint.
-
-        This maps to POST /api/v1/receipts/{id}/deliver for frontend compatibility.
-        """
-        payload: dict[str, Any] = {
-            "channel": channel,
-            "destination": destination,
-            "options": options or {},
-        }
-        if workspace_id:
-            payload["workspace_id"] = workspace_id
-        if message:
-            payload["message"] = message
-        return self._client.request(
-            "POST",
-            f"/api/v1/receipts/{receipt_id}/deliver",
-            json=payload,
-        )
-
-    def deliver_v1(
-        self,
-        receipt_id: str,
         *,
         channel_type: str | None = None,
         channel_id: str | None = None,
@@ -220,7 +190,9 @@ class ReceiptsAPI:
         if options:
             payload["options"] = options
         return self._client.request(
-            "POST", f"/api/v1/receipts/{receipt_id}/deliver", json=payload,
+            "POST",
+            f"/api/v1/receipts/{receipt_id}/deliver",
+            json=payload,
         )
 
     def share(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
@@ -650,36 +622,6 @@ class AsyncReceiptsAPI:
     async def deliver_v1(
         self,
         receipt_id: str,
-        channel: str,
-        destination: str,
-        *,
-        workspace_id: str | None = None,
-        message: str | None = None,
-        options: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """
-        Deliver a receipt using the v1 bridge endpoint.
-
-        This maps to POST /api/v1/receipts/{id}/deliver for frontend compatibility.
-        """
-        payload: dict[str, Any] = {
-            "channel": channel,
-            "destination": destination,
-            "options": options or {},
-        }
-        if workspace_id:
-            payload["workspace_id"] = workspace_id
-        if message:
-            payload["message"] = message
-        return await self._client.request(
-            "POST",
-            f"/api/v1/receipts/{receipt_id}/deliver",
-            json=payload,
-        )
-
-    async def deliver_v1(
-        self,
-        receipt_id: str,
         *,
         channel_type: str | None = None,
         channel_id: str | None = None,
@@ -706,7 +648,9 @@ class AsyncReceiptsAPI:
         if options:
             payload["options"] = options
         return await self._client.request(
-            "POST", f"/api/v1/receipts/{receipt_id}/deliver", json=payload,
+            "POST",
+            f"/api/v1/receipts/{receipt_id}/deliver",
+            json=payload,
         )
 
     async def share(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:

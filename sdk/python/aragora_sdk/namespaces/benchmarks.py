@@ -55,10 +55,6 @@ class BenchmarksAPI:
             query["ids"] = ",".join(benchmark_ids)
         return self._client.request("GET", "/api/v1/benchmarks/compare", params=query)
 
-    def categories(self) -> dict[str, Any]:
-        """List available benchmark categories."""
-        return self._client.request("GET", "/api/v1/benchmarks/categories")
-
 
 class AsyncBenchmarksAPI:
     """Asynchronous Benchmarks API."""
@@ -71,10 +67,6 @@ class AsyncBenchmarksAPI:
         return await self._client.request(
             "GET", "/api/v1/benchmarks", params={"limit": limit, "offset": offset}
         )
-
-    async def categories(self) -> dict[str, Any]:
-        """List available benchmark categories."""
-        return await self._client.request("GET", "/api/v1/benchmarks/categories")
 
     async def compare(
         self,
