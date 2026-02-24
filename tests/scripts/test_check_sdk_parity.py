@@ -256,7 +256,14 @@ def test_collect_routes_includes_dynamic_and_route_map_entries():
 def test_collect_routes_includes_can_handle_prefixes():
     class PrefixHandler:
         def can_handle(self, path: str) -> bool:
-            return path.startswith(("/api/v1/actions", "/api/v1/orchestration/canvas"))
+            return path.startswith(
+                (
+                    "/api/v1/actions",
+                    "/api/v1/orchestration/canvas",
+                    "/api/pipeline/transitions",
+                    "/api/plans",
+                )
+            )
 
     routes = check_sdk_parity._collect_routes_from_handler_class(PrefixHandler)
 
@@ -264,3 +271,7 @@ def test_collect_routes_includes_can_handle_prefixes():
     assert "/api/v1/actions/{param}" in routes
     assert "/api/v1/orchestration/canvas" in routes
     assert "/api/v1/orchestration/canvas/{param}" in routes
+    assert "/api/pipeline/transitions" in routes
+    assert "/api/pipeline/transitions/{param}" in routes
+    assert "/api/plans" in routes
+    assert "/api/plans/{param}" in routes
