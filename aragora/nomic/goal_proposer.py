@@ -93,6 +93,8 @@ class GoalProposer:
             self._signal_slow_cycles,
             self._signal_knowledge_staleness,
             self._signal_calibration_drift,
+            self._signal_coverage_gaps,
+            self._signal_lint_regressions,
         ]:
             try:
                 results = source_fn()

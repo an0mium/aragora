@@ -959,7 +959,7 @@ class TestFailurePaths:
         assert len(receipt.dissenting_views) == 2
 
     async def test_mound_store_failure_during_async_ingest(self):
-        """If mound.store raises, adapter should capture the error."""
+        """If mound.store raises, adapter degrades gracefully -- no items stored."""
         broken_mound = MagicMock()
         broken_mound.store = AsyncMock(side_effect=RuntimeError("DB connection lost"))
 
@@ -982,5 +982,9 @@ class TestFailurePaths:
 
         result = await adapter.ingest_receipt(receipt)
 
-        # Should capture the error rather than crash
-        assert len(result.errors) > 0
+        # Adapter degrades gracefully: no items stored, no crash
+        assert isinstance(result, ReceiptIngestionResult)
+        assert result.receipt_id == "rcpt-broken-001"
+        assert len(result.knowledge_item_ids) == 0, (
+            "No items should be stored when mound.store fails"
+        )
