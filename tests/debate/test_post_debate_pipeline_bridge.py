@@ -55,18 +55,17 @@ def _make_message(content="test", agent="claude", round_num=1, msg_type=None):
 class TestAutoTriggerConfig:
     """Test auto_trigger_canvas configuration."""
 
-    def test_disabled_by_default(self):
+    def test_enabled_by_default(self):
         config = PostDebateConfig()
-        assert config.auto_trigger_canvas is False
+        assert config.auto_trigger_canvas is True
 
     def test_canvas_min_confidence_default(self):
         config = PostDebateConfig()
         assert config.canvas_min_confidence == 0.7
 
-    def test_can_enable(self):
-        config = PostDebateConfig(auto_trigger_canvas=True, canvas_min_confidence=0.5)
-        assert config.auto_trigger_canvas is True
-        assert config.canvas_min_confidence == 0.5
+    def test_can_disable(self):
+        config = PostDebateConfig(auto_trigger_canvas=False)
+        assert config.auto_trigger_canvas is False
 
 
 class TestPipelineIdField:

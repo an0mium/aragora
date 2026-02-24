@@ -184,14 +184,14 @@ class TestERC8004HandlerListAgents:
         """Test listing all agents."""
         with patch("aragora.server.handlers.erc8004.ERC8004Connector") as mock_connector_cls:
             mock_connector = MagicMock()
-            mock_connector.search.return_value = [
+            mock_connector.search = AsyncMock(return_value=[
                 MagicMock(
                     id=f"identity:1:{a['token_id']}",
                     title=a["agent_name"],
                     metadata={"token_id": a["token_id"]},
                 )
                 for a in sample_agent_identities
-            ]
+            ])
             mock_connector_cls.return_value = mock_connector
 
             result = await handler.handle_list_agents({}, query_params={"limit": "10"})
@@ -207,13 +207,13 @@ class TestERC8004HandlerListAgents:
         with patch("aragora.server.handlers.erc8004.ERC8004Connector") as mock_connector_cls:
             mock_connector = MagicMock()
             owned = [a for a in sample_agent_identities if a["owner"] == owner]
-            mock_connector.search_by_owner.return_value = [
+            mock_connector.search_by_owner = AsyncMock(return_value=[
                 MagicMock(
                     id=f"identity:1:{a['token_id']}",
                     title=a["agent_name"],
                 )
                 for a in owned
-            ]
+            ])
             mock_connector_cls.return_value = mock_connector
 
             result = await handler.handle_list_agents(
