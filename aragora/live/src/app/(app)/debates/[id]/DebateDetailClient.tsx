@@ -11,6 +11,8 @@ import { CostBreakdown } from '@/components/debates/CostBreakdown';
 import { ArgumentGraph } from '@/components/debates/ArgumentGraph';
 import { ExplanationPanel } from '@/components/ExplanationPanel';
 import { RelatedKnowledge } from '@/components/debates/RelatedKnowledge';
+import { useDebateWebSocket } from '@/hooks/debate-websocket';
+import { LiveDebateStream } from '@/components/debate/LiveDebateStream';
 import { logger } from '@/utils/logger';
 
 type Tab = 'overview' | 'arguments' | 'graph' | 'receipt' | 'export';
@@ -58,35 +60,78 @@ export default function DebateDetailClient() {
   const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  // Track whether the debate is still running (enables live streaming)
+  const [debateStatus, setDebateStatus] = useState<'loading' | 'in_progress' | 'completed' | 'error'>('loading');
 
   const { setContext, clearContext } = useRightSidebar();
 
-  useEffect(() => {
-    async function fetchPackage() {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch(`${API_BASE_URL}/api/v1/debates/${id}/package`);
-        if (res.status === 404) {
-          setError('not_found');
-          return;
-        }
-        if (!res.ok) {
-          setError(`Failed to load debate (HTTP ${res.status})`);
-          return;
-        }
-        const data = await res.json();
-        setPkg(data);
-      } catch (e) {
-        logger.error('Failed to fetch debate package:', e);
-        setError('Network error. Please try again.');
-      } finally {
-        setLoading(false);
+  // WebSocket hook — only connect when debate is in_progress
+  const ws = useDebateWebSocket({
+    debateId: id,
+    enabled: debateStatus === 'in_progress',
+  });
+
+  // When WebSocket reports debate complete, reload the package
+  const handleStreamComplete = useCallback(() => {
+    setDebateStatus('completed');
+    fetchDebatePackage();
+  }, []);
+
+  // Fetch the debate package (completed debates)
+  const fetchDebatePackage = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`${API_BASE_URL}/api/v1/debates/${id}/package`);
+      if (res.status === 404) {
+        setError('not_found');
+        return;
       }
+      if (!res.ok) {
+        setError(`Failed to load debate (HTTP ${res.status})`);
+        return;
+      }
+      const data = await res.json();
+      setPkg(data);
+    } catch (e) {
+      logger.error('Failed to fetch debate package:', e);
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  // On mount: check debate status, then either stream live or fetch package
+  useEffect(() => {
+    if (!id) return;
+
+    async function checkAndLoad() {
+      try {
+        // Try to get debate status first
+        const statusRes = await fetch(`${API_BASE_URL}/api/v1/debates/${id}`, {
+          signal: AbortSignal.timeout(5000),
+        });
+
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          const status = statusData.status || statusData.data?.status;
+          if (status === 'running' || status === 'active' || status === 'in_progress') {
+            setDebateStatus('in_progress');
+            setLoading(false);
+            return; // Let WebSocket take over
+          }
+        }
+      } catch {
+        // Status endpoint may not exist — fall through to package fetch
+      }
+
+      // Debate is completed or status unknown — fetch the package
+      setDebateStatus('completed');
+      await fetchDebatePackage();
     }
 
-    if (id) fetchPackage();
-  }, [id]);
+    checkAndLoad();
+  }, [id, fetchDebatePackage]);
 
   const handleShare = useCallback(async () => {
     const url = `${window.location.origin}/debates/${id}`;
@@ -172,6 +217,48 @@ export default function DebateDetailClient() {
     { key: 'receipt', label: 'RECEIPT' },
     { key: 'export', label: 'EXPORT' },
   ];
+
+  // Live streaming view — debate is in progress
+  if (debateStatus === 'in_progress') {
+    return (
+      <>
+        <Scanlines opacity={0.02} />
+        <CRTVignette />
+        <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
+          <div className="container mx-auto px-4 py-6">
+            {/* Breadcrumb */}
+            <div className="mb-4 text-xs font-mono text-[var(--text-muted)]">
+              <Link href="/debates" className="hover:text-[var(--acid-green)] transition-colors">
+                Debates
+              </Link>
+              <span className="mx-2">/</span>
+              <span className="text-[var(--acid-green)]">{id.slice(0, 8)}</span>
+              <span className="mx-2">/</span>
+              <span className="text-[var(--acid-yellow)]">LIVE</span>
+            </div>
+
+            <div className="bg-[var(--surface)] border border-[var(--acid-green)]/40">
+              <LiveDebateStream
+                status={ws.status}
+                error={ws.error}
+                errorDetails={ws.errorDetails}
+                task={ws.task}
+                agents={ws.agents}
+                messages={ws.messages}
+                streamingMessages={ws.streamingMessages}
+                streamEvents={ws.streamEvents}
+                reconnectAttempt={ws.reconnectAttempt}
+                connectionQuality={ws.connectionQuality}
+                isPolling={ws.isPolling}
+                onReconnect={ws.reconnect}
+                onComplete={handleStreamComplete}
+              />
+            </div>
+          </div>
+        </main>
+      </>
+    );
+  }
 
   // Loading state
   if (loading) {

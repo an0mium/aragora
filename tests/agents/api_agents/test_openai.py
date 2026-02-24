@@ -287,7 +287,7 @@ class TestOpenAICompatibleMixin:
 
         payload = agent._build_payload(messages, stream=False)
 
-        assert payload["model"] == "gpt-5.2"
+        assert payload["model"] == "gpt-4.1"
         assert payload["messages"] == messages
         assert "max_tokens" in payload
         assert "stream" not in payload or payload.get("stream") is False

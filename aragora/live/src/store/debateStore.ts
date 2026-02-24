@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { devtools, subscribeWithSelector } from 'zustand/middleware';
 import type { StreamEvent } from '@/types/events';
-import type { DebateConnectionStatus } from '@/hooks/debate-websocket/types';
+import type { DebateConnectionStatus } from '@/hooks/useDebateWebSocket';
 
 // ============================================================================
 // Types
@@ -42,7 +42,7 @@ export interface StreamingMessage {
   confidence: number | null;
 }
 
-export type { DebateConnectionStatus } from '@/hooks/debate-websocket/types';
+export type { DebateConnectionStatus } from '@/hooks/useDebateWebSocket';
 
 export interface DebateArtifact {
   id: string;
