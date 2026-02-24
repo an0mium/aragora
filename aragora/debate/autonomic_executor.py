@@ -182,6 +182,10 @@ class AutonomicExecutor:
         # Track retry counts per agent for timeout escalation
         self._retry_counts: dict[str, int] = defaultdict(int)
 
+        # Per-debate cost tracking (set via set_debate_cost_tracker)
+        self._debate_cost_tracker: Any = None
+        self._debate_id: str = ""
+
         # Initialize telemetry collectors if enabled
         if enable_telemetry:
             _ensure_telemetry_collectors()
@@ -190,6 +194,67 @@ class AutonomicExecutor:
     def set_loop_id(self, loop_id: str) -> None:
         """Set the current loop/debate ID for wisdom retrieval."""
         self.loop_id = loop_id
+
+    def set_debate_cost_tracker(
+        self,
+        tracker: Any,
+        debate_id: str,
+    ) -> None:
+        """Attach a DebateCostTracker and debate ID for per-call cost recording.
+
+        Called by the Arena at debate start so that every agent call through
+        this executor is automatically recorded with per-agent, per-round,
+        and per-operation cost breakdowns.
+
+        Args:
+            tracker: DebateCostTracker instance (or None to disable).
+            debate_id: The debate ID to associate costs with.
+        """
+        self._debate_cost_tracker = tracker
+        self._debate_id = debate_id
+
+    def _record_call_cost(
+        self,
+        agent: Any,
+        phase: str,
+        round_num: int,
+    ) -> None:
+        """Record cost of the last agent API call to the DebateCostTracker.
+
+        Reads last_tokens_in / last_tokens_out from the agent (set by
+        APIAgent._record_token_usage after each call) and records them
+        with the correct debate_id, round, and operation.
+
+        This is a best-effort operation -- failures are logged at debug
+        level and never propagate to callers.
+        """
+        if self._debate_cost_tracker is None or not self._debate_id:
+            return
+
+        try:
+            tokens_in = getattr(agent, "last_tokens_in", 0) or 0
+            tokens_out = getattr(agent, "last_tokens_out", 0) or 0
+
+            # Only record if we actually have token usage data
+            if tokens_in == 0 and tokens_out == 0:
+                return
+
+            provider = getattr(agent, "provider", "unknown") or "unknown"
+            model = getattr(agent, "model", "unknown") or "unknown"
+            agent_name = getattr(agent, "name", str(agent))
+
+            self._debate_cost_tracker.record_agent_call(
+                debate_id=self._debate_id,
+                agent_name=agent_name,
+                provider=provider,
+                model=model,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                round_number=round_num,
+                operation=phase,
+            )
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("autonomic_cost_record_failed (non-critical): %s", e)
 
     def _emit_agent_error(
         self,
@@ -659,6 +724,9 @@ class AutonomicExecutor:
                 input_text=prompt,
             )
 
+            # Record per-call cost to DebateCostTracker (best-effort)
+            self._record_call_cost(agent, phase or "generate", round_num)
+
             return sanitized
         except asyncio.TimeoutError as e:
             timeout_seconds = time.time() - start_time
@@ -872,6 +940,8 @@ class AutonomicExecutor:
                 output=str(result) if result else None,
                 input_text=proposal,
             )
+            # Record per-call cost to DebateCostTracker (best-effort)
+            self._record_call_cost(agent, phase or "critique", round_num)
             return result
         except asyncio.TimeoutError as e:
             logger.warning("[Autonomic] Agent %s critique timed out", agent.name)
@@ -1011,6 +1081,8 @@ class AutonomicExecutor:
                 output=str(result) if result else None,
                 input_text=input_text,
             )
+            # Record per-call cost to DebateCostTracker (best-effort)
+            self._record_call_cost(agent, phase or "vote", round_num)
             return result
         except asyncio.TimeoutError as e:
             logger.warning("[Autonomic] Agent %s vote timed out", agent.name)

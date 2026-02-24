@@ -668,7 +668,7 @@ class TestAPIHelpers:
     def test_try_api_detect_connection_error(self):
         """API detect returns None on connection error."""
         mock_client = MagicMock()
-        mock_client.consensus.detect.side_effect = ConnectionError("refused")
+        mock_client.request.side_effect = ConnectionError("refused")
 
         with patch("aragora.client.client.AragoraClient") as mock_cls:
             mock_cls.return_value = mock_client

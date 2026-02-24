@@ -42,8 +42,8 @@ interface NavSection {
 const quickActions: NavItem[] = [
   { label: 'Demo', href: '/demo', icon: '\u2605' },
   { label: 'New Debate', href: '/arena', icon: '+' },
+  { label: 'Mission Control', href: '/mission-control', icon: '\u25C8', minMode: 'standard' },
   { label: 'Inbox', href: '/inbox', icon: '!', minMode: 'standard' },
-  { label: 'Workflows', href: '/workflows', icon: '>', minMode: 'standard' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -172,13 +172,17 @@ const navSections: NavSection[] = [
   {
     title: 'Memory & Knowledge',
     key: 'memory',
-    minMode: 'advanced',
+    minMode: 'standard',
     items: [
       { label: 'Memory', href: '/memory', icon: '=' },
-      { label: 'Memory Analytics', href: '/memory-analytics', icon: '\u2261' },
+      { label: 'Supermemory', href: '/supermemory', icon: '\u221E', minMode: 'standard' },
+      { label: 'Pulse', href: '/pulse', icon: '\u2665', minMode: 'standard' },
+      { label: 'Memory Analytics', href: '/memory-analytics', icon: '\u2261', minMode: 'advanced' },
       { label: 'Evidence', href: '/evidence', icon: '\u2690' },
-      { label: 'Repository', href: '/repository', icon: '\u25A3' },
-      { label: 'RLM', href: '/rlm', icon: '\u21BA' },
+      { label: 'Beliefs', href: '/beliefs', icon: '\u0394', minMode: 'standard' },
+      { label: 'Explainability', href: '/explainability', icon: '?!', minMode: 'standard' },
+      { label: 'Repository', href: '/repository', icon: '\u25A3', minMode: 'advanced' },
+      { label: 'RLM', href: '/rlm', icon: '\u21BA', minMode: 'advanced' },
     ],
   },
 

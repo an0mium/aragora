@@ -5,19 +5,30 @@ Provides automatic reconnection with exponential backoff, connection state
 machine, health check ping/pong, and message buffering during reconnection
 for WebSocket and enterprise streaming connections.
 
-Integrates with the existing CircuitBreaker from aragora.resilience.
+Key features:
+- Exponential backoff with jitter (1s, 2s, 4s, 8s, 16s, max 30s by default)
+- Sequence-aware reconnection: sends ``replay_from_seq`` on reconnect
+- Connection quality metrics (latency, reconnect count, message loss rate)
+- Heartbeat monitoring with configurable interval/timeout
+- Graceful degradation hooks (e.g. fall back to HTTP polling)
+- CircuitBreaker integration from aragora.resilience
 
 Usage:
     from aragora.streaming.reliability import (
         ReconnectPolicy,
         ReliableWebSocket,
         ReliableKafkaConsumer,
+        ConnectionQualityMetrics,
     )
 
     # WebSocket with automatic reconnection
-    policy = ReconnectPolicy(max_retries=10, base_delay=1.0)
+    policy = ReconnectPolicy(max_retries=10, base_delay=1.0, max_delay=30.0)
     ws = ReliableWebSocket("ws://localhost:8765", policy=policy)
     await ws.connect()
+
+    # Check connection quality
+    quality = ws.get_quality_metrics()
+    print(f"Reconnects: {quality.reconnect_count}, Avg latency: {quality.avg_latency_ms}ms")
 
     # Kafka consumer with reliability wrapper
     consumer = ReliableKafkaConsumer(
@@ -31,11 +42,12 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import random
 import time
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 from collections.abc import Awaitable, Callable
@@ -70,6 +82,10 @@ class ConnectionState(str, Enum):
 class ReconnectPolicy:
     """Configuration for reconnection behaviour.
 
+    Default backoff schedule (with jitter disabled for clarity):
+        attempt 0: 1s, attempt 1: 2s, attempt 2: 4s, attempt 3: 8s,
+        attempt 4: 16s, attempt 5+: 30s (capped)
+
     Attributes:
         max_retries: Maximum number of reconnection attempts before giving up.
             Set to 0 to disable automatic reconnection.
@@ -79,9 +95,9 @@ class ReconnectPolicy:
         jitter: Whether to add random jitter to prevent thundering herd.
     """
 
-    max_retries: int = 5
+    max_retries: int = 10
     base_delay: float = 1.0
-    max_delay: float = 60.0
+    max_delay: float = 30.0
     backoff_factor: float = 2.0
     jitter: bool = True
 
@@ -97,6 +113,57 @@ class ReconnectPolicy:
         if self.jitter:
             delay *= random.uniform(0.5, 1.0)
         return max(0.0, delay)
+
+
+# ---------------------------------------------------------------------------
+# Connection quality metrics
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ConnectionQualityMetrics:
+    """Snapshot of connection quality metrics.
+
+    Provides a structured view of connection health that clients and
+    monitoring systems can use to detect degradation.
+    """
+
+    reconnect_count: int = 0
+    total_messages_sent: int = 0
+    total_messages_buffered: int = 0
+    messages_dropped: int = 0
+    avg_latency_ms: float = 0.0
+    max_latency_ms: float = 0.0
+    min_latency_ms: float = 0.0
+    last_seen_seq: int = 0
+    total_replayed: int = 0
+    uptime_seconds: float = 0.0
+    state: str = "disconnected"
+
+    @property
+    def message_loss_rate(self) -> float:
+        """Fraction of messages dropped vs total attempted."""
+        total = self.total_messages_sent + self.messages_dropped
+        if total == 0:
+            return 0.0
+        return self.messages_dropped / total
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict for JSON transport."""
+        return {
+            "reconnect_count": self.reconnect_count,
+            "total_messages_sent": self.total_messages_sent,
+            "total_messages_buffered": self.total_messages_buffered,
+            "messages_dropped": self.messages_dropped,
+            "message_loss_rate": round(self.message_loss_rate, 6),
+            "avg_latency_ms": round(self.avg_latency_ms, 2),
+            "max_latency_ms": round(self.max_latency_ms, 2),
+            "min_latency_ms": round(self.min_latency_ms, 2),
+            "last_seen_seq": self.last_seen_seq,
+            "total_replayed": self.total_replayed,
+            "uptime_seconds": round(self.uptime_seconds, 1),
+            "state": self.state,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +217,15 @@ class ReliableConnection:
         self._health_task: asyncio.Task[None] | None = None
         self._messages_dropped = 0
         self._last_connected_at: float | None = None
+
+        # Quality tracking
+        self._total_reconnects = 0
+        self._total_messages_sent = 0
+        self._total_messages_buffered = 0
+        self._total_replayed = 0
+        self._last_seen_seq = 0
+        self._latency_samples: deque[float] = deque(maxlen=100)
+        self._created_at = time.time()
 
     # -- public properties --------------------------------------------------
 
@@ -268,6 +344,7 @@ class ReliableConnection:
                 if self._circuit_breaker:
                     self._circuit_breaker.record_success()
 
+                self._total_reconnects += 1
                 await self._fire_hook(self._on_reconnect, attempt + 1)
                 self._start_health_check()
                 await self._flush_buffer()
@@ -305,6 +382,7 @@ class ReliableConnection:
             )
             return False
         self._buffer.append(message)
+        self._total_messages_buffered += 1
         return True
 
     def get_stats(self) -> dict[str, Any]:
@@ -318,6 +396,36 @@ class ReliableConnection:
             "last_connected_at": self._last_connected_at,
             "health_check_interval": self._health_check_interval,
         }
+
+    def record_latency(self, latency_ms: float) -> None:
+        """Record a round-trip latency measurement."""
+        self._latency_samples.append(latency_ms)
+
+    def update_last_seen_seq(self, seq: int) -> None:
+        """Update the last sequence number seen from the server."""
+        if seq > self._last_seen_seq:
+            self._last_seen_seq = seq
+
+    def get_quality_metrics(self) -> ConnectionQualityMetrics:
+        """Return a snapshot of connection quality metrics."""
+        samples = list(self._latency_samples)
+        avg_lat = sum(samples) / len(samples) if samples else 0.0
+        max_lat = max(samples) if samples else 0.0
+        min_lat = min(samples) if samples else 0.0
+        uptime = time.time() - self._created_at
+        return ConnectionQualityMetrics(
+            reconnect_count=self._total_reconnects,
+            total_messages_sent=self._total_messages_sent,
+            total_messages_buffered=self._total_messages_buffered,
+            messages_dropped=self._messages_dropped,
+            avg_latency_ms=avg_lat,
+            max_latency_ms=max_lat,
+            min_latency_ms=min_lat,
+            last_seen_seq=self._last_seen_seq,
+            total_replayed=self._total_replayed,
+            uptime_seconds=uptime,
+            state=self._state.value,
+        )
 
     # -- subclass interface -------------------------------------------------
 

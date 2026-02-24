@@ -253,7 +253,8 @@ export function useAuth(): AuthState & { logout: () => void; refresh: () => Prom
   };
 
   const logout = () => {
-    localStorage.removeItem('aragora_token');
+    localStorage.removeItem('aragora_tokens');
+    localStorage.removeItem('aragora_user');
     setAuthState({ isAuthenticated: false, isLoading: false, user: null });
     router.push('/');
   };

@@ -23,13 +23,15 @@ import { DebateTimeline } from './DebateTimeline';
 import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
 import type { LiveDebateViewProps } from './types';
+import type { DebateConnectionStatus } from '@/hooks/useDebateWebSocket';
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<DebateConnectionStatus, { color: string; label: string }> = {
   connecting: { color: 'bg-yellow-400', label: 'CONNECTING...' },
   streaming: { color: 'bg-green-400 animate-pulse', label: 'LIVE DEBATE' },
+  polling: { color: 'bg-cyan-400 animate-pulse', label: 'LIVE (POLLING)' },
   complete: { color: 'bg-blue-400', label: 'DEBATE COMPLETE' },
   error: { color: 'bg-red-400', label: 'CONNECTION ERROR' },
-} as const;
+};
 
 export function LiveDebateView({
   debateId,

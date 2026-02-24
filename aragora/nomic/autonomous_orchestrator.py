@@ -1442,14 +1442,13 @@ class AutonomousOrchestrator:
         MetaPlanner picks them up automatically in the next planning cycle.
         """
         try:
-            from aragora.nomic.feedback_orchestrator import ImprovementGoal
-            from aragora.nomic.improvement_queue import get_improvement_queue
+            from aragora.nomic.feedback_orchestrator import ImprovementGoal, ImprovementQueue
         except ImportError:
             logger.debug("feedback_orchestrator unavailable for auto-replan")
             return
 
         try:
-            queue = get_improvement_queue()
+            queue = ImprovementQueue()
             metrics_delta = getattr(comparison, "metrics_delta", {}) or {}
             recommendation = getattr(comparison, "recommendation", "review")
 

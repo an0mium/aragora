@@ -88,7 +88,7 @@ class RegistrySpec:
     accepts_api_key: bool = False
 
 
-class AgentRegistry:
+class AgentFactory:
     """
     Factory registry for agent creation.
 

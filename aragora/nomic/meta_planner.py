@@ -1852,15 +1852,12 @@ class MetaPlanner:
         goals: list[PrioritizedGoal] = []
         priority = 1
 
-        # Query debate outcomes from KM
+        # Query debate outcomes from cycle store
         outcomes: list[dict[str, Any]] = []
         try:
-            from aragora.knowledge.mound.adapters.nomic_cycle_adapter import (
-                get_nomic_cycle_adapter,
-            )
+            from aragora.nomic.cycle_store import get_recent_cycles
 
-            adapter = get_nomic_cycle_adapter()
-            cycles = await adapter.get_recent_cycles(limit=50)
+            cycles = get_recent_cycles(n=50)
             for cycle in cycles:
                 outcomes.append({
                     "objective": getattr(cycle, "objective", ""),
@@ -1871,7 +1868,7 @@ class MetaPlanner:
                     "tracks": getattr(cycle, "tracks_affected", []),
                 })
         except (ImportError, RuntimeError, AttributeError, TypeError) as e:
-            logger.debug("KM cycle adapter unavailable for outcome analysis: %s", e)
+            logger.debug("Cycle store unavailable for outcome analysis: %s", e)
 
         # Also query PlanStore for pipeline execution outcomes
         try:

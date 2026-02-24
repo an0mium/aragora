@@ -706,6 +706,16 @@ class DebateStreamServer(ServerBase):
                     sub_id = self._client_subscriptions.get(ws_id)
                     if sub_id:
                         data["last_seq"] = self._replay_buffer.get_latest_seq(sub_id)
+                        data["buffer_size"] = self._replay_buffer.get_buffered_count(sub_id)
+                        data["oldest_seq"] = self._replay_buffer.get_oldest_seq(sub_id)
+                    # Include per-client connection quality summary
+                    quality = self._quality_tracker.get_quality(ws_id)
+                    if quality:
+                        data["connection_quality"] = {
+                            "reconnect_count": quality["reconnect_count"],
+                            "avg_latency_ms": quality["avg_latency_ms"],
+                            "uptime_seconds": quality["uptime_seconds"],
+                        }
                     heartbeat = json.dumps({"type": "heartbeat", "data": data})
                     await asyncio.wait_for(ws.send(heartbeat), timeout=2.0)
                 except (asyncio.TimeoutError, OSError, RuntimeError):
@@ -903,6 +913,9 @@ class DebateStreamServer(ServerBase):
 
         # Create per-connection message rate limiter
         self._ws_msg_limiters[ws_id] = WebSocketMessageRateLimiter()
+
+        # Register with connection quality tracker
+        self._quality_tracker.register(ws_id)
 
         return (True, client_ip, client_id, ws_id, is_authenticated, ws_token)
 
@@ -1240,6 +1253,7 @@ class DebateStreamServer(ServerBase):
         self._release_ws_connection(client_ip)
         self._ws_token_validated.pop(ws_id, None)
         self._ws_msg_limiters.pop(ws_id, None)
+        self._quality_tracker.unregister(ws_id)
 
     async def handler(self, websocket) -> None:
         """Handle a WebSocket connection with origin validation."""
@@ -1317,6 +1331,42 @@ class DebateStreamServer(ServerBase):
                 elif msg_type == "wisdom_submission":
                     await self._handle_wisdom_submission(
                         websocket, data, ws_id, ws_token, is_authenticated, client_id
+                    )
+                elif msg_type == "ping":
+                    # Application-level ping for latency measurement.
+                    # The client sends {"type": "ping", "ts": <client_timestamp_ms>}
+                    # and we echo it back as a pong so the client can compute RTT.
+                    client_ts = data.get("ts", 0)
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "type": "pong",
+                                "data": {
+                                    "client_ts": client_ts,
+                                    "server_ts": time.time() * 1000,
+                                },
+                            }
+                        )
+                    )
+                elif msg_type == "connection_quality":
+                    # Client can request their connection quality metrics
+                    quality = self._quality_tracker.get_quality(ws_id)
+                    sub_id = self._client_subscriptions.get(ws_id)
+                    buf_metrics = (
+                        self._replay_buffer.get_metrics(sub_id)
+                        if sub_id
+                        else {}
+                    )
+                    await websocket.send(
+                        json.dumps(
+                            {
+                                "type": "connection_quality",
+                                "data": {
+                                    "client": quality or {},
+                                    "buffer": buf_metrics,
+                                },
+                            }
+                        )
                     )
                 elif msg_type == "subscribe":
                     # SECURITY: Track client subscription for stream isolation
@@ -1603,6 +1653,7 @@ def set_global_replay_buffer(buffer: EventReplayBuffer | None) -> None:
 
 
 __all__ = [
+    "ConnectionQualityTracker",
     "DebateStreamServer",
     "EventReplayBuffer",
     "get_global_replay_buffer",

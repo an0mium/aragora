@@ -10,12 +10,17 @@ Integration with Klaviyo API:
 - SMS marketing
 """
 
+import asyncio
+import logging
+import random
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 class ProfileSubscriptionStatus(Enum):
