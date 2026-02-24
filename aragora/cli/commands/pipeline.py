@@ -83,8 +83,8 @@ def _run_pipeline_dry_run(ideas: list[str]) -> None:
             PipelineConfig,
         )
 
-        config = PipelineConfig(dry_run=True)
-        pipeline = IdeaToExecutionPipeline(config=config)
+        _config = PipelineConfig(dry_run=True)  # noqa: F841 — reserved for async run()
+        pipeline = IdeaToExecutionPipeline()
         result = pipeline.from_ideas(ideas)
 
         print(f"\nPipeline ID: {result.pipeline_id}")
@@ -137,11 +137,11 @@ def _run_pipeline_execute(
             PipelineConfig,
         )
 
-        config = PipelineConfig(
+        _config = PipelineConfig(
             dry_run=False,
             enable_receipts=True,
-        )
-        pipeline = IdeaToExecutionPipeline(config=config)
+        )  # noqa: F841 — reserved for async run()
+        pipeline = IdeaToExecutionPipeline()
 
         print("-" * 60)
         print("EXECUTING PIPELINE")
@@ -270,8 +270,8 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
             PipelineConfig,
         )
 
-        config = PipelineConfig(dry_run=dry_run, enable_receipts=not dry_run)
-        pipeline = IdeaToExecutionPipeline(config=config)
+        _config = PipelineConfig(dry_run=dry_run, enable_receipts=not dry_run)  # noqa: F841
+        pipeline = IdeaToExecutionPipeline()
         result = pipeline.from_ideas(ideas)
 
         print(f"\nPipeline ID: {result.pipeline_id}")
