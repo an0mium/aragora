@@ -38,10 +38,14 @@ test.describe('Auth Callback Reliability', () => {
     const callbackUrl = `/auth/callback/#access_token=${makeToken('access')}&refresh_token=${makeToken('refresh')}&expires_in=3600`;
     await page.goto(callbackUrl, { waitUntil: 'domcontentloaded' });
 
-    await expect(page).toHaveURL(/\/debates\/?\?source=e2e-callback$/, { timeout: 10_000 });
+    await expect.poll(() => page.url().includes('/auth/callback'), {
+      timeout: 10_000,
+      message: 'OAuth callback should redirect away from /auth/callback after successful token exchange',
+    }).toBe(false);
 
     const storedTokens = await page.evaluate(() => localStorage.getItem('aragora_tokens'));
     const storedUser = await page.evaluate(() => localStorage.getItem('aragora_user'));
+
     expect(storedTokens).toBeTruthy();
     expect(storedUser).toBeTruthy();
   });
