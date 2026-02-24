@@ -82,6 +82,10 @@ def _normalize_path(path: str) -> str:
     return re.sub(r"\{(\w+)\}", r":\1", path)
 
 
+# Re-export shared normalizer for cross-script consistency
+from sdk_path_normalize import normalize_sdk_path as normalize_sdk_path  # noqa: E402, F401
+
+
 # ---------------------------------------------------------------------------
 # SDK Code Generator
 # ---------------------------------------------------------------------------

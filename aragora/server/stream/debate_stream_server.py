@@ -1357,17 +1357,23 @@ class DebateStreamServer(ServerBase):
                     # The client sends {"type": "ping", "ts": <client_timestamp_ms>}
                     # and we echo it back as a pong so the client can compute RTT.
                     client_ts = data.get("ts", 0)
+                    server_ts = time.time() * 1000
                     await websocket.send(
                         json.dumps(
                             {
                                 "type": "pong",
                                 "data": {
                                     "client_ts": client_ts,
-                                    "server_ts": time.time() * 1000,
+                                    "server_ts": server_ts,
                                 },
                             }
                         )
                     )
+                    # Record server-side latency estimate from client timestamp
+                    if client_ts:
+                        latency_ms = server_ts - client_ts
+                        if 0 <= latency_ms < 60000:  # Sanity: ignore negative or >60s
+                            self._quality_tracker.record_latency(ws_id, latency_ms)
                 elif msg_type == "connection_quality":
                     # Client can request their connection quality metrics
                     quality = self._quality_tracker.get_quality(ws_id)

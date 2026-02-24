@@ -1643,6 +1643,164 @@ class TeamsDebateLifecycle:
         }
 
 
+    # -- Receipt delivery with approval flow ---------------------------------
+
+    async def deliver_receipt_to_thread(
+        self,
+        debate_id: str,
+        conversation_id: str,
+        reply_to_id: str,
+        receipt: Any | None = None,
+        receipt_url: str = "",
+    ) -> bool:
+        """Deliver a decision receipt to a Teams thread with approval buttons.
+
+        Fetches the receipt for the debate (or uses the provided one), formats
+        it as an Adaptive Card with verdict, confidence, key arguments, and
+        cost, then posts it with approval action buttons.
+
+        Args:
+            debate_id: The debate ID whose receipt to deliver.
+            conversation_id: Teams conversation/channel ID.
+            reply_to_id: Message ID to reply to (thread anchor).
+            receipt: Optional pre-loaded receipt object. If ``None``, attempts
+                to load from the receipt store.
+            receipt_url: Optional URL to the full receipt web page.
+
+        Returns:
+            True if the receipt was delivered successfully.
+        """
+        import os as _os
+
+        # Load receipt if not provided
+        if receipt is None:
+            receipt = self._load_receipt(debate_id)
+            if receipt is None:
+                logger.warning("No receipt found for debate %s", debate_id)
+                return False
+
+        # Build receipt URL if not provided
+        if not receipt_url:
+            base_url = _os.environ.get("ARAGORA_PUBLIC_URL", "https://aragora.ai")
+            receipt_id = getattr(receipt, "receipt_id", "")
+            if receipt_id:
+                receipt_url = f"{base_url}/receipts/{receipt_id}"
+
+        card = _build_receipt_with_approval_card(
+            receipt, debate_id=debate_id, receipt_url=receipt_url
+        )
+
+        success = await self._send_card_to_thread(conversation_id, reply_to_id, card)
+
+        if success:
+            logger.info(
+                "Delivered receipt for debate %s to %s (reply_to=%s)",
+                debate_id,
+                conversation_id,
+                reply_to_id,
+            )
+
+        return success
+
+    @staticmethod
+    def _load_receipt(debate_id: str) -> Any:
+        """Attempt to load a receipt for a debate from the store."""
+        try:
+            from aragora.storage.receipt_store import get_receipt_store
+
+            store = get_receipt_store()
+            data = store.get_by_debate(debate_id)
+            if data:
+                from aragora.export.decision_receipt import DecisionReceipt
+
+                if isinstance(data, dict):
+                    return DecisionReceipt.from_dict(data)
+                return data
+        except (ImportError, AttributeError, RuntimeError, OSError, KeyError):
+            pass
+        return None
+
+
+def _build_receipt_with_approval_card(
+    receipt: Any,
+    debate_id: str = "",
+    receipt_url: str = "",
+) -> dict[str, Any]:
+    """Build an Adaptive Card for a receipt with approval action buttons.
+
+    Extends the standard receipt card with Approve, Request Re-debate,
+    and Escalate buttons.
+
+    Args:
+        receipt: A DecisionReceipt or duck-typed receipt object.
+        debate_id: Debate identifier.
+        receipt_url: URL to the full receipt page.
+
+    Returns:
+        Adaptive Card dict.
+    """
+    # Start with the base receipt card
+    card = _build_receipt_card(receipt, debate_id=debate_id, receipt_url=receipt_url)
+
+    # Add cost info if available
+    cost_usd = getattr(receipt, "cost_usd", 0.0) or 0.0
+    tokens_used = getattr(receipt, "tokens_used", 0) or 0
+    if cost_usd > 0 or tokens_used > 0:
+        cost_facts = []
+        if cost_usd > 0:
+            cost_facts.append({"title": "Cost", "value": f"${cost_usd:.4f}"})
+        if tokens_used > 0:
+            cost_facts.append({"title": "Tokens", "value": f"{tokens_used:,}"})
+        # Insert before the footer (last body element)
+        body = card.get("body", [])
+        if body:
+            body.insert(-1, {"type": "FactSet", "facts": cost_facts})
+
+    # Replace actions with approval buttons
+    actions: list[dict[str, Any]] = []
+    if receipt_url:
+        actions.append(
+            {
+                "type": "Action.OpenUrl",
+                "title": "View Full Receipt",
+                "url": receipt_url,
+            }
+        )
+    actions.extend(
+        [
+            {
+                "type": "Action.Submit",
+                "title": "Approve Decision",
+                "style": "positive",
+                "data": {
+                    "action": "approve_decision",
+                    "debate_id": debate_id,
+                },
+            },
+            {
+                "type": "Action.Submit",
+                "title": "Request Re-debate",
+                "data": {
+                    "action": "request_redebate",
+                    "debate_id": debate_id,
+                },
+            },
+            {
+                "type": "Action.Submit",
+                "title": "Escalate",
+                "style": "destructive",
+                "data": {
+                    "action": "escalate_decision",
+                    "debate_id": debate_id,
+                },
+            },
+        ]
+    )
+
+    card["actions"] = actions
+    return card
+
+
 __all__ = [
     "TeamsActiveDebateState",
     "TeamsDebateConfig",
@@ -1656,6 +1814,7 @@ __all__ = [
     "_build_debate_started_card",
     "_build_error_card",
     "_build_receipt_card",
+    "_build_receipt_with_approval_card",
     "_build_round_update_card",
     "_build_stop_card",
     "_build_vote_summary_card",

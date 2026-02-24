@@ -119,21 +119,16 @@ def extract_openapi_routes(spec_path: Path | None = None) -> set[str]:
     return documented
 
 
+from sdk_path_normalize import normalize_sdk_path
+
+
 def normalize_route(route: str) -> str:
     """Normalize a route for comparison.
 
-    Strips version prefix, converts all path parameters to {param} form,
-    and lowercases.
+    Delegates to the shared ``normalize_sdk_path`` helper so all SDK
+    validation scripts use a single normalization algorithm.
     """
-    # Strip version prefix
-    route = re.sub(r"^/api/v\d+/", "/api/", route)
-    # Convert * wildcards to {param}
-    route = route.replace("/*", "/{param}")
-    # Convert Express-style :param segments to {param}
-    route = re.sub(r":([a-zA-Z_][a-zA-Z0-9_]*)", "{param}", route)
-    # Normalize all named path parameters ({session_id}, {finding_id}, etc.) to {param}
-    route = re.sub(r"\{[^}]+\}", "{param}", route)
-    return route.lower().rstrip("/")
+    return normalize_sdk_path(route)
 
 
 # ---------------------------------------------------------------------------

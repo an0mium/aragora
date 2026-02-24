@@ -191,6 +191,10 @@ class CommandsMixin(BlocksMixin):
                     result = self._command_gauntlet(
                         args, user_id, channel_id, response_url, workspace, team_id
                     )
+                elif subcommand == "approve":
+                    result = self._command_approve(args, user_id, channel_id)
+                elif subcommand == "reject":
+                    result = self._command_reject(args, user_id, channel_id)
                 elif subcommand == "stop":
                     result = self._command_stop(
                         args, user_id, channel_id, response_url, workspace, team_id

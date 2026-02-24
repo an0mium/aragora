@@ -302,6 +302,11 @@ import {
   TasksAPI,
   TemplatesAPI,
   UsersAPI,
+  // Barrel-aligned additions (SDK codegen hardening)
+  ActionsNamespace,
+  GraphDebatesAPI,
+  MatrixDebatesAPI,
+  OrchestrationCanvasNamespace,
 } from './namespaces';
 
 interface RequestOptions {
@@ -957,6 +962,18 @@ export class AragoraClient {
 
   /** Users API - User self-service (deletion requests). */
   readonly users: UsersAPI;
+
+  /** Actions API - Action Canvas (Pipeline Stage 3). */
+  readonly actions: ActionsNamespace;
+
+  /** Graph Debates API - Structured argumentation with branching. */
+  readonly graphDebates: GraphDebatesAPI;
+
+  /** Matrix Debates API - Multi-dimensional debate analysis. */
+  readonly matrixDebates: MatrixDebatesAPI;
+
+  /** Orchestration Canvas API - Pipeline Stage 4 execution. */
+  readonly orchestrationCanvas: OrchestrationCanvasNamespace;
 
   constructor(config: AragoraConfig) {
     // --- Input validation ---

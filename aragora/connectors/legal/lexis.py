@@ -139,7 +139,7 @@ class LexisConnector(BaseConnector):
             logger.warning("httpx not available, cannot search Lexis")
             return []
 
-        query = (query or "").strip()
+        query = _sanitize_query((query or "").strip())
         if not query:
             return []
 
@@ -153,7 +153,7 @@ class LexisConnector(BaseConnector):
 
         await self._rate_limit()
 
-        try:
+        async def _do_request() -> Any:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(
                     search_url,
@@ -161,8 +161,11 @@ class LexisConnector(BaseConnector):
                     headers=self._headers(),
                 )
                 response.raise_for_status()
-                data = response.json()
-        except (httpx.HTTPStatusError, httpx.RequestError, OSError, ValueError) as e:
+                return response.json()
+
+        try:
+            data = await self._request_with_retry(_do_request, "search")
+        except (ConnectorError, httpx.HTTPError, OSError, ValueError) as e:
             logger.warning("Lexis search failed: %s", e)
             return []
 

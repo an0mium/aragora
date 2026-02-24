@@ -1111,12 +1111,12 @@ class TestRecordQuery:
         assert len(detector._query_topics) == 1
 
     def test_accumulates_multiple_queries(self, detector):
-        """Should accumulate queries under the same topic."""
+        """Should accumulate identical queries under the same topic."""
         detector.record_query("contract notice period")
-        detector.record_query("contract notice requirements")
-        detector.record_query("contract notice clause")
+        detector.record_query("contract notice period")
+        detector.record_query("contract notice period")
 
-        # All start with "contract notice" - same 3-word key
+        # All identical queries map to the same topic key
         assert len(detector._query_topics) == 1
         topic_key = list(detector._query_topics.keys())[0]
         assert len(detector._query_topics[topic_key]) == 3

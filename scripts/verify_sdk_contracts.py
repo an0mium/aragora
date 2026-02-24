@@ -36,15 +36,11 @@ TS_DIRECT_RE = re.compile(
 )
 
 
+from sdk_path_normalize import normalize_sdk_path
+
+
 def _normalize(path: str) -> str:
-    path = path.split("?", 1)[0]
-    path = re.sub(r"\$\{[^}]+\}", "{param}", path)
-    path = re.sub(r"\{[^}]+\}", "{param}", path)
-    # Treat versioned and unversioned API routes equivalently for contract drift checks.
-    path = re.sub(r"^/api/v\d+/", "/api/", path)
-    if path != "/" and path.endswith("/"):
-        path = path[:-1]
-    return path
+    return normalize_sdk_path(path)
 
 
 def _load_openapi_endpoints(spec_path: Path) -> set[tuple[str, str]]:

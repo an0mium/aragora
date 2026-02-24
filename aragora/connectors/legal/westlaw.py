@@ -5,6 +5,8 @@ This connector is a placeholder for licensed Westlaw integrations.
 Configure via environment variables:
 - WESTLAW_API_BASE
 - WESTLAW_API_KEY
+
+Production quality: circuit breaker, retry with backoff, query sanitization.
 """
 
 from __future__ import annotations
@@ -13,9 +15,11 @@ import asyncio
 import hashlib
 import logging
 import os
+import re
 from typing import Any
 
 from aragora.connectors.base import BaseConnector, Evidence
+from aragora.connectors.exceptions import ConnectorError
 from aragora.reasoning.provenance import ProvenanceManager, SourceType
 
 logger = logging.getLogger(__name__)
@@ -28,6 +32,15 @@ except ImportError:
     HTTPX_AVAILABLE = False
 
 CONFIG_ENV_VARS = ("WESTLAW_API_KEY", "WESTLAW_API_BASE", "WESTLAW_SEARCH_URL")
+
+_SAFE_QUERY_RE = re.compile(r"[^\w\s@.\-+/:]")
+MAX_QUERY_LENGTH = 500
+
+
+def _sanitize_query(query: str) -> str:
+    """Sanitize query to prevent injection."""
+    query = query[:MAX_QUERY_LENGTH]
+    return _SAFE_QUERY_RE.sub("", query).strip()
 
 
 def get_config_status() -> dict[str, Any]:

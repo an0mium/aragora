@@ -38,6 +38,8 @@ DEFAULT_MFA_REQUIRED_ROLES: frozenset[str] = frozenset({
     "owner",
     "superadmin",
     "super_admin",
+    "org_admin",
+    "workspace_admin",
     "security_admin",
     "compliance_officer",
 })

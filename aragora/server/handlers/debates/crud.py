@@ -11,6 +11,7 @@ Extracted from handler.py for modularity. Provides:
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -532,6 +533,80 @@ class CrudOperationsMixin:
         except ValueError as e:
             logger.warning("Invalid update request for %s: %s", debate_id, e)
             return error_response("Invalid update data", 400)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/{id}/events",
+        summary="Poll debate events (fallback for missed WebSocket events)",
+        description="Returns buffered debate events since a given sequence number. "
+        "Use this as a polling fallback when WebSocket reconnection is not possible.",
+        tags=["Debates", "Streaming"],
+        parameters=[
+            {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
+            {"name": "since", "in": "query", "schema": {"type": "integer", "default": 0}},
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 100}},
+        ],
+        responses={
+            "200": {
+                "description": "Buffered events returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "events": {"type": "array", "items": {"type": "object"}},
+                                "next_seq": {"type": "integer"},
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    )
+    @handle_errors("get debate events")
+    def _get_debate_events(
+        self: _DebatesHandlerProtocol,
+        handler: Any,
+        debate_id: str,
+        since_seq: int = 0,
+        limit: int = 100,
+    ) -> HandlerResult:
+        """Return buffered debate events for polling fallback.
+
+        Clients that lose their WebSocket connection can poll this endpoint
+        to retrieve events they missed, using ``since_seq`` to avoid
+        re-fetching already-seen events.
+
+        Args:
+            handler: HTTP request handler (unused but required by dispatch)
+            debate_id: The debate to fetch events for
+            since_seq: Return events with seq > since_seq (default 0)
+            limit: Maximum number of events to return (default 100, max 500)
+        """
+        from aragora.server.stream.debate_stream_server import get_global_replay_buffer
+
+        replay_buffer = get_global_replay_buffer()
+        if replay_buffer is None:
+            return json_response({"events": [], "next_seq": 0})
+
+        limit = min(max(1, limit), 500)
+        raw_events = replay_buffer.replay_since(debate_id, since_seq)
+        limited = raw_events[:limit]
+
+        # Parse JSON strings back to dicts for the response
+        events = []
+        last_seq = since_seq
+        for event_json in limited:
+            try:
+                parsed = json.loads(event_json)
+                events.append(parsed)
+                event_seq = parsed.get("seq", 0)
+                if event_seq > last_seq:
+                    last_seq = event_seq
+            except (json.JSONDecodeError, TypeError, KeyError):
+                continue
+
+        return json_response({"events": events, "next_seq": last_seq + 1 if events else since_seq})
 
     @api_endpoint(
         method="DELETE",

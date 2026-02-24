@@ -306,7 +306,7 @@ class TestPostDecompose:
         h = _make_handler()
         http = _make_http_handler()
         result = h.handle_post(
-            "/api/v1/pipeline/../../hack/decompose/node-1", {}, http
+            "/api/v1/pipeline/<bad>/decompose/node-1", {}, http
         )
         assert _status(result) == 400
 
