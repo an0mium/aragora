@@ -260,7 +260,7 @@ class TestQuotaFallbackMixin:
                 "gpt-4": "openai/gpt-4",
                 "claude-3-opus": "anthropic/claude-3-opus",
             }
-            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
 
         agent = TestAgent()
         agent.model = "gpt-4"
@@ -273,13 +273,13 @@ class TestQuotaFallbackMixin:
 
         class TestAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {"gpt-4": "openai/gpt-4"}
-            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
 
         agent = TestAgent()
         agent.model = "unknown-model"
 
         mapped = agent.OPENROUTER_MODEL_MAP.get(agent.model, agent.DEFAULT_FALLBACK_MODEL)
-        assert mapped == "anthropic/claude-sonnet-4"
+        assert mapped == "anthropic/claude-sonnet-4.6"
 
 
 class TestDebateWithFallback:
@@ -346,13 +346,13 @@ class TestOpenRouterFallbackIntegration:
 
         class MockAnthropicAgent(QuotaFallbackMixin):
             OPENROUTER_MODEL_MAP = {
-                "claude-opus-4-5-20251101": "anthropic/claude-sonnet-4",
+                "claude-opus-4-6": "anthropic/claude-sonnet-4.6",
             }
-            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4"
+            DEFAULT_FALLBACK_MODEL = "anthropic/claude-sonnet-4.6"
 
             def __init__(self):
                 self.name = "mock-anthropic"
-                self.model = "claude-opus-4-5-20251101"
+                self.model = "claude-opus-4-6"
                 self.enable_fallback = True
                 self._fallback_agent = None
 

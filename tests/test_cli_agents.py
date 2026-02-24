@@ -315,9 +315,9 @@ class TestCodexAgent:
 
     def test_initialization(self):
         """Should initialize with correct attributes."""
-        agent = CodexAgent(name="codex", model="gpt-5.2-codex", role="proposer")
+        agent = CodexAgent(name="codex", model="gpt-4.1-codex", role="proposer")
         assert agent.name == "codex"
-        assert agent.model == "gpt-5.2-codex"
+        assert agent.model == "gpt-4.1-codex"
         assert agent.role == "proposer"
         assert agent.timeout == 300  # Default (increased for complex operations)
 
@@ -822,9 +822,9 @@ class TestOpenAIAgent:
     """Tests for OpenAIAgent."""
 
     def test_initialization_with_default_model(self):
-        """Should use gpt-5.2 as default model."""
+        """Should use gpt-4.1 as default model."""
         agent = OpenAIAgent(name="openai")
-        assert agent.model == "gpt-5.2"
+        assert agent.model == "gpt-4.1"
 
     def test_initialization_with_custom_model(self):
         """Should accept custom model."""
@@ -1104,7 +1104,7 @@ class TestCLIAgentGetFallbackAgent:
     @pytest.fixture
     def agent(self):
         # Enable fallback for testing fallback functionality
-        return CodexAgent(name="test", model="gpt-5.2-codex", enable_fallback=True)
+        return CodexAgent(name="test", model="gpt-4.1-codex", enable_fallback=True)
 
     def test_returns_none_when_disabled(self, agent):
         """Should return None when fallback is disabled."""
@@ -1142,7 +1142,7 @@ class TestCLIAgentGetFallbackAgent:
                 agent._get_fallback_agent()
 
                 call_kwargs = mock_or.call_args[1]
-                # gpt-5.2-codex should map to openai/gpt-4o
+                # gpt-4.1-codex should map to openai/gpt-4o
                 assert call_kwargs["model"] == "openai/gpt-4o"
                 # Should not pass api_key (OpenRouterAgent reads from env)
                 assert "api_key" not in call_kwargs
@@ -1280,15 +1280,15 @@ class TestCLIAgentModelMapping:
 
     def test_claude_model_mapping(self):
         """Should map Claude models correctly."""
-        agent = ClaudeAgent(name="test", model="claude-opus-4-5-20251101")
+        agent = ClaudeAgent(name="test", model="claude-opus-4-6")
         assert (
-            agent.OPENROUTER_MODEL_MAP.get("claude-opus-4-5-20251101") == "anthropic/claude-opus-4"
+            agent.OPENROUTER_MODEL_MAP.get("claude-opus-4-6") == "anthropic/claude-opus-4"
         )
 
     def test_codex_model_mapping(self):
         """Should map Codex models correctly."""
-        agent = CodexAgent(name="test", model="gpt-5.2-codex")
-        assert agent.OPENROUTER_MODEL_MAP.get("gpt-5.2-codex") == "openai/gpt-4o"
+        agent = CodexAgent(name="test", model="gpt-4.1-codex")
+        assert agent.OPENROUTER_MODEL_MAP.get("gpt-4.1-codex") == "openai/gpt-4o"
 
     def test_gemini_model_mapping(self):
         """Should map Gemini models correctly."""

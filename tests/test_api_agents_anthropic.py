@@ -144,7 +144,7 @@ class TestAnthropicAgentInit:
     def test_default_model(self, api_key):
         """Should use default model."""
         agent = AnthropicAPIAgent(api_key=api_key)
-        assert agent.model == "claude-opus-4-5-20251101"
+        assert agent.model == "claude-opus-4-6"
 
     def test_custom_model(self, agent):
         """Should accept custom model."""
@@ -210,17 +210,22 @@ class TestAnthropicAgentInit:
 class TestOpenRouterModelMapping:
     """Tests for OpenRouter model mapping."""
 
-    def test_opus_45_mapping(self):
-        """Should map claude-opus-4-5 to OpenRouter format."""
+    def test_opus_46_mapping(self):
+        """Should map claude-opus-4-6 to OpenRouter format."""
+        mapping = AnthropicAPIAgent.OPENROUTER_MODEL_MAP
+        assert "claude-opus-4-6" in mapping
+        assert mapping["claude-opus-4-6"] == "anthropic/claude-opus-4.6"
+
+    def test_sonnet_46_mapping(self):
+        """Should map claude-sonnet-4-6 to OpenRouter format."""
+        mapping = AnthropicAPIAgent.OPENROUTER_MODEL_MAP
+        assert "claude-sonnet-4-6" in mapping
+        assert mapping["claude-sonnet-4-6"] == "anthropic/claude-sonnet-4.6"
+
+    def test_legacy_opus_45_mapping(self):
+        """Should still map legacy claude-opus-4-5 to OpenRouter format."""
         mapping = AnthropicAPIAgent.OPENROUTER_MODEL_MAP
         assert "claude-opus-4-5-20251101" in mapping
-        assert mapping["claude-opus-4-5-20251101"] == "anthropic/claude-sonnet-4"
-
-    def test_sonnet_4_mapping(self):
-        """Should map claude-sonnet-4 to OpenRouter format."""
-        mapping = AnthropicAPIAgent.OPENROUTER_MODEL_MAP
-        assert "claude-sonnet-4-20250514" in mapping
-        assert mapping["claude-sonnet-4-20250514"] == "anthropic/claude-sonnet-4"
 
     def test_sonnet_35_mapping(self):
         """Should map claude-3.5-sonnet to OpenRouter format."""
