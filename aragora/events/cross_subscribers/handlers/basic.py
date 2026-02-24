@@ -430,8 +430,9 @@ class BasicHandlersMixin:
             if hasattr(loop, "process_debate_outcome"):
                 loop.process_debate_outcome(
                     debate_id=debate_id,
+                    participants=agents_used,
+                    winner=None,
                     confidence=confidence,
-                    agents=agents_used,
                 )
         except ImportError:
             pass  # SelectionFeedbackLoop not available
