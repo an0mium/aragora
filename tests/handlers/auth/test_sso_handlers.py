@@ -472,8 +472,8 @@ class TestHandleSSOCallback:
                 return_value=mock_user_store,
             ),
             patch(
-                "aragora.billing.jwt_auth.create_access_token",
-                return_value="jwt-token-123",
+                "aragora.billing.jwt_auth.create_token_pair",
+                return_value=MockTokenPair(),
             ),
         ):
             result = await handle_sso_callback(
