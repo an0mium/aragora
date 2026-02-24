@@ -228,7 +228,7 @@ jobs:
 
       - name: Validate OpenAPI spec
         run: |
-          redocly lint docs/api/openapi_generated.json --skip-rule=no-empty-servers || true
+          redocly lint docs/api/openapi_generated.json --skip-rule=no-empty-servers
 
       - name: Audit documentation coverage
         run: |

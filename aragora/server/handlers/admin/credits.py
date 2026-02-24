@@ -220,6 +220,18 @@ class CreditsAdminHandler(SecureHandler):
         Returns:
             Adjustment transaction details
         """
+        # Enforce MFA for admin users (SOC 2 CC5-01)
+        user_store = self.ctx.get("user_store")
+        if user_store:
+            user = user_store.get_user_by_id(user_id)
+            if user:
+                mfa_result = enforce_admin_mfa_policy(user, user_store)
+                if mfa_result and mfa_result.get("enforced"):
+                    return error_response(
+                        "Administrative access requires MFA. Please enable MFA at /api/auth/mfa/setup",
+                        403,
+                    )
+
         amount_cents = data.get("amount_cents")
         if amount_cents is None or not isinstance(amount_cents, int):
             return error_response("amount_cents must be an integer", status=400)

@@ -553,6 +553,184 @@ def check_debate_success_slo(
     return result
 
 
+def check_stream_error_rate_slo(
+    error_count: int | None = None,
+    total_events: int | None = None,
+) -> SLOResult:
+    """Check stream error rate SLO compliance.
+
+    Args:
+        error_count: Number of stream errors in the window
+        total_events: Total stream events in the window
+
+    Returns:
+        SLOResult with compliance status
+    """
+    targets = get_slo_targets()
+    target = targets["stream_error_rate"]
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(minutes=5)
+
+    if error_count is None or total_events is None:
+        error_count = error_count or 0
+        total_events = total_events or 0
+
+    if total_events == 0:
+        current = 0.0
+    else:
+        current = error_count / total_events
+
+    compliant = _check_compliance(target.target, current, target.comparison)
+    compliance_pct = _calculate_compliance_percentage(target.target, current, target.comparison)
+    error_budget, burn_rate = _calculate_error_budget(target.target, current, target.comparison)
+
+    result = SLOResult(
+        name=target.name,
+        target=target.target,
+        current=current,
+        compliant=compliant,
+        compliance_percentage=compliance_pct,
+        window_start=window_start,
+        window_end=now,
+        error_budget_remaining=error_budget,
+        burn_rate=burn_rate,
+    )
+
+    _update_slo_metrics(result)
+    return result
+
+
+def check_stream_reconnect_p95_slo(
+    reconnect_p95_seconds: float | None = None,
+) -> SLOResult:
+    """Check stream reconnect p95 latency SLO compliance.
+
+    Args:
+        reconnect_p95_seconds: p95 reconnection time in seconds
+
+    Returns:
+        SLOResult with compliance status
+    """
+    targets = get_slo_targets()
+    target = targets["stream_reconnect_p95"]
+    now = datetime.now(timezone.utc)
+    window_start = now - _window_duration
+
+    reconnect_p95_seconds = reconnect_p95_seconds or 0.0
+
+    compliant = _check_compliance(target.target, reconnect_p95_seconds, target.comparison)
+    compliance_pct = _calculate_compliance_percentage(
+        target.target, reconnect_p95_seconds, target.comparison
+    )
+    error_budget, burn_rate = _calculate_error_budget(
+        target.target, reconnect_p95_seconds, target.comparison
+    )
+
+    result = SLOResult(
+        name=target.name,
+        target=target.target,
+        current=reconnect_p95_seconds,
+        compliant=compliant,
+        compliance_percentage=compliance_pct,
+        window_start=window_start,
+        window_end=now,
+        error_budget_remaining=error_budget,
+        burn_rate=burn_rate,
+    )
+
+    _update_slo_metrics(result)
+    return result
+
+
+def check_stream_delivery_rate_slo(
+    delivered: int | None = None,
+    total: int | None = None,
+) -> SLOResult:
+    """Check stream message delivery rate SLO compliance.
+
+    Args:
+        delivered: Number of successfully delivered messages
+        total: Total messages attempted
+
+    Returns:
+        SLOResult with compliance status
+    """
+    targets = get_slo_targets()
+    target = targets["stream_message_delivery_rate"]
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(minutes=5)
+
+    if delivered is None or total is None:
+        delivered = delivered or 0
+        total = total or 0
+
+    if total == 0:
+        current = 1.0
+    else:
+        current = delivered / total
+
+    compliant = _check_compliance(target.target, current, target.comparison)
+    compliance_pct = _calculate_compliance_percentage(target.target, current, target.comparison)
+    error_budget, burn_rate = _calculate_error_budget(target.target, current, target.comparison)
+
+    result = SLOResult(
+        name=target.name,
+        target=target.target,
+        current=current,
+        compliant=compliant,
+        compliance_percentage=compliance_pct,
+        window_start=window_start,
+        window_end=now,
+        error_budget_remaining=error_budget,
+        burn_rate=burn_rate,
+    )
+
+    _update_slo_metrics(result)
+    return result
+
+
+def check_tts_synthesis_latency_slo(
+    latency_p95_seconds: float | None = None,
+) -> SLOResult:
+    """Check TTS synthesis latency p95 SLO compliance.
+
+    Args:
+        latency_p95_seconds: p95 synthesis latency in seconds
+
+    Returns:
+        SLOResult with compliance status
+    """
+    targets = get_slo_targets()
+    target = targets["tts_synthesis_latency_p95"]
+    now = datetime.now(timezone.utc)
+    window_start = now - _window_duration
+
+    latency_p95_seconds = latency_p95_seconds or 0.0
+
+    compliant = _check_compliance(target.target, latency_p95_seconds, target.comparison)
+    compliance_pct = _calculate_compliance_percentage(
+        target.target, latency_p95_seconds, target.comparison
+    )
+    error_budget, burn_rate = _calculate_error_budget(
+        target.target, latency_p95_seconds, target.comparison
+    )
+
+    result = SLOResult(
+        name=target.name,
+        target=target.target,
+        current=latency_p95_seconds,
+        compliant=compliant,
+        compliance_percentage=compliance_pct,
+        window_start=window_start,
+        window_end=now,
+        error_budget_remaining=error_budget,
+        burn_rate=burn_rate,
+    )
+
+    _update_slo_metrics(result)
+    return result
+
+
 def get_slo_status() -> SLOStatus:
     """Get overall SLO status for all tracked SLOs.
 

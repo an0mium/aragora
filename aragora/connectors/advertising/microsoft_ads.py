@@ -387,7 +387,10 @@ class MicrosoftAdsError(Exception):
 
 
 class MicrosoftAdsConnector:
-    """Microsoft Advertising API connector."""
+    """Microsoft Advertising API connector.
+
+    Production quality: circuit breaker, retry with backoff, query sanitization.
+    """
 
     AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
     API_URL = "https://campaign.api.bingads.microsoft.com/Api/Advertiser/CampaignManagement/v13/CampaignManagementService.svc"
@@ -398,6 +401,18 @@ class MicrosoftAdsConnector:
         """Initialize with credentials."""
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
+        # Production mixin initialization
+        try:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            ProductionConnectorMixin._init_production_mixin(
+                self,
+                connector_name="microsoft_ads",
+                request_timeout=60.0,
+            )
+            self._has_production_mixin = True
+        except ImportError:
+            self._has_production_mixin = False
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""

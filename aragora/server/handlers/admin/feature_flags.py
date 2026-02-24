@@ -24,6 +24,7 @@ from ..base import (
     json_response,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.server.middleware.mfa import enforce_admin_mfa_policy
 from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
