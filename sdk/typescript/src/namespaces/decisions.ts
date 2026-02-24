@@ -113,7 +113,7 @@ export interface DecisionListResponse {
 interface DecisionsClientInterface {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body?: unknown): Promise<T>;
-  request<T>(method: string, path: string, options?: { params?: Record<string, unknown> }): Promise<T>;
+  request<T>(method: string, path: string, options?: { params?: Record<string, unknown>; body?: unknown }): Promise<T>;
 }
 
 /**
@@ -273,7 +273,9 @@ export class DecisionsAPI {
     planId: string,
     options?: { reason?: string; conditions?: string[] }
   ): Promise<DecisionPlanApprovalResponse> {
-    return this.client.post(`/api/v1/decisions/plans/${planId}/approve`, options);
+    return this.client.request('POST', `/api/v1/decisions/plans/${planId}/approve`, {
+      body: options,
+    });
   }
 
   /**
@@ -282,7 +284,9 @@ export class DecisionsAPI {
    * @param reason - Reason for rejection
    */
   async rejectPlan(planId: string, reason?: string): Promise<DecisionPlanApprovalResponse> {
-    return this.client.post(`/api/v1/decisions/plans/${planId}/reject`, { reason });
+    return this.client.request('POST', `/api/v1/decisions/plans/${planId}/reject`, {
+      body: { reason },
+    });
   }
 
   /**
@@ -290,7 +294,7 @@ export class DecisionsAPI {
    * @param planId - Plan identifier
    */
   async executePlan(planId: string): Promise<DecisionPlanExecutionResponse> {
-    return this.client.post(`/api/v1/decisions/plans/${planId}/execute`);
+    return this.client.request('POST', `/api/v1/decisions/plans/${planId}/execute`);
   }
 
   /**
@@ -298,7 +302,7 @@ export class DecisionsAPI {
    * @param planId - Plan identifier
    */
   async getPlanOutcome(planId: string): Promise<PlanOutcomeResponse> {
-    return this.client.get(`/api/v1/decisions/plans/${planId}/outcome`);
+    return this.client.request('GET', `/api/v1/decisions/plans/${planId}/outcome`);
   }
 
   /** Get the outcome for a decision. */

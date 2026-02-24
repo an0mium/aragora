@@ -82,8 +82,19 @@ def _normalize_path(path: str) -> str:
     return re.sub(r"\{(\w+)\}", r":\1", path)
 
 
-# Re-export shared normalizer for cross-script consistency
-from sdk_path_normalize import normalize_sdk_path as normalize_sdk_path  # noqa: E402, F401
+# Re-export shared normalizer for cross-script consistency.
+# When imported as a library (e.g., from tests), the scripts/ directory may
+# not be on sys.path, so guard the import.
+try:
+    from sdk_path_normalize import normalize_sdk_path as normalize_sdk_path  # noqa: E402, F401
+except ModuleNotFoundError:
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    _scripts_dir = str(_Path(__file__).resolve().parent)
+    if _scripts_dir not in _sys.path:
+        _sys.path.insert(0, _scripts_dir)
+    from sdk_path_normalize import normalize_sdk_path as normalize_sdk_path  # noqa: E402, F401
 
 
 # ---------------------------------------------------------------------------

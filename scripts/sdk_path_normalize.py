@@ -18,10 +18,10 @@ def normalize_sdk_path(path: str) -> str:
     - Strip trailing slash
     - Lowercase
     """
-    # Strip query string
-    path = path.split("?", 1)[0]
-    # Strip version prefix
-    path = re.sub(r"^/api/v\d+/", "/api/", path)
+    # Strip query string and normalize case first so prefix matching is stable.
+    path = path.split("?", 1)[0].lower()
+    # Strip version prefix: /api/v1, /api/v1/, /api/v2/foo -> /api, /api/, /api/foo
+    path = re.sub(r"^/api/v\d+(?=/|$)", "/api", path)
     # Template literal expressions ${...} -> {param}
     path = re.sub(r"\$\{[^}]+\}", "{param}", path)
     # Express-style :param -> {param}
@@ -33,4 +33,4 @@ def normalize_sdk_path(path: str) -> str:
     # Strip trailing slash (but keep bare "/")
     if path != "/" and path.endswith("/"):
         path = path[:-1]
-    return path.lower()
+    return path

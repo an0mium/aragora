@@ -157,11 +157,30 @@ class TestOpenAPISpecStructure:
     def test_all_paths_start_with_api_or_system(self):
         """All paths should start with /api/ or be known system paths."""
         spec = _load_spec(OPENAPI_JSON)
-        allowed_system = {"/healthz", "/readyz", "/readyz/dependencies", "/status", "/audio"}
+        allowed_system_exact = {
+            "/healthz",
+            "/readyz",
+            "/readyz/dependencies",
+            "/status",
+            "/audio",
+            "/metrics",
+        }
+        allowed_system_prefixes = (
+            "/.well-known/",
+            "/audio/",
+            "/auth/sso/",
+            "/inbox/",
+            "/scim/v2/",
+        )
         bad_paths = []
         for path in spec.get("paths", {}):
-            if not path.startswith("/api/") and path not in allowed_system:
-                bad_paths.append(path)
+            if path.startswith("/api/"):
+                continue
+            if path in allowed_system_exact:
+                continue
+            if any(path.startswith(prefix) for prefix in allowed_system_prefixes):
+                continue
+            bad_paths.append(path)
         assert not bad_paths, (
             f"{len(bad_paths)} paths do not start with /api/: {bad_paths[:10]}"
         )

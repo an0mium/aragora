@@ -365,6 +365,15 @@ class ShipStationConnector:
     def __init__(self, credentials: ShipStationCredentials):
         self.credentials = credentials
         self._client: httpx.AsyncClient | None = None
+        try:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            ProductionConnectorMixin._init_production_mixin(
+                self, connector_name="shipstation", request_timeout=30.0,
+            )
+            self._has_production_mixin = True
+        except ImportError:
+            self._has_production_mixin = False
 
     async def __aenter__(self) -> ShipStationConnector:
         auth = base64.b64encode(
@@ -397,9 +406,14 @@ class ShipStationConnector:
         json: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
     ) -> Any:
+        """Make API request with retry and circuit breaker."""
         url = f"{self.BASE_URL}{endpoint}"
-        try:
+
+        async def _do_request() -> Any:
             response = await self.client.request(method, url, json=json, params=params)
+
+            if response.status_code == 429 or response.status_code >= 500:
+                response.raise_for_status()
 
             if response.status_code == 204:
                 return {}
@@ -411,6 +425,18 @@ class ShipStationConnector:
                 raise ShipStationError(message=message, status_code=response.status_code)
 
             return data
+
+        if self._has_production_mixin:
+            from aragora.connectors.production_mixin import ProductionConnectorMixin
+
+            try:
+                return await ProductionConnectorMixin._call_with_retry(
+                    self, _do_request, operation=f"{method}_{endpoint}",
+                )
+            except httpx.HTTPError as e:
+                raise ShipStationError(f"HTTP error: {e}") from e
+        try:
+            return await _do_request()
         except httpx.HTTPError as e:
             raise ShipStationError(f"HTTP error: {e}") from e
 
