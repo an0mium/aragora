@@ -292,6 +292,17 @@ class AdminAPI:
         """
         return self._client.request("PUT", "/api/v1/admin/feature-flags", json=flags)
 
+    def get_feature_flag(self, flag_name: str) -> dict[str, Any]:
+        """Get a specific feature flag by name.
+
+        Args:
+            flag_name: Feature flag identifier.
+
+        Returns:
+            Dict with flag details including enabled status and metadata.
+        """
+        return self._client.request("GET", f"/api/v1/admin/feature-flags/{flag_name}")
+
 
 class AsyncAdminAPI:
     """
@@ -458,3 +469,7 @@ class AsyncAdminAPI:
     async def update_feature_flags(self, flags: dict[str, Any]) -> dict[str, Any]:
         """Update admin feature flags."""
         return await self._client.request("PUT", "/api/v1/admin/feature-flags", json=flags)
+
+    async def get_feature_flag(self, flag_name: str) -> dict[str, Any]:
+        """Get a specific feature flag by name."""
+        return await self._client.request("GET", f"/api/v1/admin/feature-flags/{flag_name}")

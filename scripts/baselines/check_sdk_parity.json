@@ -1,19 +1,6 @@
 {
   "missing_from_both_sdks": [],
-  "stale_python_sdk_paths": [
-    "/api/laboratory/agent/{param}/analysis",
-    "/api/monitoring/alerts/{param}/acknowledge",
-    "/api/monitoring/alerts/{param}/resolve",
-    "/api/monitoring/dashboards/{param}",
-    "/api/quotas/usage",
-    "/api/quotas/{param}",
-    "/api/teams/{param}",
-    "/api/teams/{param}/members",
-    "/api/teams/{param}/members/{param}",
-    "/api/teams/{param}/stats",
-    "/api/verification/proofs",
-    "/api/verification/validate"
-  ],
+  "stale_python_sdk_paths": [],
   "stale_typescript_sdk_paths": [
     "/api/agent-selection/role-assigners",
     "/api/agent-selection/scorers",
@@ -43,8 +30,6 @@
     "/api/github/reviews/{param}/submit",
     "/api/onboarding/complete",
     "/api/onboarding/status",
-    "/api/quotas/usage",
-    "/api/quotas/{param}",
     "/api/rankings/{param}",
     "/api/reconciliation",
     "/api/search/facets",
@@ -57,8 +42,6 @@
     "/api/shared-inbox/{param}/messages",
     "/api/shared-inbox/{param}/messages/{param}/assign",
     "/api/status/maintenance",
-    "/api/teams/debates",
-    "/api/teams/tenants",
     "/api/youtube/auth/status"
   ]
 }

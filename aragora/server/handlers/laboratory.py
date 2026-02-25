@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     pass
 
 from aragora.rbac.decorators import require_permission
+from aragora.server.versioning.compat import strip_version_prefix
 from aragora.utils.optional_imports import try_import
 
 from .base import (
@@ -57,32 +58,40 @@ class LaboratoryHandler(BaseHandler):
         "/api/v1/laboratory/experiments",
     ]
 
-    _AGENT_ANALYSIS_PREFIX = "/api/v1/laboratory/agent/"
+    DYNAMIC_ROUTES = [
+        "/api/v1/laboratory/agent/{agent_name}/analysis",
+    ]
+
+    _AGENT_ANALYSIS_PREFIX = "/api/laboratory/agent/"
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in self.ROUTES:
+        normalized = strip_version_prefix(path)
+        normalized_routes = {strip_version_prefix(route) for route in self.ROUTES}
+        if normalized in normalized_routes:
             return True
-        return path.startswith(self._AGENT_ANALYSIS_PREFIX) and path.endswith("/analysis")
+        return normalized.startswith(self._AGENT_ANALYSIS_PREFIX) and normalized.endswith("/analysis")
 
     @require_permission("laboratory:read")
     def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:
         """Route GET requests to appropriate methods."""
+        path = strip_version_prefix(path)
+
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _laboratory_limiter.is_allowed(client_ip):
             logger.warning("Rate limit exceeded for laboratory endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/v1/laboratory/emergent-traits":
+        if path == "/api/laboratory/emergent-traits":
             min_confidence = get_bounded_float_param(
                 query_params, "min_confidence", 0.5, min_val=0.0, max_val=1.0
             )
             limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
             return self._get_emergent_traits(min_confidence, limit)
         if path.startswith(self._AGENT_ANALYSIS_PREFIX) and path.endswith("/analysis"):
-            # /api/v1/laboratory/agent/{name}/analysis → segment 5
-            agent_name, err = self.extract_path_param(path, 5, "agent_name")
+            # /api/laboratory/agent/{name}/analysis → segment 4
+            agent_name, err = self.extract_path_param(path, 4, "agent_name")
             if err:
                 return err
             return self._get_agent_analysis(agent_name)
@@ -92,13 +101,15 @@ class LaboratoryHandler(BaseHandler):
     @require_permission("laboratory:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
+        path = strip_version_prefix(path)
+
         # Rate limit check (shared with GET)
         client_ip = get_client_ip(handler)
         if not _laboratory_limiter.is_allowed(client_ip):
             logger.warning("Rate limit exceeded for laboratory POST endpoint: %s", client_ip)
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        if path == "/api/v1/laboratory/cross-pollinations/suggest":
+        if path == "/api/laboratory/cross-pollinations/suggest":
             return self._suggest_cross_pollinations(handler)
         return None
 

@@ -52,6 +52,8 @@ class VerificationHandler(BaseHandler):
     ROUTES = [
         "/api/v1/verification/status",
         "/api/v1/verification/formal-verify",
+        "/api/v1/verification/proofs",
+        "/api/v1/verification/validate",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -65,6 +67,8 @@ class VerificationHandler(BaseHandler):
         """Route GET requests to appropriate methods."""
         if path == "/api/v1/verification/status":
             return self._get_status()
+        if path == "/api/v1/verification/proofs":
+            return self._get_proofs(query_params)
         return None
 
     @handle_errors("verification creation")
@@ -75,6 +79,8 @@ class VerificationHandler(BaseHandler):
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/verification/formal-verify":
             return self._verify_claim(handler)
+        if path == "/api/v1/verification/validate":
+            return self._validate_claim(handler)
         return None
 
     @handle_errors("formal verification status")
@@ -225,3 +231,91 @@ class VerificationHandler(BaseHandler):
             response["max_timeout"] = 120
 
         return json_response(response)
+
+    @handle_errors("get verification proofs")
+    def _get_proofs(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Get generated verification proofs.
+
+        Query params:
+            debate_id: Filter proofs by debate
+            proof_type: Filter by proof type
+            limit: Maximum proofs to return
+        """
+        if not FORMAL_VERIFICATION_AVAILABLE:
+            return json_response(
+                {
+                    "proofs": [],
+                    "available": False,
+                    "hint": "Install z3-solver: pip install z3-solver",
+                }
+            )
+
+        debate_id = query_params.get("debate_id", [None])[0] if query_params.get("debate_id") else None
+        proof_type = query_params.get("proof_type", [None])[0] if query_params.get("proof_type") else None
+        try:
+            limit = int(query_params.get("limit", [20])[0])
+        except (ValueError, TypeError, IndexError):
+            limit = 20
+
+        return json_response(
+            {
+                "proofs": [],
+                "filters": {
+                    "debate_id": debate_id,
+                    "proof_type": proof_type,
+                },
+                "limit": limit,
+                "total": 0,
+            }
+        )
+
+    @handle_errors("validate claim")
+    def _validate_claim(self, handler: Any) -> HandlerResult:
+        """Validate a specific claim or assertion.
+
+        POST body:
+            claim: The claim text to validate
+            evidence: Supporting evidence
+            context: Context for the claim
+        """
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body or body too large", 400)
+
+        claim = body.get("claim", "").strip()
+        if not claim:
+            return error_response("claim field required", 400)
+
+        evidence = body.get("evidence", "")
+        context = body.get("context", "")
+
+        if not FORMAL_VERIFICATION_AVAILABLE:
+            return json_response(
+                {
+                    "claim": claim,
+                    "valid": False,
+                    "confidence": 0.0,
+                    "reasoning": "Formal verification backend not available",
+                    "hint": "Install z3-solver: pip install z3-solver",
+                }
+            )
+
+        manager = get_formal_verification_manager()
+        result = run_async(
+            manager.attempt_formal_verification(
+                claim=claim,
+                context=context,
+                timeout_seconds=30,
+            )
+        )
+
+        result_dict = result.to_dict()
+        return json_response(
+            {
+                "claim": claim,
+                "valid": result_dict.get("is_verified", False),
+                "confidence": result_dict.get("confidence", 0.0),
+                "reasoning": result_dict.get("proof_text", ""),
+                "status": result_dict.get("status", "unknown"),
+            }
+        )

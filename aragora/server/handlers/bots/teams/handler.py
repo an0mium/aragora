@@ -790,6 +790,13 @@ class TeamsHandler(SecureEndpointMixin, BotHandlerMixin, SecureHandler):  # type
         "/api/v1/teams/debates/send",
     ]
 
+    DYNAMIC_ROUTES = [
+        "/api/v1/teams/{team_id}",
+        "/api/v1/teams/{team_id}/members",
+        "/api/v1/teams/{team_id}/members/{user_id}",
+        "/api/v1/teams/{team_id}/stats",
+    ]
+
     def __init__(self, ctx: dict | None = None):
         super().__init__(ctx or {})
         self._bot: TeamsBot | None = None

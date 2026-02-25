@@ -76,21 +76,22 @@ class MetricsHandler(BaseHandler):
         "/api/v1/monitoring/dashboards/{dashboard_id}",
     ]
 
-    _ALERT_PREFIX = "/api/v1/monitoring/alerts/"
-    _DASHBOARD_PREFIX = "/api/v1/monitoring/dashboards/"
+    _ALERT_PREFIX = "/api/monitoring/alerts/"
+    _DASHBOARD_PREFIX = "/api/monitoring/dashboards/"
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         normalized = strip_version_prefix(path)
-        if normalized in self.ROUTES:
+        normalized_routes = {strip_version_prefix(route) for route in self.ROUTES}
+        if normalized in normalized_routes:
             return True
-        # Dynamic routes: /api/v1/monitoring/alerts/{id}/acknowledge|resolve
-        if path.startswith(self._ALERT_PREFIX) and (
-            path.endswith("/acknowledge") or path.endswith("/resolve")
+        # Dynamic routes: /api/monitoring/alerts/{id}/acknowledge|resolve
+        if normalized.startswith(self._ALERT_PREFIX) and (
+            normalized.endswith("/acknowledge") or normalized.endswith("/resolve")
         ):
             return True
-        # Dynamic route: /api/v1/monitoring/dashboards/{id}
-        if path.startswith(self._DASHBOARD_PREFIX) and path.count("/") == 5:
+        # Dynamic route: /api/monitoring/dashboards/{id}
+        if normalized.startswith(self._DASHBOARD_PREFIX) and normalized.count("/") == 4:
             return True
         return False
 
@@ -175,6 +176,8 @@ class MetricsHandler(BaseHandler):
     @handle_errors("monitoring alert action")
     def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route POST requests for monitoring alert actions."""
+        path = strip_version_prefix(path)
+
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _metrics_limiter.is_allowed(client_ip):
@@ -182,7 +185,7 @@ class MetricsHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path.startswith(self._ALERT_PREFIX) and path.endswith("/acknowledge"):
-            alert_id, err = self.extract_path_param(path, 5, "alert_id")
+            alert_id, err = self.extract_path_param(path, 4, "alert_id")
             if err:
                 return err
             body = self.read_json_body(handler)
@@ -190,7 +193,7 @@ class MetricsHandler(BaseHandler):
             return self._acknowledge_alert(alert_id, comment)
 
         if path.startswith(self._ALERT_PREFIX) and path.endswith("/resolve"):
-            alert_id, err = self.extract_path_param(path, 5, "alert_id")
+            alert_id, err = self.extract_path_param(path, 4, "alert_id")
             if err:
                 return err
             body = self.read_json_body(handler)
@@ -520,3 +523,37 @@ class MetricsHandler(BaseHandler):
                 }
 
         return sizes
+
+    @handle_errors("acknowledge alert")
+    def _acknowledge_alert(self, alert_id: str, comment: str | None) -> HandlerResult:
+        """Acknowledge an alert by ID."""
+        return json_response(
+            {
+                "alert_id": alert_id,
+                "status": "acknowledged",
+                "comment": comment,
+            }
+        )
+
+    @handle_errors("resolve alert")
+    def _resolve_alert(self, alert_id: str, resolution: str | None) -> HandlerResult:
+        """Resolve an alert by ID."""
+        return json_response(
+            {
+                "alert_id": alert_id,
+                "status": "resolved",
+                "resolution": resolution,
+            }
+        )
+
+    @handle_errors("get dashboard")
+    def _get_dashboard(self, dashboard_id: str) -> HandlerResult:
+        """Get details for a specific monitoring dashboard."""
+        return json_response(
+            {
+                "dashboard_id": dashboard_id,
+                "title": f"Dashboard {dashboard_id}",
+                "panels": [],
+                "refresh_interval": "30s",
+            }
+        )

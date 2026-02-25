@@ -55,7 +55,6 @@ class TeamsAPI:
         Returns:
             Team details
         """
-        # TODO: server route not yet implemented
         return self._client.request("GET", f"/api/v1/teams/{team_id}")
 
     def create(
@@ -114,7 +113,6 @@ class TeamsAPI:
         if settings is not None:
             data["settings"] = settings
 
-        # TODO: server route not yet implemented
         return self._client.request("PATCH", f"/api/v1/teams/{team_id}", json=data)
 
     def delete(self, team_id: str) -> dict[str, Any]:
@@ -127,7 +125,6 @@ class TeamsAPI:
         Returns:
             Deletion confirmation
         """
-        # TODO: server route not yet implemented
         return self._client.request("DELETE", f"/api/v1/teams/{team_id}")
 
     def list_members(self, team_id: str) -> dict[str, Any]:
@@ -140,7 +137,6 @@ class TeamsAPI:
         Returns:
             Team members
         """
-        # TODO: server route not yet implemented
         return self._client.request("GET", f"/api/v1/teams/{team_id}/members")
 
     def add_member(self, team_id: str, user_id: str, role: str = "member") -> dict[str, Any]:
@@ -155,7 +151,6 @@ class TeamsAPI:
         Returns:
             Membership record
         """
-        # TODO: server route not yet implemented
         return self._client.request(
             "POST",
             f"/api/v1/teams/{team_id}/members",
@@ -174,7 +169,6 @@ class TeamsAPI:
         Returns:
             Updated membership record
         """
-        # TODO: server route not yet implemented
         return self._client.request(
             "PATCH",
             f"/api/v1/teams/{team_id}/members/{user_id}",
@@ -192,7 +186,6 @@ class TeamsAPI:
         Returns:
             Removal confirmation
         """
-        # TODO: server route not yet implemented
         return self._client.request("DELETE", f"/api/v1/teams/{team_id}/members/{user_id}")
 
     def get_stats(self, team_id: str) -> dict[str, Any]:
@@ -205,7 +198,6 @@ class TeamsAPI:
         Returns:
             Team statistics
         """
-        # TODO: server route not yet implemented
         return self._client.request("GET", f"/api/v1/teams/{team_id}/stats")
 
     def send_debate(

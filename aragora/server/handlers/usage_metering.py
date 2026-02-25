@@ -53,11 +53,23 @@ class UsageMeteringHandler(SecureHandler):
         "/api/v1/billing/usage/export",
         "/api/v1/billing/limits",
         "/api/v1/quotas",
+        "/api/v1/quotas/usage",
     ]
+
+    DYNAMIC_ROUTES = [
+        "/api/v1/quotas/{resource}",
+    ]
+
+    _QUOTA_PREFIX = "/api/v1/quotas/"
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        if path in self.ROUTES:
+            return True
+        # Dynamic: /api/v1/quotas/{resource} (but not /api/v1/quotas/usage)
+        if path.startswith(self._QUOTA_PREFIX) and path.count("/") == 4:
+            return True
+        return False
 
     async def handle(
         self,
@@ -94,6 +106,14 @@ class UsageMeteringHandler(SecureHandler):
 
         if path == "/api/v1/quotas" and method == "GET":
             return await self._get_quota_status(handler, query_params)
+
+        if path == "/api/v1/quotas/usage" and method == "GET":
+            return await self._get_quota_usage(handler, query_params)
+
+        # Dynamic: /api/v1/quotas/{resource}
+        if path.startswith(self._QUOTA_PREFIX) and path.count("/") == 4 and method == "GET":
+            resource = path.split("/")[4]
+            return await self._get_quota_for_resource(handler, resource)
 
         return error_response("Method not allowed", 405)
 
@@ -555,6 +575,102 @@ class UsageMeteringHandler(SecureHandler):
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
             },
+        )
+
+
+    @handle_errors("get quota usage")
+    @require_permission("org:billing")
+    async def _get_quota_usage(
+        self,
+        handler,
+        query_params: dict,
+        user=None,
+    ) -> HandlerResult:
+        """Get quota usage summary across all resource types."""
+        from aragora.server.middleware.tier_enforcement import get_quota_manager
+
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user:
+            return error_response("User not found", 404)
+
+        org = None
+        if db_user.org_id:
+            org = user_store.get_organization_by_id(db_user.org_id)
+        if not org:
+            return error_response("No organization found", 404)
+
+        manager = get_quota_manager()
+        period = query_params.get("period", ["24h"])[0] if query_params.get("period") else "24h"
+
+        resources = ["debates", "api_requests", "tokens", "storage_bytes", "knowledge_bytes"]
+        usage = {}
+        for resource in resources:
+            try:
+                status = await manager.get_quota_status(resource, tenant_id=org.id)
+                if status:
+                    usage[resource] = {
+                        "current": status.current,
+                        "limit": status.limit,
+                        "percentage_used": status.percentage_used,
+                    }
+            except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
+                logger.warning("Failed to get quota usage for %s: %s", resource, e)
+                continue
+
+        return json_response({"usage": usage, "period": period})
+
+    @handle_errors("get quota for resource")
+    @require_permission("org:billing")
+    async def _get_quota_for_resource(
+        self,
+        handler,
+        resource: str,
+        user=None,
+    ) -> HandlerResult:
+        """Get detailed quota information for a specific resource type."""
+        from aragora.server.middleware.tier_enforcement import get_quota_manager
+
+        user_store = self._get_user_store()
+        if not user_store:
+            return error_response("Service unavailable", 503)
+
+        db_user = user_store.get_user_by_id(user.user_id)
+        if not db_user:
+            return error_response("User not found", 404)
+
+        org = None
+        if db_user.org_id:
+            org = user_store.get_organization_by_id(db_user.org_id)
+        if not org:
+            return error_response("No organization found", 404)
+
+        manager = get_quota_manager()
+
+        try:
+            status = await manager.get_quota_status(resource, tenant_id=org.id)
+        except (ValueError, TypeError, KeyError, AttributeError, OSError, RuntimeError) as e:
+            logger.warning("Failed to get quota for %s: %s", resource, e)
+            return error_response("Failed to retrieve quota information", 500)
+
+        if not status:
+            return error_response(f"Unknown resource type: {resource}", 404)
+
+        return json_response(
+            {
+                "resource": resource,
+                "limit": status.limit,
+                "current": status.current,
+                "remaining": status.remaining,
+                "period": status.period.value,
+                "percentage_used": status.percentage_used,
+                "is_exceeded": status.is_exceeded,
+                "is_warning": status.is_warning,
+                "resets_at": status.period_resets_at.isoformat() if status.period_resets_at else None,
+            }
         )
 
 

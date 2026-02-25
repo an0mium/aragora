@@ -393,6 +393,30 @@ class AuthAPI:
         """
         return self._client.request("GET", "/api/v1/auth/sessions")
 
+    def get_active_sessions(self) -> dict[str, Any]:
+        """Get currently active sessions with details.
+
+        Returns:
+            Dict with active session count and details.
+        """
+        return self._client.request("GET", "/api/v1/auth/sessions/active")
+
+    def get_session_health(self) -> dict[str, Any]:
+        """Get session subsystem health status.
+
+        Returns:
+            Dict with session health metrics.
+        """
+        return self._client.request("GET", "/api/v1/auth/sessions/health")
+
+    def sweep_sessions(self) -> dict[str, Any]:
+        """Sweep expired sessions.
+
+        Returns:
+            Dict with count of swept sessions.
+        """
+        return self._client.request("POST", "/api/v1/auth/sessions/sweep")
+
     def revoke_session(self, session_id: str) -> dict[str, Any]:
         """
         Revoke a specific session.
@@ -934,6 +958,18 @@ class AsyncAuthAPI:
     async def list_sessions(self) -> dict[str, Any]:
         """List active sessions."""
         return await self._client.request("GET", "/api/v1/auth/sessions")
+
+    async def get_active_sessions(self) -> dict[str, Any]:
+        """Get currently active sessions with details."""
+        return await self._client.request("GET", "/api/v1/auth/sessions/active")
+
+    async def get_session_health(self) -> dict[str, Any]:
+        """Get session subsystem health status."""
+        return await self._client.request("GET", "/api/v1/auth/sessions/health")
+
+    async def sweep_sessions(self) -> dict[str, Any]:
+        """Sweep expired sessions."""
+        return await self._client.request("POST", "/api/v1/auth/sessions/sweep")
 
     async def revoke_session(self, session_id: str) -> dict[str, Any]:
         """Revoke a specific session."""

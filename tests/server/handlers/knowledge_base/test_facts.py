@@ -9,6 +9,7 @@ Run with:
 
 from __future__ import annotations
 
+import functools
 import json
 import sys
 from dataclasses import dataclass, field
@@ -20,10 +21,13 @@ from unittest.mock import MagicMock, patch
 
 # Bypass RBAC decorator by patching it before import
 def _bypass_require_permission(permission):
-    """No-op decorator for testing."""
+    """No-op decorator for testing that preserves __wrapped__."""
 
     def decorator(func):
-        return func
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        return wrapper
 
     return decorator
 
