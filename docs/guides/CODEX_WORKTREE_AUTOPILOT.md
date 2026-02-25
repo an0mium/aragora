@@ -24,6 +24,10 @@ python -m aragora.cli.main worktree autopilot reconcile --all --base main --stra
 python -m aragora.cli.main worktree autopilot maintain --base main --strategy merge --ttl-hours 24 --no-delete-branches
 ```
 
+`--base` is accepted in both forms:
+- `aragora worktree --base main autopilot ...`
+- `aragora worktree autopilot ... --base main`
+
 Use this path when you want one canonical command surface (`aragora worktree ...`) instead of mixing CLI and raw scripts.
 
 ## Core Commands
