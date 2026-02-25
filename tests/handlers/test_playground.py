@@ -1090,7 +1090,7 @@ class TestGetAvailableLiveAgents:
             side_effect=fake_key,
         ):
             agents = _get_available_live_agents(3)
-            assert "anthropic" in agents
+            assert "anthropic-api" in agents
 
     def test_pads_to_requested_count(self):
         def fake_key(name):
@@ -1110,8 +1110,8 @@ class TestGetAvailableLiveAgents:
         ):
             agents = _get_available_live_agents(4)
             assert len(agents) == 4
-            assert "anthropic" in agents
-            assert "openai" in agents
+            assert "anthropic-api" in agents
+            assert "openai-api" in agents
 
 
 # ============================================================================

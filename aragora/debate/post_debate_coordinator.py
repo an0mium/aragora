@@ -139,7 +139,11 @@ class PostDebateCoordinator:
 
         thread = threading.Thread(target=_runner, daemon=True)
         thread.start()
-        thread.join()
+        thread.join(timeout=10)
+
+        if thread.is_alive():
+            logger.warning("_run_async_callable timed out after 10s")
+            return None
 
         if "error" in error:
             raise error["error"]

@@ -223,11 +223,25 @@ jobs:
           echo "| Status Doc Validation | ${{ needs.status-doc-validation.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend Build | ${{ needs.frontend-build.result }} |" >> $GITHUB_STEP_SUMMARY
 
-          FRONTEND_RESULT="${{ needs.frontend-build.result }}"
-          if [ "${{ needs.smoke-tests.result }}" != "success" ] || \
-             [ "${{ needs.api-contract-sync.result }}" != "success" ] || \
-             [ "${{ needs.status-doc-validation.result }}" != "success" ] || \
-             { [ "$FRONTEND_RESULT" != "success" ] && [ "$FRONTEND_RESULT" != "skipped" ]; }; then
+          validate_gate_result() {
+            local name="$1"
+            local result="$2"
+            case "$result" in
+              success|cancelled|skipped) return 0 ;;
+              *)
+                echo "::error::${name} returned unexpected status: ${result}"
+                return 1
+                ;;
+            esac
+          }
+
+          failed=0
+          validate_gate_result "Smoke Tests" "${{ needs.smoke-tests.result }}" || failed=1
+          validate_gate_result "API Contract Sync" "${{ needs.api-contract-sync.result }}" || failed=1
+          validate_gate_result "Status Doc Validation" "${{ needs.status-doc-validation.result }}" || failed=1
+          validate_gate_result "Frontend Build" "${{ needs.frontend-build.result }}" || failed=1
+
+          if [ "$failed" -ne 0 ]; then
             echo ""
             echo "::error::Integration gate FAILED - one or more checks did not pass"
             exit 1

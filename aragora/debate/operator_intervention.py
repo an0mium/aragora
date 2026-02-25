@@ -236,6 +236,12 @@ class DebateInterventionManager:
             entry.interventions.append(record)
 
             logger.info("debate_paused debate_id=%s reason=%s", debate_id, reason or "(none)")
+            try:
+                from aragora.observability.metrics.settlement import record_intervention
+
+                record_intervention("pause")
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError):
+                pass
             return True
 
     def resume(self, debate_id: str) -> bool:
@@ -270,6 +276,12 @@ class DebateInterventionManager:
             entry.interventions.append(record)
 
             logger.info("debate_resumed debate_id=%s", debate_id)
+            try:
+                from aragora.observability.metrics.settlement import record_intervention
+
+                record_intervention("resume")
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError):
+                pass
             return True
 
     def restart(self, debate_id: str, from_round: int = 0) -> bool:
@@ -315,6 +327,12 @@ class DebateInterventionManager:
                 debate_id,
                 entry.restart_from_round,
             )
+            try:
+                from aragora.observability.metrics.settlement import record_intervention
+
+                record_intervention("restart")
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError):
+                pass
             return True
 
     def inject_context(self, debate_id: str, context: str) -> bool:

@@ -46,6 +46,10 @@ from .routes import (
     canvas_pipeline,
     orchestration,
     marketplace,
+    testfixer,
+    analytics,
+    admin,
+    knowledge_base,
 )
 
 logger = logging.getLogger(__name__)
@@ -318,6 +322,10 @@ def create_app(
     app.include_router(canvas_pipeline.router)
     app.include_router(orchestration.router)
     app.include_router(marketplace.router)
+    app.include_router(testfixer.router)
+    app.include_router(analytics.router)
+    app.include_router(admin.router)
+    app.include_router(knowledge_base.router)
 
     # Setup exception handlers
     setup_exception_handlers(app)

@@ -795,9 +795,16 @@ class TestControlPlaneTools:
     @pytest.mark.asyncio
     async def test_list_registered_agents_tool(self):
         """Test list_registered_agents_tool returns valid structure."""
+        from unittest.mock import patch, AsyncMock
         from aragora.mcp.tools_module.control_plane import list_registered_agents_tool
 
-        result = await list_registered_agents_tool()
+        # Mock coordinator to avoid blocking ControlPlaneCoordinator.create()
+        with patch(
+            "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            result = await list_registered_agents_tool()
 
         assert isinstance(result, dict)
         # Should have agents list (fallback or real)
@@ -1067,9 +1074,21 @@ class TestGauntletTools:
     @pytest.mark.asyncio
     async def test_run_gauntlet_tool_with_profile(self):
         """Test run_gauntlet_tool with different profiles."""
+        from unittest.mock import AsyncMock, MagicMock, patch
         from aragora.mcp.tools_module.gauntlet import run_gauntlet_tool
 
-        # Test with quick profile
-        result = await run_gauntlet_tool(content="Test document content", profile="quick")
+        # Mock GauntletRunner to avoid real API calls
+        mock_verdict = MagicMock()
+        mock_verdict.value = "pass"
+        mock_result = MagicMock()
+        mock_result.verdict = mock_verdict
+        mock_result.risk_score = 0.1
+        mock_result.vulnerabilities = []
+        mock_result.passed = True
+        mock_runner = AsyncMock()
+        mock_runner.run = AsyncMock(return_value=mock_result)
+
+        with patch("aragora.gauntlet.GauntletRunner", return_value=mock_runner):
+            result = await run_gauntlet_tool(content="Test document content", profile="quick")
 
         assert isinstance(result, dict)

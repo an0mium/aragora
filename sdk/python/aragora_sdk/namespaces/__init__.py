@@ -171,6 +171,7 @@ from .uncertainty import AsyncUncertaintyAPI, UncertaintyAPI
 from .unified_inbox import AsyncUnifiedInboxAPI, UnifiedInboxAPI
 from .usage import AsyncUsageAPI, UsageAPI
 from .usage_metering import AsyncUsageMeteringAPI, UsageMeteringAPI
+from .vector_index import AsyncVectorIndexAPI, VectorIndexAPI
 from .verification import AsyncVerificationAPI, VerificationAPI
 from .verticals import AsyncVerticalsAPI, VerticalsAPI
 from .voice import AsyncVoiceAPI, VoiceAPI
@@ -520,6 +521,8 @@ __all__ = [
     "AsyncVerificationAPI",
     "VerticalsAPI",
     "AsyncVerticalsAPI",
+    "VectorIndexAPI",
+    "AsyncVectorIndexAPI",
     "VoiceAPI",
     "AsyncVoiceAPI",
     "WebhooksAPI",

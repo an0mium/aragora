@@ -100,7 +100,7 @@ describe('ReceiptsPage', () => {
     // H1 title and H2 list header both say "Decision Receipts"
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading.textContent).toBe('Decision Receipts');
-    expect(screen.getByText(/Audit-ready compliance documentation/)).toBeInTheDocument();
+    expect(screen.getByText(/Audit-ready records of every AI-debated decision/)).toBeInTheDocument();
   });
 
   it('shows loading state', () => {
@@ -276,7 +276,7 @@ describe('ReceiptsPage', () => {
     render(<ReceiptsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/No completed gauntlet runs found/)).toBeInTheDocument();
+      expect(screen.getByText(/No decision receipts yet/)).toBeInTheDocument();
     });
   });
 
@@ -372,6 +372,128 @@ describe('ReceiptsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Alt shape result')).toBeInTheDocument();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Empty state action links
+  // ---------------------------------------------------------------------------
+
+  it('shows Oracle and debate links in empty state', async () => {
+    mockUseSWRFetch.mockReturnValue({
+      data: { receipts: [] },
+      error: null,
+      isLoading: false,
+      mutate: mockMutate,
+    });
+
+    render(<ReceiptsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Ask the Oracle')).toBeInTheDocument();
+      expect(screen.getByText('Start a debate')).toBeInTheDocument();
+
+      // Verify link destinations
+      const oracleLink = screen.getByText('Ask the Oracle').closest('a');
+      expect(oracleLink?.getAttribute('href')).toBe('/oracle');
+
+      const debateLink = screen.getByText('Start a debate').closest('a');
+      expect(debateLink?.getAttribute('href')).toBe('/debate');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Gauntlet fallback endpoint
+  // ---------------------------------------------------------------------------
+
+  it('falls back to gauntlet endpoint when v2 receipts returns no data', async () => {
+    mockUseSWRFetch
+      // First call: v2 receipts returns null (no data)
+      .mockReturnValueOnce({
+        data: null,
+        error: null,
+        isLoading: false,
+        mutate: mockMutate,
+      })
+      // Second call: gauntlet fallback returns data
+      .mockReturnValueOnce({
+        data: {
+          results: [sampleResult({ input_summary: 'Gauntlet fallback result' })],
+        },
+        error: null,
+        isLoading: false,
+        mutate: mockMutate,
+      });
+
+    render(<ReceiptsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Gauntlet fallback result')).toBeInTheDocument();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Date display
+  // ---------------------------------------------------------------------------
+
+  it('displays formatted date for each receipt', async () => {
+    const fixedDate = '2026-02-15T10:30:00Z';
+    mockUseSWRFetch
+      .mockReturnValueOnce({
+        data: {
+          receipts: [sampleResult({ created_at: fixedDate })],
+        },
+        error: null,
+        isLoading: false,
+        mutate: mockMutate,
+      })
+      .mockReturnValueOnce({
+        data: null,
+        error: null,
+        isLoading: false,
+        mutate: mockMutate,
+      });
+
+    render(<ReceiptsPage />);
+
+    await waitFor(() => {
+      // The component calls new Date(created_at).toLocaleDateString()
+      const expectedDate = new Date(fixedDate).toLocaleDateString();
+      expect(screen.getByText(expectedDate)).toBeInTheDocument();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Low risk items not shown when count is 0
+  // ---------------------------------------------------------------------------
+
+  it('does not show zero-count risk summary entries', async () => {
+    mockUseSWRFetch
+      .mockReturnValueOnce({
+        data: {
+          receipts: [sampleResult({
+            risk_summary: { critical: 0, high: 0, medium: 1, low: 0 },
+          })],
+        },
+        error: null,
+        isLoading: false,
+        mutate: mockMutate,
+      })
+      .mockReturnValueOnce({
+        data: null,
+        error: null,
+        isLoading: false,
+        mutate: mockMutate,
+      });
+
+    render(<ReceiptsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('M:1')).toBeInTheDocument();
+      // C:0, H:0, L:0 should NOT be rendered
+      expect(screen.queryByText('C:0')).not.toBeInTheDocument();
+      expect(screen.queryByText('H:0')).not.toBeInTheDocument();
+      expect(screen.queryByText('L:0')).not.toBeInTheDocument();
     });
   });
 });
