@@ -140,6 +140,7 @@ class TestSettlementReviewScheduler:
                 "settlement": {
                     "status": "pending_outcome",
                     "outcome": True,
+                    "resolver_type": "human",
                     "review_horizon_days": 30,
                     "falsifier": "Error budget breached",
                     "metric": "Error budget consumption < 5%",
@@ -175,7 +176,108 @@ class TestSettlementReviewScheduler:
         settlement = saved["settlement"]
         assert settlement["status"] == "settled_true"
         assert settlement["calibration_outcome"] == "correct"
+        assert settlement["calibration_resolver_type"] == "human"
         assert isinstance(settlement.get("calibration_recorded_at"), str)
+
+    def test_review_skips_calibration_for_non_epistemic_mode(self) -> None:
+        now = datetime.now(timezone.utc)
+        old = now - timedelta(days=40)
+        receipt = _StoredReceiptStub(
+            data={
+                "receipt_id": "r2b",
+                "gauntlet_id": "debate-r2b",
+                "debate_id": "debate-r2b",
+                "timestamp": _iso(old),
+                "confidence": 0.81,
+                "mode": "general",
+                "agents_involved": ["claude", "gpt-5"],
+                "settlement": {
+                    "status": "pending_outcome",
+                    "outcome": True,
+                    "resolver_type": "human",
+                    "review_horizon_days": 30,
+                    "falsifier": "Error budget breached",
+                    "metric": "Error budget consumption < 5%",
+                    "claim": "Plan reduces incidents",
+                },
+            },
+            created_at=old.timestamp(),
+            debate_id="debate-r2b",
+        )
+
+        store = MagicMock()
+        store.list.side_effect = [[receipt], []]
+        store.save = MagicMock()
+
+        scheduler = SettlementReviewScheduler(store, max_receipts_per_run=10)
+        tracker = MagicMock()
+        scheduler._calibration_tracker = tracker
+        (
+            _scanned,
+            _due,
+            _updated,
+            calibration_predictions,
+            _unresolved_due,
+        ) = scheduler._review_due_receipts_sync()
+
+        assert calibration_predictions == 0
+        tracker.record_prediction.assert_not_called()
+        saved = store.save.call_args[0][0]
+        settlement = saved["settlement"]
+        assert settlement["status"] == "settled_true"
+        assert settlement["calibration_outcome"] == "skipped_non_epistemic_mode"
+        assert isinstance(settlement.get("calibration_recorded_at"), str)
+
+    def test_review_defers_calibration_without_verified_resolver(self) -> None:
+        now = datetime.now(timezone.utc)
+        old = now - timedelta(days=40)
+        receipt = _StoredReceiptStub(
+            data={
+                "receipt_id": "r2c",
+                "gauntlet_id": "debate-r2c",
+                "debate_id": "debate-r2c",
+                "timestamp": _iso(old),
+                "confidence": 0.81,
+                "mode": "epistemic_hygiene",
+                "agents_involved": ["claude", "gpt-5"],
+                "settlement": {
+                    "status": "pending_outcome",
+                    "outcome": True,
+                    "resolver_type": "tribunal",
+                    "review_horizon_days": 7,
+                    "falsifier": "Error budget breached",
+                    "metric": "Error budget consumption < 5%",
+                    "claim": "Plan reduces incidents",
+                },
+            },
+            created_at=old.timestamp(),
+            debate_id="debate-r2c",
+        )
+
+        store = MagicMock()
+        store.list.side_effect = [[receipt], []]
+        store.save = MagicMock()
+
+        scheduler = SettlementReviewScheduler(store, max_receipts_per_run=10)
+        tracker = MagicMock()
+        scheduler._calibration_tracker = tracker
+        (
+            _scanned,
+            _due,
+            _updated,
+            calibration_predictions,
+            _unresolved_due,
+        ) = scheduler._review_due_receipts_sync()
+
+        assert calibration_predictions == 0
+        tracker.record_prediction.assert_not_called()
+        saved = store.save.call_args[0][0]
+        settlement = saved["settlement"]
+        assert settlement["status"] == "settled_true"
+        assert settlement["calibration_outcome"] == "pending_resolver_verification"
+        assert settlement.get("calibration_recorded_at") is None
+        assert isinstance(settlement.get("next_review_at"), str)
+        assert isinstance(settlement.get("calibration_pending_since"), str)
 
     def test_review_skips_not_due_receipts(self) -> None:
         now = datetime.now(timezone.utc)
@@ -294,6 +396,7 @@ class TestSettlementReviewScheduler:
         generated.data["settlement"]["status"] = "pending_outcome"
         generated.data["settlement"]["outcome"] = True
         generated.data["settlement"]["review_horizon_days"] = 1
+        generated.data["settlement"]["resolver_type"] = "human"
         store.save(generated.data)
 
         scheduler = SettlementReviewScheduler(store, max_receipts_per_run=10)
