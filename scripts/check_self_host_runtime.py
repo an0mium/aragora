@@ -216,17 +216,24 @@ def _wait_for_http_200(base_url: str, path: str, timeout_seconds: int) -> None:
     deadline = time.monotonic() + timeout_seconds
     url = urllib.parse.urljoin(base_url, path)
     last_status = 0
+    last_error = ""
 
     while time.monotonic() < deadline:
-        status, _ = _http_request(url, method="GET", timeout_seconds=5)
-        last_status = status
-        if status == 200:
-            print(f"[ok] {path} returned 200")
-            return
+        try:
+            status, _ = _http_request(url, method="GET", timeout_seconds=5)
+            last_status = status
+            if status == 200:
+                print(f"[ok] {path} returned 200")
+                return
+        except RuntimeCheckError as exc:
+            # The service may still be binding; keep polling until timeout.
+            last_error = str(exc)
+            last_status = 0
         time.sleep(2)
 
+    extra = f", last_error={last_error}" if last_error else ""
     raise RuntimeCheckError(
-        f"Timed out waiting for {path} to return 200 (last_status={last_status})"
+        f"Timed out waiting for {path} to return 200 (last_status={last_status}{extra})"
     )
 
 

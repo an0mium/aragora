@@ -8,6 +8,7 @@ from pathlib import Path
 from types import ModuleType
 from unittest.mock import patch
 
+import pytest
 
 def _load_script_module() -> ModuleType:
     script_path = Path(__file__).resolve().parents[2] / "scripts" / "check_self_host_runtime.py"
@@ -112,3 +113,27 @@ def test_validate_runtime_env_file_accepts_valid_values(tmp_path: Path) -> None:
 
     assert errors == []
     assert warnings == []
+
+
+def test_wait_for_http_200_retries_on_transient_connection_errors() -> None:
+    module = _load_script_module()
+    transient = module.RuntimeCheckError("HTTP request failed for http://127.0.0.1:8080/healthz")
+
+    with (
+        patch.object(module, "_http_request", side_effect=[transient, (200, "ok")]),
+        patch.object(module.time, "sleep", return_value=None),
+    ):
+        module._wait_for_http_200("http://127.0.0.1:8080", "/healthz", timeout_seconds=10)
+
+
+def test_wait_for_http_200_reports_last_connection_error_on_timeout() -> None:
+    module = _load_script_module()
+    transient = module.RuntimeCheckError("HTTP request failed for http://127.0.0.1:8080/healthz")
+
+    with (
+        patch.object(module, "_http_request", side_effect=transient),
+        patch.object(module.time, "monotonic", side_effect=[0.0, 0.1, 1.1]),
+        patch.object(module.time, "sleep", return_value=None),
+    ):
+        with pytest.raises(module.RuntimeCheckError, match="last_error=HTTP request failed"):
+            module._wait_for_http_200("http://127.0.0.1:8080", "/healthz", timeout_seconds=1)
