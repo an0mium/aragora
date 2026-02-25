@@ -62,7 +62,7 @@ const USE_CASES: UseCase[] = [
     color: 'text-acid-green',
     borderColor: 'border-acid-green/30',
     features: [
-      { name: 'Debates', path: '/debate', description: 'Multi-agent vetted decisionmaking' },
+      { name: 'Debates', path: '/debate', description: 'AI models debate your question' },
       { name: 'Knowledge Mound', path: '/knowledge', description: 'Accumulated insights' },
       { name: 'Memory System', path: '/memory', description: 'Cross-session learning' },
       { name: 'Insights', path: '/insights', description: 'AI-extracted patterns' },
