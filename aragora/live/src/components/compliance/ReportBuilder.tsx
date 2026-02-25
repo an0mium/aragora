@@ -114,15 +114,15 @@ export function ReportBuilder({
         report_id: `CR-${Date.now().toString(36).toUpperCase()}`,
         framework: selectedFramework,
         generated_at: new Date().toISOString(),
-        summary: `Multi-agent vetted decisionmaking completed with consensus for debate ${debateId.slice(0, 8)}. Full audit trail preserved with cryptographic verification available.`,
+        summary: `Multi-agent AI debate completed with consensus for debate ${debateId.slice(0, 8)}. Full audit trail preserved with cryptographic verification available.`,
         sections: [
           {
             title: 'Executive Summary',
-            content: `This report documents the vetted decisionmaking process and outcome for debate ${debateId.slice(0, 8)}...\n\n**Task:** ${debateTask || 'Debate task'}\n\n**Outcome:** Consensus REACHED\n**Confidence Level:** 85%\n**Rounds Completed:** 5`,
+            content: `This report documents the AI debate process and outcome for debate ${debateId.slice(0, 8)}...\n\n**Task:** ${debateTask || 'Debate task'}\n\n**Outcome:** Consensus REACHED\n**Confidence Level:** 85%\n**Rounds Completed:** 5`,
           },
           {
             title: 'Decision Overview',
-            content: '**Winning Position:** Multi-agent consensus\n\n**Final Decision:** The agents reached agreement through structured vetted decisionmaking following established protocols.',
+            content: '**Winning Position:** Multi-agent consensus\n\n**Final Decision:** The agents reached agreement through structured multi-agent debate following established protocols.',
           },
           {
             title: 'Participants',

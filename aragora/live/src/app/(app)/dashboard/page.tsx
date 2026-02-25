@@ -262,7 +262,7 @@ export default function DashboardPage() {
             href="/control-plane"
             className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
-            CONTROL PLANE
+            OPERATIONS
           </Link>
           <Link
             href="/admin"

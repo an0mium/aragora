@@ -13,7 +13,7 @@ interface DeliberationGridProps {
 export function DeliberationGrid({
   deliberations,
   loading = false,
-  emptyMessage = 'No active vetted decisionmaking sessions',
+  emptyMessage = 'No active debate sessions',
 }: DeliberationGridProps) {
   if (loading) {
     return (

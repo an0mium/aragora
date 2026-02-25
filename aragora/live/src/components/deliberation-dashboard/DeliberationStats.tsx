@@ -46,7 +46,7 @@ export function DeliberationStats({ stats, loading = false }: DeliberationStatsP
           {displayStats.active_count}
         </div>
         <div className="text-xs font-mono text-text-muted mt-1">
-          vetted decisionmaking sessions
+          active debates
         </div>
       </div>
 
