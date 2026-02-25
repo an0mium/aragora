@@ -178,6 +178,12 @@ class TestCanHandle:
     def test_handles_reputation_all(self, handler):
         assert handler.can_handle("/api/reputation/all") is True
 
+    def test_handles_reputation_history(self, handler):
+        assert handler.can_handle("/api/reputation/history") is True
+
+    def test_handles_reputation_domain(self, handler):
+        assert handler.can_handle("/api/reputation/domain") is True
+
     def test_handles_agent_reputation(self, handler):
         assert handler.can_handle("/api/agent/claude/reputation") is True
 
@@ -192,6 +198,12 @@ class TestCanHandle:
 
     def test_handles_versioned_reputation_all(self, handler):
         assert handler.can_handle("/api/v1/reputation/all") is True
+
+    def test_handles_versioned_reputation_history(self, handler):
+        assert handler.can_handle("/api/v1/reputation/history") is True
+
+    def test_handles_versioned_reputation_domain(self, handler):
+        assert handler.can_handle("/api/v1/reputation/domain") is True
 
     def test_handles_versioned_agent_reputation(self, handler):
         assert handler.can_handle("/api/v1/agent/claude/reputation") is True
