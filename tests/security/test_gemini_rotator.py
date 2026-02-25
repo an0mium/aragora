@@ -59,7 +59,8 @@ def test_gemini_handler_registered():
 def test_get_current_key_from_env(monkeypatch):
     """Falls back to env when secrets module unavailable."""
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key-123")
-    key = _get_current_key(FakeServiceConfig())
+    with patch("aragora.config.secrets.get_secret", return_value=None):
+        key = _get_current_key(FakeServiceConfig())
     assert key == "test-gemini-key-123"
 
 
@@ -67,7 +68,8 @@ def test_get_current_key_google_api_key_fallback(monkeypatch):
     """Falls back to GOOGLE_API_KEY when GEMINI_API_KEY missing."""
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.setenv("GOOGLE_API_KEY", "google-key-456")
-    key = _get_current_key(FakeServiceConfig())
+    with patch("aragora.config.secrets.get_secret", return_value=None):
+        key = _get_current_key(FakeServiceConfig())
     assert key == "google-key-456"
 
 
@@ -75,7 +77,8 @@ def test_get_current_key_none_when_missing(monkeypatch):
     """Returns None when no key is available."""
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
-    key = _get_current_key(FakeServiceConfig())
+    with patch("aragora.config.secrets.get_secret", return_value=None):
+        key = _get_current_key(FakeServiceConfig())
     assert key is None
 
 
