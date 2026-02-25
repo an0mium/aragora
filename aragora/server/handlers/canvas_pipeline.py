@@ -353,7 +353,7 @@ class CanvasPipelineHandler:
 
         body = self._get_request_body(handler)
         if not callable(target):
-            return error_dict("Internal routing error: target is not callable")
+            return {"error": "Internal routing error", "code": "INTERNAL_ERROR"}
         return target(body)
 
     def handle_put(self, path: str, query_params: dict[str, Any], handler: Any) -> Any:

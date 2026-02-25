@@ -184,7 +184,7 @@ class PipelineResultStore(SQLiteStore):
             )
             return cursor.rowcount > 0
 
-    def count(self, status: str | None = None) -> int:  # type: ignore[override]  # noqa: override ok - adds optional filter
+    def count(self, status: str | None = None) -> int:  # type: ignore[override] - adds optional filter
         """Count pipeline results with optional status filter."""
         if status:
             sql = "SELECT COUNT(*) FROM pipeline_results WHERE status = ?"

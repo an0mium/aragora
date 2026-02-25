@@ -62,7 +62,7 @@ export class AuditTrailAPI {
   async get(trailId: string): Promise<Record<string, unknown>> {
     return this.client.request<Record<string, unknown>>(
       'GET',
-      `/api/audit-trails/${encodeURIComponent(trailId)}`
+      `/api/v1/audit-trails/${encodeURIComponent(trailId)}`
     );
   }
 
@@ -73,7 +73,7 @@ export class AuditTrailAPI {
   ): Promise<Record<string, unknown>> {
     return this.client.request<Record<string, unknown>>(
       'GET',
-      `/api/audit-trails/${encodeURIComponent(trailId)}/export`,
+      `/api/v1/audit-trails/${encodeURIComponent(trailId)}/export`,
       { params: { format } }
     );
   }
@@ -82,7 +82,7 @@ export class AuditTrailAPI {
   async verify(trailId: string): Promise<AuditTrailVerification> {
     return this.client.request<AuditTrailVerification>(
       'POST',
-      `/api/audit-trails/${encodeURIComponent(trailId)}/verify`
+      `/api/v1/audit-trails/${encodeURIComponent(trailId)}/verify`
     );
   }
 
