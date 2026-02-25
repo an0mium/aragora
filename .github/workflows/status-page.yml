@@ -104,18 +104,44 @@ jobs:
   deploy-production:
     name: Deploy to Production
     needs: validate
-    if: >-
-      (github.event.inputs.environment == 'production' || github.ref == 'refs/heads/main') &&
-      secrets.DEPLOY_SSH_KEY != '' &&
-      secrets.DEPLOY_HOST != '' &&
-      secrets.DEPLOY_USER != ''
+    if: github.event.inputs.environment == 'production' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
+    outputs:
+      deployed: ${{ steps.deploy_secrets.outputs.deploy_ready }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check deployment secrets
+        id: deploy_secrets
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SLACK_OPS_WEBHOOK: ${{ secrets.SLACK_OPS_WEBHOOK }}
+        run: |
+          missing=()
+          [ -n "$DEPLOY_SSH_KEY" ] || missing+=("DEPLOY_SSH_KEY")
+          [ -n "$DEPLOY_HOST" ] || missing+=("DEPLOY_HOST")
+          [ -n "$DEPLOY_USER" ] || missing+=("DEPLOY_USER")
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "deploy_ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping production deployment (missing secrets: ${missing[*]})."
+          else
+            echo "deploy_ready=true" >> "$GITHUB_OUTPUT"
+            echo "Production deployment secrets verified."
+          fi
+
+          if [ -n "$SLACK_OPS_WEBHOOK" ]; then
+            echo "slack_ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "slack_ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure SSH
+        if: steps.deploy_secrets.outputs.deploy_ready == 'true'
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           SSH_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -127,6 +153,7 @@ jobs:
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Deploy Status Page
+        if: steps.deploy_secrets.outputs.deploy_ready == 'true'
         env:
           SSH_HOST: ${{ secrets.DEPLOY_HOST }}
           SSH_USER: ${{ secrets.DEPLOY_USER }}
@@ -156,6 +183,7 @@ jobs:
           ENDSSH
 
       - name: Verify Deployment
+        if: steps.deploy_secrets.outputs.deploy_ready == 'true'
         run: |
           # Give DNS/CDN time to propagate
           sleep 10
@@ -170,8 +198,13 @@ jobs:
             echo "This may be a DNS/CDN propagation delay"
           fi
 
+      - name: Skip Deployment (missing secrets)
+        if: steps.deploy_secrets.outputs.deploy_ready != 'true'
+        run: |
+          echo "Production status page deployment skipped due to missing deployment secrets."
+
       - name: Notify Slack
-        if: always() && secrets.SLACK_OPS_WEBHOOK != ''
+        if: always() && steps.deploy_secrets.outputs.slack_ready == 'true'
         uses: slackapi/slack-github-action@v1
         with:
           payload: |
@@ -195,6 +228,7 @@ jobs:
   provision-monitors:
     name: Provision Monitors
     needs: deploy-production
+    if: needs.deploy-production.outputs.deployed == 'true'
     runs-on: ubuntu-latest
     environment: production
     steps:
