@@ -710,12 +710,12 @@ class TeamsOAuthHandler(SecureHandler):
 
             for t in tenants:
                 # Determine token health
-                token_status = "valid"
+                token_status = "valid"  # noqa: S105 -- status label
                 if t.expires_at:
                     if t.expires_at < current_time:
-                        token_status = "expired"
+                        token_status = "expired"  # noqa: S105 -- status label
                     elif t.expires_at < current_time + 3600:
-                        token_status = "expiring_soon"
+                        token_status = "expiring_soon"  # noqa: S105 -- status label
 
                 tenant_list.append(
                     {
