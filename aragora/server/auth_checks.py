@@ -142,6 +142,7 @@ class AuthChecksMixin:
             "/api/integrations/google/callback",
             "/api/integrations/zoom/callback",
             "/api/v1/bots/slack/oauth/callback",
+            "/api/v1/bots/slack/oauth/start",
         ]
     )
 
