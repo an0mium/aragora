@@ -172,7 +172,7 @@ async def get_email_recipients():
 async def configure_email(body: EmailConfigRequest):
     """Configure email integration settings."""
     try:
-        from aragora.integrations.email import EmailConfig, EmailIntegration
+        from aragora.integrations.email import EmailConfig
         from aragora.server.handlers.social.notifications import configure_email_integration
 
         config = EmailConfig(
