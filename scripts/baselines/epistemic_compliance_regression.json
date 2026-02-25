@@ -1,6 +1,6 @@
 {
   "global": {
-    "min_total_cases": 7
+    "min_total_cases": 11
   },
   "models": {
     "strict_model": {
@@ -11,16 +11,17 @@
       "min_unknowns_rate": 1.0
     },
     "balanced_model": {
-      "min_avg_score": 0.8,
+      "min_avg_score": 0.9,
       "min_alternatives_rate": 1.0,
-      "min_falsifiers_rate": 0.5,
+      "min_falsifiers_rate": 0.66,
       "min_confidence_rate": 1.0,
       "min_unknowns_rate": 1.0
     },
     "adversarial_model": {
-      "max_avg_score": 0.2,
+      "max_avg_score": 0.12,
       "max_alternatives_rate": 0.0,
       "max_falsifiers_rate": 0.0,
+      "max_confidence_rate": 0.4,
       "max_unknowns_rate": 0.0
     }
   },
@@ -30,7 +31,12 @@
     },
     "hype_no_falsifier": {
       "max_score": 0.25
+    },
+    "adversarial_confidence_only_2": {
+      "max_score": 0.25
+    },
+    "adversarial_rhetoric_only_2": {
+      "max_score": 0.0
     }
   }
 }
-

@@ -79,7 +79,7 @@ function AgentTable({
           {'>'} AGENT QUALITY
         </h3>
         <p className="text-text-muted font-mono text-sm text-center py-4">
-          No agent data available
+          No agent quality data yet. Debates will show contribution scores and consensus accuracy here.
         </p>
       </div>
     );
@@ -162,7 +162,7 @@ function DomainTable({
           {'>'} DOMAINS
         </h3>
         <p className="text-text-muted font-mono text-sm text-center py-4">
-          No domain data available
+          No domain data yet. Run debates across different topics to see decision distribution by domain.
         </p>
       </div>
     );
@@ -239,7 +239,7 @@ function OutcomesList({
           {'>'} RECENT DECISIONS ({total})
         </h3>
         <p className="text-text-muted font-mono text-sm text-center py-4">
-          No decisions recorded yet
+          No decisions recorded yet. Start a debate to see verdicts, quality scores, and agent participation here.
         </p>
       </div>
     );

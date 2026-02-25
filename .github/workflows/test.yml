@@ -128,6 +128,22 @@ jobs:
       - name: Check CLI reference is up to date
         run: python scripts/generate_cli_reference.py --check
 
+      - name: Check epistemic compliance regression baseline
+        run: |
+          python scripts/check_epistemic_compliance_regression.py --strict \
+            --json-out /tmp/epistemic-compliance-summary.json \
+            --md-out /tmp/epistemic-compliance-summary.md
+
+      - name: Upload epistemic compliance summary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: epistemic-compliance-summary
+          path: |
+            /tmp/epistemic-compliance-summary.json
+            /tmp/epistemic-compliance-summary.md
+          retention-days: 14
+
       - name: Fetch PR base branch for capability summary
         if: github.event_name == 'pull_request'
         run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"

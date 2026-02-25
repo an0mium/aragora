@@ -96,8 +96,14 @@ function TierDistribution({ agents }: { agents: AgentRankingEntry[] }) {
 function AgentCards({ agents }: { agents: AgentRankingEntry[] }) {
   if (agents.length === 0) {
     return (
-      <div className="text-center py-8 text-[var(--text-muted)] font-mono text-sm">
-        No agents found
+      <div className="text-center py-8 space-y-3">
+        <p className="text-[var(--text-muted)] font-mono text-sm">No agent rankings yet</p>
+        <p className="text-[var(--text-muted)]/60 font-mono text-xs max-w-sm mx-auto">
+          Run debates to generate ELO ratings and see which agents perform best across topics.
+        </p>
+        <Link href="/debate" className="inline-block mt-2 px-4 py-1.5 text-xs font-mono border border-[var(--acid-green)]/40 text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors">
+          Start a debate
+        </Link>
       </div>
     );
   }

@@ -124,7 +124,7 @@ function ConsensusDonut({
           fontSize="14"
           fontFamily="monospace"
         >
-          No data
+          Run debates to see outcomes
         </text>
       </svg>
     );
@@ -934,8 +934,9 @@ export default function AnalyticsPage() {
                       </section>
                     </>
                   ) : (
-                    <div className="card p-8 text-center font-mono text-text-muted">
-                      No consensus data available for this period.
+                    <div className="card p-8 text-center font-mono text-text-muted space-y-2">
+                      <p>No consensus data in this time range.</p>
+                      <p className="text-xs text-text-muted/60">Try a wider date range or run debates to generate consensus metrics.</p>
                     </div>
                   )}
                 </div>
@@ -962,8 +963,9 @@ export default function AnalyticsPage() {
                       </div>
                     </section>
                   ) : (
-                    <div className="card p-8 text-center font-mono text-text-muted">
-                      No topic data available for this period.
+                    <div className="card p-8 text-center font-mono text-text-muted space-y-2">
+                      <p>No topic data in this time range.</p>
+                      <p className="text-xs text-text-muted/60">Expand your date range or start a debate to see trending topics.</p>
                     </div>
                   )}
                 </div>

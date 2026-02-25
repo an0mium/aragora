@@ -180,7 +180,7 @@ function SpendTable({
           {'>'} {title}
         </h3>
         <p className="text-text-muted font-mono text-sm text-center py-4">
-          No data available
+          No spend data yet. Run debates to see cost breakdowns by provider and agent.
         </p>
       </div>
     );

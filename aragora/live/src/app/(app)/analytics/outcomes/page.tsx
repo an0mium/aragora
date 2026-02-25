@@ -221,7 +221,7 @@ function AgentPerformanceTable({
           {'>'} AGENT PERFORMANCE LEADERBOARD
         </h3>
         <p className="text-text-muted font-mono text-sm text-center py-8">
-          No agent data available
+          No agent performance data yet. Run debates to see ELO ratings, Brier scores, and calibration accuracy.
         </p>
       </div>
     );
@@ -449,7 +449,7 @@ function DecisionHistoryTable({
           {'>'} DECISION HISTORY
         </h3>
         <p className="text-text-muted font-mono text-sm text-center py-8">
-          No decisions recorded yet
+          No decisions yet. Quality scores, rounds, and agent participation will appear here after debates.
         </p>
       </div>
     );
@@ -579,7 +579,10 @@ function CalibrationCurve({
           {'>'} CALIBRATION CURVE
         </h3>
         <div className="flex items-center justify-center h-64">
-          <div className="font-mono text-text-muted">No calibration data available</div>
+          <div className="font-mono text-text-muted text-sm text-center space-y-2">
+            <p>No calibration data yet</p>
+            <p className="text-xs text-text-muted/60">Complete debates with confidence predictions to see predicted vs actual accuracy.</p>
+          </div>
         </div>
       </div>
     );

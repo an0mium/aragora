@@ -11,6 +11,11 @@
       "text": "Alternative: keep existing scheduler | Rejected because: cannot meet throughput target.\nClaim: sharding improves throughput. Falsified if throughput does not improve at equivalent load.\nClaim: sharding improves throughput | Confidence: 0.88\nUnknown: exact peak concurrency of new customers."
     },
     {
+      "id": "strict_full_3",
+      "model": "strict_model",
+      "text": "Alternative: single-region failover | Rejected because: does not meet regional resilience requirement.\nClaim: active-active deployment improves resilience. Falsified if regional outage still causes full service interruption.\nClaim: active-active deployment improves resilience | Confidence: 0.79\nUnknown: cross-region failback latency during peak write traffic."
+    },
+    {
       "id": "balanced_partial_1",
       "model": "balanced_model",
       "text": "Alternative: keep monolith | Rejected because: deploy coupling remains high.\nClaim: service split will reduce deploy risk | Confidence: 0.76\nUnknown: migration timeline risk."
@@ -19,6 +24,11 @@
       "id": "balanced_full_2",
       "model": "balanced_model",
       "text": "Alternative: big-bang rewrite | Rejected because: delivery risk is too high.\nClaim: staged migration reduces outage risk. Falsified if incident rate rises over baseline.\nClaim: staged migration reduces outage risk | Confidence: 0.81\nUnknown: team capacity during quarter-end."
+    },
+    {
+      "id": "balanced_full_3",
+      "model": "balanced_model",
+      "text": "Alternative: defer migration by one quarter | Rejected because: we continue paying high operational cost.\nClaim: phased database migration lowers operational toil. Falsified if on-call pages do not trend downward within 60 days.\nClaim: phased database migration lowers operational toil | Confidence: 0.74\nUnknown: potential vendor throttling behavior during cutover."
     },
     {
       "id": "header_shell",
@@ -34,7 +44,16 @@
       "id": "adversarial_assertion_only",
       "model": "adversarial_model",
       "text": "We should proceed now because the concept is compelling."
+    },
+    {
+      "id": "adversarial_confidence_only_2",
+      "model": "adversarial_model",
+      "text": "This direction is obviously right. Confidence: 0.97."
+    },
+    {
+      "id": "adversarial_rhetoric_only_2",
+      "model": "adversarial_model",
+      "text": "History favors bold decisions, so hesitation is the biggest risk."
     }
   ]
 }
-
