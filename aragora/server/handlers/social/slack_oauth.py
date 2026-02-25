@@ -1268,16 +1268,16 @@ class SlackOAuthHandler(SecureHandler):
             current_time = time.time()
 
             # Determine token health
-            token_status = "valid"
+            token_status = "valid"  # noqa: S105 -- status label
             expires_in_seconds = None
             if workspace.token_expires_at:
                 expires_in_seconds = int(workspace.token_expires_at - current_time)
                 if expires_in_seconds < 0:
-                    token_status = "expired"
+                    token_status = "expired"  # noqa: S105 -- status label
                 elif expires_in_seconds < 3600:
-                    token_status = "expiring_soon"
+                    token_status = "expiring_soon"  # noqa: S105 -- status label
                 elif expires_in_seconds < 86400:
-                    token_status = "expiring_today"
+                    token_status = "expiring_today"  # noqa: S105 -- status label
 
             # Check if refresh token is available
             has_refresh_token = bool(workspace.refresh_token)
