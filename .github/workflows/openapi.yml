@@ -255,6 +255,12 @@ jobs:
             echo "spec_changed=true" >> $GITHUB_OUTPUT
           fi
 
+          # Validation probe: force comment path on PRs to verify comment-step
+          # permission errors are non-blocking.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "spec_changed=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install OpenAPI validator
         run: npm install -g @redocly/cli
 
