@@ -266,13 +266,13 @@ async def get_compliance_status(
         gdpr_consent_tracking = True
         gdpr_retention_policy = True
         try:
-            from aragora.privacy.consent import ConsentManager  # type: ignore[attr-defined]
+            from aragora.privacy.consent import ConsentManager  # type: ignore[attr-defined]  # noqa: F401
 
             gdpr_consent_tracking = True
         except ImportError:
             gdpr_consent_tracking = False
         try:
-            from aragora.privacy.retention import RetentionManager  # type: ignore[attr-defined]
+            from aragora.privacy.retention import RetentionManager  # type: ignore[attr-defined]  # noqa: F401
 
             gdpr_retention_policy = True
         except ImportError:
@@ -329,7 +329,7 @@ async def get_compliance_status(
         next_audit_due = now.isoformat()
         overall_score = 0.0
         try:
-            from aragora.compliance.monitor import ComplianceMonitor  # noqa: F811
+            from aragora.compliance.monitor import ComplianceMonitor  # noqa: F811, F401
 
             # Check for a running monitor instance via app state
             ctx = getattr(request.app.state, "context", None)

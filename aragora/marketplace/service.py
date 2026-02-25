@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from .catalog import InstallResult, MarketplaceCatalog, MarketplaceItem
+from .catalog import MarketplaceCatalog, MarketplaceItem
 from .installer import InstallBridgeResult, MarketplaceInstaller
 
 logger = logging.getLogger(__name__)

@@ -51,13 +51,12 @@ Agent Management:
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from aragora.rbac.models import AuthorizationContext
