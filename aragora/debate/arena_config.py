@@ -420,6 +420,8 @@ class ArenaConfig:
         # Privacy anonymization (HIPAA Safe Harbor)
         enable_privacy_anonymization: bool = False,
         anonymization_method: str = "redact",
+        # Sandbox verification of code proposals
+        enable_sandbox_verification: bool = False,
         # Protocol-level flags (stored for preset passthrough to Arena/Protocol)
         enable_adaptive_consensus: bool = False,
         enable_synthesis: bool = False,
@@ -522,6 +524,9 @@ class ArenaConfig:
         # Privacy anonymization
         self.enable_privacy_anonymization = enable_privacy_anonymization
         self.anonymization_method = anonymization_method
+
+        # Sandbox verification of code proposals
+        self.enable_sandbox_verification = enable_sandbox_verification
 
         # Protocol-level flags (preset passthrough)
         self.enable_adaptive_consensus = enable_adaptive_consensus

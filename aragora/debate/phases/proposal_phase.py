@@ -86,6 +86,8 @@ class ProposalPhase:
         enable_propulsion: bool = False,
         # Molecule tracking for work unit management (Gastown pattern)
         molecule_tracker: MoleculeTracker | None = None,
+        # Arena config for feature flags (sandbox verification, etc.)
+        arena_config: Any = None,
     ):
         """
         Initialize the proposal phase.
@@ -128,6 +130,9 @@ class ProposalPhase:
         # Molecule tracking for work unit management
         self._molecule_tracker = molecule_tracker
         self._active_molecules: dict[str, str] = {}  # agent_name -> molecule_id
+
+        # Arena config for feature flags
+        self._arena_config = arena_config
 
     @staticmethod
     def _is_effectively_empty_response(content: Any) -> bool:
@@ -201,6 +206,9 @@ class ProposalPhase:
         # 7. Extract citation needs
         if self._extract_citation_needs:
             self._extract_citation_needs(ctx.proposals)
+
+        # 7.5. Sandbox verification of code proposals
+        await self._run_sandbox_verification(ctx)
 
         # 8. Fire propulsion event (proposals_ready) for push-based flow
         await self._fire_propulsion_event(ctx)
@@ -565,6 +573,53 @@ class ProposalPhase:
                 )
             except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
                 logger.debug("Spectator notification failed: %s", e)
+
+    async def _run_sandbox_verification(self, ctx: DebateContextType) -> None:
+        """Run sandbox verification on proposals containing code blocks.
+
+        When enable_sandbox_verification is set in the arena config, extracts
+        code blocks from each proposal and runs them in the sandbox executor.
+        Results are stored on ctx as sandbox_verification_results dict.
+
+        Args:
+            ctx: The DebateContext with proposals to verify.
+        """
+        if not getattr(self._arena_config, "enable_sandbox_verification", False):
+            return
+
+        if not ctx.proposals:
+            return
+
+        try:
+            from aragora.debate.phases.sandbox_verifier import verify_code_proposal
+        except (ImportError, RuntimeError) as e:
+            logger.debug("Sandbox verification unavailable: %s", e)
+            return
+
+        results: dict[str, dict] = {}
+        for agent_name, proposal_text in ctx.proposals.items():
+            if not proposal_text or proposal_text.startswith("[Error"):
+                continue
+            try:
+                sb_result = await verify_code_proposal(proposal_text)
+                results[agent_name] = sb_result.to_dict()
+                if not sb_result.passed:
+                    logger.info(
+                        "sandbox_verification_failed agent=%s error=%s",
+                        agent_name,
+                        sb_result.error_message or sb_result.stderr[:100],
+                    )
+            except (ImportError, RuntimeError, ValueError) as e:
+                logger.debug("Sandbox verification skipped for %s: %s", agent_name, e)
+
+        if results:
+            # Store on ctx for downstream phases (critique) to access
+            ctx.sandbox_verification_results = results  # type: ignore[attr-defined]
+            logger.info(
+                "sandbox_verification_complete agents=%s passed=%s",
+                list(results.keys()),
+                sum(1 for r in results.values() if r.get("passed")),
+            )
 
     async def _fire_propulsion_event(self, ctx: DebateContextType) -> None:
         """Fire propulsion event to push work to the next stage.

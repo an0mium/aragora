@@ -48,12 +48,11 @@ class TestMilvusVectorStore:
         # Just verify the module loads
         assert hasattr(milvus_mod, "MILVUS_AVAILABLE")
 
-    @pytest.mark.skipif(not PYMILVUS_AVAILABLE, reason="pymilvus not installed")
+    @pytest.mark.skip(reason="Integration test requires running Milvus instance")
     @pytest.mark.asyncio
     async def test_connect(self, config):
         """Should connect to Milvus (requires running Milvus)."""
-        # This is an integration test - skip in CI without Milvus
-        pytest.skip("Integration test requires running Milvus instance")
+        pass
 
     def test_upsert_mock(self, config, mock_collection):
         """Should prepare data correctly for upsert."""

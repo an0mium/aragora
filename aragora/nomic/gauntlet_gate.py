@@ -36,9 +36,28 @@ __all__ = [
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
+
+# Runtime imports for Gauntlet components (optional dependency)
+_GauntletRunner = None
+_GauntletConfig = None
+_AttackCategory = None
+_ProbeCategory = None
+_SeverityLevel = None
+_GAUNTLET_AVAILABLE = False
+
+try:
+    from aragora.gauntlet.config import AttackCategory as _AttackCategory  # noqa: N811
+    from aragora.gauntlet.config import GauntletConfig as _GauntletConfig  # noqa: N811
+    from aragora.gauntlet.config import ProbeCategory as _ProbeCategory  # noqa: N811
+    from aragora.gauntlet.result import SeverityLevel as _SeverityLevel  # noqa: N811
+    from aragora.gauntlet.runner import GauntletRunner as _GauntletRunner  # noqa: N811
+
+    _GAUNTLET_AVAILABLE = True
+except ImportError:
+    pass
 
 
 @dataclass
@@ -173,36 +192,28 @@ class GauntletApprovalGate:
                 skipped=True,
             )
 
-        try:
-            from aragora.gauntlet.config import (
-                AttackCategory,
-                GauntletConfig,
-                ProbeCategory,
-            )
-            from aragora.gauntlet.runner import GauntletRunner
-            from aragora.gauntlet.result import SeverityLevel
-        except ImportError as e:
-            logger.debug("Gauntlet gate skipped: gauntlet module unavailable: %s", e)
+        if not _GAUNTLET_AVAILABLE:
+            logger.debug("Gauntlet gate skipped: gauntlet module unavailable")
             return GauntletGateResult(
                 blocked=False,
                 reason="Gauntlet module not available",
                 skipped=True,
-                error=str(e),
+                error="aragora.gauntlet not installed",
             )
 
         # Build lightweight Gauntlet configuration
-        gauntlet_config = GauntletConfig(
+        gauntlet_config = _GauntletConfig(
             name="Nomic Loop Approval Gate",
             description="Lightweight adversarial validation for self-improvement gate",
             attack_categories=[
-                AttackCategory.SECURITY,
-                AttackCategory.LOGIC,
+                _AttackCategory.SECURITY,
+                _AttackCategory.LOGIC,
             ],
             attack_rounds=self.config.attack_rounds,
             attacks_per_category=2,
             probe_categories=[
-                ProbeCategory.CONTRADICTION,
-                ProbeCategory.HALLUCINATION,
+                _ProbeCategory.CONTRADICTION,
+                _ProbeCategory.HALLUCINATION,
             ],
             probes_per_category=self.config.probes_per_category,
             run_scenario_matrix=self.config.run_scenario_matrix,
@@ -214,7 +225,7 @@ class GauntletApprovalGate:
             timeout_seconds=self.config.timeout_seconds,
         )
 
-        runner = GauntletRunner(config=gauntlet_config)
+        runner = _GauntletRunner(config=gauntlet_config)
 
         try:
             gauntlet_result = await runner.run(
@@ -238,7 +249,7 @@ class GauntletApprovalGate:
         # Collect blocking findings
         blocking_findings: list[BlockingFinding] = []
         for vuln in gauntlet_result.vulnerabilities:
-            if vuln.severity in (SeverityLevel.CRITICAL, SeverityLevel.HIGH):
+            if vuln.severity in (_SeverityLevel.CRITICAL, _SeverityLevel.HIGH):
                 blocking_findings.append(
                     BlockingFinding(
                         severity=vuln.severity.value,

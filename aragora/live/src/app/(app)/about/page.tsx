@@ -30,11 +30,11 @@ export default function AboutPage() {
             <AsciiBanner subtitle="documentation" showStatus={false} />
 
             <div className="text-center mt-8">
-              <p className="text-xl text-acid-cyan font-mono mb-4">Control Plane for Multi-Agent Vetted Decisionmaking</p>
+              <p className="text-xl text-acid-cyan font-mono mb-4">AI models that debate your decisions</p>
               <p className="text-text-muted font-mono mb-6 max-w-2xl mx-auto">
-                Orchestrating 15+ AI models to debate your org knowledge—documents, databases, APIs—and
-                deliver defensible decisions to Slack, Teams, Discord, or voice. Unlike chatbots, Aragora
-                builds institutional memory and provides full audit trails for high-stakes decisions.
+                Ask any question and multiple AI models will argue every angle — then deliver a
+                verdict with confidence scores and a full audit trail. Unlike chatbots, Aragora
+                builds institutional memory across decisions and preserves minority opinions.
               </p>
 
               {/* Etymology */}
@@ -49,35 +49,23 @@ export default function AboutPage() {
               {/* Action Buttons */}
               <div className="flex justify-center gap-4 flex-wrap">
                 <Link
-                  href="https://live.aragora.ai"
+                  href="/playground"
                   className="px-6 py-2 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors"
                 >
-                  Watch Live
+                  Try a Debate
                 </Link>
-                <a
-                  href="https://pypi.org/project/aragora/"
+                <Link
+                  href="/oracle"
                   className="px-6 py-2 border border-acid-green/50 text-acid-green font-mono hover:bg-acid-green/10 transition-colors"
-                  target="_blank"
-                  rel="noopener noreferrer"
                 >
-                  PyPI v2.1.10
-                </a>
-                <a
-                  href="https://www.npmjs.com/package/@aragora/sdk"
+                  Live Oracle
+                </Link>
+                <Link
+                  href="/signup"
                   className="px-6 py-2 border border-acid-green/50 text-acid-green font-mono hover:bg-acid-green/10 transition-colors"
-                  target="_blank"
-                  rel="noopener noreferrer"
                 >
-                  npm @aragora/sdk
-                </a>
-                <a
-                  href="https://github.com/an0mium/aragora"
-                  className="px-6 py-2 border border-acid-green/50 text-acid-green font-mono hover:bg-acid-green/10 transition-colors"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  GitHub
-                </a>
+                  Create Account
+                </Link>
               </div>
             </div>
           </div>
@@ -225,14 +213,12 @@ export default function AboutPage() {
               ))}
             </div>
             <div className="mt-8 text-center">
-              <a
-                href="https://github.com/an0mium/aragora/tree/main/docs"
+              <Link
+                href="/about"
                 className="inline-flex items-center gap-2 px-6 py-2 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/10 transition-colors"
-                target="_blank"
-                rel="noopener noreferrer"
               >
                 View All Documentation →
-              </a>
+              </Link>
             </div>
           </div>
         </section>
@@ -406,15 +392,15 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
               {'═'.repeat(50)}
             </div>
             <div className="flex justify-center gap-6 mb-6">
-              <Link href="https://live.aragora.ai" className="text-acid-cyan hover:text-acid-green transition-colors">
-                Watch Live
+              <Link href="/playground" className="text-acid-cyan hover:text-acid-green transition-colors">
+                Try a Debate
               </Link>
-              <a href="https://github.com/an0mium/aragora" className="text-acid-cyan hover:text-acid-green transition-colors" target="_blank" rel="noopener noreferrer">
-                View on GitHub
-              </a>
-              <a href="https://pypi.org/project/aragora/" className="text-acid-cyan hover:text-acid-green transition-colors" target="_blank" rel="noopener noreferrer">
-                PyPI Package
-              </a>
+              <Link href="/oracle" className="text-acid-cyan hover:text-acid-green transition-colors">
+                Live Oracle
+              </Link>
+              <Link href="/" className="text-acid-cyan hover:text-acid-green transition-colors">
+                Home
+              </Link>
             </div>
             <p className="text-text-muted mb-2">
               Built for the open marketplace of ideas.

@@ -204,7 +204,7 @@ class TestGauntletGateBlocking:
         config = GauntletGateConfig(enabled=True, max_critical=0, max_high=0)
         gate = GauntletApprovalGate(config=config)
 
-        with patch("aragora.nomic.gauntlet_gate.GauntletRunner", return_value=mock_runner):
+        with patch("aragora.nomic.gauntlet_gate._GauntletRunner", return_value=mock_runner):
             result = await gate.evaluate(content="test content")
 
         assert result.blocked is True
@@ -223,7 +223,7 @@ class TestGauntletGateBlocking:
         config = GauntletGateConfig(enabled=True, max_critical=0, max_high=0)
         gate = GauntletApprovalGate(config=config)
 
-        with patch("aragora.nomic.gauntlet_gate.GauntletRunner", return_value=mock_runner):
+        with patch("aragora.nomic.gauntlet_gate._GauntletRunner", return_value=mock_runner):
             result = await gate.evaluate(content="test content")
 
         assert result.blocked is True
@@ -241,7 +241,7 @@ class TestGauntletGateBlocking:
         config = GauntletGateConfig(enabled=True, max_critical=0, max_high=0)
         gate = GauntletApprovalGate(config=config)
 
-        with patch("aragora.nomic.gauntlet_gate.GauntletRunner", return_value=mock_runner):
+        with patch("aragora.nomic.gauntlet_gate._GauntletRunner", return_value=mock_runner):
             result = await gate.evaluate(content="test content")
 
         assert result.blocked is False
@@ -259,7 +259,7 @@ class TestGauntletGateBlocking:
         config = GauntletGateConfig(enabled=True, max_critical=1, max_high=3)
         gate = GauntletApprovalGate(config=config)
 
-        with patch("aragora.nomic.gauntlet_gate.GauntletRunner", return_value=mock_runner):
+        with patch("aragora.nomic.gauntlet_gate._GauntletRunner", return_value=mock_runner):
             result = await gate.evaluate(content="test content")
 
         assert result.blocked is False
@@ -276,7 +276,7 @@ class TestGauntletGateBlocking:
         config = GauntletGateConfig(enabled=True, max_critical=1, max_high=3)
         gate = GauntletApprovalGate(config=config)
 
-        with patch("aragora.nomic.gauntlet_gate.GauntletRunner", return_value=mock_runner):
+        with patch("aragora.nomic.gauntlet_gate._GauntletRunner", return_value=mock_runner):
             result = await gate.evaluate(content="test content")
 
         assert result.blocked is True
@@ -293,7 +293,7 @@ class TestGauntletGateBlocking:
         config = GauntletGateConfig(enabled=True)
         gate = GauntletApprovalGate(config=config)
 
-        with patch("aragora.nomic.gauntlet_gate.GauntletRunner", return_value=mock_runner):
+        with patch("aragora.nomic.gauntlet_gate._GauntletRunner", return_value=mock_runner):
             result = await gate.evaluate(content="safe content")
 
         assert result.blocked is False
@@ -320,7 +320,7 @@ class TestGauntletGateErrors:
         config = GauntletGateConfig(enabled=True)
         gate = GauntletApprovalGate(config=config)
 
-        with patch("aragora.nomic.gauntlet_gate.GauntletRunner", return_value=mock_runner):
+        with patch("aragora.nomic.gauntlet_gate._GauntletRunner", return_value=mock_runner):
             result = await gate.evaluate(content="test")
 
         assert result.blocked is False
@@ -328,22 +328,18 @@ class TestGauntletGateErrors:
         assert result.error is not None
 
     @pytest.mark.asyncio
-    async def test_import_error_does_not_block(self):
-        """Gate should not block when gauntlet module is not importable."""
+    async def test_gauntlet_unavailable_does_not_block(self):
+        """Gate should not block when gauntlet module is not available."""
         config = GauntletGateConfig(enabled=True)
         gate = GauntletApprovalGate(config=config)
 
-        with patch.dict("sys.modules", {"aragora.gauntlet.config": None}):
-            # Force ImportError by patching the import
-            with patch(
-                "builtins.__import__",
-                side_effect=ImportError("no gauntlet"),
-            ):
-                result = await gate.evaluate(content="test")
+        # Simulate gauntlet module not being available
+        with patch("aragora.nomic.gauntlet_gate._GAUNTLET_AVAILABLE", False):
+            result = await gate.evaluate(content="test")
 
-        # Should gracefully skip
         assert result.blocked is False
         assert result.skipped is True
+        assert result.error is not None
 
 
 # ---------------------------------------------------------------------------
@@ -535,15 +531,14 @@ class TestGauntletGateVerifyPhaseIntegration:
             duration_seconds=1.0,
         )
 
-        mock_gate_cls = MagicMock()
         mock_gate_instance = MagicMock()
         mock_gate_instance.evaluate = AsyncMock(return_value=blocked_gate_result)
-        mock_gate_cls.return_value = mock_gate_instance
 
-        with patch("scripts.nomic.phases.verify.GauntletApprovalGate", mock_gate_cls):
-            # Need to also patch the import inside the method
-            with patch.dict("sys.modules", {}):
-                result = await phase._check_gauntlet_gate()
+        with patch(
+            "aragora.nomic.gauntlet_gate.GauntletApprovalGate",
+            return_value=mock_gate_instance,
+        ):
+            result = await phase._check_gauntlet_gate()
 
         assert result is not None
         assert result["passed"] is False
@@ -575,7 +570,7 @@ class TestGauntletGateLightweightMode:
             async def run(self, input_content, context="", **kwargs):
                 return _make_mock_gauntlet_result()
 
-        with patch("aragora.nomic.gauntlet_gate.GauntletRunner", FakeRunner):
+        with patch("aragora.nomic.gauntlet_gate._GauntletRunner", FakeRunner):
             await gate.evaluate(content="test content")
 
         assert captured_config is not None
@@ -605,7 +600,7 @@ class TestGauntletGateLightweightMode:
             async def run(self, input_content, context="", **kwargs):
                 return _make_mock_gauntlet_result()
 
-        with patch("aragora.nomic.gauntlet_gate.GauntletRunner", FakeRunner):
+        with patch("aragora.nomic.gauntlet_gate._GauntletRunner", FakeRunner):
             await gate.evaluate(content="test content")
 
         assert captured_config is not None

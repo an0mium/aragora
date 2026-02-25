@@ -217,8 +217,8 @@ const businessItems: NavItem[] = [
 const orchestrationItems: NavItem[] = [
   { label: 'Scheduler', href: '/scheduler', icon: '\u25F7', minMode: 'advanced' },
   { label: 'Queue', href: '/queue', icon: '\u2630', minMode: 'advanced' },
-  { label: 'Nomic Control', href: '/nomic-control', icon: '\u221E', minMode: 'advanced' },
-  { label: 'Self-Improve', href: '/self-improve', icon: '\u21BB', minMode: 'advanced' },
+  { label: 'Automation', href: '/nomic-control', icon: '\u221E', minMode: 'advanced' },
+  { label: 'Auto-Improve', href: '/self-improve', icon: '\u21BB', minMode: 'advanced' },
   { label: 'Verification', href: '/verification', icon: '\u2713', minMode: 'advanced' },
   { label: 'Verify', href: '/verify', icon: '\u2714', minMode: 'advanced' },
 ];

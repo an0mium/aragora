@@ -158,6 +158,11 @@ class StreamEventType(Enum):
     BREAKPOINT = "breakpoint"  # Human intervention breakpoint triggered
     BREAKPOINT_RESOLVED = "breakpoint_resolved"  # Breakpoint resolved with guidance
 
+    # Inbox → Debate trigger events
+    INBOX_ITEM_FLAGGED = "inbox_item_flagged"  # High-priority inbox item flagged for debate
+    INBOX_DEBATE_TRIGGERED = "inbox_debate_triggered"  # Auto-debate triggered from inbox item
+    INBOX_DEBATE_COMPLETED = "inbox_debate_completed"  # Debate result linked back to inbox item
+
     # Progress/heartbeat events (for detecting stalled debates)
     HEARTBEAT = "heartbeat"  # Periodic progress indicator
     AGENT_ERROR = "agent_error"  # Agent encountered an error (but debate continues)

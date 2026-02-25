@@ -61,6 +61,8 @@ export default function DebateDetailClient() {
   const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [bridging, setBridging] = useState<string | null>(null);
+  const [bridgeResult, setBridgeResult] = useState<string | null>(null);
   // Track whether the debate is still running (enables live streaming)
   const [debateStatus, setDebateStatus] = useState<'loading' | 'in_progress' | 'completed' | 'error'>('loading');
   const [showIntervention, setShowIntervention] = useState(false);
@@ -655,6 +657,73 @@ export default function DebateDetailClient() {
                     </div>
                   </button>
                 </div>
+              </div>
+
+              {/* Integration bridge — create issues in external tools */}
+              <div className="bg-[var(--surface)] border border-[var(--border)] p-6">
+                <div className="text-xs font-mono text-[var(--acid-cyan)] mb-4">
+                  {'>'} INTEGRATIONS
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mb-4 font-mono">
+                  Push this decision to external project management tools.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {(['jira', 'linear', 'n8n'] as const).map((target) => (
+                    <button
+                      key={target}
+                      disabled={bridging === target}
+                      onClick={async () => {
+                        setBridging(target);
+                        setBridgeResult(null);
+                        try {
+                          const res = await fetch(
+                            `${API_BASE_URL}/api/v1/debates/${pkg.id}/bridge`,
+                            {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ target }),
+                            }
+                          );
+                          if (res.ok) {
+                            setBridgeResult(`${target} triggered`);
+                          } else {
+                            setBridgeResult(`${target} failed`);
+                          }
+                        } catch {
+                          setBridgeResult(`${target} failed`);
+                        }
+                        setBridging(null);
+                      }}
+                      className={`px-4 py-3 text-xs font-mono bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] transition-colors text-left ${
+                        bridging === target
+                          ? 'opacity-50 cursor-wait'
+                          : 'hover:border-[var(--acid-cyan)]/40'
+                      }`}
+                    >
+                      <div>
+                        {bridging === target
+                          ? 'SENDING...'
+                          : target === 'jira'
+                            ? 'CREATE JIRA ISSUES'
+                            : target === 'linear'
+                              ? 'CREATE LINEAR ISSUES'
+                              : 'TRIGGER N8N WORKFLOW'}
+                      </div>
+                      <div className="text-[var(--text-muted)] mt-1">
+                        {target === 'jira'
+                          ? 'From decision tasks'
+                          : target === 'linear'
+                            ? 'From decision tasks'
+                            : 'Webhook dispatch'}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {bridgeResult && (
+                  <div className="mt-3 text-xs font-mono text-[var(--acid-green)]">
+                    {'>'} {bridgeResult}
+                  </div>
+                )}
               </div>
 
               <CostBreakdown

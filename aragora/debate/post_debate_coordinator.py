@@ -272,6 +272,12 @@ class PostDebateCoordinator:
             )
             result.bridge_results = bridge_results
 
+        # Step 8.1: Decision bridge — route plan to Jira/Linear/n8n
+        if result.plan and self.config.auto_execution_bridge:
+            decision_bridge_result = self._step_decision_bridge(result.plan)
+            if decision_bridge_result:
+                result.bridge_results.append(decision_bridge_result)
+
         return result
 
     def _step_explain(
@@ -804,6 +810,25 @@ class PostDebateCoordinator:
         except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.warning("Execution bridge failed: %s", e)
             return []
+
+    def _step_decision_bridge(self, plan: dict[str, Any]) -> dict[str, Any] | None:
+        """Route decision plan to external project management tools."""
+        try:
+            from aragora.integrations.decision_bridge import DecisionBridge
+
+            bridge = DecisionBridge()
+            bridge_result = self._run_async_callable(bridge.handle_decision_plan, plan)
+            if bridge_result:
+                result_dict = bridge_result.to_dict() if hasattr(bridge_result, "to_dict") else bridge_result
+                logger.info("Decision bridge completed: %s", result_dict)
+                return {"type": "decision_bridge", **result_dict}
+            return None
+        except ImportError:
+            logger.debug("DecisionBridge not available")
+            return None
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
+            logger.warning("Decision bridge failed: %s", e)
+            return None
 
     def _step_push_calibration(
         self,

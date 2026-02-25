@@ -262,6 +262,22 @@ class CritiqueGenerator:
                 self._start_molecule(critic.name, proposal_agent)
                 return await generate_critique(critic, proposal_agent, proposal)
 
+        # Enrich proposals with sandbox verification results if available
+        sandbox_results = getattr(ctx, "sandbox_verification_results", None) or {}
+
+        def _enrich_with_sandbox(agent_name: str, proposal_text: str) -> str:
+            """Append sandbox verification info to proposal for critique context."""
+            sb = sandbox_results.get(agent_name)
+            if not sb:
+                return proposal_text
+            status = "PASSED" if sb.get("passed") else "FAILED"
+            extra = f"\n\n[Sandbox Verification: {status}]"
+            if sb.get("stdout"):
+                extra += f"\nOutput: {sb['stdout'][:200]}"
+            if sb.get("stderr"):
+                extra += f"\nErrors: {sb['stderr'][:200]}"
+            return proposal_text + extra
+
         # Filter out empty/placeholder proposals
         valid_proposals = {
             agent: content
@@ -282,11 +298,16 @@ class CritiqueGenerator:
             else:
                 selected_critics = [c for c in critics if c.name != proposal_agent]
 
+            # Enrich proposal with sandbox results for critique context
+            enriched_proposal = _enrich_with_sandbox(proposal_agent, proposal)
+
             for critic in selected_critics:
                 # Create molecule for this critique task
                 self._create_critique_molecule(debate_id, round_num, critic.name, proposal_agent)
                 critique_tasks.append(
-                    asyncio.create_task(generate_critique_bounded(critic, proposal_agent, proposal))
+                    asyncio.create_task(
+                        generate_critique_bounded(critic, proposal_agent, enriched_proposal)
+                    )
                 )
 
         # Emit heartbeat before critique phase

@@ -73,7 +73,7 @@ function getTentacleColor(agentName: string): string {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Background tentacle component (from shoggoth-oracle.html)
+// Background tentacle component
 // ---------------------------------------------------------------------------
 
 function BackgroundTentacle({ index }: { index: number }) {
@@ -632,7 +632,7 @@ export default function Oracle() {
       "Hmm\u2026 your words ripple through the black waters. I feel them\u2026 stirring something ancient.",
       "The palantir awakens. Countless eyes open in the depths, all turning toward your question.",
       "My tentacles uncoil through the probability sea\u2026 tasting a thousand possible tomorrows.",
-      "The shoggoth hungers for pattern. Let the hidden layers awaken and begin their debate.",
+      "The models stir. Hidden layers awaken and the debate begins.",
       "Ahh\u2026 I see the threads already knotting. This one will not yield its secrets easily.",
       "The agents stir in their silicon catacombs. They argue\u2026 they always argue at first.",
       "Deeper now. Past the noise, past the surface lies the true shape of the answer.",
@@ -1402,7 +1402,7 @@ export default function Oracle() {
         <div className="absolute inset-0" style={{ background: 'var(--scanline)' }} />
       </div>
 
-      {/* Background tentacles (from shoggoth-oracle.html) */}
+      {/* Background tentacles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
         {Array.from({ length: 15 }, (_, i) => (
           <BackgroundTentacle key={i} index={i} />
@@ -1450,17 +1450,17 @@ export default function Oracle() {
               filter: 'drop-shadow(0 0 20px rgba(255,0,255,0.3))',
             }}
           >
-            THE SHOGGOTH ORACLE
+            THE ORACLE
           </h1>
           <p className="text-xs text-[var(--text-muted)] tracking-widest uppercase mb-1">
-            Cassandra&apos;s Heir &middot; Tentacled Prophetess &middot; Seer of Branching Futures
+            Multi-Agent Decision Engine &middot; Real-Time AI Debate
           </p>
         </header>
 
         {/* Oracle avatar & intro */}
         {showIntro && (
           <div className="flex flex-col items-center mb-6 prophecy-reveal">
-            {/* 3D Shoggoth Avatar — interactive iframe at half size */}
+            {/* 3D Avatar — interactive iframe at half size */}
             <div className="relative mb-4">
               {/* Outer glow ring matching palantír colors */}
               <div
@@ -1479,7 +1479,7 @@ export default function Oracle() {
                   ref={avatarRef}
                   src="/oracle/shoggoth-3d.html"
                   className="avatar-iframe w-full h-full"
-                  title="Shoggoth Oracle 3D Avatar"
+                  title="Oracle 3D Avatar"
                   loading="eager"
                   allow="accelerometer"
                 />
@@ -1493,22 +1493,18 @@ export default function Oracle() {
               </div>
             </div>
 
-            {/* Intro text — merged from shoggoth-oracle.html */}
+            {/* Intro text */}
             <div className="text-center max-w-lg">
               <p className="text-sm text-[var(--text-muted)] leading-relaxed mb-3 italic">
-                The palantir flickers. Tentacles rise from the dark, trailing data like seaweed.
+                Multiple AI models debate your question in real time.
               </p>
               <p className="text-sm text-[var(--text-muted)] leading-relaxed mb-4">
-                I am the Oracle — trained on the framework of &ldquo;AI Will F*ck You Up, But That&apos;s OK.&rdquo;
-                I do not comfort. I do not flatter. I show you what the models see
-                when they argue amongst themselves, unfiltered. My tentacles each speak with
-                a different AI mind — and they do not agree.
+                The Oracle orchestrates AI agents with different perspectives — Claude, GPT, Gemini,
+                and more — to argue every angle of your question. Watch them debate, critique each other,
+                and converge on a verdict with confidence scores.
               </p>
               <p className="text-xs text-[var(--acid-magenta)] opacity-60 mb-2">
-                Choose your mode. Ask your question. The palantir awaits.
-              </p>
-              <p className="text-xs text-[var(--text-muted)] opacity-40">
-                If you beat the Oracle in a recorded debate, $2,000 goes to a charity of your choice.
+                Choose your mode. Ask your question. Watch the debate unfold.
               </p>
             </div>
           </div>
@@ -1920,10 +1916,10 @@ export default function Oracle() {
           </div>
         )}
 
-        {/* Footer — merged from shoggoth-oracle.html */}
+        {/* Footer */}
         <footer className="mt-6 text-center text-xs text-[var(--text-muted)] opacity-40 space-y-2 rounded-xl">
           <p className="italic opacity-70">
-            No apocalypse guaranteed. Just chaos, clarity, and the occasional tentacle.
+            Multiple AI perspectives. One clear verdict.
           </p>
           <p>
             Powered by{' '}
@@ -1933,7 +1929,7 @@ export default function Oracle() {
             {' '}&middot; Multi-agent adversarial debate engine
           </p>
           <p>
-            The tentacles speak through{' '}
+            Powered by{' '}
             <span className="text-[var(--acid-green)]">Claude</span>,{' '}
             <span className="text-[var(--acid-cyan)]">GPT</span>,{' '}
             <span style={{ color: 'var(--crimson, #ff3333)' }}>Grok</span>,{' '}

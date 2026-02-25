@@ -78,6 +78,11 @@ from aragora.debate.phases.context_compressor import ContextCompressor
 from aragora.debate.phases.critique_generator import CritiqueGenerator, CritiqueResult
 from aragora.debate.phases.evidence_refresh import EvidenceRefresher
 from aragora.debate.phases.revision_phase import RevisionGenerator, calculate_phase_timeout
+from aragora.debate.phases.sandbox_verifier import (
+    SandboxVerificationResult,
+    extract_code_blocks,
+    verify_code_proposal,
+)
 
 __all__ = [
     "DebateContext",
@@ -133,4 +138,8 @@ __all__ = [
     "EvidenceRefresher",
     "RevisionGenerator",
     "calculate_phase_timeout",
+    # Sandbox verification
+    "SandboxVerificationResult",
+    "extract_code_blocks",
+    "verify_code_proposal",
 ]

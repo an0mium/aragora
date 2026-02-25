@@ -735,6 +735,7 @@ class InboxCommandHandler(InboxActionsMixin, InboxServicesMixin):
         Body:
             - emailIds: Optional list of specific email IDs to reprioritize
             - force_tier: Optional tier to force (tier_1_rules, tier_2_lightweight, tier_3_debate)
+            - auto_debate: Optional bool to trigger debates for critical emails
         """
         try:
             await self._check_permission(request, "inbox:write")
@@ -745,6 +746,7 @@ class InboxCommandHandler(InboxActionsMixin, InboxServicesMixin):
                 return err
             raw_email_ids = body.get("emailIds")
             force_tier = body.get("force_tier")
+            auto_debate = bool(body.get("auto_debate", False))
 
             # Validate and sanitize emailIds if provided
             email_ids: list[str] | None = None
@@ -795,14 +797,40 @@ class InboxCommandHandler(InboxActionsMixin, InboxServicesMixin):
             # Trigger reprioritization
             result = await self._reprioritize_emails(email_ids, force_tier)
 
-            return web.json_response(
-                {
-                    "success": True,
-                    "reprioritized": result["count"],
-                    "changes": result["changes"],
-                    "tier_used": result.get("tier_used"),
-                }
-            )
+            # Optionally trigger debates for critical emails
+            debate_results = []
+            if auto_debate and result.get("changes"):
+                try:
+                    from aragora.server.handlers.inbox.auto_debate import (
+                        process_reprioritization_debates,
+                    )
+
+                    debate_results = await process_reprioritization_debates(
+                        changes=result["changes"],
+                        email_cache=_email_cache,
+                        auto_debate=True,
+                    )
+                except (ImportError, RuntimeError, OSError) as e:
+                    logger.warning("Auto-debate processing failed: %s", e)
+
+            response: dict[str, Any] = {
+                "success": True,
+                "reprioritized": result["count"],
+                "changes": result["changes"],
+                "tier_used": result.get("tier_used"),
+            }
+            if debate_results:
+                response["debates_triggered"] = [
+                    {
+                        "email_id": dr.email_id,
+                        "debate_id": dr.debate_id,
+                        "triggered": dr.triggered,
+                        "reason": dr.reason,
+                    }
+                    for dr in debate_results
+                ]
+
+            return web.json_response(response)
         except (web.HTTPUnauthorized, web.HTTPForbidden):
             raise
         except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
