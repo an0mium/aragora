@@ -183,9 +183,7 @@ async def _create_openrouter_key(current_key: str) -> dict[str, Any] | None:
                 )
                 return None
             else:
-                logger.error(
-                    "OpenRouter key creation failed: %s %s", resp.status_code, resp.text
-                )
+                logger.error("OpenRouter key creation failed: %s %s", resp.status_code, resp.text)
                 return None
 
     except Exception as e:  # noqa: BLE001 - httpx/boto3 exceptions don't inherit builtins

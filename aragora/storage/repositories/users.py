@@ -201,7 +201,8 @@ class UserRepository:
         """Get user by email."""
         with self._transaction() as cursor:
             cursor.execute(
-                f"SELECT {self._USER_COLUMNS} FROM users WHERE email = ?", (email.lower(),)  # noqa: S608 -- column name interpolation, parameterized
+                f"SELECT {self._USER_COLUMNS} FROM users WHERE email = ?",
+                (email.lower(),),  # noqa: S608 -- column name interpolation, parameterized
             )
             row = cursor.fetchone()
             return self._row_to_user(row) if row else None
@@ -220,7 +221,8 @@ class UserRepository:
 
         with self._transaction() as cursor:
             cursor.execute(
-                f"SELECT {self._USER_COLUMNS} FROM users WHERE api_key_hash = ?", (key_hash,)  # noqa: S608 -- column name interpolation, parameterized
+                f"SELECT {self._USER_COLUMNS} FROM users WHERE api_key_hash = ?",
+                (key_hash,),  # noqa: S608 -- column name interpolation, parameterized
             )
             row = cursor.fetchone()
 

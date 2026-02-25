@@ -76,9 +76,7 @@ async def rotate_deepseek_key(
     new_key = new_key_data["key"]
     new_key_id = new_key_data.get("key_id", "unknown")
 
-    logger.info(
-        "Created new DeepSeek key: %s...%s (id=%s)", new_key[:8], new_key[-4:], new_key_id
-    )
+    logger.info("Created new DeepSeek key: %s...%s (id=%s)", new_key[:8], new_key[-4:], new_key_id)
 
     # Step 3: Update AWS Secrets Manager (production secret)
     if not await _update_secrets_manager(
@@ -182,9 +180,7 @@ async def _create_deepseek_key(current_key: str) -> dict[str, Any] | None:
                 )
                 return None
             else:
-                logger.error(
-                    "DeepSeek key creation failed: %s %s", resp.status_code, resp.text
-                )
+                logger.error("DeepSeek key creation failed: %s %s", resp.status_code, resp.text)
                 return None
 
     except Exception as e:  # noqa: BLE001 - httpx/boto3 exceptions don't inherit builtins

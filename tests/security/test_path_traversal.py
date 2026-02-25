@@ -109,17 +109,12 @@ class TestPathTraversalPrevention:
             outside_file.write_text("outside content")
 
             symlink = base_dir / "link"
-            try:
-                symlink.symlink_to(outside_file)
+            symlink.symlink_to(outside_file)
 
-                # Symlink should be rejected
-                safe_path(base_dir, "safe.txt")  # Should not raise
-                with pytest.raises(PathTraversalError):
-                    safe_path(base_dir, "link")
-
-            except OSError:
-                # Symlinks may not be supported on all systems
-                pytest.skip("Symlinks not supported")
+            # Symlink should be rejected
+            safe_path(base_dir, "safe.txt")  # Should not raise
+            with pytest.raises(PathTraversalError):
+                safe_path(base_dir, "link")
 
 
 # =============================================================================

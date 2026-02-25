@@ -331,7 +331,10 @@ class LeanBackend:
         if has_lean and self._lean_version is None:
             try:
                 result = subprocess.run(
-                    ["lean", "--version"], capture_output=True, text=True, timeout=5  # noqa: S607 -- fixed command
+                    ["lean", "--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,  # noqa: S607 -- fixed command
                 )
                 if result.returncode == 0:
                     self._lean_version = result.stdout.strip().split("\n")[0]

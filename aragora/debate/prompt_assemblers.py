@@ -511,7 +511,9 @@ Explain what you changed and why. If you disagree with a critique, explain your 
             proposals_str = "\n\n---\n\n".join(
                 f"[{agent}]:\n{prop}" for agent, prop in proposals.items()
             )
-            critiques_str = "\n".join(f"- {c.agent}: {', '.join(c.issues[:2])}" for c in critiques[:5])
+            critiques_str = "\n".join(
+                f"- {c.agent}: {', '.join(c.issues[:2])}" for c in critiques[:5]
+            )
 
         evidence_section = ""
         evidence_context = self.format_evidence_for_prompt(max_snippets=5)

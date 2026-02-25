@@ -209,10 +209,7 @@ class TestFolderScannerSymlinks:
     async def test_scan_symlinks_not_followed_by_default(self, temp_folder: Path):
         # Create a symlink
         link_path = temp_folder / "link_to_src"
-        try:
-            link_path.symlink_to(temp_folder / "src")
-        except OSError:
-            pytest.skip("Symlink creation not supported on this platform")
+        link_path.symlink_to(temp_folder / "src")
 
         config = FolderUploadConfig(
             exclude_patterns=[],

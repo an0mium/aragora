@@ -517,7 +517,8 @@ class KnowledgeMoundMetaStore(SQLiteStore):
             params = [workspace_id] if workspace_id else []
 
             total = conn.execute(
-                f"SELECT COUNT(*) as count FROM knowledge_nodes {where}", params  # noqa: S608 -- internal query construction
+                f"SELECT COUNT(*) as count FROM knowledge_nodes {where}",
+                params,  # noqa: S608 -- internal query construction
             ).fetchone()["count"]
 
             by_type = {}
@@ -543,7 +544,8 @@ class KnowledgeMoundMetaStore(SQLiteStore):
 
             avg_confidence = (
                 conn.execute(
-                    f"SELECT AVG(confidence) as avg FROM knowledge_nodes {where}", params  # noqa: S608 -- internal query construction
+                    f"SELECT AVG(confidence) as avg FROM knowledge_nodes {where}",
+                    params,  # noqa: S608 -- internal query construction
                 ).fetchone()["avg"]
                 or 0.0
             )

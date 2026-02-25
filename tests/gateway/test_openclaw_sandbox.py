@@ -582,10 +582,7 @@ class TestPathTraversalPrevention:
         outside_target.write_text("original content")
         symlink_path = workspace / "sneaky_link"
 
-        try:
-            symlink_path.symlink_to(outside_target)
-        except OSError:
-            pytest.skip("Cannot create symlinks on this platform")
+        symlink_path.symlink_to(outside_target)
 
         # Attempting to write via the symlink should be blocked because
         # the resolved path is outside workspace

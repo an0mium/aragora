@@ -77,9 +77,7 @@ async def rotate_stripe_key(
     new_key = new_key_data["key"]
     new_key_id = new_key_data.get("key_id", "unknown")
 
-    logger.info(
-        "Created new Stripe key: %s...%s (id=%s)", new_key[:8], new_key[-4:], new_key_id
-    )
+    logger.info("Created new Stripe key: %s...%s (id=%s)", new_key[:8], new_key[-4:], new_key_id)
 
     # Step 3: Update AWS Secrets Manager (production secret)
     if not await _update_secrets_manager(

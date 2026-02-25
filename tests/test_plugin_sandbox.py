@@ -192,10 +192,7 @@ class TestPathTraversalPrevention:
         (outside_dir / "secret.txt").write_text("top-secret", encoding="utf-8")
 
         link_path = tmp_path / "sneaky_link"
-        try:
-            link_path.symlink_to(outside_dir, target_is_directory=True)
-        except OSError:
-            pytest.skip("Cannot create symlinks")
+        link_path.symlink_to(outside_dir, target_is_directory=True)
 
         context = PluginContext(
             working_dir=str(tmp_path),

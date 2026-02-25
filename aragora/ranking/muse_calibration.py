@@ -24,23 +24,22 @@ def _np():
     return np
 
 
-try:
-    from scipy.spatial.distance import jensenshannon
+def _jensenshannon(p: Any, q: Any) -> float:
+    """Lazy-loading wrapper for Jensen-Shannon divergence.
 
-    HAS_SCIPY = True
-except ImportError:
-    HAS_SCIPY = False
+    Uses scipy if available, otherwise falls back to a pure-numpy implementation.
+    """
+    np = _np()
+    try:
+        from scipy.spatial.distance import jensenshannon as _jsd
 
-    # Fallback JSD implementation
-    def jensenshannon(p, q) -> float:  # type: ignore[misc]
-        """Fallback Jensen-Shannon divergence."""
-        np = _np()
+        return float(_jsd(p, q))
+    except ImportError:
         p = np.asarray(p, dtype=float)
         q = np.asarray(q, dtype=float)
         p = p / p.sum()
         q = q / q.sum()
         m = 0.5 * (p + q)
-        # KL divergence with epsilon for numerical stability
         eps = 1e-10
         kl_pm = np.sum(p * np.log((p + eps) / (m + eps)))
         kl_qm = np.sum(q * np.log((q + eps) / (m + eps)))
@@ -137,7 +136,9 @@ class MUSECalculator:
 
         # Handle small ensembles
         if len(agent_responses) < self.config.min_subset_size:
-            avg_confidence = _np().mean([r.get("confidence", 0.5) for r in agent_responses.values()])
+            avg_confidence = _np().mean(
+                [r.get("confidence", 0.5) for r in agent_responses.values()]
+            )
             return MUSEResult(
                 consensus_confidence=float(avg_confidence),
                 divergence_score=0.0,
@@ -288,7 +289,7 @@ class MUSECalculator:
         jsd_scores = []
         for i in range(len(normalized)):
             for j in range(i + 1, len(normalized)):
-                jsd = jensenshannon(normalized[i], normalized[j])
+                jsd = _jensenshannon(normalized[i], normalized[j])
                 jsd_scores.append(jsd)
 
         avg_jsd = float(_np().mean(jsd_scores)) if jsd_scores else 0.0
@@ -296,7 +297,7 @@ class MUSECalculator:
         # Calculate individual divergences from mean distribution
         mean_dist = _np().mean(normalized, axis=0)
         individual_divs = {
-            agent_id: float(jensenshannon(normalized[i], mean_dist))
+            agent_id: float(_jensenshannon(normalized[i], mean_dist))
             for i, agent_id in enumerate(agents)
         }
 

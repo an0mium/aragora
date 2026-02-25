@@ -666,7 +666,8 @@ class OpenClawPersistentStore:
 
             # Get total count
             count_row = conn.execute(
-                f"SELECT COUNT(*) FROM openclaw_sessions WHERE {where_sql}", params  # noqa: S608 -- internal query construction
+                f"SELECT COUNT(*) FROM openclaw_sessions WHERE {where_sql}",
+                params,  # noqa: S608 -- internal query construction
             ).fetchone()
             total = count_row[0] if count_row else 0
 
@@ -992,7 +993,8 @@ class OpenClawPersistentStore:
             where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
             count_row = conn.execute(
-                f"SELECT COUNT(*) FROM openclaw_credentials WHERE {where_sql}", params  # noqa: S608 -- internal query construction
+                f"SELECT COUNT(*) FROM openclaw_credentials WHERE {where_sql}",
+                params,  # noqa: S608 -- internal query construction
             ).fetchone()
             total = count_row[0] if count_row else 0
 
@@ -1133,7 +1135,8 @@ class OpenClawPersistentStore:
             where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
             count_row = conn.execute(
-                f"SELECT COUNT(*) FROM openclaw_audit WHERE {where_sql}", params  # noqa: S608 -- internal query construction
+                f"SELECT COUNT(*) FROM openclaw_audit WHERE {where_sql}",
+                params,  # noqa: S608 -- internal query construction
             ).fetchone()
             total = count_row[0] if count_row else 0
 

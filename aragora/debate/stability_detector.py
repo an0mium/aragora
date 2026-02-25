@@ -15,19 +15,23 @@ from typing import Any
 from collections.abc import Iterable
 import logging
 
-try:
-    from scipy import stats
-
-    HAS_SCIPY = True
-except ImportError:
-    HAS_SCIPY = False
-
 
 def _np():
     """Lazy-load numpy to avoid ~3-5s import at module level."""
     import numpy as np
 
     return np
+
+
+def _scipy_stats():
+    """Lazy-load scipy.stats to avoid ~1s import at module level."""
+    try:
+        from scipy import stats
+
+        return stats
+    except ImportError:
+        return None
+
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +292,8 @@ class BetaBinomialStabilityDetector:
         dist1 = self._normalize_distribution(dist1)
         dist2 = self._normalize_distribution(dist2)
 
-        if HAS_SCIPY:
+        stats = _scipy_stats()
+        if stats is not None:
             # Use scipy's KS test
             ks_stat, _ = stats.ks_2samp(dist1, dist2)
             return float(ks_stat)
@@ -326,7 +331,8 @@ class BetaBinomialStabilityDetector:
         alpha_post = self.config.alpha_prior + successes
         beta_post = self.config.beta_prior + failures
 
-        if HAS_SCIPY:
+        stats = _scipy_stats()
+        if stats is not None:
             # Probability that true rate > threshold
             return float(1.0 - stats.beta.cdf(stable_threshold, alpha_post, beta_post))
         else:

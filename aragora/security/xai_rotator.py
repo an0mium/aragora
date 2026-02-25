@@ -175,9 +175,7 @@ async def _create_xai_key(current_key: str) -> dict[str, Any] | None:
                         "key_id": key_id,
                         "name": key_name,
                     }
-                logger.error(
-                    "xAI key creation response missing key value: %s", list(data.keys())
-                )
+                logger.error("xAI key creation response missing key value: %s", list(data.keys()))
                 return None
             else:
                 logger.error("xAI key creation failed: %s %s", resp.status_code, resp.text)

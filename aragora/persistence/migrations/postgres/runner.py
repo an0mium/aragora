@@ -348,7 +348,8 @@ class PostgresMigrationRunner:
                     async with conn.transaction():
                         await migration["down"](conn)
                         await conn.execute(
-                            f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = $1", version  # noqa: S608 -- table name interpolation, parameterized
+                            f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = $1",
+                            version,  # noqa: S608 -- table name interpolation, parameterized
                         )
 
                     rolled_back_count += 1

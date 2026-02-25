@@ -316,10 +316,7 @@ class TestMaliciousInputHandling:
 
             # Try to create symlink to /etc (may fail on some systems)
             link_path = os.path.join(tmpdir, "escape_link")
-            try:
-                os.symlink("/etc", link_path)
-            except (OSError, PermissionError):
-                pytest.skip("Cannot create symlinks on this system")
+            os.symlink("/etc", link_path)
 
             # Scan should not follow symlinks to external locations
             result = await scanner.scan_repository(tmpdir)

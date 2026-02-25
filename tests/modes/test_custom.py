@@ -361,10 +361,7 @@ class TestCustomModeLoaderSecurity:
 
         # Create symlink from allowed to outside
         symlink = allowed / "link.yaml"
-        try:
-            symlink.symlink_to(outside / "target.yaml")
-        except OSError:
-            pytest.skip("Symlink creation not supported")
+        symlink.symlink_to(outside / "target.yaml")
 
         loader = CustomModeLoader(search_paths=[str(allowed)])
 
