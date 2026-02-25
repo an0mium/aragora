@@ -262,7 +262,7 @@ class DatabaseMaintenance:
                         try:
                             # Safe: table_name validated against whitelist, col from whitelist
                             cursor.execute(
-                                f"DELETE FROM {table_name} WHERE {col} < ?",
+                                f"DELETE FROM {table_name} WHERE {col} < ?",  # noqa: S608 -- validated table/col
                                 (cutoff_str,),  # noqa: S608 -- table name interpolation, parameterized
                             )
                             deleted = cursor.rowcount

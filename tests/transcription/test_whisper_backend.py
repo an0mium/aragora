@@ -331,6 +331,7 @@ class TestWhisperCppBackend:
         """Test is_available when whisper.cpp not in PATH."""
         from unittest.mock import patch
 
+        # Mock shutil.which to simulate whisper-cpp not being available
         original_which = shutil.which
 
         def mock_which(name, *args, **kwargs):

@@ -531,7 +531,7 @@ class InsightStore(SQLiteStore):
         with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                f"SELECT {INSIGHT_COLUMNS} FROM insights ORDER BY created_at DESC LIMIT ?",
+                f"SELECT {INSIGHT_COLUMNS} FROM insights ORDER BY created_at DESC LIMIT ?",  # noqa: S608 -- column constant
                 (limit,),  # noqa: S608 -- column name interpolation, parameterized
             )
             return cursor.fetchall()

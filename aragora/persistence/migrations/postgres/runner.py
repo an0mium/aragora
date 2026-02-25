@@ -348,7 +348,7 @@ class PostgresMigrationRunner:
                     async with conn.transaction():
                         await migration["down"](conn)
                         await conn.execute(
-                            f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = $1",
+                            f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = $1",  # noqa: S608 -- class constant table name
                             version,  # noqa: S608 -- table name interpolation, parameterized
                         )
 

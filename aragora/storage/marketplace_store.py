@@ -395,8 +395,8 @@ class MarketplaceStore(SQLiteStore):
         with self.connection() as conn:
             # Get total count
             count_row = conn.execute(
-                f"SELECT COUNT(*) FROM templates{where_clause}",
-                params,  # noqa: S608 -- dynamic clause from internal state
+                f"SELECT COUNT(*) FROM templates{where_clause}",  # noqa: S608 -- internal clause
+                params,
             ).fetchone()
             total = count_row[0] if count_row else 0
 

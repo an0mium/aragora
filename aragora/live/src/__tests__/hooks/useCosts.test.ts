@@ -21,14 +21,16 @@ import {
 
 // Mock useSWRFetch
 const mockMutate = jest.fn();
+const defaultReturn = () => ({
+  data: null,
+  error: null,
+  isLoading: false,
+  isValidating: false,
+  mutate: mockMutate,
+});
+
 jest.mock('@/hooks/useSWRFetch', () => ({
-  useSWRFetch: jest.fn((_key: string) => ({
-    data: null,
-    error: null,
-    isLoading: false,
-    isValidating: false,
-    mutate: mockMutate,
-  })),
+  useSWRFetch: jest.fn(() => defaultReturn()),
   invalidateCache: jest.fn(),
 }));
 
@@ -102,6 +104,14 @@ describe('useCostSummary', () => {
 });
 
 describe('useCostsBreakdown', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSWRFetch.mockImplementation(() => defaultReturn());
+  });
+
+>>>>>>> Stashed changes
   it('returns null breakdown when no data', () => {
     const { result } = renderHook(() => useCostsBreakdown());
     expect(result.current.breakdown).toBeNull();
@@ -117,6 +127,14 @@ describe('useCostsBreakdown', () => {
 });
 
 describe('useCostTimeline', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSWRFetch.mockImplementation(() => defaultReturn());
+  });
+
+>>>>>>> Stashed changes
   it('returns null timeline when no data', () => {
     const { result } = renderHook(() => useCostTimeline());
     expect(result.current.timeline).toBeNull();
@@ -132,6 +150,14 @@ describe('useCostTimeline', () => {
 });
 
 describe('useCostAlerts', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSWRFetch.mockImplementation(() => defaultReturn());
+  });
+
+>>>>>>> Stashed changes
   it('returns empty alerts array when no data', () => {
     const { result } = renderHook(() => useCostAlerts());
     expect(result.current.alerts).toEqual([]);
@@ -169,6 +195,14 @@ describe('useCostAlerts', () => {
 });
 
 describe('useCostRecommendations', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSWRFetch.mockImplementation(() => defaultReturn());
+  });
+
+>>>>>>> Stashed changes
   it('returns empty recommendations when no data', () => {
     const { result } = renderHook(() => useCostRecommendations());
     expect(result.current.recommendations).toEqual([]);
@@ -184,6 +218,14 @@ describe('useCostRecommendations', () => {
 });
 
 describe('useCostEfficiency', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSWRFetch.mockImplementation(() => defaultReturn());
+  });
+
+>>>>>>> Stashed changes
   it('returns null efficiency when no data', () => {
     const { result } = renderHook(() => useCostEfficiency());
     expect(result.current.efficiency).toBeNull();
@@ -199,6 +241,14 @@ describe('useCostEfficiency', () => {
 });
 
 describe('useCostForecast', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSWRFetch.mockImplementation(() => defaultReturn());
+  });
+
+>>>>>>> Stashed changes
   it('returns null forecast when no data', () => {
     const { result } = renderHook(() => useCostForecast());
     expect(result.current.forecast).toBeNull();
@@ -214,6 +264,14 @@ describe('useCostForecast', () => {
 });
 
 describe('useSpendTrend', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSWRFetch.mockImplementation(() => defaultReturn());
+  });
+
+>>>>>>> Stashed changes
   it('returns null trend when no data', () => {
     const { result } = renderHook(() => useSpendTrend());
     expect(result.current.trend).toBeNull();
@@ -229,6 +287,14 @@ describe('useSpendTrend', () => {
 });
 
 describe('useAgentCostBreakdown', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSWRFetch.mockImplementation(() => defaultReturn());
+  });
+
+>>>>>>> Stashed changes
   it('returns null agent breakdown when no data', () => {
     const { result } = renderHook(() => useAgentCostBreakdown());
     expect(result.current.agentBreakdown).toBeNull();
@@ -244,6 +310,14 @@ describe('useAgentCostBreakdown', () => {
 });
 
 describe('useModelCostBreakdown', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSWRFetch.mockImplementation(() => defaultReturn());
+  });
+
+>>>>>>> Stashed changes
   it('returns null model breakdown when no data', () => {
     const { result } = renderHook(() => useModelCostBreakdown());
     expect(result.current.modelBreakdown).toBeNull();
@@ -251,6 +325,14 @@ describe('useModelCostBreakdown', () => {
 });
 
 describe('useDebateCostBreakdown', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSWRFetch.mockImplementation(() => defaultReturn());
+  });
+
+>>>>>>> Stashed changes
   it('returns null debate breakdown when no data', () => {
     const { result } = renderHook(() => useDebateCostBreakdown());
     expect(result.current.debateBreakdown).toBeNull();
@@ -266,6 +348,14 @@ describe('useDebateCostBreakdown', () => {
 });
 
 describe('useBudgetUtilization', () => {
+<<<<<<< Updated upstream
+=======
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseSWRFetch.mockImplementation(() => defaultReturn());
+  });
+
+>>>>>>> Stashed changes
   it('returns null utilization when no data', () => {
     const { result } = renderHook(() => useBudgetUtilization());
     expect(result.current.utilization).toBeNull();
