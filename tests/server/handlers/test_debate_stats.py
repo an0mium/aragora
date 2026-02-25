@@ -177,7 +177,7 @@ class TestGetStats:
             return_value=mock_service,
         ):
             handler.handle("/api/v1/debates/stats", {"period": "week"}, mock_get)
-            mock_service.get_debate_stats.assert_called_once_with(period="week")
+            mock_service.get_debate_stats.assert_called_once_with(days_back=7)
 
     def test_get_stats_default_period(self, handler, mock_get):
         """Should default to 'all' period."""
@@ -192,7 +192,7 @@ class TestGetStats:
             return_value=mock_service,
         ):
             handler.handle("/api/v1/debates/stats", {}, mock_get)
-            mock_service.get_debate_stats.assert_called_once_with(period="all")
+            mock_service.get_debate_stats.assert_called_once_with(days_back=3650)
 
     def test_invalid_period_returns_400(self, handler, mock_get):
         """Should return 400 for invalid period value."""
@@ -232,7 +232,7 @@ class TestGetAgentStats:
         ]
 
         mock_service = MagicMock()
-        mock_service.get_agent_stats.return_value = mock_agents
+        mock_service.get_agent_leaderboard.return_value = mock_agents
 
         with patch(
             "aragora.analytics.debate_analytics.DebateAnalytics",
@@ -248,14 +248,14 @@ class TestGetAgentStats:
     def test_get_agent_stats_with_limit(self, handler, mock_get):
         """Should pass limit to analytics service."""
         mock_service = MagicMock()
-        mock_service.get_agent_stats.return_value = []
+        mock_service.get_agent_leaderboard.return_value = []
 
         with patch(
             "aragora.analytics.debate_analytics.DebateAnalytics",
             return_value=mock_service,
         ):
             handler.handle("/api/v1/debates/stats/agents", {"limit": "5"}, mock_get)
-            mock_service.get_agent_stats.assert_called_once_with(limit=5)
+            mock_service.get_agent_leaderboard.assert_called_once_with(limit=5)
 
     def test_no_storage_returns_error(self, handler_no_storage, mock_get):
         """Should return error when storage not available."""
