@@ -59,7 +59,7 @@ class AsanaCredentials:
 
     access_token: str
     refresh_token: str | None = None
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105 -- OAuth2 token type
     expires_at: datetime | None = None
 
 

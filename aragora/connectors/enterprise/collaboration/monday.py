@@ -39,7 +39,7 @@ _MAX_PAGES = 1000  # Safety cap for pagination loops
 # Monday.com API constants
 MONDAY_API_URL = "https://api.monday.com/v2"
 MONDAY_AUTH_URL = "https://auth.monday.com/oauth2/authorize"
-MONDAY_TOKEN_URL = "https://auth.monday.com/oauth2/token"
+MONDAY_TOKEN_URL = "https://auth.monday.com/oauth2/token"  # noqa: S105 -- OAuth endpoint URL
 
 
 class ColumnType(str, Enum):
@@ -78,7 +78,7 @@ class MondayCredentials:
 
     api_token: str
     refresh_token: str | None = None
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105 -- OAuth2 token type
     expires_at: datetime | None = None
 
 
