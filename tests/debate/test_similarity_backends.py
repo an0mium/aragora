@@ -258,13 +258,16 @@ class TestJaccardBackend:
 
     def test_clear_cache(self) -> None:
         import sys as _sys
+
         _bmod = _sys.modules.get("aragora.debate.similarity.backends")
         _real_JB = getattr(_bmod, "JaccardBackend", None) if _bmod else None
         print(f"\n[DEBUG] JaccardBackend from import: id={id(JaccardBackend)}")
         print(f"[DEBUG] JaccardBackend from sys.modules: id={id(_real_JB) if _real_JB else 'N/A'}")
         print(f"[DEBUG] Same? {JaccardBackend is _real_JB}")
         print(f"[DEBUG] _similarity_cache id (import): {id(JaccardBackend._similarity_cache)}")
-        print(f"[DEBUG] _similarity_cache id (module): {id(_real_JB._similarity_cache) if _real_JB else 'N/A'}")
+        print(
+            f"[DEBUG] _similarity_cache id (module): {id(_real_JB._similarity_cache) if _real_JB else 'N/A'}"
+        )
         b = JaccardBackend()
         print(f"[DEBUG] type(b) id: {id(type(b))}")
         print(f"[DEBUG] type(b) is JaccardBackend: {type(b) is JaccardBackend}")
@@ -273,8 +276,12 @@ class TestJaccardBackend:
         print(f"[DEBUG] method globals JB is JaccardBackend: {_meth_globals_JB is JaccardBackend}")
         b.compute_similarity("hello world", "hello there")
         print(f"[DEBUG] After compute: import cache len={len(JaccardBackend._similarity_cache)}")
-        print(f"[DEBUG] After compute: module cache len={len(_real_JB._similarity_cache) if _real_JB else 'N/A'}")
-        print(f"[DEBUG] After compute: method JB cache len={len(_meth_globals_JB._similarity_cache)}")
+        print(
+            f"[DEBUG] After compute: module cache len={len(_real_JB._similarity_cache) if _real_JB else 'N/A'}"
+        )
+        print(
+            f"[DEBUG] After compute: method JB cache len={len(_meth_globals_JB._similarity_cache)}"
+        )
         assert len(JaccardBackend._similarity_cache) > 0
         JaccardBackend.clear_cache()
         assert len(JaccardBackend._similarity_cache) == 0

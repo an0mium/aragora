@@ -386,9 +386,7 @@ class TestCaptureSettlement:
 
     def test_capture_extracts_cruxes_from_tensions(self):
         tracker = EpistemicSettlementTracker()
-        tension = SimpleNamespace(
-            description="Latency vs throughput tradeoff"
-        )
+        tension = SimpleNamespace(description="Latency vs throughput tradeoff")
         result = _make_debate_result(unresolved_tensions=[tension])
         meta = tracker.capture_settlement(result)
 
@@ -397,9 +395,7 @@ class TestCaptureSettlement:
 
     def test_capture_extracts_cruxes_from_low_confidence(self):
         tracker = EpistemicSettlementTracker()
-        result = _make_debate_result(
-            consensus_reached=True, confidence=0.55
-        )
+        result = _make_debate_result(consensus_reached=True, confidence=0.55)
         meta = tracker.capture_settlement(result)
 
         assert any("low confidence" in c.lower() for c in meta.cruxes)
@@ -593,7 +589,9 @@ class TestMarkReviewed:
     def test_mark_invalidated(self):
         tracker = self._setup_tracker()
         result = tracker.mark_reviewed(
-            "d1", "invalidated", "New data contradicts decision",
+            "d1",
+            "invalidated",
+            "New data contradicts decision",
             reviewed_by="auto-reviewer",
         )
         assert result.status == "invalidated"
@@ -923,7 +921,8 @@ class TestFullLifecycle:
             dissenting_views=["Agent gpt4 disagrees with approach"],
         )
         meta = tracker.capture_settlement(
-            result, review_horizon_days=0  # Immediately due
+            result,
+            review_horizon_days=0,  # Immediately due
         )
         assert meta.status == "settled"
 

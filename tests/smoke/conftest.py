@@ -20,6 +20,7 @@ from aragora.core_types import Agent, Critique, Environment, Message
 # Marker registration
 # ---------------------------------------------------------------------------
 
+
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "smoke: production smoke tests for critical paths")
 

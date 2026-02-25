@@ -73,9 +73,7 @@ class CalibrationRecord:
     predicted_confidence: float = 0.5
     actual_outcome: bool = False
     domain: str = "general"
-    recorded_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    recorded_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -90,9 +88,7 @@ class CalibrationRecord:
             predicted_confidence=float(data.get("predicted_confidence", 0.5)),
             actual_outcome=bool(data.get("actual_outcome", False)),
             domain=data.get("domain", "general"),
-            recorded_at=data.get(
-                "recorded_at", datetime.now(timezone.utc).isoformat()
-            ),
+            recorded_at=data.get("recorded_at", datetime.now(timezone.utc).isoformat()),
             metadata=dict(data.get("metadata", {})),
         )
 
@@ -213,9 +209,7 @@ class JsonFileCalibrationStore(CalibrationStore):
 def _bucket_label(confidence: float) -> str:
     """Map a 0-1 confidence to its 10-bucket label (e.g. '70-80%')."""
     pct = confidence * 100
-    for lo, hi, label in zip(
-        _BUCKET_EDGES[:-1], _BUCKET_EDGES[1:], _BUCKET_LABELS
-    ):
+    for lo, hi, label in zip(_BUCKET_EDGES[:-1], _BUCKET_EDGES[1:], _BUCKET_LABELS):
         if pct < hi or hi == 100:
             return label
     return _BUCKET_LABELS[-1]  # pragma: no cover
@@ -300,14 +294,10 @@ class CalibrationTracker:
             Dictionary with 'buckets' (list of dicts with predicted,
             actual, count) and 'total_records'.
         """
-        records = self._store.list_records(
-            agent_id=agent_id, domain=domain
-        )
+        records = self._store.list_records(agent_id=agent_id, domain=domain)
 
         # Accumulate per-bucket: [sum_confidence, sum_outcome, count]
-        bucket_acc: dict[str, list[float]] = {
-            lbl: [0.0, 0.0, 0.0] for lbl in _BUCKET_LABELS
-        }
+        bucket_acc: dict[str, list[float]] = {lbl: [0.0, 0.0, 0.0] for lbl in _BUCKET_LABELS}
 
         for r in records:
             label = _bucket_label(r.predicted_confidence)
@@ -361,9 +351,7 @@ class CalibrationTracker:
         Returns:
             The Brier score (0.0-1.0). Returns 0.0 if no records.
         """
-        records = self._store.list_records(
-            agent_id=agent_id, domain=domain
-        )
+        records = self._store.list_records(agent_id=agent_id, domain=domain)
         if not records:
             return 0.0
 

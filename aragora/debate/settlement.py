@@ -1609,9 +1609,7 @@ class EpistemicSettlementTracker:
         # Validate status
         valid_statuses = {s.value for s in SettlementMetadataStatus}
         if status not in valid_statuses:
-            raise ValueError(
-                f"Invalid status {status!r}. Must be one of: {valid_statuses}"
-            )
+            raise ValueError(f"Invalid status {status!r}. Must be one of: {valid_statuses}")
 
         metadata = self._store.get(debate_id)
         if metadata is None:
@@ -1622,9 +1620,7 @@ class EpistemicSettlementTracker:
         metadata.reviewed_at = now.isoformat()
         metadata.reviewed_by = reviewed_by
         if notes:
-            metadata.review_notes.append(
-                f"[{now.isoformat()}] ({reviewed_by}) {notes}"
-            )
+            metadata.review_notes.append(f"[{now.isoformat()}] ({reviewed_by}) {notes}")
 
         self._store.save(metadata)
 
@@ -1667,9 +1663,7 @@ class EpistemicSettlementTracker:
 
         due_count = sum(1 for m in all_records if m.is_due(now))
         avg_confidence = (
-            sum(m.confidence for m in all_records) / len(all_records)
-            if all_records
-            else 0.0
+            sum(m.confidence for m in all_records) / len(all_records) if all_records else 0.0
         )
 
         return {
@@ -1683,9 +1677,7 @@ class EpistemicSettlementTracker:
     # Extraction helpers
     # ------------------------------------------------------------------
 
-    def _extract_falsifiers(
-        self, debate_result: Any, receipt: Any | None
-    ) -> list[str]:
+    def _extract_falsifiers(self, debate_result: Any, receipt: Any | None) -> list[str]:
         """Extract falsifiable conditions from the debate."""
         falsifiers: list[str] = []
 
@@ -1709,9 +1701,7 @@ class EpistemicSettlementTracker:
             proof = getattr(receipt, "consensus_proof", None)
             if proof:
                 for agent in getattr(proof, "dissenting_agents", []):
-                    falsifiers.append(
-                        f"Agent {agent} dissented from consensus"
-                    )
+                    falsifiers.append(f"Agent {agent} dissented from consensus")
 
         # From explicit claims if available
         claims_kernel = getattr(debate_result, "claims_kernel", None)
@@ -1726,9 +1716,7 @@ class EpistemicSettlementTracker:
 
         return falsifiers
 
-    def _extract_alternatives(
-        self, debate_result: Any, receipt: Any | None
-    ) -> list[str]:
+    def _extract_alternatives(self, debate_result: Any, receipt: Any | None) -> list[str]:
         """Extract rejected alternatives from the debate."""
         alternatives: list[str] = []
 
@@ -1758,9 +1746,7 @@ class EpistemicSettlementTracker:
 
         return alternatives
 
-    def _extract_cruxes(
-        self, debate_result: Any, receipt: Any | None
-    ) -> list[str]:
+    def _extract_cruxes(self, debate_result: Any, receipt: Any | None) -> list[str]:
         """Extract key disagreement cruxes from the debate."""
         cruxes: list[str] = []
 
@@ -1774,23 +1760,25 @@ class EpistemicSettlementTracker:
         consensus_reached = getattr(debate_result, "consensus_reached", False)
         confidence = getattr(debate_result, "confidence", 0.0)
         if consensus_reached and confidence < 0.7:
-            cruxes.append(
-                f"Low confidence consensus ({confidence:.1%})"
-            )
+            cruxes.append(f"Low confidence consensus ({confidence:.1%})")
 
         # From convergence data
         convergence = getattr(debate_result, "convergence_similarity", None)
         if convergence is not None and convergence < 0.5:
-            cruxes.append(
-                f"Low convergence ({convergence:.1%}): positions remained far apart"
-            )
+            cruxes.append(f"Low convergence ({convergence:.1%}): positions remained far apart")
 
         # From the final answer if it mentions trade-offs
         final = getattr(debate_result, "final_answer", "")
         if final:
             lower = final.lower()
-            tradeoff_markers = ["trade-off", "tradeoff", "however", "on the other hand",
-                                "tension between", "competing"]
+            tradeoff_markers = [
+                "trade-off",
+                "tradeoff",
+                "however",
+                "on the other hand",
+                "tension between",
+                "competing",
+            ]
             for marker in tradeoff_markers:
                 if marker in lower:
                     # Find the sentence containing the marker

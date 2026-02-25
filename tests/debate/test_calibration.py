@@ -200,9 +200,7 @@ class TestJsonFileCalibrationStore:
 class TestRecordOutcome:
     def test_basic_record(self):
         tracker = CalibrationTracker()
-        rec = tracker.record_outcome(
-            "d1", predicted_confidence=0.8, actual_outcome=True
-        )
+        rec = tracker.record_outcome("d1", predicted_confidence=0.8, actual_outcome=True)
         assert rec.debate_id == "d1"
         assert rec.predicted_confidence == 0.8
         assert rec.actual_outcome is True
@@ -296,14 +294,10 @@ class TestGetCalibrationCurve:
         tracker = CalibrationTracker()
         # Low confidence
         for i in range(5):
-            tracker.record_outcome(
-                f"low-{i}", predicted_confidence=0.15, actual_outcome=False
-            )
+            tracker.record_outcome(f"low-{i}", predicted_confidence=0.15, actual_outcome=False)
         # High confidence
         for i in range(5):
-            tracker.record_outcome(
-                f"high-{i}", predicted_confidence=0.95, actual_outcome=True
-            )
+            tracker.record_outcome(f"high-{i}", predicted_confidence=0.95, actual_outcome=True)
 
         curve = tracker.get_calibration_curve()
         assert curve["total_records"] == 10
@@ -326,7 +320,7 @@ class TestGetCalibrationCurve:
             )
         for i in range(5):
             tracker.record_outcome(
-                f"d{i+5}", predicted_confidence=0.3, actual_outcome=False, agent_id="bob"
+                f"d{i + 5}", predicted_confidence=0.3, actual_outcome=False, agent_id="bob"
             )
 
         curve = tracker.get_calibration_curve(agent_id="alice")
@@ -371,9 +365,7 @@ class TestGetBrierScore:
         """80% confidence, 8/10 correct -> Brier = 0.04."""
         tracker = CalibrationTracker()
         for i in range(10):
-            tracker.record_outcome(
-                f"d{i}", predicted_confidence=0.8, actual_outcome=(i < 8)
-            )
+            tracker.record_outcome(f"d{i}", predicted_confidence=0.8, actual_outcome=(i < 8))
 
         # Brier: 8*(0.8-1.0)^2 + 2*(0.8-0.0)^2 = 8*0.04 + 2*0.64 = 0.32 + 1.28 = 1.60
         # Mean: 1.60/10 = 0.16
@@ -389,7 +381,7 @@ class TestGetBrierScore:
         # Bad agent
         for i in range(5):
             tracker.record_outcome(
-                f"d{i+5}", predicted_confidence=0.9, actual_outcome=False, agent_id="bad"
+                f"d{i + 5}", predicted_confidence=0.9, actual_outcome=False, agent_id="bad"
             )
 
         good_brier = tracker.get_brier_score(agent_id="good")
@@ -436,7 +428,7 @@ class TestGetAgentScores:
         # Bad agent
         for i in range(5):
             tracker.record_outcome(
-                f"d{i+5}", predicted_confidence=1.0, actual_outcome=False, agent_id="bad"
+                f"d{i + 5}", predicted_confidence=1.0, actual_outcome=False, agent_id="bad"
             )
 
         scores = tracker.get_agent_scores()
@@ -598,9 +590,7 @@ class TestSettlementCalibrationIntegration:
         meta = settlement_tracker.capture_settlement(debate_result, review_horizon_days=0)
 
         # Review and confirm
-        settlement_tracker.mark_reviewed(
-            "integration-test", "confirmed", "Validated by metrics"
-        )
+        settlement_tracker.mark_reviewed("integration-test", "confirmed", "Validated by metrics")
 
         # Record calibration
         calibration_tracker.record_outcome(

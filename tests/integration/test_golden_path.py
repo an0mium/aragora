@@ -271,9 +271,7 @@ class TestReceiptTamperDetection:
 
         # Hash was computed at construction and is now stale
         assert receipt.artifact_hash == original_hash
-        assert receipt.verify_integrity() is False, (
-            "Integrity check should fail after tampering"
-        )
+        assert receipt.verify_integrity() is False, "Integrity check should fail after tampering"
 
     def test_tamper_detection_confidence(self):
         """Changing confidence after receipt creation invalidates the hash."""
@@ -516,9 +514,7 @@ class TestFullPipelineIdeaToReceipt:
         assert receipt.verify_integrity() is True
 
         # Provenance chain contains verdict
-        verdict_events = [
-            p for p in receipt.provenance_chain if p.event_type == "verdict"
-        ]
+        verdict_events = [p for p in receipt.provenance_chain if p.event_type == "verdict"]
         assert len(verdict_events) >= 1
 
         # JSON round-trip works
