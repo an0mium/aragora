@@ -66,7 +66,7 @@ export class ReconciliationNamespace {
   }): Promise<ReconciliationJob[]> {
     const response = await this.client.request<{ jobs: ReconciliationJob[] }>(
       'GET',
-      '/api/reconciliation',
+      '/api/v1/reconciliation/list',
       { params: options }
     );
     return response.jobs;
@@ -76,7 +76,7 @@ export class ReconciliationNamespace {
   async create(request: CreateReconciliationRequest): Promise<ReconciliationJob> {
     return this.client.request<ReconciliationJob>(
       'POST',
-      '/api/reconciliation',
+      '/api/v1/reconciliation/run',
       { body: request }
     );
   }

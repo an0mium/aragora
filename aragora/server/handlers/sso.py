@@ -460,7 +460,7 @@ class SSOHandler(SecureHandler):
                 else:
                     aragora_user = user_store.create_user(
                         email=user.email,
-                        password_hash="sso",
+                        password_hash="sso",  # noqa: S106 - SSO placeholder (no local password)
                         password_salt="",
                         name=user.name or user.email.split("@")[0],
                     )

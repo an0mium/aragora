@@ -118,7 +118,8 @@ export class GitHubNamespace {
   async getPullRequest(repo: string, prNumber: number): Promise<PullRequest> {
     return this.client.request<PullRequest>(
       'GET',
-      `/api/github/repos/${encodeURIComponent(repo)}/pulls/${prNumber}`
+      '/api/v1/github/pr/review',
+      { params: { repo, pr_number: prNumber } }
     );
   }
 
@@ -126,7 +127,8 @@ export class GitHubNamespace {
   async getReview(reviewId: string): Promise<PRReviewResult> {
     return this.client.request<PRReviewResult>(
       'GET',
-      `/api/github/reviews/${encodeURIComponent(reviewId)}`
+      '/api/v1/github/pr/review',
+      { params: { review_id: reviewId } }
     );
   }
 
@@ -137,8 +139,8 @@ export class GitHubNamespace {
   ): Promise<{ success: boolean }> {
     return this.client.request<{ success: boolean }>(
       'POST',
-      `/api/github/reviews/${encodeURIComponent(reviewId)}/submit`,
-      { body }
+      '/api/v1/github/pr/review',
+      { body: { review_id: reviewId, ...body } }
     );
   }
 }

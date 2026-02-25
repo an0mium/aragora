@@ -438,7 +438,7 @@ export class AgentSelectionAPI {
   async getScorer(name: string): Promise<ScorerPlugin> {
     return this.client.request<ScorerPlugin>(
       'GET',
-      '/api/v1/agent-selection/scorers/' + encodeURIComponent(name)
+      '/api/v1/selection/scorers/' + encodeURIComponent(name)
     );
   }
 
@@ -448,7 +448,7 @@ export class AgentSelectionAPI {
   async getTeamSelector(name: string): Promise<TeamSelectorPlugin> {
     return this.client.request<TeamSelectorPlugin>(
       'GET',
-      '/api/v1/agent-selection/team-selectors/' + encodeURIComponent(name)
+      '/api/v1/selection/team-selectors/' + encodeURIComponent(name)
     );
   }
 
@@ -458,7 +458,7 @@ export class AgentSelectionAPI {
   async getRoleAssigner(name: string): Promise<RoleAssignerPlugin> {
     return this.client.request<RoleAssignerPlugin>(
       'GET',
-      '/api/v1/agent-selection/role-assigners/' + encodeURIComponent(name)
+      '/api/v1/selection/role-assigners/' + encodeURIComponent(name)
     );
   }
 
@@ -472,7 +472,7 @@ export class AgentSelectionAPI {
   async listScorers(): Promise<{ scorers: ScorerPlugin[] }> {
     return this.client.request<{ scorers: ScorerPlugin[] }>(
       'GET',
-      '/api/agent-selection/scorers'
+      '/api/v1/selection/scorers'
     );
   }
 
@@ -482,7 +482,7 @@ export class AgentSelectionAPI {
   async listTeamSelectors(): Promise<{ selectors: TeamSelectorPlugin[] }> {
     return this.client.request<{ selectors: TeamSelectorPlugin[] }>(
       'GET',
-      '/api/agent-selection/team-selectors'
+      '/api/v1/selection/team-selectors'
     );
   }
 
@@ -492,7 +492,7 @@ export class AgentSelectionAPI {
   async listRoleAssigners(): Promise<{ assigners: RoleAssignerPlugin[] }> {
     return this.client.request<{ assigners: RoleAssignerPlugin[] }>(
       'GET',
-      '/api/agent-selection/role-assigners'
+      '/api/v1/selection/role-assigners'
     );
   }
 

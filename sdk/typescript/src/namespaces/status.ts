@@ -94,7 +94,7 @@ export class StatusNamespace {
   async listMaintenance(): Promise<MaintenanceWindow[]> {
     const response = await this.client.request<{ maintenance: MaintenanceWindow[] }>(
       'GET',
-      '/api/status/maintenance'
+      '/api/v1/status/incidents'
     );
     return response.maintenance;
   }

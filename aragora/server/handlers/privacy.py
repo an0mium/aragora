@@ -477,8 +477,8 @@ class PrivacyHandler(SecureHandler):
                 user.id,
                 email=anonymized_email,
                 name="[Deleted User]",
-                password_hash="DELETED",
-                password_salt="DELETED",
+                password_hash="DELETED",  # noqa: S106 - GDPR deletion tombstone, not a secret
+                password_salt="DELETED",  # noqa: S106 - GDPR deletion tombstone, not a secret
                 is_active=False,
             )
             data_deleted.append("profile")

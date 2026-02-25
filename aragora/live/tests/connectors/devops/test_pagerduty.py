@@ -56,7 +56,7 @@ class TestPagerDutyCredentials:
         creds = PagerDutyCredentials(
             api_key="test_api_key",
             email="user@example.com",
-            webhook_secret="secret123",
+            webhook_secret="secret123",  # noqa: S106 - test fixture
         )
         assert creds.api_key == "test_api_key"
         assert creds.email == "user@example.com"
@@ -210,7 +210,7 @@ class TestPagerDutyConnectorWebhooks:
         creds = PagerDutyCredentials(
             api_key="test_key",
             email="user@example.com",
-            webhook_secret="webhook_secret_123",
+            webhook_secret="webhook_secret_123",  # noqa: S106 - test fixture
         )
         connector = PagerDutyConnector(creds)
 
@@ -225,7 +225,7 @@ class TestPagerDutyConnectorWebhooks:
         creds = PagerDutyCredentials(
             api_key="test_key",
             email="user@example.com",
-            webhook_secret="webhook_secret_123",
+            webhook_secret="webhook_secret_123",  # noqa: S106 - test fixture
         )
         connector = PagerDutyConnector(creds)
         assert connector.verify_webhook_signature(b"payload", "v1=invalid") is False

@@ -24,7 +24,7 @@ class TestDocuSignCredentials:
 
     def test_credentials_creation(self):
         creds = DocuSignCredentials(
-            access_token="test_token",
+            access_token="test_token",  # noqa: S106 - test fixture
             account_id="acc_123",
             base_uri="https://demo.docusign.net/restapi",
         )
@@ -34,7 +34,7 @@ class TestDocuSignCredentials:
 
     def test_is_expired_no_expiry(self):
         creds = DocuSignCredentials(
-            access_token="test",
+            access_token="test",  # noqa: S106 - test fixture
             account_id="acc",
             base_uri="https://demo.docusign.net",
         )
@@ -42,7 +42,7 @@ class TestDocuSignCredentials:
 
     def test_is_expired_future(self):
         creds = DocuSignCredentials(
-            access_token="test",
+            access_token="test",  # noqa: S106 - test fixture
             account_id="acc",
             base_uri="https://demo.docusign.net",
             expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
@@ -51,7 +51,7 @@ class TestDocuSignCredentials:
 
     def test_is_expired_past(self):
         creds = DocuSignCredentials(
-            access_token="test",
+            access_token="test",  # noqa: S106 - test fixture
             account_id="acc",
             base_uri="https://demo.docusign.net",
             expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
@@ -172,7 +172,7 @@ class TestDocuSignConnectorConfiguration:
     def test_is_authenticated_with_valid_credentials(self):
         connector = DocuSignConnector()
         connector._credentials = DocuSignCredentials(
-            access_token="token",
+            access_token="token",  # noqa: S106 - test fixture
             account_id="acc",
             base_uri="https://demo.docusign.net",
             expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
