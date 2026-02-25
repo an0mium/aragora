@@ -139,8 +139,23 @@ jobs:
           echo "| Python Security | ${{ needs.python-security.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| npm Security | ${{ needs.npm-security.result }} |" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ needs.python-security.result }}" != "success" ] || \
-             [ "${{ needs.npm-security.result }}" != "success" ]; then
+          validate_gate_result() {
+            local name="$1"
+            local result="$2"
+            case "$result" in
+              success|cancelled|skipped) return 0 ;;
+              *)
+                echo "::error::${name} returned unexpected status: ${result}"
+                return 1
+                ;;
+            esac
+          }
+
+          failed=0
+          validate_gate_result "Python Security" "${{ needs.python-security.result }}" || failed=1
+          validate_gate_result "npm Security" "${{ needs.npm-security.result }}" || failed=1
+
+          if [ "$failed" -ne 0 ]; then
             echo ""
             echo "::error::Security gate FAILED - one or more security checks did not pass"
             exit 1
