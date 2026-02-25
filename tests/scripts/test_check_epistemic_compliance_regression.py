@@ -9,7 +9,9 @@ import sys
 from pathlib import Path
 
 
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "check_epistemic_compliance_regression.py"
+SCRIPT = (
+    Path(__file__).resolve().parents[2] / "scripts" / "check_epistemic_compliance_regression.py"
+)
 
 
 def _run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -58,14 +60,8 @@ def test_checker_fails_when_case_threshold_is_too_strict(tmp_path: Path) -> None
         json.dumps(
             {
                 "global": {"min_total_cases": 1},
-                "models": {
-                    "adversarial_model": {
-                        "max_avg_score": 0.2
-                    }
-                },
-                "cases": {
-                    "hype_case": {"max_score": 0.0}
-                },
+                "models": {"adversarial_model": {"max_avg_score": 0.2}},
+                "cases": {"hype_case": {"max_score": 0.0}},
             }
         ),
         encoding="utf-8",
@@ -82,4 +78,3 @@ def test_checker_fails_when_case_threshold_is_too_strict(tmp_path: Path) -> None
     assert result.returncode == 1
     assert "FAIL" in result.stdout
     assert "above threshold" in result.stdout
-

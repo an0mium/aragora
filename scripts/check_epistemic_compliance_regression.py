@@ -146,9 +146,13 @@ def _check_thresholds(
         max_score = thresholds.get("max_score")
         min_score = thresholds.get("min_score")
         if isinstance(max_score, (int, float)) and score > float(max_score):
-            regressions.append(f"{case_id}.score above threshold: {score:.4f} > {float(max_score):.4f}")
+            regressions.append(
+                f"{case_id}.score above threshold: {score:.4f} > {float(max_score):.4f}"
+            )
         if isinstance(min_score, (int, float)) and score < float(min_score):
-            regressions.append(f"{case_id}.score below threshold: {score:.4f} < {float(min_score):.4f}")
+            regressions.append(
+                f"{case_id}.score below threshold: {score:.4f} < {float(min_score):.4f}"
+            )
 
     return regressions
 
@@ -164,7 +168,9 @@ def _to_markdown(summary: dict[str, Any]) -> str:
     lines.append("")
     lines.append("## Per-Model Metrics")
     lines.append("")
-    lines.append("| Model | Samples | Avg Score | Alt Rate | Falsifier Rate | Confidence Rate | Unknowns Rate |")
+    lines.append(
+        "| Model | Samples | Avg Score | Alt Rate | Falsifier Rate | Confidence Rate | Unknowns Rate |"
+    )
     lines.append("|---|---:|---:|---:|---:|---:|---:|")
     for model, metrics in sorted(summary["models"].items()):
         lines.append(
@@ -186,7 +192,9 @@ def _to_markdown(summary: dict[str, Any]) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check epistemic compliance regression thresholds.")
+    parser = argparse.ArgumentParser(
+        description="Check epistemic compliance regression thresholds."
+    )
     parser.add_argument("--fixtures", type=Path, default=DEFAULT_FIXTURES)
     parser.add_argument("--baseline", type=Path, default=DEFAULT_BASELINE)
     parser.add_argument("--strict", action="store_true", help="Exit non-zero on regressions.")
@@ -232,4 +240,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
