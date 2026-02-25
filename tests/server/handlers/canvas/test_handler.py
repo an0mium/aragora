@@ -45,6 +45,31 @@ def _clear_rate_limiter():
         _canvas_limiter._buckets.clear()
 
 
+@pytest.fixture(autouse=True)
+def _reset_permission_checker():
+    """Reset the singleton PermissionChecker between tests.
+
+    The tests/server/handlers/conftest.py auto-bypass fixture patches
+    check_permission on the PermissionChecker singleton instance for
+    non-no_auto_auth tests.  If monkeypatch teardown from a previous test
+    hasn't fully cleaned up the instance-level attribute, the patched
+    "always allow" method could leak into a subsequent no_auto_auth test.
+
+    We explicitly delete any instance-level override so the class method
+    is always used at the start of each test.
+    """
+    try:
+        from aragora.rbac.checker import get_permission_checker
+
+        checker = get_permission_checker()
+        # Remove any instance-level shadow of check_permission
+        # so the class-level method is used.
+        checker.__dict__.pop("check_permission", None)
+    except (ImportError, AttributeError):
+        pass
+    yield
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

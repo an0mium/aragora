@@ -130,12 +130,27 @@ def _clear_sso_state():
     Resets all four mutable module-level globals in sso_handlers to prevent
     cross-test pollution from tests in other files that call SSO handlers
     without proper cleanup.
+
+    Also clears the global rate limiters used by @auth_rate_limit decorators.
+    Without this, multiple tests calling handle_sso_callback (all using the
+    same "unknown" rate-limit key) can exceed the 20 req/min limit when
+    tests run in rapid succession under random ordering.
     """
     _auth_sessions.clear()
     with _sso_providers_lock:
         _sso_providers.clear()
     _idp_circuit_breakers.clear()
     _sso_state_store.reset()
+
+    # Clear rate limiter state so tests are not affected by calls from
+    # prior tests in the same session.
+    try:
+        from aragora.server.handlers.utils.rate_limit import clear_all_limiters
+
+        clear_all_limiters()
+    except (ImportError, AttributeError):
+        pass
+
     yield
     _auth_sessions.clear()
     with _sso_providers_lock:

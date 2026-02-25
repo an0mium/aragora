@@ -51,6 +51,11 @@ from aragora.gateway.enterprise.audit_interceptor import (
 )
 
 import aragora.gateway.enterprise.audit_interceptor as _mod
+# Import the actual submodule where _INTERCEPTOR_SIGNING_KEY lives.
+# The package __init__.py re-exports functions but NOT the private globals,
+# so setting _mod._INTERCEPTOR_SIGNING_KEY creates a new attribute on the
+# package module instead of resetting the real global in enums.py.
+import aragora.gateway.enterprise.audit_interceptor.enums as _enums_mod
 
 
 # =============================================================================
@@ -63,8 +68,19 @@ class TestSigningKeyManagement:
 
     @pytest.fixture(autouse=True)
     def reset_signing_key(self, monkeypatch):
-        """Reset global signing key before each test."""
-        _mod._INTERCEPTOR_SIGNING_KEY = None
+        """Reset global signing key before each test.
+
+        Both _INTERCEPTOR_SIGNING_KEY and _INTERCEPTOR_SIGNING_SOURCE must
+        be reset on the *enums* submodule (where the ``global`` statement
+        in ``get_interceptor_signing_key`` / ``set_interceptor_signing_key``
+        actually lives).  Resetting only _INTERCEPTOR_SIGNING_KEY while
+        leaving _INTERCEPTOR_SIGNING_SOURCE == "env" causes
+        ``get_interceptor_signing_key()`` to regenerate a random key even
+        after ``set_interceptor_signing_key()`` was called, because the
+        guard ``_INTERCEPTOR_SIGNING_SOURCE == "env"`` evaluates True.
+        """
+        _enums_mod._INTERCEPTOR_SIGNING_KEY = None
+        _enums_mod._INTERCEPTOR_SIGNING_SOURCE = None
         monkeypatch.delenv("ARAGORA_AUDIT_INTERCEPTOR_KEY", raising=False)
         monkeypatch.delenv("ARAGORA_AUDIT_SIGNING_KEY", raising=False)
         monkeypatch.delenv("ARAGORA_ENV", raising=False)

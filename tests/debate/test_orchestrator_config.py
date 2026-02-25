@@ -602,7 +602,55 @@ class TestDefaultValues:
 
 
 class TestConcurrencyLimits:
-    """Tests for concurrency limit configuration."""
+    """Tests for concurrency limit configuration.
+
+    These constants are read from environment variables at import time of
+    ``aragora.config.legacy`` (via ``_env_int``).  If another test sets one
+    of the ``ARAGORA_MAX_CONCURRENT_*`` env vars **before** the legacy module
+    is first imported in the process, the value is frozen to that override.
+
+    To avoid flaky failures under random test ordering we:
+    1. Ensure the env vars are unset (via monkeypatch) and
+    2. Force the legacy module to re-evaluate the constants by removing it
+       from ``sys.modules`` so the next ``from aragora.config import ...``
+       triggers a fresh import through ``__getattr__``.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _ensure_default_env(self, monkeypatch):
+        """Remove env overrides and invalidate cached legacy constants."""
+        import sys
+
+        env_vars = [
+            "ARAGORA_MAX_CONCURRENT_PROPOSALS",
+            "ARAGORA_MAX_CONCURRENT_CRITIQUES",
+            "ARAGORA_MAX_CONCURRENT_REVISIONS",
+            "ARAGORA_MAX_CONCURRENT_STREAMING",
+            "ARAGORA_MAX_CONCURRENT_BRANCHES",
+            "ARAGORA_MAX_CONCURRENT_DEBATES",
+        ]
+        for var in env_vars:
+            monkeypatch.delenv(var, raising=False)
+
+        # Remove cached legacy module so constants are re-evaluated from
+        # the (now clean) environment on next access.
+        _legacy_key = "aragora.config.legacy"
+        _saved = sys.modules.pop(_legacy_key, None)
+        # Also clear the cached reference in aragora.config's internal state
+        # so __getattr__ re-imports the legacy module.
+        try:
+            import aragora.config as _cfg_pkg
+
+            if hasattr(_cfg_pkg, "_legacy_mod"):
+                monkeypatch.setattr(_cfg_pkg, "_legacy_mod", None)
+        except (ImportError, AttributeError):
+            pass
+
+        yield
+
+        # Restore the legacy module if it was loaded before the test.
+        if _saved is not None:
+            sys.modules[_legacy_key] = _saved
 
     def test_max_concurrent_proposals_env_var(self):
         """MAX_CONCURRENT_PROPOSALS is configurable via environment."""
