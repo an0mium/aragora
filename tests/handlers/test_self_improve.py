@@ -1707,12 +1707,14 @@ class TestWorktrees:
         assert body["action"] == "status"
         assert body["ok"] is True
         assert body["result"]["sessions"] == []
+        assert body["telemetry"]["sessions_total"] == 0
+        assert body["telemetry"]["sessions_active"] == 0
 
     @pytest.mark.asyncio
     async def test_autopilot_ensure(self, handler):
         mock_proc = MagicMock(
             returncode=0,
-            stdout='{"ok": true, "session": {"branch": "codex/test"}}',
+            stdout='{"ok": true, "created": true, "session": {"session_id": "s1", "agent": "codex-ci", "branch": "codex/test", "path": "/tmp/codex/test"}}',
             stderr="",
         )
         mock_service = MagicMock()
@@ -1730,6 +1732,9 @@ class TestWorktrees:
         assert body["action"] == "ensure"
         assert body["ok"] is True
         assert body["result"]["session"]["branch"] == "codex/test"
+        assert body["telemetry"]["allocation"]["session_id"] == "s1"
+        assert body["telemetry"]["allocation"]["created"] is True
+        assert body["telemetry"]["allocation"]["path"] == "/tmp/codex/test"
 
     @pytest.mark.asyncio
     async def test_autopilot_failure_returns_503(self, handler):
@@ -1749,6 +1754,7 @@ class TestWorktrees:
         body = _body(result)
         assert body["ok"] is False
         assert "stderr" in body
+        assert body["telemetry"]["action"] == "reconcile"
 
 
 # ===========================================================================
