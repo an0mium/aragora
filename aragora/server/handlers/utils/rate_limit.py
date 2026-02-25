@@ -26,11 +26,19 @@ For multi-instance deployments, you MUST use Redis-backed rate limiting:
 3. See docs/RATE_LIMITING.md for full configuration details
 
 To enforce Redis requirement in multi-instance mode, set:
-- ARAGORA_RATE_LIMIT_STRICT=true (raises error if Redis not configured)
+- ARAGORA_RATE_LIMIT_STRICT=true or ARAGORA_STRICT_RATE_LIMIT=true
+  (raises error if Redis not configured)
 
 Detection is automatic via:
-- ARAGORA_MULTI_INSTANCE=true
+- ARAGORA_MULTI_INSTANCE=true (explicit flag)
 - ARAGORA_REPLICA_COUNT > 1
+- KUBERNETES_SERVICE_HOST (always set in K8s pods)
+- HOSTNAME matching pod naming patterns (e.g., ``myapp-abc12``)
+- DYNO (Heroku)
+- FLY_ALLOC_ID (Fly.io)
+- RENDER_INSTANCE_ID (Render)
+
+Use ``is_multi_instance()`` from other modules to check the cached result.
 """
 
 from __future__ import annotations
@@ -38,6 +46,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import os
+import re
 import threading
 import time
 from collections import defaultdict
@@ -82,22 +91,34 @@ F = TypeVar("F", bound=Callable[..., Any])
 # =============================================================================
 
 
+_MULTI_INSTANCE_CACHED: bool | None = None
+
+# Pattern matching Kubernetes pod hostnames: ``<deployment>-<replicaset>-<random>``
+# e.g. ``aragora-web-7f8b9c6d4-x2k9m`` or ``api-worker-5d7b6-abc12``
+_K8S_HOSTNAME_RE = re.compile(r"^.+-[a-z0-9]{5,10}-[a-z0-9]{4,6}$")
+
+
 def _is_multi_instance_mode() -> bool:
     """Detect if running in multi-instance deployment mode.
 
-    Checks for:
-    - ARAGORA_MULTI_INSTANCE=true environment variable
-    - ARAGORA_REPLICA_COUNT > 1 environment variable
+    Checks (in order):
+    1. ``ARAGORA_MULTI_INSTANCE=true`` — explicit flag
+    2. ``ARAGORA_REPLICA_COUNT > 1``
+    3. ``KUBERNETES_SERVICE_HOST`` — always injected by K8s kubelet
+    4. ``HOSTNAME`` matching K8s pod naming pattern (``<name>-<rs>-<rand>``)
+    5. ``DYNO`` — set on every Heroku dyno
+    6. ``FLY_ALLOC_ID`` — set on every Fly.io machine
+    7. ``RENDER_INSTANCE_ID`` — set on every Render service instance
 
     Returns:
         True if multi-instance mode is detected, False otherwise.
     """
-    # Check explicit multi-instance flag
+    # 1. Explicit multi-instance flag
     multi_instance = os.environ.get("ARAGORA_MULTI_INSTANCE", "").lower()
     if multi_instance in ("1", "true", "yes"):
         return True
 
-    # Check replica count
+    # 2. Replica count
     try:
         replica_count = int(os.environ.get("ARAGORA_REPLICA_COUNT", "1"))
         if replica_count > 1:
@@ -105,7 +126,50 @@ def _is_multi_instance_mode() -> bool:
     except (ValueError, TypeError):
         pass
 
+    # 3. Kubernetes — kubelet always sets KUBERNETES_SERVICE_HOST in pods
+    if os.environ.get("KUBERNETES_SERVICE_HOST"):
+        return True
+
+    # 4. Hostname matching K8s pod naming convention
+    hostname = os.environ.get("HOSTNAME", "")
+    if hostname and _K8S_HOSTNAME_RE.match(hostname):
+        return True
+
+    # 5. Heroku — DYNO is set on every running dyno (e.g. "web.1")
+    if os.environ.get("DYNO"):
+        return True
+
+    # 6. Fly.io — FLY_ALLOC_ID is set on every Fly machine
+    if os.environ.get("FLY_ALLOC_ID"):
+        return True
+
+    # 7. Render — RENDER_INSTANCE_ID is set on every Render instance
+    if os.environ.get("RENDER_INSTANCE_ID"):
+        return True
+
     return False
+
+
+def is_multi_instance() -> bool:
+    """Return whether the current process is in a multi-instance deployment.
+
+    The result is computed once (on first call) and cached for the lifetime of
+    the process.  Other modules should call this rather than re-implementing
+    their own environment checks.
+
+    To force a re-evaluation (e.g. in tests), call
+    ``_reset_multi_instance_cache()``.
+    """
+    global _MULTI_INSTANCE_CACHED
+    if _MULTI_INSTANCE_CACHED is None:
+        _MULTI_INSTANCE_CACHED = _is_multi_instance_mode()
+    return _MULTI_INSTANCE_CACHED
+
+
+def _reset_multi_instance_cache() -> None:
+    """Clear the cached multi-instance detection result (for testing)."""
+    global _MULTI_INSTANCE_CACHED
+    _MULTI_INSTANCE_CACHED = None
 
 
 def _is_redis_configured() -> bool:
@@ -150,14 +214,18 @@ def _should_use_strict_mode() -> bool:
     """Determine if strict mode should be enabled.
 
     Strict mode is enabled when:
-    - ARAGORA_RATE_LIMIT_STRICT=true is explicitly set, OR
+    - ARAGORA_RATE_LIMIT_STRICT=true or ARAGORA_STRICT_RATE_LIMIT=true is
+      explicitly set, OR
     - Production mode is detected AND multi-instance mode is detected
 
     Returns:
         True if strict mode should be enabled, False otherwise.
     """
-    # Check explicit setting first
-    explicit_strict = os.environ.get("ARAGORA_RATE_LIMIT_STRICT", "").lower()
+    # Check explicit setting first (support both env var names)
+    explicit_strict = (
+        os.environ.get("ARAGORA_RATE_LIMIT_STRICT", "")
+        or os.environ.get("ARAGORA_STRICT_RATE_LIMIT", "")
+    ).lower()
     if explicit_strict in ("1", "true", "yes"):
         return True
     if explicit_strict in ("0", "false", "no"):

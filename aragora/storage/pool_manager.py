@@ -429,12 +429,99 @@ def reset_shared_pool() -> None:
     _dedicated_loop_thread = None
 
 
+_POOL_UTILIZATION_WARNING_THRESHOLD = 0.70
+
+
+async def check_database_health(timeout_seconds: float = 5.0) -> dict[str, Any]:
+    """Check database connectivity and pool utilization.
+
+    Executes ``SELECT 1`` to verify the database is reachable and returns
+    pool statistics.  The entire check is bounded by *timeout_seconds* so
+    an unreachable database does not hang the health endpoint.
+
+    Returns a dict with at least:
+        connected (bool): Whether a query could be executed.
+        pool_active (int | None): Active (in-use) connections.
+        pool_idle (int | None): Idle connections.
+        pool_size (int | None): Current total pool size.
+        pool_utilization_pct (float | None): Percentage of pool in use.
+        status (str): "healthy", "degraded", or "unhealthy".
+
+    The check is intentionally tolerant:
+    * If no pool is configured (e.g. SQLite-only deployment), it returns
+      ``connected=False, status="not_configured"`` without raising.
+    * If the pool exists but the query times out, ``connected=False``.
+    * If utilization > 70 %, a warning is logged and status is "degraded".
+    """
+    pool = get_shared_pool()
+
+    # --- No pool configured (DB-optional deployment) ---
+    if pool is None:
+        return {
+            "connected": False,
+            "pool_active": None,
+            "pool_idle": None,
+            "pool_size": None,
+            "pool_utilization_pct": None,
+            "status": "not_configured",
+        }
+
+    # --- Gather pool metrics (safe even if the query fails) ---
+    pool_size: int | None = pool.get_size() if hasattr(pool, "get_size") else None
+    pool_idle: int | None = pool.get_idle_size() if hasattr(pool, "get_idle_size") else None
+    pool_max: int | None = pool.get_max_size() if hasattr(pool, "get_max_size") else None
+    pool_active: int | None = (pool_size - pool_idle) if pool_size is not None and pool_idle is not None else None
+
+    utilization_pct: float | None = None
+    if pool_max and pool_active is not None:
+        utilization_pct = round((pool_active / pool_max) * 100, 1)
+
+    # --- Execute SELECT 1 with timeout ---
+    connected = False
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            async with pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+        connected = True
+    except TimeoutError:
+        logger.warning("[pool_manager] Database health check timed out after %.1fs", timeout_seconds)
+    except (OSError, RuntimeError, ConnectionError) as exc:
+        logger.warning("[pool_manager] Database health check failed: %s", exc)
+
+    # --- Determine status ---
+    if not connected:
+        status = "unhealthy"
+    elif utilization_pct is not None and utilization_pct > _POOL_UTILIZATION_WARNING_THRESHOLD * 100:
+        status = "degraded"
+        logger.warning(
+            "[pool_manager] Pool utilization %.1f%% exceeds %.0f%% threshold "
+            "(active=%s, size=%s, max=%s)",
+            utilization_pct,
+            _POOL_UTILIZATION_WARNING_THRESHOLD * 100,
+            pool_active,
+            pool_size,
+            pool_max,
+        )
+    else:
+        status = "healthy"
+
+    return {
+        "connected": connected,
+        "pool_active": pool_active,
+        "pool_idle": pool_idle,
+        "pool_size": pool_size,
+        "pool_utilization_pct": utilization_pct,
+        "status": status,
+    }
+
+
 __all__ = [
     "initialize_shared_pool",
     "get_shared_pool",
     "get_pool_event_loop",
     "is_pool_initialized",
     "get_pool_info",
+    "check_database_health",
     "close_shared_pool",
     "reset_shared_pool",
 ]

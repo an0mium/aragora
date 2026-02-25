@@ -87,10 +87,16 @@ module.exports = {
           'to': { opacity: '1' },
         },
       },
+      borderRadius: {
+        'panel': 'var(--radius-md)',
+      },
       boxShadow: {
         'glow': '0 0 20px var(--accent-glow)',
         'glow-lg': '0 0 30px var(--accent-glow)',
         'terminal': '0 0 10px var(--accent-glow), inset 0 0 10px var(--accent-glow)',
+        'panel': 'var(--shadow-panel)',
+        'elevated': 'var(--shadow-elevated)',
+        'floating': 'var(--shadow-floating)',
       },
     },
   },

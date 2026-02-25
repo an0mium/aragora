@@ -32,6 +32,15 @@ from .events import (
 # Import WebSocket config from centralized location
 from aragora.config import WS_MAX_MESSAGE_SIZE
 from aragora.server.cors_config import WS_ALLOWED_ORIGINS
+from aragora.server.security.request_limits import check_json_depth
+
+# RFC 6455 close codes
+WS_CLOSE_UNSUPPORTED_DATA = 1003  # Unsupported data (e.g., invalid JSON)
+WS_CLOSE_MESSAGE_TOO_BIG = 1009  # Message too big
+
+# Maximum JSON nesting depth allowed in WebSocket messages.
+# Prevents JSON bomb attacks where deeply nested structures exhaust CPU/stack.
+WS_MAX_JSON_DEPTH = 20
 
 logger = logging.getLogger(__name__)
 
@@ -432,26 +441,38 @@ class WebSocketHandlerMixin:
             async for msg in ws:
                 if msg.type == aiohttp.WSMsgType.TEXT:
                     # Defense-in-depth: check message size before parsing
+                    # Close with RFC 6455 code 1009 (Message Too Big)
                     msg_data = msg.data
                     if len(msg_data) > WS_MAX_MESSAGE_SIZE:
                         logger.warning(
-                            "[ws] Message too large: %s bytes (max %s)",
+                            "WebSocket message too large: %d bytes (max %d) from %s",
                             len(msg_data),
                             WS_MAX_MESSAGE_SIZE,
+                            client_id,
                         )
-                        await ws.send_json(
-                            {
-                                "type": "error",
-                                "data": {
-                                    "code": "MESSAGE_TOO_LARGE",
-                                    "message": f"Message exceeds {WS_MAX_MESSAGE_SIZE} byte limit",
-                                },
-                            }
+                        await ws.close(
+                            code=WS_CLOSE_MESSAGE_TOO_BIG,
+                            message=b"Message too large",
                         )
-                        continue
+                        break
 
                     try:
                         data = json.loads(msg_data)
+
+                        # Validate JSON nesting depth to prevent JSON bomb attacks
+                        depth_ok, depth_err = check_json_depth(data, WS_MAX_JSON_DEPTH)
+                        if not depth_ok:
+                            logger.warning(
+                                "WebSocket JSON depth exceeded from %s: %s",
+                                client_id,
+                                depth_err,
+                            )
+                            await ws.close(
+                                code=WS_CLOSE_UNSUPPORTED_DATA,
+                                message=b"Unsupported data",
+                            )
+                            break
+
                         msg_type = data.get("type")
 
                         if msg_type == "get_loops":
@@ -619,16 +640,17 @@ class WebSocketHandlerMixin:
                             )
 
                     except json.JSONDecodeError as e:
-                        logger.warning("[ws] Invalid JSON: %s at pos %s", e.msg, e.pos)
-                        await ws.send_json(
-                            {
-                                "type": "error",
-                                "data": {
-                                    "code": "INVALID_JSON",
-                                    "message": f"JSON parse error: {e.msg}",
-                                },
-                            }
+                        logger.warning(
+                            "WebSocket invalid JSON from %s: %s at pos %s",
+                            client_id,
+                            e.msg,
+                            e.pos,
                         )
+                        await ws.close(
+                            code=WS_CLOSE_UNSUPPORTED_DATA,
+                            message=b"Unsupported data",
+                        )
+                        break
 
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     logger.error("[ws] Error: %s", ws.exception())

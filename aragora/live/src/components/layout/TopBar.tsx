@@ -39,7 +39,7 @@ export function TopBar() {
       <div className="flex-1 flex justify-center">
         <button
           onClick={openCommandPalette}
-          className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg)] border border-[var(--border)] rounded-md hover:border-[var(--acid-green)]/30 transition-colors max-w-md w-full"
+          className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg)]/50 border border-[var(--border)]/60 rounded-[var(--radius-sm)] hover:border-[var(--acid-green)]/40 hover:shadow-[0_0_8px_var(--accent-glow)] transition-all max-w-md w-full"
         >
           <span className="text-[var(--text-muted)] font-mono text-sm">⌘</span>
           <span className="text-[var(--text-muted)] text-sm flex-1 text-left">
@@ -63,7 +63,7 @@ export function TopBar() {
             aria-label="Toggle context panel"
             title={rightSidebarOpen ? 'Hide context panel' : 'Show context panel'}
           >
-            <span className="font-mono">⊞</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="1" y="2" width="4" height="12" rx="1" /><line x1="7" y1="4" x2="15" y2="4" /><line x1="7" y1="8" x2="15" y2="8" /><line x1="7" y1="12" x2="15" y2="12" /></svg>
           </button>
         )}
 
@@ -72,6 +72,9 @@ export function TopBar() {
 
         {/* Budget usage indicator */}
         <BudgetBadge />
+
+        {/* Visual divider */}
+        <div className="hidden sm:block h-4 w-px bg-[var(--border)]" aria-hidden="true" />
 
         {/* Theme toggle */}
         <ThemeToggle />

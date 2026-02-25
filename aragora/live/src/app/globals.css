@@ -54,6 +54,16 @@
   --sidebar-left-collapsed: 64px;
   --sidebar-right-width: 280px;
   --topbar-height: 48px;
+
+  /* Elevation tokens */
+  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 1px rgba(57, 255, 20, 0.05);
+  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 2px rgba(57, 255, 20, 0.08);
+  --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 4px rgba(57, 255, 20, 0.1);
+
+  /* Border radius tokens */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
 }
 
 /* Light theme - warm, humanistic but still techy */
@@ -93,6 +103,11 @@
     transparent 1px,
     transparent 2px
   );
+
+  /* Elevation tokens (light mode) */
+  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
 }
 
 /* Theme transition animation - smooth color changes */
@@ -271,7 +286,8 @@ textarea:focus-visible {
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 0.5rem; /* rounded-lg equivalent */
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
   padding: 1rem;
 }
 
@@ -510,10 +526,6 @@ textarea:focus-visible {
 }
 
 /* Light mode adjustments for panels */
-[data-theme="light"] .panel {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
 [data-theme="light"] .panel-item:hover {
   border-color: rgba(45, 138, 64, 0.4);
 }
@@ -552,7 +564,8 @@ textarea:focus-visible {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-panel);
 }
 
 .card-terminal {

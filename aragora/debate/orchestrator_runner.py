@@ -888,6 +888,33 @@ async def handle_debate_completion(
             else None
         )
 
+    # Capture epistemic settlement metadata for future review
+    if ctx.result:
+        try:
+            from aragora.debate.settlement import EpistemicSettlementTracker
+
+            tracker = EpistemicSettlementTracker()
+            tracker.capture_settlement(ctx.result)
+            logger.debug(
+                "Settlement captured for debate %s", state.debate_id
+            )
+        except ImportError:
+            pass
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
+            logger.debug("Settlement capture skipped: %s", e)
+
+    # Register debate with intervention manager for operator controls
+    try:
+        from aragora.debate.operator_intervention import get_operator_manager
+
+        mgr = get_operator_manager()
+        if mgr.get_status(state.debate_id):
+            mgr.mark_completed(state.debate_id)
+    except ImportError:
+        pass
+    except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+        logger.debug("Intervention cleanup skipped: %s", e)
+
     # Auto-attach compliance artifacts for regulated domains (background, non-blocking)
     if ctx.result and getattr(ctx, "domain", "general") in {
         "healthcare",
