@@ -123,6 +123,14 @@ class TestCanHandle:
         """Test matching all reputations endpoint."""
         assert critique_handler.can_handle("/api/v1/reputation/all")
 
+    def test_can_handle_reputation_history_route(self, critique_handler):
+        """Test matching reputation history endpoint."""
+        assert critique_handler.can_handle("/api/v1/reputation/history")
+
+    def test_can_handle_reputation_domain_route(self, critique_handler):
+        """Test matching reputation domain endpoint."""
+        assert critique_handler.can_handle("/api/v1/reputation/domain")
+
     def test_can_handle_agent_reputation_route(self, critique_handler):
         """Test matching agent reputation endpoint."""
         assert critique_handler.can_handle("/api/v1/agent/claude/reputation")
