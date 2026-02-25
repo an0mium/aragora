@@ -333,6 +333,8 @@ def init_phases(arena: Arena) -> None:
         # Propulsion engine for push-based work assignment
         propulsion_engine=getattr(arena, "propulsion_engine", None),
         enable_propulsion=getattr(arena, "enable_propulsion", False),
+        # Arena config for feature flags (sandbox verification, etc.)
+        arena_config=arena,
     )
 
     # Initialize optional advanced features based on protocol flags

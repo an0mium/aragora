@@ -224,6 +224,8 @@ def store_post_tracker_config(
     # Live explainability stream (created per-debate in setup_debate_infrastructure)
     arena.enable_live_explainability = getattr(cfg, "enable_live_explainability", False)
     arena.live_explainability_stream = None
+    # Sandbox verification of code proposals
+    arena.enable_sandbox_verification = getattr(cfg, "enable_sandbox_verification", False)
     # Active introspection tracker (created per-debate in setup_debate_infrastructure)
     arena.enable_introspection = getattr(cfg, "enable_introspection", True)
     arena.active_introspection_tracker = None

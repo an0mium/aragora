@@ -24,6 +24,7 @@ class SandboxVerificationResult:
     passed: bool
     stdout: str = ""
     stderr: str = ""
+    exit_code: int = 0
     execution_id: str = ""
     error_message: str | None = None
 
@@ -32,6 +33,7 @@ class SandboxVerificationResult:
             "passed": self.passed,
             "stdout": self.stdout[:500],
             "stderr": self.stderr[:500],
+            "exit_code": self.exit_code,
             "execution_id": self.execution_id,
             "error_message": self.error_message,
         }
@@ -81,6 +83,7 @@ async def verify_code_proposal(
             passed=passed,
             stdout=result.stdout,
             stderr=result.stderr,
+            exit_code=result.exit_code,
             execution_id=result.execution_id,
         )
     except ImportError:

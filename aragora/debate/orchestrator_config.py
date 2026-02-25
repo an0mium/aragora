@@ -151,6 +151,7 @@ class MergedConfig:
         "enable_unified_memory",
         "enable_retention_gate",
         "enable_live_explainability",
+        "enable_sandbox_verification",
     )
 
     # Type annotations for all slots (required by mypy for __slots__ classes)
@@ -410,6 +411,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     enable_unified_memory: bool = False,
     enable_retention_gate: bool = False,
     enable_live_explainability: bool = False,
+    enable_sandbox_verification: bool = False,
 ) -> MergedConfig:
     """Merge config objects with individual parameters.
 
@@ -905,5 +907,6 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     cfg.enable_unified_memory = enable_unified_memory
     cfg.enable_retention_gate = enable_retention_gate
     cfg.enable_live_explainability = enable_live_explainability
+    cfg.enable_sandbox_verification = enable_sandbox_verification
 
     return cfg

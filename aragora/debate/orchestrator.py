@@ -352,6 +352,7 @@ class Arena(ArenaDelegatesMixin):
     live_explainability_stream: Any
     enable_introspection: bool
     active_introspection_tracker: Any
+    enable_sandbox_verification: bool
 
     # Selection feedback / cost / health (initialized by orchestrator_setup helpers)
     _selection_feedback_loop: Any
@@ -505,6 +506,8 @@ class Arena(ArenaDelegatesMixin):
         enable_retention_gate: bool = False,
         # Live explainability stream (real-time factor decomposition)
         enable_live_explainability: bool = False,
+        # Sandbox verification of code proposals
+        enable_sandbox_verification: bool = False,
     ) -> None:
         """Initialize the Arena with environment, agents, and optional subsystems."""
         self.mode_sequence = mode_sequence
@@ -641,6 +644,7 @@ class Arena(ArenaDelegatesMixin):
             enable_unified_memory=enable_unified_memory,
             enable_retention_gate=enable_retention_gate,
             enable_live_explainability=enable_live_explainability,
+            enable_sandbox_verification=enable_sandbox_verification,
         )
 
         # Handle fabric integration - get agents from fabric pool if configured
