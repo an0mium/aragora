@@ -173,12 +173,14 @@ class TestGetBackend:
 
     @pytest.fixture(autouse=True)
     def reset_factory(self):
-        """Reset factory state before each test."""
-        SimilarityFactory._registry.clear()
+        """Reset factory state before each test, restore after."""
+        orig_registry = SimilarityFactory._registry
+        orig_initialized = SimilarityFactory._initialized
+        SimilarityFactory._registry = {}
         SimilarityFactory._initialized = False
         yield
-        SimilarityFactory._registry.clear()
-        SimilarityFactory._initialized = False
+        SimilarityFactory._registry = orig_registry
+        SimilarityFactory._initialized = orig_initialized
 
     def test_get_backend_auto(self):
         """Test get_backend with auto selection."""
@@ -206,13 +208,14 @@ class TestBackendFunctionality:
 
     @pytest.fixture(autouse=True)
     def reset_factory(self):
-        """Reset factory state before each test."""
-        SimilarityFactory._registry.clear()
+        """Reset factory state before each test, restore after."""
+        orig_registry = SimilarityFactory._registry
+        orig_initialized = SimilarityFactory._initialized
+        SimilarityFactory._registry = {}
         SimilarityFactory._initialized = False
         yield
-        # Always reset to uninitialised so _ensure_initialized re-registers
-        SimilarityFactory._registry.clear()
-        SimilarityFactory._initialized = False
+        SimilarityFactory._registry = orig_registry
+        SimilarityFactory._initialized = orig_initialized
 
     def test_jaccard_compute_similarity(self):
         """Test jaccard backend computes similarity."""
@@ -258,13 +261,14 @@ class TestFactoryExtensibility:
 
     @pytest.fixture(autouse=True)
     def reset_factory(self):
-        """Reset factory state before each test."""
-        SimilarityFactory._registry.clear()
+        """Reset factory state before each test, restore after."""
+        orig_registry = SimilarityFactory._registry
+        orig_initialized = SimilarityFactory._initialized
+        SimilarityFactory._registry = {}
         SimilarityFactory._initialized = False
         yield
-        # Always reset to uninitialised so _ensure_initialized re-registers
-        SimilarityFactory._registry.clear()
-        SimilarityFactory._initialized = False
+        SimilarityFactory._registry = orig_registry
+        SimilarityFactory._initialized = orig_initialized
 
     def test_register_and_use_custom_backend(self):
         """Test registering and using a custom backend."""
