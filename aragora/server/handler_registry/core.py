@@ -996,7 +996,13 @@ def check_handler_coverage(handler_registry: list[tuple[str, Any]]) -> None:
     Scans aragora/server/handlers/ for classes ending in 'Handler' and compares
     against handler_registry. Unregistered handlers are logged as warnings.
     Called during _init_handlers to surface gaps early.
+
+    Gated by ARAGORA_CHECK_HANDLER_COVERAGE env var to avoid slowing server
+    startup (AST-parses 580+ handler files).
     """
+    if not os.environ.get("ARAGORA_CHECK_HANDLER_COVERAGE"):
+        return
+
     import ast
 
     registered_names = set()
