@@ -1837,7 +1837,9 @@ class TestReliabilityBudgetRouting:
         mock_store = MagicMock()
         mock_store.list_outcomes.return_value = resolved
 
-        with patch("aragora.debate.epistemic_outcomes.get_epistemic_outcome_store") as mock_get_store:
+        with patch(
+            "aragora.debate.epistemic_outcomes.get_epistemic_outcome_store"
+        ) as mock_get_store:
             mock_get_store.return_value = mock_store
             selected = selector.select(mock_agents, domain="general")
 
@@ -1867,6 +1869,8 @@ class TestReliabilityBudgetRouting:
         )
         selector = TeamSelector(calibration_tracker=calibration_tracker, config=config)
 
-        with patch("aragora.debate.epistemic_outcomes.get_epistemic_outcome_store") as mock_get_store:
+        with patch(
+            "aragora.debate.epistemic_outcomes.get_epistemic_outcome_store"
+        ) as mock_get_store:
             selector.select(mock_agents, domain="general")
             mock_get_store.assert_not_called()

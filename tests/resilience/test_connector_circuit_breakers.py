@@ -136,7 +136,9 @@ class TestIndependentCircuitBreakers:
         """Failures in one connector should not affect another."""
         slack_cb = get_circuit_breaker("slack_api", failure_threshold=2, cooldown_seconds=60)
         discord_cb = get_circuit_breaker("discord_api", failure_threshold=2, cooldown_seconds=60)
-        github_cb = get_circuit_breaker("connector_GitHub", failure_threshold=2, cooldown_seconds=60)
+        github_cb = get_circuit_breaker(
+            "connector_GitHub", failure_threshold=2, cooldown_seconds=60
+        )
 
         # Open slack circuit
         slack_cb.record_failure()
@@ -426,7 +428,9 @@ class TestHealthEndpointCircuitBreakerExposure:
         mock_handler = MagicMock()
         mock_handler.request_context = MagicMock()
 
-        with patch("aragora.server.handlers.integrations.health.rate_limit", lambda **kw: lambda f: f):
+        with patch(
+            "aragora.server.handlers.integrations.health.rate_limit", lambda **kw: lambda f: f
+        ):
             with patch("aragora.rbac.decorators.require_permission", lambda perm: lambda f: f):
                 # Call _get_health directly, bypassing decorators
                 result = handler._get_health.__wrapped__(handler, mock_handler)
