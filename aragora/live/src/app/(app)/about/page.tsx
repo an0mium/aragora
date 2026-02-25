@@ -255,7 +255,7 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
             <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Core Features</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
-                { title: 'Heterogeneous Agents', desc: 'Mix Claude, GPT, Gemini, Mistral (EU perspective), Grok, and Chinese models like DeepSeek, Qwen, and Kimi. Different biases create stronger adversarial coverage.' },
+                { title: 'Diverse AI Models', desc: 'Mix Claude, GPT, Gemini, Mistral, Grok, DeepSeek, Qwen, and Kimi. Different models catch different blind spots — that\'s the point.' },
                 { title: 'Structured Debate', desc: 'Propose, Critique, Revise loop. Configurable rounds and consensus mechanisms (majority, unanimous, judge).' },
                 { title: 'Evidence Provenance', desc: 'Cryptographic chain tracking sources. Every claim linked to evidence with reliability scoring.' },
                 { title: 'Formal Verification', desc: 'Z3-powered proof checking. Verify logical claims with SMT solver integration.' },

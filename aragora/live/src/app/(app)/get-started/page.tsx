@@ -211,7 +211,7 @@ export default function GetStartedPage() {
           {/* ---------------------------------------------------------------- */}
           <Section id="first-debate" step={2} title="Run Your First Debate">
             <p className="text-xs font-mono text-[var(--text-muted)] mb-4 max-w-2xl">
-              Launch a multi-agent debate where heterogeneous AI models propose,
+              Launch a multi-agent debate where different AI models propose,
               critique, and synthesize a decision. Try the example below or write
               your own topic.
             </p>
