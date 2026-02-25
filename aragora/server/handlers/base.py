@@ -897,7 +897,10 @@ class BaseHandler:
 
     def get_calibration_tracker(self) -> CalibrationTracker | None:
         """Get calibration tracker instance."""
-        if hasattr(self.__class__, "calibration_tracker") and self.__class__.calibration_tracker is not None:
+        if (
+            hasattr(self.__class__, "calibration_tracker")
+            and self.__class__.calibration_tracker is not None
+        ):
             ct: CalibrationTracker | None = self.__class__.calibration_tracker
             return ct
         return self.ctx.get("calibration_tracker")

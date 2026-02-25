@@ -2,6 +2,10 @@
 
 Verifies that ``MarketplaceInstaller`` correctly bridges catalog install
 operations to the SkillRegistry and workflow TemplateRegistry.
+
+Also verifies that ``MarketplaceService.install_listing()`` delegates to the
+installer so that the end-to-end path (HTTP handler -> service -> installer ->
+registry) actually registers items in the live registries.
 """
 
 from __future__ import annotations
@@ -10,6 +14,7 @@ import pytest
 
 from aragora.marketplace.catalog import MarketplaceCatalog, MarketplaceItem
 from aragora.marketplace.installer import MarketplaceInstaller
+from aragora.marketplace.service import MarketplaceService
 
 
 # ---------------------------------------------------------------------------
@@ -338,3 +343,140 @@ class TestInstallBridgeResultSerialization:
         assert d["registered_in"] == "skill_registry"
         assert d["registry_id"] == "skill-summarize"
         assert d["bridge_errors"] == []
+
+
+# ---------------------------------------------------------------------------
+# MarketplaceService end-to-end integration
+# ---------------------------------------------------------------------------
+
+
+class TestServiceSkillInstall:
+    """MarketplaceService.install_listing() should bridge skills to SkillRegistry."""
+
+    def test_service_install_skill_registers_in_registry(self) -> None:
+        """install_listing() for a skill item delegates to installer and registers."""
+        from aragora.skills.registry import SkillRegistry
+
+        catalog = _make_catalog()
+        skill_reg = SkillRegistry(enable_metrics=False, enable_rate_limiting=False)
+
+        svc = MarketplaceService(catalog=catalog, skill_registry=skill_reg)
+
+        result = svc.install_listing("skill-summarize", user_id="user-1")
+
+        assert result.success
+        assert result.registered_in == "skill_registry"
+        assert skill_reg.has_skill("skill-summarize")
+        # User install tracking should still work
+        assert "skill-summarize" in svc.get_user_installs("user-1")
+
+    def test_service_install_skill_idempotent(self) -> None:
+        """Re-installing via the service replaces the existing registration."""
+        from aragora.skills.registry import SkillRegistry
+
+        catalog = _make_catalog()
+        skill_reg = SkillRegistry(enable_metrics=False, enable_rate_limiting=False)
+
+        svc = MarketplaceService(catalog=catalog, skill_registry=skill_reg)
+
+        r1 = svc.install_listing("skill-summarize", user_id="user-1")
+        assert r1.success
+
+        r2 = svc.install_listing("skill-summarize", user_id="user-1")
+        assert r2.success
+        assert skill_reg.has_skill("skill-summarize")
+
+    def test_service_uninstall_skill_removes_from_registry(self) -> None:
+        """uninstall_listing() removes the skill from the SkillRegistry."""
+        from aragora.skills.registry import SkillRegistry
+
+        catalog = _make_catalog()
+        skill_reg = SkillRegistry(enable_metrics=False, enable_rate_limiting=False)
+
+        svc = MarketplaceService(catalog=catalog, skill_registry=skill_reg)
+
+        svc.install_listing("skill-summarize", user_id="user-1")
+        assert skill_reg.has_skill("skill-summarize")
+
+        removed = svc.uninstall_listing("skill-summarize", user_id="user-1")
+        assert removed is True
+        assert not skill_reg.has_skill("skill-summarize")
+
+
+class TestServiceTemplateInstall:
+    """MarketplaceService.install_listing() should bridge templates to TemplateRegistry."""
+
+    def test_service_install_template_registers_in_registry(self, tmp_path) -> None:
+        """install_listing() for a template item bridges to TemplateRegistry."""
+        from aragora.workflow.templates.registry import TemplateRegistry
+
+        catalog = _make_catalog()
+        tpl_reg = TemplateRegistry(db_path=str(tmp_path / "svc_tpl.db"))
+
+        svc = MarketplaceService(catalog=catalog, template_registry=tpl_reg)
+
+        result = svc.install_listing("tpl-code-review", user_id="user-2")
+
+        assert result.success
+        assert result.registered_in == "workflow_template_registry"
+
+        # Verify it actually landed in the TemplateRegistry
+        listings = tpl_reg.search(query="Code Review Pipeline", status="approved")
+        assert len(listings) >= 1
+        assert listings[0].template_data.get("marketplace_id") == "tpl-code-review"
+
+        # User tracking
+        assert "tpl-code-review" in svc.get_user_installs("user-2")
+
+    def test_service_install_template_idempotent(self, tmp_path) -> None:
+        """Re-installing a template via the service does not duplicate."""
+        from aragora.workflow.templates.registry import TemplateRegistry
+
+        catalog = _make_catalog()
+        tpl_reg = TemplateRegistry(db_path=str(tmp_path / "svc_tpl.db"))
+
+        svc = MarketplaceService(catalog=catalog, template_registry=tpl_reg)
+
+        r1 = svc.install_listing("tpl-code-review", user_id="user-2")
+        assert r1.success
+
+        r2 = svc.install_listing("tpl-code-review", user_id="user-2")
+        assert r2.success
+
+
+class TestServiceValidation:
+    """MarketplaceService rejects invalid items via the installer's validation."""
+
+    def test_service_install_nonexistent_fails(self) -> None:
+        """install_listing() for a missing item returns a failed result."""
+        catalog = _make_catalog()
+        svc = MarketplaceService(catalog=catalog)
+
+        result = svc.install_listing("does-not-exist", user_id="user-3")
+        assert not result.success
+
+    def test_service_install_invalid_skill_fails(self) -> None:
+        """install_listing() for a skill with missing description fails validation."""
+        bad_skill = MarketplaceItem(
+            id="bad-skill-svc",
+            name="Bad Skill",
+            type="skill",
+            description="",
+            author="test",
+            version="1.0.0",
+        )
+        catalog = _make_catalog(extra_items=[bad_skill])
+        svc = MarketplaceService(catalog=catalog)
+
+        result = svc.install_listing("bad-skill-svc", user_id="user-3")
+        assert not result.success
+        assert any("description" in e.lower() for e in result.errors)
+
+    def test_service_agent_pack_succeeds_without_registry(self) -> None:
+        """Agent packs succeed at catalog level but have no registry bridge."""
+        catalog = _make_catalog()
+        svc = MarketplaceService(catalog=catalog)
+
+        result = svc.install_listing("pack-speed", user_id="user-4")
+        assert result.catalog_result.success
+        assert result.registered_in is None

@@ -152,10 +152,7 @@ def _resync_all_backend_refs():
     ]
 
     for mod_name in list(sys.modules):
-        if not (
-            mod_name.startswith("aragora.debate")
-            or mod_name.startswith("tests.debate")
-        ):
+        if not (mod_name.startswith("aragora.debate") or mod_name.startswith("tests.debate")):
             continue
         if mod_name == "aragora.debate.similarity.backends":
             continue

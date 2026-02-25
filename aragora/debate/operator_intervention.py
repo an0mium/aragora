@@ -33,7 +33,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -135,9 +134,7 @@ class DebateInterventionManager:
         """
         with self._lock:
             if debate_id in self._debates:
-                logger.debug(
-                    "Debate %s already registered, updating total_rounds", debate_id
-                )
+                logger.debug("Debate %s already registered, updating total_rounds", debate_id)
                 self._debates[debate_id].total_rounds = total_rounds
                 return
             self._debates[debate_id] = _DebateEntry(debate_id, total_rounds)
@@ -222,9 +219,7 @@ class DebateInterventionManager:
                 logger.warning("pause_failed: debate %s not found", debate_id)
                 return False
             if entry.state != "running":
-                logger.warning(
-                    "pause_failed: debate %s in state %s", debate_id, entry.state
-                )
+                logger.warning("pause_failed: debate %s in state %s", debate_id, entry.state)
                 return False
 
             entry.state = "paused"
@@ -240,9 +235,7 @@ class DebateInterventionManager:
             )
             entry.interventions.append(record)
 
-            logger.info(
-                "debate_paused debate_id=%s reason=%s", debate_id, reason or "(none)"
-            )
+            logger.info("debate_paused debate_id=%s reason=%s", debate_id, reason or "(none)")
             return True
 
     def resume(self, debate_id: str) -> bool:
@@ -260,9 +253,7 @@ class DebateInterventionManager:
                 logger.warning("resume_failed: debate %s not found", debate_id)
                 return False
             if entry.state != "paused":
-                logger.warning(
-                    "resume_failed: debate %s in state %s", debate_id, entry.state
-                )
+                logger.warning("resume_failed: debate %s in state %s", debate_id, entry.state)
                 return False
 
             entry.state = "running"

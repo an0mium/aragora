@@ -328,9 +328,7 @@ class TestSinglePrioritization:
             "aragora.server.handlers.email_debate.EmailDebateService",
             HeuristicFallbackService,
         ):
-            result = await email_handler.handle_post(
-                "/api/v1/email/prioritize", {}, handler
-            )
+            result = await email_handler.handle_post("/api/v1/email/prioritize", {}, handler)
 
         assert result is not None
         # Service gracefully degrades to heuristic mode instead of failing

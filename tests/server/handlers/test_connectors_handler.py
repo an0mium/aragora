@@ -380,7 +380,9 @@ class TestConnectorsRBAC:
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.connectors.legacy.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.connectors.legacy.check_permission", mock_check_permission_denied
+    )
     async def test_list_connectors_rbac_denied(self):
         """List connectors returns error when RBAC denies."""
         auth_ctx = MockAuthorizationContext(roles=["viewer"])
@@ -392,7 +394,9 @@ class TestConnectorsRBAC:
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.connectors.legacy.check_permission", mock_check_permission_allowed)
+    @patch(
+        "aragora.server.handlers.connectors.legacy.check_permission", mock_check_permission_allowed
+    )
     async def test_list_connectors_rbac_allowed(self):
         """List connectors succeeds when RBAC allows."""
         auth_ctx = MockAuthorizationContext(roles=["admin"])
@@ -403,7 +407,9 @@ class TestConnectorsRBAC:
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.connectors.legacy.check_permission", mock_check_permission_denied)
+    @patch(
+        "aragora.server.handlers.connectors.legacy.check_permission", mock_check_permission_denied
+    )
     async def test_create_connector_rbac_denied(self):
         """Create connector returns error when RBAC denies."""
         auth_ctx = MockAuthorizationContext(roles=["viewer"])

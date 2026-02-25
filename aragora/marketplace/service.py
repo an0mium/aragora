@@ -34,6 +34,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .catalog import InstallResult, MarketplaceCatalog, MarketplaceItem
+from .installer import InstallBridgeResult, MarketplaceInstaller
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +85,19 @@ class MarketplaceService:
     For production, the backing store will be replaced with Postgres.
     """
 
-    def __init__(self, catalog: MarketplaceCatalog | None = None) -> None:
+    def __init__(
+        self,
+        catalog: MarketplaceCatalog | None = None,
+        installer: MarketplaceInstaller | None = None,
+        skill_registry: Any | None = None,
+        template_registry: Any | None = None,
+    ) -> None:
         self._catalog = catalog or MarketplaceCatalog(seed=True)
+        self._installer = installer or MarketplaceInstaller(
+            catalog=self._catalog,
+            skill_registry=skill_registry,
+            template_registry=template_registry,
+        )
         # item_id -> list of ratings
         self._ratings: dict[str, list[ListingRating]] = {}
         # user_id -> set of installed item_ids
@@ -154,21 +166,46 @@ class MarketplaceService:
 
     # ----- Install ----------------------------------------------------------
 
-    def install_listing(self, item_id: str, user_id: str) -> InstallResult:
+    def install_listing(self, item_id: str, user_id: str) -> InstallBridgeResult:
         """Install a marketplace listing for a user.
+
+        Delegates to :class:`MarketplaceInstaller` which handles both the
+        catalog-level install (download counter) **and** bridges the item
+        into the appropriate live registry (SkillRegistry for skills,
+        TemplateRegistry for workflow templates).
 
         Args:
             item_id: The item to install.
             user_id: The installing user.
 
         Returns:
-            InstallResult with success status.
+            InstallBridgeResult with catalog result and registry details.
         """
-        result = self._catalog.install_item(item_id)
-        if result.success:
+        result = self._installer.install(item_id)
+        if result.catalog_result.success:
             self._user_installs.setdefault(user_id, set()).add(item_id)
             logger.info("User %s installed marketplace item %s", user_id, item_id)
         return result
+
+    def uninstall_listing(self, item_id: str, user_id: str) -> bool:
+        """Uninstall a marketplace listing for a user.
+
+        Removes the item from the appropriate registry and the user's
+        install tracking.
+
+        Args:
+            item_id: The item to uninstall.
+            user_id: The uninstalling user.
+
+        Returns:
+            True if the item was successfully unregistered.
+        """
+        removed = self._installer.uninstall(item_id)
+        if removed:
+            installs = self._user_installs.get(user_id, set())
+            installs.discard(item_id)
+            logger.info("User %s uninstalled marketplace item %s", user_id, item_id)
+        return removed
 
     def get_user_installs(self, user_id: str) -> list[str]:
         """Return list of item IDs installed by a user."""

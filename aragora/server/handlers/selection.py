@@ -92,6 +92,9 @@ class SelectionHandler(BaseHandler):
     ROUTES = [
         "/api/v1/selection/plugins",
         "/api/v1/selection/defaults",
+        "/api/v1/selection/scorers",
+        "/api/v1/selection/team-selectors",
+        "/api/v1/selection/role-assigners",
         "/api/v1/selection/score",
         "/api/v1/selection/team",
         "/api/v1/team-selection",
@@ -138,6 +141,12 @@ class SelectionHandler(BaseHandler):
             return self._list_plugins()
         if path == "/api/v1/selection/defaults":
             return self._get_defaults()
+        if path == "/api/v1/selection/scorers":
+            return self._list_scorers()
+        if path == "/api/v1/selection/team-selectors":
+            return self._list_team_selectors()
+        if path == "/api/v1/selection/role-assigners":
+            return self._list_role_assigners()
         if path == "/api/v1/selection/history":
             return self._get_history(query_params)
         if path.startswith("/api/v1/selection/scorers/"):
@@ -187,6 +196,33 @@ class SelectionHandler(BaseHandler):
                 "role_assigner": plugin_registry._default_role_assigner,
             }
         )
+
+    @handle_errors("list scorers")
+    def _list_scorers(self) -> HandlerResult:
+        """List available scorer plugins."""
+        plugin_registry = get_selection_registry()
+        scorers = [plugin_registry.get_scorer_info(name) for name in plugin_registry.list_scorers()]
+        return json_response({"scorers": scorers})
+
+    @handle_errors("list team selectors")
+    def _list_team_selectors(self) -> HandlerResult:
+        """List available team selector plugins."""
+        plugin_registry = get_selection_registry()
+        selectors = [
+            plugin_registry.get_team_selector_info(name)
+            for name in plugin_registry.list_team_selectors()
+        ]
+        return json_response({"team_selectors": selectors})
+
+    @handle_errors("list role assigners")
+    def _list_role_assigners(self) -> HandlerResult:
+        """List available role assigner plugins."""
+        plugin_registry = get_selection_registry()
+        assigners = [
+            plugin_registry.get_role_assigner_info(name)
+            for name in plugin_registry.list_role_assigners()
+        ]
+        return json_response({"role_assigners": assigners})
 
     @handle_errors("get scorer")
     def _get_scorer(self, name: str) -> HandlerResult:
