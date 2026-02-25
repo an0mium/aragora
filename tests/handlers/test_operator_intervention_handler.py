@@ -131,9 +131,7 @@ class TestGetStatus:
         manager.update_round("d1", 2)
 
         http = _make_http_handler(command="GET")
-        result = handler.handle(
-            "/api/v1/debates/d1/intervention-status", {}, http
-        )
+        result = handler.handle("/api/v1/debates/d1/intervention-status", {}, http)
         assert result is not None
         body, status = _parse_result(result)
         assert status == 200
@@ -144,9 +142,7 @@ class TestGetStatus:
 
     def test_get_status_not_found(self, handler, manager):
         http = _make_http_handler(command="GET")
-        result = handler.handle(
-            "/api/v1/debates/nonexistent/intervention-status", {}, http
-        )
+        result = handler.handle("/api/v1/debates/nonexistent/intervention-status", {}, http)
         assert result is not None
         body, status = _parse_result(result)
         assert "not found" in body.get("error", "").lower()
@@ -429,18 +425,14 @@ class TestModuleUnavailable:
 class TestInvalidDebateId:
     def test_get_status_invalid_id(self, handler):
         http = _make_http_handler(command="GET")
-        result = handler.handle(
-            "/api/v1/debates/../etc/intervention-status", {}, http
-        )
+        result = handler.handle("/api/v1/debates/../etc/intervention-status", {}, http)
         # Should not match the pattern at all (returns None or 400)
         # The regex only allows [a-zA-Z0-9_-]+ so ../ won't match
         assert result is None
 
     def test_post_pause_invalid_id(self, handler):
         http = _make_http_handler(body={})
-        result = handler.handle_post(
-            "/api/v1/debates/../etc/pause", {}, http
-        )
+        result = handler.handle_post("/api/v1/debates/../etc/pause", {}, http)
         assert result is None
 
 
@@ -459,7 +451,5 @@ class TestUnhandledRoutes:
     def test_handle_post_returns_none_for_status(self, handler):
         # intervention-status is a GET endpoint; POST should return None
         http = _make_http_handler(body={})
-        result = handler.handle_post(
-            "/api/v1/debates/d1/intervention-status", {}, http
-        )
+        result = handler.handle_post("/api/v1/debates/d1/intervention-status", {}, http)
         assert result is None

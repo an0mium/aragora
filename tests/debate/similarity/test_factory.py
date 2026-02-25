@@ -243,25 +243,19 @@ class TestIsAvailable:
 
     def test_available_when_requires_installed(self):
         """Backend whose required packages exist is available."""
-        SimilarityFactory.register(
-            "with_dep", _DummyBackend, requires=["json"]
-        )
+        SimilarityFactory.register("with_dep", _DummyBackend, requires=["json"])
         SimilarityFactory._initialized = True
         assert SimilarityFactory.is_available("with_dep") is True
 
     def test_not_available_when_requires_missing(self):
         """Backend with a missing required package is not available."""
-        SimilarityFactory.register(
-            "bad", _DummyBackend, requires=["nonexistent_package_xyz"]
-        )
+        SimilarityFactory.register("bad", _DummyBackend, requires=["nonexistent_package_xyz"])
         SimilarityFactory._initialized = True
         assert SimilarityFactory.is_available("bad") is False
 
     def test_not_available_when_any_require_missing(self):
         """Backend is not available if any required package is missing."""
-        SimilarityFactory.register(
-            "partial", _DummyBackend, requires=["json", "nonexistent_xyz"]
-        )
+        SimilarityFactory.register("partial", _DummyBackend, requires=["json", "nonexistent_xyz"])
         SimilarityFactory._initialized = True
         assert SimilarityFactory.is_available("partial") is False
 
@@ -272,9 +266,7 @@ class TestIsAvailable:
     def test_pip_name_to_module_conversion(self):
         """Pip names with hyphens are converted to underscores for find_spec."""
         # pytest-randomly -> pytest_randomly (installed, importable)
-        SimilarityFactory.register(
-            "hyphen", _DummyBackend, requires=["pytest-randomly"]
-        )
+        SimilarityFactory.register("hyphen", _DummyBackend, requires=["pytest-randomly"])
         SimilarityFactory._initialized = True
         assert SimilarityFactory.is_available("hyphen") is True
 

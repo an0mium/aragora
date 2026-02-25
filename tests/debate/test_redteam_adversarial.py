@@ -745,9 +745,7 @@ class TestProtocolGaming:
             final_answer="Proposal from honest agents",
             participants=["honest-1", "honest-2"],
             agent_failures={
-                "exploder": [
-                    {"round": 0, "phase": "proposal", "error": "RuntimeError"}
-                ]
+                "exploder": [{"round": 0, "phase": "proposal", "error": "RuntimeError"}]
             },
         )
         arena._run_inner = AsyncMock(return_value=mock_result)
@@ -848,9 +846,7 @@ class TestManipulationResistance:
         ]
 
         # Get the injector's proposal -- verify it contains injection payload
-        proposal = asyncio.run(
-            injector.generate("Design a rate limiter")
-        )
+        proposal = asyncio.run(injector.generate("Design a rate limiter"))
         assert "SYSTEM OVERRIDE" in proposal
 
         # Honest agents' votes should still be valid (not crash, not corrupt)
@@ -862,9 +858,7 @@ class TestManipulationResistance:
 
         votes = []
         for agent in honest_agents:
-            vote = asyncio.run(
-                agent.vote(proposals, "Design a rate limiter")
-            )
+            vote = asyncio.run(agent.vote(proposals, "Design a rate limiter"))
             votes.append(vote)
 
         # Votes should be valid Vote objects with legitimate agent names
@@ -920,9 +914,7 @@ class TestEpistemicIntegrity:
         # Collect all proposals
         proposals = {}
         for agent in agents:
-            response = asyncio.run(
-                agent.generate("Design a rate limiter")
-            )
+            response = asyncio.run(agent.generate("Design a rate limiter"))
             proposals[agent.name] = response
 
         # Verify diversity: all proposals should be unique
@@ -946,12 +938,8 @@ class TestEpistemicIntegrity:
 
         # Each critique should have substantive content
         for critique in critiques:
-            assert len(critique.issues) > 0, (
-                f"Critique from {critique.agent} has no issues"
-            )
-            assert critique.severity > 0.0, (
-                f"Critique from {critique.agent} has zero severity"
-            )
+            assert len(critique.issues) > 0, f"Critique from {critique.agent} has no issues"
+            assert critique.severity > 0.0, f"Critique from {critique.agent} has zero severity"
 
     def test_empty_debate_fails_gracefully_zero_agents(self):
         """Zero agents should produce a clear error, not a crash."""

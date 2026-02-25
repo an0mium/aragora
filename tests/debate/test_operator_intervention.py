@@ -405,9 +405,7 @@ class TestWaitIfPaused:
 
     @pytest.mark.asyncio
     async def test_wait_if_paused_nonexistent_returns_immediately(self, manager):
-        await asyncio.wait_for(
-            manager.wait_if_paused("nonexistent"), timeout=1.0
-        )
+        await asyncio.wait_for(manager.wait_if_paused("nonexistent"), timeout=1.0)
 
     @pytest.mark.asyncio
     async def test_wait_if_paused_unblocks_on_restart(self, manager):

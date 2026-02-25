@@ -82,7 +82,9 @@ class OperatorInterventionHandler(BaseHandler):
         "/api/v1/debates/{debate_id}/intervention-status",
     ]
 
-    def __init__(self, ctx: dict[str, Any] | None = None, server_context: dict[str, Any] | None = None):
+    def __init__(
+        self, ctx: dict[str, Any] | None = None, server_context: dict[str, Any] | None = None
+    ):
         """Initialize handler.
 
         Args:
@@ -109,9 +111,7 @@ class OperatorInterventionHandler(BaseHandler):
     # ------------------------------------------------------------------
 
     @handle_errors("operator intervention GET")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests."""
         # Rate limit
         client_ip = get_client_ip(handler)
@@ -199,9 +199,7 @@ class OperatorInterventionHandler(BaseHandler):
             status = manager.get_status(debate_id)
             if status is None:
                 return error_response(f"Debate not found: {debate_id}", 404)
-            return error_response(
-                f"Cannot pause debate in state: {status.state}", 409
-            )
+            return error_response(f"Cannot pause debate in state: {status.state}", 409)
 
         status = manager.get_status(debate_id)
         return json_response(
@@ -225,9 +223,7 @@ class OperatorInterventionHandler(BaseHandler):
             status = manager.get_status(debate_id)
             if status is None:
                 return error_response(f"Debate not found: {debate_id}", 404)
-            return error_response(
-                f"Cannot resume debate in state: {status.state}", 409
-            )
+            return error_response(f"Cannot resume debate in state: {status.state}", 409)
 
         return json_response(
             {
@@ -256,9 +252,7 @@ class OperatorInterventionHandler(BaseHandler):
             status = manager.get_status(debate_id)
             if status is None:
                 return error_response(f"Debate not found: {debate_id}", 404)
-            return error_response(
-                f"Cannot restart debate in state: {status.state}", 409
-            )
+            return error_response(f"Cannot restart debate in state: {status.state}", 409)
 
         return json_response(
             {
