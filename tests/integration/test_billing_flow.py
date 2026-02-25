@@ -333,10 +333,10 @@ class TestFreeTierLimits:
         assert result is False
         assert test_org.debates_used_this_month == 10
 
-    def test_starter_tier_has_50_debate_limit(self, starter_org):
-        """Starter tier has 50 debates per month."""
+    def test_starter_tier_has_100_debate_limit(self, starter_org):
+        """Starter tier has 100 debates per month."""
         assert starter_org.tier == SubscriptionTier.STARTER
-        assert starter_org.limits.debates_per_month == 50
+        assert starter_org.limits.debates_per_month == 100
 
 
 # =============================================================================
@@ -359,10 +359,10 @@ class TestSubscriptionTiers:
         assert starter_limits.debates_per_month < pro_limits.debates_per_month
         assert pro_limits.debates_per_month < enterprise_limits.debates_per_month
 
-    def test_api_access_requires_professional(self):
-        """API access requires Professional tier or higher."""
+    def test_api_access_enabled_for_paid_tiers(self):
+        """API access is enabled for starter tier and above."""
         assert TIER_LIMITS[SubscriptionTier.FREE].api_access is False
-        assert TIER_LIMITS[SubscriptionTier.STARTER].api_access is False
+        assert TIER_LIMITS[SubscriptionTier.STARTER].api_access is True
         assert TIER_LIMITS[SubscriptionTier.PROFESSIONAL].api_access is True
         assert TIER_LIMITS[SubscriptionTier.ENTERPRISE].api_access is True
 
@@ -615,7 +615,7 @@ class TestFullBillingFlow:
         # 3. Verify upgrade
         updated_org = user_store.get_organization_by_id(org.id)
         assert updated_org.tier == SubscriptionTier.STARTER
-        assert updated_org.limits.debates_per_month == 50
+        assert updated_org.limits.debates_per_month == 100
 
     def test_usage_tracking_through_billing_cycle(
         self, user_store, usage_tracker, test_user, billing_handler
