@@ -116,6 +116,56 @@ def test_validate_runtime_env_file_accepts_valid_values(tmp_path: Path) -> None:
     assert warnings == []
 
 
+def test_resolve_runtime_base_url_uses_container_ip_when_no_host_port() -> None:
+    module = _load_script_module()
+
+    with (
+        patch.object(
+            module,
+            "_compose",
+            side_effect=[
+                _proc("", returncode=1, stderr="no host mapping"),
+                _proc("aragora-container\n"),
+            ],
+        ),
+        patch.object(module, "_run", return_value=_proc("172.18.0.9\n")),
+    ):
+        resolved = module._resolve_runtime_base_url(
+            ["docker", "compose"], "http://127.0.0.1:8080"
+        )
+
+    assert resolved == "http://172.18.0.9:8080"
+
+
+def test_resolve_runtime_base_url_keeps_requested_when_port_is_published() -> None:
+    module = _load_script_module()
+
+    with patch.object(module, "_compose", return_value=_proc("0.0.0.0:8080\n")):
+        resolved = module._resolve_runtime_base_url(
+            ["docker", "compose"], "http://127.0.0.1:8080"
+        )
+
+    assert resolved == "http://127.0.0.1:8080"
+
+
+def test_resolve_runtime_base_url_keeps_requested_when_resolution_fails() -> None:
+    module = _load_script_module()
+
+    with patch.object(
+        module,
+        "_compose",
+        side_effect=[
+            _proc("", returncode=1, stderr="no host mapping"),
+            _proc("", returncode=1, stderr="compose unavailable"),
+        ],
+    ):
+        resolved = module._resolve_runtime_base_url(
+            ["docker", "compose"], "http://127.0.0.1:8080"
+        )
+
+    assert resolved == "http://127.0.0.1:8080"
+
+
 def test_wait_for_http_200_retries_on_transient_connection_errors() -> None:
     module = _load_script_module()
     transient = module.RuntimeCheckError("HTTP request failed for http://127.0.0.1:8080/healthz")
