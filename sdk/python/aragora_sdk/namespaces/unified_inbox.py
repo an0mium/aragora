@@ -260,6 +260,18 @@ class UnifiedInboxAPI:
         """
         return self._client.request("GET", f"/api/v1/inbox/messages/{message_id}")
 
+    def auto_debate(self, message_id: str) -> dict[str, Any]:
+        """
+        Spawn an automatic debate for a specific inbox message.
+
+        Args:
+            message_id: Message ID.
+
+        Returns:
+            Debate creation response payload.
+        """
+        return self._client.request("POST", f"/api/v1/inbox/messages/{message_id}/debate")
+
     def send(
         self,
         channel: str,
@@ -670,6 +682,10 @@ class AsyncUnifiedInboxAPI:
     async def get_message(self, message_id: str) -> dict[str, Any]:
         """Get details of a specific message."""
         return await self._client.request("GET", f"/api/v1/inbox/messages/{message_id}")
+
+    async def auto_debate(self, message_id: str) -> dict[str, Any]:
+        """Spawn an automatic debate for a specific inbox message."""
+        return await self._client.request("POST", f"/api/v1/inbox/messages/{message_id}/debate")
 
     async def send(
         self,
