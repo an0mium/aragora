@@ -127,7 +127,7 @@ export function OnboardingWizardFlow({ onComplete, onSkip }: OnboardingWizardFlo
             {Object.entries(STEP_LABELS).map(([key, label], i) => (
               <div
                 key={key}
-                className={`flex-1 text-center text-[9px] font-mono py-1 border-b-2 transition-colors ${
+                className={`flex-1 text-center text-[10px] font-mono py-1 border-b-2 transition-colors ${
                   i < stepIndex
                     ? 'text-acid-green border-acid-green'
                     : i === stepIndex

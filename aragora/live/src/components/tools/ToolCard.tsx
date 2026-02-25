@@ -138,7 +138,7 @@ export function ToolCard({ tool, expanded, onToggle }: ToolCardProps) {
             className="w-full py-2 text-xs font-mono border border-[var(--border)] rounded text-[var(--text-muted)] bg-[var(--surface)]/30 cursor-not-allowed flex items-center justify-center gap-2"
           >
             Execute
-            <span className="px-1.5 py-0.5 text-[9px] border border-[var(--text-muted)]/30 rounded">
+            <span className="px-1.5 py-0.5 text-[10px] border border-[var(--text-muted)]/30 rounded">
               COMING SOON
             </span>
           </button>

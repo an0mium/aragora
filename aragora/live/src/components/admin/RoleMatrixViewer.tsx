@@ -193,7 +193,7 @@ export function RoleMatrixViewer({
                   <div className="flex flex-col items-center gap-1">
                     <span>{role.name.toUpperCase()}</span>
                     {role.isBuiltin && (
-                      <span className="text-[9px] text-acid-cyan">BUILTIN</span>
+                      <span className="text-[10px] text-acid-cyan">BUILTIN</span>
                     )}
                   </div>
                 </th>

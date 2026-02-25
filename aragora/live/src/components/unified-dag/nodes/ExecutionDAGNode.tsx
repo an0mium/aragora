@@ -78,13 +78,13 @@ export function ExecutionDAGNode({ id, data, selected, onExecuteNode }: Executio
             {agents.slice(0, 3).map((a) => (
               <span
                 key={a}
-                className="px-1.5 py-0.5 text-[9px] font-mono rounded bg-pink-500/15 text-pink-300 border border-pink-500/20"
+                className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-pink-500/15 text-pink-300 border border-pink-500/20"
               >
                 {a}
               </span>
             ))}
             {agents.length > 3 && (
-              <span className="text-[9px] font-mono text-text-muted">+{agents.length - 3}</span>
+              <span className="text-[10px] font-mono text-text-muted">+{agents.length - 3}</span>
             )}
           </div>
         )}

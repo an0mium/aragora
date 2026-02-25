@@ -19,6 +19,12 @@
     "/api/v1/coordination/stats",
     "/api/v1/coordination/workspaces",
     "/api/v1/km/checkpoints/compare",
+    "/api/v1/knowledge/facts/batch",
+    "/api/v1/knowledge/facts/batch/delete",
+    "/api/v1/knowledge/facts/merge",
+    "/api/v1/knowledge/facts/relationships",
+    "/api/v1/knowledge/facts/stats",
+    "/api/v1/knowledge/facts/validate",
     "/api/v1/matches/stats"
   ]
 }

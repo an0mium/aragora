@@ -712,6 +712,17 @@ async def execute_debate_phases(
         logger.debug("LatencyProfiler not available: %s", e)
 
     try:
+        # Check operator intervention pause before starting phase execution
+        try:
+            from aragora.debate.operator_intervention import get_operator_manager
+
+            _intervention = get_operator_manager()
+            await _intervention.wait_if_paused(state.debate_id)
+        except ImportError:
+            pass
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("Intervention pause check skipped: %s", e)
+
         # Execute all phases via PhaseExecutor with OpenTelemetry tracing
         execution_result = await arena.phase_executor.execute(
             ctx,
@@ -743,6 +754,13 @@ async def execute_debate_phases(
         state.debate_status = "error"
         span.set_attribute("debate.status", "error")
         span.record_exception(e)
+        # Mark debate as failed in intervention manager
+        try:
+            from aragora.debate.operator_intervention import get_operator_manager
+
+            get_operator_manager().mark_failed(state.debate_id)
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError):
+            pass
         raise
 
 

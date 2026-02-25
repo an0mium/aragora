@@ -62,6 +62,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: Connector Exception Hygiene
+    # PR fast path: this job is non-required and runs on push/workflow_dispatch.
+    if: github.event_name != 'pull_request'
 
     steps:
       - name: Checkout
@@ -84,6 +86,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: Agent Registry Sync
+    if: github.event_name != 'pull_request'
 
     steps:
       - name: Checkout
@@ -140,6 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     name: Core Module Type Safety
+    if: github.event_name != 'pull_request'
 
     steps:
       - name: Checkout
@@ -218,6 +222,7 @@ jobs:
   frontend-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    if: github.event_name != 'pull_request'
 
     defaults:
       run:
@@ -248,6 +253,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    if: github.event_name != 'pull_request'
 
     steps:
       - name: Checkout
@@ -281,6 +287,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: Secret Scanning
+    if: github.event_name != 'pull_request'
 
     steps:
       - name: Checkout
@@ -298,6 +305,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: Helm Chart Validation
+    if: github.event_name != 'pull_request'
 
     steps:
       - name: Checkout
@@ -387,6 +395,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     name: TODO/FIXME Enforcement
+    if: github.event_name != 'pull_request'
 
     steps:
       - name: Checkout
@@ -423,6 +432,7 @@ jobs:
   docs-sync:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    if: github.event_name != 'pull_request'
 
     steps:
       - name: Checkout

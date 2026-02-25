@@ -36,6 +36,7 @@ def health_check(handler) -> HandlerResult:
     Checks:
     - degraded_mode: Server configuration and startup status
     - database: Can execute a query
+    - database_pool: PostgreSQL connection pool health and utilization
     - storage: Debate storage is initialized
     - elo_system: ELO ranking system is available
     - nomic_dir: Nomic state directory exists

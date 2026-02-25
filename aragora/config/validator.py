@@ -103,12 +103,11 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
     redis_url = os.environ.get("ARAGORA_REDIS_URL", "") or os.environ.get("REDIS_URL", "")
     redis_mode = os.environ.get("ARAGORA_REDIS_MODE", "").strip().lower()
     sentinel_hosts = os.environ.get("ARAGORA_REDIS_SENTINEL_HOSTS", "").strip()
+    sentinel_master = os.environ.get("ARAGORA_REDIS_SENTINEL_MASTER", "").strip()
+    sentinel_configured = redis_mode == "sentinel" and bool(sentinel_hosts and sentinel_master)
     cluster_nodes = os.environ.get("ARAGORA_REDIS_CLUSTER_NODES", "").strip()
-
-    sentinel_configured = redis_mode == "sentinel" and bool(sentinel_hosts)
     cluster_configured = redis_mode == "cluster" and bool(cluster_nodes)
     redis_configured = bool(redis_url or sentinel_configured or cluster_configured)
-
     if state_backend == "redis" and not redis_configured:
         errors.append(
             "ARAGORA_STATE_BACKEND=redis but no Redis connection is configured "

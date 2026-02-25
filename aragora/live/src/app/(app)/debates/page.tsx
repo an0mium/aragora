@@ -8,6 +8,7 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { getAgentColors } from '@/utils/agentColors';
 import { logger } from '@/utils/logger';
 import { DebatesEmptyState } from '@/components/ui/EmptyState';
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { API_BASE_URL } from '@/config';
 import { UseCaseWizard } from '@/components/wizards/UseCaseWizard';
@@ -317,147 +318,149 @@ export default function DebatesPage() {
             </div>
           </div>
 
-          {loading && (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-acid-green font-mono animate-pulse">
-                {'>'} LOADING DEBATES...
-              </div>
-            </div>
-          )}
-
-          {!loading && debates.length === 0 && (
-            <div className="space-y-4">
-              <div className="bg-surface border border-acid-green/30">
-                <DebatesEmptyState onStart={() => window.location.href = '/'} />
-              </div>
-              <button
-                onClick={() => setShowWizard(true)}
-                className="w-full px-4 py-3 font-mono text-sm bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
-              >
-                OR USE THE GUIDED WIZARD TO GET STARTED
-              </button>
-            </div>
-          )}
-
-          {/* Debates by Date */}
-          <div className="space-y-6">
-            {Object.entries(groupedDebates).map(([date, dateDebates]) => (
-              <div key={date}>
-                <div className="text-xs font-mono text-text-muted mb-2 flex items-center gap-2">
-                  <span className="text-acid-green">{'>'}</span>
-                  {date}
-                  <span className="text-text-muted/50">({dateDebates.length} debates)</span>
+          <PanelErrorBoundary panelName="Debate Archive">
+            {loading && (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-acid-green font-mono animate-pulse">
+                  {'>'} LOADING DEBATES...
                 </div>
+              </div>
+            )}
 
-                <div className="space-y-2">
-                  {dateDebates.map((debate) => (
-                    <div
-                      key={debate.id}
-                      className="bg-surface border border-acid-green/30 p-4 hover:border-acid-green/50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <Link
-                            href={`/debates/${debate.id}`}
-                            className="text-sm font-mono text-acid-green hover:text-acid-cyan transition-colors block mb-2"
-                          >
-                            {debate.task}
-                          </Link>
+            {!loading && debates.length === 0 && (
+              <div className="space-y-4">
+                <div className="bg-surface border border-acid-green/30">
+                  <DebatesEmptyState onStart={() => window.location.href = '/'} />
+                </div>
+                <button
+                  onClick={() => setShowWizard(true)}
+                  className="w-full px-4 py-3 font-mono text-sm bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+                >
+                  OR USE THE GUIDED WIZARD TO GET STARTED
+                </button>
+              </div>
+            )}
 
-                          <div className="flex flex-wrap items-center gap-3 text-xs">
-                            {/* Agents */}
-                            <div className="flex items-center gap-1">
-                              {debate.agents.map((agent, i) => {
-                                const colors = getAgentColors(agent);
-                                return (
-                                  <span
-                                    key={i}
-                                    className={`px-1.5 py-0.5 ${colors.bg} ${colors.text} font-mono`}
-                                    title={agent}
-                                  >
-                                    {agent.split('-')[0].toUpperCase()}
-                                  </span>
-                                );
-                              })}
-                            </div>
+            {/* Debates by Date */}
+            <div className="space-y-6">
+              {Object.entries(groupedDebates).map(([date, dateDebates]) => (
+                <div key={date}>
+                  <div className="text-xs font-mono text-text-muted mb-2 flex items-center gap-2">
+                    <span className="text-acid-green">{'>'}</span>
+                    {date}
+                    <span className="text-text-muted/50">({dateDebates.length} debates)</span>
+                  </div>
 
-                            {/* Status Badge */}
-                            <span
-                              className={`px-1.5 py-0.5 text-[10px] font-mono border ${
-                                debate.winning_proposal
-                                  ? 'bg-acid-green/10 text-acid-green border-acid-green/30'
-                                  : debate.consensus_reached
-                                    ? 'bg-acid-cyan/10 text-acid-cyan border-acid-cyan/30'
-                                    : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
-                              }`}
+                  <div className="space-y-2">
+                    {dateDebates.map((debate) => (
+                      <div
+                        key={debate.id}
+                        className="bg-surface border border-acid-green/30 p-4 hover:border-acid-green/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <Link
+                              href={`/debates/${debate.id}`}
+                              className="text-sm font-mono text-acid-green hover:text-acid-cyan transition-colors block mb-2"
                             >
-                              {debate.winning_proposal ? 'COMPLETED' : debate.consensus_reached ? 'CONSENSUS' : 'NO CONSENSUS'}
-                            </span>
+                              {debate.task}
+                            </Link>
 
-                            {/* Confidence */}
-                            <span className="text-text-muted">
-                              {Math.round(debate.confidence * 100)}% conf
-                            </span>
+                            <div className="flex flex-wrap items-center gap-3 text-xs">
+                              {/* Agents */}
+                              <div className="flex items-center gap-1">
+                                {debate.agents.map((agent, i) => {
+                                  const colors = getAgentColors(agent);
+                                  return (
+                                    <span
+                                      key={i}
+                                      className={`px-1.5 py-0.5 ${colors.bg} ${colors.text} font-mono`}
+                                      title={agent}
+                                    >
+                                      {agent.split('-')[0].toUpperCase()}
+                                    </span>
+                                  );
+                                })}
+                              </div>
 
-                            {/* Receipt indicator */}
-                            {debate.vote_tally && (
-                              <span className="text-[10px] font-mono text-acid-green" title="Has receipt">
-                                [RCV]
+                              {/* Status Badge */}
+                              <span
+                                className={`px-1.5 py-0.5 text-[10px] font-mono border ${
+                                  debate.winning_proposal
+                                    ? 'bg-acid-green/10 text-acid-green border-acid-green/30'
+                                    : debate.consensus_reached
+                                      ? 'bg-acid-cyan/10 text-acid-cyan border-acid-cyan/30'
+                                      : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                                }`}
+                              >
+                                {debate.winning_proposal ? 'COMPLETED' : debate.consensus_reached ? 'CONSENSUS' : 'NO CONSENSUS'}
                               </span>
-                            )}
 
-                            {/* Phase and Cycle */}
-                            <div className="text-text-muted">
-                              C{debate.cycle_number} / {debate.phase}
+                              {/* Confidence */}
+                              <span className="text-text-muted">
+                                {Math.round(debate.confidence * 100)}% conf
+                              </span>
+
+                              {/* Receipt indicator */}
+                              {debate.vote_tally && (
+                                <span className="text-[10px] font-mono text-acid-green" title="Has receipt">
+                                  [RCV]
+                                </span>
+                              )}
+
+                              {/* Phase and Cycle */}
+                              <div className="text-text-muted">
+                                C{debate.cycle_number} / {debate.phase}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Actions */}
-                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                          <button
-                            onClick={() => handleCopyLink(debate.id)}
-                            className="px-2 py-1 text-xs font-mono bg-acid-green/10 text-acid-green border border-acid-green/30 hover:bg-acid-green hover:text-bg transition-colors"
-                          >
-                            {copiedId === debate.id ? 'COPIED!' : 'SHARE'}
-                          </button>
-                          <span className="text-[10px] text-text-muted font-mono">
-                            {formatDate(debate.created_at).split(',')[1]}
-                          </span>
+                          {/* Actions */}
+                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                            <button
+                              onClick={() => handleCopyLink(debate.id)}
+                              className="px-2 py-1 text-xs font-mono bg-acid-green/10 text-acid-green border border-acid-green/30 hover:bg-acid-green hover:text-bg transition-colors"
+                            >
+                              {copiedId === debate.id ? 'COPIED!' : 'SHARE'}
+                            </button>
+                            <span className="text-[10px] text-text-muted font-mono">
+                              {formatDate(debate.created_at).split(',')[1]}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
 
-            {/* Load More Button */}
-            {hasMore && !loading && (
-              <div className="text-center py-6">
-                <button
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                  className="px-6 py-3 font-mono text-sm bg-surface border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loadingMore ? (
-                    <span className="animate-pulse">LOADING MORE...</span>
-                  ) : (
-                    <span>LOAD MORE DEBATES</span>
-                  )}
-                </button>
-                <p className="text-xs text-text-muted mt-2">
-                  Page {page} • {PAGE_SIZE} debates per page
-                </p>
-              </div>
-            )}
+              {/* Load More Button */}
+              {hasMore && !loading && (
+                <div className="text-center py-6">
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="px-6 py-3 font-mono text-sm bg-surface border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loadingMore ? (
+                      <span className="animate-pulse">LOADING MORE...</span>
+                    ) : (
+                      <span>LOAD MORE DEBATES</span>
+                    )}
+                  </button>
+                  <p className="text-xs text-text-muted mt-2">
+                    Page {page} • {PAGE_SIZE} debates per page
+                  </p>
+                </div>
+              )}
 
-            {!hasMore && debates.length > 0 && (
-              <div className="text-center py-6 text-xs text-text-muted font-mono">
-                {'>'} END OF ARCHIVE • {debates.length} total debates
-              </div>
-            )}
-          </div>
+              {!hasMore && debates.length > 0 && (
+                <div className="text-center py-6 text-xs text-text-muted font-mono">
+                  {'>'} END OF ARCHIVE • {debates.length} total debates
+                </div>
+              )}
+            </div>
+          </PanelErrorBoundary>
         </div>
 
         {/* Use Case Wizard Modal */}

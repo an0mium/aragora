@@ -8,6 +8,8 @@ minimal stub entries for any missing paths/methods.
 Usage:
     python scripts/batch_add_openapi_stubs.py            # Dry run (report only)
     python scripts/batch_add_openapi_stubs.py --apply     # Write changes to openapi.json
+    python scripts/batch_add_openapi_stubs.py --apply --sync-generated
+        # Also update openapi_generated.json (optional, high-churn)
 """
 
 from __future__ import annotations
@@ -273,6 +275,11 @@ def main() -> int:
         help="Write changes to openapi.json (default: dry run)",
     )
     parser.add_argument(
+        "--sync-generated",
+        action="store_true",
+        help="Also update docs/api/openapi_generated.json (default: false)",
+    )
+    parser.add_argument(
         "--spec",
         type=Path,
         default=PROJECT_ROOT / "docs" / "api" / "openapi.json",
@@ -349,12 +356,11 @@ def main() -> int:
         # Sort paths for consistency
         spec["paths"] = dict(sorted(spec["paths"].items()))
 
-        # Also update openapi_generated.json to keep them in sync
         args.spec.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n")
         print(f"\nWrote updated spec to {args.spec}")
 
-        # Also write to openapi_generated.json
-        if gen_path.exists():
+        if args.sync_generated and gen_path.exists():
+            # Optional sync to reduce high-churn diffs in default workflows.
             gen_spec = json.loads(gen_path.read_text())
             gen_paths = gen_spec.setdefault("paths", {})
             for path_key, methods in spec["paths"].items():

@@ -9,6 +9,8 @@ Tests the critique pattern and reputation API endpoints including:
 - Input validation
 """
 
+import json
+
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -37,6 +39,7 @@ class MockReputation:
     proposal_acceptance_rate: float
     critique_value: float
     debates_participated: int
+    updated_at: str = "2026-02-25T00:00:00+00:00"
 
 
 class TestCritiqueHandlerRouting:
@@ -48,6 +51,8 @@ class TestCritiqueHandlerRouting:
         assert "/api/critiques/patterns" in CritiqueHandler.ROUTES
         assert "/api/critiques/archive" in CritiqueHandler.ROUTES
         assert "/api/reputation/all" in CritiqueHandler.ROUTES
+        assert "/api/reputation/history" in CritiqueHandler.ROUTES
+        assert "/api/reputation/domain" in CritiqueHandler.ROUTES
 
     def test_can_handle_static_routes(self):
         """Should handle static routes."""
@@ -55,6 +60,8 @@ class TestCritiqueHandlerRouting:
         assert handler.can_handle("/api/v1/critiques/patterns") is True
         assert handler.can_handle("/api/v1/critiques/archive") is True
         assert handler.can_handle("/api/v1/reputation/all") is True
+        assert handler.can_handle("/api/v1/reputation/history") is True
+        assert handler.can_handle("/api/v1/reputation/domain") is True
 
     def test_can_handle_dynamic_agent_route(self):
         """Should handle dynamic agent reputation route."""
@@ -261,6 +268,172 @@ class TestReputationEndpoints:
 
         assert result is not None
         assert result.status_code == 200
+
+    @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_reputation_history_with_data(self, mock_get_store, tmp_path):
+        """Should return reputation history snapshots."""
+        mock_store = MagicMock()
+        mock_store.get_all_reputations.return_value = [
+            MockReputation(
+                agent_name="claude_security",
+                reputation_score=0.92,
+                vote_weight=1.2,
+                proposal_acceptance_rate=0.75,
+                critique_value=0.88,
+                debates_participated=150,
+                updated_at="2026-02-25T10:00:00+00:00",
+            ),
+            MockReputation(
+                agent_name="codex_perf",
+                reputation_score=0.85,
+                vote_weight=1.1,
+                proposal_acceptance_rate=0.68,
+                critique_value=0.80,
+                debates_participated=120,
+                updated_at="2026-02-24T10:00:00+00:00",
+            ),
+        ]
+        mock_get_store.return_value = mock_store
+
+        handler = CritiqueHandler({"nomic_dir": tmp_path})
+        mock_handler = MagicMock()
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        result = handler.handle("/api/v1/reputation/history", {"limit": "1"}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] == 1
+        assert body["history"][0]["agent"] == "claude_security"
+        assert body["history"][0]["event"] == "snapshot"
+        mock_store.get_all_reputations.assert_called_once()
+
+    def test_reputation_history_rejects_invalid_start_date(self, tmp_path):
+        """Should reject malformed start_date."""
+        handler = CritiqueHandler({"nomic_dir": tmp_path})
+        mock_handler = MagicMock()
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        result = handler.handle(
+            "/api/v1/reputation/history",
+            {"start_date": "not-a-date"},
+            mock_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 400
+
+    @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_reputation_history_filters_agent_and_date(self, mock_get_store, tmp_path):
+        """Should filter history by agent + date window."""
+        mock_store = MagicMock()
+        mock_store.get_all_reputations.return_value = [
+            MockReputation(
+                agent_name="claude_security",
+                reputation_score=0.92,
+                vote_weight=1.2,
+                proposal_acceptance_rate=0.75,
+                critique_value=0.88,
+                debates_participated=150,
+                updated_at="2026-02-25T10:00:00+00:00",
+            ),
+            MockReputation(
+                agent_name="claude_security",
+                reputation_score=0.80,
+                vote_weight=1.0,
+                proposal_acceptance_rate=0.60,
+                critique_value=0.70,
+                debates_participated=80,
+                updated_at="2026-02-20T10:00:00+00:00",
+            ),
+            MockReputation(
+                agent_name="codex_perf",
+                reputation_score=0.85,
+                vote_weight=1.1,
+                proposal_acceptance_rate=0.68,
+                critique_value=0.80,
+                debates_participated=120,
+                updated_at="2026-02-25T10:00:00+00:00",
+            ),
+        ]
+        mock_get_store.return_value = mock_store
+
+        handler = CritiqueHandler({"nomic_dir": tmp_path})
+        mock_handler = MagicMock()
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        result = handler.handle(
+            "/api/v1/reputation/history",
+            {
+                "agent": "claude_security",
+                "start_date": "2026-02-24T00:00:00+00:00",
+            },
+            mock_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] == 1
+        assert body["history"][0]["agent"] == "claude_security"
+        assert body["history"][0]["timestamp"] == "2026-02-25T10:00:00+00:00"
+
+    def test_reputation_domain_requires_param(self, tmp_path):
+        """Should validate required domain query param."""
+        handler = CritiqueHandler({"nomic_dir": tmp_path})
+        mock_handler = MagicMock()
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        result = handler.handle("/api/v1/reputation/domain", {}, mock_handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_reputation_domain_with_data(self, mock_get_store, tmp_path):
+        """Should return domain-filtered reputation rows."""
+        mock_store = MagicMock()
+        mock_store.get_all_reputations.return_value = [
+            MockReputation(
+                agent_name="security_claude",
+                reputation_score=0.91,
+                vote_weight=1.2,
+                proposal_acceptance_rate=0.74,
+                critique_value=0.9,
+                debates_participated=180,
+            ),
+            MockReputation(
+                agent_name="performance_codex",
+                reputation_score=0.82,
+                vote_weight=1.05,
+                proposal_acceptance_rate=0.62,
+                critique_value=0.79,
+                debates_participated=110,
+            ),
+        ]
+        mock_get_store.return_value = mock_store
+
+        handler = CritiqueHandler({"nomic_dir": tmp_path})
+        mock_handler = MagicMock()
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        result = handler.handle(
+            "/api/v1/reputation/domain",
+            {"domain": "security", "limit": "10"},
+            mock_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["domain"] == "security"
+        assert body["count"] == 1
+        assert body["reputations"][0]["agent"] == "security_claude"
+        mock_store.get_all_reputations.assert_called_once()
 
 
 class TestRateLimiting:

@@ -5,6 +5,7 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 import { DeliveryModal } from '@/components/receipts';
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
 
 interface GauntletResult {
@@ -562,16 +563,18 @@ export default function ReceiptsPage() {
         )}
 
         {/* Content */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-acid-green font-mono animate-pulse">Loading...</div>
-          </div>
-        ) : (
-          <div>
-            {activeTab === 'list' && renderResultsList()}
-            {activeTab === 'detail' && renderReceiptDetail()}
-          </div>
-        )}
+        <PanelErrorBoundary panelName="Decision Receipts">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-acid-green font-mono animate-pulse">Loading...</div>
+            </div>
+          ) : (
+            <div>
+              {activeTab === 'list' && renderResultsList()}
+              {activeTab === 'detail' && renderReceiptDetail()}
+            </div>
+          )}
+        </PanelErrorBoundary>
       </div>
 
       {/* Delivery Modal */}
