@@ -150,7 +150,9 @@ test.describe('Live Debate Intervention', () => {
     await page.getByRole('button', { name: /PAUSE/ }).click();
     await pauseReq;
 
-    await expect(page.getByText(/Evidence injected/)).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText(/Debate paused/)).toBeVisible({ timeout: 5000 });
+    // Toasts auto-dismiss quickly; assert stable intervention history/state instead.
+    await expect(page.getByText('Test intervention payload')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Paused debate')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('button', { name: 'RESUME' })).toBeVisible({ timeout: 5000 });
   });
 });
