@@ -294,6 +294,47 @@ class AutonomousOrchestrator:
         except ImportError:
             pass
 
+        # ExecutionBridge: structured instruction generation + KM result ingestion
+        self._execution_bridge: Any | None = None
+        try:
+            from aragora.nomic.execution_bridge import ExecutionBridge
+
+            self._execution_bridge = ExecutionBridge(
+                enable_km_ingestion=True,
+                enable_verification=True,
+            )
+        except ImportError:
+            pass
+
+        # DebugLoop: test-failure-retry cycle for agent execution
+        self._debug_loop: Any | None = None
+        try:
+            from aragora.nomic.debug_loop import DebugLoop, DebugLoopConfig
+
+            self._debug_loop = DebugLoop(config=DebugLoopConfig(max_retries=3))
+        except ImportError:
+            pass
+
+        # Default to BranchCoordinator for worktree isolation if not provided
+        if self.branch_coordinator is None:
+            try:
+                from aragora.nomic.branch_coordinator import (
+                    BranchCoordinator,
+                    BranchCoordinatorConfig,
+                )
+
+                self.branch_coordinator = BranchCoordinator(
+                    repo_path=self.aragora_path,
+                    config=BranchCoordinatorConfig(
+                        base_branch="main",
+                        auto_merge_safe=True,
+                        require_tests_pass=True,
+                        use_worktrees=True,
+                    ),
+                )
+            except (ImportError, subprocess.SubprocessError, OSError):
+                pass
+
     async def execute_goal(
         self,
         goal: str,
@@ -568,6 +609,9 @@ class AutonomousOrchestrator:
                         )
                 except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as e:
                     logger.debug("metrics_comparison_failed: %s", e)
+
+            # Step 5d: Record pipeline outcome for cross-cycle learning
+            self._record_pipeline_outcome(result)
 
             # Step 6: Record cycle telemetry
             if self._cycle_telemetry is not None:
@@ -930,9 +974,25 @@ class AutonomousOrchestrator:
             # Build workflow for this subtask
             workflow = self._build_subtask_workflow(assignment)
 
+            # ExecutionBridge: generate structured instruction for the agent
+            if self._execution_bridge is not None:
+                try:
+                    instruction = self._execution_bridge.create_instruction(
+                        subtask=subtask,
+                        debate_context=f"Track: {assignment.track.value}, Agent: {assignment.agent_type}",
+                        worktree_path=self._get_worktree_for_assignment(assignment),
+                    )
+                    # Enrich the subtask description with the structured prompt
+                    enriched_description = instruction.to_agent_prompt()
+                except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+                    logger.debug("ExecutionBridge instruction skipped: %s", e)
+                    enriched_description = subtask.description
+            else:
+                enriched_description = subtask.description
+
             # Execute workflow — include retry hints from prior failures
             inputs: dict[str, Any] = {
-                "subtask": subtask.description,
+                "subtask": enriched_description,
                 "files": subtask.file_scope,
                 "complexity": subtask.estimated_complexity,
                 "max_cycles": max_cycles,
@@ -940,7 +1000,7 @@ class AutonomousOrchestrator:
             if assignment.retry_hints:
                 hint_block = "\n".join(f"- {h}" for h in assignment.retry_hints)
                 inputs["subtask"] = (
-                    f"{subtask.description}\n\n"
+                    f"{enriched_description}\n\n"
                     f"RETRY CONTEXT (attempt {assignment.attempt_count + 1}, "
                     f"prior attempt failed):\n{hint_block}"
                 )
@@ -978,6 +1038,37 @@ class AutonomousOrchestrator:
                     domain=assignment.track.value,
                 )
             else:
+                # DebugLoop: attempt test-driven retry before falling back to feedback
+                if self._debug_loop is not None:
+                    try:
+                        worktree_path = self._get_worktree_for_assignment(assignment)
+                        if worktree_path:
+                            test_scope = self._infer_test_paths(subtask.file_scope)
+                            debug_result = await self._debug_loop.execute_with_retry(
+                                instruction=subtask.description,
+                                worktree_path=worktree_path,
+                                test_scope=test_scope or None,
+                                subtask_id=subtask.id,
+                            )
+                            if debug_result.success:
+                                assignment.status = "completed"
+                                assignment.result = {
+                                    "workflow_result": result.final_output,
+                                    "debug_loop_fixed": True,
+                                    "debug_attempts": debug_result.total_attempts,
+                                }
+                                await self._update_bead_status(subtask.id, "done")
+                                await self._record_agent_outcome(
+                                    assignment, success=True, domain=assignment.track.value,
+                                )
+                                logger.info(
+                                    "debug_loop_recovered subtask=%s attempts=%d",
+                                    subtask.id, debug_result.total_attempts,
+                                )
+                                return
+                    except (RuntimeError, OSError, ValueError, AttributeError) as e:
+                        logger.debug("DebugLoop retry skipped: %s", e)
+
                 # Extract structured TestResult from verify step if available
                 error_info: dict[str, Any] = {
                     "type": "workflow_failure",
@@ -1069,6 +1160,9 @@ class AutonomousOrchestrator:
                 self._active_assignments.remove(assignment)
             except ValueError:
                 pass  # Already removed (e.g., during retry)
+
+            # ExecutionBridge: ingest result into Knowledge Mound for feedback
+            self._bridge_ingest_result(assignment)
 
             # Notify Fabric of task completion for cleanup
             await self._fabric_complete_task(assignment, success=assignment.status == "completed")
@@ -1720,6 +1814,63 @@ class AutonomousOrchestrator:
         except (ImportError, RuntimeError, TypeError, ValueError) as e:
             logger.debug("Failed to persist priority adjustments: %s", e)
 
+    def _get_worktree_for_assignment(self, assignment: AgentAssignment) -> str | None:
+        """Get the worktree path for an assignment's track, if available."""
+        if self.branch_coordinator is None:
+            return None
+        worktree_paths = getattr(self.branch_coordinator, "_worktree_paths", {})
+        for branch, wt_path in worktree_paths.items():
+            if assignment.track.value in branch:
+                return str(wt_path)
+        return None
+
+    def _bridge_ingest_result(self, assignment: AgentAssignment) -> None:
+        """Use ExecutionBridge to ingest assignment result into Knowledge Mound."""
+        if self._execution_bridge is None:
+            return
+        try:
+            from aragora.nomic.execution_bridge import ExecutionResult
+
+            files_changed: list[str] = []
+            if assignment.result and isinstance(assignment.result, dict):
+                files_changed = assignment.result.get("files_changed", [])
+
+            exec_result = ExecutionResult(
+                subtask_id=assignment.subtask.id,
+                success=assignment.status == "completed",
+                files_changed=files_changed,
+                error=str(assignment.result.get("error", ""))[:500]
+                if assignment.result and isinstance(assignment.result, dict)
+                else None,
+            )
+            self._execution_bridge.ingest_result(exec_result)
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("ExecutionBridge result ingestion skipped: %s", e)
+
+    def _record_pipeline_outcome(self, result: OrchestrationResult) -> None:
+        """Record pipeline outcome to KnowledgeMound for cross-cycle learning.
+
+        Feeds the completed pipeline result back to the KM so the next
+        improvement cycle can learn from successes and failures.
+        """
+        if self._km_feedback_bridge is None:
+            return
+        try:
+            self._km_feedback_bridge.record_pipeline_outcome(
+                goal=result.goal,
+                success=result.success,
+                completed=result.completed_subtasks,
+                failed=result.failed_subtasks,
+                duration_seconds=result.duration_seconds,
+                orchestration_id=self._orchestration_id or "",
+            )
+            logger.info(
+                "pipeline_outcome_recorded goal=%s success=%s",
+                result.goal[:60], result.success,
+            )
+        except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("pipeline_outcome_recording_skipped: %s", e)
+
     def _checkpoint(self, phase: str, data: dict[str, Any]) -> None:
         """Create a checkpoint for the orchestration."""
         if self.on_checkpoint:
@@ -1955,7 +2106,13 @@ class AutonomousOrchestrator:
                 except (ImportError, OSError, RuntimeError) as e:
                     logger.debug("ci_check_skipped: %s", e)
 
-                merge_result = await self.branch_coordinator.safe_merge(branch)
+                # Use safe_merge_with_gate for test-gated merges when available
+                if hasattr(self.branch_coordinator, "safe_merge_with_gate"):
+                    merge_result = await self.branch_coordinator.safe_merge_with_gate(
+                        branch, auto_revert=True,
+                    )
+                else:
+                    merge_result = await self.branch_coordinator.safe_merge(branch)
                 if merge_result.success:
                     logger.info(
                         "branch_merged",

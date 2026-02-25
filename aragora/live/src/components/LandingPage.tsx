@@ -43,7 +43,7 @@ const STEPS = [
   {
     num: '02',
     title: 'AGENTS DEBATE',
-    desc: '30+ heterogeneous AI agents argue, critique, and red-team each proposal',
+    desc: '42 heterogeneous AI agents argue, critique, and red-team each proposal',
     icon: '#',
   },
   {
@@ -57,7 +57,7 @@ const STEPS = [
 const FEATURES = [
   {
     title: 'ADVERSARIAL DEBATE',
-    desc: '30+ heterogeneous AI agents (Claude, GPT, Gemini, Mistral, Grok, DeepSeek, Qwen) argue, critique, and converge. Real diversity. Real disagreement.',
+    desc: '42 heterogeneous AI agents (Claude, GPT, Gemini, Mistral, Grok, DeepSeek, Qwen) argue, critique, and converge. Real diversity. Real disagreement.',
     accent: 'acid-green',
     icon: '>',
   },
@@ -82,8 +82,8 @@ const FEATURES = [
 ];
 
 const STATS = [
-  { value: '30+', label: 'AI AGENTS' },
-  { value: '6', label: 'PROVIDERS' },
+  { value: '42', label: 'AI AGENTS' },
+  { value: '7', label: 'PROVIDERS' },
   { value: '<30s', label: 'FIRST RESULT' },
   { value: '100%', label: 'AUDIT TRAIL' },
 ];

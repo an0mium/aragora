@@ -6,7 +6,7 @@ description: >-
   decision receipts to any channel.
 type: application
 version: 0.1.0
-appVersion: "0.8.0"
+appVersion: "2.8.0"
 kubeVersion: ">=1.25.0-0"
 keywords:
   - ai

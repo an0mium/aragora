@@ -20,8 +20,8 @@ class TestLoadBuiltins:
         # Re-register so other tests are unaffected
         load_builtins()
 
-    def test_load_builtins_registers_all_five(self):
-        """load_builtins() registers all 5 built-in modes."""
+    def test_load_builtins_registers_all(self):
+        """load_builtins() registers all built-in modes."""
         assert len(ModeRegistry.list_all()) == 0
         load_builtins()
         registered = ModeRegistry.list_all()
@@ -30,7 +30,8 @@ class TestLoadBuiltins:
         assert "reviewer" in registered
         assert "debugger" in registered
         assert "orchestrator" in registered
-        assert len(registered) == 5
+        assert "epistemic_hygiene" in registered
+        assert len(registered) == 6
 
     def test_load_builtins_idempotent(self):
         """Calling load_builtins() twice does not duplicate modes."""
@@ -38,7 +39,7 @@ class TestLoadBuiltins:
         first = len(ModeRegistry.list_all())
         load_builtins()
         second = len(ModeRegistry.list_all())
-        assert first == second == 5
+        assert first == second == 6
 
     def test_architect_mode_has_system_prompt(self):
         """Architect mode provides a non-empty system prompt."""

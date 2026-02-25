@@ -357,6 +357,26 @@ class TestListReceipts:
         assert data["pagination"]["total"] == 1
         assert len(data["receipts"]) == 1
 
+    @pytest.mark.asyncio
+    async def test_list_receipts_with_nonexistent_debate_id(self, handler):
+        result = await handler._list_receipts({"debate_id": "debate-nonexistent"})
+        assert result.status_code == 200
+        data = _parse_body(result)
+        assert data["filters"]["debate_id"] == "debate-nonexistent"
+        assert data["pagination"]["total"] == 0
+        assert len(data["receipts"]) == 0
+        assert data["pagination"]["has_more"] is False
+
+    @pytest.mark.asyncio
+    async def test_list_receipts_no_filter_returns_all(self, handler):
+        """No debate_id filter returns all receipts (backwards compatible)."""
+        result = await handler._list_receipts({})
+        assert result.status_code == 200
+        data = _parse_body(result)
+        assert data["filters"]["debate_id"] is None
+        assert data["pagination"]["total"] == 3
+        assert len(data["receipts"]) == 3
+
 
 # ===========================================================================
 # Test Search Receipts
