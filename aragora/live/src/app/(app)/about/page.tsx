@@ -197,15 +197,13 @@ export default function AboutPage() {
                   <ul className="space-y-2">
                     {category.docs.map((doc) => (
                       <li key={doc.name}>
-                        <a
+                        <Link
                           href={doc.href}
                           className="text-text-muted text-xs font-mono hover:text-acid-green transition-colors flex items-center gap-2"
-                          target="_blank"
-                          rel="noopener noreferrer"
                         >
                           <span className="text-acid-green/50">→</span>
                           {doc.name}
-                        </a>
+                        </Link>
                       </li>
                     ))}
                   </ul>

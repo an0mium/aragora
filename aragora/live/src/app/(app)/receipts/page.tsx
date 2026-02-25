@@ -247,11 +247,21 @@ export default function ReceiptsPage() {
       </div>
 
       {filteredResults.length === 0 ? (
-        <div className="p-8 bg-surface border border-border rounded-lg text-center">
-          <p className="text-text-muted font-mono">No decision receipts yet</p>
-          <Link href="/arena" className="mt-4 inline-block text-acid-green hover:underline">
-            Run your first debate &rarr;
-          </Link>
+        <div className="p-8 bg-surface border border-border rounded-lg text-center space-y-4">
+          <div className="text-2xl font-mono text-acid-green/40">[ ]</div>
+          <p className="text-text font-mono font-bold">No decision receipts yet</p>
+          <p className="text-text-muted font-mono text-sm max-w-md mx-auto">
+            Receipts are generated when a debate completes. Each receipt includes the verdict,
+            risk analysis, consensus proof, and a tamper-proof audit trail.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <Link href="/oracle" className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors">
+              Ask the Oracle
+            </Link>
+            <Link href="/debate" className="px-4 py-2 border border-border text-text-muted font-mono text-sm rounded hover:border-acid-green/50 hover:text-acid-green transition-colors">
+              Start a debate
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">
