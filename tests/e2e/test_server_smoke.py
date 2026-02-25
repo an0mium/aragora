@@ -199,8 +199,7 @@ class TestWebSocketConnectivity:
                     assert not ws.closed
                     await ws.close()
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            # WebSocket might not be fully initialized, log but don't fail
-            pytest.skip(f"WebSocket not available: {e}")
+            raise AssertionError(f"WebSocket not available: {e}") from e
 
     async def test_ws_control_plane_port_accepts_connection(self, live_server: LiveServerInfo):
         """Verify control plane WebSocket port accepts connections."""
@@ -213,7 +212,7 @@ class TestWebSocketConnectivity:
                     assert not ws.closed
                     await ws.close()
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            pytest.skip(f"Control plane WebSocket not available: {e}")
+            raise AssertionError(f"Control plane WebSocket not available: {e}") from e
 
 
 # ============================================================================

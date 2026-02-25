@@ -18,6 +18,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
+from collections.abc import Callable, Coroutine
 
 import defusedxml.ElementTree as ET
 import httpx
@@ -88,7 +89,11 @@ class PulseIngestor(ABC):
             await asyncio.sleep(self.rate_limit_delay - elapsed)
         self.last_request_time = now
 
-    async def _retry_with_backoff(self, coro_factory: Any, fallback_fn: Any = None) -> Any:
+    async def _retry_with_backoff(
+        self,
+        coro_factory: Callable[[], Coroutine[Any, Any, Any]],
+        fallback_fn: Callable[[], Any] | None = None,
+    ) -> Any:
         """Execute a coroutine with exponential backoff retry.
 
         Args:
