@@ -333,7 +333,7 @@ export function AttackFeed({
       >
         {displayEvents.length === 0 && status === 'connecting' && (
           <div className="py-8 text-center">
-            <div className="text-acid-green font-mono animate-pulse">Connecting to gauntlet...</div>
+            <div className="text-acid-green font-mono animate-pulse">Connecting to stress test...</div>
           </div>
         )}
         {displayEvents.length === 0 && status === 'streaming' && (

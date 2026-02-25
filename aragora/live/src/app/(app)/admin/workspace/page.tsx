@@ -492,8 +492,8 @@ export default function WorkspaceAdminPage() {
               permissions={permissions}
               loading={loading}
               groupByResource={true}
-              onRoleClick={(role) => console.log('Role clicked:', role)}
-              onPermissionClick={(perm) => console.log('Permission clicked:', perm)}
+              onRoleClick={() => {}}
+              onPermissionClick={() => {}}
             />
           )}
         </>
@@ -516,7 +516,7 @@ export default function WorkspaceAdminPage() {
               breakdownType={breakdownType}
               onBreakdownTypeChange={setBreakdownType}
               onTimeRangeChange={setTimeRange}
-              onItemClick={(item) => console.log('Cost item clicked:', item)}
+              onItemClick={() => {}}
               loading={loading}
             />
           )}
