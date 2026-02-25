@@ -379,6 +379,57 @@ def gate_contract_parity() -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Gate: strict SDK parity baselines
+# ---------------------------------------------------------------------------
+
+
+def gate_sdk_parity_strict() -> bool:
+    """Run strict SDK parity baseline checks."""
+    checks: list[tuple[str, list[str]]] = [
+        (
+            "sdk_parity",
+            [
+                sys.executable,
+                "scripts/check_sdk_parity.py",
+                "--strict",
+                "--baseline",
+                "scripts/baselines/check_sdk_parity.json",
+                "--budget",
+                "scripts/baselines/check_sdk_parity_budget.json",
+            ],
+        ),
+        (
+            "sdk_namespace_parity",
+            [
+                sys.executable,
+                "scripts/check_sdk_namespace_parity.py",
+                "--strict",
+                "--baseline",
+                "scripts/baselines/check_sdk_namespace_parity.json",
+            ],
+        ),
+        (
+            "cross_sdk_parity",
+            [
+                sys.executable,
+                "scripts/check_cross_sdk_parity.py",
+                "--strict",
+                "--baseline",
+                "scripts/baselines/cross_sdk_parity.json",
+            ],
+        ),
+    ]
+
+    for check_name, cmd in checks:
+        code, output = _run_cmd(cmd, timeout=180)
+        if code != 0:
+            detail = output.splitlines()[-1] if output else f"{check_name} check failed"
+            return _gate("sdk_parity_strict", False, f"{check_name}: {detail}")
+
+    return _gate("sdk_parity_strict", True, "sdk_parity + namespace + cross-sdk strict checks passed")
+
+
+# ---------------------------------------------------------------------------
 # Gate: VERSION-TAG consistency
 # ---------------------------------------------------------------------------
 
@@ -485,6 +536,7 @@ ALL_GATES: dict[str, callable] = {
     "smoke-test": gate_smoke_test,
     "integration-tests": gate_integration_tests,
     "openapi-sync": gate_openapi_sync,
+    "sdk-parity-strict": gate_sdk_parity_strict,
     "contract-parity": gate_contract_parity,
     "version-tag": gate_version_tag,
     "status-doc": gate_status_doc,
@@ -493,7 +545,13 @@ ALL_GATES: dict[str, callable] = {
 
 # Gates grouped by category for full runs
 SECURITY_GATES = ["secrets-only", "bandit", "pip-audit"]
-INTEGRATION_GATES = ["smoke-test", "integration-tests", "openapi-sync", "contract-parity"]
+INTEGRATION_GATES = [
+    "smoke-test",
+    "integration-tests",
+    "openapi-sync",
+    "sdk-parity-strict",
+    "contract-parity",
+]
 RELEASE_GATES = ["version-tag", "status-doc", "pentest-findings"]
 
 

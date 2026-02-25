@@ -5,6 +5,9 @@ OpenClaw (consumer assistant) extension layers. It focuses on gaps between
 existing Aragora implementations and parity targets, and provides acceptance
 criteria for each item.
 
+For SDK cross-language parity debt scheduling, see:
+`docs/status/SDK_CROSS_PARITY_DEBT_PLAN_2026-02-25.md`.
+
 Status legend:
 - implemented: present and usable in the codebase
 - partial: scaffolding exists, but lacks production wiring or protocol parity
