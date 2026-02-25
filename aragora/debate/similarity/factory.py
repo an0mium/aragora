@@ -182,21 +182,26 @@ class SimilarityFactory:
 
     @classmethod
     def is_available(cls, name: str) -> bool:
-        """Check if a backend is available (dependencies installed)."""
+        """Check if a backend is available (dependencies installed).
+
+        Uses importlib.util.find_spec to check package availability without
+        importing heavy libraries (e.g. sentence-transformers → torch).
+        """
+        import importlib.util
+
         cls._ensure_initialized()
         info = cls._registry.get(name)
         if not info:
             return False
 
-        # Try to instantiate
-        try:
-            info.backend_class()
-            return True
-        except ImportError:
-            return False
-        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
-            logger.debug("Backend %s not available: %s", name, e)
-            return False
+        # Check that all required packages are installed without importing them
+        for pkg in info.requires:
+            # Convert pip names to importable module names
+            module_name = pkg.replace("-", "_")
+            if importlib.util.find_spec(module_name) is None:
+                logger.debug("Backend %s unavailable: missing %s", name, pkg)
+                return False
+        return True
 
     @classmethod
     def create(
