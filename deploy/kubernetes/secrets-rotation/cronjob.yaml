@@ -60,7 +60,7 @@ spec:
 
           containers:
             - name: rotation
-              image: aragora/secrets-rotation:latest
+              image: ghcr.io/an0mium/aragora/secrets-rotation:2.1.10
               imagePullPolicy: Always
 
               command:

@@ -128,6 +128,15 @@ export default function SharedInboxPage() {
   const [newInboxDescription, setNewInboxDescription] = useState('');
   const [newInboxEmail, setNewInboxEmail] = useState('');
 
+  // Auto-debate states
+  const [debateResults, setDebateResults] = useState<Record<string, {
+    debate_id: string;
+    final_answer: string;
+    consensus_reached: boolean;
+    confidence: number;
+  }>>({});
+  const [debatingMessageId, setDebatingMessageId] = useState<string | null>(null);
+
   // Get workspace ID from auth context (organization or user's org_id)
   const workspaceId = organization?.id || user?.org_id || 'default';
 
@@ -288,6 +297,31 @@ export default function SharedInboxPage() {
       fetchMessages(selectedInbox.id);
     } catch {
       // Handle error
+    }
+  };
+
+  const handleStartDebate = async (messageId: string) => {
+    setDebatingMessageId(messageId);
+    try {
+      const response = await fetch(
+        `${backendConfig.api}/api/v1/inbox/messages/${messageId}/debate`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${tokens?.access_token || ''}`,
+          },
+        }
+      );
+      if (response.ok) {
+        const json = await response.json();
+        const result = json.data || json;
+        setDebateResults((prev) => ({ ...prev, [messageId]: result }));
+      }
+    } catch {
+      // Handle error
+    } finally {
+      setDebatingMessageId(null);
     }
   };
 
@@ -536,7 +570,34 @@ export default function SharedInboxPage() {
                         <button className="px-2 py-1 text-xs font-mono bg-surface hover:bg-accent/10 rounded transition-colors">
                           Reply
                         </button>
+                        {(message.priority === 'critical' || message.priority === 'high') && !debateResults[message.id] && (
+                          <button
+                            onClick={() => handleStartDebate(message.id)}
+                            disabled={debatingMessageId === message.id}
+                            className="px-2 py-1 text-xs font-mono bg-acid-purple/10 text-acid-purple hover:bg-acid-purple/20 rounded transition-colors disabled:opacity-50"
+                          >
+                            {debatingMessageId === message.id ? 'Debating...' : 'Start Debate'}
+                          </button>
+                        )}
                       </div>
+
+                      {/* Debate Result */}
+                      {debateResults[message.id] && (
+                        <div className="mt-2 p-2 bg-acid-purple/5 border border-acid-purple/20 rounded text-xs font-mono">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-acid-purple font-medium">DEBATE RESULT</span>
+                            {debateResults[message.id].consensus_reached && (
+                              <span className="px-1.5 py-0.5 bg-acid-green/20 text-acid-green rounded">
+                                CONSENSUS
+                              </span>
+                            )}
+                            <span className="text-muted">
+                              confidence: {(debateResults[message.id].confidence * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                          <p className="text-muted">{debateResults[message.id].final_answer}</p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

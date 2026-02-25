@@ -331,7 +331,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                             items.append(graph_item)
                             existing_ids.add(graph_item.id)
 
-            # Sort by importance/relevance, apply offset, and limit
+            # Sort by composite score: importance + freshness + recency
             def _safe_importance(item: "KnowledgeItem") -> float:
                 value = item.importance
                 if value is None:
@@ -343,7 +343,34 @@ class QueryOperationsMixin(_QueryMixinBase):
                 except (TypeError, ValueError):
                     return 0.0
 
-            items.sort(key=_safe_importance, reverse=True)
+            def _time_decay(updated_at: Any) -> float:
+                """Exponential decay with 7-day half-life."""
+                if updated_at is None:
+                    return 0.5
+                try:
+                    from datetime import datetime, timezone
+                    now = datetime.now(timezone.utc)
+                    if hasattr(updated_at, 'timestamp'):
+                        dt = updated_at
+                    else:
+                        dt = datetime.fromisoformat(str(updated_at))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    age_days = (now - dt).total_seconds() / 86400.0
+                    import math
+                    return math.exp(-0.693 * age_days / 7.0)  # ln(2) ≈ 0.693
+                except (TypeError, ValueError, AttributeError, OverflowError):
+                    return 0.5
+
+            def _retrieval_score(item: "KnowledgeItem") -> float:
+                """Composite retrieval score: 50% importance, 30% freshness, 20% recency."""
+                importance = _safe_importance(item) * 0.5
+                staleness = item.metadata.get("staleness_score", 0.5) if item.metadata else 0.5
+                freshness = (1.0 - staleness) * 0.3
+                recency = _time_decay(getattr(item, "updated_at", None)) * 0.2
+                return importance + freshness + recency
+
+            items.sort(key=_retrieval_score, reverse=True)
             if offset > 0:
                 items = items[offset:]
             items = items[:limit]

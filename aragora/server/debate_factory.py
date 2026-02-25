@@ -276,12 +276,25 @@ class DebateFactory:
                     role = "synthesizer"
                 else:
                     role = "critic"
+
+            # Use the strongest model for synthesis/judgment when no
+            # explicit model was requested
+            model = spec.model
+            if model is None and role in ("synthesizer", "judge"):
+                model = "claude-opus-4-6"
+                logger.info(
+                    "Using %s for %s role (strongest available model)",
+                    model,
+                    role,
+                )
+
             try:
                 agent = create_agent(
                     model_type=cast("AgentType", spec.provider),
                     name=spec.name,
                     role=role,
-                    model=spec.model,  # Pass model from spec
+                    model=model,
+                    enable_fallback=True,
                 )
 
                 # Apply persona as system prompt modifier if specified
@@ -293,9 +306,16 @@ class DebateFactory:
                     except ImportError:
                         pass  # Personas module not available
 
-                # Validate API key for API-based agents
+                # Warn about missing API key but allow fallback-enabled agents
+                # to continue — they can use OpenRouter as backup
                 if hasattr(agent, "api_key") and not agent.api_key:
-                    raise ValueError(f"Missing API key for {spec.provider}")
+                    if getattr(agent, "enable_fallback", False):
+                        logger.warning(
+                            "Missing API key for %s — will use OpenRouter fallback",
+                            spec.provider,
+                        )
+                    else:
+                        raise ValueError(f"Missing API key for {spec.provider}")
 
                 # Apply streaming wrapper if provided
                 if stream_wrapper is not None:

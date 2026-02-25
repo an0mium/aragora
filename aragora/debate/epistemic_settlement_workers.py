@@ -68,8 +68,10 @@ class DeterministicSettlementWorker:
         deterministic_truth = metadata.get("deterministic_truth")
         if isinstance(deterministic_truth, bool):
             delta = metadata.get("deterministic_confidence_delta")
-            confidence_delta = float(delta) if isinstance(delta, (int, float)) else (
-                0.15 if deterministic_truth else -0.15
+            confidence_delta = (
+                float(delta)
+                if isinstance(delta, (int, float))
+                else (0.15 if deterministic_truth else -0.15)
             )
             return SettlementResolution(
                 resolved_truth=deterministic_truth,
@@ -155,8 +157,10 @@ class OracleSettlementWorker:
         oracle_truth = metadata.get("oracle_truth")
         if isinstance(oracle_truth, bool):
             delta = metadata.get("oracle_confidence_delta")
-            confidence_delta = float(delta) if isinstance(delta, (int, float)) else (
-                0.12 if oracle_truth else -0.12
+            confidence_delta = (
+                float(delta)
+                if isinstance(delta, (int, float))
+                else (0.12 if oracle_truth else -0.12)
             )
             return SettlementResolution(
                 resolved_truth=oracle_truth,

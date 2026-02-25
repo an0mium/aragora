@@ -630,9 +630,7 @@ class TestRedisIntegration:
         """Test actual connection to standalone Redis."""
         config = RedisHAConfig(mode=RedisMode.STANDALONE, host="localhost", port=6379)
         client = get_redis_client(config)
-
-        if client is None:
-            pytest.skip("Redis not available")
+        assert client is not None, "Redis not available"
 
         # Test basic operations
         client.set("test_key", "test_value")
@@ -647,9 +645,7 @@ class TestRedisIntegration:
         """Test actual async connection to standalone Redis."""
         config = RedisHAConfig(mode=RedisMode.STANDALONE, host="localhost", port=6379)
         client = await get_async_redis_client(config)
-
-        if client is None:
-            pytest.skip("Redis not available")
+        assert client is not None, "Redis not available"
 
         # Test basic operations
         await client.set("test_async_key", "test_async_value")

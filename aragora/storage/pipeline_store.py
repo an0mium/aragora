@@ -184,18 +184,30 @@ class PipelineResultStore(SQLiteStore):
             )
             return cursor.rowcount > 0
 
-    def count(self, status: str | None = None) -> int:  # type: ignore[override] - adds optional filter
-        """Count pipeline results with optional status filter."""
-        if status:
-            sql = "SELECT COUNT(*) FROM pipeline_results WHERE status = ?"
-            params: tuple[Any, ...] = (status,)
-        else:
-            sql = "SELECT COUNT(*) FROM pipeline_results"
-            params = ()
+    def count(
+        self,
+        table: str = "pipeline_results",
+        where: str = "",
+        params: tuple[Any, ...] = (),
+        *,
+        status: str | None = None,
+    ) -> int:
+        """Count pipeline results with optional status filter.
 
-        with self.connection() as conn:
-            row = conn.execute(sql, params).fetchone()
-            return row[0] if row else 0
+        Extends the base ``SQLiteStore.count`` with a convenience *status*
+        keyword argument.  When *status* is supplied it overrides *where* /
+        *params* with a ``status = ?`` filter.
+
+        Args:
+            table: Table name (defaults to ``pipeline_results``).
+            where: Optional WHERE clause (forwarded to base).
+            params: Parameter values for WHERE clause placeholders.
+            status: Shorthand -- filter by pipeline status column.
+        """
+        if status:
+            where = "status = ?"
+            params = (status,)
+        return super().count(table, where, params)
 
 
 # =============================================================================

@@ -48,6 +48,8 @@ class VerifyPhase:
         enable_pr_review: bool = False,
         pr_review_runner: Any | None = None,
         ci_collector: Any | None = None,
+        enable_gauntlet_gate: bool = False,
+        gauntlet_gate_config: Any | None = None,
     ):
         """
         Initialize the verify phase.
@@ -66,6 +68,10 @@ class VerifyPhase:
             enable_pr_review: Whether to run autonomous PR review on diff
             pr_review_runner: Optional PRReviewRunner instance (created on demand if None)
             ci_collector: Optional CIResultCollector for CI feedback integration
+            enable_gauntlet_gate: Run a lightweight Gauntlet benchmark after
+                tests pass.  CRITICAL/HIGH findings block the verify phase.
+            gauntlet_gate_config: Optional GauntletGateConfig instance for
+                threshold and runner tuning.  Created with defaults when None.
         """
         self.aragora_path = aragora_path
         self.codex = codex
@@ -80,6 +86,8 @@ class VerifyPhase:
         self.enable_pr_review = enable_pr_review
         self.pr_review_runner = pr_review_runner
         self.ci_collector = ci_collector
+        self.enable_gauntlet_gate = enable_gauntlet_gate
+        self.gauntlet_gate_config = gauntlet_gate_config
 
     async def execute(self) -> VerifyResult:
         """
@@ -134,7 +142,15 @@ class VerifyPhase:
                 if not ci_result.get("passed") and ci_result.get("severity") == "critical":
                     all_passed = False
 
-        # 7. Consistency check (if enabled and auditor available)
+        # 7. Gauntlet approval gate (if enabled)
+        if all_passed and self.enable_gauntlet_gate:
+            gauntlet_result = await self._check_gauntlet_gate()
+            if gauntlet_result:
+                checks.append(gauntlet_result)
+                if not gauntlet_result.get("passed"):
+                    all_passed = False
+
+        # 8. Consistency check (if enabled and auditor available)
         if all_passed and self.enable_consistency_check and self.consistency_auditor:
             consistency_result = await self._check_consistency()
             checks.append(consistency_result)
@@ -763,6 +779,97 @@ Be concise - this is a quality gate, not a full review."""
         except OSError:
             pass
         return ""
+
+    async def _check_gauntlet_gate(self) -> dict | None:
+        """Run a lightweight Gauntlet benchmark as a verification gate.
+
+        Uses the GauntletApprovalGate from ``aragora.nomic.gauntlet_gate`` to
+        run a minimal adversarial validation.  CRITICAL/HIGH findings block
+        the verify phase.
+
+        Returns:
+            Check result dict, or None if the gate could not run.
+        """
+        self._log("  [gauntlet] Running Gauntlet approval gate...")
+        try:
+            from aragora.nomic.gauntlet_gate import (
+                GauntletApprovalGate,
+                GauntletGateConfig,
+            )
+        except ImportError as e:
+            self._log(f"    [gauntlet] Module unavailable: {e}")
+            return {
+                "check": "gauntlet_gate",
+                "passed": True,
+                "error": str(e),
+                "note": "Gauntlet gate skipped (module unavailable)",
+            }
+
+        # Build config — use injected config or create enabled defaults
+        if self.gauntlet_gate_config is not None:
+            config = self.gauntlet_gate_config
+        else:
+            config = GauntletGateConfig(enabled=True)
+
+        gate = GauntletApprovalGate(config=config)
+
+        # Use the git diff as the content to validate
+        diff_text = await self._get_diff_text()
+        if not diff_text:
+            self._log("    [gauntlet] No diff to validate, skipping")
+            return {
+                "check": "gauntlet_gate",
+                "passed": True,
+                "note": "No diff to validate",
+            }
+
+        try:
+            result = await gate.evaluate(
+                content=diff_text[:5000],  # Limit content size
+                context=f"Nomic Loop cycle {self.cycle_count} verification",
+            )
+        except (RuntimeError, ValueError, TimeoutError, OSError) as e:
+            self._log(f"    [gauntlet] Gate execution failed: {e}")
+            return {
+                "check": "gauntlet_gate",
+                "passed": True,
+                "error": str(e),
+                "note": "Gauntlet gate skipped due to error",
+            }
+
+        if result.skipped:
+            self._log(f"    [gauntlet] Skipped: {result.reason}")
+            return {
+                "check": "gauntlet_gate",
+                "passed": True,
+                "note": result.reason,
+            }
+
+        passed = not result.blocked
+        self._log(
+            f"    [gauntlet] {'BLOCKED' if result.blocked else 'passed'}: "
+            f"{result.total_findings} findings "
+            f"({result.critical_count} critical, {result.high_count} high)"
+        )
+        self._stream_emit(
+            "on_verification_result",
+            "gauntlet_gate",
+            passed,
+            result.reason,
+        )
+
+        return {
+            "check": "gauntlet_gate",
+            "passed": passed,
+            "blocked": result.blocked,
+            "reason": result.reason,
+            "critical_count": result.critical_count,
+            "high_count": result.high_count,
+            "total_findings": result.total_findings,
+            "gauntlet_id": result.gauntlet_id,
+            "duration_seconds": result.duration_seconds,
+            "blocking_findings": [f.to_dict() for f in result.blocking_findings],
+        }
 
 
 __all__ = ["VerifyPhase"]

@@ -3,7 +3,6 @@
     "/api/v1/relationship/{param}/*"
   ],
   "orphaned_in_spec": [
-    "/api/v1/accounting/report",
     "/api/v1/bots/slack/status",
     "/api/v1/coordination/consent",
     "/api/v1/coordination/execute",
@@ -11,7 +10,6 @@
     "/api/v1/coordination/federation",
     "/api/v1/coordination/health",
     "/api/v1/coordination/stats",
-    "/api/v1/coordination/workspaces",
-    "/api/v1/km/checkpoints/compare"
+    "/api/v1/coordination/workspaces"
   ]
 }

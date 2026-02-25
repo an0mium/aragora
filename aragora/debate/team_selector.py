@@ -1956,7 +1956,9 @@ class TeamSelector:
                     "ece": 0.25,
                     "prediction_count": 0,
                 }
-                if self.calibration_tracker and hasattr(self.calibration_tracker, "get_calibration_summary"):
+                if self.calibration_tracker and hasattr(
+                    self.calibration_tracker, "get_calibration_summary"
+                ):
                     try:
                         summary = self.calibration_tracker.get_calibration_summary(name)
                         calibration_map[name]["ece"] = float(getattr(summary, "ece", 0.25))

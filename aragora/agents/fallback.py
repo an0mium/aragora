@@ -912,10 +912,8 @@ def is_local_llm_available() -> bool:
 def get_default_fallback_enabled() -> bool:
     """Get the default value for enable_fallback from config.
 
-    Returns False by default (opt-in) to prevent silent billing and
-    unexpected model behavior when OpenRouter fallback activates.
-
-    Set ARAGORA_OPENROUTER_FALLBACK_ENABLED=true to enable.
+    Returns True by default so debates degrade gracefully when a
+    provider is down.  Opt out with ARAGORA_OPENROUTER_FALLBACK_ENABLED=false.
 
     Returns:
         True if fallback is enabled in settings, False otherwise
@@ -960,16 +958,5 @@ def get_default_fallback_enabled() -> bool:
         if normalized:
             return normalized in {"1", "true", "yes", "on"}
 
-    if not (secrets_config and secrets_config.use_aws):
-        return False
-
-    try:
-        from aragora.config import get_api_key
-
-        return bool(get_api_key("OPENROUTER_API_KEY", required=False))
-    except (ImportError, KeyError, OSError) as e:
-        # ImportError: config module not available
-        # KeyError: API key not in config
-        # OSError: file/network access issues
-        logger.debug("Could not load API key config, falling back to env var: %s", e)
-        return bool(os.environ.get("OPENROUTER_API_KEY"))
+    # Default to enabled — better to fallback than to fail the debate
+    return True

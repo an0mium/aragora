@@ -308,6 +308,62 @@ class KMFeedbackBridge:
 
         return results
 
+    # ------------------------------------------------------------------
+    # Pipeline outcomes
+    # ------------------------------------------------------------------
+
+    def record_pipeline_outcome(
+        self,
+        *,
+        goal: str,
+        success: bool,
+        completed: int = 0,
+        failed: int = 0,
+        duration_seconds: float = 0.0,
+        orchestration_id: str = "",
+    ) -> None:
+        """Record a completed pipeline outcome for cross-cycle learning.
+
+        Args:
+            goal: The goal that was executed.
+            success: Whether the pipeline succeeded.
+            completed: Number of completed subtasks.
+            failed: Number of failed subtasks.
+            duration_seconds: Wall-clock duration of the pipeline.
+            orchestration_id: Identifier for the orchestration run.
+        """
+        outcome = "succeeded" if success else "failed"
+        item = LearningItem(
+            content=(
+                f"Pipeline {outcome} on goal: {goal[:120]}. "
+                f"Completed={completed}, failed={failed}, "
+                f"duration={duration_seconds:.1f}s, "
+                f"orchestration={orchestration_id}."
+            ),
+            tags=[
+                "nomic_learned:true",
+                f"pipeline_outcome:{outcome}",
+                f"orchestration_id:{orchestration_id}",
+            ],
+            source="nomic_pipeline_outcome",
+            timestamp=time.time(),
+        )
+
+        self._in_memory_store.append(item)
+
+        km = self._get_km()
+        if km is not None:
+            try:
+                self._ingest_to_km(km, item)
+            except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
+                logger.debug("km_feedback_pipeline_outcome_failed: %s", e)
+
+        logger.info(
+            "km_feedback_pipeline_outcome goal=%s success=%s",
+            goal[:60],
+            success,
+        )
+
     def _search_in_memory(
         self,
         query: str,

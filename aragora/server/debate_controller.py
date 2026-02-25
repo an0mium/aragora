@@ -1306,7 +1306,7 @@ class DebateController:
             self._record_epistemic_outcome(
                 debate_id=debate_id,
                 claim_settlement=settlement_snapshot,
-                confidence=receipt_dict["confidence"],
+                confidence=float(receipt_dict["confidence"]),
                 mode=mode_meta,
                 receipt_id=receipt_id,
                 participants=agents_list,

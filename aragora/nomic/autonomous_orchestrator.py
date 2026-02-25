@@ -933,6 +933,70 @@ class AutonomousOrchestrator:
             },
         )
 
+    async def _run_gauntlet_gate(
+        self,
+        assignment: AgentAssignment,
+        workflow_result: Any,
+    ) -> Any:
+        """Run the Gauntlet approval gate after verification succeeds.
+
+        Performs a lightweight adversarial benchmark against the implementation
+        output.  If the Gauntlet finds CRITICAL or HIGH severity findings that
+        exceed configured thresholds, the returned result will have
+        ``blocked=True``.
+
+        Args:
+            assignment: The current agent assignment.
+            workflow_result: The workflow execution result (used as context).
+
+        Returns:
+            A ``GauntletGateResult``, or ``None`` if the gate could not run.
+        """
+        try:
+            from aragora.nomic.gauntlet_gate import (
+                GauntletApprovalGate,
+                GauntletGateConfig,
+            )
+        except ImportError:
+            logger.debug("gauntlet_gate module unavailable, skipping")
+            return None
+
+        subtask = assignment.subtask
+        content = (
+            f"Subtask: {subtask.title}\n"
+            f"Description: {subtask.description}\n"
+            f"Track: {assignment.track.value}\n"
+            f"Agent: {assignment.agent_type}\n"
+            f"Files: {', '.join(subtask.file_scope[:10]) if subtask.file_scope else 'N/A'}"
+        )
+        context = f"Workflow output: {str(workflow_result.final_output)[:1000]}"
+
+        gate = GauntletApprovalGate(
+            config=GauntletGateConfig(enabled=True),
+        )
+
+        logger.info(
+            "gauntlet_gate_started subtask_id=%s track=%s",
+            subtask.id,
+            assignment.track.value,
+        )
+
+        gate_result = await gate.evaluate(content=content, context=context)
+
+        self._checkpoint(
+            "gauntlet_gate",
+            {
+                "subtask_id": subtask.id,
+                "blocked": gate_result.blocked,
+                "critical": gate_result.critical_count,
+                "high": gate_result.high_count,
+                "total": gate_result.total_findings,
+                "gauntlet_id": gate_result.gauntlet_id,
+            },
+        )
+
+        return gate_result
+
     async def _execute_single_assignment(
         self,
         assignment: AgentAssignment,
@@ -1011,6 +1075,27 @@ class AutonomousOrchestrator:
             result = await self.workflow_engine.execute(workflow, inputs=inputs)
 
             if result.success:
+                # Gauntlet approval gate (blocking on CRITICAL/HIGH findings)
+                if self.enable_gauntlet_gate:
+                    gate_result = await self._run_gauntlet_gate(assignment, result)
+                    if gate_result is not None and gate_result.blocked:
+                        assignment.status = "rejected"
+                        assignment.result = {
+                            "workflow_result": result.final_output,
+                            "gauntlet_gate": gate_result.to_dict(),
+                        }
+                        logger.info(
+                            "assignment_blocked_gauntlet subtask_id=%s reason=%s",
+                            subtask.id,
+                            gate_result.reason,
+                        )
+                        await self._update_bead_status(
+                            subtask.id,
+                            "failed",
+                            error=f"Blocked by Gauntlet gate: {gate_result.reason}",
+                        )
+                        return
+
                 # Final review gate (blocking)
                 if self.hierarchy.enabled and self.hierarchy.final_review_blocking:
                     approved = await self._check_final_review(assignment, result)

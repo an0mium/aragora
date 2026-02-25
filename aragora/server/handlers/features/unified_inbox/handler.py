@@ -87,6 +87,7 @@ class UnifiedInboxHandler(BaseHandler):
         "/api/v1/inbox/bulk-action",
         "/api/v1/inbox/stats",
         "/api/v1/inbox/trends",
+        "/api/v1/inbox/messages/{message_id}/debate",
         "/api/v1/inbox/actions",
         "/api/v1/inbox/bulk-actions",
         "/api/v1/inbox/command",
@@ -143,6 +144,10 @@ class UnifiedInboxHandler(BaseHandler):
 
             elif path == "/api/v1/inbox/messages" and method == "GET":
                 return await self._handle_list_messages(request, tenant_id)
+
+            elif path.startswith("/api/v1/inbox/messages/") and path.endswith("/debate") and method == "POST":
+                message_id = path.split("/")[-2]
+                return await self._handle_auto_debate(request, tenant_id, message_id)
 
             elif path.startswith("/api/v1/inbox/messages/") and method == "GET":
                 message_id = path.split("/")[-1]
@@ -467,6 +472,33 @@ class UnifiedInboxHandler(BaseHandler):
             days = 7
         trends = compute_trends(days)
         return success_response({"trends": trends})
+
+    # =========================================================================
+    # Auto-Debate
+    # =========================================================================
+
+    async def _handle_auto_debate(
+        self, request: Any, tenant_id: str, message_id: str
+    ) -> HandlerResult:
+        """Spawn a multi-agent debate to triage a message."""
+        try:
+            record = await self._store.get_message(tenant_id, message_id)
+            if not record:
+                return error_response("Message not found", 404)
+
+            message = record_to_message(record)
+
+            from aragora.server.debate_factory import DebateFactory
+            from .auto_debate import auto_spawn_debate_for_message
+
+            factory = DebateFactory()
+            result = await auto_spawn_debate_for_message(message, factory, tenant_id)
+
+            return success_response({"data": result})
+
+        except (ValueError, TypeError, RuntimeError, OSError, KeyError) as e:
+            logger.exception("Error spawning auto-debate: %s", e)
+            return error_response("Auto-debate failed", 500)
 
     # =========================================================================
     # Persistence Helpers

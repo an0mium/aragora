@@ -312,6 +312,7 @@ def create_agent(
     model: str | None = None,
     api_key: str | None = None,
     timeout: float | None = None,
+    enable_fallback: bool | None = None,
 ) -> Agent:
     """
     Factory function to create agents by type.
@@ -325,6 +326,7 @@ def create_agent(
         role: Agent role ("proposer", "critic", "synthesizer")
         model: Specific model to use (optional)
         api_key: API key for API-based agents (optional, uses env vars)
+        enable_fallback: Enable OpenRouter fallback on quota errors (None = use config)
 
     Returns:
         Agent instance (either CLIAgent or APIAgent)
@@ -340,6 +342,8 @@ def create_agent(
     kwargs: dict[str, Any] = {}
     if timeout is not None:
         kwargs["timeout"] = timeout
+    if enable_fallback is not None:
+        kwargs["enable_fallback"] = enable_fallback
 
     return AgentRegistry.create(
         model_type=model_type,

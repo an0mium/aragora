@@ -734,6 +734,52 @@ class ReceiptAdapter(KnowledgeMoundAdapter):
         """Get the ingestion result for a receipt."""
         return self._ingested_receipts.get(receipt_id)
 
+    def list_receipts(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Return recently ingested receipts as plain dicts.
+
+        Provides a synchronous listing suitable for merging into API
+        responses.  Falls back to the in-memory ingestion cache when the
+        Knowledge Mound is unavailable.
+
+        Args:
+            limit: Maximum number of receipts to return.
+
+        Returns:
+            List of receipt dicts (each contains at least ``receipt_id``).
+        """
+        results: list[dict[str, Any]] = []
+
+        # Try KM query first
+        if self._mound and hasattr(self._mound, "search"):
+            try:
+                items = self._mound.search(
+                    query="decision_receipt",
+                    limit=limit,
+                    tags=["decision_receipt"],
+                )
+                if items:
+                    for item in items:
+                        meta = getattr(item, "metadata", {}) or {}
+                        results.append(
+                            {
+                                "receipt_id": meta.get("receipt_id", getattr(item, "id", "")),
+                                "content": getattr(item, "content", ""),
+                                "source": getattr(item, "source", "km"),
+                                **meta,
+                            }
+                        )
+            except (RuntimeError, ValueError, OSError, TypeError, AttributeError) as e:
+                logger.debug("list_receipts km query failed: %s", e)
+
+        # Supplement with in-memory ingestion results
+        if len(results) < limit:
+            for receipt_id, ingestion in list(self._ingested_receipts.items())[
+                : limit - len(results)
+            ]:
+                results.append(ingestion.to_dict())
+
+        return results[:limit]
+
     def get_stats(self) -> dict[str, Any]:
         """Get adapter statistics."""
         total_claims = sum(r.claims_ingested for r in self._ingested_receipts.values())

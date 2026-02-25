@@ -1839,16 +1839,32 @@ _live_semaphore = asyncio.Semaphore(_LIVE_MAX_CONCURRENT)
 
 
 def _get_available_live_agents(count: int) -> list[str]:
-    """Pick agent providers that have API keys configured."""
+    """Pick agent providers that have API keys configured.
+
+    With fallback enabled by default, agents whose primary key is
+    missing can still operate via OpenRouter.  We therefore include
+    providers that *either* have a primary key *or* can fall back.
+    """
+    has_openrouter = bool(_get_api_key("OPENROUTER_API_KEY"))
+
     candidates: list[str] = []
     if _get_api_key("ANTHROPIC_API_KEY"):
         candidates.append("anthropic")
-    if _get_api_key("OPENAI_API_KEY"):
+    if _get_api_key("OPENAI_API_KEY") or has_openrouter:
         candidates.append("openai")
-    if _get_api_key("OPENROUTER_API_KEY"):
+    if has_openrouter:
         candidates.append("openrouter")
-    if _get_api_key("MISTRAL_API_KEY"):
+    if _get_api_key("MISTRAL_API_KEY") or has_openrouter:
         candidates.append("mistral")
+
+    # De-duplicate while preserving order
+    seen: set[str] = set()
+    unique: list[str] = []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c)
+            unique.append(c)
+    candidates = unique
 
     # Pad to requested count by repeating
     while len(candidates) < count and candidates:

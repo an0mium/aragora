@@ -28,7 +28,6 @@ from aragora.agents.api_agents.common import (
     get_trace_headers,
     handle_agent_errors,
 )
-from aragora.agents.errors import handle_stream_errors  # noqa: F401 - used as decorator
 from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS

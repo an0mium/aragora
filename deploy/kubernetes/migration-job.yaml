@@ -92,7 +92,7 @@ spec:
 
       containers:
         - name: migrate
-          image: aragora:latest  # Will be overridden by kustomize
+          image: ghcr.io/an0mium/aragora:2.1.10  # Will be overridden by kustomize
           imagePullPolicy: IfNotPresent
           command:
             - python
@@ -165,7 +165,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: status
-          image: aragora:latest
+          image: ghcr.io/an0mium/aragora:2.1.10
           imagePullPolicy: IfNotPresent
           command:
             - python
