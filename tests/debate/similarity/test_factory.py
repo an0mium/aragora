@@ -32,7 +32,8 @@ def reset_factory():
     SimilarityFactory._initialized = False
     yield
     SimilarityFactory._registry = orig_registry
-    SimilarityFactory._initialized = orig_initialized
+    # Always reset to False so _ensure_initialized re-registers defaults
+    SimilarityFactory._initialized = False
 
 
 class _DummyBackend:
