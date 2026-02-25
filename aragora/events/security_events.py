@@ -41,9 +41,9 @@ class SecurityEventType(str, Enum):
     CRITICAL_CVE = "critical_cve"  # CVE with CVSS >= 9.0
 
     # Secrets events
-    SECRET_DETECTED = "secret_detected"
-    CRITICAL_SECRET = "critical_secret"
-    SECRET_ROTATED = "secret_rotated"
+    SECRET_DETECTED = "secret_detected"  # noqa: S105 -- enum value
+    CRITICAL_SECRET = "critical_secret"  # noqa: S105 -- enum value
+    SECRET_ROTATED = "secret_rotated"  # noqa: S105 -- enum value
 
     # SAST events
     SAST_CRITICAL = "sast_critical"  # SAST scanner found critical vulnerability
