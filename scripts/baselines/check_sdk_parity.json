@@ -1,5 +1,9 @@
 {
-  "missing_from_both_sdks": [],
+  "missing_from_both_sdks": [
+    "/api/control-plane/audit-logs/{param}",
+    "/api/control-plane/metrics/agents/{param}",
+    "/api/control-plane/schedules/{param}"
+  ],
   "stale_python_sdk_paths": [],
   "stale_typescript_sdk_paths": []
 }
