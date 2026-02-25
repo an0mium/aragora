@@ -197,11 +197,19 @@ class TestExecuteTask:
     """Test _execute_task with various DebugLoop scenarios."""
 
     @pytest.fixture(autouse=True)
-    def block_pipeline_adapter(self):
-        """Block real KM adapter async calls that would hang tests."""
+    def block_heavy_imports(self):
+        """Block heavy import chains that hang tests.
+
+        - pipeline_adapter: async KM calls in the feedback section
+        - aragora.debate.orchestrator: weaviate import chain via Arena path
+        Both fall through to their respective except blocks gracefully.
+        """
         with patch.dict(
             "sys.modules",
-            {"aragora.knowledge.mound.adapters.pipeline_adapter": None},
+            {
+                "aragora.knowledge.mound.adapters.pipeline_adapter": None,
+                "aragora.debate.orchestrator": None,
+            },
         ):
             yield
 
