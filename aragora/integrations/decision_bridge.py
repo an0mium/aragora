@@ -50,9 +50,7 @@ class DecisionBridge:
     def __init__(self, default_targets: list[str] | None = None):
         env_targets = os.environ.get("ARAGORA_DECISION_BRIDGE_TARGETS", "")
         self._default_targets = default_targets or (
-            [t.strip() for t in env_targets.split(",") if t.strip()]
-            if env_targets
-            else []
+            [t.strip() for t in env_targets.split(",") if t.strip()] if env_targets else []
         )
 
     def _get_targets(self, plan: Any) -> list[str]:
@@ -90,7 +88,14 @@ class DecisionBridge:
                     result.n8n_triggered = await self._trigger_n8n_workflow(plan)
                 else:
                     logger.warning("Unknown decision bridge target: %s", target)
-            except (ImportError, ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
+            except (
+                ImportError,
+                ConnectionError,
+                TimeoutError,
+                OSError,
+                ValueError,
+                RuntimeError,
+            ) as e:
                 error_msg = f"Decision bridge failed for {target}"
                 logger.warning("%s: %s", error_msg, e)
                 result.errors.append(error_msg)
@@ -115,14 +120,15 @@ class DecisionBridge:
                 "fields": {
                     "summary": f"[Aragora] {title}",
                     "description": (
-                        f"Auto-created from decision plan: {plan_title}\n\n"
-                        f"{description}"
+                        f"Auto-created from decision plan: {plan_title}\n\n{description}"
                     ),
                     "issuetype": {"name": "Task"},
                 }
             }
             try:
-                response = await connector._api_request("POST", "/rest/api/3/issue", json=issue_data)
+                response = await connector._api_request(
+                    "POST", "/rest/api/3/issue", json=issue_data
+                )
                 created.append(
                     {"key": response.get("key", ""), "id": response.get("id", ""), "summary": title}
                 )
@@ -157,14 +163,9 @@ class DecisionBridge:
                 issue = await connector.create_issue(
                     team_id=default_team_id,
                     title=f"[Aragora] {title}",
-                    description=(
-                        f"Auto-created from decision plan: {plan_title}\n\n"
-                        f"{description}"
-                    ),
+                    description=(f"Auto-created from decision plan: {plan_title}\n\n{description}"),
                 )
-                created.append(
-                    {"id": issue.id, "identifier": issue.identifier, "title": title}
-                )
+                created.append({"id": issue.id, "identifier": issue.identifier, "title": title})
             except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                 logger.warning("Failed to create Linear issue for task '%s': %s", title, e)
 

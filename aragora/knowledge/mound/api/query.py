@@ -349,8 +349,9 @@ class QueryOperationsMixin(_QueryMixinBase):
                     return 0.5
                 try:
                     from datetime import datetime, timezone
+
                     now = datetime.now(timezone.utc)
-                    if hasattr(updated_at, 'timestamp'):
+                    if hasattr(updated_at, "timestamp"):
                         dt = updated_at
                     else:
                         dt = datetime.fromisoformat(str(updated_at))
@@ -358,6 +359,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                         dt = dt.replace(tzinfo=timezone.utc)
                     age_days = (now - dt).total_seconds() / 86400.0
                     import math
+
                     return math.exp(-0.693 * age_days / 7.0)  # ln(2) ≈ 0.693
                 except (TypeError, ValueError, AttributeError, OverflowError):
                     return 0.5

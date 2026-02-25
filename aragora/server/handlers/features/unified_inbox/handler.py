@@ -145,7 +145,11 @@ class UnifiedInboxHandler(BaseHandler):
             elif path == "/api/v1/inbox/messages" and method == "GET":
                 return await self._handle_list_messages(request, tenant_id)
 
-            elif path.startswith("/api/v1/inbox/messages/") and path.endswith("/debate") and method == "POST":
+            elif (
+                path.startswith("/api/v1/inbox/messages/")
+                and path.endswith("/debate")
+                and method == "POST"
+            ):
                 message_id = path.split("/")[-2]
                 return await self._handle_auto_debate(request, tenant_id, message_id)
 

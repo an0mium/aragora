@@ -40,10 +40,7 @@ async def auto_spawn_debate_for_message(
     subject = getattr(message, "subject", "no subject") or "no subject"
     snippet = getattr(message, "snippet", "") or ""
 
-    question = (
-        f"Analyze this {priority_tier}-priority message from {sender} "
-        f're: "{subject}". '
-    )
+    question = f'Analyze this {priority_tier}-priority message from {sender} re: "{subject}". '
     if snippet:
         question += f'Message preview: "{snippet[:200]}". '
     question += (

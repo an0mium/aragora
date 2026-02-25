@@ -69,12 +69,8 @@ async def verify_code_proposal(
 
         config = sandbox_config or {}
         sb_config = SandboxConfig()
-        sb_config.policy.resource_limits.max_execution_seconds = config.get(
-            "timeout_seconds", 30
-        )
-        sb_config.policy.resource_limits.max_memory_mb = config.get(
-            "max_memory_mb", 256
-        )
+        sb_config.policy.resource_limits.max_execution_seconds = config.get("timeout_seconds", 30)
+        sb_config.policy.resource_limits.max_memory_mb = config.get("max_memory_mb", 256)
 
         executor = SandboxExecutor(config=sb_config)
         result = await executor.execute(combined_code, language="python")

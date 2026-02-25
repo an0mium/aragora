@@ -819,7 +819,9 @@ class PostDebateCoordinator:
             bridge = DecisionBridge()
             bridge_result = self._run_async_callable(bridge.handle_decision_plan, plan)
             if bridge_result:
-                result_dict = bridge_result.to_dict() if hasattr(bridge_result, "to_dict") else bridge_result
+                result_dict = (
+                    bridge_result.to_dict() if hasattr(bridge_result, "to_dict") else bridge_result
+                )
                 logger.info("Decision bridge completed: %s", result_dict)
                 return {"type": "decision_bridge", **result_dict}
             return None
