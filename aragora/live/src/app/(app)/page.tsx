@@ -456,10 +456,10 @@ export default function Home() {
               onError={setError}
             />
             {/* Quick Debate shortcut */}
-            <div className="flex items-center gap-3 px-1">
-              <span className="text-xs font-mono text-[var(--text-muted)]">Quick topics:</span>
-              <DebateThisButton question="Should we adopt AI-first workflows?" source="dashboard" variant="button" />
-              <DebateThisButton question="What are the risks of our current architecture?" source="dashboard" variant="button" />
+            <div className="flex items-center gap-3 px-1 flex-wrap">
+              <span className="text-xs font-mono text-[var(--text-muted)]">Try:</span>
+              <DebateThisButton question="Should we build or buy our analytics platform?" source="dashboard" variant="button" />
+              <DebateThisButton question="Is remote work better than hybrid for a 50-person team?" source="dashboard" variant="button" />
             </div>
             {hasVerdict && <VerdictCard events={events} />}
             {pendingDebateResult && (

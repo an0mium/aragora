@@ -442,6 +442,20 @@ class TestRunOrchestration:
 class TestAsyncPipelineRun:
     """Test the full async run() method."""
 
+    @pytest.fixture(autouse=True)
+    def mock_execute_task(self, pipeline, monkeypatch):
+        """Prevent _execute_task from calling real backends during full runs."""
+
+        async def _mock_execute(task, cfg):
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "planned",
+                "output": {},
+            }
+
+        monkeypatch.setattr(pipeline, "_execute_task", _mock_execute)
+
     @pytest.mark.asyncio
     async def test_full_run(self, pipeline):
         """Full pipeline run completes all stages."""

@@ -383,36 +383,29 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ── QUICKSTART ── */}
+      {/* ── CTA ── */}
       <section id="quickstart" className="py-16 px-4 border-t border-border">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="font-mono text-lg sm:text-xl text-acid-green mb-6">
-            {'>'} QUICKSTART
+          <h2 className="font-mono text-lg sm:text-xl text-acid-green mb-4">
+            Ready to try it?
           </h2>
-          <p className="font-mono text-xs text-text-muted mb-6">
-            Get started in under a minute. Run a demo debate locally:
+          <p className="font-mono text-xs text-text-muted mb-8">
+            No signup required. Run your first AI debate in under 30 seconds.
           </p>
-          <div className="bg-bg border border-acid-green/40 p-6 text-left font-mono shadow-terminal">
-            <div className="text-xs text-text-muted mb-2">$ # Install and run a demo debate</div>
-            <div className="text-sm text-acid-green mb-1">
-              <span className="text-text-muted select-none">$ </span>
-              pip install aragora
-            </div>
-            <div className="text-sm text-acid-green">
-              <span className="text-text-muted select-none">$ </span>
-              aragora review --demo
-            </div>
-          </div>
-          <p className="font-mono text-xs text-text-muted/60 mt-4">
-            Or{' '}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="text-acid-cyan hover:text-acid-green transition-colors"
+              className="font-mono text-sm px-8 py-3 bg-acid-green text-bg font-bold hover:opacity-90 transition-opacity"
             >
-              scroll up
-            </button>{' '}
-            to try a free debate right in your browser.
-          </p>
+              RUN A FREE DEBATE
+            </button>
+            <Link
+              href="/signup"
+              className="font-mono text-sm px-8 py-3 border border-acid-green/40 text-acid-green hover:bg-acid-green/10 transition-colors"
+            >
+              CREATE AN ACCOUNT
+            </Link>
+          </div>
         </div>
       </section>
 

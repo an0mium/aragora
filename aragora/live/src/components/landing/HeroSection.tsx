@@ -29,25 +29,11 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       </pre>
 
       <h1 className="text-base sm:text-2xl font-mono text-center mb-4 text-text">
-        Control plane for multi-agent decisionmaking
+        What decision should AI debate for you?
       </h1>
 
-      {/* Fleet Status Indicator */}
-      <div className="flex items-center gap-4 mb-4 flex-wrap justify-center">
-        <div className="flex items-center gap-2 px-3 py-1 bg-surface/50 border border-acid-green/30 rounded-full">
-          <span className="w-2 h-2 bg-acid-green rounded-full animate-pulse" />
-          <span className="text-xs font-mono text-acid-green">15+ models</span>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1 bg-surface/50 border border-acid-cyan/30 rounded-full">
-          <span className="text-xs font-mono text-acid-cyan">25+ sources</span>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1 bg-surface/50 border border-acid-yellow/30 rounded-full">
-          <span className="text-xs font-mono text-acid-yellow">24+ channels</span>
-        </div>
-      </div>
-
       <p className="text-acid-cyan font-mono text-xs sm:text-sm text-center mb-10 max-w-xl">
-        Stop trusting one AI. Make 15+ models debate your decision, stress-test every angle, and deliver an audit-ready receipt.
+        Ask any question. Multiple AI models will argue every angle and deliver a verdict with confidence scores.
       </p>
 
       {isDashboardMode ? (
@@ -120,13 +106,13 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                          hover:border-acid-cyan hover:bg-acid-cyan/10 transition-colors
                          flex items-center gap-2"
             >
-              <span>SIGN IN FOR REAL AI MODELS</span>
+              <span>SIGN IN</span>
               <span className="text-acid-cyan/60">&rarr;</span>
             </Link>
           </div>
 
           <p className="text-text-muted/50 font-mono text-[10px] mt-4">
-            No signup needed for playground &mdash; uses mock agents for instant results
+            No signup required to try a debate
           </p>
         </>
       )}
