@@ -525,8 +525,8 @@ class TestGetPlans:
         body = json.loads(result.body)
         plans = body["plans"]
 
-        # Should have 5 tiers (free, starter, professional, enterprise, enterprise_plus)
-        assert len(plans) == 5
+        # Should have 4 tiers (free, starter, professional, enterprise)
+        assert len(plans) == 4
 
         # Check tier names
         tier_ids = [p["id"] for p in plans]
@@ -534,7 +534,6 @@ class TestGetPlans:
         assert "starter" in tier_ids
         assert "professional" in tier_ids
         assert "enterprise" in tier_ids
-        assert "enterprise_plus" in tier_ids
 
     def test_get_plans_has_correct_structure(self, billing_handler):
         """Test plan response has correct structure."""
