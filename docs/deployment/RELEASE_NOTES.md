@@ -2,6 +2,47 @@
 
 ---
 
+# v2.8.1-rc.1 - Release Candidate Baseline
+
+**Release Date:** February 25, 2026
+**Version:** 2.8.1-rc.1
+**Type:** Release Candidate
+
+---
+
+## Overview
+
+`v2.8.1-rc.1` is the validated release-candidate baseline for current `main`.
+It closes a strict cross-SDK parity regression and is backed by a full gate
+across orchestration, handlers, observability, SDK contracts, and frontend hook
+suites.
+
+---
+
+## Included Fixes
+
+- TypeScript SDK parity fix for SME workflow detail route:
+  - `sdk/typescript/src/namespaces/sme.ts`
+  - `SMEAPI.getWorkflow()` now preserves legacy method fallback while issuing a
+    direct request path for parity extraction.
+
+---
+
+## Validation Snapshot
+
+- Debate/orchestrator/workflow: `345 passed`
+- Handlers/OpenClaw: `328 passed`
+- Observability/logging: `158 passed`
+- SDK parity/contracts: `75 passed`
+- RLM priority: `36 passed`
+- Live hook suites: `39 passed`
+- Strict parity/type checks:
+  - `check_sdk_parity --strict` (pass)
+  - `check_cross_sdk_parity --strict` (pass)
+  - TypeScript SDK `tsc --noEmit` (pass)
+
+---
+
 # v2.0.6 - Stability Release
 
 **Release Date:** January 20, 2026

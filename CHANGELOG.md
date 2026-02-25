@@ -69,6 +69,27 @@
 
 ---
 
+## [v2.8.1-rc.1] - 2026-02-25
+
+### Changed
+- **SDK cross-parity regression fix:** TypeScript `SMEAPI.getWorkflow()` now uses a direct request fallback path while preserving legacy client compatibility, ensuring `/api/v1/sme/workflows/{workflow_id}` is discoverable by strict cross-SDK parity checks.
+- **Release-candidate gate hardening:** Release flow now includes strict SDK parity and cross-SDK parity checks as first-class release blockers.
+
+### Validation
+- **Release-candidate full gate (green):**
+  - debate/orchestrator/workflow: `345 passed`
+  - handlers/OpenClaw: `328 passed`
+  - observability/logging: `158 passed`
+  - SDK parity/contracts: `75 passed`
+  - RLM priority: `36 passed`
+  - live hook suites: `39 passed`
+- **Strict parity gates (green):**
+  - `python scripts/check_sdk_parity.py --strict --baseline scripts/baselines/check_sdk_parity.json --budget scripts/baselines/check_sdk_parity_budget.json`
+  - `python scripts/check_cross_sdk_parity.py --strict --baseline scripts/baselines/cross_sdk_parity.json`
+  - `npm --prefix sdk/typescript run typecheck`
+
+---
+
 ## [2.8.0] - 2026-02-16
 
 ### Added
