@@ -256,7 +256,7 @@ class OrganizationStore:
         """Get organization by ID."""
         if self._backend is not None:
             row = self._backend.fetch_one(
-                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE id = ?",
+                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE id = ?",  # noqa: S608 -- column name interpolation, parameterized
                 (org_id,),
             )
             if row:
@@ -264,7 +264,7 @@ class OrganizationStore:
             return None
 
         with self._transaction() as cursor:
-            cursor.execute(f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE id = ?", (org_id,))
+            cursor.execute(f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE id = ?", (org_id,))  # noqa: S608 -- column name interpolation, parameterized
             row = cursor.fetchone()
             if row:
                 return self._row_to_org(row)
@@ -274,7 +274,7 @@ class OrganizationStore:
         """Get organization by slug."""
         if self._backend is not None:
             row = self._backend.fetch_one(
-                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE slug = ?",
+                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE slug = ?",  # noqa: S608 -- column name interpolation, parameterized
                 (slug,),
             )
             if row:
@@ -282,7 +282,7 @@ class OrganizationStore:
             return None
 
         with self._transaction() as cursor:
-            cursor.execute(f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE slug = ?", (slug,))
+            cursor.execute(f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE slug = ?", (slug,))  # noqa: S608 -- column name interpolation, parameterized
             row = cursor.fetchone()
             if row:
                 return self._row_to_org(row)
@@ -292,7 +292,7 @@ class OrganizationStore:
         """Get organization by Stripe customer ID."""
         if self._backend is not None:
             row = self._backend.fetch_one(
-                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE stripe_customer_id = ?",
+                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE stripe_customer_id = ?",  # noqa: S608 -- column name interpolation, parameterized
                 (stripe_customer_id,),
             )
             if row:
@@ -301,7 +301,7 @@ class OrganizationStore:
 
         with self._transaction() as cursor:
             cursor.execute(
-                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE stripe_customer_id = ?",
+                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE stripe_customer_id = ?",  # noqa: S608 -- column name interpolation, parameterized
                 (stripe_customer_id,),
             )
             row = cursor.fetchone()
@@ -313,7 +313,7 @@ class OrganizationStore:
         """Get organization by Stripe subscription ID."""
         if self._backend is not None:
             row = self._backend.fetch_one(
-                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE stripe_subscription_id = ?",
+                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE stripe_subscription_id = ?",  # noqa: S608 -- column name interpolation, parameterized
                 (subscription_id,),
             )
             if row:
@@ -322,7 +322,7 @@ class OrganizationStore:
 
         with self._transaction() as cursor:
             cursor.execute(
-                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE stripe_subscription_id = ?",
+                f"SELECT {self._ORG_COLUMNS} FROM organizations WHERE stripe_subscription_id = ?",  # noqa: S608 -- column name interpolation, parameterized
                 (subscription_id,),
             )
             row = cursor.fetchone()
@@ -406,7 +406,7 @@ class OrganizationStore:
         values.append(datetime.now(timezone.utc).isoformat())
         values.append(org_id)
 
-        query = f"UPDATE organizations SET {', '.join(updates)} WHERE id = ?"  # nosec B608
+        query = f"UPDATE organizations SET {', '.join(updates)} WHERE id = ?"  # nosec B608  # noqa: S608
 
         if self._backend is not None:
             # Check if org exists first
@@ -447,7 +447,7 @@ class OrganizationStore:
             )
 
         with self._transaction() as cursor:
-            cursor.execute(f"SELECT {self._USER_COLUMNS} FROM users WHERE org_id = ?", (org_id,))
+            cursor.execute(f"SELECT {self._USER_COLUMNS} FROM users WHERE org_id = ?", (org_id,))  # noqa: S608 -- column name interpolation, parameterized
             return [self._external_row_to_user(row) for row in cursor.fetchall()]
 
     def _row_to_org(self, row: Any) -> Organization:
@@ -513,7 +513,7 @@ class OrganizationStore:
         """Get invitation by ID."""
         if self._backend is not None:
             row = self._backend.fetch_one(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE id = ?",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE id = ?",  # noqa: S608 -- column name interpolation, parameterized
                 (invitation_id,),
             )
             if row:
@@ -522,7 +522,7 @@ class OrganizationStore:
 
         with self._transaction() as cursor:
             cursor.execute(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE id = ?",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE id = ?",  # noqa: S608 -- column name interpolation, parameterized
                 (invitation_id,),
             )
             row = cursor.fetchone()
@@ -534,7 +534,7 @@ class OrganizationStore:
         """Get invitation by token."""
         if self._backend is not None:
             row = self._backend.fetch_one(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE token = ?",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE token = ?",  # noqa: S608 -- column name interpolation, parameterized
                 (token,),
             )
             if row:
@@ -543,7 +543,7 @@ class OrganizationStore:
 
         with self._transaction() as cursor:
             cursor.execute(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE token = ?",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE token = ?",  # noqa: S608 -- column name interpolation, parameterized
                 (token,),
             )
             row = cursor.fetchone()
@@ -560,7 +560,7 @@ class OrganizationStore:
                 f"""
                 SELECT {self._INVITATION_COLUMNS} FROM org_invitations
                 WHERE email = ? AND org_id = ? AND status = ?
-                """,
+                """,  # noqa: S608 -- column name interpolation, parameterized
                 (email, org_id, status),
             )
             if row:
@@ -572,7 +572,7 @@ class OrganizationStore:
                 f"""
                 SELECT {self._INVITATION_COLUMNS} FROM org_invitations
                 WHERE email = ? AND org_id = ? AND status = ?
-                """,
+                """,  # noqa: S608 -- column name interpolation, parameterized
                 (email, org_id, status),
             )
             row = cursor.fetchone()
@@ -584,14 +584,14 @@ class OrganizationStore:
         """Get all invitations for an organization."""
         if self._backend is not None:
             rows = self._backend.fetch_all(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE org_id = ? ORDER BY created_at DESC",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE org_id = ? ORDER BY created_at DESC",  # noqa: S608 -- column name interpolation, parameterized
                 (org_id,),
             )
             return [self._row_to_invitation(self._invitation_tuple_to_dict(row)) for row in rows]
 
         with self._transaction() as cursor:
             cursor.execute(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE org_id = ? ORDER BY created_at DESC",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE org_id = ? ORDER BY created_at DESC",  # noqa: S608 -- column name interpolation, parameterized
                 (org_id,),
             )
             return [self._row_to_invitation(row) for row in cursor.fetchall()]
@@ -604,7 +604,7 @@ class OrganizationStore:
                 SELECT {self._INVITATION_COLUMNS} FROM org_invitations
                 WHERE email = ? AND status = 'pending'
                 ORDER BY created_at DESC
-                """,
+                """,  # noqa: S608 -- column name interpolation, parameterized
                 (email,),
             )
             return [self._row_to_invitation(self._invitation_tuple_to_dict(row)) for row in rows]
@@ -615,7 +615,7 @@ class OrganizationStore:
                 SELECT {self._INVITATION_COLUMNS} FROM org_invitations
                 WHERE email = ? AND status = 'pending'
                 ORDER BY created_at DESC
-                """,
+                """,  # noqa: S608 -- column name interpolation, parameterized
                 (email,),
             )
             return [self._row_to_invitation(row) for row in cursor.fetchall()]

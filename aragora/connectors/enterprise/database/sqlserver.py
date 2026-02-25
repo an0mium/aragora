@@ -284,10 +284,10 @@ class SQLServerConnector(EnterpriseConnector):
                             SELECT * FROM [{safe_schema}].[{safe_table}]
                             WHERE [{safe_ts_column}] > ?
                             ORDER BY [{safe_ts_column}]
-                        """
+                        """  # noqa: S608 -- table name interpolation, parameterized
                         await cursor.execute(query, last_sync)
                     else:
-                        query = f"SELECT * FROM [{safe_schema}].[{safe_table}]"
+                        query = f"SELECT * FROM [{safe_schema}].[{safe_table}]"  # noqa: S608 -- table name interpolation, parameterized
                         await cursor.execute(query)
 
                     # Get column names
@@ -361,7 +361,7 @@ class SQLServerConnector(EnterpriseConnector):
                             search_query = f"""
                                 SELECT TOP (?) * FROM {qualified_table}
                                 WHERE {conditions}
-                            """
+                            """  # noqa: S608 -- table name interpolation, parameterized
                             params = [limit] + [f"%{query}%"] * len(safe_columns)
                             await cursor.execute(search_query, *params)
                             rows = await cursor.fetchall()
@@ -422,7 +422,7 @@ class SQLServerConnector(EnterpriseConnector):
             async with pool.acquire() as conn:
                 async with conn.cursor() as cursor:
                     query = (
-                        f"SELECT * FROM [{safe_schema}].[{safe_table}] WHERE [{safe_pk_column}] = ?"
+                        f"SELECT * FROM [{safe_schema}].[{safe_table}] WHERE [{safe_pk_column}] = ?"  # noqa: S608 -- table/column name interpolation, parameterized
                     )
                     await cursor.execute(query, pk_value)
                     col_names = [desc[0] for desc in cursor.description]
@@ -537,7 +537,7 @@ class SQLServerConnector(EnterpriseConnector):
                     SELECT *
                     FROM cdc.fn_cdc_get_all_changes_{capture_instance}(?, ?, 'all')
                     ORDER BY __$start_lsn
-                """
+                """  # noqa: S608 -- internal query construction
 
                 try:
                     await cursor.execute(cdc_query, from_lsn, max_lsn)
@@ -656,7 +656,7 @@ class SQLServerConnector(EnterpriseConnector):
                     FROM CHANGETABLE(CHANGES [{safe_schema}].[{safe_table}], ?) AS ct
                     LEFT JOIN [{safe_schema}].[{safe_table}] t
                         ON ct.[{safe_pk_column}] = t.[{safe_pk_column}]
-                """
+                """  # noqa: S608 -- table name interpolation, parameterized
 
                 try:
                     await cursor.execute(ct_query, last_version)

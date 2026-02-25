@@ -39,7 +39,7 @@ class SecuritySeverity(str, Enum):
 class VulnerabilityCategory(str, Enum):
     """Category of security vulnerability."""
 
-    HARDCODED_SECRET = "hardcoded_secret"
+    HARDCODED_SECRET = "hardcoded_secret"  # noqa: S105 -- enum value
     SQL_INJECTION = "sql_injection"
     COMMAND_INJECTION = "command_injection"
     PATH_TRAVERSAL = "path_traversal"

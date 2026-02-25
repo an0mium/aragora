@@ -509,7 +509,7 @@ class SlackDebateStore:
                 params = ()
 
             total = conn.execute(
-                f"SELECT COUNT(*) FROM slack_active_debates {base_filter}",
+                f"SELECT COUNT(*) FROM slack_active_debates {base_filter}",  # noqa: S608 -- dynamic clause from internal state
                 params,
             ).fetchone()[0]
 
@@ -518,7 +518,7 @@ class SlackDebateStore:
                 SELECT COUNT(*) FROM slack_active_debates
                 {base_filter + " AND" if base_filter else "WHERE"}
                 status IN ('pending', 'running')
-                """,
+                """,  # noqa: S608 -- dynamic clause from internal state
                 params,
             ).fetchone()[0]
 
@@ -527,7 +527,7 @@ class SlackDebateStore:
                 SELECT COUNT(*) FROM slack_active_debates
                 {base_filter + " AND" if base_filter else "WHERE"}
                 status = 'completed'
-                """,
+                """,  # noqa: S608 -- dynamic clause from internal state
                 params,
             ).fetchone()[0]
 
@@ -536,7 +536,7 @@ class SlackDebateStore:
                 SELECT COUNT(*) FROM slack_active_debates
                 {base_filter + " AND" if base_filter else "WHERE"}
                 status = 'failed'
-                """,
+                """,  # noqa: S608 -- dynamic clause from internal state
                 params,
             ).fetchone()[0]
 

@@ -590,7 +590,7 @@ class AnomalyStorage:
 
         deleted = 0
         for table in ["auth_events", "api_requests", "detected_anomalies"]:
-            result = conn.execute(f"DELETE FROM {table} WHERE timestamp < ?", (cutoff,))
+            result = conn.execute(f"DELETE FROM {table} WHERE timestamp < ?", (cutoff,))  # noqa: S608 -- table name interpolation, parameterized
             deleted += result.rowcount
 
         conn.commit()

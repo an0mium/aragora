@@ -255,7 +255,7 @@ class TemplateRegistry:
                 WHERE {where_clause}
                 ORDER BY stars DESC, downloads DESC
                 LIMIT ? OFFSET ?
-            """,
+            """,  # noqa: S608 -- dynamic clause from internal state
                 params + [limit, offset],
             ).fetchall()
 

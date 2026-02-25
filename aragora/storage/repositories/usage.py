@@ -218,7 +218,7 @@ class UsageRepository:
         Returns:
             List of usage event dicts
         """
-        query = f"SELECT {self._USAGE_EVENT_COLUMNS} FROM usage_events WHERE org_id = ?"
+        query = f"SELECT {self._USAGE_EVENT_COLUMNS} FROM usage_events WHERE org_id = ?"  # noqa: S608 -- column name interpolation, parameterized
         params: list[Any] = [org_id]
 
         if event_type:

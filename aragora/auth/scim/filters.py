@@ -334,7 +334,7 @@ class SCIMFilterParser:
         while self._pos < len(self._tokens):
             token_type, token_value = self._tokens[self._pos]
 
-            if token_type == "LOGICAL" and token_value in ("and", "or"):
+            if token_type == "LOGICAL" and token_value in ("and", "or"):  # noqa: S105 -- parser token tag
                 self._pos += 1
                 right = self._parse_term()
                 left = SCIMCompoundFilter(
@@ -351,10 +351,10 @@ class SCIMFilterParser:
         if self._pos >= len(self._tokens):
             raise ValueError("Unexpected end of filter expression")
 
-        token_type, token_value = self._tokens[self._pos]
+        token_type, token_value = self._tokens[self._pos]  # noqa: S105 -- parser token tag
 
         # Handle NOT operator
-        if token_type == "LOGICAL" and token_value == "not":
+        if token_type == "LOGICAL" and token_value == "not":  # noqa: S105 -- parser token tag
             self._pos += 1
             inner = self._parse_term()
             return SCIMCompoundFilter(
@@ -363,7 +363,7 @@ class SCIMFilterParser:
             )
 
         # Handle parentheses
-        if token_type == "LPAREN":
+        if token_type == "LPAREN":  # noqa: S105 -- parser token tag
             self._pos += 1
             expr = self._parse_expression()
             if self._pos >= len(self._tokens) or self._tokens[self._pos][0] != "RPAREN":
@@ -372,7 +372,7 @@ class SCIMFilterParser:
             return expr
 
         # Parse attribute comparison
-        if token_type == "ATTRIBUTE":
+        if token_type == "ATTRIBUTE":  # noqa: S105 -- parser token tag
             attribute = token_value
             self._pos += 1
 

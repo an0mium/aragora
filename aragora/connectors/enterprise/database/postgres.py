@@ -290,7 +290,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                             WHERE "{safe_ts_column}" > $1
                             ORDER BY "{safe_ts_column}" ASC
                             LIMIT $2
-                        """
+                        """  # noqa: S608 -- table name interpolation, parameterized
                         rows = await conn.fetch(query, state.last_item_timestamp, batch_size)
                     else:
                         # Full sync with cursor-based pagination
@@ -301,14 +301,14 @@ class PostgreSQLConnector(EnterpriseConnector):
                                 WHERE "{safe_pk_column}" > $1
                                 ORDER BY "{safe_pk_column}" ASC
                                 LIMIT $2
-                            """
+                            """  # noqa: S608 -- table name interpolation, parameterized
                             rows = await conn.fetch(query, last_id, batch_size)
                         else:
                             query = f"""
                                 SELECT * FROM {qualified_table}
                                 ORDER BY "{safe_pk_column}" ASC
                                 LIMIT $1
-                            """
+                            """  # noqa: S608 -- table name interpolation, parameterized
                             rows = await conn.fetch(query, batch_size)
 
                     for row in rows:
@@ -394,7 +394,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                         WHERE to_tsvector('english', coalesce(content::text, '')) @@ plainto_tsquery('english', $1)
                         ORDER BY rank DESC
                         LIMIT $2
-                    """
+                    """  # noqa: S608 -- table name interpolation, parameterized
 
                     try:
                         rows = await conn.fetch(fts_query, query, limit)
@@ -428,7 +428,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                                 SELECT * FROM {qualified_table}
                                 WHERE {conditions}
                                 LIMIT $2
-                            """
+                            """  # noqa: S608 -- table name interpolation, parameterized
                             rows = await conn.fetch(fallback_query, f"%{query}%", limit)
                             for row in rows:
                                 results.append(
@@ -479,7 +479,7 @@ class PostgreSQLConnector(EnterpriseConnector):
 
             async with pool.acquire() as conn:
                 query = (
-                    f'SELECT * FROM "{safe_schema}"."{safe_table}" WHERE "{safe_pk_column}" = $1'
+                    f'SELECT * FROM "{safe_schema}"."{safe_table}" WHERE "{safe_pk_column}" = $1'  # noqa: S608 -- table/column name interpolation, parameterized
                 )
                 row = await conn.fetchrow(query, pk_value)
 

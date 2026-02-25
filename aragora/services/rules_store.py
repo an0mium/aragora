@@ -359,7 +359,7 @@ class RulesStore:
                 WHERE {where_clause}
                 ORDER BY priority ASC, created_at DESC
                 LIMIT ? OFFSET ?
-            """,
+            """,  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             rows = cursor.fetchall()
@@ -389,7 +389,7 @@ class RulesStore:
 
         with self._cursor() as cursor:
             cursor.execute(
-                f"SELECT COUNT(*) FROM routing_rules WHERE {where_clause}",
+                f"SELECT COUNT(*) FROM routing_rules WHERE {where_clause}",  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             return cursor.fetchone()[0]
@@ -653,7 +653,7 @@ class RulesStore:
                 WHERE {where_clause}
                 ORDER BY received_at DESC
                 LIMIT ? OFFSET ?
-            """,
+            """,  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             rows = cursor.fetchall()

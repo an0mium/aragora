@@ -187,7 +187,7 @@ class GraphStore:
                     {where}
                     GROUP BY g.id
                     ORDER BY g.updated_at DESC
-                    LIMIT ?"""
+                    LIMIT ?"""  # noqa: S608 -- internal query construction
         params.append(limit)
 
         conn = self._connect()
@@ -301,7 +301,7 @@ class GraphStore:
         where = " AND ".join(clauses)
         conn = self._connect()
         try:
-            rows = conn.execute(f"SELECT * FROM nodes WHERE {where}", params).fetchall()
+            rows = conn.execute(f"SELECT * FROM nodes WHERE {where}", params).fetchall()  # noqa: S608 -- internal query construction
             return [self._row_to_node(r) for r in rows]
         finally:
             conn.close()

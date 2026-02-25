@@ -666,7 +666,7 @@ class OpenClawPersistentStore:
 
             # Get total count
             count_row = conn.execute(
-                f"SELECT COUNT(*) FROM openclaw_sessions WHERE {where_sql}", params
+                f"SELECT COUNT(*) FROM openclaw_sessions WHERE {where_sql}", params  # noqa: S608 -- internal query construction
             ).fetchone()
             total = count_row[0] if count_row else 0
 
@@ -675,7 +675,7 @@ class OpenClawPersistentStore:
                 f"""SELECT * FROM openclaw_sessions
                     WHERE {where_sql}
                     ORDER BY created_at DESC
-                    LIMIT ? OFFSET ?""",
+                    LIMIT ? OFFSET ?""",  # noqa: S608 -- internal query construction
                 params + [limit, offset],
             ).fetchall()
 
@@ -866,7 +866,7 @@ class OpenClawPersistentStore:
         conn = self._get_connection()
         try:
             conn.execute(
-                f"UPDATE openclaw_actions SET {', '.join(updates)} WHERE id = ?",
+                f"UPDATE openclaw_actions SET {', '.join(updates)} WHERE id = ?",  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             conn.commit()
@@ -992,7 +992,7 @@ class OpenClawPersistentStore:
             where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
             count_row = conn.execute(
-                f"SELECT COUNT(*) FROM openclaw_credentials WHERE {where_sql}", params
+                f"SELECT COUNT(*) FROM openclaw_credentials WHERE {where_sql}", params  # noqa: S608 -- internal query construction
             ).fetchone()
             total = count_row[0] if count_row else 0
 
@@ -1000,7 +1000,7 @@ class OpenClawPersistentStore:
                 f"""SELECT * FROM openclaw_credentials
                     WHERE {where_sql}
                     ORDER BY created_at DESC
-                    LIMIT ? OFFSET ?""",
+                    LIMIT ? OFFSET ?""",  # noqa: S608 -- internal query construction
                 params + [limit, offset],
             ).fetchall()
 
@@ -1133,7 +1133,7 @@ class OpenClawPersistentStore:
             where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
             count_row = conn.execute(
-                f"SELECT COUNT(*) FROM openclaw_audit WHERE {where_sql}", params
+                f"SELECT COUNT(*) FROM openclaw_audit WHERE {where_sql}", params  # noqa: S608 -- internal query construction
             ).fetchone()
             total = count_row[0] if count_row else 0
 
@@ -1141,7 +1141,7 @@ class OpenClawPersistentStore:
                 f"""SELECT * FROM openclaw_audit
                     WHERE {where_sql}
                     ORDER BY timestamp DESC
-                    LIMIT ? OFFSET ?""",
+                    LIMIT ? OFFSET ?""",  # noqa: S608 -- internal query construction
                 params + [limit, offset],
             ).fetchall()
 

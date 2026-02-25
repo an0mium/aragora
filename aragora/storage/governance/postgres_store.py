@@ -244,7 +244,7 @@ class PostgresGovernanceStore:
 
         async with self._pool.acquire() as conn:
             await conn.execute(
-                f"UPDATE governance_approvals SET {', '.join(updates)} WHERE approval_id = ${param_idx}",
+                f"UPDATE governance_approvals SET {', '.join(updates)} WHERE approval_id = ${param_idx}",  # noqa: S608 -- dynamic clause from internal state
                 *params,
             )
 

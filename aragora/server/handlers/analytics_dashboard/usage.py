@@ -192,7 +192,7 @@ class UsageAnalyticsMixin:
                     GROUP BY {date_format}
                     ORDER BY period
                     LIMIT 1000
-                    """,
+                    """,  # noqa: S608 -- internal query construction
                     (org_id, period_start.isoformat(), period_end.isoformat()),
                 ).fetchall()
 

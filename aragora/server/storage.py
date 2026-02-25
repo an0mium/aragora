@@ -706,7 +706,7 @@ class DebateStorage(SQLiteStore):
         placeholders = ",".join("?" * len(debate_ids))
         with self.connection() as conn:
             cursor = conn.execute(
-                f"SELECT id, artifact_json FROM debates WHERE id IN ({placeholders})",
+                f"SELECT id, artifact_json FROM debates WHERE id IN ({placeholders})",  # noqa: S608 -- parameterized query
                 debate_ids,
             )
             for row in cursor.fetchall():

@@ -635,7 +635,7 @@ class KeyRotationScheduler:
                     if updates:
                         params.append(user_id)
                         cursor.execute(
-                            f"UPDATE gmail_tokens SET {', '.join(updates)} WHERE user_id = ?",
+                            f"UPDATE gmail_tokens SET {', '.join(updates)} WHERE user_id = ?",  # noqa: S608 -- dynamic clause from internal state
                             params,
                         )
                         count += 1

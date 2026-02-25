@@ -228,7 +228,7 @@ class MigrationRunner:
         """Add checksum and rollback_sql columns if they don't exist (schema upgrade)."""
         # Check for checksum column
         try:
-            self._backend.fetch_one(f"SELECT checksum FROM {self.MIGRATIONS_TABLE} LIMIT 1")
+            self._backend.fetch_one(f"SELECT checksum FROM {self.MIGRATIONS_TABLE} LIMIT 1")  # noqa: S608 -- table name interpolation, parameterized
         except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             # Column doesn't exist, add it
             logger.debug("checksum column check failed (will add): %s: %s", type(e).__name__, e)
@@ -242,7 +242,7 @@ class MigrationRunner:
 
         # Check for rollback_sql column
         try:
-            self._backend.fetch_one(f"SELECT rollback_sql FROM {self.MIGRATIONS_TABLE} LIMIT 1")
+            self._backend.fetch_one(f"SELECT rollback_sql FROM {self.MIGRATIONS_TABLE} LIMIT 1")  # noqa: S608 -- table name interpolation, parameterized
         except (sqlite3.Error, OSError, RuntimeError, ValueError) as e:
             # Column doesn't exist, add it
             logger.debug("rollback_sql column check failed (will add): %s: %s", type(e).__name__, e)
@@ -287,7 +287,7 @@ class MigrationRunner:
         """
         try:
             self._backend.execute_write(
-                f"INSERT INTO {self.ROLLBACK_HISTORY_TABLE} "
+                f"INSERT INTO {self.ROLLBACK_HISTORY_TABLE} "  # noqa: S608 -- table name interpolation, parameterized
                 "(version, name, rolled_back_at, rolled_back_by, reason) "
                 "VALUES (?, ?, ?, ?, ?)",
                 (
@@ -384,7 +384,7 @@ class MigrationRunner:
 
     def get_applied_versions(self) -> set[int]:
         """Get set of applied migration versions."""
-        rows = self._backend.fetch_all(f"SELECT version FROM {self.MIGRATIONS_TABLE}")
+        rows = self._backend.fetch_all(f"SELECT version FROM {self.MIGRATIONS_TABLE}")  # noqa: S608 -- table name interpolation, parameterized
         return {row[0] for row in rows}
 
     def get_pending_migrations(self) -> list[Migration]:
@@ -406,7 +406,7 @@ class MigrationRunner:
             if migration.version in applied_versions:
                 current_checksum = migration.compute_checksum()
                 row = self._backend.fetch_one(
-                    f"SELECT checksum FROM {self.MIGRATIONS_TABLE} WHERE version = ?",
+                    f"SELECT checksum FROM {self.MIGRATIONS_TABLE} WHERE version = ?",  # noqa: S608 -- table name interpolation, parameterized
                     (migration.version,),
                 )
                 if row and row[0] and row[0] != current_checksum:
@@ -428,7 +428,7 @@ class MigrationRunner:
             Rollback SQL if stored, None otherwise.
         """
         row = self._backend.fetch_one(
-            f"SELECT rollback_sql FROM {self.MIGRATIONS_TABLE} WHERE version = ?",
+            f"SELECT rollback_sql FROM {self.MIGRATIONS_TABLE} WHERE version = ?",  # noqa: S608 -- table name interpolation, parameterized
             (version,),
         )
         return row[0] if row else None
@@ -513,7 +513,7 @@ class MigrationRunner:
 
                     # Record migration with full metadata
                     self._backend.execute_write(
-                        f"INSERT INTO {self.MIGRATIONS_TABLE} "
+                        f"INSERT INTO {self.MIGRATIONS_TABLE} "  # noqa: S608 -- table name interpolation, parameterized
                         "(version, name, applied_by, checksum, rollback_sql) "
                         "VALUES (?, ?, ?, ?, ?)",
                         (migration.version, migration.name, applied_by, checksum, rollback_sql),
@@ -634,7 +634,7 @@ class MigrationRunner:
 
                     # Remove migration record
                     self._backend.execute_write(
-                        f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = ?",
+                        f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = ?",  # noqa: S608 -- table name interpolation, parameterized
                         (migration.version,),
                     )
                     # Record in rollback history
@@ -824,7 +824,7 @@ class MigrationRunner:
         """
         try:
             rows = self._backend.fetch_all(
-                f"SELECT id, version, name, rolled_back_at, rolled_back_by, reason "
+                f"SELECT id, version, name, rolled_back_at, rolled_back_by, reason "  # noqa: S608 -- internal query construction
                 f"FROM {self.ROLLBACK_HISTORY_TABLE} ORDER BY id DESC"
             )
             return [

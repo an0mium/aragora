@@ -341,7 +341,7 @@ class MarketplaceStore(SQLiteStore):
         """
         with self.connection() as conn:
             row = conn.execute(
-                f"SELECT {self._TEMPLATE_COLUMNS} FROM templates WHERE id = ?",
+                f"SELECT {self._TEMPLATE_COLUMNS} FROM templates WHERE id = ?",  # noqa: S608 -- column name interpolation, parameterized
                 (template_id,),
             ).fetchone()
 
@@ -395,7 +395,7 @@ class MarketplaceStore(SQLiteStore):
         with self.connection() as conn:
             # Get total count
             count_row = conn.execute(
-                f"SELECT COUNT(*) FROM templates{where_clause}", params
+                f"SELECT COUNT(*) FROM templates{where_clause}", params  # noqa: S608 -- dynamic clause from internal state
             ).fetchone()
             total = count_row[0] if count_row else 0
 
@@ -406,7 +406,7 @@ class MarketplaceStore(SQLiteStore):
                 {where_clause}
                 ORDER BY {order_clause}
                 LIMIT ? OFFSET ?
-                """,
+                """,  # noqa: S608 -- column name interpolation, parameterized
                 params + [limit, offset],
             ).fetchall()
 
@@ -430,7 +430,7 @@ class MarketplaceStore(SQLiteStore):
                 WHERE is_featured = 1
                 ORDER BY rating_sum / NULLIF(rating_count, 0) DESC
                 LIMIT ?
-                """,
+                """,  # noqa: S608 -- column name interpolation, parameterized
                 (limit,),
             ).fetchall()
 
@@ -452,7 +452,7 @@ class MarketplaceStore(SQLiteStore):
                 WHERE is_trending = 1
                 ORDER BY download_count DESC
                 LIMIT ?
-                """,
+                """,  # noqa: S608 -- column name interpolation, parameterized
                 (limit,),
             ).fetchall()
 
@@ -528,7 +528,7 @@ class MarketplaceStore(SQLiteStore):
                 {where_clause}
                 ORDER BY {order_expr}
                 LIMIT ? OFFSET ?
-                """,
+                """,  # noqa: S608 -- dynamic clause from internal state
                 params + [limit, offset],
             ).fetchall()
 
@@ -741,7 +741,7 @@ class MarketplaceStore(SQLiteStore):
                 WHERE template_id = ?
                 ORDER BY helpful_count DESC, created_at DESC
                 LIMIT ? OFFSET ?
-                """,
+                """,  # noqa: S608 -- column name interpolation, parameterized
                 (template_id, limit, offset),
             ).fetchall()
 

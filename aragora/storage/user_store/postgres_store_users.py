@@ -200,7 +200,7 @@ class UserOperationsMixin:
 
         async with self._pool.acquire() as conn:
             result = await conn.execute(
-                f"UPDATE users SET {', '.join(updates)} WHERE id = ${param_idx}",
+                f"UPDATE users SET {', '.join(updates)} WHERE id = ${param_idx}",  # noqa: S608 -- dynamic clause from internal state
                 *params,
             )
             return result != "UPDATE 0"

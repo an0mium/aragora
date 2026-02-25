@@ -362,7 +362,7 @@ target-version = ["py310", "py311", "py312"]
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "T201", "BLE001", "UP006", "UP007", "G004", "C4", "SIM910"]  # T201 = print, BLE001 = blind except, UP006/UP007 = modern typing, G004 = no f-string in logger, C4 = unnecessary comprehensions, SIM910 = dict.get default None
+select = ["E", "F", "W", "T201", "BLE001", "UP006", "UP007", "G004", "C4", "SIM910", "S101"]  # T201 = print, BLE001 = blind except, UP006/UP007 = modern typing, G004 = no f-string in logger, C4 = unnecessary comprehensions, SIM910 = dict.get default None, S101 = no assert in production
 ignore = ["E402", "E501", "E731", "E741", "E712", "C401", "C405", "C408", "C416"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -380,7 +380,9 @@ ignore = ["E402", "E501", "E731", "E741", "E712", "C401", "C405", "C408", "C416"
 "aragora/server/__main__.py" = ["T201", "BLE001"]
 "aragora/server/startup/health_check.py" = ["T201", "BLE001"]
 "scripts/*" = ["T201", "F401", "F841", "BLE001", "G004"]
-"tests/*" = ["T201", "F401", "F821", "F841", "BLE001", "G004"]  # F821: SSO tests need refactor
+"tests/*" = ["T201", "F401", "F821", "F841", "BLE001", "G004", "S101"]  # F821: SSO tests need refactor
+"aragora/**/test_*.py" = ["S101"]  # Allow assert in test files nested inside aragora/
+"aragora/**/tests/*" = ["S101"]  # Allow assert in test directories nested inside aragora/
 "examples/*" = ["T201", "BLE001"]
 "sdk/cookbook/*" = ["T201", "BLE001", "F841"]
 "deprecated/*" = ["UP"]  # Deprecated code, don't modernize

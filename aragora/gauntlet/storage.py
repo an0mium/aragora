@@ -850,7 +850,7 @@ class GauntletStorage:
 
         params.append(gauntlet_id)
 
-        sql = f"UPDATE gauntlet_inflight SET {', '.join(updates)} WHERE gauntlet_id = ?"
+        sql = f"UPDATE gauntlet_inflight SET {', '.join(updates)} WHERE gauntlet_id = ?"  # noqa: S608 -- dynamic clause from internal state
         self._backend.execute_write(sql, tuple(params))
 
         logger.debug("Updated inflight gauntlet: %s -> %s", gauntlet_id, status)

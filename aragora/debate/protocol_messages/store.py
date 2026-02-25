@@ -434,7 +434,7 @@ class ProtocolMessageStore:
             WHERE {where_clause}
             ORDER BY {filters.order_by} {order_direction}
             LIMIT ? OFFSET ?
-        """
+        """  # noqa: S608 -- dynamic clause from internal state
         params.extend([filters.limit, filters.offset])
 
         with self._cursor() as cursor:
@@ -527,7 +527,7 @@ class ProtocolMessageStore:
 
         with self._cursor() as cursor:
             cursor.execute(
-                f"SELECT COUNT(*) FROM protocol_messages WHERE {where_clause}",
+                f"SELECT COUNT(*) FROM protocol_messages WHERE {where_clause}",  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             return cursor.fetchone()[0]
@@ -800,7 +800,7 @@ class AsyncProtocolMessageStore:
 
             with self._sync_store._cursor() as cursor:
                 cursor.execute(
-                    f"SELECT COUNT(*) FROM protocol_messages WHERE {where_clause}",
+                    f"SELECT COUNT(*) FROM protocol_messages WHERE {where_clause}",  # noqa: S608 -- dynamic clause from internal state
                     params,
                 )
                 return cursor.fetchone()[0]

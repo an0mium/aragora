@@ -630,7 +630,7 @@ class ReceiptStore:
             WHERE {where_clause}
             ORDER BY {sort_by} {order_clause}
             LIMIT ? OFFSET ?
-            """,  # nosec B608 - where_clause built from hardcoded conditions
+            """,  # nosec B608 - where_clause built from hardcoded conditions  # noqa: S608
             tuple(params),
         )
 
@@ -673,7 +673,7 @@ class ReceiptStore:
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
         row = self._backend.fetch_one(
-            f"SELECT COUNT(*) FROM receipts WHERE {where_clause}",  # nosec B608
+            f"SELECT COUNT(*) FROM receipts WHERE {where_clause}",  # nosec B608  # noqa: S608
             tuple(params),
         )
         return row[0] if row else 0
@@ -758,7 +758,7 @@ class ReceiptStore:
             WHERE {where_clause}
             ORDER BY created_at DESC
             LIMIT ? OFFSET ?
-            """,  # nosec B608 - where_clause built from hardcoded conditions
+            """,  # nosec B608 - where_clause built from hardcoded conditions  # noqa: S608
             tuple(params),
         )
 
@@ -818,7 +818,7 @@ class ReceiptStore:
         where_clause = " AND ".join(conditions)
 
         row = self._backend.fetch_one(
-            f"SELECT COUNT(*) FROM receipts WHERE {where_clause}",  # nosec B608
+            f"SELECT COUNT(*) FROM receipts WHERE {where_clause}",  # nosec B608  # noqa: S608
             tuple(params),
         )
         return row[0] if row else 0

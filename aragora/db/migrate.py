@@ -254,7 +254,7 @@ def get_table_columns(conn: sqlite3.Connection, table: str) -> list[tuple[str, s
 def get_row_count(conn: sqlite3.Connection, table: str) -> int:
     """Get number of rows in a table."""
     safe_table = _quote_identifier(table)
-    cursor = conn.execute(f"SELECT COUNT(*) FROM {safe_table}")
+    cursor = conn.execute(f"SELECT COUNT(*) FROM {safe_table}")  # noqa: S608 -- table name interpolation, parameterized
     return cursor.fetchone()[0]
 
 
@@ -283,11 +283,11 @@ def migrate_table(
     # Build INSERT statement
     placeholders = ", ".join(["%s"] * len(columns))
     insert_sql = (
-        f"INSERT INTO {safe_table} ({safe_columns}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
+        f"INSERT INTO {safe_table} ({safe_columns}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"  # noqa: S608 -- table/column name interpolation, parameterized
     )
 
     # Fetch and insert in batches
-    cursor = sqlite_conn.execute(f"SELECT * FROM {safe_table}")
+    cursor = sqlite_conn.execute(f"SELECT * FROM {safe_table}")  # noqa: S608 -- table name interpolation, parameterized
     total_migrated = 0
 
     while True:
@@ -437,7 +437,7 @@ def verify_migration(
 
             try:
                 pg_cursor = pg_conn.cursor()
-                pg_cursor.execute(f"SELECT COUNT(*) FROM {_quote_identifier(table)}")
+                pg_cursor.execute(f"SELECT COUNT(*) FROM {_quote_identifier(table)}")  # noqa: S608 -- table name interpolation, parameterized
                 pg_count = pg_cursor.fetchone()[0]
             except (OSError, RuntimeError, ValueError) as e:
                 logger.warning("Failed to get row count for table %s in PostgreSQL: %s", table, e)

@@ -228,7 +228,7 @@ class SecurityOperationsMixin:
         offset: int = 0,
     ) -> list[dict]:
         """Query audit log entries asynchronously."""
-        query = f"SELECT {self._AUDIT_LOG_COLUMNS} FROM audit_log WHERE 1=1"
+        query = f"SELECT {self._AUDIT_LOG_COLUMNS} FROM audit_log WHERE 1=1"  # noqa: S608 -- column name interpolation, parameterized
         params: list[Any] = []
         param_idx = 1
 
@@ -362,7 +362,7 @@ class SecurityOperationsMixin:
         """Get invitation by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE id = $1",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE id = $1",  # noqa: S608 -- column name interpolation, parameterized
                 invitation_id,
             )
             if row:
@@ -377,7 +377,7 @@ class SecurityOperationsMixin:
         """Get invitation by token asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE token = $1",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE token = $1",  # noqa: S608 -- column name interpolation, parameterized
                 token,
             )
             if row:
@@ -395,7 +395,7 @@ class SecurityOperationsMixin:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 f"""SELECT {self._INVITATION_COLUMNS} FROM org_invitations
-                   WHERE org_id = $1 AND email = $2 AND status = 'pending'""",
+                   WHERE org_id = $1 AND email = $2 AND status = 'pending'""",  # noqa: S608 -- column name interpolation, parameterized
                 org_id,
                 email,
             )
@@ -411,7 +411,7 @@ class SecurityOperationsMixin:
         """Get all invitations for an organization asynchronously."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE org_id = $1 ORDER BY created_at DESC",
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE org_id = $1 ORDER BY created_at DESC",  # noqa: S608 -- column name interpolation, parameterized
                 org_id,
             )
             return [self._row_to_invitation(row) for row in rows]
@@ -427,7 +427,7 @@ class SecurityOperationsMixin:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 f"""SELECT {self._INVITATION_COLUMNS} FROM org_invitations
-                   WHERE email = $1 AND status = 'pending' ORDER BY created_at DESC""",
+                   WHERE email = $1 AND status = 'pending' ORDER BY created_at DESC""",  # noqa: S608 -- column name interpolation, parameterized
                 email,
             )
             return [self._row_to_invitation(row) for row in rows]
@@ -640,7 +640,7 @@ class SecurityOperationsMixin:
                 )
                 rows = await conn.fetch(
                     f"""SELECT {self._ORG_COLUMNS} FROM organizations WHERE tier = $1
-                       ORDER BY created_at DESC LIMIT $2 OFFSET $3""",
+                       ORDER BY created_at DESC LIMIT $2 OFFSET $3""",  # noqa: S608 -- column name interpolation, parameterized
                     tier_filter,
                     limit,
                     offset,
@@ -649,7 +649,7 @@ class SecurityOperationsMixin:
                 total_row = await conn.fetchrow("SELECT COUNT(*) FROM organizations")
                 rows = await conn.fetch(
                     f"""SELECT {self._ORG_COLUMNS} FROM organizations
-                       ORDER BY created_at DESC LIMIT $1 OFFSET $2""",
+                       ORDER BY created_at DESC LIMIT $1 OFFSET $2""",  # noqa: S608 -- column name interpolation, parameterized
                     limit,
                     offset,
                 )
@@ -679,7 +679,7 @@ class SecurityOperationsMixin:
         active_only: bool = False,
     ) -> tuple[list[User], int]:
         """List all users asynchronously."""
-        query = f"SELECT {self._USER_COLUMNS} FROM users WHERE 1=1"
+        query = f"SELECT {self._USER_COLUMNS} FROM users WHERE 1=1"  # noqa: S608 -- column name interpolation, parameterized
         count_query = "SELECT COUNT(*) FROM users WHERE 1=1"
         params: list[Any] = []
         param_idx = 1

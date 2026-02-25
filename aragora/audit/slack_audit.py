@@ -72,7 +72,7 @@ class SlackAuditLogger:
     ACTION_EVENT_RECEIVE = "slack_event_receive"
     ACTION_OAUTH_INSTALL = "slack_oauth_install"
     ACTION_OAUTH_UNINSTALL = "slack_oauth_uninstall"
-    ACTION_OAUTH_TOKEN_REFRESH = "slack_oauth_token_refresh"
+    ACTION_OAUTH_TOKEN_REFRESH = "slack_oauth_token_refresh"  # noqa: S105 -- action name
     ACTION_RATE_LIMIT = "slack_rate_limit"
     ACTION_SIGNATURE_VERIFY = "slack_signature_verify"
 

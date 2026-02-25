@@ -263,7 +263,7 @@ class EvolutionABTestingHandler(BaseHandler):
                     WHERE status = ?
                     ORDER BY started_at DESC
                     LIMIT ?
-                    """,  # nosec B608 - AB_TEST_COLUMNS is a module-level constant
+                    """,  # nosec B608 - AB_TEST_COLUMNS is a module-level constant  # noqa: S608
                     (status, limit),
                 )
             else:
@@ -272,7 +272,7 @@ class EvolutionABTestingHandler(BaseHandler):
                     SELECT {AB_TEST_COLUMNS} FROM ab_tests
                     ORDER BY started_at DESC
                     LIMIT ?
-                    """,  # nosec B608 - AB_TEST_COLUMNS is a module-level constant
+                    """,  # nosec B608 - AB_TEST_COLUMNS is a module-level constant  # noqa: S608
                     (limit,),
                 )
 

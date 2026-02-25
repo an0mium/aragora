@@ -302,7 +302,7 @@ class FactStore(SQLiteStore):
         with self.connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                f"UPDATE facts SET {', '.join(updates)} WHERE id = ?",
+                f"UPDATE facts SET {', '.join(updates)} WHERE id = ?",  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
 
@@ -574,7 +574,7 @@ class FactStore(SQLiteStore):
             if not conditions:
                 return []
 
-            sql = f"SELECT * FROM fact_relations WHERE ({' OR '.join(conditions)})"
+            sql = f"SELECT * FROM fact_relations WHERE ({' OR '.join(conditions)})"  # noqa: S608 -- dynamic clause from internal state
 
             if relation_type:
                 sql += " AND relation_type = ?"
@@ -644,7 +644,7 @@ class FactStore(SQLiteStore):
                 params = [workspace_id]
 
             # Total facts
-            cursor.execute(f"SELECT COUNT(*) as count FROM facts{where}", params)
+            cursor.execute(f"SELECT COUNT(*) as count FROM facts{where}", params)  # noqa: S608 -- internal query construction
             total = cursor.fetchone()["count"]
 
             # By status
@@ -653,14 +653,14 @@ class FactStore(SQLiteStore):
                 SELECT validation_status, COUNT(*) as count
                 FROM facts{where}
                 GROUP BY validation_status
-                """,
+                """,  # noqa: S608 -- internal query construction
                 params,
             )
             by_status = {row["validation_status"]: row["count"] for row in cursor.fetchall()}
 
             # Average confidence
             cursor.execute(
-                f"SELECT AVG(confidence) as avg FROM facts{where}",
+                f"SELECT AVG(confidence) as avg FROM facts{where}",  # noqa: S608 -- internal query construction
                 params,
             )
             avg_confidence = cursor.fetchone()["avg"] or 0.0
@@ -677,7 +677,7 @@ class FactStore(SQLiteStore):
                 SELECT COUNT(*) as count FROM facts
                 WHERE validation_status IN ({placeholders})
                 {" AND workspace_id = ?" if workspace_id else ""}
-                """,
+                """,  # noqa: S608 -- parameterized query
                 list(verified_statuses) + ([workspace_id] if workspace_id else []),
             )
             verified = cursor.fetchone()["count"]

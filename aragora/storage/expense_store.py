@@ -343,7 +343,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
             try:
                 cursor = conn.cursor()
                 cursor.execute(
-                    f"SELECT data_json FROM {self.TABLE_NAME} WHERE {self.PRIMARY_KEY} = ?",
+                    f"SELECT data_json FROM {self.TABLE_NAME} WHERE {self.PRIMARY_KEY} = ?",  # noqa: S608 -- table/column name interpolation, parameterized
                     (item_id,),
                 )
                 row = cursor.fetchone()
@@ -379,7 +379,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
             conn = self._connect()
             try:
                 conn.execute(
-                    f"INSERT OR REPLACE INTO {self.TABLE_NAME} ({col_names}) VALUES ({placeholders})",
+                    f"INSERT OR REPLACE INTO {self.TABLE_NAME} ({col_names}) VALUES ({placeholders})",  # noqa: S608 -- table/column name interpolation, parameterized
                     values,
                 )
                 conn.commit()
@@ -396,7 +396,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
                     SELECT data_json FROM {self.TABLE_NAME}
                     ORDER BY created_at DESC
                     LIMIT ? OFFSET ?
-                    """,
+                    """,  # noqa: S608 -- table name interpolation, parameterized
                     (limit, offset),
                 )
                 return [
@@ -414,7 +414,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
                     SELECT data_json FROM {self.TABLE_NAME}
                     WHERE status = ?
                     ORDER BY created_at DESC LIMIT ?
-                    """,
+                    """,  # noqa: S608 -- table name interpolation, parameterized
                     (status, limit),
                 )
                 return [
@@ -432,7 +432,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
                     SELECT data_json FROM {self.TABLE_NAME}
                     WHERE employee_id = ?
                     ORDER BY created_at DESC LIMIT ?
-                    """,
+                    """,  # noqa: S608 -- table name interpolation, parameterized
                     (employee_id, limit),
                 )
                 return [
@@ -450,7 +450,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
                     SELECT data_json FROM {self.TABLE_NAME}
                     WHERE category = ?
                     ORDER BY created_at DESC LIMIT ?
-                    """,
+                    """,  # noqa: S608 -- table name interpolation, parameterized
                     (category, limit),
                 )
                 return [
@@ -468,7 +468,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
                     SELECT data_json FROM {self.TABLE_NAME}
                     WHERE synced_to_qbo = 0 AND status = 'approved'
                     ORDER BY created_at ASC
-                    """
+                    """  # noqa: S608 -- table name interpolation, parameterized
                 )
                 return [
                     json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
@@ -491,7 +491,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
                     WHERE LOWER(vendor_name) = LOWER(?)
                       AND amount = ?
                       AND expense_date >= date('now', ?)
-                    """,
+                    """,  # noqa: S608 -- table name interpolation, parameterized
                     (vendor_name, str(amount), f"-{date_tolerance_days} days"),
                 )
                 return [
@@ -526,7 +526,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
                     SELECT COUNT(*), COALESCE(SUM(CAST(amount AS REAL)), 0)
                     FROM {self.TABLE_NAME}
                     WHERE {where_clause}
-                    """,
+                    """,  # noqa: S608 -- table name interpolation, parameterized
                     params,
                 )
                 row = cursor.fetchone()
@@ -540,7 +540,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
                     FROM {self.TABLE_NAME}
                     WHERE {where_clause}
                     GROUP BY category
-                    """,
+                    """,  # noqa: S608 -- table name interpolation, parameterized
                     params,
                 )
                 by_category = {
@@ -555,7 +555,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
                     FROM {self.TABLE_NAME}
                     WHERE {where_clause}
                     GROUP BY status
-                    """,
+                    """,  # noqa: S608 -- table name interpolation, parameterized
                     params,
                 )
                 by_status = {row[0]: row[1] for row in cursor.fetchall()}
@@ -582,7 +582,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
 
                 # Get current data
                 cursor.execute(
-                    f"SELECT data_json FROM {self.TABLE_NAME} WHERE {self.PRIMARY_KEY} = ?",
+                    f"SELECT data_json FROM {self.TABLE_NAME} WHERE {self.PRIMARY_KEY} = ?",  # noqa: S608 -- table/column name interpolation, parameterized
                     (expense_id,),
                 )
                 row = cursor.fetchone()
@@ -600,7 +600,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
                     UPDATE {self.TABLE_NAME}
                     SET status = ?, approved_by = ?, updated_at = ?, data_json = ?
                     WHERE {self.PRIMARY_KEY} = ?
-                    """,
+                    """,  # noqa: S608 -- table name interpolation, parameterized
                     (
                         status,
                         approved_by,
@@ -626,7 +626,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
 
                 # Get current data
                 cursor.execute(
-                    f"SELECT data_json FROM {self.TABLE_NAME} WHERE {self.PRIMARY_KEY} = ?",
+                    f"SELECT data_json FROM {self.TABLE_NAME} WHERE {self.PRIMARY_KEY} = ?",  # noqa: S608 -- table/column name interpolation, parameterized
                     (expense_id,),
                 )
                 row = cursor.fetchone()
@@ -645,7 +645,7 @@ class SQLiteExpenseStore(GenericSQLiteStore, ExpenseStoreBackend):
                     SET synced_to_qbo = 1, qbo_expense_id = ?, synced_at = ?,
                         updated_at = ?, data_json = ?
                     WHERE {self.PRIMARY_KEY} = ?
-                    """,
+                    """,  # noqa: S608 -- table name interpolation, parameterized
                     (
                         qbo_id,
                         synced_at,
@@ -865,7 +865,7 @@ class PostgresExpenseStore(GenericPostgresStore, ExpenseStoreBackend):
                 SELECT COUNT(*), COALESCE(SUM(amount), 0)
                 FROM expenses
                 WHERE {where_clause}
-                """,
+                """,  # noqa: S608 -- dynamic clause from internal state
                 *params,
             )
             total_count = row[0] if row else 0
@@ -878,7 +878,7 @@ class PostgresExpenseStore(GenericPostgresStore, ExpenseStoreBackend):
                 FROM expenses
                 WHERE {where_clause}
                 GROUP BY category
-                """,
+                """,  # noqa: S608 -- dynamic clause from internal state
                 *params,
             )
             by_category = {row[0] or "uncategorized": str(Decimal(str(row[1]))) for row in cat_rows}
@@ -890,7 +890,7 @@ class PostgresExpenseStore(GenericPostgresStore, ExpenseStoreBackend):
                 FROM expenses
                 WHERE {where_clause}
                 GROUP BY status
-                """,
+                """,  # noqa: S608 -- dynamic clause from internal state
                 *params,
             )
             by_status = {row[0]: row[1] for row in status_rows}

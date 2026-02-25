@@ -656,7 +656,7 @@ class MigrationOrchestrator:
             col_list = ", ".join(f'"{c}"' for c in common_columns)
             placeholders = ", ".join(f"${i + 1}" for i in range(len(common_columns)))
             insert_sql = (
-                f'INSERT INTO "{table}" ({col_list}) VALUES ({placeholders}) ON CONFLICT DO NOTHING'
+                f'INSERT INTO "{table}" ({col_list}) VALUES ({placeholders}) ON CONFLICT DO NOTHING'  # noqa: S608 -- table/column name interpolation, parameterized
             )
 
             # Get column types for coercion

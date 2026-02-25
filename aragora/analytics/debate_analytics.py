@@ -44,7 +44,7 @@ class DebateMetricType(str, Enum):
     AVG_DURATION = "avg_duration"
     AGENT_RESPONSE_TIME = "agent_response_time"
     AGENT_ACCURACY = "agent_accuracy"
-    TOKEN_USAGE = "token_usage"
+    TOKEN_USAGE = "token_usage"  # noqa: S105 -- enum value
     COST_TOTAL = "cost_total"
     USER_ACTIVITY = "user_activity"
     ERROR_RATE = "error_rate"
@@ -658,7 +658,7 @@ class DebateAnalytics:
                         FROM debate_records
                         WHERE org_id = ? AND created_at >= ?
                         GROUP BY period ORDER BY period
-                    """
+                    """  # noqa: S608 -- dynamic clause from internal state
                     cursor = conn.execute(query, (org_id, period_start.isoformat()))
                 else:
                     query = f"""
@@ -666,7 +666,7 @@ class DebateAnalytics:
                         FROM debate_records
                         WHERE created_at >= ?
                         GROUP BY period ORDER BY period
-                    """
+                    """  # noqa: S608 -- dynamic clause from internal state
                     cursor = conn.execute(query, (period_start.isoformat(),))
 
                 for row in cursor.fetchall():

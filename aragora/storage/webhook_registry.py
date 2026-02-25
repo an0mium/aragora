@@ -243,7 +243,7 @@ class SQLiteWebhookRegistry:
         """Get webhook by ID."""
         conn = self._get_conn()
         cursor = conn.execute(
-            f"SELECT {self._WEBHOOK_COLUMNS} FROM webhook_registrations WHERE id = ?",
+            f"SELECT {self._WEBHOOK_COLUMNS} FROM webhook_registrations WHERE id = ?",  # noqa: S608 -- column name interpolation, parameterized
             (webhook_id,),
         )
         row = cursor.fetchone()
@@ -271,7 +271,7 @@ class SQLiteWebhookRegistry:
             conditions.append("active = 1")
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        query = f"SELECT {self._WEBHOOK_COLUMNS} FROM webhook_registrations WHERE {where_clause} ORDER BY created_at DESC"
+        query = f"SELECT {self._WEBHOOK_COLUMNS} FROM webhook_registrations WHERE {where_clause} ORDER BY created_at DESC"  # noqa: S608 -- column name interpolation, parameterized
 
         cursor = conn.execute(query, params)
         return [self._row_to_config(row) for row in cursor.fetchall()]
@@ -335,7 +335,7 @@ class SQLiteWebhookRegistry:
 
         params.append(webhook_id)
         conn.execute(
-            f"UPDATE webhook_registrations SET {', '.join(updates)} WHERE id = ?",
+            f"UPDATE webhook_registrations SET {', '.join(updates)} WHERE id = ?",  # noqa: S608 -- dynamic clause from internal state
             params,
         )
         conn.commit()
@@ -394,7 +394,7 @@ class SQLiteWebhookRegistry:
 
         where_clause = " AND ".join(conditions)
         cursor = conn.execute(
-            f"SELECT {self._WEBHOOK_COLUMNS} FROM webhook_registrations WHERE {where_clause}",
+            f"SELECT {self._WEBHOOK_COLUMNS} FROM webhook_registrations WHERE {where_clause}",  # noqa: S608 -- column name interpolation, parameterized
             params,
         )
 

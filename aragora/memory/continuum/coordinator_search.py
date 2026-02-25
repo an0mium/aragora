@@ -179,7 +179,7 @@ class CoordinatorSearchMixin:
                   {keyword_clause}
                 ORDER BY score DESC
                 LIMIT ?
-                """,
+                """,  # noqa: S608 -- dynamic clause from internal state
                 (*tier_values, min_importance, *keyword_params, limit),
             )
 

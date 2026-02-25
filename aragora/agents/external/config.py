@@ -147,7 +147,7 @@ class OpenHandsConfig(ExternalAgentConfig):
 
     # LLM settings
     model: str = "claude-sonnet-4-6"
-    api_key_secret_name: str = "ANTHROPIC_API_KEY"
+    api_key_secret_name: str = "ANTHROPIC_API_KEY"  # noqa: S105 -- env var name
     temperature: float = 0.0
     max_tokens: int = 4096
 

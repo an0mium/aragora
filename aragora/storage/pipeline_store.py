@@ -161,7 +161,7 @@ class PipelineResultStore(SQLiteStore):
                 FROM pipeline_results{where}
                 ORDER BY created_at DESC
                 LIMIT ? OFFSET ?
-                """,
+                """,  # noqa: S608 -- internal query construction
                 params,
             ).fetchall()
 

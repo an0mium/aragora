@@ -333,19 +333,19 @@ class SecretType(str, Enum):
     """Type of detected secret."""
 
     AWS_ACCESS_KEY = "aws_access_key"
-    AWS_SECRET_KEY = "aws_secret_key"
-    GITHUB_TOKEN = "github_token"
+    AWS_SECRET_KEY = "aws_secret_key"  # noqa: S105 -- enum value
+    GITHUB_TOKEN = "github_token"  # noqa: S105 -- enum value
     GITHUB_PAT = "github_pat"
-    GITLAB_TOKEN = "gitlab_token"
-    SLACK_TOKEN = "slack_token"
+    GITLAB_TOKEN = "gitlab_token"  # noqa: S105 -- enum value
+    SLACK_TOKEN = "slack_token"  # noqa: S105 -- enum value
     SLACK_WEBHOOK = "slack_webhook"
-    DISCORD_TOKEN = "discord_token"
+    DISCORD_TOKEN = "discord_token"  # noqa: S105 -- enum value
     DISCORD_WEBHOOK = "discord_webhook"
     STRIPE_KEY = "stripe_key"
     TWILIO_KEY = "twilio_key"
     SENDGRID_KEY = "sendgrid_key"
     MAILGUN_KEY = "mailgun_key"
-    JWT_TOKEN = "jwt_token"
+    JWT_TOKEN = "jwt_token"  # noqa: S105 -- enum value
     PRIVATE_KEY = "private_key"
     GOOGLE_API_KEY = "google_api_key"
     AZURE_KEY = "azure_key"
@@ -353,7 +353,7 @@ class SecretType(str, Enum):
     ANTHROPIC_KEY = "anthropic_key"
     DATABASE_URL = "database_url"
     GENERIC_API_KEY = "generic_api_key"
-    GENERIC_SECRET = "generic_secret"
+    GENERIC_SECRET = "generic_secret"  # noqa: S105 -- enum value
     HIGH_ENTROPY = "high_entropy"
 
 

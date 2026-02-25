@@ -237,7 +237,7 @@ class PlanStore:
         if clauses:
             where = "WHERE " + " AND ".join(clauses)
 
-        query = f"SELECT * FROM plans {where} ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        query = f"SELECT * FROM plans {where} ORDER BY created_at DESC LIMIT ? OFFSET ?"  # noqa: S608 -- internal query construction
         params.extend([limit, offset])
 
         conn = self._connect()
@@ -271,7 +271,7 @@ class PlanStore:
 
         conn = self._connect()
         try:
-            row = conn.execute(f"SELECT COUNT(*) FROM plans {where}", params).fetchone()
+            row = conn.execute(f"SELECT COUNT(*) FROM plans {where}", params).fetchone()  # noqa: S608 -- internal query construction
             return row[0] if row else 0
         finally:
             conn.close()
@@ -323,7 +323,7 @@ class PlanStore:
         conn = self._connect()
         try:
             cursor = conn.execute(
-                f"UPDATE plans SET {', '.join(fields)} WHERE id = ?",
+                f"UPDATE plans SET {', '.join(fields)} WHERE id = ?",  # noqa: S608 -- column list from internal state
                 params,
             )
             conn.commit()
@@ -384,7 +384,7 @@ class PlanStore:
             params.append(json.dumps(approval_record.to_dict()))
 
         placeholders = ", ".join("?" for _ in expected_values)
-        query = f"UPDATE plans SET {', '.join(fields)} WHERE id = ? AND status IN ({placeholders})"
+        query = f"UPDATE plans SET {', '.join(fields)} WHERE id = ? AND status IN ({placeholders})"  # noqa: S608 -- parameterized query
         query_params = [*params, plan_id, *expected_values]
 
         conn = self._connect()
@@ -483,7 +483,7 @@ class PlanStore:
         conn = self._connect()
         try:
             cursor = conn.execute(
-                f"UPDATE plan_executions SET {', '.join(fields)} WHERE execution_id = ?",
+                f"UPDATE plan_executions SET {', '.join(fields)} WHERE execution_id = ?",  # noqa: S608 -- column list from internal state
                 params,
             )
             conn.commit()
@@ -532,7 +532,7 @@ class PlanStore:
         if clauses:
             where = "WHERE " + " AND ".join(clauses)
 
-        query = f"SELECT * FROM plan_executions {where} ORDER BY started_at DESC LIMIT ? OFFSET ?"
+        query = f"SELECT * FROM plan_executions {where} ORDER BY started_at DESC LIMIT ? OFFSET ?"  # noqa: S608 -- internal query construction
         params.extend([limit, offset])
 
         conn = self._connect()

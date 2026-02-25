@@ -597,7 +597,7 @@ class EloSystem(KMAdapterMixin):
                        calibration_correct, calibration_total, calibration_brier_sum,
                        updated_at
                 FROM ratings WHERE agent_name IN ({placeholders})
-                """,
+                """,  # noqa: S608 -- parameterized query
                 uncached,
             )
             rows = cursor.fetchall()

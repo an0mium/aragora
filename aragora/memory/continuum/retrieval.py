@@ -157,7 +157,7 @@ class RetrievalMixin:
                   {keyword_clause}
                 ORDER BY score DESC
                 LIMIT ?
-                """,
+                """,  # noqa: S608 -- dynamic clause from internal state
                 (*tier_values, min_importance, *tenant_params, *keyword_params, limit),
             )
 
@@ -252,7 +252,7 @@ class RetrievalMixin:
                        COALESCE(red_line, 0), COALESCE(red_line_reason, '')
                 FROM continuum_memory
                 WHERE id IN ({placeholders})
-                """,
+                """,  # noqa: S608 -- parameterized query
                 tuple(ordered),
             )
             rows = cursor.fetchall()
@@ -366,7 +366,7 @@ class RetrievalMixin:
                   {tenant_clause}
                 ORDER BY datetime(created_at) DESC
                 LIMIT ?
-                """,
+                """,  # noqa: S608 -- dynamic clause from internal state
                 (
                     *tier_values,
                     min_importance,
@@ -391,7 +391,7 @@ class RetrievalMixin:
                   {tenant_clause}
                 ORDER BY datetime(created_at) ASC
                 LIMIT ?
-                """,
+                """,  # noqa: S608 -- dynamic clause from internal state
                 (*tier_values, min_importance, anchor_id, anchor.created_at, *tenant_params, after),
             )
             after_rows = cursor.fetchall()

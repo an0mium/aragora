@@ -119,7 +119,7 @@ class PostgresMigrationRunner:
 
     async def _get_applied_versions(self, conn: Connection) -> set[int]:
         """Get set of applied migration versions."""
-        rows = await conn.fetch(f"SELECT version FROM {self.MIGRATIONS_TABLE}")
+        rows = await conn.fetch(f"SELECT version FROM {self.MIGRATIONS_TABLE}")  # noqa: S608 -- table name interpolation, parameterized
         return {row["version"] for row in rows}
 
     async def _record_migration(
@@ -130,7 +130,7 @@ class PostgresMigrationRunner:
             f"""
             INSERT INTO {self.MIGRATIONS_TABLE} (version, name, checksum)
             VALUES ($1, $2, $3)
-        """,
+        """,  # noqa: S608 -- table name interpolation, parameterized
             version,
             name,
             checksum,
@@ -272,7 +272,7 @@ class PostgresMigrationRunner:
 
             # Get applied migrations in reverse order
             rows = await conn.fetch(
-                f"SELECT version, name, checksum FROM {self.MIGRATIONS_TABLE} ORDER BY version DESC"
+                f"SELECT version, name, checksum FROM {self.MIGRATIONS_TABLE} ORDER BY version DESC"  # noqa: S608 -- table name interpolation, parameterized
             )
             if not rows:
                 return MigrationResult(
@@ -348,7 +348,7 @@ class PostgresMigrationRunner:
                     async with conn.transaction():
                         await migration["down"](conn)
                         await conn.execute(
-                            f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = $1", version
+                            f"DELETE FROM {self.MIGRATIONS_TABLE} WHERE version = $1", version  # noqa: S608 -- table name interpolation, parameterized
                         )
 
                     rolled_back_count += 1
@@ -362,7 +362,7 @@ class PostgresMigrationRunner:
 
         # Get actual current version after rollback
         async with pool.acquire() as conn:
-            rows = await conn.fetch(f"SELECT MAX(version) as version FROM {self.MIGRATIONS_TABLE}")
+            rows = await conn.fetch(f"SELECT MAX(version) as version FROM {self.MIGRATIONS_TABLE}")  # noqa: S608 -- table name interpolation, parameterized
             current_version = rows[0]["version"] if rows and rows[0]["version"] else 0
 
         return MigrationResult(
@@ -386,7 +386,7 @@ class PostgresMigrationRunner:
 
         async with pool.acquire() as conn:
             await self._ensure_migrations_table(conn)
-            rows = await conn.fetch(f"SELECT version, name, checksum FROM {self.MIGRATIONS_TABLE}")
+            rows = await conn.fetch(f"SELECT version, name, checksum FROM {self.MIGRATIONS_TABLE}")  # noqa: S608 -- table name interpolation, parameterized
 
             for row in rows:
                 version = row["version"]

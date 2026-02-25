@@ -404,7 +404,7 @@ class ChannelSubscriptionStore:
         if updates:
             params.append(subscription_id)
             conn.execute(
-                f"UPDATE channel_subscriptions SET {', '.join(updates)} WHERE id = ?",
+                f"UPDATE channel_subscriptions SET {', '.join(updates)} WHERE id = ?",  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             conn.commit()

@@ -691,7 +691,7 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
 
             conn = self._get_conn()
             conn.execute(
-                f"UPDATE webhook_configs SET {', '.join(updates)} WHERE id = ?",
+                f"UPDATE webhook_configs SET {', '.join(updates)} WHERE id = ?",  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             conn.commit()
@@ -1211,7 +1211,7 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
 
             async with self._pool.acquire() as conn:
                 await conn.execute(
-                    f"UPDATE webhook_configs SET {', '.join(updates)} WHERE id = ${param_idx}",
+                    f"UPDATE webhook_configs SET {', '.join(updates)} WHERE id = ${param_idx}",  # noqa: S608 -- dynamic clause from internal state
                     *params,
                 )
             webhook.updated_at = time.time()

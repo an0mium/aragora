@@ -31,8 +31,8 @@ class UnifiedAuditCategory(str, Enum):
     AUTH_LOGOUT = "auth.logout"
     AUTH_FAILED = "auth.failed"
     AUTH_MFA = "auth.mfa"
-    AUTH_TOKEN_ISSUED = "auth.token_issued"
-    AUTH_TOKEN_REVOKED = "auth.token_revoked"
+    AUTH_TOKEN_ISSUED = "auth.token_issued"  # noqa: S105 -- enum value
+    AUTH_TOKEN_REVOKED = "auth.token_revoked"  # noqa: S105 -- enum value
 
     # Access Control (RBAC)
     ACCESS_GRANTED = "access.granted"

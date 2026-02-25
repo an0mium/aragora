@@ -282,7 +282,7 @@ CREATE TABLE IF NOT EXISTS improvement_queue (
             ids = [row[0] for row in rows]
             placeholders = ",".join("?" for _ in ids)
             conn.execute(
-                f"UPDATE improvement_queue SET consumed = 1 WHERE id IN ({placeholders})",
+                f"UPDATE improvement_queue SET consumed = 1 WHERE id IN ({placeholders})",  # noqa: S608 -- parameterized query
                 ids,
             )
             conn.commit()

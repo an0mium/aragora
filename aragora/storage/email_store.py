@@ -504,7 +504,7 @@ class EmailStore(SQLiteStore):
 
         with self.connection() as conn:
             cursor = conn.execute(
-                f"UPDATE shared_inboxes SET {', '.join(set_clauses)} WHERE id = ?",
+                f"UPDATE shared_inboxes SET {', '.join(set_clauses)} WHERE id = ?",  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             return cursor.rowcount > 0
@@ -635,7 +635,7 @@ class EmailStore(SQLiteStore):
             WHERE {" AND ".join(conditions)}
             ORDER BY received_at DESC
             LIMIT ? OFFSET ?
-            """,
+            """,  # noqa: S608 -- dynamic clause from internal state
             tuple(params),
         )
 
@@ -825,7 +825,7 @@ class EmailStore(SQLiteStore):
                 AND shared_inbox_messages_fts MATCH ?
             ORDER BY fts.rank
             LIMIT ? OFFSET ?
-            """,  # nosec B608 - where_clause built from hardcoded conditions
+            """,  # nosec B608 - where_clause built from hardcoded conditions  # noqa: S608
             tuple(params),
         )
 
@@ -1007,7 +1007,7 @@ class EmailStore(SQLiteStore):
             SELECT * FROM routing_rules
             WHERE {" AND ".join(conditions)}
             ORDER BY priority DESC, created_at ASC
-            """,
+            """,  # noqa: S608 -- dynamic clause from internal state
             tuple(params),
         )
 
@@ -1049,7 +1049,7 @@ class EmailStore(SQLiteStore):
 
         with self.connection() as conn:
             cursor = conn.execute(
-                f"UPDATE routing_rules SET {', '.join(set_clauses)} WHERE id = ?",
+                f"UPDATE routing_rules SET {', '.join(set_clauses)} WHERE id = ?",  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             return cursor.rowcount > 0
