@@ -128,7 +128,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
     # Microsoft Graph API endpoints
     GRAPH_BASE = "https://graph.microsoft.com/v1.0"
     GRAPH_BETA = "https://graph.microsoft.com/beta"
-    TOKEN_URL = "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+    TOKEN_URL = "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"  # noqa: S105 -- OAuth endpoint URL
 
     def __init__(
         self,

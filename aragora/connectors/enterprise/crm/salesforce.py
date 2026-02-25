@@ -349,8 +349,8 @@ class SalesforceConnector(EnterpriseConnector):
 
     # Salesforce API endpoints
     API_VERSION = "v59.0"
-    TOKEN_URL = "https://login.salesforce.com/services/oauth2/token"
-    SANDBOX_TOKEN_URL = "https://test.salesforce.com/services/oauth2/token"
+    TOKEN_URL = "https://login.salesforce.com/services/oauth2/token"  # noqa: S105 -- OAuth endpoint URL
+    SANDBOX_TOKEN_URL = "https://test.salesforce.com/services/oauth2/token"  # noqa: S105 -- OAuth endpoint URL
 
     def __init__(
         self,

@@ -201,7 +201,7 @@ class YouTubeUploaderConnector:
 
     # YouTube API endpoints
     AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-    TOKEN_URL = "https://oauth2.googleapis.com/token"
+    TOKEN_URL = "https://oauth2.googleapis.com/token"  # noqa: S105 -- OAuth endpoint URL
     UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
     API_URL = "https://www.googleapis.com/youtube/v3"
 

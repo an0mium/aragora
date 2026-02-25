@@ -64,7 +64,7 @@ class RecoveryAction(Enum):
 
     RETRY = "retry"  # Retry the operation
     WAIT = "wait"  # Wait before retry
-    REFRESH_TOKEN = "refresh_token"  # Refresh auth token
+    REFRESH_TOKEN = "refresh_token"  # noqa: S105 -- enum value (refresh auth token)
     OPEN_CIRCUIT = "open_circuit"  # Open circuit breaker
     FALLBACK = "fallback"  # Use fallback endpoint/method
     ESCALATE = "escalate"  # Escalate to human/alerting

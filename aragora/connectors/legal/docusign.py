@@ -77,7 +77,7 @@ class DocuSignCredentials:
     access_token: str
     account_id: str
     base_uri: str
-    token_type: str = "Bearer"
+    token_type: str = "Bearer"  # noqa: S105 -- OAuth2 token type
     expires_at: datetime | None = None
     refresh_token: str | None = None
 
