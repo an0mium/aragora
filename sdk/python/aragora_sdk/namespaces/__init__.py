@@ -173,6 +173,7 @@ from .usage import AsyncUsageAPI, UsageAPI
 from .usage_metering import AsyncUsageMeteringAPI, UsageMeteringAPI
 from .verification import AsyncVerificationAPI, VerificationAPI
 from .verticals import AsyncVerticalsAPI, VerticalsAPI
+from .vector_index import AsyncVectorIndexAPI, VectorIndexAPI
 from .voice import AsyncVoiceAPI, VoiceAPI
 from .webhooks import AsyncWebhooksAPI, WebhooksAPI
 from .workflow_templates import AsyncWorkflowTemplatesAPI, WorkflowTemplatesAPI
@@ -520,6 +521,8 @@ __all__ = [
     "AsyncVerificationAPI",
     "VerticalsAPI",
     "AsyncVerticalsAPI",
+    "VectorIndexAPI",
+    "AsyncVectorIndexAPI",
     "VoiceAPI",
     "AsyncVoiceAPI",
     "WebhooksAPI",

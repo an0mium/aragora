@@ -275,6 +275,7 @@ class MergedConfig:
     enable_unified_memory: bool
     enable_retention_gate: bool
     enable_live_explainability: bool
+    enable_sandbox_verification: bool
 
 
 def merge_config_objects(  # noqa: C901 - complexity inherent in config merging

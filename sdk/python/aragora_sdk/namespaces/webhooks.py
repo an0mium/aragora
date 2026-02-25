@@ -142,6 +142,92 @@ class WebhooksAPI:
         return self._client.request("GET", "/api/webhooks/platforms")
 
 
+    # =========================================================================
+    # Webhook CRUD
+    # =========================================================================
+
+    def get(self, webhook_id: str) -> dict[str, Any]:
+        """Get a specific webhook by ID."""
+        return self._client.request("GET", f"/api/v1/webhooks/{webhook_id}")
+
+    def update(self, webhook_id: str, **updates: Any) -> dict[str, Any]:
+        """Update an existing webhook."""
+        return self._client.request("PATCH", f"/api/v1/webhooks/{webhook_id}", json=updates)
+
+    def delete(self, webhook_id: str) -> dict[str, Any]:
+        """Delete a webhook."""
+        return self._client.request("DELETE", f"/api/v1/webhooks/{webhook_id}")
+
+    def test(self, webhook_id: str) -> dict[str, Any]:
+        """Test a webhook by sending a test event."""
+        return self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/test")
+
+    # =========================================================================
+    # Delivery Management
+    # =========================================================================
+
+    def list_deliveries(self, webhook_id: str, status: str | None = None, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """List webhook deliveries."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if status:
+            params["status"] = status
+        return self._client.request("GET", f"/api/v1/webhooks/{webhook_id}/deliveries", params=params)
+
+    def get_delivery(self, webhook_id: str, delivery_id: str) -> dict[str, Any]:
+        """Get delivery details."""
+        return self._client.request("GET", f"/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}")
+
+    def retry_delivery(self, webhook_id: str, delivery_id: str) -> dict[str, Any]:
+        """Retry a failed delivery."""
+        return self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/retry")
+
+    def get_delivery_stats(self, webhook_id: str, days: int | None = None) -> dict[str, Any]:
+        """Get delivery stats for a webhook."""
+        params: dict[str, Any] = {}
+        if days is not None:
+            params["days"] = days
+        return self._client.request("GET", f"/api/v1/webhooks/{webhook_id}/stats", params=params)
+
+    def subscribe_events(self, webhook_id: str, events: _List[str]) -> dict[str, Any]:
+        """Subscribe to events for a webhook."""
+        return self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/events", json={"events": events})
+
+    def unsubscribe_events(self, webhook_id: str, events: _List[str]) -> dict[str, Any]:
+        """Unsubscribe from events for a webhook."""
+        return self._client.request("DELETE", f"/api/v1/webhooks/{webhook_id}/events", json={"events": events})
+
+    def get_retry_policy(self, webhook_id: str) -> dict[str, Any]:
+        """Get webhook retry policy."""
+        return self._client.request("GET", f"/api/v1/webhooks/{webhook_id}/retry-policy")
+
+    def update_retry_policy(self, webhook_id: str, **policy: Any) -> dict[str, Any]:
+        """Update webhook retry policy."""
+        return self._client.request("PUT", f"/api/v1/webhooks/{webhook_id}/retry-policy", json=policy)
+
+    def rotate_secret(self, webhook_id: str) -> dict[str, Any]:
+        """Rotate webhook secret."""
+        return self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/rotate-secret")
+
+    def get_signing_info(self, webhook_id: str) -> dict[str, Any]:
+        """Get signing key info."""
+        return self._client.request("GET", f"/api/v1/webhooks/{webhook_id}/signing")
+
+    def list_dead_letter(self, limit: int | None = None) -> dict[str, Any]:
+        """List deliveries in the dead-letter queue."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        return self._client.request("GET", "/api/v1/webhooks/dead-letter", params=params)
+
+    def get_dead_letter(self, dead_letter_id: str) -> dict[str, Any]:
+        """Get a specific dead-letter delivery by ID."""
+        return self._client.request("GET", f"/api/v1/webhooks/dead-letter/{dead_letter_id}")
+
+    def retry_dead_letter(self, dead_letter_id: str) -> dict[str, Any]:
+        """Retry a dead-letter delivery."""
+        return self._client.request("POST", f"/api/v1/webhooks/dead-letter/{dead_letter_id}/retry")
+
+
 class AsyncWebhooksAPI:
     """
     Asynchronous Webhooks API.
@@ -226,3 +312,90 @@ class AsyncWebhooksAPI:
     async def list_platforms(self) -> dict[str, Any]:
         """List supported webhook platform integrations."""
         return await self._client.request("GET", "/api/webhooks/platforms")
+
+    # =========================================================================
+    # Webhook CRUD
+    # =========================================================================
+
+    async def get(self, webhook_id: str) -> dict[str, Any]:
+        """Get a specific webhook by ID."""
+        return await self._client.request("GET", f"/api/v1/webhooks/{webhook_id}")
+
+    async def update(self, webhook_id: str, **updates: Any) -> dict[str, Any]:
+        """Update an existing webhook."""
+        return await self._client.request("PATCH", f"/api/v1/webhooks/{webhook_id}", json=updates)
+
+    async def delete(self, webhook_id: str) -> dict[str, Any]:
+        """Delete a webhook."""
+        return await self._client.request("DELETE", f"/api/v1/webhooks/{webhook_id}")
+
+    async def test(self, webhook_id: str) -> dict[str, Any]:
+        """Test a webhook by sending a test event."""
+        return await self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/test")
+
+    # =========================================================================
+    # Delivery Management
+    # =========================================================================
+
+    async def list_deliveries(self, webhook_id: str, status: str | None = None, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """List webhook deliveries."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if status:
+            params["status"] = status
+        return await self._client.request("GET", f"/api/v1/webhooks/{webhook_id}/deliveries", params=params)
+
+    async def get_delivery(self, webhook_id: str, delivery_id: str) -> dict[str, Any]:
+        """Get delivery details."""
+        return await self._client.request("GET", f"/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}")
+
+    async def retry_delivery(self, webhook_id: str, delivery_id: str) -> dict[str, Any]:
+        """Retry a failed delivery."""
+        return await self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/retry")
+
+    async def get_delivery_stats(self, webhook_id: str, days: int | None = None) -> dict[str, Any]:
+        """Get delivery stats for a webhook."""
+        params: dict[str, Any] = {}
+        if days is not None:
+            params["days"] = days
+        return await self._client.request("GET", f"/api/v1/webhooks/{webhook_id}/stats", params=params)
+
+    async def subscribe_events(self, webhook_id: str, events: _List[str]) -> dict[str, Any]:
+        """Subscribe to events for a webhook."""
+        return await self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/events", json={"events": events})
+
+    async def unsubscribe_events(self, webhook_id: str, events: _List[str]) -> dict[str, Any]:
+        """Unsubscribe from events for a webhook."""
+        return await self._client.request("DELETE", f"/api/v1/webhooks/{webhook_id}/events", json={"events": events})
+
+    async def get_retry_policy(self, webhook_id: str) -> dict[str, Any]:
+        """Get webhook retry policy."""
+        return await self._client.request("GET", f"/api/v1/webhooks/{webhook_id}/retry-policy")
+
+    async def update_retry_policy(self, webhook_id: str, **policy: Any) -> dict[str, Any]:
+        """Update webhook retry policy."""
+        return await self._client.request("PUT", f"/api/v1/webhooks/{webhook_id}/retry-policy", json=policy)
+
+    async def rotate_secret(self, webhook_id: str) -> dict[str, Any]:
+        """Rotate webhook secret."""
+        return await self._client.request("POST", f"/api/v1/webhooks/{webhook_id}/rotate-secret")
+
+    async def get_signing_info(self, webhook_id: str) -> dict[str, Any]:
+        """Get signing key info."""
+        return await self._client.request("GET", f"/api/v1/webhooks/{webhook_id}/signing")
+
+    async def list_dead_letter(self, limit: int | None = None) -> dict[str, Any]:
+        """List deliveries in the dead-letter queue."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        return await self._client.request("GET", "/api/v1/webhooks/dead-letter", params=params)
+
+    async def get_dead_letter(self, dead_letter_id: str) -> dict[str, Any]:
+        """Get a specific dead-letter delivery by ID."""
+        return await self._client.request("GET", f"/api/v1/webhooks/dead-letter/{dead_letter_id}")
+
+    async def retry_dead_letter(self, dead_letter_id: str) -> dict[str, Any]:
+        """Retry a dead-letter delivery."""
+        return await self._client.request("POST", f"/api/v1/webhooks/dead-letter/{dead_letter_id}/retry")
+
+
