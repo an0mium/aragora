@@ -107,7 +107,25 @@ jobs:
       - name: "BLOCKING: npm audit high/critical (live frontend)"
         working-directory: aragora/live
         run: |
-          npm ci --ignore-scripts
+          npm config set registry https://registry.npmjs.org/
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+
+          for attempt in 1 2 3; do
+            if npm ci --ignore-scripts; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::warning::npm ci failed after retries; falling back to npm install --ignore-scripts"
+              npm install --ignore-scripts
+              break
+            fi
+            echo "::warning::npm ci attempt ${attempt} failed; retrying after cache clean"
+            npm cache clean --force || true
+            sleep $((attempt * 10))
+          done
+
           echo "--- Non-blocking: low/moderate advisories ---"
           npm audit --omit=dev --audit-level=moderate 2>&1 || true
           echo "--- BLOCKING: high/critical advisories ---"
@@ -116,7 +134,25 @@ jobs:
       - name: "BLOCKING: npm audit high/critical (TypeScript SDK)"
         working-directory: sdk/typescript
         run: |
-          npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
+          npm config set registry https://registry.npmjs.org/
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+
+          for attempt in 1 2 3; do
+            if npm ci --ignore-scripts; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::warning::npm ci failed after retries; falling back to npm install --ignore-scripts"
+              npm install --ignore-scripts
+              break
+            fi
+            echo "::warning::npm ci attempt ${attempt} failed; retrying after cache clean"
+            npm cache clean --force || true
+            sleep $((attempt * 10))
+          done
+
           echo "--- Non-blocking: low/moderate advisories ---"
           npm audit --omit=dev --audit-level=moderate 2>&1 || true
           echo "--- BLOCKING: high/critical advisories ---"
