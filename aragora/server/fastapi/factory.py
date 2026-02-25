@@ -38,6 +38,7 @@ from .routes import (
     auth,
     memory,
     api_explorer,
+    costs,
 )
 
 logger = logging.getLogger(__name__)
