@@ -50,6 +50,11 @@ jest.mock('../src/context/RightSidebarContext', () => ({
   }),
 }));
 
+// Mock useDashboardEvents
+jest.mock('../src/hooks/useDashboardEvents', () => ({
+  useDashboardEvents: () => ({ isConnected: false, updateCount: 0 }),
+}));
+
 // Mock logger
 jest.mock('../src/utils/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() },
@@ -134,7 +139,7 @@ describe('DashboardPage', () => {
     });
   });
 
-  it('shows [API] indicator when data comes from backend', async () => {
+  it('renders debates from backend without Supabase fallback', async () => {
     swrResponses['debates'] = {
       data: {
         debates: [
@@ -158,8 +163,10 @@ describe('DashboardPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('[API]')).toBeInTheDocument();
+      expect(screen.getByText('Test debate')).toBeInTheDocument();
     });
+    // Backend data used — Supabase fallback should NOT be called
+    expect(mockFetchRecentDebates).not.toHaveBeenCalled();
   });
 
   it('falls back to Supabase when backend errors', async () => {
@@ -362,9 +369,9 @@ describe('DashboardPage', () => {
       // Text includes the '>' prefix: "> QUICK ACCESS"
       expect(screen.getByText(/QUICK ACCESS/)).toBeInTheDocument();
     });
-    expect(screen.getByText('Arena')).toBeInTheDocument();
-    expect(screen.getByText('Archive')).toBeInTheDocument();
-    expect(screen.getByText('Knowledge')).toBeInTheDocument();
+    expect(screen.getByText('New Debate')).toBeInTheDocument();
+    expect(screen.getByText('Debates')).toBeInTheDocument();
+    expect(screen.getByText('Oracle')).toBeInTheDocument();
   });
 
   it('renders executive summary and cost widgets', async () => {
