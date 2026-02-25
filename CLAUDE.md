@@ -98,7 +98,7 @@ Aragora is the **Decision Integrity Platform** -- orchestrating 43 agent types t
 
 **Five Pillars:** (1) SMB-ready with enterprise-grade security, (2) leading-edge memory and context processing, (3) extensible/modular with broad connectors and SDKs, (4) multi-agent robustness via heterogeneous model consensus, (5) self-healing and self-extending via the Nomic Loop.
 
-**Codebase Scale:** 3,000+ Python modules | 129,000+ tests | 3,000+ test files | 210+ debate modules | 2,000+ API operations across 1,800+ paths | 33 KM adapters | 159 SDK namespaces
+**Codebase Scale:** 3,000+ Python modules | 207,000+ tests | 4,000+ test files | 210+ debate modules | 3,000+ API operations across 2,900+ paths | 0 KM adapters | 185 SDK namespaces
 
 ## Architecture
 
@@ -139,7 +139,7 @@ aragora/
 │           ├── kafka.py    # Apache Kafka consumer
 │           └── rabbitmq.py # RabbitMQ consumer/publisher
 ├── server/           # HTTP/WebSocket API
-│   ├── unified_server.py   # Main server (2,000+ API operations)
+│   ├── unified_server.py   # Main server (3,000+ API operations)
 │   ├── startup.py          # Server startup sequence
 │   ├── debate_origin.py    # Bidirectional chat result routing
 │   ├── handlers/           # HTTP endpoint handlers (580+ modules)
@@ -346,7 +346,7 @@ See `docs/reference/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 129,000+ tests across 3,000+ test files
+**Test Suite:** 207,000+ tests across 4,000+ test files
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)

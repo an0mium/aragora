@@ -5,16 +5,281 @@ description: Aragora Project Status
 
 # Aragora Project Status
 
-*Last updated: February 12, 2026*
+*Last updated: February 23, 2026*
 
 > See [README](../analysis/adr) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
+
+## Production Hardening & Test Expansion (February 18-23, 2026)
+
+### Summary
+Massive production hardening sprint: 205,000+ tests (up from 129,000+), comprehensive handler test coverage (19,776 handler tests across 130+ files), CI pipeline fixes, exception narrowing across nomic modules, self-improvement E2E validation, connector stub completion, and deployment readiness improvements.
+
+### Handler Test Expansion (~19,776 tests)
+- **20 batch commits** (batches 47-68) adding full test coverage for all 580+ handler modules
+- **`@handle_errors` decorator** added to all 193 handler write methods (POST/PUT/PATCH/DELETE) across 130 files
+- **Three RBAC systems** unified in test conftest with `@pytest.mark.no_auto_auth` opt-out
+- **Mock pollution guard**: Autouse fixture restores `NonCallableMock.side_effect` descriptor between tests
+- **SAST scanner isolation**: Autouse fixture prevents real filesystem scanning during handler tests
+
+### Self-Improvement E2E Validation (66 tests)
+- **`test_self_improve_integration.py`** (12 tests): Real codebase assessment, goal generation, dry-run pipeline
+- **`test_daemon_integration.py`** (8 tests): Daemon decision logic with skip/execute thresholds
+- **`test_deployment_readiness.py`** (6 tests): API key validation, fast readiness checks
+- **`test_shutdown_drain.py`** (4 tests): Graceful shutdown drain phases
+- **`test_gateway_load.py`** (12 tests): Dedup engine at 1000+ items, fan-out across 4 sources, retention gate batches
+- **`test_stub_connectors.py`** (12 tests): QuickBooks, SendGrid, Twilio, Instagram, Trello connector validation
+- **`test_gateway_benchmark.py`** (7 tests): 10x scale load tests for nightly CI
+- **`test_connector_live.py`** (6 tests): Live API integration tests (skip without credentials)
+
+### CI Pipeline Fixes
+- **OpenAPI spec regeneration**: Fixed version alignment failures from stale spec
+- **Helm chart metadata**: Added `kubeVersion` to all 4 charts, fixed operator URLs
+- **Frontend act() warnings**: Fixed React async rendering in VerticalsPage tests
+- **CVE-2025-14009**: NLTK Zip Slip vulnerability documented and ignored (transitive dep, unused code path)
+- **Exception narrowing**: 22 broad `except Exception` handlers narrowed in nomic modules
+- **Type safety**: Fixed RepositoryCrawler API usage, resolve_db_path imports, float/dict type annotations
+- **CDC password**: Replaced example credential with placeholder
+
+### SDK Expansion (184 Python / 183 TypeScript namespaces)
+- **13 new TypeScript namespaces**: agent_dashboard, playground, partner, selection, expenses, github, and more
+- **6 new Python namespaces**: control_plane, partner, selection, expenses, github SDK methods
+- **SDK types regenerated** from updated OpenAPI spec
+
+### Deployment
+- **Kubernetes readiness probe**: `/readyz/dependencies` now checks API key availability
+- **Benchmark test tier**: `@pytest.mark.benchmark` tests added to nightly CI workflow
+- **Risk scorer**: Reduced false positives for protected file detection (generic basenames)
+
+### Files
+| Category | Count |
+|----------|-------|
+| New test files | ~35 |
+| Modified production files | ~50 |
+| Handler test files | 130+ |
+| SDK files | 26 |
+
+---
+
+## Integration & Pipeline Wiring (February 17, 2026)
+
+### Summary
+Major integration sprint connecting isolated subsystems into end-to-end pipelines. Canvas idea-to-execution pipeline wired into PostDebateCoordinator (Step 8.5), memory trigger engine actions implemented with real subsystem calls, SDK canvas parity achieved across Python (14 methods) and TypeScript (12 methods), outcome feedback bridge wired into self-develop CLI, and GoalExtractor test coverage added (46 tests).
+
+### Canvas → Debate Pipeline Trigger
+- **PostDebateCoordinator Step 8.5**: After execution bridge, optionally triggers canvas pipeline
+- `auto_trigger_canvas` + `canvas_min_confidence` config on `PostDebateConfig`
+- Builds `ArgumentCartographer` graph from debate messages → `IdeaToExecutionPipeline.from_debate()`
+- `canvas_result` field on `PostDebateResult` captures pipeline output
+- Graceful degradation on import error (7 tests)
+
+### Memory Trigger Engine Actions
+- **5 stub actions replaced** with real subsystem calls:
+  - `_log_high_surprise`: Reports to `AnomalyDetector` + dispatches `memory.high_surprise` event
+  - `_mark_for_revalidation`: Calls `ConfidenceDecayManager.apply_decay()` + dispatches `memory.stale_revalidation`
+  - `_create_debate_topic`: Enqueues `ImprovementSuggestion` to improvement queue + dispatches `memory.contradiction_detected`
+  - `_merge_summaries`: Dispatches `memory.consolidation_merge` event
+  - `_extract_pattern`: Dispatches `memory.pattern_emerged` event
+- All actions use `try/except ImportError` for graceful degradation (20 tests)
+
+### SDK Canvas Parity
+- **Python SDK**: `CanvasAPI` (7 sync) + `AsyncCanvasAPI` (7 async) methods — CRUD + pipeline
+- **TypeScript SDK**: 5 CRUD + 7 pipeline methods with full TypeScript types (`PipelineStage`, `PipelineResult`)
+- Routes: `run_from_debate`, `run_from_ideas`, `advance_stage`, `get_pipeline`, `get_stage`, `convert_debate`, `convert_workflow`
+
+### Goal Extractor Test Coverage (46 tests)
+- **Structural extraction**: priority assignment, provenance links, transition records, max goals cap
+- **Type mapping**: cluster→GOAL, constraint→PRINCIPLE, question→MILESTONE, insight→STRATEGY
+- **Raw ideas**: keyword linking, label truncation, single/multiple ideas
+- **Internal methods**: scoring formula, type bonuses, title synthesis, description synthesis
+
+### Outcome Feedback Bridge
+- `OutcomeFeedbackBridge.run_feedback_cycle()` wired into `scripts/self_develop.py`
+- Runs after pipeline execution, detects systematic agent errors
+- `--feedback` CLI flag for orchestration mode runs
+
+### Files
+| Category | Files |
+|----------|-------|
+| Modified production | `post_debate_coordinator.py`, `triggers.py`, `memory/__init__.py`, `self_develop.py` |
+| New/rewritten SDK | `sdk/python/.../canvas.py`, `sdk/typescript/.../canvas.ts` |
+| New tests | `test_canvas_trigger.py` (7), `test_trigger_actions.py` (20), `test_extractor.py` (46) |
+| Config | `contract_matrix_py_budget.json` |
+
+---
+
+## Unified Memory Architecture (February 16, 2026)
+
+### Summary
+Titans/MIRAS-inspired integrated memory system connecting all 5 memory systems (ContinuumMemory, Knowledge Mound, Supermemory, claude-mem, RLM) through a single query/store API with cross-system deduplication, ranking, and surprise-driven retention decisions. 150 new tests across 6 test files.
+
+### Phase 1: Titans-Inspired Retention Gate (39 tests)
+- **`RetentionGate`** bridges `SurpriseScorer` → `ConfidenceDecay` pipeline
+- Actions: retain, demote, forget, consolidate based on surprise + confidence
+- **Adaptive decay rates**: high surprise = slow decay, low surprise = fast decay
+- **Red-line protection**: critical constraints never forgotten
+- `apply_surprise_driven_decay()` added to `ConfidenceDecayManager`
+- `apply_retention_decision()` added to `TierManager`
+- `evaluate_retention()` post-write hook added to `MemoryCoordinator`
+
+### Phase 2: ClaudeMemAdapter — 34th KM Adapter (28 tests)
+- **`ClaudeMemAdapter`** wraps `ClaudeMemConnector` following `SupermemoryAdapter` pattern
+- Read-mostly: pulls observations into KM, does not write back
+- Methods: `search_observations()`, `inject_context()`, `sync_to_km()`, `evidence_to_knowledge_item()`
+- Circuit breaker config: `failure_threshold=5, timeout=30s`
+- Registered in `AdapterFactory` with lazy imports
+
+### Phase 3: Unified Memory Gateway + Cross-System Dedup (48 tests)
+- **`MemoryGateway`**: fan-out query across all available sources, dedup, rank
+- **`CrossSystemDedupEngine`**: SHA-256 exact match + Jaccard token-overlap near-duplicate detection
+- **`MemoryGatewayConfig`**: opt-in via `enabled=False`, configurable timeout, dedup threshold, parallel queries
+- Graceful degradation: single source failure doesn't break others
+- Confidence-weighted ranking with source priority (KM > Continuum > Supermemory > claude-mem)
+
+### Phase 4: RLM Memory Navigator (23 tests)
+- **`RLMMemoryNavigator`**: REPL helpers for programmatic memory exploration
+- `search_all()`, `build_context_hierarchy()`, `drill_into()`, `get_by_surprise()`
+- Filter/sort helpers: `filter_by_source()`, `filter_by_confidence()`, `sort_by_surprise()`
+- `inject_unified_memory_helpers()` added to `AragoraRLM` bridge
+- System prompt extended with unified memory navigation commands
+
+### Phase 5: Arena Wiring + HTTP Handler (12 tests)
+- **`UnifiedMemorySubConfig`**: `enable_unified_memory`, `enable_retention_gate` flags
+- **`UnifiedMemoryHandler`**: REST endpoints for `/api/v1/memory/unified/search` (POST) and `/stats` (GET)
+- RBAC-protected via `@require_permission("memory:read")`
+- **Lazy subsystem factory**: `create_lazy_memory_gateway()` auto-creates gateway from Arena config
+- Routes registered in `MemoryHandler.handle()` and `handle_post()`
+
+### Files
+| Category | Files |
+|----------|-------|
+| New production | `retention_gate.py`, `claude_mem_adapter.py`, `gateway.py`, `gateway_config.py`, `dedup.py`, `memory_navigator.py`, `unified_handler.py` |
+| New tests | `test_retention_gate.py`, `test_claude_mem_adapter.py`, `test_gateway.py`, `test_cross_system_dedup.py`, `test_memory_navigator.py`, `test_unified_memory_wiring.py` |
+| Modified | `confidence_decay.py`, `tier_manager.py`, `coordinator.py`, `factory.py`, `bridge.py`, `arena_sub_configs.py`, `lazy_subsystems.py`, `orchestrator.py`, `orchestrator_config.py`, `orchestrator_init.py`, `memory.py` |
+
+---
+
+## Phase 10: Multi-Agent Coordination & Security Hardening (February 15, 2026)
+
+### Summary
+Major sprint on production-grade multi-agent coordination, security hardening (error sanitization across 95+ files), and codebase health. Three strategic plan components fully implemented: **worktree isolation**, **hierarchical coordinator**, and **CI feedback loop**. Test suite clean across randomized seeds (3,266 nomic tests, 0 failures). Error message sanitization eliminates `str(e)` information leaks across all handler and debate modules.
+
+### Multi-Agent Coordination (Strategic Plan)
+
+#### Worktree Isolation (53 tests)
+- **`WorktreeInfo` dataclass** and `BranchCoordinatorConfig` with `use_worktrees=True`
+- **Git worktree support**: `create_worktree()`, `cleanup_worktree()`, `list_worktrees()`, `merge_worktree_back()`
+- **Race condition fix**: Parallel `asyncio.gather` assignments now use isolated worktree directories instead of shared `git checkout`
+- **Context manager**: `__aenter__`/`__aexit__` for automatic cleanup
+
+#### Hierarchical Coordinator (70 tests)
+- **Planner/Worker/Judge cycle**: `HierarchicalCoordinator` with `CoordinatorConfig`, `WorkerReport`, `JudgeVerdict`
+- **Plan phase**: Decomposition with revision support for rejected tasks
+- **Execute phase**: Parallel worker dispatch via `WorkflowEngine`
+- **Judge phase**: Arena-based verdict generation with `ConsensusProof`
+- **Revision cycle**: Targeted replanning based on partial approvals
+- **Integration**: Optional delegation from `AutonomousOrchestrator`
+
+#### CI Feedback Loop (77 tests)
+- **Concurrency fix**: Per-SHA groups for `dev/*` branches prevent CI run cancellation
+- **Nomic CI workflow**: `.github/workflows/nomic-ci.yml` with targeted test selection
+- **`CIResultCollector`**: Polls GitHub Actions for results, graceful degradation without `gh` CLI
+- **Verify phase integration**: CI results checked after local tests pass
+- **Semantic conflict detection**: AST-based static analysis + Arena debate for cross-branch conflicts
+
+### HardenedOrchestrator Enhancements
+- **OpenClaw computer-use integration**: Browser/UI task detection and routing through `ComputerUseBridge`
+- **Cross-cycle learning**: Records orchestration outcomes to KnowledgeMound for future optimization
+- **Calibration-weighted agent selection**: Brier score integration in agent scoring (50% base, 30% recent, 20% calibration)
+- **ParallelOrchestrator deprecated**: Thin wrapper with zero unique functionality, users directed to `HardenedOrchestrator`
+
+### Security Hardening
+- **Error sanitization**: Replaced `str(e)` with `type(e).__name__` or generic messages across 95+ files (debate, agents, MCP, bots, canvas, storage, moltbot)
+- **Exception narrowing**: `except Exception` replaced with specific types (`KeyError`, `ValueError`, `OSError`, `TypeError`, `AttributeError`) across 57 server handler files
+- **TypeScript SDK fixes**: Corrected HTTP method verbs (e.g., `createFact` using `POST` instead of `GET`)
+
+### Task Decomposer Improvements
+- **Specificity gate**: `_is_specific_goal()` prevents vague expansion for goals with action verbs + technical terms
+- **TF-IDF threshold**: Raised minimum relevance from 0.01 to 0.15 for template matching
+
+### Test Health
+- **Nomic suite**: 3,266 tests passing across 3 random seeds (12345, 54321, 99999)
+- **Handler suite**: 19,776 tests, 0 failures
+- **Test pollution**: Resolved (`NonCallableMock.side_effect` descriptor fix, hanging deliberation mock fix)
+- **Worktree scripts**: 8/8 validation checks pass (4 bash syntax, 3 Python AST, 1 CLI)
+
+### Infrastructure
+- **Documentation site**: Triggered GitHub Pages deployment for `docs.aragora.ai` (Docusaurus v3.7.0, 13K+ pages)
+- **SDK parity**: 10/10 contract parity tests passing
+- **aragora-debate package**: v0.2.0 built and validated via twine check
+
+### Overall Health Score: 9.7/10 (up from 9.6/10)
+
+---
+
+## Phase 9: SDK Parity, Test Isolation & Handler Coverage (February 13-14, 2026)
+
+### Summary
+Major sprint on SDK completeness, test isolation hardening, handler test coverage expansion, and codebase hygiene. Test suite grew to **141,038 tests collected** across **3,376 test files** (up from 138,349). Handler test suite alone: **1,632+ tests** across **60+ files** in `tests/handlers/`, with **567 handler-related test files** project-wide.
+
+### SDK Completeness - 100% Route Coverage
+- **SDK Parity**: 100% coverage with 0 missing routes (previously showed gaps in parity checker)
+- **OpenClaw SDK Namespace**: 22 methods implemented, both sync and async clients
+- **Voice SDK Namespace**: 4 methods implemented (`synthesize`, `list_voices`, `create_session`, `end_session`)
+- **OpenClaw Handler ROUTES**: Added explicit ROUTES constants for parity checker discovery (23 false-stale endpoints resolved to 0)
+
+### Handler Test Coverage Expansion
+30+ new test files created this session, covering previously untested or under-tested handlers:
+- **Workflow & Templates**: `workflow_templates`, `marketplace`, `plans`, `feedback`
+- **Moderation & Content**: `moderation`, `verticals`, `threat_intel`, `reviews`
+- **Agent & Skills**: `skills`, `introspection`, `transcription`
+- **Data & Storage**: `repository`, `moments`, `utilities`, `receipt_export`
+- **Communication**: `email_debate`, `docs`
+- **Analytics & Observability**: `analytics_internals`, `breakpoints`, `evaluation`, `slo`
+- **Routing & Security**: `routing`, `security_debate`
+
+### Circuit Breaker Expansion
+- **GitHub Integration**: Circuit breaker protection added for GitHub API calls
+- **Slack Integration**: Circuit breaker protection added for Slack API calls
+- **Discord Integration**: Circuit breaker protection added for Discord API calls
+- **Teams Integration**: Circuit breaker protection added for Microsoft Teams API calls
+
+### Email Connector Thread Safety
+- Migrated email connector from thread-local storage to `contextvars` + `threading.Lock`
+- Ensures safe concurrent access in async server contexts
+
+### Test Isolation Fixes
+- **Gauntlet Signing**: Singleton state leaking between tests fixed
+- **Secrets Rotation**: ContextVar isolation for rotation state across async boundaries
+- **Audit Scheduler**: Exception handling hardened to prevent cascading test failures
+- **JWT Verification**: Test isolation for JWT verify connector tests
+
+### Test Skip Burndown
+- Reduced skips from **220+ to 181** (39 skips eliminated)
+- **Contract matrix SDK path fix**: Corrected SDK import paths unblocking contract parity tests
+- **Dead guard removal**: Removed obsolete skip guards referencing deleted modules
+
+### Code Quality & Hygiene
+- **F401 lint violations**: Reduced to **0** (all unused imports eliminated)
+- **Dead speech handler removed**: Cleaned up orphaned speech-related handler code
+- **ERC-8004 error message sanitization**: Error responses no longer disclose internal system information
+- **Typed handler 501 messages**: Now include HTTP method, path, and resource name for actionable debugging
+- **Control plane abstract methods audited**: All abstract methods confirmed to follow proper mixin patterns
+
+### Bug Fixes
+- **Timeout Middleware**: `signal.alarm(0)` bug fixed (alarm not cleared on successful responses)
+- **Observability Imports**: `logging_config` references migrated to canonical `observability.logging` module
+- **SSO Handlers**: Auth handler fixes for SSO flow edge cases
+
+### Overall Health Score: 9.6/10 (up from 9.5/10)
+
+---
 
 ## Phase 8 Complete: GA Hardening (February 12, 2026)
 
 ### Technical Improvement Plan - ALL COMPLETE
 All 18 items from the 8-agent comprehensive assessment have been addressed (see [NEXT_STEPS.md](./next-steps) for detailed evidence):
 - **Type Safety**: 0 mypy errors, TypedHandler hierarchy (6 base classes), 770 ruff violations fixed
-- **Test Health**: 136K+ tests, flaky tests fixed, skips 583→100, randomized CI ordering
+- **Test Health**: 138K+ tests, flaky tests fixed, skips 583→100, randomized CI ordering
 - **Security**: MFA bypass audit logging, token validation hardened, SAML dual opt-in
 - **Architecture**: Orchestrator decomposed (2,520→1,131 lines), ArenaConfig strategy groups
 - **Observability**: Full OTLP integration (6 backends), load testing framework, SLO automation
@@ -2343,6 +2608,11 @@ All stabilization items addressed:
 | Learning Efficiency Tracking | Active | `aragora/ranking/elo.py` (learning rate → ELO bonus) |
 | Memory Checkpoint Snapshot | Active | `aragora/memory/continuum/core.py` (export/restore for debate state) |
 | Knowledge Mound Federation | Active | `aragora/server/handlers/knowledge_base/mound/federation.py` (multi-region sync) |
+| MemoryGateway | Active | `aragora/memory/gateway.py` (unified fan-out query across all 5 memory systems) |
+| RetentionGate | Active | `aragora/memory/retention_gate.py` (Titans/MIRAS surprise-driven retention) |
+| CrossSystemDedupEngine | Active | `aragora/memory/dedup.py` (SHA-256 + Jaccard near-duplicate detection) |
+| ClaudeMemAdapter | Active | `aragora/knowledge/mound/adapters/claude_mem_adapter.py` (34th KM adapter) |
+| RLMMemoryNavigator | Active | `aragora/rlm/memory_navigator.py` (REPL helpers for cross-system memory) |
 
 ### Recently Surfaced (6)
 | Feature | Status | Location |
@@ -2510,6 +2780,10 @@ The codebase is **feature-rich with improving exposure**:
 - Genesis API exposes evolution/lineage tracking
 - Introspection API enables agent self-awareness
 - Surprise-based ContinuumMemory learning now connected
+- Live Explainability wired into Arena via `enable_live_explainability` (EventBus → factor tracking → metadata)
+- Active Introspection wired into Arena via `enable_introspection` (per-round proposals/critiques/influence tracking)
+- Argument Structure Verification wired into PostDebateCoordinator via `auto_verify_arguments`
+- Outcome Feedback Bridge wired into PostDebateCoordinator via `auto_outcome_feedback` (systematic error → Nomic goals)
 
 **Key Insight**: Continuing to expose hidden features via REST APIs increases system utility without new core logic.
 

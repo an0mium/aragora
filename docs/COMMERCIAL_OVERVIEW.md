@@ -16,11 +16,11 @@ Aragora treats each model as an **unreliable witness** and uses structured debat
 
 ### What Aragora Is
 
-- A multi-agent debate engine that runs 42+ agent types across 6+ LLM providers
+- A multi-agent debate engine that runs 30+ agent types across 6+ LLM providers
 - A decision audit system that produces cryptographic receipts for every decision
 - An adversarial stress-testing tool (Gauntlet mode) for specs, policies, and architectures
 - An AI code review system with multi-model consensus
-- A platform with 2,000+ API operations, SDKs in Python and TypeScript, and connectors for Slack, Teams, Discord, and dozens more
+- A platform with 3,000+ API operations, SDKs in Python and TypeScript, and connectors for Slack, Teams, Discord, and dozens more
 
 ### What Aragora Is Not
 
@@ -271,7 +271,7 @@ LangChain, CrewAI, AutoGen integration examples included in the repository. Open
 | Python | `aragora-sdk` | 155 | `pip install aragora-sdk` |
 | TypeScript | `@aragora/sdk` | 155 | `npm install @aragora/sdk` |
 
-Both SDKs provide typed clients for all 2,000+ API operations with full IntelliSense / type-ahead support. 99.3% feature parity between Python and TypeScript.
+Both SDKs provide typed clients for all 3,000+ API operations with full IntelliSense / type-ahead support. 99.3% feature parity between Python and TypeScript.
 
 ---
 

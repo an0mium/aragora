@@ -5,17 +5,17 @@ description: Aragora API Reference
 
 # Aragora API Reference
 
-> **Last Updated:** 2026-02-14 (v2.7.3 alignment with repo versions)
+> **Last Updated:** 2026-02-23 (v2.8.0 alignment with repo versions)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
-for multi-agent vetted decisionmaking across organizational knowledge and channels.
+for multi-agent AI debate across organizational knowledge and channels.
 
 ## SDK Coverage
 
 | SDK | Version | Methods | Coverage |
 |-----|---------|---------|----------|
 | TypeScript (`@aragora/sdk`) | 2.8.0 | 380 async | Full API (79 namespaces) |
-| Python (`aragora`) | 2.7.3 | 220 async + 420 sync | Full API |
+| Python (`aragora`) | 2.8.0 | 220 async + 420 sync | Full API |
 
 Versions reflect the current repo tags (see `pyproject.toml` and
 `aragora/__version__.py`). If versions drift, run
@@ -39,6 +39,7 @@ Both SDKs provide complete coverage of all API endpoints including:
 | [API_VERSIONING.md](./versioning) | Version strategy | API migration planning |
 | [API_STABILITY.md](./stability) | Stability guarantees | Production decisions |
 | [WEBSOCKET_EVENTS.md](../guides/websocket-events) | WebSocket event types | Real-time integration |
+| [MCP README](../analysis/adr) | MCP server tools and setup | AI tool integration via MCP |
 
 ## Endpoint Usage Status
 
@@ -152,7 +153,7 @@ Responses are cached in-memory for 30 seconds by default.
 
 ## Deliberations API
 
-Active vetted decisionmaking sessions and stats.
+Active AI debate sessions and stats.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -900,9 +901,9 @@ User feedback and NPS collection under `/api/v1/feedback`.
 
 | Endpoint | Description | Status |
 |----------|-------------|--------|
-| `POST /api/control-plane/deliberations` | Run or queue a vetted decisionmaking session | NEW |
-| `GET /api/control-plane/deliberations/:id` | Get vetted decisionmaking result | NEW |
-| `GET /api/control-plane/deliberations/:id/status` | Get vetted decisionmaking status | NEW |
+| `POST /api/control-plane/deliberations` | Run or queue an AI debate session | NEW |
+| `GET /api/control-plane/deliberations/:id` | Get AI debate result | NEW |
+| `GET /api/control-plane/deliberations/:id/status` | Get AI debate status | NEW |
 | `POST /api/v1/decisions` | Create a decision request | NEW |
 | `GET /api/v1/decisions/:id` | Get decision result | NEW |
 | `GET /api/v1/decisions/:id/status` | Get decision status | NEW |
