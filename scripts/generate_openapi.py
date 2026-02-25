@@ -30,6 +30,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+# Validation probe: non-functional comment used to force OpenAPI-scope checks
+# in PR #337.
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
