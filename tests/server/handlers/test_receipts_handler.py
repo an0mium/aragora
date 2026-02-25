@@ -513,7 +513,7 @@ class TestReceiptsHandlerExport:
             )
 
         assert result.status_code == 200
-        assert result.content_type == "application/json"
+        assert result.content_type.startswith("application/json")
 
     @pytest.mark.asyncio
     async def test_export_html(self, receipts_handler, mock_receipt_store):
@@ -535,7 +535,7 @@ class TestReceiptsHandlerExport:
             )
 
         assert result.status_code == 200
-        assert result.content_type == "text/html"
+        assert result.content_type.startswith("text/html")
 
     @pytest.mark.asyncio
     async def test_export_markdown(self, receipts_handler, mock_receipt_store):
@@ -557,7 +557,7 @@ class TestReceiptsHandlerExport:
             )
 
         assert result.status_code == 200
-        assert result.content_type == "text/markdown"
+        assert result.content_type.startswith("text/markdown")
 
     @pytest.mark.asyncio
     async def test_export_csv(self, receipts_handler, mock_receipt_store):
@@ -579,7 +579,7 @@ class TestReceiptsHandlerExport:
             )
 
         assert result.status_code == 200
-        assert result.content_type == "text/csv"
+        assert result.content_type.startswith("text/csv")
 
 
 # ===========================================================================

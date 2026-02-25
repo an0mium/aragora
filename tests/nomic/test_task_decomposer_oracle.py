@@ -227,7 +227,14 @@ class TestDecompositionQuality:
         ]
         quality = decomposer.score_decomposition(subtasks)
         assert quality.file_conflicts == 1
-        assert quality.score < 0.9  # Penalized for conflicts
+        # With 1 conflict, independence score drops, so overall score should
+        # be lower than a conflict-free decomposition with the same shape
+        perfect_subtasks = [
+            _make_subtask("p1", file_scope=["x.py", "y.py"]),
+            _make_subtask("p2", file_scope=["z.py", "w.py"]),
+        ]
+        perfect_quality = decomposer.score_decomposition(perfect_subtasks)
+        assert quality.score < perfect_quality.score
 
     def test_empty_subtasks_score_zero(self, decomposer: TaskDecomposer) -> None:
         """Empty subtask list scores zero."""

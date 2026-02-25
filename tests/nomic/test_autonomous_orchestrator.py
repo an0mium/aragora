@@ -359,6 +359,7 @@ class TestAutonomousOrchestrator:
         orchestrator = AutonomousOrchestrator(
             workflow_engine=mock_workflow_engine,
             task_decomposer=mock_task_decomposer,
+            branch_coordinator=None,
         )
 
         result = await orchestrator.execute_goal(

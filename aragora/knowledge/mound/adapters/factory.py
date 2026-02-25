@@ -1102,6 +1102,8 @@ class AdapterFactory:
                     )
                 elif spec.name in ("idea_canvas", "goal_canvas", "genesis"):
                     return adapter_class()
+                elif spec.name in ("email", "jira", "confluence"):
+                    return adapter_class()
                 elif spec.name == "pipeline":
                     return adapter_class(mound=deps.get("mound"))
                 elif spec.name == "explainability":
