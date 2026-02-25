@@ -210,6 +210,9 @@ def _normalize_settlement_metadata(
     claim = str(
         raw.get("claim") or claim_fallback or "Define the primary claim under debate."
     ).strip()
+    resolver_hint = str(
+        raw.get("resolver_type") or raw.get("resolution_tier") or raw.get("verification_mode") or ""
+    ).strip()
     normalized: dict[str, Any] = {
         "status": str(raw.get("status") or "needs_definition").strip() or "needs_definition",
         "falsifier": (
@@ -223,6 +226,8 @@ def _normalize_settlement_metadata(
         "review_horizon_days": _coerce_positive_int(raw.get("review_horizon_days"), default=30),
         "claim": claim,
     }
+    if resolver_hint:
+        normalized["resolver_type"] = resolver_hint
     return normalized
 
 
@@ -1370,6 +1375,9 @@ class DebateController:
         """
         if not isinstance(claim_settlement, dict):
             return
+        resolution_tier, initial_status, auto_settle_eligible = self._select_resolution_tier(
+            claim_settlement
+        )
         try:
             from aragora.debate.epistemic_outcomes import (
                 EpistemicOutcome,
@@ -1390,18 +1398,36 @@ class DebateController:
                         1,
                         int(claim_settlement.get("review_horizon_days", 30)),
                     ),
-                    status="open",
-                    resolver_type="human",
+                    status=initial_status,
+                    resolver_type=resolution_tier,
                     initial_confidence=float(confidence),
                     metadata={
                         "mode": mode or "",
                         "receipt_id": receipt_id,
                         "participants": participants,
+                        "resolution_tier": resolution_tier,
+                        "auto_settle_eligible": auto_settle_eligible,
                     },
                 )
             )
         except (ImportError, TypeError, ValueError, OSError) as e:
             logger.debug("Epistemic outcome ledger skipped for %s: %s", debate_id, e)
+
+    @staticmethod
+    def _select_resolution_tier(claim_settlement: dict[str, Any]) -> tuple[str, str, bool]:
+        """Map settlement metadata to deterministic/oracle/human resolution tiers."""
+        tier_hint = str(
+            claim_settlement.get("resolver_type")
+            or claim_settlement.get("resolution_tier")
+            or claim_settlement.get("verification_mode")
+            or ""
+        ).strip().lower()
+
+        if tier_hint in {"deterministic", "ci", "test", "tests", "auto"}:
+            return ("deterministic", "pending_deterministic", True)
+        if tier_hint in {"oracle", "onchain", "blockchain", "feed"}:
+            return ("oracle", "pending_oracle", True)
+        return ("human", "open", False)
 
     @classmethod
     def shutdown(cls) -> None:

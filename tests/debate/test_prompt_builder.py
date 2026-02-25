@@ -61,6 +61,7 @@ class MockProtocol:
         self.enable_trending_injection = enable_trending_injection
         self.trending_injection_max_topics = trending_injection_max_topics
         self.trending_relevance_filter = trending_relevance_filter
+        self.enable_blind_judging = False
         self.language = None
         self.require_evidence = False
         self.require_uncertainty = False
@@ -829,6 +830,23 @@ class TestBuildJudgePrompt:
         )
 
         assert "EVID" in result or "Evidence" in result
+
+    def test_build_judge_prompt_blind_mode_hides_agent_names(self):
+        """Blind judging mode should replace agent names with proposal labels."""
+        protocol = MockProtocol()
+        protocol.enable_blind_judging = True
+        builder = PromptBuilder(protocol=protocol, env=MockEnvironment(task="Test task"))
+        critiques = [MockCritique(agent="agent1", issues=["Missing tests"])]
+
+        result = builder.build_judge_prompt(
+            proposals={"agent1": "Proposal 1 content", "agent2": "Proposal 2 content"},
+            task="Test task",
+            critiques=critiques,
+        )
+
+        assert "Proposal 1" in result
+        assert "Proposal 2" in result
+        assert "[agent1]" not in result
 
 
 class TestBuildJudgeVotePrompt:

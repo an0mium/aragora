@@ -24,6 +24,7 @@ class ConcreteAssembler(PromptAssemblyMixin):
     def __init__(self):
         self.protocol = MagicMock()
         self.protocol.enable_privacy_anonymization = False
+        self.protocol.enable_blind_judging = False
         self.protocol.asymmetric_stances = False
         self.protocol.agreement_intensity = "normal"
         self.protocol.enable_trending_injection = False
@@ -355,6 +356,20 @@ class TestBuildJudgePrompt:
         assembler.format_evidence_for_prompt = lambda max_snippets=5: "## EVIDENCE"
         prompt = assembler.build_judge_prompt({"a": "p"}, "task", [])
         assert "EVIDENCE" in prompt
+
+    def test_blind_judging_masks_agent_names(self, assembler):
+        assembler.protocol.enable_blind_judging = True
+        critique = MagicMock()
+        critique.agent = "claude"
+        critique.issues = ["Needs better guardrails"]
+        prompt = assembler.build_judge_prompt(
+            {"claude": "Proposal A", "gpt": "Proposal B"},
+            "task",
+            [critique],
+        )
+        assert "Proposal 1" in prompt
+        assert "Proposal 2" in prompt
+        assert "[claude]" not in prompt
 
 
 # ---------------------------------------------------------------------------
