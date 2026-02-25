@@ -405,20 +405,20 @@ class TestSubscriptionTiers:
     def test_starter_tier_limits(self):
         """Test starter tier has expected limits."""
         limits = TIER_LIMITS[SubscriptionTier.STARTER]
-        assert limits.debates_per_month == 50
-        assert limits.users_per_org == 2
-        assert limits.api_access is False
-        assert limits.price_monthly_cents == 9900  # $99
+        assert limits.debates_per_month == 100
+        assert limits.users_per_org == 5
+        assert limits.api_access is True
+        assert limits.price_monthly_cents == 2900  # $29
 
     def test_professional_tier_limits(self):
         """Test professional tier has expected limits."""
         limits = TIER_LIMITS[SubscriptionTier.PROFESSIONAL]
-        assert limits.debates_per_month == 200
-        assert limits.users_per_org == 10
+        assert limits.debates_per_month == 1000
+        assert limits.users_per_org == 25
         assert limits.api_access is True
         assert limits.all_agents is True
         assert limits.audit_logs is True
-        assert limits.price_monthly_cents == 29900  # $299
+        assert limits.price_monthly_cents == 9900  # $99
 
     def test_enterprise_tier_limits(self):
         """Test enterprise tier has expected limits."""
@@ -431,7 +431,7 @@ class TestSubscriptionTiers:
         assert limits.sso_enabled is True
         assert limits.audit_logs is True
         assert limits.priority_support is True
-        assert limits.price_monthly_cents == 99900  # $999
+        assert limits.price_monthly_cents == 0  # Custom pricing
 
     def test_tier_limits_to_dict(self):
         """Test TierLimits.to_dict() method."""
@@ -441,7 +441,7 @@ class TestSubscriptionTiers:
         assert "users_per_org" in data
         assert "api_access" in data
         assert "price_monthly_cents" in data
-        assert data["debates_per_month"] == 50
+        assert data["debates_per_month"] == 100
 
     def test_all_tiers_have_limits(self):
         """Test all subscription tiers have defined limits."""
@@ -571,8 +571,8 @@ class TestGetPlans:
 
         # Find starter plan
         starter = next(p for p in body["plans"] if p["id"] == "starter")
-        assert starter["price_monthly"] == "$99.00"
-        assert starter["price_monthly_cents"] == 9900
+        assert starter["price_monthly"] == "$29.00"
+        assert starter["price_monthly_cents"] == 2900
 
 
 # =============================================================================
@@ -1115,7 +1115,7 @@ class TestBillingEdgeCases:
         """Test organization.limits returns correct tier limits."""
         test_org.tier = SubscriptionTier.PROFESSIONAL
         limits = test_org.limits
-        assert limits.debates_per_month == 200
+        assert limits.debates_per_month == 1000
         assert limits.api_access is True
 
     def test_user_without_org_for_usage(

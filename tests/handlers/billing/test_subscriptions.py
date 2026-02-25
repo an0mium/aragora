@@ -68,7 +68,7 @@ class MockOrganization:
         id: str,
         name: str,
         slug: str = "test-org",
-        tier: SubscriptionTier = SubscriptionTier.ENTERPRISE_PLUS,
+        tier: SubscriptionTier = SubscriptionTier.ENTERPRISE,
     ):
         self.id = id
         self.name = name
@@ -217,7 +217,7 @@ class MockUsageLimits:
     def __init__(self, **kwargs):
         self._data = {
             "org_id": "org_1",
-            "tier": "enterprise_plus",
+            "tier": "enterprise",
             "limits": {"tokens": 999999999, "debates": 999999, "api_calls": 999999},
             "used": {"tokens": 750000, "debates": 45, "api_calls": 1500},
             "percent": {"tokens": 0.075, "debates": 0.0045, "api_calls": 0.15},
@@ -339,7 +339,7 @@ def user_store():
         id="org_1",
         name="Test Org",
         slug="test-org",
-        tier=SubscriptionTier.ENTERPRISE_PLUS,
+        tier=SubscriptionTier.ENTERPRISE,
     )
     store.add_organization(org)
 
@@ -488,7 +488,7 @@ class TestGetUsage:
         http = MockHTTPHandler()
         await handler.handle("/api/v1/billing/usage", {}, http, method="GET")
         call_kwargs = mock_meter.get_usage_summary.call_args[1]
-        assert call_kwargs["tier"] == "enterprise_plus"
+        assert call_kwargs["tier"] == "enterprise"
 
     async def test_no_user_store_returns_503(self, handler_no_store):
         http = MockHTTPHandler()
@@ -713,7 +713,7 @@ class TestGetLimits:
         await handler.handle("/api/v1/billing/limits", {}, http, method="GET")
         call_kwargs = mock_meter.get_usage_limits.call_args[1]
         assert call_kwargs["org_id"] == "org_1"
-        assert call_kwargs["tier"] == "enterprise_plus"
+        assert call_kwargs["tier"] == "enterprise"
 
     async def test_limits_no_user_store_returns_503(self, handler_no_store):
         http = MockHTTPHandler()
@@ -1210,8 +1210,8 @@ class TestGetOrgTier:
         assert handler._get_org_tier(None) == "free"
 
     def test_org_with_subscription_tier_enum(self, handler):
-        org = MockOrganization(id="o1", name="Test", tier=SubscriptionTier.ENTERPRISE_PLUS)
-        assert handler._get_org_tier(org) == "enterprise_plus"
+        org = MockOrganization(id="o1", name="Test", tier=SubscriptionTier.ENTERPRISE)
+        assert handler._get_org_tier(org) == "enterprise"
 
     def test_org_with_string_tier(self, handler):
         org = MagicMock()
