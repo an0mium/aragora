@@ -2,9 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { AsciiBannerCompact } from '@/components/AsciiBanner';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { BackendSelector, useBackend } from '@/components/BackendSelector';
+import { useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 import { DeliveryModal } from '@/components/receipts';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
@@ -250,9 +248,9 @@ export default function ReceiptsPage() {
 
       {filteredResults.length === 0 ? (
         <div className="p-8 bg-surface border border-border rounded-lg text-center">
-          <p className="text-text-muted font-mono">No completed gauntlet runs found</p>
-          <Link href="/gauntlet" className="mt-4 inline-block text-acid-green hover:underline">
-            Run a gauntlet test &rarr;
+          <p className="text-text-muted font-mono">No decision receipts yet</p>
+          <Link href="/arena" className="mt-4 inline-block text-acid-green hover:underline">
+            Run your first debate &rarr;
           </Link>
         </div>
       ) : (
@@ -538,22 +536,11 @@ export default function ReceiptsPage() {
       <CRTVignette />
 
       <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <Link href="/" className="hover:opacity-80 transition-opacity">
-            <AsciiBannerCompact />
-          </Link>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <BackendSelector />
-          </div>
-        </div>
-
         {/* Title */}
         <div className="mb-8">
-          <h1 className="text-3xl font-mono font-bold text-acid-green mb-2">Decision Receipts</h1>
+          <h1 className="text-xl font-mono font-bold text-acid-green mb-2">Decision Receipts</h1>
           <p className="text-text-muted font-mono text-sm">
-            Audit-ready compliance documentation from gauntlet validations
+            Audit-ready records of every AI-debated decision
           </p>
         </div>
 
