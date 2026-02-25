@@ -23,7 +23,7 @@ Build Aragora into a complete control plane for:
 As of 2026-02-23 (updated 2026-02-24):
 - Capability matrix coverage: API 100%, CLI 100%, Python SDK 100%, TypeScript SDK 100%, UI 100%, catalog mapped 100%
 - All previously "missing" surfaces (consensus_detection, compliance_framework, rbac_v2) now implemented
-- Connector maturity: 103 Production, 48 Beta, 0 Stub
+- Connector maturity: 151 Production, 0 Beta, 0 Stub
 - GA checklist: 58/59 complete, primary blocker listed as external penetration test
 - Note: Surface parity gaps are CLOSED. Remaining work is hardening, promotion, and productization.
 
@@ -179,20 +179,14 @@ From `docs/CAPABILITY_MATRIX.md`:
 - Missing UI: `compliance_framework`, `consensus_detection`, `continuum_memory`, `debate_orchestration`, `decision_integrity`, `graph_debates`, `knowledge_mound`, `marketplace`, `matrix_debates`, `nomic_loop`, `rbac_v2`, `workflow_engine`
 - Missing CHANNELS: `agent_team_selection`, `compliance_framework`, `consensus_detection`, `continuum_memory`, `graph_debates`, `knowledge_mound`, `marketplace`, `matrix_debates`, `nomic_loop`, `rbac_v2`, `vertical_specialists`, `workflow_engine`
 
-### 2) Connector maturity debt
+### 2) Connector maturity debt — ✅ RESOLVED
 
-From `docs/connectors/STATUS.md`:
-- Production: 103
-- Beta: 48
+From `docs/connectors/STATUS.md` (updated 2026-02-24):
+- Production: 151
+- Beta: 0
 - Stub: 0
 
-All 4 former stub connectors have been promoted to Production:
-- `aragora/connectors/communication/sendgrid.py` -- email activity search, templates, query sanitization
-- `aragora/connectors/communication/twilio.py` -- SMS/MMS/call history, query sanitization
-- `aragora/connectors/productivity/trello.py` -- card/board search via Trello API
-- `aragora/connectors/social/instagram.py` -- media/comments via Graph API
-
-Remaining maturity debt is concentrated in 48 Beta connectors that lack circuit breaker patterns and advanced retry logic.
+All former Beta and Stub connectors have been promoted to Production with circuit breaker patterns, retry with exponential backoff, and query sanitization. Promotion was achieved via BaseConnector inheritance (`_request_with_retry` + circuit breaker), `ProductionConnectorMixin` for standalone connectors, and `DeviceConnector`/`EHRAdapter` base classes for specialized domains.
 
 ### 3) Readiness and release-gating debt
 
@@ -334,9 +328,9 @@ Deliverables:
 - Target: 14.3% -> >= 35%
 - Data source: `docs/CAPABILITY_MATRIX.md`
 
-4. `Connector Production Ratio`
+4. `Connector Production Ratio` ✅ ACHIEVED
 - Baseline: Production 103, Beta 48, Stub 0
-- Target: Production 103 -> >= 120, Beta 48 -> <= 25, Stub 0 (achieved)
+- Current: Production 151, Beta 0, Stub 0 (target exceeded)
 - Data source: `docs/connectors/STATUS.md`
 
 5. `Debate Runtime`
