@@ -168,6 +168,7 @@ def get_calibration_outcomes_summary() -> dict[str, Any]:
         "available": True,
     }
 
+
 def _ensure_init() -> None:
     """Ensure metrics are initialized."""
     if not _initialized:

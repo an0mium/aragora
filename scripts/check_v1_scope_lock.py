@@ -74,8 +74,12 @@ def _scope_violations(files: list[str]) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base", default=_detect_base_ref(), help="Base git ref (default: origin/main)")
-    parser.add_argument("--head", default=_detect_head_ref(), help="Head git ref (default: HEAD/GITHUB_SHA)")
+    parser.add_argument(
+        "--base", default=_detect_base_ref(), help="Base git ref (default: origin/main)"
+    )
+    parser.add_argument(
+        "--head", default=_detect_head_ref(), help="Head git ref (default: HEAD/GITHUB_SHA)"
+    )
     parser.add_argument(
         "--files",
         nargs="*",
@@ -102,7 +106,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    files = list(args.files) if args.files is not None and len(args.files) > 0 else _changed_files(args.base, args.head)
+    files = (
+        list(args.files)
+        if args.files is not None and len(args.files) > 0
+        else _changed_files(args.base, args.head)
+    )
     if not files:
         print("V1 scope lock gate: no changed files detected")
         return 0

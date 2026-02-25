@@ -429,7 +429,10 @@ class SettlementReviewScheduler:
                         elif resolver_type is None:
                             if not settlement.get("calibration_pending_since"):
                                 settlement["calibration_pending_since"] = now.isoformat()
-                            if settlement.get("calibration_outcome") != "pending_resolver_verification":
+                            if (
+                                settlement.get("calibration_outcome")
+                                != "pending_resolver_verification"
+                            ):
                                 _record_calibration_outcome_metric("pending_resolver_verification")
                             settlement["calibration_outcome"] = "pending_resolver_verification"
                             horizon_days = _coerce_positive_int(

@@ -334,7 +334,11 @@ def _mock_agent_registry(monkeypatch):
                 )
 
             async def vote(self, proposals, task="", **kw):
-                choice = list(proposals.keys())[0] if isinstance(proposals, dict) and proposals else (proposals[0] if proposals else "abstain")
+                choice = (
+                    list(proposals.keys())[0]
+                    if isinstance(proposals, dict) and proposals
+                    else (proposals[0] if proposals else "abstain")
+                )
                 return Vote(
                     agent=self.name,
                     choice=choice,
@@ -348,7 +352,9 @@ def _mock_agent_registry(monkeypatch):
     try:
         from aragora.agents.registry import AgentRegistry
 
-        monkeypatch.setattr(AgentRegistry, "create", classmethod(lambda cls, *a, **kw: _make_mock_agent(*a, **kw)))
+        monkeypatch.setattr(
+            AgentRegistry, "create", classmethod(lambda cls, *a, **kw: _make_mock_agent(*a, **kw))
+        )
     except (ImportError, AttributeError):
         pass
 

@@ -54,6 +54,8 @@ def test_scope_lock_can_be_overridden_by_env() -> None:
 
 def test_scope_lock_fails_when_lock_file_missing(tmp_path: Path) -> None:
     missing_lock = tmp_path / "missing.md"
-    result = _run(["--files", "aragora/server/debate_controller.py", "--lock-file", str(missing_lock)])
+    result = _run(
+        ["--files", "aragora/server/debate_controller.py", "--lock-file", str(missing_lock)]
+    )
     assert result.returncode == 1
     assert "missing" in result.stderr.lower()
