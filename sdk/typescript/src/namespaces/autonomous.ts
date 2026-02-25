@@ -67,7 +67,7 @@ export class AutonomousNamespace {
   }): Promise<ApprovalRequest[]> {
     const response = await this.client.request<{ approvals: ApprovalRequest[] }>(
       'GET',
-      '/api/v1/autonomous/approvals',
+      '/api/autonomous/approvals',
       { params: options }
     );
     return response.approvals;
@@ -77,7 +77,7 @@ export class AutonomousNamespace {
   async approveAction(approvalId: string): Promise<ApprovalRequest> {
     return this.client.request<ApprovalRequest>(
       'POST',
-      `/api/v1/autonomous/approvals/${encodeURIComponent(approvalId)}/approve`
+      `/api/autonomous/approvals/${encodeURIComponent(approvalId)}/approve`
     );
   }
 
@@ -85,7 +85,7 @@ export class AutonomousNamespace {
   async rejectAction(approvalId: string, reason?: string): Promise<ApprovalRequest> {
     return this.client.request<ApprovalRequest>(
       'POST',
-      `/api/v1/autonomous/approvals/${encodeURIComponent(approvalId)}/reject`,
+      `/api/autonomous/approvals/${encodeURIComponent(approvalId)}/reject`,
       { body: { reason } }
     );
   }
@@ -94,7 +94,7 @@ export class AutonomousNamespace {
   async listAlerts(options?: { severity?: string }): Promise<AutonomousAlert[]> {
     const response = await this.client.request<{ alerts: AutonomousAlert[] }>(
       'GET',
-      '/api/v1/autonomous/alerts',
+      '/api/autonomous/alerts',
       { params: options }
     );
     return response.alerts;
@@ -104,7 +104,7 @@ export class AutonomousNamespace {
   async getMetrics(): Promise<AutonomousMetrics> {
     return this.client.request<AutonomousMetrics>(
       'GET',
-      '/api/v1/autonomous/metrics'
+      '/api/autonomous/metrics'
     );
   }
 }

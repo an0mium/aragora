@@ -540,6 +540,46 @@ class IntegrationsAPI:
         """
         return self._client.request("GET", "/api/v1/integrations/teams/tenants")
 
+    # =========================================================================
+    # Discord OAuth
+    # =========================================================================
+
+    def discord_install(self) -> dict[str, Any]:
+        """Initiate Discord OAuth bot installation flow.
+
+        Returns:
+            Dict with OAuth authorization URL.
+        """
+        return self._client.request("GET", "/api/integrations/discord/install")
+
+    def discord_callback(self) -> dict[str, Any]:
+        """Handle Discord OAuth callback.
+
+        Returns:
+            Dict with OAuth result and guild info.
+        """
+        return self._client.request("GET", "/api/integrations/discord/callback")
+
+    # =========================================================================
+    # Teams OAuth
+    # =========================================================================
+
+    def teams_install(self) -> dict[str, Any]:
+        """Initiate Microsoft Teams OAuth installation flow.
+
+        Returns:
+            Dict with OAuth authorization URL.
+        """
+        return self._client.request("GET", "/api/integrations/teams/install")
+
+    def teams_callback(self) -> dict[str, Any]:
+        """Handle Microsoft Teams OAuth callback.
+
+        Returns:
+            Dict with OAuth result and tenant info.
+        """
+        return self._client.request("GET", "/api/integrations/teams/callback")
+
 
 class AsyncIntegrationsAPI:
     """Asynchronous integrations API."""
@@ -938,3 +978,27 @@ class AsyncIntegrationsAPI:
     async def teams_tenants(self) -> dict[str, Any]:
         """List connected Teams tenants."""
         return await self._client.request("GET", "/api/v1/integrations/teams/tenants")
+
+    # =========================================================================
+    # Discord OAuth
+    # =========================================================================
+
+    async def discord_install(self) -> dict[str, Any]:
+        """Initiate Discord OAuth bot installation flow."""
+        return await self._client.request("GET", "/api/integrations/discord/install")
+
+    async def discord_callback(self) -> dict[str, Any]:
+        """Handle Discord OAuth callback."""
+        return await self._client.request("GET", "/api/integrations/discord/callback")
+
+    # =========================================================================
+    # Teams OAuth
+    # =========================================================================
+
+    async def teams_install(self) -> dict[str, Any]:
+        """Initiate Microsoft Teams OAuth installation flow."""
+        return await self._client.request("GET", "/api/integrations/teams/install")
+
+    async def teams_callback(self) -> dict[str, Any]:
+        """Handle Microsoft Teams OAuth callback."""
+        return await self._client.request("GET", "/api/integrations/teams/callback")

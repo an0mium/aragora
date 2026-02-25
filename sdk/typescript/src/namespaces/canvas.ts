@@ -91,7 +91,7 @@ export class CanvasNamespace {
   async list(options?: { limit?: number; offset?: number }): Promise<Canvas[]> {
     const response = await this.client.request<{ canvases: Canvas[] }>(
       'GET',
-      '/api/v1/canvas',
+      '/api/canvas',
       { params: options }
     );
     return response.canvases;
@@ -101,20 +101,20 @@ export class CanvasNamespace {
   async get(canvasId: string): Promise<Canvas> {
     return this.client.request<Canvas>(
       'GET',
-      `/api/v1/canvas/${encodeURIComponent(canvasId)}`
+      `/api/canvas/${encodeURIComponent(canvasId)}`
     );
   }
 
   /** Create a new canvas. */
   async create(request: CreateCanvasRequest): Promise<Canvas> {
-    return this.client.request<Canvas>('POST', '/api/v1/canvas', { body: request });
+    return this.client.request<Canvas>('POST', '/api/canvas', { body: request });
   }
 
   /** Update a canvas. */
   async update(canvasId: string, updates: Partial<CreateCanvasRequest>): Promise<Canvas> {
     return this.client.request<Canvas>(
       'PUT',
-      `/api/v1/canvas/${encodeURIComponent(canvasId)}`,
+      `/api/canvas/${encodeURIComponent(canvasId)}`,
       { body: updates }
     );
   }
@@ -123,7 +123,7 @@ export class CanvasNamespace {
   async delete(canvasId: string): Promise<{ success: boolean }> {
     return this.client.request<{ success: boolean }>(
       'DELETE',
-      `/api/v1/canvas/${encodeURIComponent(canvasId)}`
+      `/api/canvas/${encodeURIComponent(canvasId)}`
     );
   }
 

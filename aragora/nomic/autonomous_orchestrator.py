@@ -64,6 +64,8 @@ from aragora.nomic.feedback_loop import FeedbackLoop  # noqa: F401
 
 logger = get_logger(__name__)
 
+_UNSET = object()  # sentinel: distinguish "not provided" from explicit None
+
 
 class AutonomousOrchestrator:
     """
@@ -89,7 +91,7 @@ class AutonomousOrchestrator:
         use_debate_decomposition: bool = False,
         enable_curriculum: bool = True,
         curriculum_config: Any | None = None,
-        branch_coordinator: Any | None = None,
+        branch_coordinator: Any = _UNSET,
         hierarchy: HierarchyConfig | None = None,
         hierarchical_coordinator: Any | None = None,
         enable_gauntlet_gate: bool = False,
@@ -158,7 +160,8 @@ class AutonomousOrchestrator:
         """
         self.aragora_path = aragora_path or Path.cwd()
         self.track_configs = track_configs or DEFAULT_TRACK_CONFIGS
-        self.branch_coordinator = branch_coordinator
+        self.branch_coordinator = None if branch_coordinator is _UNSET else branch_coordinator
+        self._branch_coordinator_explicit = branch_coordinator is not _UNSET
         self.agent_fabric = agent_fabric
         self.use_harness = use_harness
         self.workflow_engine = workflow_engine or get_workflow_engine()
@@ -315,8 +318,8 @@ class AutonomousOrchestrator:
         except ImportError:
             pass
 
-        # Default to BranchCoordinator for worktree isolation if not provided
-        if self.branch_coordinator is None:
+        # Default to BranchCoordinator for worktree isolation if not explicitly set
+        if self.branch_coordinator is None and not self._branch_coordinator_explicit:
             try:
                 from aragora.nomic.branch_coordinator import (
                     BranchCoordinator,

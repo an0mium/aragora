@@ -93,7 +93,7 @@ export class RankingNamespace {
   async get(agentName: string): Promise<AgentRanking> {
     const response = await this.client.request<{ ranking: AgentRanking }>(
       'GET',
-      `/api/v1/rankings/${encodeURIComponent(agentName)}`
+      `/api/rankings/${encodeURIComponent(agentName)}`
     );
     return response.ranking;
   }

@@ -281,7 +281,7 @@ export class AuditAPI {
 
     return this.client.request<{ events: AuditEvent[]; total: number }>(
       'GET',
-      '/api/v1/audit/events',
+      '/api/audit/events',
       { params }
     );
   }
@@ -301,7 +301,7 @@ export class AuditAPI {
   async getEvent(eventId: string): Promise<AuditEvent> {
     return this.client.request<AuditEvent>(
       'GET',
-      `/api/v1/audit/events/${encodeURIComponent(eventId)}`
+      `/api/audit/events/${encodeURIComponent(eventId)}`
     );
   }
 
@@ -334,7 +334,7 @@ export class AuditAPI {
 
     return this.client.request<AuditStats>(
       'GET',
-      '/api/v1/audit/stats',
+      '/api/audit/stats',
       { params }
     );
   }
@@ -390,7 +390,7 @@ export class AuditAPI {
 
     return this.client.request<ComplianceReport>(
       'GET',
-      '/api/v1/audit/compliance/report',
+      '/api/audit/compliance/report',
       { params }
     );
   }
@@ -426,7 +426,7 @@ export class AuditAPI {
 
     return this.client.request<ActorActivity>(
       'GET',
-      '/api/v1/audit/actors/activity',
+      '/api/audit/actors/activity',
       { params }
     );
   }
@@ -453,7 +453,7 @@ export class AuditAPI {
   ): Promise<ResourceHistory> {
     return this.client.request<ResourceHistory>(
       'GET',
-      `/api/v1/audit/resources/${encodeURIComponent(resourceType)}/${encodeURIComponent(resourceId)}/history`
+      `/api/audit/resources/${encodeURIComponent(resourceType)}/${encodeURIComponent(resourceId)}/history`
     );
   }
 
@@ -494,7 +494,7 @@ export class AuditAPI {
 
     return this.client.request<{ url: string; expires_at: string }>(
       'POST',
-      '/api/v1/audit/export',
+      '/api/audit/export',
       { body }
     );
   }
@@ -957,7 +957,7 @@ export class AuditAPI {
 
     return this.client.request<{ findings: AuditFinding[]; total: number }>(
       'GET',
-      '/api/v1/audit/findings',
+      '/api/audit/findings',
       { params }
     );
   }
@@ -977,7 +977,7 @@ export class AuditAPI {
   async getFinding(findingId: string): Promise<AuditFinding> {
     return this.client.request<AuditFinding>(
       'GET',
-      `/api/v1/audit/findings/${encodeURIComponent(findingId)}`
+      `/api/audit/findings/${encodeURIComponent(findingId)}`
     );
   }
 

@@ -242,3 +242,65 @@ class TestAutoReceiptGeneration:
 
             receipt_dict = mock_store.save.call_args[0][0]
             assert receipt_dict["verdict"] == "NEEDS_REVIEW"
+
+    def test_records_epistemic_outcome_when_settlement_metadata_present(
+        self, controller, mock_debate_config, mock_debate_result
+    ):
+        """Settlement metadata should create a ledger record."""
+        mock_debate_config.metadata = {
+            "mode": "epistemic_hygiene",
+            "settlement": {
+                "claim": "Uptime will stay above 99.9%.",
+                "falsifier": "Uptime falls below 99.9% in 30 days.",
+                "metric": "30-day uptime percentage",
+                "review_horizon_days": 30,
+            },
+        }
+        with (
+            patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store,
+            patch(
+                "aragora.debate.epistemic_outcomes.get_epistemic_outcome_store"
+            ) as mock_get_ledger,
+        ):
+            mock_store = MagicMock()
+            mock_ledger = MagicMock()
+            mock_get_store.return_value = mock_store
+            mock_get_ledger.return_value = mock_ledger
+
+            controller._generate_debate_receipt(
+                debate_id="adhoc_epistemic_1",
+                config=mock_debate_config,
+                result=mock_debate_result,
+                duration_seconds=35.0,
+            )
+
+            mock_ledger.record_outcome.assert_called_once()
+            outcome = mock_ledger.record_outcome.call_args[0][0]
+            assert outcome.debate_id == "adhoc_epistemic_1"
+            assert outcome.claim == "Uptime will stay above 99.9%."
+            assert outcome.metric == "30-day uptime percentage"
+            assert outcome.status == "open"
+            assert outcome.initial_confidence == pytest.approx(0.85)
+
+    def test_skips_epistemic_outcome_when_no_settlement_metadata(
+        self, controller, mock_debate_config, mock_debate_result
+    ):
+        """No settlement metadata should skip ledger recording."""
+        mock_debate_config.metadata = {}
+        with (
+            patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store,
+            patch(
+                "aragora.debate.epistemic_outcomes.get_epistemic_outcome_store"
+            ) as mock_get_ledger,
+        ):
+            mock_store = MagicMock()
+            mock_get_store.return_value = mock_store
+
+            controller._generate_debate_receipt(
+                debate_id="adhoc_no_settlement",
+                config=mock_debate_config,
+                result=mock_debate_result,
+                duration_seconds=12.0,
+            )
+
+            mock_get_ledger.assert_not_called()

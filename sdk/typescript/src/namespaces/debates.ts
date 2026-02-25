@@ -2752,6 +2752,82 @@ export class DebatesAPI {
     );
   }
 
+  /**
+   * Get per-debate cost breakdown.
+   *
+   * Returns detailed cost data including total cost, per-agent costs,
+   * per-round costs, and model usage for a specific debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const costs = await client.debates.getDebateCosts('debate-123');
+   * console.log(`Total cost: $${costs.total_cost}`);
+   * ```
+   */
+  async getDebateCosts(debateId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/debates/${encodeURIComponent(debateId)}/costs`
+    );
+  }
+
+  /**
+   * Get polling fallback events for a debate.
+   *
+   * Returns missed or recent events for clients that cannot use
+   * WebSocket streaming. Supports pagination via query params.
+   *
+   * @param debateId - The debate ID
+   * @param options - Optional pagination and filtering
+   *
+   * @example
+   * ```typescript
+   * const events = await client.debates.getDebateEvents('debate-123', { since: '2026-01-01' });
+   * for (const event of events.events) {
+   *   console.log(`${event.type}: ${event.data}`);
+   * }
+   * ```
+   */
+  async getDebateEvents(
+    debateId: string,
+    options?: { since?: string; limit?: number; offset?: number }
+  ): Promise<Record<string, unknown>> {
+    const params: Record<string, unknown> = {};
+    if (options?.since) params.since = options.since;
+    if (options?.limit !== undefined) params.limit = options.limit;
+    if (options?.offset !== undefined) params.offset = options.offset;
+    return this.client.request(
+      'GET',
+      `/api/debates/${encodeURIComponent(debateId)}/events`,
+      { params }
+    );
+  }
+
+  /**
+   * Get per-agent position evolution for a debate.
+   *
+   * Returns how each agent's position changed across rounds,
+   * useful for understanding convergence patterns.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const positions = await client.debates.getPositions('debate-123');
+   * for (const [agent, rounds] of Object.entries(positions.positions)) {
+   *   console.log(`${agent}: ${rounds}`);
+   * }
+   * ```
+   */
+  async getPositions(debateId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/debates/${encodeURIComponent(debateId)}/positions`
+    );
+  }
+
   // ===========================================================================
   // Intervention
   // ===========================================================================

@@ -233,9 +233,9 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
               </button>
               <Link
                 href="/oracle"
-                className="font-mono text-sm px-8 py-3 border border-[var(--acid-magenta)] text-[var(--acid-magenta)] font-bold hover:bg-[var(--acid-magenta)] hover:text-[var(--bg)] transition-all"
+                className="font-mono text-sm px-8 py-3 border border-[var(--acid-cyan)] text-[var(--acid-cyan)] font-bold hover:bg-[var(--acid-cyan)] hover:text-[var(--bg)] transition-all"
               >
-                CONSULT THE ORACLE
+                LIVE STREAMING MODE
               </Link>
             </div>
           </form>

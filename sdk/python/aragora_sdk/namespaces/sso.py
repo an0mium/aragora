@@ -63,6 +63,26 @@ class SSOAPI:
         """
         return self._client.request("GET", "/auth/sso/login")
 
+    def auth_callback(self) -> dict[str, Any]:
+        """Handle SSO callback via auth endpoint (GET)."""
+        return self._client.request("GET", "/auth/sso/callback")
+
+    def auth_callback_post(self, **kwargs: Any) -> dict[str, Any]:
+        """Handle SSO callback via auth endpoint (POST)."""
+        return self._client.request("POST", "/auth/sso/callback", json=kwargs)
+
+    def auth_logout(self) -> dict[str, Any]:
+        """Logout from SSO via auth endpoint."""
+        return self._client.request("GET", "/auth/sso/logout")
+
+    def auth_metadata(self) -> dict[str, Any]:
+        """Get SSO provider metadata via auth endpoint."""
+        return self._client.request("GET", "/auth/sso/metadata")
+
+    def auth_status(self) -> dict[str, Any]:
+        """Get SSO configuration status via auth endpoint."""
+        return self._client.request("GET", "/auth/sso/status")
+
 
 class AsyncSSOAPI:
     """
@@ -103,3 +123,23 @@ class AsyncSSOAPI:
     async def sso_login(self) -> dict[str, Any]:
         """Initiate SSO login via auth endpoint."""
         return await self._client.request("GET", "/auth/sso/login")
+
+    async def auth_callback(self) -> dict[str, Any]:
+        """Handle SSO callback via auth endpoint (GET)."""
+        return await self._client.request("GET", "/auth/sso/callback")
+
+    async def auth_callback_post(self, **kwargs: Any) -> dict[str, Any]:
+        """Handle SSO callback via auth endpoint (POST)."""
+        return await self._client.request("POST", "/auth/sso/callback", json=kwargs)
+
+    async def auth_logout(self) -> dict[str, Any]:
+        """Logout from SSO via auth endpoint."""
+        return await self._client.request("GET", "/auth/sso/logout")
+
+    async def auth_metadata(self) -> dict[str, Any]:
+        """Get SSO provider metadata via auth endpoint."""
+        return await self._client.request("GET", "/auth/sso/metadata")
+
+    async def auth_status(self) -> dict[str, Any]:
+        """Get SSO configuration status via auth endpoint."""
+        return await self._client.request("GET", "/auth/sso/status")

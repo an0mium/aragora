@@ -31,6 +31,29 @@ class AuditTrailAPI:
     def __init__(self, client: AragoraClient):
         self._client = client
 
+    # -- Audit trails ----------------------------------------------------------
+
+    def list_trails(
+        self,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List recent audit trails.
+
+        Args:
+            limit: Maximum number of trails to return
+            offset: Number of trails to skip
+
+        Returns:
+            Dict with audit trails and pagination info
+        """
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return self._client.request("GET", "/api/v1/audit-trails", params=params or None)
+
     # -- Audit entries ---------------------------------------------------------
 
     def list_entries(self) -> dict[str, Any]:
@@ -131,6 +154,27 @@ class AsyncAuditTrailAPI:
 
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
+
+    async def list_trails(
+        self,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """List recent audit trails.
+
+        Args:
+            limit: Maximum number of trails to return
+            offset: Number of trails to skip
+
+        Returns:
+            Dict with audit trails and pagination info
+        """
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        return await self._client.request("GET", "/api/v1/audit-trails", params=params or None)
 
     async def list_entries(self) -> dict[str, Any]:
         """List audit entries."""

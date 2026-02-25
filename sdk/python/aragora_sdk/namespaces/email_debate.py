@@ -89,6 +89,50 @@ class EmailDebateAPI:
             data["user_id"] = user_id
         return self._client.request("POST", "/api/v1/email/prioritize", json=data)
 
+    def prioritize_batch(
+        self,
+        emails: list[dict[str, Any]],
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Prioritize multiple emails in a single batch request.
+
+        Args:
+            emails: List of email dicts to prioritize (same format as prioritize())
+            user_id: User ID for personalized prioritization
+
+        Returns:
+            Dict with batch prioritization results
+        """
+        data: dict[str, Any] = {"emails": emails}
+        if user_id is not None:
+            data["user_id"] = user_id
+        return self._client.request("POST", "/api/v1/email/prioritize/batch", json=data)
+
+    def triage(
+        self,
+        emails: list[dict[str, Any]] | None = None,
+        user_id: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """
+        Full inbox triage with categorization and auto-reply drafts.
+
+        Args:
+            emails: Optional list of emails to triage
+            user_id: User ID for personalized triage
+            **kwargs: Additional triage options
+
+        Returns:
+            Dict with triage results including categories and suggested actions
+        """
+        data: dict[str, Any] = {**kwargs}
+        if emails is not None:
+            data["emails"] = emails
+        if user_id is not None:
+            data["user_id"] = user_id
+        return self._client.request("POST", "/api/v1/email/triage", json=data)
+
 
 class AsyncEmailDebateAPI:
     """
@@ -136,3 +180,45 @@ class AsyncEmailDebateAPI:
         if user_id is not None:
             data["user_id"] = user_id
         return await self._client.request("POST", "/api/v1/email/prioritize", json=data)
+
+    async def prioritize_batch(
+        self,
+        emails: list[dict[str, Any]],
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Prioritize multiple emails in a single batch request.
+
+        Args:
+            emails: List of email dicts to prioritize
+            user_id: User ID for personalized prioritization
+
+        Returns:
+            Dict with batch prioritization results
+        """
+        data: dict[str, Any] = {"emails": emails}
+        if user_id is not None:
+            data["user_id"] = user_id
+        return await self._client.request("POST", "/api/v1/email/prioritize/batch", json=data)
+
+    async def triage(
+        self,
+        emails: list[dict[str, Any]] | None = None,
+        user_id: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Full inbox triage with categorization and auto-reply drafts.
+
+        Args:
+            emails: Optional list of emails to triage
+            user_id: User ID for personalized triage
+            **kwargs: Additional triage options
+
+        Returns:
+            Dict with triage results including categories and suggested actions
+        """
+        data: dict[str, Any] = {**kwargs}
+        if emails is not None:
+            data["emails"] = emails
+        if user_id is not None:
+            data["user_id"] = user_id
+        return await self._client.request("POST", "/api/v1/email/triage", json=data)

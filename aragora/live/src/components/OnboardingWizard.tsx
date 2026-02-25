@@ -13,6 +13,12 @@ interface PersonaOption {
 
 const PERSONAS: PersonaOption[] = [
   {
+    id: 'explore',
+    label: 'Just Exploring',
+    description: 'See how multi-agent debate works',
+    examplePrompt: 'Is it better to build or buy an internal analytics platform?',
+  },
+  {
     id: 'stress-test',
     label: 'Architecture Review',
     description: 'Stress-test technical decisions before launch',
@@ -29,12 +35,6 @@ const PERSONAS: PersonaOption[] = [
     label: 'Compliance Check',
     description: 'Pre-audit GDPR, HIPAA, or SOX requirements',
     examplePrompt: 'Assess our user data handling for GDPR Article 17 (Right to Erasure) compliance.',
-  },
-  {
-    id: 'explore',
-    label: 'Just Exploring',
-    description: 'See how multi-agent debate works',
-    examplePrompt: 'What are the tradeoffs between Redux and React Context for state management?',
   },
 ];
 
@@ -86,8 +86,11 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
         <div className="p-6">
           {step === 1 && (
             <div className="space-y-4">
-              <p className="text-sm font-mono text-text mb-6">
-                What brings you here today?
+              <p className="text-sm font-mono text-text mb-2">
+                What would you like to stress-test?
+              </p>
+              <p className="text-xs font-mono text-text-muted mb-4">
+                Pick a use case and we&apos;ll run your first AI debate in under 30 seconds.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {PERSONAS.map((persona) => (
@@ -112,7 +115,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
             <div className="space-y-6">
               <div>
                 <p className="text-sm font-mono text-text mb-2">
-                  Try this example to see Aragora in action:
+                  Ready to run your first debate:
                 </p>
                 <div className="p-4 border border-acid-cyan/30 rounded-lg bg-acid-cyan/5">
                   <p className="text-sm font-mono text-acid-cyan">
@@ -126,13 +129,13 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
                   onClick={handleStartWithExample}
                   className="flex-1 px-4 py-3 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/90 transition-colors"
                 >
-                  START WITH THIS EXAMPLE
+                  RUN THIS DEBATE
                 </button>
                 <button
                   onClick={handleStartBlank}
                   className="flex-1 px-4 py-3 border border-acid-green/30 text-acid-green font-mono text-sm hover:bg-acid-green/10 transition-colors"
                 >
-                  START BLANK
+                  WRITE MY OWN QUESTION
                 </button>
               </div>
 
@@ -149,7 +152,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
         {/* Footer */}
         <div className="border-t border-acid-green/20 px-6 py-3 bg-surface/50">
           <p className="text-xs font-mono text-text-muted text-center">
-            Aragora uses AI debate to stress-test decisions in minutes, not weeks.
+            42 AI agents will debate, critique, and converge on a verdict for you.
           </p>
         </div>
       </div>

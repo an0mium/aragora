@@ -467,33 +467,33 @@ export class AgentSelectionAPI {
   // ===========================================================================
 
   /**
-   * List all scorer plugins.
+   * List all scorer plugins via the dedicated endpoint.
    */
   async listScorers(): Promise<{ scorers: ScorerPlugin[] }> {
-    const { plugins } = await this.listPlugins();
-    return {
-      scorers: plugins.filter((p): p is ScorerPlugin => p.type === 'scorer'),
-    };
+    return this.client.request<{ scorers: ScorerPlugin[] }>(
+      'GET',
+      '/api/agent-selection/scorers'
+    );
   }
 
   /**
-   * List all team selector plugins.
+   * List all team selector plugins via the dedicated endpoint.
    */
   async listTeamSelectors(): Promise<{ selectors: TeamSelectorPlugin[] }> {
-    const { plugins } = await this.listPlugins();
-    return {
-      selectors: plugins.filter((p): p is TeamSelectorPlugin => p.type === 'team_selector'),
-    };
+    return this.client.request<{ selectors: TeamSelectorPlugin[] }>(
+      'GET',
+      '/api/agent-selection/team-selectors'
+    );
   }
 
   /**
-   * List all role assigner plugins.
+   * List all role assigner plugins via the dedicated endpoint.
    */
   async listRoleAssigners(): Promise<{ assigners: RoleAssignerPlugin[] }> {
-    const { plugins } = await this.listPlugins();
-    return {
-      assigners: plugins.filter((p): p is RoleAssignerPlugin => p.type === 'role_assigner'),
-    };
+    return this.client.request<{ assigners: RoleAssignerPlugin[] }>(
+      'GET',
+      '/api/agent-selection/role-assigners'
+    );
   }
 
   /**

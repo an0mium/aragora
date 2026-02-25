@@ -62,6 +62,7 @@ const navSections: NavSection[] = [
       { label: 'Dashboard', href: '/dashboard', icon: '\u25A6' },
       { label: 'Debates', href: '/debates', icon: '\u2318' },
       { label: 'Oracle', href: '/oracle', icon: '\u25C9' },
+      { label: 'Receipts', href: '/receipts', icon: '\u2611' },
       { label: 'Pipeline', href: '/pipeline', icon: '\u25B8', minMode: 'standard' },
       { label: 'Ideas', href: '/ideas', icon: '\u2726', minMode: 'standard' },
       { label: 'Goals', href: '/goals', icon: '\u25CE', minMode: 'standard' },
@@ -167,6 +168,7 @@ const navSections: NavSection[] = [
   {
     title: 'Browse',
     key: 'browse',
+    minMode: 'standard',
     items: [
       { label: 'Gallery', href: '/gallery', icon: '\u2726' },
       { label: 'Reviews', href: '/reviews', icon: '\u2606' },
@@ -330,9 +332,9 @@ const navSections: NavSection[] = [
     collapsible: false,
     items: [
       { label: 'Get Started', href: '/get-started', icon: '\u25B8' },
-      { label: 'Features', href: '/features', icon: '\u2726' },
+      { label: 'Features', href: '/features', icon: '\u2726', minMode: 'standard' },
       { label: 'Settings', href: '/settings', icon: '*', requiresAuth: true },
-      { label: 'About', href: '/about', icon: 'i' },
+      { label: 'About', href: '/about', icon: 'i', minMode: 'standard' },
     ],
   },
 

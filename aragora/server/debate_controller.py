@@ -1085,6 +1085,27 @@ class DebateController:
                         }
                 except (AttributeError, TypeError, ValueError, OSError):
                     continue
+            try:
+                if calibration_map:
+                    from aragora.debate.epistemic_outcomes import get_epistemic_outcome_store
+                    from aragora.debate.reliability_scheduler import ReliabilityScheduler
+
+                    scheduler = ReliabilityScheduler()
+                    settled_outcomes = get_epistemic_outcome_store().list_outcomes(
+                        status="resolved",
+                        limit=500,
+                    )
+                    settlement_deltas = scheduler.build_settlement_deltas(settled_outcomes)
+                    budget_shares = scheduler.allocate_budget(
+                        participants,
+                        calibration_map,
+                        settlement_deltas,
+                    )
+                    for agent_name, share in budget_shares.items():
+                        if agent_name in calibration_map:
+                            calibration_map[agent_name]["budget_share"] = round(float(share), 4)
+            except (ImportError, TypeError, ValueError, OSError) as e:
+                logger.debug("Reliability budget share computation skipped: %s", e)
             return calibration_map
         except ImportError:
             return {}
@@ -1270,6 +1291,14 @@ class DebateController:
             # Save receipt
             receipt_store.save(receipt_dict)
             logger.info("[debate] Generated receipt %s for debate %s", receipt_id, debate_id)
+            self._record_epistemic_outcome(
+                debate_id=debate_id,
+                claim_settlement=settlement_snapshot,
+                confidence=receipt_dict["confidence"],
+                mode=mode_meta,
+                receipt_id=receipt_id,
+                participants=agents_list,
+            )
 
             # Add receipt_id to the debate status
             update_debate_status(debate_id, "completed", result={"receipt_id": receipt_id})
@@ -1324,6 +1353,55 @@ class DebateController:
             # OSError: storage access errors
             # KeyError: missing required fields
             logger.warning("[debate] Failed to generate receipt for %s: %s", debate_id, e)
+
+    def _record_epistemic_outcome(
+        self,
+        *,
+        debate_id: str,
+        claim_settlement: dict[str, Any] | None,
+        confidence: float,
+        mode: str | None,
+        receipt_id: str,
+        participants: list[str],
+    ) -> None:
+        """Record a debate claim in the epistemic outcome ledger.
+
+        This is best-effort and never blocks receipt generation.
+        """
+        if not isinstance(claim_settlement, dict):
+            return
+        try:
+            from aragora.debate.epistemic_outcomes import (
+                EpistemicOutcome,
+                get_epistemic_outcome_store,
+            )
+
+            store = get_epistemic_outcome_store()
+            store.record_outcome(
+                EpistemicOutcome(
+                    debate_id=debate_id,
+                    claim=str(claim_settlement.get("claim") or "").strip()
+                    or "Define the primary claim under debate.",
+                    falsifier=str(claim_settlement.get("falsifier") or "").strip()
+                    or "Define an objective falsifier for the primary claim.",
+                    metric=str(claim_settlement.get("metric") or "").strip()
+                    or "Define a measurable metric for decision settlement.",
+                    review_horizon_days=max(
+                        1,
+                        int(claim_settlement.get("review_horizon_days", 30)),
+                    ),
+                    status="open",
+                    resolver_type="human",
+                    initial_confidence=float(confidence),
+                    metadata={
+                        "mode": mode or "",
+                        "receipt_id": receipt_id,
+                        "participants": participants,
+                    },
+                )
+            )
+        except (ImportError, TypeError, ValueError, OSError) as e:
+            logger.debug("Epistemic outcome ledger skipped for %s: %s", debate_id, e)
 
     @classmethod
     def shutdown(cls) -> None:

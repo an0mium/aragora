@@ -190,6 +190,24 @@ export class OnboardingAPI {
     return this.updateStep({ action: 'complete' });
   }
 
+  /**
+   * Get onboarding status via the dedicated status endpoint.
+   */
+  async getStatus(): Promise<{
+    needs_onboarding: boolean;
+    current_step?: string;
+    progress_percentage?: number;
+  }> {
+    return this.client.request('GET', '/api/onboarding/status');
+  }
+
+  /**
+   * Mark onboarding as complete via the dedicated complete endpoint.
+   */
+  async markComplete(): Promise<{ success: boolean; completed_at: string }> {
+    return this.client.request('POST', '/api/onboarding/complete');
+  }
+
   // ===========================================================================
   // Templates
   // ===========================================================================

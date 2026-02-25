@@ -65,7 +65,7 @@ export class QuotasNamespace {
   async get(resource: string): Promise<Quota> {
     return this.client.request<Quota>(
       'GET',
-      `/api/v1/quotas/${encodeURIComponent(resource)}`
+      `/api/quotas/${encodeURIComponent(resource)}`
     );
   }
 
@@ -77,7 +77,7 @@ export class QuotasNamespace {
   }): Promise<QuotaUsageEntry[]> {
     const response = await this.client.request<{ usage: QuotaUsageEntry[] }>(
       'GET',
-      '/api/v1/quotas/usage',
+      '/api/quotas/usage',
       { params: options }
     );
     return response.usage;

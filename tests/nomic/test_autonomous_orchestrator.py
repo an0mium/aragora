@@ -1906,6 +1906,7 @@ class TestPipelineWiring:
             task_decomposer=mock_task_decomposer,
             branch_coordinator=None,
         )
+        orchestrator.branch_coordinator = None
         # Ensure bridge is present
         assert orchestrator._execution_bridge is not None
 
@@ -2043,6 +2044,7 @@ class TestPipelineWiring:
             task_decomposer=mock_task_decomposer,
             branch_coordinator=None,
         )
+        orchestrator.branch_coordinator = None
         mock_km = MagicMock()
         orchestrator._km_feedback_bridge = mock_km
 
