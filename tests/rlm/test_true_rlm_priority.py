@@ -119,9 +119,8 @@ class TestGetRLMFactory:
         from aragora.rlm import RLMMode, get_rlm
 
         with patch("aragora.rlm.bridge.HAS_OFFICIAL_RLM", False):
-            with patch("aragora.rlm.factory.HAS_OFFICIAL_RLM", False):
-                with pytest.raises(RuntimeError, match="TRUE RLM required"):
-                    get_rlm(mode=RLMMode.TRUE_RLM, force_new=True)
+            with pytest.raises(RuntimeError, match="TRUE RLM required"):
+                get_rlm(mode=RLMMode.TRUE_RLM, force_new=True)
 
     def test_get_rlm_require_true_rlm_raises(self):
         """get_rlm with require_true_rlm should raise if not available."""
@@ -130,9 +129,8 @@ class TestGetRLMFactory:
         from aragora.rlm import get_rlm
 
         with patch("aragora.rlm.bridge.HAS_OFFICIAL_RLM", False):
-            with patch("aragora.rlm.factory.HAS_OFFICIAL_RLM", False):
-                with pytest.raises(RuntimeError, match="TRUE RLM required"):
-                    get_rlm(require_true_rlm=True, force_new=True)
+            with pytest.raises(RuntimeError, match="TRUE RLM required"):
+                get_rlm(require_true_rlm=True, force_new=True)
 
 
 class TestCompressAndQuery:

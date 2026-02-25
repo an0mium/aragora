@@ -75,9 +75,9 @@ function LoginPageContent() {
           <div className="w-full max-w-md">
             <div className="border border-acid-green/30 bg-surface/50 p-8">
               <div className="text-center mb-8">
-                <h1 className="text-2xl font-mono text-acid-green mb-2">SYSTEM ACCESS</h1>
+                <h1 className="text-2xl font-mono text-acid-green mb-2">WELCOME BACK</h1>
                 <p className="text-text-muted text-sm font-mono">
-                  Enter credentials to authenticate
+                  Sign in to your account
                 </p>
               </div>
 
@@ -156,8 +156,7 @@ function LoginPageContent() {
 
               <div className="mt-8 pt-6 border-t border-acid-green/20">
                 <div className="text-xs font-mono text-text-muted text-center">
-                  <p className="mb-2">CONNECTION STATUS: SECURE</p>
-                  <p className="text-acid-green/50">{'═'.repeat(30)}</p>
+                  <p>Free tier: 10 debates/month with real AI models</p>
                 </div>
               </div>
             </div>
