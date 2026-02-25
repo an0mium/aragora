@@ -12,6 +12,7 @@ import { logger } from '@/utils/logger';
 import { CostSummaryWidget } from '@/components/costs/CostSummaryWidget';
 import { TrialStatusWidget } from '@/components/billing/TrialStatusWidget';
 import { TemplateMarketplace } from '@/components/templates/TemplateMarketplace';
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
 import { useDashboardEvents } from '@/hooks/useDashboardEvents';
 
@@ -321,105 +322,119 @@ export default function DashboardPage() {
           </div>
 
           {/* Executive Summary KPIs */}
-          <ExecutiveSummary refreshInterval={pollInterval} />
+          <PanelErrorBoundary panelName="Executive Summary">
+            <ExecutiveSummary refreshInterval={pollInterval} />
+          </PanelErrorBoundary>
 
           {/* Trial / Subscription Status */}
           <div className="mt-6">
-            <TrialStatusWidget />
+            <PanelErrorBoundary panelName="Trial Status">
+              <TrialStatusWidget />
+            </PanelErrorBoundary>
           </div>
 
           {/* Settlement Status */}
           <div className="mt-6">
-            <SettlementPanel refreshInterval={pollInterval} />
+            <PanelErrorBoundary panelName="Settlement Panel">
+              <SettlementPanel refreshInterval={pollInterval} />
+            </PanelErrorBoundary>
           </div>
 
           {/* Recent Activity Section */}
           <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Debates */}
-            <div className="bg-[var(--surface)] border border-[var(--border)]">
-              <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-                <h3 className="text-sm font-mono text-[var(--acid-green)]">
-                  {'>'} RECENT DEBATES
-                </h3>
-                <Link
-                  href="/debates"
-                  className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
-                >
-                  VIEW ALL
-                </Link>
-              </div>
+            <PanelErrorBoundary panelName="Recent Debates">
+              <div className="bg-[var(--surface)] border border-[var(--border)]">
+                <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+                  <h3 className="text-sm font-mono text-[var(--acid-green)]">
+                    {'>'} RECENT DEBATES
+                  </h3>
+                  <Link
+                    href="/debates"
+                    className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                  >
+                    VIEW ALL
+                  </Link>
+                </div>
 
-              {loadingDebates ? (
-                <div className="p-4 text-center text-[var(--text-muted)] font-mono text-sm animate-pulse">
-                  Loading...
-                </div>
-              ) : recentDebates.length === 0 ? (
-                <div className="p-4 text-center text-[var(--text-muted)] font-mono text-sm">
-                  No recent debates. <Link href="/arena" className="text-[var(--acid-green)] hover:underline">Start one</Link>
-                </div>
-              ) : (
-                <div className="divide-y divide-[var(--border)]">
-                  {recentDebates.map((debate) => (
-                    <Link
-                      key={debate.id}
-                      href={`/debate/${debate.id}`}
-                      className="block p-4 hover:bg-[var(--bg)] transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-mono text-[var(--text)] truncate">
-                            {debate.task}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className="flex items-center gap-1">
-                              {debate.agents.slice(0, 3).map((agent, i) => {
-                                const colors = getAgentColors(agent);
-                                return (
-                                  <span
-                                    key={i}
-                                    className={`px-1 py-0.5 text-[10px] ${colors.bg} ${colors.text} font-mono`}
-                                  >
-                                    {agent.split('-')[0][0].toUpperCase()}
+                {loadingDebates ? (
+                  <div className="p-4 text-center text-[var(--text-muted)] font-mono text-sm animate-pulse">
+                    Loading...
+                  </div>
+                ) : recentDebates.length === 0 ? (
+                  <div className="p-4 text-center text-[var(--text-muted)] font-mono text-sm">
+                    No recent debates. <Link href="/arena" className="text-[var(--acid-green)] hover:underline">Start one</Link>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[var(--border)]">
+                    {recentDebates.map((debate) => (
+                      <Link
+                        key={debate.id}
+                        href={`/debate/${debate.id}`}
+                        className="block p-4 hover:bg-[var(--bg)] transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-mono text-[var(--text)] truncate">
+                              {debate.task}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex items-center gap-1">
+                                {debate.agents.slice(0, 3).map((agent, i) => {
+                                  const colors = getAgentColors(agent);
+                                  return (
+                                    <span
+                                      key={i}
+                                      className={`px-1 py-0.5 text-[10px] ${colors.bg} ${colors.text} font-mono`}
+                                    >
+                                      {agent.split('-')[0][0].toUpperCase()}
+                                    </span>
+                                  );
+                                })}
+                                {debate.agents.length > 3 && (
+                                  <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                                    +{debate.agents.length - 3}
                                   </span>
-                                );
-                              })}
-                              {debate.agents.length > 3 && (
-                                <span className="text-[10px] text-[var(--text-muted)] font-mono">
-                                  +{debate.agents.length - 3}
-                                </span>
-                              )}
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className={`text-xs font-mono ${
+                              debate.consensus_reached ? 'text-green-400' : 'text-yellow-400'
+                            }`}>
+                              {debate.consensus_reached ? '' : ''}{' '}
+                              {Math.round(debate.confidence * 100)}%
+                            </div>
+                            <div className="text-[10px] text-[var(--text-muted)] font-mono mt-1">
+                              {formatTimeAgo(debate.created_at)}
                             </div>
                           </div>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <div className={`text-xs font-mono ${
-                            debate.consensus_reached ? 'text-green-400' : 'text-yellow-400'
-                          }`}>
-                            {debate.consensus_reached ? '' : ''}{' '}
-                            {Math.round(debate.confidence * 100)}%
-                          </div>
-                          <div className="text-[10px] text-[var(--text-muted)] font-mono mt-1">
-                            {formatTimeAgo(debate.created_at)}
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </PanelErrorBoundary>
 
             {/* System Status */}
-            <SystemStatusPanel refreshInterval={pollInterval} />
+            <PanelErrorBoundary panelName="System Status">
+              <SystemStatusPanel refreshInterval={pollInterval} />
+            </PanelErrorBoundary>
           </div>
 
           {/* Cost Overview */}
           <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <CostSummaryWidget />
+            <PanelErrorBoundary panelName="Cost Summary">
+              <CostSummaryWidget />
+            </PanelErrorBoundary>
           </div>
 
           {/* Debate Templates */}
-          <TemplateMarketplace />
+          <PanelErrorBoundary panelName="Template Marketplace">
+            <TemplateMarketplace />
+          </PanelErrorBoundary>
 
           {/* Feature Grid */}
           <div className="mt-8">

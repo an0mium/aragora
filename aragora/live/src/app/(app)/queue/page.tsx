@@ -7,6 +7,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { logger } from '@/utils/logger';
 import { useQueueMonitoring, type SubmitJobPayload } from '@/hooks/useQueueMonitoring';
 
@@ -209,168 +210,170 @@ export default function QueuePage() {
             <ErrorWithRetry error={error} onRetry={fetchData} className="mb-6" />
           )}
 
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="text-acid-green font-mono animate-pulse">
-                Loading queue data...
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Stats Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-                <div className="card p-4 text-center">
-                  <div className="text-3xl font-mono text-acid-yellow">{stats?.pending || 0}</div>
-                  <div className="text-xs font-mono text-text-muted">Pending</div>
-                </div>
-                <div className="card p-4 text-center">
-                  <div className="text-3xl font-mono text-acid-cyan">{stats?.running || 0}</div>
-                  <div className="text-xs font-mono text-text-muted">Running</div>
-                </div>
-                <div className="card p-4 text-center">
-                  <div className="text-3xl font-mono text-acid-green">{stats?.completed || 0}</div>
-                  <div className="text-xs font-mono text-text-muted">Completed</div>
-                </div>
-                <div className="card p-4 text-center">
-                  <div className="text-3xl font-mono text-crimson">{stats?.failed || 0}</div>
-                  <div className="text-xs font-mono text-text-muted">Failed</div>
-                </div>
-                <div className="card p-4 text-center">
-                  <div className="text-3xl font-mono text-text">{stats?.total || 0}</div>
-                  <div className="text-xs font-mono text-text-muted">Total</div>
+          <PanelErrorBoundary panelName="Queue Data">
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="text-acid-green font-mono animate-pulse">
+                  Loading queue data...
                 </div>
               </div>
-
-              {/* Workers Section */}
-              <div className="card p-4 mb-8">
-                <h2 className="text-lg font-mono font-bold text-acid-green mb-4">[WORKERS]</h2>
-                {workers.length === 0 ? (
-                  <div className="text-text-muted font-mono text-sm">
-                    No workers registered. Redis queue may not be configured.
+            ) : (
+              <>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+                  <div className="card p-4 text-center">
+                    <div className="text-3xl font-mono text-acid-yellow">{stats?.pending || 0}</div>
+                    <div className="text-xs font-mono text-text-muted">Pending</div>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {workers.map((worker) => (
-                      <div key={worker.id} className="bg-bg p-3 rounded border border-border">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-mono text-sm truncate">{worker.id}</span>
-                          <span className={`font-mono text-xs uppercase ${statusColors[worker.status]}`}>
-                            {worker.status}
-                          </span>
-                        </div>
-                        <div className="text-xs text-text-muted font-mono">
-                          Jobs processed: {worker.jobs_processed}
-                        </div>
-                        {worker.current_job_id && (
-                          <div className="text-xs text-acid-cyan font-mono mt-1">
-                            Current: {worker.current_job_id}
+                  <div className="card p-4 text-center">
+                    <div className="text-3xl font-mono text-acid-cyan">{stats?.running || 0}</div>
+                    <div className="text-xs font-mono text-text-muted">Running</div>
+                  </div>
+                  <div className="card p-4 text-center">
+                    <div className="text-3xl font-mono text-acid-green">{stats?.completed || 0}</div>
+                    <div className="text-xs font-mono text-text-muted">Completed</div>
+                  </div>
+                  <div className="card p-4 text-center">
+                    <div className="text-3xl font-mono text-crimson">{stats?.failed || 0}</div>
+                    <div className="text-xs font-mono text-text-muted">Failed</div>
+                  </div>
+                  <div className="card p-4 text-center">
+                    <div className="text-3xl font-mono text-text">{stats?.total || 0}</div>
+                    <div className="text-xs font-mono text-text-muted">Total</div>
+                  </div>
+                </div>
+
+                {/* Workers Section */}
+                <div className="card p-4 mb-8">
+                  <h2 className="text-lg font-mono font-bold text-acid-green mb-4">[WORKERS]</h2>
+                  {workers.length === 0 ? (
+                    <div className="text-text-muted font-mono text-sm">
+                      No workers registered. Redis queue may not be configured.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {workers.map((worker) => (
+                        <div key={worker.id} className="bg-bg p-3 rounded border border-border">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-mono text-sm truncate">{worker.id}</span>
+                            <span className={`font-mono text-xs uppercase ${statusColors[worker.status]}`}>
+                              {worker.status}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Jobs Section */}
-              <div className="card p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-mono font-bold text-acid-green">[JOBS]</h2>
-                  <div className="flex gap-2">
-                    {['all', 'pending', 'running', 'completed', 'failed'].map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => setStatusFilter(status)}
-                        className={`px-3 py-1 font-mono text-xs border transition-colors ${
-                          statusFilter === status
-                            ? 'border-acid-green bg-acid-green/20 text-acid-green'
-                            : 'border-border text-text-muted hover:border-acid-green/50'
-                        }`}
-                      >
-                        {status.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
+                          <div className="text-xs text-text-muted font-mono">
+                            Jobs processed: {worker.jobs_processed}
+                          </div>
+                          {worker.current_job_id && (
+                            <div className="text-xs text-acid-cyan font-mono mt-1">
+                              Current: {worker.current_job_id}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {filteredJobs.length === 0 ? (
-                  <div className="text-text-muted font-mono text-sm text-center py-8">
-                    No jobs found{statusFilter !== 'all' ? ` with status "${statusFilter}"` : ''}.
+                {/* Jobs Section */}
+                <div className="card p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-mono font-bold text-acid-green">[JOBS]</h2>
+                    <div className="flex gap-2">
+                      {['all', 'pending', 'running', 'completed', 'failed'].map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => setStatusFilter(status)}
+                          className={`px-3 py-1 font-mono text-xs border transition-colors ${
+                            statusFilter === status
+                              ? 'border-acid-green bg-acid-green/20 text-acid-green'
+                              : 'border-border text-text-muted hover:border-acid-green/50'
+                          }`}
+                        >
+                          {status.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full font-mono text-sm">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left py-2 px-2 text-text-muted">ID</th>
-                          <th className="text-left py-2 px-2 text-text-muted">Type</th>
-                          <th className="text-left py-2 px-2 text-text-muted">Status</th>
-                          <th className="text-left py-2 px-2 text-text-muted">Priority</th>
-                          <th className="text-left py-2 px-2 text-text-muted">Created</th>
-                          <th className="text-left py-2 px-2 text-text-muted">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredJobs.map((job) => (
-                          <tr key={job.id} className="border-b border-border/50 hover:bg-surface/50">
-                            <td className="py-2 px-2 truncate max-w-[120px]" title={job.id}>
-                              {job.id.slice(0, 8)}...
-                            </td>
-                            <td className="py-2 px-2">{job.type}</td>
-                            <td className={`py-2 px-2 ${statusColors[job.status]}`}>
-                              {job.status.toUpperCase()}
-                            </td>
-                            <td className="py-2 px-2">{job.priority}</td>
-                            <td className="py-2 px-2 text-text-muted">
-                              {new Date(job.created_at).toLocaleTimeString()}
-                            </td>
-                            <td className="py-2 px-2">
-                              <div className="flex gap-2">
-                                {job.status === 'failed' && (
-                                  <button
-                                    onClick={() => handleRetryJob(job.id)}
-                                    className="text-acid-cyan hover:text-acid-green text-xs"
-                                  >
-                                    [RETRY]
-                                  </button>
-                                )}
-                                {(job.status === 'pending' || job.status === 'running') && (
-                                  <button
-                                    onClick={() => handleCancelJob(job.id)}
-                                    className="text-crimson hover:text-crimson/80 text-xs"
-                                  >
-                                    [CANCEL]
-                                  </button>
-                                )}
-                              </div>
-                            </td>
+
+                  {filteredJobs.length === 0 ? (
+                    <div className="text-text-muted font-mono text-sm text-center py-8">
+                      No jobs found{statusFilter !== 'all' ? ` with status "${statusFilter}"` : ''}.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full font-mono text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left py-2 px-2 text-text-muted">ID</th>
+                            <th className="text-left py-2 px-2 text-text-muted">Type</th>
+                            <th className="text-left py-2 px-2 text-text-muted">Status</th>
+                            <th className="text-left py-2 px-2 text-text-muted">Priority</th>
+                            <th className="text-left py-2 px-2 text-text-muted">Created</th>
+                            <th className="text-left py-2 px-2 text-text-muted">Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {filteredJobs.map((job) => (
+                            <tr key={job.id} className="border-b border-border/50 hover:bg-surface/50">
+                              <td className="py-2 px-2 truncate max-w-[120px]" title={job.id}>
+                                {job.id.slice(0, 8)}...
+                              </td>
+                              <td className="py-2 px-2">{job.type}</td>
+                              <td className={`py-2 px-2 ${statusColors[job.status]}`}>
+                                {job.status.toUpperCase()}
+                              </td>
+                              <td className="py-2 px-2">{job.priority}</td>
+                              <td className="py-2 px-2 text-text-muted">
+                                {new Date(job.created_at).toLocaleTimeString()}
+                              </td>
+                              <td className="py-2 px-2">
+                                <div className="flex gap-2">
+                                  {job.status === 'failed' && (
+                                    <button
+                                      onClick={() => handleRetryJob(job.id)}
+                                      className="text-acid-cyan hover:text-acid-green text-xs"
+                                    >
+                                      [RETRY]
+                                    </button>
+                                  )}
+                                  {(job.status === 'pending' || job.status === 'running') && (
+                                    <button
+                                      onClick={() => handleCancelJob(job.id)}
+                                      className="text-crimson hover:text-crimson/80 text-xs"
+                                    >
+                                      [CANCEL]
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Performance Stats */}
+                {stats?.avg_wait_time_ms !== undefined && (
+                  <div className="grid grid-cols-2 gap-4 mt-8">
+                    <div className="card p-4">
+                      <div className="text-text-muted font-mono text-xs mb-1">Avg Wait Time</div>
+                      <div className="text-xl font-mono text-acid-green">
+                        {(stats.avg_wait_time_ms / 1000).toFixed(2)}s
+                      </div>
+                    </div>
+                    <div className="card p-4">
+                      <div className="text-text-muted font-mono text-xs mb-1">Avg Processing Time</div>
+                      <div className="text-xl font-mono text-acid-cyan">
+                        {((stats.avg_processing_time_ms || 0) / 1000).toFixed(2)}s
+                      </div>
+                    </div>
                   </div>
                 )}
-              </div>
-
-              {/* Performance Stats */}
-              {stats?.avg_wait_time_ms !== undefined && (
-                <div className="grid grid-cols-2 gap-4 mt-8">
-                  <div className="card p-4">
-                    <div className="text-text-muted font-mono text-xs mb-1">Avg Wait Time</div>
-                    <div className="text-xl font-mono text-acid-green">
-                      {(stats.avg_wait_time_ms / 1000).toFixed(2)}s
-                    </div>
-                  </div>
-                  <div className="card p-4">
-                    <div className="text-text-muted font-mono text-xs mb-1">Avg Processing Time</div>
-                    <div className="text-xl font-mono text-acid-cyan">
-                      {((stats.avg_processing_time_ms || 0) / 1000).toFixed(2)}s
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+              </>
+            )}
+          </PanelErrorBoundary>
         </div>
       </main>
 

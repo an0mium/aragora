@@ -1115,6 +1115,22 @@ class Arena(ArenaDelegatesMixin):
                 )
 
         await _runner_setup_debate_infrastructure(self, state)
+
+        # Register debate with operator intervention manager for pause/resume
+        try:
+            from aragora.debate.operator_intervention import get_operator_manager
+
+            _intervention_mgr = get_operator_manager()
+            _intervention_mgr.register(
+                state.debate_id,
+                total_rounds=getattr(self.protocol, "rounds", 0),
+            )
+        except ImportError:
+            _intervention_mgr = None
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("Intervention manager registration skipped: %s", e)
+            _intervention_mgr = None
+
         ACTIVE_DEBATES.inc()
 
         tracer = get_tracer()

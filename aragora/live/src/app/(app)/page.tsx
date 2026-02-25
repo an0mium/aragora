@@ -432,16 +432,16 @@ export default function Home() {
         <main className="min-h-screen bg-bg text-text relative z-10">
           <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
             {isNewUser && (
-              <div className="border border-[var(--acid-green)]/30 bg-[var(--surface)]/50 p-4 flex items-start justify-between gap-3">
+              <div className="border border-[var(--acid-green)]/30 bg-[var(--surface)]/50 p-4 rounded-[var(--radius-sm)] flex items-start justify-between gap-3">
                 <p className="font-mono text-sm text-[var(--text-muted)]">
                   Welcome to Aragora. Start your first decision below — agents will debate and deliver a verdict.
                 </p>
                 <button
                   onClick={() => markOnboardingComplete()}
-                  className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] shrink-0"
+                  className="w-6 h-6 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:bg-[var(--surface-elevated)] rounded transition-colors shrink-0"
                   aria-label="Dismiss welcome message"
                 >
-                  [x]
+                  &times;
                 </button>
               </div>
             )}
@@ -467,9 +467,10 @@ export default function Home() {
                   <h2 className="font-mono text-sm text-[var(--acid-green)]">Your debate result</h2>
                   <button
                     onClick={() => setPendingDebateResult(null)}
-                    className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)]"
+                    className="w-6 h-6 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:bg-[var(--surface-elevated)] rounded transition-colors shrink-0"
+                    aria-label="Dismiss"
                   >
-                    [dismiss]
+                    &times;
                   </button>
                 </div>
                 <DebateResultPreview result={pendingDebateResult as unknown as DebateResponse} />
@@ -531,10 +532,10 @@ export default function Home() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono text-[var(--text-muted)]">VIEW:</span>
-              <div className="flex items-center gap-0.5 bg-[var(--bg)] border border-[var(--border)] p-0.5 font-mono text-xs">
+              <div className="flex items-center gap-0.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-sm)] p-0.5 font-mono text-xs">
                 <button
                   onClick={() => setViewMode('tabs')}
-                  className={`px-2 py-1 transition-colors ${
+                  className={`px-2.5 py-1 rounded-[3px] transition-colors ${
                     viewMode === 'tabs'
                       ? 'bg-[var(--acid-green)] text-[var(--bg)]'
                       : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
@@ -544,7 +545,7 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => setViewMode('stream')}
-                  className={`px-2 py-1 transition-colors ${
+                  className={`px-2.5 py-1 rounded-[3px] transition-colors ${
                     viewMode === 'stream'
                       ? 'bg-[var(--acid-green)] text-[var(--bg)]'
                       : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
@@ -554,7 +555,7 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => setViewMode('deep-audit')}
-                  className={`px-2 py-1 transition-colors ${
+                  className={`px-2.5 py-1 rounded-[3px] transition-colors ${
                     viewMode === 'deep-audit'
                       ? 'bg-[var(--acid-green)] text-[var(--bg)]'
                       : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
@@ -564,7 +565,7 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => setViewMode('graph')}
-                  className={`px-2 py-1 transition-colors ${
+                  className={`px-2.5 py-1 rounded-[3px] transition-colors ${
                     viewMode === 'graph'
                       ? 'bg-[var(--acid-green)] text-[var(--bg)]'
                       : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
