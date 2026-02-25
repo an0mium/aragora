@@ -18,6 +18,7 @@ import asyncio
 import json
 import os
 import tempfile
+import threading
 from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from typing import Any
@@ -166,6 +167,55 @@ def mock_handler(mock_user):
     handler.headers = {"Content-Length": "0"}
     handler.rfile = BytesIO(b"")
     return handler
+
+
+@pytest.fixture(autouse=True)
+def _ensure_clean_run_async():
+    """Patch mound module-level _run_async bridges for async-marked sync-handler tests.
+
+    These tests call sync mixin handlers from within ``@pytest.mark.asyncio`` test
+    functions. The handler modules import ``run_async`` at module load time as
+    ``_run_async``. Patch those references with a deterministic bridge that runs
+    the coroutine in a fresh loop for each call.
+    """
+
+    def _safe_run_async(coro):
+        result: dict[str, Any] = {"value": None, "error": None}
+
+        def _runner() -> None:
+            try:
+                result["value"] = asyncio.run(coro)
+            except BaseException as exc:  # noqa: BLE001 - test helper
+                result["error"] = exc
+
+        thread = threading.Thread(target=_runner, daemon=True)
+        thread.start()
+        thread.join(timeout=30)
+
+        if thread.is_alive():
+            raise TimeoutError("_run_async test bridge timed out after 30s")
+        if result["error"] is not None:
+            raise result["error"]
+        return result["value"]
+
+    patches = []
+    for mod_path in (
+        "aragora.server.handlers.knowledge_base.mound.visibility._run_async",
+        "aragora.server.handlers.knowledge_base.mound.sharing._run_async",
+        "aragora.server.handlers.knowledge_base.mound.global_knowledge._run_async",
+        "aragora.server.handlers.knowledge_base.mound.federation._run_async",
+    ):
+        try:
+            p = patch(mod_path, side_effect=_safe_run_async)
+            p.start()
+            patches.append(p)
+        except (ImportError, AttributeError):
+            pass
+
+    yield
+
+    for p in patches:
+        p.stop()
 
 
 def make_handler_with_body(data: dict, user: Any = None) -> MagicMock:
