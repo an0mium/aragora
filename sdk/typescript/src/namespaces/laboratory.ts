@@ -153,4 +153,25 @@ export class LaboratoryAPI {
       json: body as Record<string, unknown>,
     });
   }
+
+  /**
+   * Get trait analysis for a specific agent.
+   *
+   * Returns detected traits, performance patterns, and analysis
+   * for the given agent.
+   *
+   * @param agentName - The name of the agent to analyze
+   *
+   * @example
+   * ```typescript
+   * const analysis = await client.laboratory.getAgentAnalysis('claude');
+   * console.log(`Agent: ${analysis.agent}`);
+   * for (const trait of analysis.traits ?? []) {
+   *   console.log(`  ${trait.trait}: ${trait.confidence}`);
+   * }
+   * ```
+   */
+  async getAgentAnalysis(agentName: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/laboratory/agent/${encodeURIComponent(agentName)}/analysis`);
+  }
 }

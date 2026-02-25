@@ -35,6 +35,9 @@ try:
         get_slack_handler,
         get_slack_integration,
     )
+
+    if SlackHandler is None:
+        raise ImportError("SlackHandler resolved to None")
 except (ImportError, ModuleNotFoundError):
     pytest.skip(
         "slack handler not importable (conftest import shadow)",

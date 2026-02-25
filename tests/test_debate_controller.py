@@ -120,6 +120,25 @@ class TestDebateRequest:
         assert request.metadata["settlement"]["claim"] == "Should we approve migration?"
         assert request.metadata["settlement"]["review_horizon_days"] == 14
 
+    def test_from_dict_epistemic_hygiene_production_rejects_placeholder_settlement(
+        self, monkeypatch
+    ):
+        """Production requests must not use placeholder settlement fields."""
+        monkeypatch.setenv("ARAGORA_ENV", "production")
+        data = {
+            "question": "Should we approve migration?",
+            "mode": "epistemic_hygiene",
+            "metadata": {
+                "settlement": {
+                    "falsifier": "Define an objective falsifier for the primary claim.",
+                    "metric": "Define a measurable metric for decision settlement.",
+                    "review_horizon_days": 14,
+                }
+            },
+        }
+        with pytest.raises(ValueError, match="requires settlement fields in production"):
+            DebateRequest.from_dict(data)
+
     def test_from_dict_missing_question_raises(self):
         """Should raise ValueError if question is missing."""
         with pytest.raises(ValueError, match="question or task field is required"):
@@ -527,7 +546,39 @@ class TestDebateControllerRunDebate:
         result_payload = completed_calls[0][1].get("result", {})
         assert result_payload["mode"] == "epistemic_hygiene"
         assert result_payload["settlement"]["status"] == "needs_definition"
-        assert "falsifier" in result_payload["settlement"]
+        assert result_payload["settlement"]["falsifier"] == "Metric X drops below threshold"
+        assert result_payload["settlement"]["metric"] == "Define a measurable metric for decision settlement."
+        assert result_payload["settlement"]["review_horizon_days"] == 30
+        assert result_payload["settlement"]["claim"] == "Test?"
+
+    @patch("aragora.server.debate_controller.update_debate_status")
+    def test_run_debate_hygiene_mode_without_settlement_uses_scaffold(self, mock_update):
+        """Hygiene-mode debates emit normalized settlement scaffolding even without explicit metadata."""
+        from aragora.server.debate_factory import DebateConfig
+
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
+
+        config = DebateConfig(
+            question="Should we ship this release?",
+            agents_str="agent1",
+            rounds=1,
+            debate_id="test_123",
+            mode="epistemic_hygiene",
+            metadata={},
+        )
+
+        controller._run_debate(config, "test_123")
+
+        calls = mock_update.call_args_list
+        completed_calls = [c for c in calls if c[0][1] == "completed"]
+        assert len(completed_calls) >= 1
+        result_payload = completed_calls[0][1].get("result", {})
+        settlement = result_payload["settlement"]
+        assert settlement["status"] == "needs_definition"
+        assert settlement["falsifier"] == "Define an objective falsifier for the primary claim."
+        assert settlement["metric"] == "Define a measurable metric for decision settlement."
+        assert settlement["review_horizon_days"] == 30
+        assert settlement["claim"] == "Should we ship this release?"
 
     @patch("aragora.storage.receipt_store.get_receipt_store")
     @patch("aragora.server.debate_controller.update_debate_status")

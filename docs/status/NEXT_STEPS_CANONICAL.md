@@ -5,6 +5,9 @@ Last updated: 2026-02-13
 This is the single source of truth for project-wide execution priorities.
 Legacy planning documents should link here.
 
+Current short-horizon execution window: `/docs/status/EXECUTION_NEXT_6_WEEKS_2026-02-25.md`
+(implementation detail layer; does not supersede priorities below).
+
 ## Execution Order
 
 ### 1) Test Isolation and Pollution Hardening

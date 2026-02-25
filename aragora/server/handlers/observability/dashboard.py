@@ -70,6 +70,7 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
             "circuit_breakers": self._collect_circuit_breakers(),
             "self_improve": self._collect_self_improve(),
             "oracle_stream": self._collect_oracle_stream(),
+            "settlement_review": self._collect_settlement_review(),
             "system_health": self._collect_system_health(),
             "error_rates": self._collect_error_rates(),
         }
@@ -295,6 +296,33 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
             )
 
             return get_oracle_stream_metrics_summary()
+        except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
+            return fallback
+
+    # ------------------------------------------------------------------
+    # Settlement review scheduler
+    # ------------------------------------------------------------------
+
+    def _collect_settlement_review(self) -> dict[str, Any]:
+        """Collect settlement review scheduler status and rollup stats."""
+        fallback: dict[str, Any] = {
+            "running": False,
+            "interval_hours": None,
+            "max_receipts_per_run": None,
+            "startup_delay_seconds": None,
+            "stats": None,
+            "available": False,
+        }
+        try:
+            from aragora.scheduler.settlement_review import get_settlement_review_scheduler
+
+            scheduler = get_settlement_review_scheduler()
+            if scheduler is None:
+                return fallback
+
+            status = scheduler.get_status()
+            status["available"] = True
+            return status
         except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
             return fallback
 

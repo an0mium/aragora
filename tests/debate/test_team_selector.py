@@ -1770,3 +1770,103 @@ class TestPerformanceAdapterScore:
 
         # claude-3 should be ranked first (top expert with highest confidence)
         assert selected[0].name == "claude-3"
+
+
+class TestReliabilityBudgetRouting:
+    """Tests for reliability budget share routing in live team selection."""
+
+    def test_reliability_budget_routing_reranks_by_settled_deltas(self, mock_agents):
+        from aragora.debate.epistemic_outcomes import EpistemicOutcome
+
+        calibration_tracker = MockCalibrationTracker(
+            scores={
+                "claude-opus": 0.2,
+                "gpt-4": 0.2,
+                "gemini-pro": 0.2,
+                "codestral": 0.2,
+                "deepseek-r1": 0.2,
+            }
+        )
+        config = TeamSelectionConfig(
+            enable_domain_filtering=False,
+            enable_km_expertise=False,
+            enable_pattern_selection=False,
+            enable_cv_selection=False,
+            enable_feedback_weights=False,
+            enable_specialist_bonus=False,
+            enable_exploration_bonus=False,
+            enable_memory_selection=False,
+            enable_pulse_selection=False,
+            enable_regression_penalty=False,
+            enable_introspection_scoring=False,
+            enable_health_filtering=False,
+            elo_weight=0.0,
+            calibration_weight=0.0,
+            delegation_weight=0.0,
+            domain_capability_weight=0.0,
+            culture_weight=0.0,
+            km_expertise_weight=0.0,
+            pattern_weight=0.0,
+            cv_weight=0.0,
+            feedback_weight=0.0,
+            reliability_budget_share_weight=1.0,
+            enable_reliability_budget_routing=True,
+        )
+        selector = TeamSelector(calibration_tracker=calibration_tracker, config=config)
+
+        resolved = [
+            EpistemicOutcome(
+                debate_id="deb-1",
+                claim="claim",
+                falsifier="f",
+                metric="m",
+                status="resolved",
+                confidence_delta=0.4,
+                metadata={"participants": ["claude-opus"]},
+            ),
+            EpistemicOutcome(
+                debate_id="deb-2",
+                claim="claim",
+                falsifier="f",
+                metric="m",
+                status="resolved",
+                confidence_delta=-0.2,
+                metadata={"participants": ["gpt-4"]},
+            ),
+        ]
+        mock_store = MagicMock()
+        mock_store.list_outcomes.return_value = resolved
+
+        with patch("aragora.debate.epistemic_outcomes.get_epistemic_outcome_store") as mock_get_store:
+            mock_get_store.return_value = mock_store
+            selected = selector.select(mock_agents, domain="general")
+
+        assert selected[0].name == "claude-opus"
+        reasoning = selector._last_selection_reasoning
+        assert reasoning["claude-opus"].get("budget_share", 0.0) > reasoning["gpt-4"].get(
+            "budget_share", 0.0
+        )
+        assert reasoning["claude-opus"]["budget_routing"] > reasoning["gpt-4"]["budget_routing"]
+
+    def test_reliability_budget_routing_can_be_disabled(self, mock_agents):
+        calibration_tracker = MockCalibrationTracker(scores={"claude-opus": 0.2})
+        config = TeamSelectionConfig(
+            enable_domain_filtering=False,
+            enable_reliability_budget_routing=False,
+            enable_km_expertise=False,
+            enable_pattern_selection=False,
+            enable_cv_selection=False,
+            enable_feedback_weights=False,
+            enable_specialist_bonus=False,
+            enable_exploration_bonus=False,
+            enable_memory_selection=False,
+            enable_pulse_selection=False,
+            enable_regression_penalty=False,
+            enable_introspection_scoring=False,
+            enable_health_filtering=False,
+        )
+        selector = TeamSelector(calibration_tracker=calibration_tracker, config=config)
+
+        with patch("aragora.debate.epistemic_outcomes.get_epistemic_outcome_store") as mock_get_store:
+            selector.select(mock_agents, domain="general")
+            mock_get_store.assert_not_called()

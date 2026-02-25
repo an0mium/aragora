@@ -359,7 +359,6 @@
     "POST /api/control-plane/agents/{param}/pause",
     "POST /api/control-plane/agents/{param}/resume",
     "POST /api/control-plane/queue/prioritize",
-    "POST /api/control-plane/schedules",
     "POST /api/cross-pollination/conflicts/{param}/resolve",
     "POST /api/cross-pollination/federation/sync",
     "POST /api/cross-pollination/subscribe",

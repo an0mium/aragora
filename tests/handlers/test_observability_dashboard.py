@@ -10,6 +10,7 @@ Covers:
 - Agent rankings collection (dict entries, object entries, empty, error)
 - Circuit breaker state collection (registry, _instances fallback, unavailable)
 - Self-improvement cycle collection (dict runs, object runs, unavailable)
+- Settlement review scheduler collection (available, unavailable)
 - System health collection (with psutil, without psutil)
 - Error rates collection (with metrics module, without)
 - Graceful degradation when subsystems are unavailable
@@ -210,6 +211,7 @@ class TestDashboardEndpoint:
         assert "circuit_breakers" in body
         assert "self_improve" in body
         assert "oracle_stream" in body
+        assert "settlement_review" in body
         assert "system_health" in body
         assert "error_rates" in body
         assert "collection_time_ms" in body
@@ -933,6 +935,54 @@ class TestOracleStreamMetrics:
             assert result["available"] is False
             assert result["sessions_started"] == 0
             assert result["stalls_total"] == 0
+
+
+# ===========================================================================
+# Settlement Review Scheduler Collection
+# ===========================================================================
+
+
+class TestSettlementReviewMetrics:
+    """Tests for _collect_settlement_review."""
+
+    def test_with_scheduler_available(self, handler):
+        payload = {
+            "running": True,
+            "interval_hours": 24,
+            "max_receipts_per_run": 500,
+            "startup_delay_seconds": 60,
+            "stats": {
+                "total_runs": 3,
+                "total_receipts_scanned": 50,
+            },
+        }
+        mock_scheduler = MagicMock()
+        mock_scheduler.get_status.return_value = payload
+        with patch(
+            "aragora.scheduler.settlement_review.get_settlement_review_scheduler",
+            return_value=mock_scheduler,
+        ):
+            result = handler._collect_settlement_review()
+            assert result["available"] is True
+            assert result["running"] is True
+            assert result["interval_hours"] == 24
+            assert result["stats"]["total_runs"] == 3
+
+    def test_when_scheduler_not_initialized(self, handler):
+        with patch(
+            "aragora.scheduler.settlement_review.get_settlement_review_scheduler",
+            return_value=None,
+        ):
+            result = handler._collect_settlement_review()
+            assert result["available"] is False
+            assert result["running"] is False
+            assert result["stats"] is None
+
+    def test_fallback_when_import_fails(self, handler):
+        with patch.dict("sys.modules", {"aragora.scheduler.settlement_review": None}):
+            result = handler._collect_settlement_review()
+            assert result["available"] is False
+            assert result["running"] is False
 
 
 # ===========================================================================

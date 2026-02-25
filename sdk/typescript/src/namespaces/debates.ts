@@ -3131,4 +3131,88 @@ export class DebatesAPI {
   async getShared(shareToken: string): Promise<Record<string, unknown>> {
     return this.client.request('GET', `/api/v1/shared/${encodeURIComponent(shareToken)}`);
   }
+
+  // ===========================================================================
+  // Mid-Debate Intervention
+  // ===========================================================================
+
+  /**
+   * Submit a mid-debate intervention.
+   *
+   * Allows a user to inject a redirect, constraint, challenge, or evidence
+   * request into a running debate. The intervention is queued and applied
+   * at the specified round (or the next available round).
+   *
+   * @param debateId - The active debate ID
+   * @param options - Intervention details
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.intervene('debate-123', {
+   *   type: 'redirect',
+   *   content: 'Consider the security implications',
+   * });
+   * console.log(`Intervention ${result.intervention_id} queued for round ${result.apply_at_round}`);
+   * ```
+   */
+  async intervene(
+    debateId: string,
+    options: {
+      type: 'redirect' | 'constraint' | 'challenge' | 'evidence_request';
+      content: string;
+      apply_at_round?: number;
+      user_id?: string;
+      metadata?: Record<string, unknown>;
+    }
+  ): Promise<{
+    intervention_id: string;
+    status: string;
+    apply_at_round: number;
+    type: string;
+    debate_id: string;
+  }> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(debateId)}/intervene`, {
+      body: options,
+    });
+  }
+
+  /**
+   * Get per-agent reasoning summary for a debate.
+   *
+   * Returns reasoning chains, key crux points, unresolved disagreements,
+   * and intervention data for a debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const reasoning = await client.debates.getReasoning('debate-123');
+   * for (const agent of reasoning.agents) {
+   *   console.log(`${agent.name}: confidence ${agent.confidence}`);
+   * }
+   * for (const crux of reasoning.cruxes) {
+   *   console.log(`Crux: ${crux.claim} (confidence: ${crux.confidence})`);
+   * }
+   * ```
+   */
+  async getReasoning(debateId: string): Promise<{
+    data: {
+      debate_id: string;
+      agents: Array<{
+        name: string;
+        role: string;
+        last_position: string;
+        confidence: number;
+      }>;
+      cruxes: Array<{
+        claim?: string;
+        confidence?: number;
+        contested_by?: string[];
+      }>;
+      unresolved_disagreements: unknown[];
+      interventions: Record<string, unknown>;
+    };
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/reasoning`);
+  }
 }

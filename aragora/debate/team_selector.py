@@ -136,6 +136,10 @@ class TeamSelectionConfig:
     )
     budget_warn_max_agents: int | None = None  # Max agents under WARN (None = no limit)
     budget_soft_limit_max_agents: int = 3  # Max agents under SOFT_LIMIT
+    # Reliability budget routing (calibration + settled outcomes)
+    enable_reliability_budget_routing: bool = True
+    reliability_budget_share_weight: float = 0.2
+    reliability_budget_min_share: float = 0.05
     # Feedback loop integration
     enable_feedback_weights: bool = True  # Enable selection feedback loop scoring
     feedback_weight: float = 0.5  # Weight for feedback-based score adjustment
@@ -347,6 +351,13 @@ class TeamSelector:
                     )
             available_names = available_names & reliable_names
 
+        # 3.7. Compute reliability-informed budget shares for live routing
+        selected_agent_names = [a.name for a in domain_filtered if a.name in available_names]
+        budget_shares = self._compute_reliability_budget_shares(
+            selected_agent_names,
+            calibration_scores,
+        )
+
         # 4. Score remaining agents (using ELO, calibration, delegation, domain, and CV)
         scored: list[tuple[Agent, float]] = []
         selection_breakdowns: dict[str, dict[str, float]] = {}
@@ -363,6 +374,7 @@ class TeamSelector:
                 context=context,
                 calibration_scores=calibration_scores,
                 agent_cvs=agent_cvs,
+                budget_shares=budget_shares,
                 breakdown=agent_breakdown,
             )
             scored.append((agent, score))
@@ -1688,6 +1700,7 @@ class TeamSelector:
         context: DebateContext | None = None,
         calibration_scores: dict[str, float] | None = None,
         agent_cvs: dict[str, AgentCV] | None = None,
+        budget_shares: dict[str, float] | None = None,
         breakdown: dict[str, float] | None = None,
     ) -> float:
         """Compute composite score for an agent.
@@ -1699,6 +1712,7 @@ class TeamSelector:
             context: Optional debate context for state-aware scoring
             calibration_scores: Pre-fetched calibration scores (for batch performance)
             agent_cvs: Pre-fetched Agent CVs (for batch performance)
+            budget_shares: Reliability-informed budget shares by agent
             breakdown: Optional dict to populate with per-component score contributions
         """
         score = self.config.base_score
@@ -1816,6 +1830,19 @@ class TeamSelector:
         if breakdown is not None:
             breakdown["feedback"] = round(score - _prev, 4)
 
+        # Reliability budget routing contribution
+        _prev = score
+        if (
+            self.config.enable_reliability_budget_routing
+            and budget_shares
+            and agent.name in budget_shares
+        ):
+            score += float(budget_shares[agent.name]) * self.config.reliability_budget_share_weight
+        if breakdown is not None:
+            breakdown["budget_routing"] = round(score - _prev, 4)
+            if budget_shares and agent.name in budget_shares:
+                breakdown["budget_share"] = round(float(budget_shares[agent.name]), 4)
+
         # Specialist registry bonus (domain experts from ELO + Genesis breeding)
         _prev = score
         if self.specialist_registry and self.config.enable_specialist_bonus and domain:
@@ -1907,6 +1934,47 @@ class TeamSelector:
             breakdown["diversity"] = round(score - _prev, 4)
 
         return score
+
+    def _compute_reliability_budget_shares(
+        self,
+        agent_names: list[str],
+        calibration_scores: dict[str, float],
+    ) -> dict[str, float]:
+        """Compute per-agent budget shares from calibration and settled outcomes."""
+        if not self.config.enable_reliability_budget_routing or not agent_names:
+            return {}
+
+        try:
+            from aragora.debate.epistemic_outcomes import get_epistemic_outcome_store
+            from aragora.debate.reliability_scheduler import ReliabilityScheduler
+
+            scheduler = ReliabilityScheduler(min_share=self.config.reliability_budget_min_share)
+            calibration_map: dict[str, dict[str, float | int]] = {}
+            for name in agent_names:
+                calibration_map[name] = {
+                    "brier_score": float(calibration_scores.get(name, 0.5)),
+                    "ece": 0.25,
+                    "prediction_count": 0,
+                }
+                if self.calibration_tracker and hasattr(self.calibration_tracker, "get_calibration_summary"):
+                    try:
+                        summary = self.calibration_tracker.get_calibration_summary(name)
+                        calibration_map[name]["ece"] = float(getattr(summary, "ece", 0.25))
+                        calibration_map[name]["prediction_count"] = int(
+                            getattr(summary, "total_predictions", 0)
+                        )
+                    except (AttributeError, TypeError, ValueError):
+                        pass
+
+            settled_outcomes = get_epistemic_outcome_store().list_outcomes(
+                status="resolved",
+                limit=500,
+            )
+            settlement_deltas = scheduler.build_settlement_deltas(settled_outcomes)
+            return scheduler.allocate_budget(agent_names, calibration_map, settlement_deltas)
+        except (ImportError, TypeError, ValueError, OSError) as e:
+            logger.debug("reliability_budget_shares_skipped: %s", e)
+            return {}
 
     def score_agent(
         self,

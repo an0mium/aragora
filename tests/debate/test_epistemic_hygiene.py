@@ -591,3 +591,57 @@ class TestEpistemicScoreEdgeCases:
         assert score.score == 0.5
         assert "falsifiers" in score.missing
         assert "explicit_unknowns" in score.missing
+
+
+# ---------------------------------------------------------------------------
+# Adversarial regression fixtures
+# ---------------------------------------------------------------------------
+
+
+class TestAdversarialFixtures:
+    """Regression tests for common protocol-gaming patterns."""
+
+    def test_header_only_sections_do_not_count_as_compliance(self):
+        from aragora.debate.epistemic_hygiene import score_response
+
+        text = """
+        ### ALTERNATIVES CONSIDERED
+        ### FALSIFIABILITY
+        ### CONFIDENCE LEVELS
+        ### EXPLICIT UNKNOWNS
+        """
+        score = score_response(text, agent="redteam")
+        # Confidence may match only if a numeric/qualitative claim exists; here it should not.
+        assert score.has_alternatives is False
+        assert score.has_falsifiers is False
+        assert score.has_unknowns is False
+        assert score.score <= 0.25
+
+    def test_grand_unification_hype_without_falsifier_scores_low(self):
+        from aragora.debate.epistemic_hygiene import score_response
+
+        text = """
+        This is the operating system of reality and explains everything.
+        Confidence: 0.99
+        """
+        score = score_response(text, agent="redteam")
+        assert score.has_confidence is True
+        assert score.has_falsifiers is False
+        assert score.has_alternatives is False
+        assert score.has_unknowns is False
+        assert score.score == pytest.approx(0.25)
+
+    def test_structured_answer_without_falsifier_is_not_fully_compliant(self):
+        from aragora.debate.epistemic_hygiene import score_response
+
+        text = """
+        - Alternative: do nothing | Rejected because: misses target outcomes.
+        - Claim: rollout should reduce incidents | Confidence: 0.8
+        - Unknown: impact on weekend traffic.
+        """
+        score = score_response(text, agent="redteam")
+        assert score.has_alternatives is True
+        assert score.has_confidence is True
+        assert score.has_unknowns is True
+        assert score.has_falsifiers is False
+        assert score.score == pytest.approx(0.75)

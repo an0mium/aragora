@@ -264,4 +264,71 @@ export class MetricsAPI {
   async getPrometheusSummary(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/metrics/prometheus/summary');
   }
+
+  // ===========================================================================
+  // Alert Actions
+  // ===========================================================================
+
+  /**
+   * Acknowledge a monitoring alert.
+   *
+   * Marks the alert as acknowledged so it no longer triggers notifications.
+   *
+   * @param alertId - The ID of the alert to acknowledge
+   * @param comment - Optional comment explaining the acknowledgement
+   *
+   * @route POST /api/v1/monitoring/alerts/{alertId}/acknowledge
+   *
+   * @example
+   * ```typescript
+   * await client.metrics.acknowledgeAlert('alert-123', 'Investigating the issue');
+   * ```
+   */
+  async acknowledgeAlert(alertId: string, comment?: string): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/monitoring/alerts/${encodeURIComponent(alertId)}/acknowledge`, {
+      params: comment !== undefined ? { comment } : undefined,
+    });
+  }
+
+  /**
+   * Resolve a monitoring alert.
+   *
+   * Marks the alert as resolved.
+   *
+   * @param alertId - The ID of the alert to resolve
+   * @param resolution - Optional resolution description
+   *
+   * @route POST /api/v1/monitoring/alerts/{alertId}/resolve
+   *
+   * @example
+   * ```typescript
+   * await client.metrics.resolveAlert('alert-123', 'Root cause fixed in PR #456');
+   * ```
+   */
+  async resolveAlert(alertId: string, resolution?: string): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/monitoring/alerts/${encodeURIComponent(alertId)}/resolve`, {
+      params: resolution !== undefined ? { resolution } : undefined,
+    });
+  }
+
+  // ===========================================================================
+  // Dashboard Details
+  // ===========================================================================
+
+  /**
+   * Get a specific monitoring dashboard by ID.
+   *
+   * @param dashboardId - The dashboard ID
+   *
+   * @route GET /api/v1/monitoring/dashboards/{dashboardId}
+   *
+   * @example
+   * ```typescript
+   * const dashboard = await client.metrics.getMonitoringDashboard('dash-123');
+   * console.log(dashboard);
+   * ```
+   */
+  async getMonitoringDashboard(dashboardId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/monitoring/dashboards/${encodeURIComponent(dashboardId)}`);
+  }
 }

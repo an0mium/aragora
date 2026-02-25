@@ -402,4 +402,69 @@ export class TeamsAPI {
       body,
     });
   }
+
+  // ===========================================================================
+  // Team Members & Stats
+  // ===========================================================================
+
+  /**
+   * Get members of a team.
+   *
+   * @param teamId - The team ID
+   * @param options - Optional pagination
+   *
+   * @route GET /api/v1/teams/{teamId}/members
+   *
+   * @example
+   * ```typescript
+   * const members = await client.teams.getTeamMembers('team-123');
+   * console.log(`${members.length} members`);
+   * ```
+   */
+  async getTeamMembers(
+    teamId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/teams/${encodeURIComponent(teamId)}/members`, {
+      params: options as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get a specific member of a team.
+   *
+   * @param teamId - The team ID
+   * @param userId - The user/member ID
+   *
+   * @route GET /api/v1/teams/{teamId}/members/{userId}
+   *
+   * @example
+   * ```typescript
+   * const member = await client.teams.getTeamMember('team-123', 'user-456');
+   * console.log(member);
+   * ```
+   */
+  async getTeamMember(
+    teamId: string,
+    userId: string
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}`);
+  }
+
+  /**
+   * Get statistics for a team.
+   *
+   * @param teamId - The team ID
+   *
+   * @route GET /api/v1/teams/{teamId}/stats
+   *
+   * @example
+   * ```typescript
+   * const stats = await client.teams.getTeamStats('team-123');
+   * console.log(stats);
+   * ```
+   */
+  async getTeamStats(teamId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/teams/${encodeURIComponent(teamId)}/stats`);
+  }
 }

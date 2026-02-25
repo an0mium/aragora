@@ -65,6 +65,9 @@ _EPISTEMIC_HYGIENE_PROMPT = (
 )
 _PRODUCTION_LIKE_ENVS = {"production", "prod", "live", "staging", "stage"}
 _REQUIRED_PRODUCTION_SETTLEMENT_FIELDS = ("falsifier", "metric", "review_horizon_days")
+_DEFAULT_SETTLEMENT_FALSIFIER = "Define an objective falsifier for the primary claim."
+_DEFAULT_SETTLEMENT_METRIC = "Define a measurable metric for decision settlement."
+_DEFAULT_SETTLEMENT_CLAIM = "Define the primary claim under debate."
 
 if TYPE_CHECKING:
     from aragora.server.stream import SyncEventEmitter
@@ -207,22 +210,14 @@ def _normalize_settlement_metadata(
 ) -> dict[str, Any]:
     """Normalize settlement metadata into a stable shape."""
     raw = settlement if isinstance(settlement, dict) else {}
-    claim = str(
-        raw.get("claim") or claim_fallback or "Define the primary claim under debate."
-    ).strip()
+    claim = str(raw.get("claim") or claim_fallback or _DEFAULT_SETTLEMENT_CLAIM).strip()
     resolver_hint = str(
         raw.get("resolver_type") or raw.get("resolution_tier") or raw.get("verification_mode") or ""
     ).strip()
     normalized: dict[str, Any] = {
         "status": str(raw.get("status") or "needs_definition").strip() or "needs_definition",
-        "falsifier": (
-            str(
-                raw.get("falsifier") or "Define an objective falsifier for the primary claim."
-            ).strip()
-        ),
-        "metric": str(
-            raw.get("metric") or "Define a measurable metric for decision settlement."
-        ).strip(),
+        "falsifier": (str(raw.get("falsifier") or _DEFAULT_SETTLEMENT_FALSIFIER).strip()),
+        "metric": str(raw.get("metric") or _DEFAULT_SETTLEMENT_METRIC).strip(),
         "review_horizon_days": _coerce_positive_int(raw.get("review_horizon_days"), default=30),
         "claim": claim,
     }
@@ -243,7 +238,11 @@ def _validate_production_settlement_metadata(metadata: dict[str, Any]) -> None:
         or not settlement.get("falsifier", "").strip()
     ):
         missing.append("falsifier")
+    elif str(settlement.get("falsifier")).strip() == _DEFAULT_SETTLEMENT_FALSIFIER:
+        missing.append("falsifier")
     if not isinstance(settlement.get("metric"), str) or not settlement.get("metric", "").strip():
+        missing.append("metric")
+    elif str(settlement.get("metric")).strip() == _DEFAULT_SETTLEMENT_METRIC:
         missing.append("metric")
     horizon = settlement.get("review_horizon_days")
     try:
@@ -922,6 +921,14 @@ class DebateController:
             mode_meta = config.mode or (
                 config.metadata.get("mode") if isinstance(config.metadata, dict) else None
             )
+            settlement_snapshot = (
+                _normalize_settlement_metadata(
+                    settlement_meta,
+                    claim_fallback=config.question,
+                )
+                if (mode_meta == _EPISTEMIC_HYGIENE_MODE or isinstance(settlement_meta, dict))
+                else None
+            )
 
             # Update status with result
             update_debate_status(
@@ -943,7 +950,7 @@ class DebateController:
                     "has_plan": getattr(result, "plan", None) is not None,
                     "agent_calibration": agent_calibration,
                     "mode": mode_meta,
-                    "settlement": settlement_meta,
+                    "settlement": settlement_snapshot,
                 },
             )
 
@@ -1389,11 +1396,11 @@ class DebateController:
                 EpistemicOutcome(
                     debate_id=debate_id,
                     claim=str(claim_settlement.get("claim") or "").strip()
-                    or "Define the primary claim under debate.",
+                    or _DEFAULT_SETTLEMENT_CLAIM,
                     falsifier=str(claim_settlement.get("falsifier") or "").strip()
-                    or "Define an objective falsifier for the primary claim.",
+                    or _DEFAULT_SETTLEMENT_FALSIFIER,
                     metric=str(claim_settlement.get("metric") or "").strip()
-                    or "Define a measurable metric for decision settlement.",
+                    or _DEFAULT_SETTLEMENT_METRIC,
                     review_horizon_days=max(
                         1,
                         int(claim_settlement.get("review_horizon_days", 30)),

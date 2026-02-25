@@ -118,4 +118,53 @@ export class SelectionNamespace {
   async teamSelection(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('POST', '/api/v1/team-selection', { params }) as Promise<Record<string, unknown>>;
   }
+
+  // ===========================================================================
+  // Plugin Listings
+  // ===========================================================================
+
+  /**
+   * List all available scorer plugins.
+   *
+   * @route GET /api/v1/selection/scorers
+   *
+   * @example
+   * ```typescript
+   * const scorers = await client.selection.listScorers();
+   * console.log(scorers);
+   * ```
+   */
+  async listScorers(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/selection/scorers') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List all available team selector plugins.
+   *
+   * @route GET /api/v1/selection/team-selectors
+   *
+   * @example
+   * ```typescript
+   * const selectors = await client.selection.listTeamSelectors();
+   * console.log(selectors);
+   * ```
+   */
+  async listTeamSelectors(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/selection/team-selectors') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List all available role assigner plugins.
+   *
+   * @route GET /api/v1/selection/role-assigners
+   *
+   * @example
+   * ```typescript
+   * const assigners = await client.selection.listRoleAssigners();
+   * console.log(assigners);
+   * ```
+   */
+  async listRoleAssigners(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/selection/role-assigners') as Promise<Record<string, unknown>>;
+  }
 }

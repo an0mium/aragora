@@ -128,7 +128,7 @@ def get_epistemic_revision_prompt(protocol: Any) -> str:
 # These are intentionally lenient to match natural-language variations.
 
 _ALTERNATIVES_PATTERNS = [
-    re.compile(r"(?i)alternative[s]?\s*(considered|approach)", re.MULTILINE),
+    re.compile(r"(?i)\balternative\s*:", re.MULTILINE),
     re.compile(r"(?i)rejected\s+because", re.MULTILINE),
     re.compile(r"(?i)instead\s+of\s+this", re.MULTILINE),
     re.compile(r"(?i)another\s+option", re.MULTILINE),
@@ -136,7 +136,8 @@ _ALTERNATIVES_PATTERNS = [
 ]
 
 _FALSIFIER_PATTERNS = [
-    re.compile(r"(?i)falsif(?:ied|y|iable|ier|ication)", re.MULTILINE),
+    re.compile(r"(?i)falsified\s+if", re.MULTILINE),
+    re.compile(r"(?i)falsifier\s*:", re.MULTILINE),
     re.compile(r"(?i)disprove[dns]?\s+(?:if|by|when)", re.MULTILINE),
     re.compile(r"(?i)would\s+be\s+(?:wrong|false|invalidated)\s+if", re.MULTILINE),
     re.compile(r"(?i)refuted\s+(?:if|by|when)", re.MULTILINE),
@@ -150,7 +151,8 @@ _CONFIDENCE_PATTERNS = [
 ]
 
 _UNKNOWNS_PATTERNS = [
-    re.compile(r"(?i)(?:explicit\s+)?unknown[s]?", re.MULTILINE),
+    re.compile(r"(?i)\bunknown[s]?\s*:", re.MULTILINE),
+    re.compile(r"(?i)\buncertain\b", re.MULTILINE),
     re.compile(r"(?i)uncertain(?:ty|ties)", re.MULTILINE),
     re.compile(r"(?i)(?:do|does)\s+not\s+know", re.MULTILINE),
     re.compile(r"(?i)unclear|unresolved|open\s+question", re.MULTILINE),
