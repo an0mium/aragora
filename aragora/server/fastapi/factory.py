@@ -43,6 +43,7 @@ from .routes import (
     tasks,
     notifications,
     inbox,
+    canvas_pipeline,
 )
 
 logger = logging.getLogger(__name__)
@@ -312,6 +313,7 @@ def create_app(
     app.include_router(tasks.router)
     app.include_router(notifications.router)
     app.include_router(inbox.router)
+    app.include_router(canvas_pipeline.router)
 
     # Setup exception handlers
     setup_exception_handlers(app)

@@ -20,6 +20,7 @@ from . import costs
 from . import tasks
 from . import notifications
 from . import inbox
+from . import canvas_pipeline
 
 __all__ = [
     "health",
@@ -42,4 +43,5 @@ __all__ = [
     "tasks",
     "notifications",
     "inbox",
+    "canvas_pipeline",
 ]

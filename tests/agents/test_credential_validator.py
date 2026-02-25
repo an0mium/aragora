@@ -110,39 +110,27 @@ class TestFilterAvailableAgents:
     def test_filter_raises_if_below_minimum(self):
         """Should raise ValueError if fewer than min_agents remain."""
         from aragora.agents.spec import AgentSpec
+        from aragora.config.secrets import reset_secret_manager
 
-        # Use agents that definitely don't have credentials (fake provider names)
-        # Since these aren't in AGENT_CREDENTIAL_MAP, they'll be treated as having no requirements
-        # So we need to test with agents that ARE in the map but with very specific env settings
-        # Skip this test if the agents have credentials (e.g., in CI with secrets)
-        anthropic_available = validate_agent_credentials("anthropic-api")
-        openai_available = validate_agent_credentials("openai-api")
-
-        if anthropic_available and openai_available:
-            # Both agents have credentials; fall through to test with mock credentials
-            specs = [
-                AgentSpec(provider="anthropic-api", name="claude-1"),
-                AgentSpec(provider="openai-api", name="gpt-1"),
-            ]
-            # Force unavailable by patching env
-            with patch.dict(
-                os.environ, {"ANTHROPIC_API_KEY": "", "OPENAI_API_KEY": ""}, clear=False
-            ):
-                with pytest.raises(ValueError, match="agents have valid credentials"):
-                    filter_available_agents(specs, log_filtered=False, min_agents=2)
-            return
-
-        # Test with unavailable agents
-        specs = []
-        if not anthropic_available:
-            specs.append(AgentSpec(provider="anthropic-api", name="claude-1"))
-        if not openai_available:
-            specs.append(AgentSpec(provider="openai-api", name="gpt-1"))
-
-        assert len(specs) >= 2, "Need at least 2 unavailable agents to test minimum threshold"
-
-        with pytest.raises(ValueError, match="agents have valid credentials"):
-            filter_available_agents(specs, log_filtered=False, min_agents=2)
+        specs = [
+            AgentSpec(provider="anthropic-api", name="claude-1"),
+            AgentSpec(provider="openai-api", name="gpt-1"),
+        ]
+        # Force unavailable by clearing all relevant API keys and disabling
+        # OpenRouter fallback (anthropic-api and openai-api are fallback-eligible)
+        with patch.dict(
+            os.environ,
+            {
+                "ANTHROPIC_API_KEY": "",
+                "OPENAI_API_KEY": "",
+                "OPENROUTER_API_KEY": "",
+                "ARAGORA_OPENROUTER_FALLBACK_ENABLED": "false",
+            },
+            clear=False,
+        ):
+            reset_secret_manager()
+            with pytest.raises(ValueError, match="agents have valid credentials"):
+                filter_available_agents(specs, log_filtered=False, min_agents=2)
 
     @patch.dict(os.environ, {"ANTHROPIC_API_KEY": "key1", "OPENAI_API_KEY": "key2"}, clear=False)
     def test_filter_with_available_agents(self):
