@@ -72,15 +72,27 @@ class TestSelectionHandlerRouting:
         assert selection_handler.can_handle("/api/v1/selection/scorers/default") is True
         assert selection_handler.can_handle("/api/v1/selection/scorers/composite") is True
 
+    def test_can_handle_scorers_list(self, selection_handler):
+        """Test that handler recognizes /api/selection/scorers route."""
+        assert selection_handler.can_handle("/api/v1/selection/scorers") is True
+
     def test_can_handle_team_selectors_prefix(self, selection_handler):
         """Test that handler recognizes /api/selection/team-selectors/<name> routes."""
         assert selection_handler.can_handle("/api/v1/selection/team-selectors/default") is True
         assert selection_handler.can_handle("/api/v1/selection/team-selectors/diverse") is True
 
+    def test_can_handle_team_selectors_list(self, selection_handler):
+        """Test that handler recognizes /api/selection/team-selectors route."""
+        assert selection_handler.can_handle("/api/v1/selection/team-selectors") is True
+
     def test_can_handle_role_assigners_prefix(self, selection_handler):
         """Test that handler recognizes /api/selection/role-assigners/<name> routes."""
         assert selection_handler.can_handle("/api/v1/selection/role-assigners/default") is True
         assert selection_handler.can_handle("/api/v1/selection/role-assigners/adaptive") is True
+
+    def test_can_handle_role_assigners_list(self, selection_handler):
+        """Test that handler recognizes /api/selection/role-assigners route."""
+        assert selection_handler.can_handle("/api/v1/selection/role-assigners") is True
 
     def test_cannot_handle_unknown_path(self, selection_handler):
         """Test that handler rejects unknown paths."""
@@ -134,6 +146,37 @@ class TestGetDefaults:
         assert "scorer" in body
         assert "team_selector" in body
         assert "role_assigner" in body
+
+
+class TestListPluginTypeEndpoints:
+    """Tests for category list endpoints without path params."""
+
+    def test_list_scorers(self, selection_handler, mock_http_handler):
+        _selection_limiter._buckets.clear()
+        result = selection_handler.handle("/api/v1/selection/scorers", {}, mock_http_handler)
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "scorers" in body
+        assert isinstance(body["scorers"], list)
+
+    def test_list_team_selectors(self, selection_handler, mock_http_handler):
+        _selection_limiter._buckets.clear()
+        result = selection_handler.handle("/api/v1/selection/team-selectors", {}, mock_http_handler)
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "team_selectors" in body
+        assert isinstance(body["team_selectors"], list)
+
+    def test_list_role_assigners(self, selection_handler, mock_http_handler):
+        _selection_limiter._buckets.clear()
+        result = selection_handler.handle("/api/v1/selection/role-assigners", {}, mock_http_handler)
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "role_assigners" in body
+        assert isinstance(body["role_assigners"], list)
 
 
 class TestGetScorerInfo:

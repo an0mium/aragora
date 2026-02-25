@@ -22,6 +22,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Ensure local checkout modules take precedence over any globally installed package.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 DEFAULT_EXCLUDED_PREFIXES = (
     "/api/v1/control-plane/",
     "/api/v1/sme/",
