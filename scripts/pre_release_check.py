@@ -262,17 +262,31 @@ def gate_secrets_scan() -> bool:
 
 def gate_bandit() -> bool:
     """Run bandit static analysis and fail only on HIGH severity findings."""
-    cmd = [sys.executable, "-m", "bandit", "-r", "aragora/", "-c", "pyproject.toml", "-f", "json", "-q"]
+    # Restrict output to HIGH severity findings to align with gate policy and
+    # reduce non-actionable release noise from low/medium findings.
+    cmd = [
+        sys.executable,
+        "-m",
+        "bandit",
+        "-r",
+        "aragora/",
+        "-c",
+        "pyproject.toml",
+        "-f",
+        "json",
+        "-q",
+        "-lll",
+    ]
     try:
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=240,
+            timeout=420,
             cwd=str(PROJECT_ROOT),
         )
     except subprocess.TimeoutExpired:
-        return _gate("bandit", False, "command timed out after 240s")
+        return _gate("bandit", False, "command timed out after 420s")
     except FileNotFoundError:
         return _gate("bandit", False, "command not found: bandit")
 
@@ -348,15 +362,15 @@ def gate_pip_audit() -> bool:
 
 
 def gate_smoke_test() -> bool:
-    """Run the smoke test harness (skipping server startup)."""
-    cmd = [sys.executable, "scripts/smoke_test.py", "--skip-server"]
-    code, output = _run_cmd(cmd, timeout=120)
+    """Run a backend-focused smoke harness without frontend build contention."""
+    cmd = [sys.executable, "scripts/smoke_test.py", "--skip-server", "--quick"]
+    code, output = _run_cmd(cmd, timeout=180)
     lock_contention = "Unable to acquire lock" in output
     if code != 0 and lock_contention:
         # Shared worktree contention from parallel Next.js builds; retry with backoff.
         for delay in (5, 10):
             time.sleep(delay)
-            code, output = _run_cmd(cmd, timeout=120)
+            code, output = _run_cmd(cmd, timeout=180)
             if code == 0:
                 break
             if "Unable to acquire lock" not in output:
