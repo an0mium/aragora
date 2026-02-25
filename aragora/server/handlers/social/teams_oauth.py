@@ -64,7 +64,7 @@ TEAMS_SCOPES = os.environ.get("TEAMS_SCOPES", DEFAULT_SCOPES)
 
 # Microsoft OAuth URLs
 MS_OAUTH_AUTHORIZE_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
-MS_OAUTH_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+MS_OAUTH_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"  # noqa: S105 -- OAuth endpoint URL
 
 
 def _get_state_store():
