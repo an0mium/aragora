@@ -134,7 +134,7 @@ class RotationConfig:
     aws_region: str = ""
 
     # Secret name prefix in AWS Secrets Manager
-    secret_prefix: str = "aragora"
+    secret_prefix: str = "aragora"  # noqa: S105 -- config default
 
     # DB connection parameters for credential testing
     db_host: str = ""
