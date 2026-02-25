@@ -466,16 +466,6 @@ export class ControlPlaneAPI {
   }
 
   /**
-   * Create a new schedule.
-   * @route POST /api/control-plane/schedules
-   */
-  async createSchedule(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/control-plane/schedules', {
-      body,
-    }) as Promise<Record<string, unknown>>;
-  }
-
-  /**
    * Update a control plane task schedule.
    * @route PUT /api/control-plane/schedules/{schedule_id}
    */
