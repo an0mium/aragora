@@ -95,7 +95,6 @@ class TestLiveStreamingBudgetGate:
     def test_get_tier_limit_fallback_on_import_error(self):
         """When billing models are unavailable, use hardcoded defaults."""
         with patch.dict("sys.modules", {"aragora.billing.models": None}):
-            # Force re-evaluation by calling the static method
             limit = LiveStreamingBudgetGate.get_tier_limit("free")
             assert limit == 10
 
@@ -184,11 +183,11 @@ class TestCheckLiveStreamingBudget:
         assert handler._check_live_streaming_budget() is True
         assert len(handler._responses) == 0
 
-    @patch("aragora.server.auth_checks.auth_config", new_callable=lambda: type("AC", (), {"enabled": False}))
-    def test_auth_disabled_allows_access(self, _mock_config):
+    def test_auth_disabled_allows_access(self):
         """When auth is disabled (dev/demo), live streaming is allowed."""
         handler = _FakeHandler()
-        with patch("aragora.server.auth_checks.auth_config", MagicMock(enabled=False)):
+        mock_config = MagicMock(enabled=False)
+        with patch("aragora.server.auth.auth_config", mock_config):
             assert handler._check_live_streaming_budget() is True
 
     def test_unauthenticated_user_blocked(self):
@@ -196,9 +195,9 @@ class TestCheckLiveStreamingBudget:
         handler = _FakeHandler()
         mock_ctx = MagicMock(authenticated=False, user_id=None)
         with (
-            patch("aragora.server.auth_checks.auth_config", MagicMock(enabled=True)),
+            patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
-                "aragora.server.auth_checks.extract_user_from_request",
+                "aragora.billing.auth.extract_user_from_request",
                 return_value=mock_ctx,
             ),
         ):
@@ -219,13 +218,13 @@ class TestCheckLiveStreamingBudget:
             authenticated=True, user_id="user_1", org_id="org_1", role="member"
         )
         with (
-            patch("aragora.server.auth_checks.auth_config", MagicMock(enabled=True)),
+            patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
-                "aragora.server.auth_checks.extract_user_from_request",
+                "aragora.billing.auth.extract_user_from_request",
                 return_value=mock_ctx,
             ),
             patch(
-                "aragora.server.auth_checks._resolve_org_tier",
+                "aragora.billing.tier_gating._resolve_org_tier",
                 return_value="free",
             ),
         ):
@@ -249,13 +248,13 @@ class TestCheckLiveStreamingBudget:
             authenticated=True, user_id="user_1", org_id="org_1", role="member"
         )
         with (
-            patch("aragora.server.auth_checks.auth_config", MagicMock(enabled=True)),
+            patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
-                "aragora.server.auth_checks.extract_user_from_request",
+                "aragora.billing.auth.extract_user_from_request",
                 return_value=mock_ctx,
             ),
             patch(
-                "aragora.server.auth_checks._resolve_org_tier",
+                "aragora.billing.tier_gating._resolve_org_tier",
                 return_value="free",
             ),
         ):
@@ -275,13 +274,13 @@ class TestCheckLiveStreamingBudget:
             authenticated=True, user_id="user_1", org_id="org_1", role="member"
         )
         with (
-            patch("aragora.server.auth_checks.auth_config", MagicMock(enabled=True)),
+            patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
-                "aragora.server.auth_checks.extract_user_from_request",
+                "aragora.billing.auth.extract_user_from_request",
                 return_value=mock_ctx,
             ),
             patch(
-                "aragora.server.auth_checks._resolve_org_tier",
+                "aragora.billing.tier_gating._resolve_org_tier",
                 return_value="free",
             ),
         ):
@@ -301,13 +300,13 @@ class TestCheckLiveStreamingBudget:
             authenticated=True, user_id="user_1", org_id="org_1", role="member"
         )
         with (
-            patch("aragora.server.auth_checks.auth_config", MagicMock(enabled=True)),
+            patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
-                "aragora.server.auth_checks.extract_user_from_request",
+                "aragora.billing.auth.extract_user_from_request",
                 return_value=mock_ctx,
             ),
             patch(
-                "aragora.server.auth_checks._resolve_org_tier",
+                "aragora.billing.tier_gating._resolve_org_tier",
                 return_value="free",
             ),
         ):
@@ -330,13 +329,13 @@ class TestCheckLiveStreamingBudget:
             authenticated=True, user_id="user_1", org_id="org_1", role="member"
         )
         with (
-            patch("aragora.server.auth_checks.auth_config", MagicMock(enabled=True)),
+            patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
-                "aragora.server.auth_checks.extract_user_from_request",
+                "aragora.billing.auth.extract_user_from_request",
                 return_value=mock_ctx,
             ),
             patch(
-                "aragora.server.auth_checks._resolve_org_tier",
+                "aragora.billing.tier_gating._resolve_org_tier",
                 return_value="professional",
             ),
         ):
@@ -354,13 +353,13 @@ class TestCheckLiveStreamingBudget:
             authenticated=True, user_id="user_solo", org_id=None, role="member"
         )
         with (
-            patch("aragora.server.auth_checks.auth_config", MagicMock(enabled=True)),
+            patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
-                "aragora.server.auth_checks.extract_user_from_request",
+                "aragora.billing.auth.extract_user_from_request",
                 return_value=mock_ctx,
             ),
             patch(
-                "aragora.server.auth_checks._resolve_org_tier",
+                "aragora.billing.tier_gating._resolve_org_tier",
                 return_value=None,
             ),
         ):

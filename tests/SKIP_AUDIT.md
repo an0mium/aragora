@@ -1,101 +1,75 @@
 # Test Skip Marker Audit
 
-**Last Audited**: 2026-02-23
-**Total `skipif` Markers**: 53 (across 42 files)
-**Total `pytest.skip()` Calls**: ~80 (runtime conditional skips)
-**Total `xfail` Markers**: 1
-**Unconditional Skips**: 0
+**Generated**: 2026-02-24
+**Total Skip Markers**: 60
 
 ---
 
 ## Summary by Category
 
-| Category | Count | Percentage | Status |
-|----------|-------|------------|--------|
-| optional_dependency | 29 | 26.6% | Correct -- truly optional packages |
-| integration_dependency | 29 | 26.6% | Correct -- external services required |
-| missing_feature | 31 | 28.4% | Reviewed -- all still unimplemented |
-| platform_specific | 14 | 12.8% | Correct -- OS guards |
-| performance | 3 | 2.8% | Correct -- resource-intensive |
-| known_bug | 2 | 1.8% | Reviewed -- month-boundary bug still open |
-| uncategorized | 1 | 0.9% | Reviewed -- legitimate |
+| Category | Count | Percentage |
+|----------|-------|------------|
+| integration_dependency | 28 | 46.7% |
+| missing_feature | 14 | 23.3% |
+| optional_dependency | 7 | 11.7% |
+| platform_specific | 6 | 10.0% |
+| performance | 3 | 5.0% |
+| known_bug | 2 | 3.3% |
 
-## Audit Findings (Feb 23, 2026)
+## Summary by Marker Type
 
-### No Stale Skips Found
+| Type | Count |
+|------|-------|
+| `skipif` | 33 |
+| `pytest.skip` | 25 |
+| `skip` | 2 |
 
-All skip/xfail markers were reviewed. No skips reference features that have since
-been fixed. All conditional skips remain valid for their stated reasons.
+## High-Skip Files (Top 10)
 
-### xfail Review
+| File | Skip Count |
+|------|------------|
+| `tests/integration/test_knowledge_visibility_sharing.py` | 6 |
+| `tests/test_plugin_sandbox.py` | 4 |
+| `tests/server/openapi/test_contract_matrix.py` | 4 |
+| `tests/integration/test_upgrade_validation.py` | 3 |
+| `tests/test_proofs.py` | 2 |
+| `tests/test_broadcast_audio.py` | 2 |
+| `tests/test_middleware_timeout.py` | 2 |
+| `tests/ranking/test_calibration_engine.py` | 2 |
+| `tests/server/middleware/rate_limit/test_distributed_integration.py` | 2 |
+| `tests/server/startup/test_validation.py` | 2 |
 
-| File | Reason | Status |
-|------|--------|--------|
-| `tests/integration/test_email_sync_integration.py:244` | `aragora.prioritization` not yet implemented | **Still valid** -- module does not exist |
+---
 
-### Skip Categories in Detail
+## Category Definitions
 
-#### Optional Dependencies (not in core requirements)
+| Category | Description |
+|----------|-------------|
+| optional_dependency | Missing optional Python package |
+| missing_feature | Feature not yet implemented |
+| integration_dependency | Requires external service (Redis, Postgres) |
+| platform_specific | OS-specific limitation |
+| flaky_test | Test has intermittent failures |
+| known_bug | Known issue being tracked |
+| performance | Too slow or resource-intensive |
+| uncategorized | Reason did not match any pattern |
 
-| Dependency | Files | Notes |
-|------------|-------|-------|
-| pydantic | `test_openapi_decorator.py` (13 skips) | Used for schema validation tests |
-| FAISS | `test_vector_index.py` (1 skip) | Optional vector store backend |
-| pymilvus | `test_milvus.py` (2 skipif + 1 runtime) | Milvus vector DB client |
-| qdrant-client | `test_vector_adapters.py` (1 skip) | Qdrant vector DB client |
-| chromadb | `test_vector_adapters.py` (1 skip) | Chroma vector DB client |
-| tree-sitter | `test_code_intelligence.py` (1 runtime) | Code parsing |
-| whisper/faster-whisper | `test_whisper_backend.py` (3 skips) | Audio transcription |
-| PyNaCl | `test_github_sync.py` (1 runtime) | GitHub webhook verification |
-| starlette | `test_spectate.py` (1 runtime) | WebSocket handler |
-| ThinkPRM | `test_think_prm_integration.py` (1 skip) | PRM scoring model |
+---
 
-#### External Service Dependencies
+## Remediation Guidelines
 
-| Service | Files | Notes |
-|---------|-------|-------|
-| Redis | `test_redis_ha.py`, `test_distributed_integration.py`, `test_integration_store.py`, `test_storage_token_blacklist.py`, `test_control_plane_redis.py`, `test_validation.py` | Requires running Redis |
-| PostgreSQL | `test_postgres.py`, `test_postgres_stores.py`, `test_knowledge_visibility_sharing.py`, `test_validation.py` | Requires running PostgreSQL |
-| Milvus | `test_milvus.py` | Requires running Milvus instance |
-| API keys | `test_pr_review.py`, `test_document_pipeline.py` | Requires provider API keys |
-| Full server | `test_canvas_e2e.py`, `test_sme_flow.py`, `test_server_smoke.py` | Requires running server |
-
-#### Platform-Specific Guards
-
-| Guard | Files | Notes |
-|-------|-------|-------|
-| Symlinks | `test_plugin_sandbox.py`, `test_sast_scanner_security.py`, `test_path_traversal.py`, `test_folder_scanner.py`, `test_openclaw_sandbox.py`, `test_custom.py` | OSError on Windows |
-| Signals | `test_middleware_timeout.py`, `test_plugin_sandbox.py` | signal.alarm unavailable on Windows |
-| CI env | `test_security_api_e2e.py`, `test_api_rate_limiting.py` | Tests not suited for CI |
-
-#### Known Bugs
-
-| Bug | File | Notes |
-|-----|------|-------|
-| Month-boundary cleanup | `test_store.py` (4 skips on days 1-2) | `_cleanup_old_sync` bug near month boundaries |
-
-#### Async Context Detection
-
-The OAuth handler tests (`test_google.py`, `test_oidc.py`, `test_microsoft.py`)
-contain ~25 `pytest.skip("Running in async context")` calls. These detect when
-sync code paths are unreachable due to running in an async event loop. This is
-intentional -- the tests verify both sync and async code paths, skipping the
-inapplicable one at runtime.
+1. **optional_dependency**: Add to `[project.optional-dependencies.test]` in pyproject.toml
+2. **missing_feature**: Create GitHub issue and link in skip reason
+3. **integration_dependency**: Ensure CI runs integration tests with services
+4. **flaky_test**: Fix root cause or add retry mechanism
+5. **known_bug**: Link to GitHub issue in skip reason
+6. **uncategorized**: Review and add appropriate category pattern
 
 ---
 
 ## Skip Count Baseline
 
-Current baseline: **~109** conditional skips (per `conftest.py` threshold of 200)
+Current baseline: **60** skips
 
-The `SKIP_THRESHOLD` in `tests/conftest.py` is set to 200 to accommodate
-parametrized contract matrix tests that skip based on missing SDK files.
-
-## Remediation Guidelines
-
-1. **optional_dependency**: Add to `[project.optional-dependencies.test]` in pyproject.toml if testing coverage is critical
-2. **missing_feature**: Create GitHub issue and link in skip reason
-3. **integration_dependency**: Ensure CI runs integration tests with services (nightly schedule)
-4. **platform_specific**: No action needed -- these are permanent guards
-5. **known_bug**: Fix root cause (month-boundary cleanup logic)
-6. **async_context**: No action needed -- intentional dual-path testing
+CI will warn if skip count exceeds this baseline.
+Update `tests/.skip_baseline` when intentionally adding skips.

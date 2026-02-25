@@ -293,8 +293,8 @@ class AgentEvolutionDashboardHandler(SecureHandler):
         "/api/v1/agent-evolution/timeline",
         "/api/v1/agent-evolution/elo-trends",
         "/api/v1/agent-evolution/pending",
-        "/api/v1/agent-evolution/pending/*/approve",
-        "/api/v1/agent-evolution/pending/*/reject",
+        "/api/v1/agent-evolution/pending/{change_id}/approve",
+        "/api/v1/agent-evolution/pending/{change_id}/reject",
     ]
 
     def can_handle(self, path: str) -> bool:
