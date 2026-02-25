@@ -588,15 +588,23 @@ async def init_secrets_rotation_scheduler() -> bool:
 async def init_api_key_proxy() -> bool:
     """Initialize the API Key Proxy with frequency-hopping rotation.
 
-    Starts the proxy that securely manages third-party API keys (ElevenLabs,
-    Gemini, fal.ai) with jittered rotation schedules, usage anomaly detection,
-    and audit logging.
+    Starts the proxy that securely manages third-party API keys with
+    jittered rotation schedules, usage anomaly detection, and audit logging.
+
+    Covered services:
+        - ElevenLabs (6h jittered) — TTS voice synthesis
+        - Gemini (4h jittered) — Google AI inference
+        - fal.ai (6h jittered) — Image/video generation
+        - Mistral (8h jittered) — Mistral AI inference
+        - OpenRouter (12h jittered) — Fallback LLM routing
+        - xAI/Grok (8h jittered) — xAI inference
+        - DeepSeek (8h jittered) — DeepSeek inference
+        - Stripe (weekly jittered) — Payment processing
+        - Anthropic (anomaly detection only) — No programmatic rotation
+        - OpenAI (anomaly detection only) — No programmatic rotation
 
     Environment Variables:
         ARAGORA_API_KEY_PROXY_ENABLED: Set to "true" to enable (default: true in prod)
-        FAL_KEY: fal.ai API key (auto-registered for rotation)
-        ELEVENLABS_API_KEY: ElevenLabs API key (auto-registered for rotation)
-        GEMINI_API_KEY: Gemini API key (auto-registered for rotation)
 
     Returns:
         True if proxy was started, False otherwise
