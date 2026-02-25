@@ -37,9 +37,9 @@ class StreamEventType(Enum):
     CONTEXT_PREVIEW = "context_preview"  # Pulse/trending summary, research status
 
     # Token streaming events (for real-time response display)
-    TOKEN_START = "token_start"  # Agent begins generating response
-    TOKEN_DELTA = "token_delta"  # Incremental token(s) received
-    TOKEN_END = "token_end"  # Agent finished generating response
+    TOKEN_START = "token_start"  # noqa: S105 -- enum value (agent begins generating response)
+    TOKEN_DELTA = "token_delta"  # noqa: S105 -- enum value (incremental tokens received)
+    TOKEN_END = "token_end"  # noqa: S105 -- enum value (agent finished generating response)
 
     # Reasoning visibility events (real-time agent reasoning)
     AGENT_THINKING = "agent_thinking"  # Agent's internal reasoning chain

@@ -39,8 +39,8 @@ class SensitiveDataType(str, Enum):
     EMAIL = "email"
     PHONE = "phone"
     IP_ADDRESS = "ip_address"
-    JWT_TOKEN = "jwt_token"
-    PASSWORD = "password"
+    JWT_TOKEN = "jwt_token"  # noqa: S105 -- enum value
+    PASSWORD = "password"  # noqa: S105 -- enum value
     PRIVATE_KEY = "private_key"
     CUSTOM = "custom"
 

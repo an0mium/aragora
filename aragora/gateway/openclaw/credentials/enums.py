@@ -11,14 +11,14 @@ class CredentialType(str, Enum):
     """Types of credentials that can be stored."""
 
     API_KEY = "api_key"
-    OAUTH_TOKEN = "oauth_token"
-    OAUTH_SECRET = "oauth_secret"
-    OAUTH_REFRESH_TOKEN = "oauth_refresh_token"
+    OAUTH_TOKEN = "oauth_token"  # noqa: S105 -- enum value
+    OAUTH_SECRET = "oauth_secret"  # noqa: S105 -- enum value
+    OAUTH_REFRESH_TOKEN = "oauth_refresh_token"  # noqa: S105 -- enum value
     SERVICE_ACCOUNT = "service_account"
     CERTIFICATE = "certificate"
-    PASSWORD = "password"
-    BEARER_TOKEN = "bearer_token"
-    WEBHOOK_SECRET = "webhook_secret"
+    PASSWORD = "password"  # noqa: S105 -- enum value
+    BEARER_TOKEN = "bearer_token"  # noqa: S105 -- enum value
+    WEBHOOK_SECRET = "webhook_secret"  # noqa: S105 -- enum value
     ENCRYPTION_KEY = "encryption_key"
 
 

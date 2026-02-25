@@ -319,7 +319,7 @@ class TokenExchangeResult:
     """
 
     access_token: str
-    token_type: str = "Bearer"
+    token_type: str = "Bearer"  # noqa: S105 -- OAuth2 token type
     expires_in: int = 3600
     scope: str = ""
     refresh_token: str | None = None

@@ -38,7 +38,7 @@ class GauntletErrorCode(str, Enum):
     # 2XX: Authentication/Authorization Errors
     NOT_AUTHENTICATED = "GAUNTLET_200"
     INSUFFICIENT_PERMISSIONS = "GAUNTLET_201"
-    TOKEN_EXPIRED = "GAUNTLET_202"
+    TOKEN_EXPIRED = "GAUNTLET_202"  # noqa: S105 -- error code
     INVALID_API_KEY = "GAUNTLET_203"
     RBAC_DENIED = "GAUNTLET_204"
 

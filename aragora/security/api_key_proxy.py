@@ -200,6 +200,19 @@ class ProxyConfig:
             active_hours=(0, 23),  # Inference can run any hour
             budget_limit_credits=None,  # fal.ai uses per-request billing
         )
+        config.services["stripe"] = ServiceKeyConfig(
+            service_name="stripe",
+            secret_manager_key="STRIPE_SECRET_KEY",  # noqa: S106
+            secret_id="aragora/production",  # noqa: S106
+            standalone_secret_id="aragora/api/stripe",  # noqa: S106
+            rotation_strategy=RotationStrategy.JITTERED,
+            rotation_interval_hours=168.0,  # Weekly rotation (billing key)
+            rotation_jitter_hours=24.0,
+            max_calls_per_minute=50,
+            max_calls_per_hour=1000,
+            active_hours=(0, 23),
+            budget_limit_credits=None,
+        )
         return config
 
 
