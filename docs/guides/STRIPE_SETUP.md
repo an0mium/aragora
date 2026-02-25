@@ -71,23 +71,21 @@ In Stripe Dashboard → **Developers** → **API keys**:
 
 In Stripe Dashboard → **Products** → **Add product**:
 
-### Starter Plan
-- Name: "Aragora Starter"
-- Description: "100 debates/month, 3 agents, basic analytics"
-- Price: $29.00 / month (recurring)
-- Copy the Price ID: `price_...`
-
-### Professional Plan
-- Name: "Aragora Professional"
-- Description: "1000 debates/month, unlimited agents, API access"
-- Price: $99.00 / month (recurring)
+### Pro Plan
+- Name: "Aragora Pro"
+- Description: "Unlimited debates, 10 agents/debate, all export formats, CI/CD, channel delivery, 4-tier memory"
+- Price: $49.00 / seat / month (recurring)
 - Copy the Price ID: `price_...`
 
 ### Enterprise Plan
 - Name: "Aragora Enterprise"
-- Description: "Unlimited debates, priority support, custom agents"
-- Price: $299.00 / month (recurring)
+- Description: "Unlimited agents, SAML/SCIM, 390+ RBAC permissions, field-level encryption, compliance frameworks"
+- Price: Custom (contact sales@aragora.ai)
 - Copy the Price ID: `price_...`
+
+> **Note:** The Free tier ($0) does not require a Stripe product. The billing code env vars
+> `STRIPE_PRICE_STARTER` and `STRIPE_PRICE_PROFESSIONAL` map to Pro and Enterprise respectively
+> (legacy naming in `aragora/billing/stripe_client.py`).
 
 ---
 
@@ -180,11 +178,11 @@ sudo journalctl -u aragora -f | grep -i stripe
 ### 9.2 Test Real Transaction
 1. Go to https://aragora.ai
 2. Register a new account
-3. Subscribe to Starter plan ($29)
+3. Subscribe to Pro plan ($49/seat)
 4. Use a real card (your own)
 5. Verify:
    - Payment appears in Stripe Dashboard
-   - User's org shows tier=STARTER
+   - User's org shows tier=PRO
    - Webhook logs show checkout.session.completed
 
 ### 9.3 Verify Payout

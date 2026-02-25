@@ -105,6 +105,255 @@ def _bypass_rbac_for_e2e_tests(request, monkeypatch):
 
 
 # ============================================================================
+# Debate Isolation Fixtures
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _isolate_e2e_databases(tmp_path, monkeypatch):
+    """Isolate SQLite databases to a temp directory for each test.
+
+    Arena initialization creates CalibrationTracker and other stores that
+    open real SQLite database files.  If those files are locked by another
+    process (e.g. the dev server), tests block indefinitely on the WAL
+    mutex.  Pointing ARAGORA_DATA_DIR at a fresh tmp directory avoids
+    contention entirely.
+
+    Also forces the Jaccard similarity backend to prevent
+    SentenceTransformer model downloads from HuggingFace, which can hang
+    in CI or air-gapped environments.
+    """
+    monkeypatch.setenv("ARAGORA_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("ARAGORA_CONVERGENCE_BACKEND", "jaccard")
+    monkeypatch.setenv("ARAGORA_SIMILARITY_BACKEND", "jaccard")
+
+
+@pytest.fixture(autouse=True)
+def _disable_post_debate_external_calls(monkeypatch):
+    """Disable post-debate pipeline steps that make external calls.
+
+    The DEFAULT_POST_DEBATE_CONFIG enables gauntlet validation, explanation
+    building, plan creation, and other steps that call _run_async_callable()
+    which starts threads making real HTTP calls. In tests without real API
+    keys, these threads block indefinitely.
+    """
+    try:
+        import aragora.debate.post_debate_coordinator as pdc_mod
+
+        patched = pdc_mod.PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=False,
+            auto_notify=False,
+            auto_execute_plan=False,
+            auto_create_pr=False,
+            auto_build_integrity_package=False,
+            auto_persist_receipt=False,
+            auto_gauntlet_validate=False,
+            auto_verify_arguments=False,
+            auto_push_calibration=False,
+            auto_queue_improvement=False,
+            auto_outcome_feedback=False,
+            auto_trigger_canvas=False,
+            auto_execution_bridge=False,
+            auto_settlement_tracking=False,
+            auto_llm_judge=False,
+        )
+        monkeypatch.setattr(pdc_mod, "DEFAULT_POST_DEBATE_CONFIG", patched)
+    except ImportError:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _mock_scan_code_markers(monkeypatch):
+    """Prevent scan_code_markers from walking the entire repo.
+
+    MetaPlanner.prioritize_work() -> NextStepsRunner.scan() ->
+    scan_code_markers() does os.walk on up to 5000 files.
+    This causes timeouts in long suite runs.
+    """
+    try:
+        import aragora.compat.openclaw.next_steps_runner as nsr_mod
+
+        monkeypatch.setattr(nsr_mod, "scan_code_markers", lambda repo_path: ([], 0))
+    except ImportError:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _mock_research_phase(monkeypatch):
+    """Mock the pre-debate research phase to avoid real API calls.
+
+    Arena's context_init phase calls research_for_debate() which uses
+    Claude's web_search tool or Anthropic API for background research.
+    Without mocking, this makes real HTTP calls that block indefinitely
+    in test environments without API keys or network access.
+    """
+
+    async def _fake_research_for_debate(question: str) -> str:
+        return ""
+
+    async def _fake_research_question(
+        question: str,
+        summarize: bool = True,
+        max_results: int = 5,
+        force_research: bool = True,
+    ):
+        return None
+
+    try:
+        import aragora.server.research_phase as rp_mod
+
+        monkeypatch.setattr(rp_mod, "research_for_debate", _fake_research_for_debate)
+        monkeypatch.setattr(rp_mod, "research_question", _fake_research_question)
+    except ImportError:
+        pass
+
+    # Also mock the context gatherer source that calls research_for_debate
+    try:
+        import aragora.debate.context_gatherer.sources as sources_mod
+
+        monkeypatch.setattr(
+            sources_mod,
+            "research_for_debate",
+            _fake_research_for_debate,
+        )
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        import aragora.debate.context.sources as ctx_sources_mod
+
+        monkeypatch.setattr(
+            ctx_sources_mod,
+            "research_for_debate",
+            _fake_research_for_debate,
+        )
+    except (ImportError, AttributeError):
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _mock_llm_synthesis(monkeypatch):
+    """Mock LLM-based synthesis to avoid real API calls during debates.
+
+    After debate rounds, the synthesis_generator creates an AnthropicAPIAgent
+    or falls back to OpenRouter to generate a final synthesis. Without mocking,
+    this makes real HTTP calls that block indefinitely.
+
+    Also prevents the OpenRouter fallback agent creation that triggers on
+    quota/rate-limit errors.
+    """
+    try:
+        import aragora.agents.fallback as fallback_mod
+
+        original_create = fallback_mod.create_openrouter_fallback
+
+        def _mock_create_fallback(agent_name, model=None, **kwargs):
+            """Return a mock agent instead of a real OpenRouter agent."""
+            mock = MagicMock()
+            mock.name = agent_name
+
+            async def _generate(prompt, **kw):
+                return f"Mock synthesis for {agent_name}"
+
+            mock.generate = _generate
+            return mock
+
+        monkeypatch.setattr(fallback_mod, "create_openrouter_fallback", _mock_create_fallback)
+    except (ImportError, AttributeError):
+        pass
+
+    # Mock the Anthropic API agent used for synthesis
+    try:
+        import aragora.debate.phases.synthesis_generator as synth_mod
+
+        original_init = getattr(synth_mod, "_original_synth_init", None)
+
+        # Patch AnthropicAPIAgent at the import point in synthesis_generator
+        import aragora.agents.api_agents.anthropic as anthropic_mod
+
+        OriginalAgent = anthropic_mod.AnthropicAPIAgent
+        original_generate = OriginalAgent.generate if hasattr(OriginalAgent, "generate") else None
+
+        class MockSynthesisAgent:
+            def __init__(self, name="synthesis-agent", model="mock", **kwargs):
+                self.name = name
+                self.model = model
+                self.total_input_tokens = 0
+                self.total_output_tokens = 0
+
+            async def generate(self, prompt, **kwargs):
+                return "Mock synthesis: The agents agreed on a balanced approach."
+
+        monkeypatch.setattr(anthropic_mod, "AnthropicAPIAgent", MockSynthesisAgent)
+    except (ImportError, AttributeError):
+        pass
+
+
+@pytest.fixture(autouse=True)
+def _mock_agent_registry(monkeypatch):
+    """Mock AgentRegistry.create to return mock agents instead of real API agents.
+
+    Tests that call AgentRegistry.create() (e.g. canvas execute_action with
+    start_debate) would otherwise create real AnthropicAPIAgent or OpenAI agents
+    that make HTTP calls to external APIs. This fixture intercepts the registry
+    to return lightweight mock agents with all required methods.
+    """
+
+    def _make_mock_agent(model_type, name=None, role="proposer", model=None, **kwargs):
+        from aragora.core_types import Agent, Critique, Vote
+
+        class _TestAgent(Agent):
+            def __init__(self):
+                super().__init__(
+                    name=name or f"mock-{model_type}",
+                    model=model or "mock-model",
+                    role=role,
+                )
+                self.total_input_tokens = 0
+                self.total_output_tokens = 0
+                self.input_tokens = 0
+                self.output_tokens = 0
+                self.total_tokens_in = 0
+                self.total_tokens_out = 0
+                self.metrics = None
+                self.provider = None
+
+            async def generate(self, prompt, **kw):
+                return f"Mock response from {self.name}"
+
+            async def critique(self, proposal, task="", **kw):
+                return Critique(
+                    agent=self.name,
+                    target_agent=kw.get("target_agent", "unknown"),
+                    target_content=str(proposal)[:100],
+                    issues=[],
+                    suggestions=[],
+                    severity=0.2,
+                    reasoning="Mock critique",
+                )
+
+            async def vote(self, proposals, task="", **kw):
+                choice = list(proposals.keys())[0] if isinstance(proposals, dict) and proposals else (proposals[0] if proposals else "abstain")
+                return Vote(
+                    agent=self.name,
+                    choice=choice,
+                    reasoning="Mock vote",
+                    confidence=0.8,
+                    continue_debate=False,
+                )
+
+        return _TestAgent()
+
+    try:
+        from aragora.agents.registry import AgentRegistry
+
+        monkeypatch.setattr(AgentRegistry, "create", classmethod(lambda cls, *a, **kw: _make_mock_agent(*a, **kw)))
+    except (ImportError, AttributeError):
+        pass
+
+
+# ============================================================================
 # Configuration
 # ============================================================================
 

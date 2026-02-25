@@ -11,7 +11,7 @@ Aragora is open source (MIT). Use the full debate engine for free, forever. Comm
 <tr>
 <th></th>
 <th align="center"><strong>Free</strong><br/>$0/mo</th>
-<th align="center"><strong>Pro</strong><br/>$99/mo per seat</th>
+<th align="center"><strong>Pro</strong><br/>$49/seat/mo</th>
 <th align="center"><strong>Enterprise</strong><br/>Custom pricing</th>
 </tr>
 </thead>
@@ -21,7 +21,7 @@ Aragora is open source (MIT). Use the full debate engine for free, forever. Comm
 <tr>
 <td>Multi-agent debates</td>
 <td align="center">100/month</td>
-<td align="center">10,000/month</td>
+<td align="center">Unlimited</td>
 <td align="center">Unlimited</td>
 </tr>
 <tr>
@@ -44,9 +44,9 @@ Aragora is open source (MIT). Use the full debate engine for free, forever. Comm
 </tr>
 <tr>
 <td>Agent types</td>
-<td align="center">42+</td>
-<td align="center">42+</td>
-<td align="center">42+ with custom provisioning</td>
+<td align="center">43</td>
+<td align="center">43</td>
+<td align="center">43 with custom provisioning</td>
 </tr>
 
 <tr><td colspan="4"><strong>Decision Receipts</strong></td></tr>
@@ -141,7 +141,7 @@ Aragora is open source (MIT). Use the full debate engine for free, forever. Comm
 <td align="center">Yes</td>
 </tr>
 <tr>
-<td>Knowledge Mound (33 adapters)</td>
+<td>Knowledge Mound (34 adapters)</td>
 <td align="center">--</td>
 <td align="center">Yes</td>
 <td align="center">Yes</td>
@@ -257,18 +257,19 @@ The full `aragora-debate` standalone package is MIT-licensed with no usage limit
 - Decision receipts in Markdown format
 - Python and TypeScript SDKs
 - Demo mode with no API keys required
-- All 42+ agent types (bring your own API keys)
+- All 43 agent types (bring your own API keys)
+- BYOK model: Aragora never marks up LLM provider costs
 
 ```bash
 pip install aragora-debate
 ```
 
-### Pro -- $99/month per seat
+### Pro -- $49/seat/month
 
 For teams that need decision rigor, audit trails, and integrations.
 
 **Everything in Free, plus:**
-- 10,000 debates per month with up to 10 agents each
+- Unlimited debates with up to 10 agents each
 - Unlimited code reviews and Gauntlet runs
 - Decision receipts in HTML, JSON, SARIF, and CSV
 - Cryptographic receipt signing (HMAC-SHA256, RSA-SHA256, Ed25519)
@@ -276,13 +277,13 @@ For teams that need decision rigor, audit trails, and integrations.
 - Hollow consensus detection (Trickster)
 - Vertical weight profiles for healthcare, financial, and legal domains
 - 4-tier Continuum Memory (fast/medium/slow/glacial)
-- Knowledge Mound with 33 adapters and cross-debate learning
+- Knowledge Mound with 34 adapters and cross-debate learning
 - Workflow engine with 50+ templates
 - Slack, Teams, and Discord connectors with managed OAuth
 - CI/CD integration (GitHub Actions, GitLab CI)
 - Full REST API + WebSocket access (2,000+ operations)
 - EU AI Act compliance artifact generation
-- OIDC SSO and 7-role RBAC with 50+ permissions
+- OIDC SSO and 7-role RBAC with 390+ permissions
 - Up to 10 tenants
 - Email support with 48-hour response time
 
@@ -371,7 +372,7 @@ Yes. Enterprise customers can deploy on their own infrastructure with Docker Com
 
 ### How does pricing work for teams?
 
-Pro is priced per seat at $99/month. A "seat" is a user account that can run debates, code reviews, and access the API. Read-only access (viewing receipts, dashboards) does not require a seat.
+Pro is priced per seat at $49/month. A "seat" is a user account that can run debates, code reviews, and access the API. Read-only access (viewing receipts, dashboards) does not require a seat.
 
 ---
 
@@ -379,7 +380,7 @@ Pro is priced per seat at $99/month. A "seat" is a user account that can run deb
 
 |  | **Free** | **Pro** | **Enterprise** |
 |---|:---:|:---:|:---:|
-| Debates/month | 100 | 10,000 | Unlimited |
+| Debates/month | 100 | Unlimited | Unlimited |
 | Agents per debate | 3 | 10 | Unlimited |
 | Code reviews | 10/mo | Unlimited | Unlimited |
 | Receipt formats | Markdown | + HTML, JSON, SARIF, CSV | + PDF with signatures |

@@ -18,6 +18,7 @@ from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.storage.receipt_store import ReceiptStore
+    from aragora.scheduler.settlement_resolvers import SettlementResolverRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,17 @@ DEFAULT_STARTUP_DELAY_SECONDS = int(
 _TERMINAL_SETTLEMENT_STATUSES = {"settled_true", "settled_false", "settled_inconclusive"}
 _OUTCOME_TRUE_STRINGS = {"true", "correct", "confirmed", "success", "succeeded", "pass", "yes"}
 _OUTCOME_FALSE_STRINGS = {"false", "incorrect", "falsified", "failure", "failed", "no"}
+_EPISTEMIC_HYGIENE_MODE = "epistemic_hygiene"
+_ALLOWED_RESOLVER_TYPES = {"human", "deterministic", "oracle"}
+_RESOLVER_ALIASES = {
+    "manual": "human",
+    "reviewer": "human",
+    "ci": "deterministic",
+    "test": "deterministic",
+    "auto": "deterministic",
+    "onchain": "oracle",
+    "feed": "oracle",
+}
 
 
 def _coerce_positive_int(value: Any, default: int) -> int:
@@ -86,6 +98,27 @@ def _resolve_settlement_outcome(settlement: dict[str, Any]) -> bool | None:
 
 def _is_terminal_status(status: str) -> bool:
     return status.strip().lower() in _TERMINAL_SETTLEMENT_STATUSES
+
+
+def _normalize_resolver_type(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    normalized = _RESOLVER_ALIASES.get(normalized, normalized)
+    if normalized in _ALLOWED_RESOLVER_TYPES:
+        return normalized
+    return None
+
+
+def _record_calibration_outcome_metric(outcome: str) -> None:
+    try:
+        from aragora.observability.metrics.settlement import record_calibration_outcome
+
+        record_calibration_outcome(outcome)
+    except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
+        logger.debug("Failed to emit calibration outcome metric", exc_info=True)
 
 
 def _compute_due_at(receipt_timestamp: datetime, settlement: dict[str, Any]) -> datetime:
@@ -191,6 +224,7 @@ class SettlementReviewScheduler:
         self._running = False
         self._stats = SettlementReviewStats()
         self._calibration_tracker: Any | None = None
+        self._resolver_registry: SettlementResolverRegistry | None = None
 
     @property
     def is_running(self) -> bool:
@@ -297,6 +331,13 @@ class SettlementReviewScheduler:
             self._calibration_tracker = CalibrationTracker()
         return self._calibration_tracker
 
+    def _get_resolver_registry(self):
+        if self._resolver_registry is None:
+            from aragora.scheduler.settlement_resolvers import get_settlement_resolver_registry
+
+            self._resolver_registry = get_settlement_resolver_registry()
+        return self._resolver_registry
+
     def _review_due_receipts_sync(self) -> tuple[int, int, int, int, int]:
         now = datetime.now(timezone.utc)
         scanned = 0
@@ -336,12 +377,40 @@ class SettlementReviewScheduler:
                 settlement["last_reviewed_at"] = now.isoformat()
 
                 prior_status = str(settlement.get("status") or "").strip().lower()
+                resolver_type = _normalize_resolver_type(
+                    settlement.get("resolver_type")
+                    or settlement.get("resolution_tier")
+                    or settlement.get("verification_mode")
+                )
+                if resolver_type is not None:
+                    settlement["resolver_type"] = resolver_type
                 outcome = _resolve_settlement_outcome(settlement)
+                if outcome is None and resolver_type is not None:
+                    decision = self._get_resolver_registry().resolve(
+                        resolver_type,
+                        receipt_data=data,
+                        settlement=settlement,
+                        now=now,
+                    )
+                    settlement["last_resolution_attempt"] = decision.to_dict()
+                    if decision.resolved and decision.outcome is not None:
+                        outcome = bool(decision.outcome)
+                        settlement["outcome"] = outcome
+                        settlement["resolved_outcome"] = outcome
+                        settlement["resolved_by"] = decision.resolver_id
+                        settlement["resolution_evidence"] = decision.evidence
 
                 if outcome is None:
                     unresolved_due += 1
                     if not _is_terminal_status(prior_status):
-                        settlement["status"] = "pending_outcome"
+                        if resolver_type == "human":
+                            settlement["status"] = "pending_human_adjudication"
+                        elif resolver_type == "deterministic":
+                            settlement["status"] = "pending_deterministic"
+                        elif resolver_type == "oracle":
+                            settlement["status"] = "pending_oracle"
+                        else:
+                            settlement["status"] = "pending_outcome"
                     horizon_days = _coerce_positive_int(
                         settlement.get("review_horizon_days"), default=30
                     )
@@ -351,28 +420,55 @@ class SettlementReviewScheduler:
                     settlement["settled_at"] = settlement.get("settled_at") or now.isoformat()
                     settlement["next_review_at"] = None
                     if not settlement.get("calibration_recorded_at"):
-                        confidence = max(0.0, min(1.0, float(data.get("confidence") or 0.5)))
-                        domain = (
-                            "epistemic_hygiene"
-                            if str(data.get("mode") or "").strip().lower() == "epistemic_hygiene"
-                            else "general"
-                        )
-                        debate_id = str(data.get("debate_id") or stored.debate_id or "")
-                        tracker = self._get_calibration_tracker()
-                        for agent in data.get("agents_involved") or []:
-                            if not isinstance(agent, str) or not agent.strip():
-                                continue
-                            tracker.record_prediction(
-                                agent=agent.strip(),
-                                confidence=confidence,
-                                correct=outcome,
-                                domain=domain,
-                                debate_id=debate_id,
-                                prediction_type="settlement_review",
+                        mode = str(data.get("mode") or "").strip().lower()
+
+                        if mode != _EPISTEMIC_HYGIENE_MODE:
+                            settlement["calibration_recorded_at"] = now.isoformat()
+                            settlement["calibration_outcome"] = "skipped_non_epistemic_mode"
+                            _record_calibration_outcome_metric("skipped_non_epistemic_mode")
+                        elif resolver_type is None:
+                            if not settlement.get("calibration_pending_since"):
+                                settlement["calibration_pending_since"] = now.isoformat()
+                            if settlement.get("calibration_outcome") != "pending_resolver_verification":
+                                _record_calibration_outcome_metric("pending_resolver_verification")
+                            settlement["calibration_outcome"] = "pending_resolver_verification"
+                            horizon_days = _coerce_positive_int(
+                                settlement.get("review_horizon_days"), default=30
                             )
-                            calibration_predictions += 1
-                        settlement["calibration_recorded_at"] = now.isoformat()
-                        settlement["calibration_outcome"] = "correct" if outcome else "incorrect"
+                            settlement["next_review_at"] = (
+                                now + timedelta(days=horizon_days)
+                            ).isoformat()
+                        else:
+                            confidence = max(0.0, min(1.0, float(data.get("confidence") or 0.5)))
+                            domain = _EPISTEMIC_HYGIENE_MODE
+                            debate_id = str(data.get("debate_id") or stored.debate_id or "")
+                            tracker = self._get_calibration_tracker()
+                            recorded_agents = 0
+                            for agent in data.get("agents_involved") or []:
+                                if not isinstance(agent, str) or not agent.strip():
+                                    continue
+                                tracker.record_prediction(
+                                    agent=agent.strip(),
+                                    confidence=confidence,
+                                    correct=outcome,
+                                    domain=domain,
+                                    debate_id=debate_id,
+                                    prediction_type="settlement_review",
+                                )
+                                calibration_predictions += 1
+                                recorded_agents += 1
+                            settlement["calibration_recorded_at"] = now.isoformat()
+                            if recorded_agents > 0:
+                                settlement["calibration_outcome"] = (
+                                    "correct" if outcome else "incorrect"
+                                )
+                                _record_calibration_outcome_metric(
+                                    "correct" if outcome else "incorrect"
+                                )
+                                settlement["calibration_resolver_type"] = resolver_type
+                            else:
+                                settlement["calibration_outcome"] = "skipped_no_agents"
+                                _record_calibration_outcome_metric("skipped_no_agents")
 
                 data["settlement"] = settlement
                 self.store.save(data)

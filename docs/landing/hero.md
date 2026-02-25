@@ -6,7 +6,7 @@
 **Control plane for multi-agent vetted decisionmaking across organizational knowledge**
 
 ### Subheadline
-Orchestrate 42+ agent types to debate your documents, data, and APIs, then deliver
+Orchestrate 43 agent types to debate your documents, data, and APIs, then deliver
 **defensible decisions** to Slack, Teams, email, or voice. Built for teams where
 "the AI said so" is not enough.
 
