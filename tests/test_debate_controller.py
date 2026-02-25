@@ -620,6 +620,39 @@ class TestDebateControllerRunDebate:
         assert saved["settlement"]["metric"] == "p95_latency_ms"
         assert saved["settlement"]["review_horizon_days"] == 21
 
+    @patch("aragora.storage.receipt_store.get_receipt_store")
+    @patch("aragora.server.debate_controller.update_debate_status")
+    def test_run_debate_persists_settlement_scaffold_for_empty_hygiene_metadata(
+        self, mock_update, mock_get_receipt_store
+    ):
+        """Hygiene mode receipts remain settlement-reviewable even without explicit metadata."""
+        from aragora.server.debate_factory import DebateConfig
+
+        mock_store = Mock()
+        mock_store.save.return_value = "receipt-empty-scaffold"
+        mock_get_receipt_store.return_value = mock_store
+
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
+        config = DebateConfig(
+            question="Should we roll back this deploy?",
+            agents_str="agent1",
+            rounds=1,
+            debate_id="test_123",
+            mode="epistemic_hygiene",
+            metadata={},
+        )
+
+        controller._run_debate(config, "test_123")
+
+        saved = mock_store.save.call_args[0][0]
+        settlement = saved["settlement"]
+        assert saved["mode"] == "epistemic_hygiene"
+        assert settlement["status"] == "needs_definition"
+        assert settlement["claim"] == "Should we roll back this deploy?"
+        assert settlement["falsifier"] == "Define an objective falsifier for the primary claim."
+        assert settlement["metric"] == "Define a measurable metric for decision settlement."
+        assert settlement["review_horizon_days"] == 30
+
     @patch("aragora.server.debate_controller.update_debate_status")
     def test_run_debate_handles_validation_error(self, mock_update):
         """Should handle ValueError gracefully."""

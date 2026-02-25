@@ -212,6 +212,7 @@ class TestDashboardEndpoint:
         assert "self_improve" in body
         assert "oracle_stream" in body
         assert "settlement_review" in body
+        assert "alerts" in body
         assert "system_health" in body
         assert "error_rates" in body
         assert "collection_time_ms" in body
@@ -983,6 +984,73 @@ class TestSettlementReviewMetrics:
             result = handler._collect_settlement_review()
             assert result["available"] is False
             assert result["running"] is False
+
+
+# ===========================================================================
+# Operational Alerts
+# ===========================================================================
+
+
+class TestOperationalAlerts:
+    """Tests for threshold-based dashboard alerts."""
+
+    def test_no_alerts_when_metrics_are_healthy(self, handler):
+        oracle_stream = {
+            "available": True,
+            "stalls_total": 1,
+            "ttft_samples": 10,
+            "ttft_avg_ms": 500.0,
+        }
+        settlement_review = {
+            "available": True,
+            "stats": {
+                "success_rate": 1.0,
+                "last_result": {"unresolved_due": 0},
+            },
+        }
+
+        result = handler._collect_operational_alerts(oracle_stream, settlement_review)
+        assert result["available"] is True
+        assert result["total"] == 0
+        assert result["active"] == []
+
+    def test_emits_alerts_for_threshold_breaches(self, handler):
+        oracle_stream = {
+            "available": True,
+            "stalls_total": 11,
+            "ttft_samples": 12,
+            "ttft_avg_ms": 2500.0,
+        }
+        settlement_review = {
+            "available": True,
+            "stats": {
+                "success_rate": 0.8,
+                "last_result": {"unresolved_due": 25},
+            },
+        }
+
+        result = handler._collect_operational_alerts(oracle_stream, settlement_review)
+        assert result["available"] is True
+        assert result["total"] == 4
+
+        metrics = {alert["metric"] for alert in result["active"]}
+        assert "settlement_review.success_rate" in metrics
+        assert "settlement_review.stats.last_result.unresolved_due" in metrics
+        assert "oracle_stream.stalls_total" in metrics
+        assert "oracle_stream.ttft_avg_ms" in metrics
+
+    def test_ttft_alert_requires_minimum_sample_count(self, handler):
+        oracle_stream = {
+            "available": True,
+            "stalls_total": 0,
+            "ttft_samples": 1,
+            "ttft_avg_ms": 3200.0,
+        }
+        settlement_review = {"available": False}
+
+        result = handler._collect_operational_alerts(oracle_stream, settlement_review)
+        metrics = {alert["metric"] for alert in result["active"]}
+        assert "oracle_stream.ttft_avg_ms" not in metrics
 
 
 # ===========================================================================

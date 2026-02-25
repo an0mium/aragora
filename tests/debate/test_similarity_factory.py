@@ -54,12 +54,13 @@ class TestSimilarityFactory:
     @pytest.fixture(autouse=True)
     def reset_factory(self):
         """Reset factory state before each test, restore after."""
-        SimilarityFactory._registry.clear()
+        orig_registry = SimilarityFactory._registry
+        orig_initialized = SimilarityFactory._initialized
+        SimilarityFactory._registry = {}
         SimilarityFactory._initialized = False
         yield
-        # Always reset to uninitialised so _ensure_initialized re-registers
-        SimilarityFactory._registry.clear()
-        SimilarityFactory._initialized = False
+        SimilarityFactory._registry = orig_registry
+        SimilarityFactory._initialized = orig_initialized
 
     def test_ensure_initialized(self):
         """Test factory auto-initializes with default backends."""

@@ -10,6 +10,7 @@ self-improvement cycle status, and error rates from available subsystems.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import Any
 
@@ -21,6 +22,51 @@ from ..utils.auth_mixins import SecureEndpointMixin, require_permission
 from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_float(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+_ALERT_SETTLEMENT_SUCCESS_RATE_MIN = _env_float(
+    "ARAGORA_ALERT_SETTLEMENT_SUCCESS_RATE_MIN", 0.95
+)
+_ALERT_SETTLEMENT_UNRESOLVED_DUE_MAX = _env_int(
+    "ARAGORA_ALERT_SETTLEMENT_UNRESOLVED_DUE_MAX", 10
+)
+_ALERT_ORACLE_STALLS_TOTAL_MAX = _env_int("ARAGORA_ALERT_ORACLE_STALLS_TOTAL_MAX", 5)
+_ALERT_ORACLE_TTFT_AVG_MS_MAX = _env_float("ARAGORA_ALERT_ORACLE_TTFT_AVG_MS_MAX", 2000.0)
+_ALERT_ORACLE_TTFT_MIN_SAMPLES = _env_int("ARAGORA_ALERT_ORACLE_TTFT_MIN_SAMPLES", 5)
 
 
 class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
@@ -62,6 +108,8 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
     def _get_dashboard(self) -> HandlerResult:
         """Build aggregated dashboard payload."""
         t0 = time.monotonic()
+        oracle_stream = self._collect_oracle_stream()
+        settlement_review = self._collect_settlement_review()
 
         data: dict[str, Any] = {
             "timestamp": time.time(),
@@ -69,8 +117,9 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
             "agent_rankings": self._collect_agent_rankings(),
             "circuit_breakers": self._collect_circuit_breakers(),
             "self_improve": self._collect_self_improve(),
-            "oracle_stream": self._collect_oracle_stream(),
-            "settlement_review": self._collect_settlement_review(),
+            "oracle_stream": oracle_stream,
+            "settlement_review": settlement_review,
+            "alerts": self._collect_operational_alerts(oracle_stream, settlement_review),
             "system_health": self._collect_system_health(),
             "error_rates": self._collect_error_rates(),
         }
@@ -325,6 +374,94 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
             return status
         except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
             return fallback
+
+    def _collect_operational_alerts(
+        self,
+        oracle_stream: dict[str, Any],
+        settlement_review: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Evaluate targeted operational threshold alerts for critical quality signals."""
+        alerts: list[dict[str, Any]] = []
+
+        if settlement_review.get("available"):
+            stats = settlement_review.get("stats")
+            if isinstance(stats, dict):
+                success_rate = _as_float(stats.get("success_rate"))
+                if (
+                    success_rate is not None
+                    and success_rate < _ALERT_SETTLEMENT_SUCCESS_RATE_MIN
+                ):
+                    alerts.append(
+                        {
+                            "id": "settlement_review.success_rate.low",
+                            "severity": "warning",
+                            "metric": "settlement_review.success_rate",
+                            "operator": "<",
+                            "threshold": _ALERT_SETTLEMENT_SUCCESS_RATE_MIN,
+                            "value": round(success_rate, 4),
+                            "message": "Settlement review success rate is below threshold.",
+                        }
+                    )
+
+                unresolved_due = None
+                last_result = stats.get("last_result")
+                if isinstance(last_result, dict):
+                    unresolved_due = _as_int(last_result.get("unresolved_due"))
+                if (
+                    unresolved_due is not None
+                    and unresolved_due > _ALERT_SETTLEMENT_UNRESOLVED_DUE_MAX
+                ):
+                    alerts.append(
+                        {
+                            "id": "settlement_review.stats.last_result.unresolved_due.high",
+                            "severity": "warning",
+                            "metric": "settlement_review.stats.last_result.unresolved_due",
+                            "operator": ">",
+                            "threshold": _ALERT_SETTLEMENT_UNRESOLVED_DUE_MAX,
+                            "value": unresolved_due,
+                            "message": "Settlement review has too many unresolved due receipts.",
+                        }
+                    )
+
+        if oracle_stream.get("available"):
+            stalls_total = _as_int(oracle_stream.get("stalls_total"))
+            if stalls_total is not None and stalls_total > _ALERT_ORACLE_STALLS_TOTAL_MAX:
+                alerts.append(
+                    {
+                        "id": "oracle_stream.stalls_total.high",
+                        "severity": "warning",
+                        "metric": "oracle_stream.stalls_total",
+                        "operator": ">",
+                        "threshold": _ALERT_ORACLE_STALLS_TOTAL_MAX,
+                        "value": stalls_total,
+                        "message": "Oracle stream stalls exceeded threshold.",
+                    }
+                )
+
+            ttft_avg_ms = _as_float(oracle_stream.get("ttft_avg_ms"))
+            ttft_samples = _as_int(oracle_stream.get("ttft_samples")) or 0
+            if (
+                ttft_avg_ms is not None
+                and ttft_samples >= _ALERT_ORACLE_TTFT_MIN_SAMPLES
+                and ttft_avg_ms > _ALERT_ORACLE_TTFT_AVG_MS_MAX
+            ):
+                alerts.append(
+                    {
+                        "id": "oracle_stream.ttft_avg_ms.high",
+                        "severity": "warning",
+                        "metric": "oracle_stream.ttft_avg_ms",
+                        "operator": ">",
+                        "threshold": _ALERT_ORACLE_TTFT_AVG_MS_MAX,
+                        "value": round(ttft_avg_ms, 1),
+                        "message": "Oracle stream average TTFT exceeded threshold.",
+                    }
+                )
+
+        return {
+            "active": alerts,
+            "total": len(alerts),
+            "available": True,
+        }
 
     # ------------------------------------------------------------------
     # System health
