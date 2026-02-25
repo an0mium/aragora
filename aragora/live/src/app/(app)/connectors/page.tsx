@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToastContext } from '@/context/ToastContext';
 import { API_BASE_URL } from '@/config';
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { logger } from '@/utils/logger';
 import {
   useConnectorWebSocket,
@@ -950,104 +951,109 @@ export default function ConnectorsPage() {
       </div>
 
       {/* Stats Cards */}
-      {stats && (
-        <div className="max-w-7xl mx-auto mb-8">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="p-4 bg-surface border border-border rounded-lg">
-              <div className="text-2xl font-mono font-bold text-text">
-                {stats.total_jobs}
+      <PanelErrorBoundary panelName="Connector Stats">
+        {stats && (
+          <div className="max-w-7xl mx-auto mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="p-4 bg-surface border border-border rounded-lg">
+                <div className="text-2xl font-mono font-bold text-text">
+                  {stats.total_jobs}
+                </div>
+                <div className="text-xs text-text-muted font-mono uppercase">
+                  Total Connectors
+                </div>
               </div>
-              <div className="text-xs text-text-muted font-mono uppercase">
-                Total Connectors
+              <div className="p-4 bg-surface border border-border rounded-lg">
+                <div className="text-2xl font-mono font-bold text-acid-green">
+                  {stats.running_syncs}
+                </div>
+                <div className="text-xs text-text-muted font-mono uppercase">
+                  Running Syncs
+                </div>
               </div>
-            </div>
-            <div className="p-4 bg-surface border border-border rounded-lg">
-              <div className="text-2xl font-mono font-bold text-acid-green">
-                {stats.running_syncs}
+              <div className="p-4 bg-surface border border-border rounded-lg">
+                <div className="text-2xl font-mono font-bold text-text">
+                  {stats.completed_syncs}
+                </div>
+                <div className="text-xs text-text-muted font-mono uppercase">
+                  Completed
+                </div>
               </div>
-              <div className="text-xs text-text-muted font-mono uppercase">
-                Running Syncs
+              <div className="p-4 bg-surface border border-border rounded-lg">
+                <div className="text-2xl font-mono font-bold text-red-400">
+                  {stats.failed_syncs}
+                </div>
+                <div className="text-xs text-text-muted font-mono uppercase">
+                  Failed
+                </div>
               </div>
-            </div>
-            <div className="p-4 bg-surface border border-border rounded-lg">
-              <div className="text-2xl font-mono font-bold text-text">
-                {stats.completed_syncs}
-              </div>
-              <div className="text-xs text-text-muted font-mono uppercase">
-                Completed
-              </div>
-            </div>
-            <div className="p-4 bg-surface border border-border rounded-lg">
-              <div className="text-2xl font-mono font-bold text-red-400">
-                {stats.failed_syncs}
-              </div>
-              <div className="text-xs text-text-muted font-mono uppercase">
-                Failed
-              </div>
-            </div>
-            <div className="p-4 bg-surface border border-border rounded-lg">
-              <div className="text-2xl font-mono font-bold text-text">
-                {(stats.success_rate * 100).toFixed(1)}%
-              </div>
-              <div className="text-xs text-text-muted font-mono uppercase">
-                Success Rate
+              <div className="p-4 bg-surface border border-border rounded-lg">
+                <div className="text-2xl font-mono font-bold text-text">
+                  {(stats.success_rate * 100).toFixed(1)}%
+                </div>
+                <div className="text-xs text-text-muted font-mono uppercase">
+                  Success Rate
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PanelErrorBoundary>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Connectors Grid */}
-        <div className="lg:col-span-2">
-          <h2 className="text-lg font-mono font-bold text-text mb-4">
-            Active Connectors
-          </h2>
+        <PanelErrorBoundary panelName="Connectors Grid">
+          <div className="lg:col-span-2">
+            <h2 className="text-lg font-mono font-bold text-text mb-4">
+              Active Connectors
+            </h2>
 
-          {loading && (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-pulse text-text-muted font-mono">
-                Loading connectors...
+            {loading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-pulse text-text-muted font-mono">
+                  Loading connectors...
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {!loading && connectors.length === 0 && (
-            <div className="text-center py-12 bg-surface border border-border rounded-lg">
-              <div className="text-4xl mb-4">🔌</div>
-              <h3 className="text-lg font-mono font-bold text-text mb-2">
-                No connectors configured
-              </h3>
-              <p className="text-text-muted mb-4">
-                Add your first connector to start syncing data
-              </p>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded"
-              >
-                Add Connector
-              </button>
-            </div>
-          )}
+            {!loading && connectors.length === 0 && (
+              <div className="text-center py-12 bg-surface border border-border rounded-lg">
+                <div className="text-4xl mb-4">🔌</div>
+                <h3 className="text-lg font-mono font-bold text-text mb-2">
+                  No connectors configured
+                </h3>
+                <p className="text-text-muted mb-4">
+                  Add your first connector to start syncing data
+                </p>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded"
+                >
+                  Add Connector
+                </button>
+              </div>
+            )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {connectorsWithLiveSync.map((connector) => (
-              <ConnectorCard
-                key={connector.job_id || connector.id}
-                connector={connector}
-                onSync={() => handleSync(connector.id)}
-                onCancelSync={() => connector.current_run_id && handleCancelSync(connector.current_run_id)}
-                onEdit={() => setEditingConnector(connector)}
-                onDelete={() => handleDelete(connector.id)}
-                onViewDetails={() => setViewingConnectorId(connector.id)}
-                syncing={syncingConnectors.has(connector.id)}
-              />
-            ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {connectorsWithLiveSync.map((connector) => (
+                <ConnectorCard
+                  key={connector.job_id || connector.id}
+                  connector={connector}
+                  onSync={() => handleSync(connector.id)}
+                  onCancelSync={() => connector.current_run_id && handleCancelSync(connector.current_run_id)}
+                  onEdit={() => setEditingConnector(connector)}
+                  onDelete={() => handleDelete(connector.id)}
+                  onViewDetails={() => setViewingConnectorId(connector.id)}
+                  syncing={syncingConnectors.has(connector.id)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        </PanelErrorBoundary>
 
         {/* Live Sync Activity (WebSocket) */}
+        <PanelErrorBoundary panelName="Sync Activity">
         <div className="space-y-6">
           {/* Rate Limit Warnings */}
           {rateLimitWarnings.length > 0 && (
@@ -1131,6 +1137,7 @@ export default function ConnectorsPage() {
             )}
           </div>
         </div>
+        </PanelErrorBoundary>
       </div>
 
       {/* Add Connector Modal */}
