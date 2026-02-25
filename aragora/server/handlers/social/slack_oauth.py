@@ -67,7 +67,7 @@ SLACK_SCOPES = os.environ.get("SLACK_SCOPES", DEFAULT_SCOPES)
 
 # Slack OAuth URLs
 SLACK_OAUTH_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize"
-SLACK_OAUTH_TOKEN_URL = "https://slack.com/api/oauth.v2.access"
+SLACK_OAUTH_TOKEN_URL = "https://slack.com/api/oauth.v2.access"  # noqa: S105 -- OAuth endpoint URL
 
 # Scope descriptions for consent preview page
 SCOPE_DESCRIPTIONS = {
