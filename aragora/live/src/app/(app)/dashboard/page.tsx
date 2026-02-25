@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ExecutiveSummary } from '@/components/dashboard/ExecutiveSummary';
+import { SettlementPanel } from '@/components/dashboard/SettlementPanel';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { fetchRecentDebates, type DebateArtifact } from '@/utils/supabase';
 import { getAgentColors } from '@/utils/agentColors';
@@ -325,6 +326,11 @@ export default function DashboardPage() {
           {/* Trial / Subscription Status */}
           <div className="mt-6">
             <TrialStatusWidget />
+          </div>
+
+          {/* Settlement Status */}
+          <div className="mt-6">
+            <SettlementPanel refreshInterval={pollInterval} />
           </div>
 
           {/* Recent Activity Section */}
