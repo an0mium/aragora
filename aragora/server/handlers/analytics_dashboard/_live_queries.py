@@ -798,9 +798,11 @@ def query_flips_consistency() -> dict[str, Any] | None:
             if isinstance(score_data, (int, float)):
                 score = float(score_data)
             else:
-                score = getattr(score_data, "consistency", 0.0)
-                if isinstance(score, str) and score.endswith("%"):
-                    score = float(score.rstrip("%")) / 100.0
+                score_raw: Any = getattr(score_data, "consistency", 0.0)
+                if isinstance(score_raw, str) and score_raw.endswith("%"):
+                    score = float(score_raw.rstrip("%")) / 100.0
+                else:
+                    score = float(score_raw) if score_raw is not None else 0.0
             consistency.append(
                 {
                     "agent": agent_name,
@@ -808,7 +810,7 @@ def query_flips_consistency() -> dict[str, Any] | None:
                 }
             )
 
-        consistency.sort(key=lambda x: x["consistency_score"], reverse=True)
+        consistency.sort(key=lambda x: float(x["consistency_score"]), reverse=True)
         return {"consistency": consistency}
     except Exception:  # noqa: BLE001
         logger.debug("Flips consistency query failed", exc_info=True)

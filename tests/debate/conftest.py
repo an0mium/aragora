@@ -79,8 +79,8 @@ def _clear_similarity_backend_state():
     try:
         from aragora.debate.similarity.backends import (
             JaccardBackend,
-            TFIDFBackend,
             SentenceTransformerBackend,
+            TFIDFBackend,
         )
 
         JaccardBackend.clear_cache()
@@ -109,7 +109,7 @@ def _clear_similarity_backend_state():
 def _mock_scan_code_markers(request, monkeypatch):
     """Prevent scan_code_markers from walking the entire repo.
 
-    MetaPlanner.prioritize_work() → NextStepsRunner.scan() →
+    MetaPlanner.prioritize_work() -> NextStepsRunner.scan() ->
     scan_code_markers() does os.walk on up to 5000 files.
     This causes timeouts in long suite runs.
     """
@@ -122,16 +122,20 @@ def _mock_scan_code_markers(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _resync_convergence_after_backend_reload():
-    """Re-synchronize convergence module class references after each test.
+def _resync_all_backend_refs():
+    """Re-synchronize ALL module class references after each test.
 
     Some tests call importlib.reload() on the backends module, which
-    creates new class objects.  Other modules (convergence) still hold
-    references to the old classes, causing isinstance() failures in
+    creates new class objects.  Other modules (convergence, test modules)
+    still hold references to the old classes, causing isinstance()
+    failures or stale class-level state (e.g. _similarity_cache) in
     tests that run later.
 
-    This fixture patches every module that re-exports backend classes
-    so their references match the current backends module.
+    This fixture is intentionally named differently from the child
+    conftest fixture ``_resync_convergence_after_backend_reload`` in
+    tests/debate/similarity/conftest.py.  Pytest picks the closest
+    fixture when names collide, so a same-named parent fixture would
+    be shadowed by the child.  Using a distinct name ensures both run.
     """
     yield
 
@@ -147,9 +151,11 @@ def _resync_convergence_after_backend_reload():
         "get_similarity_backend",
     ]
 
-    # Update any module that re-exports these names (convergence, test modules, etc.)
     for mod_name in list(sys.modules):
-        if not (mod_name.startswith("aragora.debate") or mod_name.startswith("tests.debate")):
+        if not (
+            mod_name.startswith("aragora.debate")
+            or mod_name.startswith("tests.debate")
+        ):
             continue
         if mod_name == "aragora.debate.similarity.backends":
             continue
@@ -160,10 +166,5 @@ def _resync_convergence_after_backend_reload():
             new_val = getattr(backends_mod, name, None)
             if new_val is not None and hasattr(mod, name):
                 old_val = getattr(mod, name)
-                # Only update if it's actually stale (different object)
                 if old_val is not new_val:
-                    import os
-
-                    if os.environ.get("DEBUG_SYNC"):
-                        print(f"  [SYNC] {mod_name}.{name} id={id(old_val)} -> id={id(new_val)}")
                     setattr(mod, name, new_val)
