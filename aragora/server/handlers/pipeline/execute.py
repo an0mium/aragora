@@ -287,6 +287,28 @@ class PipelineExecuteHandler(BaseHandler):
                 else:
                     await emitter.emit_failed(pipeline_id, "No subtasks completed")
 
+            # Create convoy linking pipeline artifacts (best-effort)
+            try:
+                from aragora.workspace.convoy import ConvoyTracker
+
+                convoy_id = f"convoy-{uuid.uuid4().hex[:12]}"
+                tracker = ConvoyTracker()
+                convoy = await tracker.create_convoy(
+                    workspace_id=pipeline_id,
+                    rig_id=pipeline_id,
+                    name=f"Pipeline execution: {combined_goal[:80]}",
+                    bead_ids=[f"pipeline:{pipeline_id}", f"cycle:{cycle_id}"],
+                    convoy_id=convoy_id,
+                    metadata={
+                        "pipeline_id": pipeline_id,
+                        "cycle_id": cycle_id,
+                        "status": _executions[pipeline_id].get("status", "unknown"),
+                    },
+                )
+                _executions[pipeline_id]["convoy_id"] = convoy.convoy_id
+            except (ImportError, RuntimeError, ValueError, OSError, TypeError, AttributeError) as e:
+                logger.debug("Convoy creation skipped: %s", type(e).__name__)
+
             # Generate provenance receipt
             try:
                 from aragora.pipeline.receipt_generator import generate_pipeline_receipt
@@ -380,6 +402,30 @@ class PipelineExecuteHandler(BaseHandler):
                     "backend": "hardened_orchestrator",
                 }
             )
+
+            # Create convoy for hardened execution (best-effort)
+            try:
+                from aragora.workspace.convoy import ConvoyTracker
+
+                convoy_id = f"convoy-{uuid.uuid4().hex[:12]}"
+                tracker = ConvoyTracker()
+                goal_desc = "; ".join(g.description for g in goals[:5])
+                convoy = await tracker.create_convoy(
+                    workspace_id=pipeline_id,
+                    rig_id=pipeline_id,
+                    name=f"Hardened pipeline: {goal_desc[:80]}",
+                    bead_ids=[f"pipeline:{pipeline_id}", f"cycle:{cycle_id}"],
+                    convoy_id=convoy_id,
+                    metadata={
+                        "pipeline_id": pipeline_id,
+                        "cycle_id": cycle_id,
+                        "status": status,
+                        "backend": "hardened_orchestrator",
+                    },
+                )
+                _executions[pipeline_id]["convoy_id"] = convoy.convoy_id
+            except (ImportError, RuntimeError, ValueError, OSError, TypeError, AttributeError) as e:
+                logger.debug("Convoy creation skipped: %s", type(e).__name__)
 
             if emitter:
                 if status == "completed":

@@ -510,6 +510,8 @@ class OpenRouterAgent(APIAgent):
                                 last_error = "Rate limited (429)"
                                 continue
                             else:
+                                if self._circuit_breaker is not None:
+                                    self._circuit_breaker.record_failure()
                                 raise AgentRateLimitError(
                                     f"OpenRouter streaming rate limited (429) after {max_retries} retries",
                                     agent_name=self.name,
@@ -518,6 +520,8 @@ class OpenRouterAgent(APIAgent):
                         if response.status != 200:
                             error_text = await response.text()
                             sanitized = _sanitize_error_message(error_text)
+                            if self._circuit_breaker is not None:
+                                self._circuit_breaker.record_failure()
                             raise AgentStreamError(
                                 f"OpenRouter streaming API error {response.status}: {sanitized}",
                                 agent_name=self.name,
@@ -528,9 +532,13 @@ class OpenRouterAgent(APIAgent):
                             parser = create_openai_sse_parser()
                             async for content in parser.parse_stream(response.content, self.name):
                                 yield content
-                            # Success - reset backoff state
+                            # Success - reset backoff state and circuit breaker
                             limiter.record_success()
+                            if self._circuit_breaker is not None:
+                                self._circuit_breaker.record_success()
                         except RuntimeError as e:
+                            if self._circuit_breaker is not None:
+                                self._circuit_breaker.record_failure()
                             raise AgentStreamError(str(e), agent_name=self.name)
                         # Successfully streamed - exit retry loop
                         return
@@ -541,10 +549,14 @@ class OpenRouterAgent(APIAgent):
                 if attempt < max_retries - 1:
                     wait_time = base_delay * (2**attempt)
                     logger.warning(
-                        f"OpenRouter streaming connection error, waiting {wait_time:.0f}s before retry: {e}"
+                        "OpenRouter streaming connection error, waiting %.0fs before retry: %s",
+                        wait_time,
+                        e,
                     )
                     await asyncio.sleep(wait_time)
                     continue
+                if self._circuit_breaker is not None:
+                    self._circuit_breaker.record_failure()
                 raise AgentConnectionError(
                     f"OpenRouter streaming failed after {max_retries} retries: {last_error}",
                     agent_name=self.name,
