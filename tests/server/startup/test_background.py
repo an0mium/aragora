@@ -403,3 +403,79 @@ class TestInitSlackTokenRefreshScheduler:
             result = await bg_module.init_slack_token_refresh_scheduler()
 
         assert result is None
+
+
+# =============================================================================
+# init_settlement_review_scheduler Tests
+# =============================================================================
+
+
+class TestInitSettlementReviewScheduler:
+    """Tests for init_settlement_review_scheduler function."""
+
+    @pytest.mark.asyncio
+    async def test_disabled_via_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_SETTLEMENT_REVIEW_ENABLED", "false")
+        monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+        from aragora.server.startup.background import init_settlement_review_scheduler
+
+        result = await init_settlement_review_scheduler()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_skips_in_pytest_without_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PYTEST_CURRENT_TEST", "test_settlement")
+        monkeypatch.delenv("ARAGORA_TEST_ENABLE_BACKGROUND_TASKS", raising=False)
+        from aragora.server.startup.background import init_settlement_review_scheduler
+
+        result = await init_settlement_review_scheduler()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_starts_scheduler(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_SETTLEMENT_REVIEW_ENABLED", "true")
+        monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+        mock_store_module = MagicMock()
+        mock_store = MagicMock()
+        mock_store_module.get_receipt_store = MagicMock(return_value=mock_store)
+
+        mock_scheduler_module = MagicMock()
+        mock_scheduler = MagicMock()
+        mock_scheduler.is_running = False
+        mock_scheduler.start = AsyncMock()
+        mock_scheduler_module.get_settlement_review_scheduler = MagicMock(return_value=mock_scheduler)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.receipt_store": mock_store_module,
+                "aragora.scheduler.settlement_review": mock_scheduler_module,
+            },
+        ):
+            from aragora.server.startup.background import init_settlement_review_scheduler
+
+            result = await init_settlement_review_scheduler()
+
+        assert result is True
+        mock_scheduler.start.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_import_error_returns_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ARAGORA_SETTLEMENT_REVIEW_ENABLED", "true")
+        monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.storage.receipt_store": None,
+                "aragora.scheduler.settlement_review": None,
+            },
+        ):
+            import importlib
+            import aragora.server.startup.background as bg_module
+
+            importlib.reload(bg_module)
+            result = await bg_module.init_settlement_review_scheduler()
+
+        assert result is False

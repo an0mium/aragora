@@ -37,6 +37,7 @@ from aragora.server.startup.background import (
     init_background_tasks,
     init_circuit_breaker_persistence,
     init_pulse_scheduler,
+    init_settlement_review_scheduler,
     init_self_improvement_daemon,
     init_slack_token_refresh_scheduler,
     init_state_cleanup_task,
@@ -406,6 +407,7 @@ def _build_initial_status(
         "witness_patrol": False,
         "mayor_coordinator": False,
         "postgres_pool": {"enabled": False},
+        "settlement_review_scheduler": False,
         "slack_token_refresh_scheduler": False,
         "titans_memory_sweep": None,
         "budget_notifications": False,
@@ -540,6 +542,7 @@ async def _init_all_components(
     status["notification_worker"] = await init_notification_worker()
     status["testfixer_worker"] = await init_testfixer_worker()
     status["testfixer_task_worker"] = await init_testfixer_task_worker()
+    status["settlement_review_scheduler"] = await init_settlement_review_scheduler()
     status["slack_token_refresh_scheduler"] = await init_slack_token_refresh_scheduler()
     status["titans_memory_sweep"] = await init_titans_memory_sweep()
     status["self_improvement_daemon"] = await init_self_improvement_daemon()
@@ -702,6 +705,7 @@ __all__ = [
     "init_pulse_scheduler",
     "init_state_cleanup_task",
     "init_stuck_debate_watchdog",
+    "init_settlement_review_scheduler",
     "init_slack_token_refresh_scheduler",
     "init_titans_memory_sweep",
     "init_self_improvement_daemon",

@@ -348,6 +348,50 @@ async def init_slack_token_refresh_scheduler() -> asyncio.Task | None:
         return None
 
 
+async def init_settlement_review_scheduler() -> bool:
+    """Start settlement review scheduler for epistemic hygiene receipts."""
+    import os
+
+    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
+        "ARAGORA_TEST_ENABLE_BACKGROUND_TASKS"
+    ):
+        return False
+
+    enabled = os.environ.get("ARAGORA_SETTLEMENT_REVIEW_ENABLED", "true").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    if not enabled:
+        logger.debug(
+            "Settlement review scheduler disabled (set ARAGORA_SETTLEMENT_REVIEW_ENABLED=true)"
+        )
+        return False
+
+    try:
+        from aragora.scheduler.settlement_review import get_settlement_review_scheduler
+        from aragora.storage.receipt_store import get_receipt_store
+
+        store = get_receipt_store()
+        scheduler = get_settlement_review_scheduler(store)
+        if scheduler is None:
+            logger.debug("Settlement review scheduler unavailable")
+            return False
+
+        if scheduler.is_running:
+            return True
+
+        await scheduler.start()
+        logger.info("Settlement review scheduler started")
+        return True
+    except ImportError as e:
+        logger.debug("Settlement review scheduler not available: %s", e)
+        return False
+    except (RuntimeError, OSError, ValueError, AttributeError) as e:
+        logger.warning("Failed to start settlement review scheduler: %s", e)
+        return False
+
+
 async def init_self_improvement_daemon() -> asyncio.Task | None:
     """Start the autonomous self-improvement daemon if configured.
 

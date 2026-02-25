@@ -43,6 +43,7 @@ def _get_degraded_status() -> dict[str, Any]:
         "gauntlet_runs_recovered": 0,
         "durable_jobs_recovered": 0,
         "gauntlet_worker": False,
+        "settlement_review_scheduler": False,
         "redis_state_backend": False,
         "key_rotation_scheduler": False,
         "access_review_scheduler": False,

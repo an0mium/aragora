@@ -109,6 +109,14 @@ class TestSchedulersShim:
 
         assert shim.SlackTokenRefreshScheduler is SlackTokenRefreshScheduler
 
+    def test_settlement_review_scheduler_is_same_object(self) -> None:
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            shim = _import_fresh("aragora.schedulers")
+        from aragora.scheduler.settlement_review import SettlementReviewScheduler
+
+        assert shim.SettlementReviewScheduler is SettlementReviewScheduler
+
 
 # ---------------------------------------------------------------------------
 # 2. aragora.operations -> aragora.ops

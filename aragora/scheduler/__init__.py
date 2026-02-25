@@ -94,6 +94,12 @@ from .security_audit_schedule import (
     run_security_scan_with_debate,
     setup_default_security_schedules,
 )
+from .settlement_review import (
+    SettlementReviewResult,
+    SettlementReviewScheduler,
+    SettlementReviewStats,
+    get_settlement_review_scheduler,
+)
 
 __all__ = [
     # Audit scheduler
@@ -139,4 +145,9 @@ __all__ = [
     "add_daily_security_scan",
     "run_security_scan_with_debate",
     "setup_default_security_schedules",
+    # Settlement review scheduler (epistemic hygiene)
+    "SettlementReviewResult",
+    "SettlementReviewStats",
+    "SettlementReviewScheduler",
+    "get_settlement_review_scheduler",
 ]

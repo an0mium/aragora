@@ -349,6 +349,23 @@ class TestShutdownStopsBackgroundTasks:
         await manager.graceful_shutdown(timeout=1.0)
         assert manager.is_shutting_down
 
+    @pytest.mark.asyncio
+    async def test_shutdown_stops_settlement_review_scheduler(self):
+        """Verify shutdown stops settlement review scheduler when running."""
+        manager = ServerLifecycleManager()
+
+        mock_scheduler = MagicMock()
+        mock_scheduler.is_running = True
+        mock_scheduler.stop = AsyncMock()
+
+        with patch(
+            "aragora.scheduler.settlement_review.get_settlement_review_scheduler",
+            return_value=mock_scheduler,
+        ):
+            await manager.graceful_shutdown(timeout=1.0)
+
+        mock_scheduler.stop.assert_called_once()
+
 
 class TestShutdownClosesHTTPConnector:
     """Test HTTP connector closure during shutdown."""

@@ -11,6 +11,7 @@ import { CostBreakdown } from '@/components/debates/CostBreakdown';
 import { ArgumentGraph } from '@/components/debates/ArgumentGraph';
 import { ExplanationPanel } from '@/components/ExplanationPanel';
 import { RelatedKnowledge } from '@/components/debates/RelatedKnowledge';
+import { InterventionPanel } from '@/components/debate-viewer/InterventionPanel';
 import { useDebateWebSocket } from '@/hooks/debate-websocket';
 import { LiveDebateStream } from '@/components/debate/LiveDebateStream';
 import { logger } from '@/utils/logger';
@@ -62,6 +63,8 @@ export default function DebateDetailClient() {
   const [copiedSummary, setCopiedSummary] = useState(false);
   // Track whether the debate is still running (enables live streaming)
   const [debateStatus, setDebateStatus] = useState<'loading' | 'in_progress' | 'completed' | 'error'>('loading');
+  const [showIntervention, setShowIntervention] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   const { setContext, clearContext } = useRightSidebar();
 
@@ -220,6 +223,10 @@ export default function DebateDetailClient() {
 
   // Live streaming view — debate is in progress
   if (debateStatus === 'in_progress') {
+    const currentRound = ws.messages.length > 0
+      ? Math.max(...ws.messages.map((m) => m.round || 0))
+      : 0;
+
     return (
       <>
         <Scanlines opacity={0.02} />
@@ -254,6 +261,35 @@ export default function DebateDetailClient() {
                 onComplete={handleStreamComplete}
               />
             </div>
+
+            <div className="mt-4">
+              <button
+                onClick={() => setShowIntervention((prev) => !prev)}
+                className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                  showIntervention
+                    ? 'bg-[var(--acid-yellow)]/20 text-[var(--acid-yellow)] border-[var(--acid-yellow)]/40'
+                    : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-yellow)]/40'
+                }`}
+              >
+                {showIntervention ? '[HIDE CONTROLS]' : '[INTERVENE]'}
+              </button>
+            </div>
+
+            {showIntervention && (
+              <div className="mt-3">
+                <InterventionPanel
+                  debateId={id}
+                  isActive={true}
+                  isPaused={isPaused}
+                  currentRound={currentRound}
+                  totalRounds={9}
+                  agents={ws.agents}
+                  consensusThreshold={0.67}
+                  onPause={() => setIsPaused(true)}
+                  onResume={() => setIsPaused(false)}
+                />
+              </div>
+            )}
           </div>
         </main>
       </>

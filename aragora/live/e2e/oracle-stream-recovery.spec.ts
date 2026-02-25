@@ -84,4 +84,98 @@ test.describe('Oracle Stream Recovery', () => {
     await expect(stallBadge).toBeHidden({ timeout: 5000 });
     await expect(resetButton).toBeHidden({ timeout: 5000 });
   });
+
+  test('falls back to batch mode when websocket initialization fails', async ({ page, aragoraPage }) => {
+    await page.addInitScript(() => {
+      const NativeWebSocket = window.WebSocket;
+
+      function FailingOracleWebSocket(
+        url: string | URL,
+        protocols?: string | string[],
+      ): WebSocket {
+        const normalizedUrl = typeof url === 'string' ? url : url.toString();
+        if (normalizedUrl.includes('/ws/oracle')) {
+          throw new Error('ws unavailable');
+        }
+        return protocols !== undefined
+          ? new NativeWebSocket(url, protocols)
+          : new NativeWebSocket(url);
+      }
+
+      Object.assign(FailingOracleWebSocket, {
+        CONNECTING: NativeWebSocket.CONNECTING,
+        OPEN: NativeWebSocket.OPEN,
+        CLOSING: NativeWebSocket.CLOSING,
+        CLOSED: NativeWebSocket.CLOSED,
+      });
+
+      FailingOracleWebSocket.prototype = NativeWebSocket.prototype;
+
+      Object.defineProperty(window, 'WebSocket', {
+        configurable: true,
+        writable: true,
+        value: FailingOracleWebSocket,
+      });
+    });
+
+    await page.route('**/api/v1/playground/debate', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'oracle-batch-initial',
+          topic: 'test',
+          status: 'completed',
+          rounds_used: 1,
+          consensus_reached: true,
+          confidence: 0.77,
+          verdict: 'APPROVED',
+          duration_seconds: 0.4,
+          participants: ['claude', 'gpt'],
+          proposals: {
+            claude: 'Initial batch response from claude.',
+          },
+          final_answer: 'Initial batch response from claude.',
+          receipt_hash: null,
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/playground/debate/live', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'oracle-batch-live',
+          topic: 'test',
+          status: 'completed',
+          rounds_used: 2,
+          consensus_reached: true,
+          confidence: 0.81,
+          verdict: 'APPROVED',
+          duration_seconds: 1.2,
+          participants: ['claude', 'gpt'],
+          proposals: {
+            claude: 'Tentacle one says risk is manageable.',
+            gpt: 'Tentacle two says monitor confidence drift.',
+          },
+          final_answer: 'Batch fallback synthesis.',
+          receipt_hash: null,
+        }),
+      });
+    });
+
+    await page.goto('/oracle', { waitUntil: 'domcontentloaded' });
+    await aragoraPage.dismissAllOverlays();
+
+    await expect(page.getByText(/stream:\s*batch fallback/i)).toBeVisible({ timeout: 15000 });
+
+    await page.locator('textarea').first().fill('Give me the strongest objection.');
+    await page.getByRole('button', { name: 'SPEAK' }).click();
+
+    await expect(page.getByText(/stream:\s*batch fallback/i)).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText('Initial batch response from claude.')).toBeVisible({
+      timeout: 8000,
+    });
+  });
 });

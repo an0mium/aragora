@@ -404,6 +404,16 @@ class ServerLifecycleManager:
         except (ImportError, RuntimeError, AttributeError) as e:
             logger.debug("Pulse scheduler shutdown: %s", e)
 
+        try:
+            from aragora.scheduler.settlement_review import get_settlement_review_scheduler
+
+            settlement_scheduler = get_settlement_review_scheduler()
+            if settlement_scheduler is not None and settlement_scheduler.is_running:
+                await settlement_scheduler.stop()
+                logger.info("Settlement review scheduler stopped")
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Settlement review scheduler shutdown: %s", e)
+
         # Stop key rotation schedulers (security + ops modules)
         try:
             from aragora.security.key_rotation import (

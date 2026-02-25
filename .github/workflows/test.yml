@@ -13,6 +13,7 @@ on:
       - 'scripts/generate_capability_matrix.py'
       - 'scripts/check_capability_matrix_sync.py'
       - 'scripts/check_legacy_entrypoints.py'
+      - 'scripts/check_legacy_collab_flags.py'
       - 'scripts/capability_matrix_delta.py'
       - 'scripts/generate_cli_reference.py'
       - 'aragora/capabilities.yaml'
@@ -34,6 +35,7 @@ on:
       - 'scripts/generate_capability_matrix.py'
       - 'scripts/check_capability_matrix_sync.py'
       - 'scripts/check_legacy_entrypoints.py'
+      - 'scripts/check_legacy_collab_flags.py'
       - 'scripts/capability_matrix_delta.py'
       - 'scripts/generate_cli_reference.py'
       - 'aragora/capabilities.yaml'
@@ -119,6 +121,9 @@ jobs:
 
       - name: Check command guidance drift
         run: python scripts/check_legacy_entrypoints.py
+
+      - name: Check legacy Codex collab flag drift
+        run: python scripts/check_legacy_collab_flags.py
 
       - name: Check CLI reference is up to date
         run: python scripts/generate_cli_reference.py --check
