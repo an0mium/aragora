@@ -117,6 +117,7 @@ SECRET_SCAN_EXCLUDES = {
     "test_",
     ".pyc",
     "__pycache__",
+    ".next/",
     "node_modules/",
     ".git/",
     "dist/",
@@ -138,12 +139,16 @@ SECRET_SCAN_EXCLUDES = {
 }
 
 
+def _is_excluded_path(path: Path) -> bool:
+    """Return True when a path should be excluded from secret scanning."""
+    rel = str(path.relative_to(PROJECT_ROOT))
+    return any(exclude in rel for exclude in SECRET_SCAN_EXCLUDES)
+
+
 def _should_scan_file(filepath: Path) -> bool:
     """Check if a file should be scanned for secrets."""
-    rel = str(filepath.relative_to(PROJECT_ROOT))
-    for exclude in SECRET_SCAN_EXCLUDES:
-        if exclude in rel:
-            return False
+    if _is_excluded_path(filepath):
+        return False
     # Only scan Python and config files
     return filepath.suffix in {".py", ".yml", ".yaml", ".json", ".toml", ".cfg", ".ini", ".env"}
 
@@ -160,8 +165,10 @@ def gate_secrets_scan() -> bool:
             continue
         # Use os.walk (instead of rglob) so transient file-system races in build
         # artifacts (for example live/.next) don't abort the gate.
-        for root, _, files in os.walk(source_dir):
+        for root, dirs, files in os.walk(source_dir, topdown=True):
             root_path = Path(root)
+            # Prune excluded subtrees for performance and determinism.
+            dirs[:] = [dirname for dirname in dirs if not _is_excluded_path(root_path / dirname)]
             for filename in files:
                 filepath = root_path / filename
                 if not _should_scan_file(filepath):
