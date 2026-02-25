@@ -6,7 +6,7 @@ on:
 
 concurrency:
   group: required-check-priority-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   actions: write
@@ -44,6 +44,19 @@ jobs:
               '.github/workflows/sdk-test.yml',
               '.github/workflows/openapi.yml',
               '.github/workflows/required-check-priority.yml',
+              '.github/workflows/autopilot-worktree-e2e.yml',
+              '.github/workflows/aragora-gauntlet.yml',
+              '.github/workflows/pr-debate.yml',
+            ]);
+            const alwaysKeepWorkflowNames = new Set([
+              'Required Check Priority',
+              'Lint',
+              'SDK Parity Check',
+              'SDK Tests',
+              'OpenAPI Spec',
+              'Autopilot Worktree E2E',
+              'Aragora Gauntlet Review',
+              'Aragora PR Review',
             ]);
 
             const requiredContexts = new Set();
@@ -156,7 +169,13 @@ jobs:
                 passConsidered += 1;
 
                 const workflowPath = (run.path || '').split('@')[0];
-                if (alwaysKeepWorkflowPaths.has(workflowPath)) continue;
+                const workflowName = String(run.name || '').trim();
+                if (
+                  alwaysKeepWorkflowPaths.has(workflowPath) ||
+                  alwaysKeepWorkflowNames.has(workflowName)
+                ) {
+                  continue;
+                }
 
                 // Defensive check: if a non-allowlisted workflow run currently owns
                 // a required status context, keep it.
