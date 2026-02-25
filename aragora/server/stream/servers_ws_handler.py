@@ -475,7 +475,7 @@ class WebSocketHandlerMixin:
                                     from aragora.rbac.models import AuthorizationContext
 
                                     if self.is_ws_authenticated(ws_id):
-                                        auth_state = self.get_ws_auth_state(ws_id) or {}
+                                        auth_state = self.get_ws_auth_state(ws_id) or {}  # type: ignore[attr-defined]
                                         auth_ctx = AuthorizationContext(
                                             user_id=auth_state.get("user_id", client_id),
                                             roles=auth_state.get("roles", {"viewer"}),

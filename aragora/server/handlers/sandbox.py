@@ -183,7 +183,7 @@ class SandboxHandler(BaseHandler):
         if executor is None:
             return error_response("Sandbox executor not initialized", 503)
 
-        result = self._run_async_callable(
+        result = self._run_async_callable(  # type: ignore[attr-defined]
             executor.execute,
             code=code,
             language=language,

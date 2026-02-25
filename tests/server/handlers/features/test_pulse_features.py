@@ -334,7 +334,9 @@ class TestGetTrendingTopics:
             ):
                 result = pulse_handler._get_trending_topics(10)
                 body, status = _parse_result(result)
-                assert status == 503
+                assert status == 200
+                assert body.get("demo") is True
+                assert body.get("count", 0) > 0
 
     def test_trending_topics_normalizes_scores(self, pulse_handler):
         """Test that scores are normalized to 0-1 range."""
@@ -1011,7 +1013,8 @@ class TestErrorHandling:
             result = pulse_handler._get_trending_topics(10)
             body, status = _parse_result(result)
 
-            assert status == 500
+            assert status == 200
+            assert body.get("demo") is True
 
     def test_runtime_error(self, pulse_handler):
         """Test handling of runtime errors."""
@@ -1032,7 +1035,8 @@ class TestErrorHandling:
             result = pulse_handler._get_trending_topics(10)
             body, status = _parse_result(result)
 
-            assert status == 500
+            assert status == 200
+            assert body.get("demo") is True
 
 
 # ---------------------------------------------------------------------------

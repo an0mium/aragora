@@ -79,25 +79,25 @@ class VisualizationHandler(BaseHandler):
 
         # /api/v1/visualization/debates/{id}/graph
         if path.endswith("/graph"):
-            debate_id = self.extract_path_param(path, 4)
+            debate_id = self.extract_path_param(path, 4, "debate_id")
             include_full = query_params.get("include_full_content", "false").lower() == "true"
             return self._get_graph(debate_id, include_full)
 
         # /api/v1/visualization/debates/{id}/mermaid
         if path.endswith("/mermaid"):
-            debate_id = self.extract_path_param(path, 4)
+            debate_id = self.extract_path_param(path, 4, "debate_id")
             direction = query_params.get("direction", "TD")
             return self._get_mermaid(debate_id, direction)
 
         # /api/v1/visualization/debates/{id}/html
         if path.endswith("/html"):
-            debate_id = self.extract_path_param(path, 4)
+            debate_id = self.extract_path_param(path, 4, "debate_id")
             title = query_params.get("title", "Debate Argument Map")
             return self._get_html(debate_id, title)
 
         # /api/v1/visualization/debates/{id}/statistics
         if path.endswith("/statistics"):
-            debate_id = self.extract_path_param(path, 4)
+            debate_id = self.extract_path_param(path, 4, "debate_id")
             return self._get_statistics(debate_id)
 
         return None
@@ -112,7 +112,7 @@ class VisualizationHandler(BaseHandler):
 
         # /api/v1/visualization/debates/{id}/replay
         if path.endswith("/replay"):
-            debate_id = self.extract_path_param(path, 4)
+            debate_id = self.extract_path_param(path, 4, "debate_id")
             body = self.read_json_body(handler) or {}
             return self._generate_replay(debate_id, body)
 
@@ -238,7 +238,7 @@ class VisualizationHandler(BaseHandler):
             from aragora.memory.consensus import ConsensusStore
 
             cs = ConsensusStore()
-            result = cs.get(debate_id)
+            result = cs.get(debate_id)  # type: ignore[attr-defined]
             if result:
                 return result
         except (ImportError, AttributeError, KeyError):

@@ -206,7 +206,8 @@ class HarnessesHandler(BaseHandler):
         # Try to initialize and report status
         initialized = False
         try:
-            initialized = self._run_async_callable(instance.initialize)
+            initialized = self._run_async_callable(  # type: ignore[attr-defined]
+                instance.initialize)
         except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.warning("Failed to initialize harness '%s': %s", name, e)
 
@@ -287,7 +288,7 @@ class HarnessesHandler(BaseHandler):
         from pathlib import Path
 
         try:
-            result = self._run_async_callable(
+            result = self._run_async_callable(  # type: ignore[attr-defined]
                 instance.analyze_repository,
                 repo_path=Path(repo_path),
                 analysis_type=analysis_type,
