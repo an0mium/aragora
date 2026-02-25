@@ -101,17 +101,24 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
 
     state_backend = os.environ.get("ARAGORA_STATE_BACKEND", "")
     redis_url = os.environ.get("ARAGORA_REDIS_URL", "") or os.environ.get("REDIS_URL", "")
+    redis_mode = os.environ.get("ARAGORA_REDIS_MODE", "").strip().lower()
+    sentinel_hosts = os.environ.get("ARAGORA_REDIS_SENTINEL_HOSTS", "").strip()
+    sentinel_master = os.environ.get("ARAGORA_REDIS_SENTINEL_MASTER", "").strip()
+    sentinel_configured = redis_mode == "sentinel" and bool(sentinel_hosts and sentinel_master)
+    redis_configured = bool(redis_url or sentinel_configured)
 
-    if state_backend == "redis" and not redis_url:
-        errors.append("ARAGORA_STATE_BACKEND=redis but no Redis URL configured")
+    if state_backend == "redis" and not redis_configured:
+        errors.append("ARAGORA_STATE_BACKEND=redis but no Redis configuration found")
 
-    if distributed_required and not redis_url:
+    if distributed_required and not redis_configured:
         errors.append(
-            "Distributed state required (multi-instance or production) but REDIS_URL not configured. "
+            "Distributed state required (multi-instance or production) but Redis is not configured. "
+            "Set REDIS_URL/ARAGORA_REDIS_URL or configure ARAGORA_REDIS_MODE=sentinel with "
+            "ARAGORA_REDIS_SENTINEL_HOSTS and ARAGORA_REDIS_SENTINEL_MASTER. "
             "Set ARAGORA_SINGLE_INSTANCE=true for single-node deployments."
         )
 
-    if redis_url:
+    if redis_configured:
         config_summary["redis_configured"] = True
         config_summary["state_backend"] = state_backend or "hybrid"
     else:
