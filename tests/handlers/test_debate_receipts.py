@@ -280,7 +280,10 @@ class TestAutoReceiptGeneration:
             assert outcome.claim == "Uptime will stay above 99.9%."
             assert outcome.metric == "30-day uptime percentage"
             assert outcome.status == "open"
+            assert outcome.resolver_type == "human"
             assert outcome.initial_confidence == pytest.approx(0.85)
+            assert outcome.metadata["resolution_tier"] == "human"
+            assert outcome.metadata["auto_settle_eligible"] is False
 
     def test_skips_epistemic_outcome_when_no_settlement_metadata(
         self, controller, mock_debate_config, mock_debate_result
@@ -306,3 +309,77 @@ class TestAutoReceiptGeneration:
             )
 
             mock_ledger.record_outcome.assert_not_called()
+
+    def test_epistemic_outcome_uses_deterministic_tier_when_requested(
+        self, controller, mock_debate_config, mock_debate_result
+    ):
+        """resolver_type=deterministic should map to deterministic pending tier."""
+        mock_debate_config.metadata = {
+            "mode": "epistemic_hygiene",
+            "settlement": {
+                "claim": "Test suite remains green.",
+                "falsifier": "Any regression test fails.",
+                "metric": "pytest pass rate",
+                "review_horizon_days": 1,
+                "resolver_type": "deterministic",
+            },
+        }
+        with (
+            patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store,
+            patch(
+                "aragora.debate.epistemic_outcomes.get_epistemic_outcome_store"
+            ) as mock_get_ledger,
+        ):
+            mock_store = MagicMock()
+            mock_ledger = MagicMock()
+            mock_get_store.return_value = mock_store
+            mock_get_ledger.return_value = mock_ledger
+
+            controller._generate_debate_receipt(
+                debate_id="adhoc_epistemic_det",
+                config=mock_debate_config,
+                result=mock_debate_result,
+                duration_seconds=11.0,
+            )
+
+            outcome = mock_ledger.record_outcome.call_args[0][0]
+            assert outcome.resolver_type == "deterministic"
+            assert outcome.status == "pending_deterministic"
+            assert outcome.metadata["auto_settle_eligible"] is True
+
+    def test_epistemic_outcome_uses_oracle_tier_when_requested(
+        self, controller, mock_debate_config, mock_debate_result
+    ):
+        """resolver_type=oracle should map to oracle pending tier."""
+        mock_debate_config.metadata = {
+            "mode": "epistemic_hygiene",
+            "settlement": {
+                "claim": "On-chain signal matches prediction.",
+                "falsifier": "Observed oracle feed diverges.",
+                "metric": "oracle feed delta",
+                "review_horizon_days": 7,
+                "resolver_type": "oracle",
+            },
+        }
+        with (
+            patch("aragora.storage.receipt_store.get_receipt_store") as mock_get_store,
+            patch(
+                "aragora.debate.epistemic_outcomes.get_epistemic_outcome_store"
+            ) as mock_get_ledger,
+        ):
+            mock_store = MagicMock()
+            mock_ledger = MagicMock()
+            mock_get_store.return_value = mock_store
+            mock_get_ledger.return_value = mock_ledger
+
+            controller._generate_debate_receipt(
+                debate_id="adhoc_epistemic_oracle",
+                config=mock_debate_config,
+                result=mock_debate_result,
+                duration_seconds=11.0,
+            )
+
+            outcome = mock_ledger.record_outcome.call_args[0][0]
+            assert outcome.resolver_type == "oracle"
+            assert outcome.status == "pending_oracle"
+            assert outcome.metadata["auto_settle_eligible"] is True
