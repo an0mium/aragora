@@ -11,6 +11,8 @@ Provides REST API endpoints for:
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 from typing import TYPE_CHECKING, Any
 
 from aragora.rbac.decorators import require_permission
@@ -190,7 +192,7 @@ async def handle_gastown_workspace_create(
     try:
         workspace = await state.coordinator.create_workspace(
             name=data.get("name", "Unnamed Workspace"),
-            root_path=data.get("root_path", "/tmp/workspace"),
+            root_path=data.get("root_path", os.path.join(tempfile.gettempdir(), "workspace")),
             description=data.get("description", ""),
             owner_id=ctx.user_id if ctx else "",
             tenant_id=ctx.org_id if ctx else None,
