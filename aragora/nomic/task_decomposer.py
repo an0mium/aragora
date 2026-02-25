@@ -1205,7 +1205,9 @@ class TaskDecomposer:
         elif 1 <= avg_scope_size <= 5:
             granularity_score = 1.0
         elif avg_scope_size > 5:
-            granularity_score = max(0.2, 1.0 - (avg_scope_size - 5) * 0.1)
+            # Use a steeper drop for oversized scopes so broad subtasks are
+            # materially penalized in the combined quality score.
+            granularity_score = max(0.1, 1.0 - (avg_scope_size - 5) * 0.15)
         else:
             granularity_score = 0.5
 
