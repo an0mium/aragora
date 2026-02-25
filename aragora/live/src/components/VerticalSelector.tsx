@@ -524,14 +524,14 @@ function VerticalDropdown({
                     {vertical.expertiseAreas.slice(0, 3).map((area) => (
                       <span
                         key={area}
-                        className="px-1 py-0.5 text-[9px] font-mono bg-bg rounded text-text-muted"
+                        className="px-1 py-0.5 text-[10px] font-mono bg-bg rounded text-text-muted"
                       >
                         {area}
                       </span>
                     ))}
                     {vertical.complianceFrameworks.length > 0 && (
                       <span
-                        className="px-1 py-0.5 text-[9px] font-mono bg-warning/10 text-warning rounded"
+                        className="px-1 py-0.5 text-[10px] font-mono bg-warning/10 text-warning rounded"
                       >
                         +{vertical.complianceFrameworks.length} compliance
                       </span>
@@ -540,18 +540,18 @@ function VerticalDropdown({
                   {/* Personas */}
                   {vertical.personas && vertical.personas.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      <span className="text-[9px] text-text-muted/60">Personas:</span>
+                      <span className="text-[10px] text-text-muted/60">Personas:</span>
                       {vertical.personas.slice(0, 2).map((persona) => (
                         <span
                           key={persona.id}
-                          className="px-1 py-0.5 text-[9px] font-mono bg-acid-cyan/10 text-acid-cyan/80 rounded"
+                          className="px-1 py-0.5 text-[10px] font-mono bg-acid-cyan/10 text-acid-cyan/80 rounded"
                           title={persona.role}
                         >
                           {persona.name}
                         </span>
                       ))}
                       {vertical.personas.length > 2 && (
-                        <span className="text-[9px] text-acid-cyan/50">
+                        <span className="text-[10px] text-acid-cyan/50">
                           +{vertical.personas.length - 2}
                         </span>
                       )}

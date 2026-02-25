@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api';
+import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useSettlementOracleTelemetry } from '@/hooks/useObservabilityDashboard';
 interface Settlement {
   id: string;
@@ -72,68 +73,70 @@ export default function SettlementsPage() {
       </div>
 
       {/* Ops telemetry strip */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6" aria-label="Settlement ops health">
-        <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-md">
-          <div className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
-            Settlement Review
-          </div>
-          {settlementAvailable ? (
-            <>
-              <div className="text-sm font-mono text-[var(--text)] mt-1">
-                Scheduler: {settlementReview.running ? 'RUNNING' : 'NOT RUNNING'}
-              </div>
-              <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
-                Interval: {settlementReview.interval_hours ?? '-'}h
-              </div>
-            </>
-          ) : (
-            <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
-              Ops telemetry unavailable
+      <PanelErrorBoundary panelName="Settlement Telemetry">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6" aria-label="Settlement ops health">
+          <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-md">
+            <div className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+              Settlement Review
             </div>
-          )}
-        </div>
+            {settlementAvailable ? (
+              <>
+                <div className="text-sm font-mono text-[var(--text)] mt-1">
+                  Scheduler: {settlementReview.running ? 'RUNNING' : 'NOT RUNNING'}
+                </div>
+                <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                  Interval: {settlementReview.interval_hours ?? '-'}h
+                </div>
+              </>
+            ) : (
+              <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                Ops telemetry unavailable
+              </div>
+            )}
+          </div>
 
-        <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-md">
-          <div className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
-            Calibration Rollup
-          </div>
-          {settlementAvailable ? (
-            <>
-              <div className="text-sm font-mono text-[var(--text)] mt-1">
-                Success: {((settlementReview.stats?.success_rate ?? 0) * 100).toFixed(1)}%
-              </div>
-              <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
-                Updated: {settlementReview.stats?.total_receipts_updated ?? 0} | Unresolved:{' '}
-                {settlementReview.stats?.last_result?.unresolved_due ?? 0}
-              </div>
-            </>
-          ) : (
-            <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
-              No settlement rollup
+          <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-md">
+            <div className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+              Calibration Rollup
             </div>
-          )}
-        </div>
+            {settlementAvailable ? (
+              <>
+                <div className="text-sm font-mono text-[var(--text)] mt-1">
+                  Success: {((settlementReview.stats?.success_rate ?? 0) * 100).toFixed(1)}%
+                </div>
+                <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                  Updated: {settlementReview.stats?.total_receipts_updated ?? 0} | Unresolved:{' '}
+                  {settlementReview.stats?.last_result?.unresolved_due ?? 0}
+                </div>
+              </>
+            ) : (
+              <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                No settlement rollup
+              </div>
+            )}
+          </div>
 
-        <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-md">
-          <div className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
-            Oracle Streaming
-          </div>
-          {oracleAvailable ? (
-            <>
-              <div className="text-sm font-mono text-[var(--text)] mt-1">
-                Active: {oracleStream.active_sessions} | Stalls: {oracleStream.stalls_total}
-              </div>
-              <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
-                TTFT: {oracleStream.ttft_avg_ms != null ? `${Math.round(oracleStream.ttft_avg_ms)}ms` : '-'}
-              </div>
-            </>
-          ) : (
-            <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
-              No oracle stream telemetry
+          <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-md">
+            <div className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+              Oracle Streaming
             </div>
-          )}
+            {oracleAvailable ? (
+              <>
+                <div className="text-sm font-mono text-[var(--text)] mt-1">
+                  Active: {oracleStream.active_sessions} | Stalls: {oracleStream.stalls_total}
+                </div>
+                <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                  TTFT: {oracleStream.ttft_avg_ms != null ? `${Math.round(oracleStream.ttft_avg_ms)}ms` : '-'}
+                </div>
+              </>
+            ) : (
+              <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                No oracle stream telemetry
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </PanelErrorBoundary>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-[var(--border)]">
@@ -165,53 +168,55 @@ export default function SettlementsPage() {
         </div>
       )}
 
-      {/* Loading */}
-      {loading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-20 bg-[var(--surface-elevated)] rounded-md animate-pulse"
+      <PanelErrorBoundary panelName="Settlement Data">
+        {/* Loading */}
+        {loading && (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-20 bg-[var(--surface-elevated)] rounded-md animate-pulse"
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Stats tab */}
+        {!loading && tab === 'stats' && summary && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard label="Total Claims" value={summary.total_claims} />
+            <StatCard label="Settled" value={summary.settled} />
+            <StatCard label="Pending" value={summary.pending} />
+            <StatCard
+              label="Accuracy"
+              value={`${(summary.accuracy_rate * 100).toFixed(1)}%`}
+              highlight
             />
-          ))}
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Stats tab */}
-      {!loading && tab === 'stats' && summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="Total Claims" value={summary.total_claims} />
-          <StatCard label="Settled" value={summary.settled} />
-          <StatCard label="Pending" value={summary.pending} />
-          <StatCard
-            label="Accuracy"
-            value={`${(summary.accuracy_rate * 100).toFixed(1)}%`}
-            highlight
-          />
-        </div>
-      )}
-
-      {/* Settlements list */}
-      {!loading && tab !== 'stats' && (
-        <div className="space-y-3">
-          {settlements.length === 0 ? (
-            <div className="text-center py-12 text-[var(--text-muted)]">
-              <p className="text-lg font-mono mb-2">
-                {tab === 'pending' ? 'No pending settlements' : 'No settlement history'}
-              </p>
-              <p className="text-sm">
-                {tab === 'pending'
-                  ? 'Claims from completed debates will appear here for verification'
-                  : 'Settled claims will appear here with their outcomes'}
-              </p>
-            </div>
-          ) : (
-            settlements.map((s) => (
-              <SettlementCard key={s.id} settlement={s} isPending={tab === 'pending'} />
-            ))
-          )}
-        </div>
-      )}
+        {/* Settlements list */}
+        {!loading && tab !== 'stats' && (
+          <div className="space-y-3">
+            {settlements.length === 0 ? (
+              <div className="text-center py-12 text-[var(--text-muted)]">
+                <p className="text-lg font-mono mb-2">
+                  {tab === 'pending' ? 'No pending settlements' : 'No settlement history'}
+                </p>
+                <p className="text-sm">
+                  {tab === 'pending'
+                    ? 'Claims from completed debates will appear here for verification'
+                    : 'Settled claims will appear here with their outcomes'}
+                </p>
+              </div>
+            ) : (
+              settlements.map((s) => (
+                <SettlementCard key={s.id} settlement={s} isPending={tab === 'pending'} />
+              ))
+            )}
+          </div>
+        )}
+      </PanelErrorBoundary>
     </div>
   );
 }

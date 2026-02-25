@@ -246,21 +246,24 @@ def validate_rate_limit_configuration() -> None:
             configured in multi-instance mode.
 
     Warning Logged:
-        CRITICAL level warning if in multi-instance mode without Redis,
+        WARNING level message if in multi-instance mode without Redis,
         explaining the security implications.
     """
-    is_multi_instance = _is_multi_instance_mode()
-    is_redis_configured = _is_redis_configured()
-    explicit_strict = os.environ.get("ARAGORA_RATE_LIMIT_STRICT", "").lower()
+    multi_instance_detected = _is_multi_instance_mode()
+    redis_configured = _is_redis_configured()
+    explicit_strict = (
+        os.environ.get("ARAGORA_RATE_LIMIT_STRICT", "")
+        or os.environ.get("ARAGORA_STRICT_RATE_LIMIT", "")
+    ).lower()
     strict_explicitly_enabled = explicit_strict in ("1", "true", "yes")
     is_strict_mode = _should_use_strict_mode()
     is_production = _is_production_mode()
 
-    if not is_multi_instance:
+    if not multi_instance_detected:
         # Single instance mode - no Redis requirement
         return
 
-    if is_redis_configured:
+    if redis_configured:
         # Redis is configured - all good
         logger.info(
             "Multi-instance mode detected with Redis configured. "
@@ -270,31 +273,21 @@ def validate_rate_limit_configuration() -> None:
 
     # Multi-instance mode WITHOUT Redis configured
     warning_message = (
-        "CRITICAL: Multi-instance deployment detected but Redis is NOT configured "
-        "for rate limiting. This means:\n"
-        "  - Each server instance has its own rate limit counters\n"
-        "  - Users can make N requests per instance instead of N total\n"
-        "  - Rate limits are effectively multiplied by the number of instances\n"
-        "  - This undermines rate limiting security protections\n"
-        "\n"
-        "To fix this, configure Redis for rate limiting:\n"
-        "  1. Set REDIS_URL or ARAGORA_REDIS_URL environment variable\n"
-        "  2. Ensure Redis is accessible from all server instances\n"
-        "  3. See docs/RATE_LIMITING.md for full configuration details\n"
-        "\n"
-        "To enforce this requirement, set ARAGORA_RATE_LIMIT_STRICT=true"
+        "Multi-instance deployment detected but Redis not configured. "
+        "Rate limiting will be per-instance only."
     )
 
     if is_strict_mode and strict_explicitly_enabled:
         logger.critical(warning_message)
         raise RuntimeError(
-            "Redis is required for rate limiting in multi-instance mode. "
+            "Multi-instance deployment detected but Redis not configured. "
+            "Rate limiting will be per-instance only. "
             "Set REDIS_URL or ARAGORA_REDIS_URL, or disable strict mode by "
-            "removing ARAGORA_RATE_LIMIT_STRICT=true."
+            "removing ARAGORA_RATE_LIMIT_STRICT / ARAGORA_STRICT_RATE_LIMIT."
         )
 
-    # Log CRITICAL warning
-    logger.critical(warning_message)
+    # Log WARNING about per-instance-only rate limiting
+    logger.warning(warning_message)
 
     # Additional context for production
     if is_production:
@@ -1037,10 +1030,12 @@ __all__ = [
     "_limiters",
     "clear_all_limiters",
     # Multi-instance detection and validation
+    "is_multi_instance",
     "_is_multi_instance_mode",
     "_is_redis_configured",
     "_is_production_mode",
     "_should_use_strict_mode",
+    "_reset_multi_instance_cache",
     "validate_rate_limit_configuration",
     # Re-exports from middleware for convenience
     "middleware_rate_limit",
