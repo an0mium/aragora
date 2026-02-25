@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
@@ -766,7 +766,7 @@ function SyncStatusPanel({ syncStatus }: { syncStatus: PolicySyncStatus | null }
 // ============================================================================
 
 export default function PolicyPage() {
-  const { config: backendConfig } = useBackend();
+  useBackend();
   const { showToast } = useToastContext();
 
   // Wire up the usePolicies hook for all CRUD operations

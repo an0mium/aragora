@@ -324,9 +324,9 @@ export default function PrivacyPage() {
               <Link href="/terms" className="text-acid-cyan hover:text-acid-green transition-colors">
                 Terms
               </Link>
-              <a href="https://status.aragora.ai" className="text-acid-cyan hover:text-acid-green transition-colors">
+              <Link href="/system-status" className="text-acid-cyan hover:text-acid-green transition-colors">
                 Status
-              </a>
+              </Link>
               <a href="mailto:privacy@aragora.ai" className="text-acid-cyan hover:text-acid-green transition-colors">
                 Contact
               </a>

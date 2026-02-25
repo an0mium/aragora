@@ -1149,7 +1149,6 @@ class TestSignatureVerification:
     """Tests for SAML assertion signature verification."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HAS_SAML_LIB, reason="python3-saml not installed")
     async def test_library_validates_signatures(self):
         """Test that library-based authentication validates signatures."""
         config = make_saml_config(

@@ -37,7 +37,7 @@ export function ControlPlaneVisualization() {
       <div className="container mx-auto px-4">
         <SectionHeader title="CONTROL PLANE ARCHITECTURE" />
         <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
-          Orchestrating AI vetted decisionmaking across your organization&apos;s knowledge and communication channels.
+          How Aragora connects your data sources, debates your questions, and delivers decisions to your channels.
         </p>
 
         {/* Main Flow Visualization */}

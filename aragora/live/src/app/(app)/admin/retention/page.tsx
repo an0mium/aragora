@@ -11,7 +11,6 @@ import {
   usePruning,
   PrunableItem,
   PruneHistoryEntry,
-  PruneResult,
 } from '@/hooks/usePruning';
 
 // ---------------------------------------------------------------------------

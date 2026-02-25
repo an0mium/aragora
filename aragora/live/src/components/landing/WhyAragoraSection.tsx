@@ -4,7 +4,7 @@ import { SectionHeader } from './SectionHeader';
 
 const CARDS = [
   {
-    title: 'HETEROGENEOUS ARENA',
+    title: 'DIVERSE AI MODELS',
     accent: 'acid-green',
     indicator: 'acid-cyan',
     content:

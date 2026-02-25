@@ -288,7 +288,7 @@ export default function SecurityPage() {
               {[
                 { title: 'Privacy Policy', href: '/privacy', desc: 'How we handle your data' },
                 { title: 'Terms of Service', href: '/terms', desc: 'Service agreement' },
-                { title: 'Status Page', href: 'https://status.aragora.ai', desc: 'Service availability' },
+                { title: 'Status Page', href: '/system-status', desc: 'Service availability' },
                 { title: 'API Docs', href: '/developer', desc: 'Technical documentation' },
               ].map((link) => (
                 <Link
@@ -320,9 +320,9 @@ export default function SecurityPage() {
               <Link href="/privacy" className="text-acid-cyan hover:text-acid-green transition-colors">
                 Privacy
               </Link>
-              <a href="https://status.aragora.ai" className="text-acid-cyan hover:text-acid-green transition-colors">
+              <Link href="/system-status" className="text-acid-cyan hover:text-acid-green transition-colors">
                 Status
-              </a>
+              </Link>
               <a href="mailto:security@aragora.ai" className="text-acid-cyan hover:text-acid-green transition-colors">
                 Contact
               </a>

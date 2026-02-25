@@ -175,7 +175,7 @@ function SystemStatusPanel({ refreshInterval = 30000 }: { refreshInterval?: numb
 export default function DashboardPage() {
   const [recentDebates, setRecentDebates] = useState<DebateArtifact[]>([]);
   const [loadingDebates, setLoadingDebates] = useState(true);
-  const [dataSource, setDataSource] = useState<'backend' | 'supabase' | 'none'>('none');
+  const [_dataSource, setDataSource] = useState<'backend' | 'supabase' | 'none'>('none');
 
   const { setContext, clearContext } = useRightSidebar();
 

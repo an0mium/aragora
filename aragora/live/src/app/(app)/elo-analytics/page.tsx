@@ -12,7 +12,6 @@ import {
   useAgentEloDetail,
   useRankingStats,
   useDomainLeaderboard,
-  type AgentTrendData,
 } from '@/hooks/useEloAnalytics';
 
 // ============================================================================
