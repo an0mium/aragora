@@ -301,7 +301,8 @@ export class AuditAPI {
   async getEvent(eventId: string): Promise<AuditEvent> {
     return this.client.request<AuditEvent>(
       'GET',
-      `/api/v1/audit/entries/${encodeURIComponent(eventId)}`
+      '/api/v1/audit/entries',
+      { params: { event_id: eventId } }
     );
   }
 

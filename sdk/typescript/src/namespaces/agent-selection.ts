@@ -438,7 +438,7 @@ export class AgentSelectionAPI {
   async getScorer(name: string): Promise<ScorerPlugin> {
     return this.client.request<ScorerPlugin>(
       'GET',
-      '/api/v1/selection/scorers/' + encodeURIComponent(name)
+      `/api/v1/selection/scorers/${encodeURIComponent(name)}`
     );
   }
 
@@ -448,7 +448,7 @@ export class AgentSelectionAPI {
   async getTeamSelector(name: string): Promise<TeamSelectorPlugin> {
     return this.client.request<TeamSelectorPlugin>(
       'GET',
-      '/api/v1/selection/team-selectors/' + encodeURIComponent(name)
+      `/api/v1/selection/team-selectors/${encodeURIComponent(name)}`
     );
   }
 
@@ -458,7 +458,7 @@ export class AgentSelectionAPI {
   async getRoleAssigner(name: string): Promise<RoleAssignerPlugin> {
     return this.client.request<RoleAssignerPlugin>(
       'GET',
-      '/api/v1/selection/role-assigners/' + encodeURIComponent(name)
+      `/api/v1/selection/role-assigners/${encodeURIComponent(name)}`
     );
   }
 
@@ -467,32 +467,35 @@ export class AgentSelectionAPI {
   // ===========================================================================
 
   /**
-   * List all scorer plugins via the dedicated endpoint.
+   * List all scorer plugins via the plugins endpoint.
    */
   async listScorers(): Promise<{ scorers: ScorerPlugin[] }> {
     return this.client.request<{ scorers: ScorerPlugin[] }>(
       'GET',
-      '/api/v1/selection/scorers'
+      '/api/v1/selection/plugins',
+      { params: { type: 'scorers' } }
     );
   }
 
   /**
-   * List all team selector plugins via the dedicated endpoint.
+   * List all team selector plugins via the plugins endpoint.
    */
   async listTeamSelectors(): Promise<{ selectors: TeamSelectorPlugin[] }> {
     return this.client.request<{ selectors: TeamSelectorPlugin[] }>(
       'GET',
-      '/api/v1/selection/team-selectors'
+      '/api/v1/selection/plugins',
+      { params: { type: 'team-selectors' } }
     );
   }
 
   /**
-   * List all role assigner plugins via the dedicated endpoint.
+   * List all role assigner plugins via the plugins endpoint.
    */
   async listRoleAssigners(): Promise<{ assigners: RoleAssignerPlugin[] }> {
     return this.client.request<{ assigners: RoleAssignerPlugin[] }>(
       'GET',
-      '/api/v1/selection/role-assigners'
+      '/api/v1/selection/plugins',
+      { params: { type: 'role-assigners' } }
     );
   }
 

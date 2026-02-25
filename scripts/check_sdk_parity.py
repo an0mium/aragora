@@ -60,6 +60,7 @@ INTERNAL_ROUTES = {
 HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"}
 CAN_HANDLE_PREFIX_ALLOWLIST = {
     "/api/v1/actions",
+    "/api/v1/audit-trails",
     "/api/v1/orchestration/canvas",
     "/api/pipeline/transitions",
     "/api/plans",
@@ -96,10 +97,13 @@ def _collect_routes_from_handler_class(handler_cls: type[Any]) -> list[str]:
         if normalized:
             collected.add(normalized)
 
-    for attr in ("ROUTES", "DYNAMIC_ROUTES", "_DYNAMIC_ROUTES", "ROUTE_MAP", "_ROUTE_MAP"):
+    for attr in ("ROUTES", "DYNAMIC_ROUTES", "_DYNAMIC_ROUTES", "ROUTE_MAP", "_ROUTE_MAP",
+                  "PREFIX_ROUTES", "_PREFIX_ROUTES"):
         value = getattr(handler_cls, attr, None)
         if value is None:
             continue
+
+        is_prefix_attr = "PREFIX" in attr.upper()
 
         if isinstance(value, dict):
             for key in value.keys():
@@ -111,6 +115,11 @@ def _collect_routes_from_handler_class(handler_cls: type[Any]) -> list[str]:
             for item in value:
                 if isinstance(item, str):
                     add_candidate(item)
+                    # PREFIX_ROUTES entries end with "/" and match sub-paths;
+                    # generate a {param} variant so SDK paths like
+                    # /api/v1/selection/scorers/{name} are recognized.
+                    if is_prefix_attr and isinstance(item, str) and item.endswith("/"):
+                        add_candidate(f"{item}{{param}}")
 
     # Some handlers are prefix-dispatched and only expose can_handle(path)
     # with startswith() checks rather than explicit ROUTES declarations.

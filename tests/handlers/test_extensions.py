@@ -21,6 +21,8 @@ long content truncation, empty lists, None ctx fields, and route table validatio
 
 from __future__ import annotations
 
+import os
+import tempfile
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
@@ -659,7 +661,7 @@ class TestHandleGastownWorkspaceCreate:
 
         call_kwargs = full_state.coordinator.create_workspace.call_args.kwargs
         assert call_kwargs["name"] == "Unnamed Workspace"
-        assert call_kwargs["root_path"] == "/tmp/workspace"
+        assert call_kwargs["root_path"] == os.path.join(tempfile.gettempdir(), "workspace")
         assert call_kwargs["description"] == ""
 
     @pytest.mark.asyncio

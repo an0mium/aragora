@@ -12,6 +12,8 @@ Covers: all routes, success paths, error handling, edge cases, input validation.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -711,7 +713,7 @@ class TestRunDrill:
         result = await handler.handle(method="POST", path="/api/v2/dr/drill", body={})
         assert result.status_code == 200
         mock_manager.restore_backup.assert_called_once_with(
-            "bk-001", "/tmp/dr_drill_test.db", dry_run=True
+            "bk-001", os.path.join(tempfile.gettempdir(), "dr_drill_test.db"), dry_run=True
         )
 
     @pytest.mark.asyncio
