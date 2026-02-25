@@ -522,8 +522,6 @@ async def create_from_braindump(
         from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
 
         pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
-        agent = _get_ai_agent() if body.use_ai else None
-        pipeline = IdeaToExecutionPipeline(agent=agent, use_universal=body.use_universal)
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
         result = await IdeaToExecutionPipeline.from_brain_dump(
@@ -672,7 +670,6 @@ async def advance_pipeline(
 
         agent = _get_ai_agent() if body.use_ai else None
         pipeline = IdeaToExecutionPipeline(agent=agent)
-        event_cb = _get_pipeline_emitter_callback(body.pipeline_id)
 
         # advance_stage takes (result, target_stage); determine next stage from status
         stage_order = ["ideation", "principles", "goals", "actions", "orchestration"]
