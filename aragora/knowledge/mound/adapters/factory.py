@@ -540,6 +540,46 @@ _ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
             "config_key": "km_explainability_adapter",
         },
     ),
+    # --- Enterprise data adapters (Tier 5) ---
+    (
+        ".email_adapter",
+        "EmailAdapter",
+        {
+            "name": "email",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": "sync_from_km",
+            "priority": 18,
+            "enabled_by_default": False,
+            "config_key": "km_email_adapter",
+        },
+    ),
+    (
+        ".jira_adapter",
+        "JiraAdapter",
+        {
+            "name": "jira",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": "sync_from_km",
+            "priority": 17,
+            "enabled_by_default": False,
+            "config_key": "km_jira_adapter",
+        },
+    ),
+    (
+        ".confluence_adapter",
+        "ConfluenceAdapter",
+        {
+            "name": "confluence",
+            "required_deps": [],
+            "forward_method": "sync_to_km",
+            "reverse_method": "sync_from_km",
+            "priority": 16,
+            "enabled_by_default": False,
+            "config_key": "km_confluence_adapter",
+        },
+    ),
 ]
 
 
@@ -950,6 +990,10 @@ class AdapterFactory:
                     event_callback=self._event_callback,
                 )
             elif spec.name in ("idea_canvas", "goal_canvas", "genesis"):
+                adapter = adapter_class(
+                    event_callback=self._event_callback,
+                )
+            elif spec.name in ("email", "jira", "confluence"):
                 adapter = adapter_class(
                     event_callback=self._event_callback,
                 )
