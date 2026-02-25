@@ -87,3 +87,7 @@ The maintainer runs non-destructive upkeep by default:
 - Branch retention: keeps local `codex/*` branches (`--no-delete-branches`)
 - Safety: skips worktrees with active processes (use `--include-active` only if needed)
 - Daemon mode: `--reconcile-only` (no cleanup deletions in background)
+
+Implementation note:
+- `scripts/worktree_maintainer.sh` is a thin wrapper around `python -m aragora.worktree.maintainer`,
+  which uses the shared `WorktreeLifecycleService` for consistent policy and telemetry.

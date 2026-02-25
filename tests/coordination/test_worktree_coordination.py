@@ -145,6 +145,28 @@ class TestWorktreeManager:
 
         assert len(manager.active_worktrees) == 1
 
+    def test_maintain_managed_sessions_delegates_to_lifecycle(self):
+        manager = self._make_manager()
+        expected = {
+            "ok": True,
+            "directories_total": 1,
+            "processed": 1,
+            "skipped_active": 0,
+            "skipped_missing": 0,
+            "failures": 0,
+            "results": [],
+        }
+
+        with patch.object(manager._lifecycle, "maintain_managed_dirs", return_value=expected) as mock:
+            result = manager.maintain_managed_sessions(
+                base_branch="main",
+                managed_dirs=[".worktrees/codex-auto"],
+                reconcile_only=True,
+            )
+
+        assert result == expected
+        mock.assert_called_once()
+
     def test_record_activity(self):
         manager = self._make_manager()
         state = WorktreeState(

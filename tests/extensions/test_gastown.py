@@ -8,6 +8,7 @@ import pytest
 import tempfile
 import uuid
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from aragora.extensions.gastown import (
     Workspace,
@@ -419,6 +420,51 @@ class TestHookRunner:
         stats = await runner.get_stats()
         assert stats["hooks_total"] == 1
         assert stats["hooks_enabled"] == 1
+
+    @pytest.mark.asyncio
+    async def test_create_worktree_delegates_to_lifecycle(self, runner: HookRunner, tmp_path: Path):
+        """create_worktree delegates to shared worktree lifecycle service."""
+        repo = tmp_path / "repo"
+        worktree = tmp_path / "repo-wt"
+        repo.mkdir(parents=True)
+
+        mock_service = MagicMock()
+        mock_service.create_worktree.return_value = MagicMock(
+            success=True,
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+        with patch("aragora.extensions.gastown.hooks.WorktreeLifecycleService", return_value=mock_service):
+            result = await runner.create_worktree(
+                repo_path=str(repo),
+                worktree_path=str(worktree),
+                branch="main",
+            )
+
+        assert result["success"] is True
+        mock_service.create_worktree.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_remove_worktree_delegates_to_lifecycle(self, runner: HookRunner, tmp_path: Path):
+        """remove_worktree delegates to shared worktree lifecycle service."""
+        worktree = tmp_path / "repo-wt"
+        worktree.mkdir(parents=True)
+
+        mock_service = MagicMock()
+        mock_service.remove_worktree.return_value = MagicMock(
+            success=True,
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+        with patch("aragora.extensions.gastown.hooks.WorktreeLifecycleService", return_value=mock_service):
+            result = await runner.remove_worktree(str(worktree))
+
+        assert result["success"] is True
+        mock_service.remove_worktree.assert_called_once()
 
 
 # =============================================================================
