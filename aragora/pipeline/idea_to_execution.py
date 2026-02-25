@@ -115,7 +115,7 @@ class PipelineConfig:
     enable_elo_assignment: bool = True
     enable_km_precedents: bool = True
     human_approval_required: bool = False  # Require human approval between stages
-    enable_km_persistence: bool = False  # Auto-persist results to KnowledgeMound
+    enable_km_persistence: bool = True  # Auto-persist results to KnowledgeMound
     use_arena_orchestration: bool = True  # Use Arena mini-debate in Stage 4 (gracefully degrades)
     use_hardened_orchestrator: bool = False  # Use HardenedOrchestrator in Stage 4
     template: Any | None = None  # DeliberationTemplate for Arena defaults
