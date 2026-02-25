@@ -68,6 +68,24 @@ jobs:
           print(f"All {len(required_monitors)} required monitors configured")
           EOF
 
+      - name: Check production deployment secret availability
+        if: github.event.inputs.environment == 'production' || github.ref == 'refs/heads/main'
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          missing=()
+          [ -n "$DEPLOY_SSH_KEY" ] || missing+=("DEPLOY_SSH_KEY")
+          [ -n "$DEPLOY_HOST" ] || missing+=("DEPLOY_HOST")
+          [ -n "$DEPLOY_USER" ] || missing+=("DEPLOY_USER")
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::warning::Production status-page deploy will be skipped (missing secrets: ${missing[*]})."
+          else
+            echo "Production deployment secrets are configured."
+          fi
+
   deploy-staging:
     name: Deploy to Staging
     needs: validate
@@ -86,7 +104,11 @@ jobs:
   deploy-production:
     name: Deploy to Production
     needs: validate
-    if: github.event.inputs.environment == 'production' || github.ref == 'refs/heads/main'
+    if: >-
+      (github.event.inputs.environment == 'production' || github.ref == 'refs/heads/main') &&
+      secrets.DEPLOY_SSH_KEY != '' &&
+      secrets.DEPLOY_HOST != '' &&
+      secrets.DEPLOY_USER != ''
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -149,7 +171,7 @@ jobs:
           fi
 
       - name: Notify Slack
-        if: always()
+        if: always() && secrets.SLACK_OPS_WEBHOOK != ''
         uses: slackapi/slack-github-action@v1
         with:
           payload: |

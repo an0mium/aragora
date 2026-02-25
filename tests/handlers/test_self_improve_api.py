@@ -1127,7 +1127,9 @@ class TestAutopilotWorktreesE2E:
     """End-to-end autopilot API tests against a real temporary git repo."""
 
     @pytest.mark.asyncio
-    async def test_ensure_reconcile_maintain_flow(self, handler, mock_http_handler, tmp_path, monkeypatch):
+    async def test_ensure_reconcile_maintain_flow(
+        self, handler, mock_http_handler, tmp_path, monkeypatch
+    ):
         repo = _init_autopilot_repo(tmp_path)
         monkeypatch.chdir(repo)
 

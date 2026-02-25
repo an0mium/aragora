@@ -124,7 +124,9 @@ class TestWorktreeManager:
         mock_result.stdout = "abc123\n"
 
         with (
-            patch.object(manager._lifecycle, "ensure_managed_worktree", return_value=managed) as mock_ensure,
+            patch.object(
+                manager._lifecycle, "ensure_managed_worktree", return_value=managed
+            ) as mock_ensure,
             patch.object(manager, "_run_git", return_value=mock_result),
         ):
             wt = await manager.create(

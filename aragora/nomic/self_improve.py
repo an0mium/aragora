@@ -1090,7 +1090,9 @@ class SelfImprovePipeline:
         managed_enabled = bool(getattr(self.config, "coordination_managed_worktrees", True))
         managed_dir = str(getattr(self.config, "coordination_managed_dir", ".worktrees/codex-auto"))
         managed_strategy = str(getattr(self.config, "coordination_managed_strategy", "merge"))
-        managed_agent = str(getattr(self.config, "coordination_managed_agent", "nomic-self-improve"))
+        managed_agent = str(
+            getattr(self.config, "coordination_managed_agent", "nomic-self-improve")
+        )
         try:
             maint_preflight = wt_manager.maintain_managed_sessions(
                 base_branch=base_branch,
@@ -1189,7 +1191,9 @@ class SelfImprovePipeline:
                         try:
                             wt_state = await wt_manager.create(**create_common_kwargs)
                         except RuntimeError as fallback_exc:
-                            logger.warning("worktree_create_failed task=%s: %s", task.task_id, fallback_exc)
+                            logger.warning(
+                                "worktree_create_failed task=%s: %s", task.task_id, fallback_exc
+                            )
                             dispatcher.fail(task.task_id, str(fallback_exc))
                             results.append(
                                 {
