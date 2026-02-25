@@ -386,6 +386,110 @@ class AgentsAPI:
         """
         return self._client.request("GET", f"/api/agents/{agent_id}/feedback/domains")
 
+    # =========================================================================
+    # Agent Statistics
+    # =========================================================================
+
+    def get_stats(self) -> dict[str, Any]:
+        """
+        Get aggregate agent statistics.
+
+        Returns:
+            Dict with overall agent statistics (counts, averages, etc.)
+        """
+        return self._client.request("GET", "/api/v1/agents/stats")
+
+    # =========================================================================
+    # Agent Lifecycle
+    # =========================================================================
+
+    def enable(self, name: str) -> dict[str, Any]:
+        """
+        Enable an agent.
+
+        Args:
+            name: Agent name or identifier.
+
+        Returns:
+            Dict confirming the agent has been enabled.
+        """
+        return self._client.request("POST", f"/api/v1/agents/{name}/enable")
+
+    def disable(self, name: str, reason: str | None = None) -> dict[str, Any]:
+        """
+        Disable an agent.
+
+        Args:
+            name: Agent name or identifier.
+            reason: Optional reason for disabling.
+
+        Returns:
+            Dict confirming the agent has been disabled.
+        """
+        body: dict[str, Any] = {}
+        if reason:
+            body["reason"] = reason
+        return self._client.request("POST", f"/api/v1/agents/{name}/disable", json=body or None)
+
+    def register(
+        self,
+        agent_id: str,
+        capabilities: list[str] | None = None,
+        model: str | None = None,
+        provider: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Register a new agent.
+
+        Args:
+            agent_id: Unique agent identifier.
+            capabilities: List of agent capabilities.
+            model: Model name.
+            provider: Model provider.
+            metadata: Additional metadata.
+
+        Returns:
+            Dict with registration confirmation.
+        """
+        body: dict[str, Any] = {"agent_id": agent_id}
+        if capabilities:
+            body["capabilities"] = capabilities
+        if model:
+            body["model"] = model
+        if provider:
+            body["provider"] = provider
+        if metadata is not None:
+            body["metadata"] = metadata
+        return self._client.request("POST", "/api/v1/control-plane/agents", json=body)
+
+    def unregister(self, agent_id: str) -> dict[str, Any]:
+        """
+        Unregister an agent.
+
+        Args:
+            agent_id: Agent identifier.
+
+        Returns:
+            Dict confirming unregistration.
+        """
+        return self._client.request("DELETE", f"/api/v1/control-plane/agents/{agent_id}")
+
+    def heartbeat(self, agent_id: str, status: str) -> dict[str, Any]:
+        """
+        Send a heartbeat for an agent.
+
+        Args:
+            agent_id: Agent identifier.
+            status: Current agent status.
+
+        Returns:
+            Dict confirming heartbeat received.
+        """
+        return self._client.request(
+            "POST", f"/api/v1/control-plane/agents/{agent_id}/heartbeat", json={"status": status}
+        )
+
 
 class AsyncAgentsAPI:
     """
@@ -687,3 +791,60 @@ class AsyncAgentsAPI:
     async def get_feedback_domains(self, agent_id: str) -> dict[str, Any]:
         """Get feedback domain breakdown for a specific agent."""
         return await self._client.request("GET", f"/api/agents/{agent_id}/feedback/domains")
+
+    # =========================================================================
+    # Agent Statistics
+    # =========================================================================
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get aggregate agent statistics."""
+        return await self._client.request("GET", "/api/v1/agents/stats")
+
+    # =========================================================================
+    # Agent Lifecycle
+    # =========================================================================
+
+    async def enable(self, name: str) -> dict[str, Any]:
+        """Enable an agent."""
+        return await self._client.request("POST", f"/api/v1/agents/{name}/enable")
+
+    async def disable(self, name: str, reason: str | None = None) -> dict[str, Any]:
+        """Disable an agent with optional reason."""
+        body: dict[str, Any] = {}
+        if reason:
+            body["reason"] = reason
+        return await self._client.request(
+            "POST", f"/api/v1/agents/{name}/disable", json=body or None
+        )
+
+    async def register(
+        self,
+        agent_id: str,
+        capabilities: list[str] | None = None,
+        model: str | None = None,
+        provider: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Register a new agent."""
+        body: dict[str, Any] = {"agent_id": agent_id}
+        if capabilities:
+            body["capabilities"] = capabilities
+        if model:
+            body["model"] = model
+        if provider:
+            body["provider"] = provider
+        if metadata is not None:
+            body["metadata"] = metadata
+        return await self._client.request("POST", "/api/v1/control-plane/agents", json=body)
+
+    async def unregister(self, agent_id: str) -> dict[str, Any]:
+        """Unregister an agent."""
+        return await self._client.request("DELETE", f"/api/v1/control-plane/agents/{agent_id}")
+
+    async def heartbeat(self, agent_id: str, status: str) -> dict[str, Any]:
+        """Send a heartbeat for an agent."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/control-plane/agents/{agent_id}/heartbeat",
+            json={"status": status},
+        )
