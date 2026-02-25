@@ -387,6 +387,9 @@ ALLOWED_WITHOUT_RBAC = frozenset(
         # Inbox modules (middleware-protected)
         "inbox_actions",
         "inbox_services",
+        # Inbox auto-debate helpers (service modules invoked by protected handlers)
+        "inbox/auto_debate",
+        "features/unified_inbox/auto_debate",
         # Integrations (webhook verification, not direct user handler)
         "integrations/email_webhook",
         # Replay handler (middleware-protected)
