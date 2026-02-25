@@ -120,12 +120,12 @@ class SecurityEventType(Enum):
     AUTH_LOGIN_SUCCESS = "auth.login.success"
     AUTH_LOGIN_FAILURE = "auth.login.failure"
     AUTH_LOGOUT = "auth.logout"
-    AUTH_TOKEN_REFRESH = "auth.token.refresh"
+    AUTH_TOKEN_REFRESH = "auth.token.refresh"  # noqa: S105 -- enum value
     AUTH_MFA_CHALLENGE = "auth.mfa.challenge"
     AUTH_MFA_SUCCESS = "auth.mfa.success"
     AUTH_MFA_FAILURE = "auth.mfa.failure"
-    AUTH_PASSWORD_CHANGE = "auth.password.change"
-    AUTH_PASSWORD_RESET = "auth.password.reset"
+    AUTH_PASSWORD_CHANGE = "auth.password.change"  # noqa: S105 -- enum value
+    AUTH_PASSWORD_RESET = "auth.password.reset"  # noqa: S105 -- enum value
 
     # Authorization
     AUTHZ_ACCESS_GRANTED = "authz.access.granted"
@@ -148,7 +148,7 @@ class SecurityEventType(Enum):
 
     # Security Incidents
     SECURITY_RATE_LIMIT = "security.rate_limit"
-    SECURITY_INVALID_TOKEN = "security.invalid_token"
+    SECURITY_INVALID_TOKEN = "security.invalid_token"  # noqa: S105 -- enum value
     SECURITY_SUSPICIOUS_ACTIVITY = "security.suspicious"
     SECURITY_BRUTE_FORCE = "security.brute_force"
 

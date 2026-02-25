@@ -200,6 +200,20 @@ class ProxyConfig:
             active_hours=(0, 23),  # Inference can run any hour
             budget_limit_credits=None,  # fal.ai uses per-request billing
         )
+        config.services["mistral"] = ServiceKeyConfig(
+            service_name="mistral",
+            secret_manager_key="MISTRAL_API_KEY",  # noqa: S106
+            secret_id="aragora/production",  # noqa: S106
+            standalone_secret_id="aragora/api/mistral",  # noqa: S106
+            rotation_strategy=RotationStrategy.JITTERED,
+            rotation_interval_hours=8.0,
+            rotation_jitter_hours=2.0,
+            max_calls_per_minute=30,
+            max_calls_per_hour=500,
+            allowed_endpoints=frozenset({"/v1/chat/completions", "/v1/embeddings"}),
+            active_hours=(0, 23),
+            budget_limit_credits=None,
+        )
         config.services["openrouter"] = ServiceKeyConfig(
             service_name="openrouter",
             secret_manager_key="OPENROUTER_API_KEY",  # noqa: S106

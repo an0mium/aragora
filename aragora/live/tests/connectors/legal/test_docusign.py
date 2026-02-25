@@ -28,9 +28,9 @@ class TestDocuSignCredentials:
             account_id="acc_123",
             base_uri="https://demo.docusign.net/restapi",
         )
-        assert creds.access_token == "test_token"
+        assert creds.access_token == "test_token"  # noqa: S105 -- test assertion
         assert creds.account_id == "acc_123"
-        assert creds.token_type == "Bearer"
+        assert creds.token_type == "Bearer"  # noqa: S105 -- test assertion
 
     def test_is_expired_no_expiry(self):
         creds = DocuSignCredentials(
