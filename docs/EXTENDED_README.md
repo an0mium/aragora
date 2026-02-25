@@ -31,11 +31,11 @@ Aragora works for a 5-person startup on day one and scales to regulated enterpri
 
 ### 2. Leading-Edge Memory and Context
 
-Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 28 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
+Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 0 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
 
 ### 3. Extensible and Modular
 
-Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript (140 namespaces). 2,000+ API operations across 1,800+ paths and 190+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 50+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack.
+Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript (140 namespaces). 3,000+ API operations across 2,900+ paths and 260+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 60+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack.
 
 ### 4. Multi-Agent Robustness
 
@@ -213,7 +213,7 @@ print(f"Consensus: {result.consensus_reached} ({result.confidence:.0%})")
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │                 AGENT LAYER (42+ Agent Types)             │   │
+│  │                 AGENT LAYER (30+ Agent Types)             │   │
 │  │  Claude | GPT | Gemini | Grok | Mistral | DeepSeek | Qwen │   │
 │  │              + Kimi, Yi, Local Models (Ollama)             │   │
 │  └───────────────────────────┬──────────────────────────────┘   │
@@ -230,7 +230,7 @@ print(f"Consensus: {result.consensus_reached} ({result.confidence:.0%})")
 │  │  • Belief networks with Bayesian propagation              │   │
 │  │  • Claims kernel with typed relationships                 │   │
 │  │  • Evidence provenance with hash chains                   │   │
-│  │  • Knowledge Mound (28 registered adapters) + Semantic search  │   │
+│  │  • Knowledge Mound (0 registered adapters) + Semantic search  │   │
 │  └───────────────────────────┬──────────────────────────────┘   │
 │                               ▼                                  │
 │  ┌──────────────────────────────────────────────────────────┐   │
@@ -285,7 +285,7 @@ aragora/
 │   └── embeddings.py       # Semantic embedding for retrieval
 ├── knowledge/        # Unified knowledge management
 │   ├── bridges.py          # KnowledgeBridgeHub, MetaLearner, Evidence bridges
-│   └── mound/              # KnowledgeMound (28 registered adapters, 4,300+ tests)
+│   └── mound/              # KnowledgeMound (0 registered adapters, 4,300+ tests)
 │       ├── adapters/       # Belief, Consensus, ELO, Evidence, OpenClaw, etc.
 │       ├── semantic.py     # Vector embedding-based search
 │       ├── federation.py   # Multi-region sync
@@ -321,7 +321,7 @@ aragora/
 ├── security/         # Encryption, key rotation, SSRF protection
 ├── observability/    # Prometheus, OpenTelemetry, SLOs
 ├── control_plane/    # Agent registry, scheduler, health, policies (1,500+ tests)
-├── workflow/         # DAG-based automation (50+ templates)
+├── workflow/         # DAG-based automation (60+ templates)
 ├── nomic/            # Self-improvement (MetaPlanner, BranchCoordinator)
 ├── rlm/              # Recursive Language Models
 ├── pulse/            # Trending topics (1,000+ tests)
@@ -336,7 +336,7 @@ aragora/
 └── cli/              # Command-line interface
 ```
 
-**Scale:** 3,000+ Python modules | 131,000+ tests across 3,000+ test files | 134 TypeScript SDK namespaces
+**Scale:** 3,000+ Python modules | 207,000+ tests across 4,000+ test files | 185 TypeScript SDK namespaces
 
 ---
 
@@ -671,7 +671,7 @@ aragora serve --api-port 8080 --ws-port 8765
 
 ## API Endpoints
 
-The server exposes 2,000+ API operations across 1,800+ paths. Key categories:
+The server exposes 3,000+ API operations across 2,900+ paths. Key categories:
 
 | Category | Description |
 |----------|-------------|

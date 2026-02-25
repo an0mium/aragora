@@ -36,7 +36,7 @@ flowchart TB
         PromptBuilder["Prompt Builder"]
     end
 
-    subgraph Agents["Agents Layer (42+ Agent Types)"]
+    subgraph Agents["Agents Layer (30+ Agent Types)"]
         direction LR
         APIAgents["API Agents"]
         CLIAgents["CLI Agents"]
@@ -121,7 +121,7 @@ flowchart TB
 | Server | `unified_server.py`, `handlers/`, `stream/` | HTTP/WS API surface, TTS, voice |
 | Auth | `rbac/`, `auth/` | OIDC/SAML SSO, MFA, fine-grained RBAC |
 | Debate Engine | `debate/orchestrator.py`, `consensus.py` | Multi-round structured debates |
-| Agents | `agents/api_agents/`, `cli_agents.py` | 42+ agent-type integrations with fallback |
+| Agents | `agents/api_agents/`, `cli_agents.py` | 30+ agent-type integrations with fallback |
 | Memory | `memory/continuum/core.py`, `coordinator.py` | Four-tier memory with atomic writes |
 | Knowledge | `knowledge/mound/`, `bridges.py` | 28 registered adapters, semantic search, federation |
 | Control Plane | `control_plane/` | Registry, scheduling, health, policy |
