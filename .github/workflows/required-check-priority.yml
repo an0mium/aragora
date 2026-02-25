@@ -10,6 +10,7 @@ concurrency:
 
 permissions:
   actions: write
+  checks: read
   contents: read
 
 jobs:
@@ -32,8 +33,8 @@ jobs:
             const baseBranch = pr.base.ref;
             const selfRunId = Number(process.env.GITHUB_RUN_ID);
 
-            const sweeps = 8;
-            const sweepDelayMs = 15000;
+            const sweeps = 4;
+            const sweepDelayMs = 10000;
 
             // Required checks are currently produced by these workflows.
             // Keep this list in sync with branch protection required contexts.
@@ -65,45 +66,101 @@ jobs:
                   `(continuing with static required-workflow keep-list): ${error.message}`
               );
             }
+            const requiredContextsNormalized = new Set(
+              Array.from(requiredContexts).map((value) => String(value || '').trim())
+            );
 
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
             const canceledRuns = [];
             const seenRunIds = new Set();
+            const requiredContextRunCache = new Map();
+            let emptySweepCount = 0;
+
+            async function runHasRequiredContext(run) {
+              if (requiredContextsNormalized.size === 0) {
+                return false;
+              }
+              if (requiredContextRunCache.has(run.id)) {
+                return requiredContextRunCache.get(run.id);
+              }
+
+              const contextNames = new Set();
+              const workflowName = String(run.name || '').trim();
+              const registerName = (name) => {
+                const normalized = String(name || '').trim();
+                if (normalized) contextNames.add(normalized);
+              };
+
+              if (run.check_suite_id) {
+                try {
+                  const checkRuns = await github.paginate(github.rest.checks.listForSuite, {
+                    owner,
+                    repo,
+                    check_suite_id: run.check_suite_id,
+                    per_page: 100,
+                  });
+                  for (const checkRun of checkRuns) {
+                    registerName(checkRun.name);
+                  }
+                } catch (error) {
+                  core.warning(
+                    `Could not inspect check runs for run ${run.id} (suite ${run.check_suite_id}): ${error.message}`
+                  );
+                }
+              }
+
+              // Fallback for runs where check suite data is not yet available.
+              if (contextNames.size === 0) {
+                try {
+                  const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                    owner,
+                    repo,
+                    run_id: run.id,
+                    per_page: 100,
+                  });
+                  for (const job of jobs) {
+                    const jobName = String(job.name || '').trim();
+                    registerName(jobName);
+                    if (workflowName && jobName) {
+                      registerName(`${workflowName} / ${jobName}`);
+                    }
+                  }
+                } catch (error) {
+                  core.warning(`Could not inspect jobs for run ${run.id}: ${error.message}`);
+                }
+              }
+
+              const hasRequired = Array.from(contextNames).some((name) =>
+                requiredContextsNormalized.has(name)
+              );
+              requiredContextRunCache.set(run.id, hasRequired);
+              return hasRequired;
+            }
 
             for (let pass = 1; pass <= sweeps; pass++) {
-              const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+              const { data: runPage } = await github.rest.actions.listWorkflowRunsForRepo({
                 owner,
                 repo,
                 branch: headBranch,
                 event: 'pull_request',
                 per_page: 100,
               });
+              const runs = runPage.workflow_runs || [];
 
               let passCanceled = 0;
+              let passConsidered = 0;
               for (const run of runs) {
                 if (run.head_sha !== headSha) continue;
                 if (run.id === selfRunId) continue;
                 if (run.status !== 'queued' && run.status !== 'in_progress') continue;
+                passConsidered += 1;
 
                 const workflowPath = (run.path || '').split('@')[0];
                 if (alwaysKeepWorkflowPaths.has(workflowPath)) continue;
 
                 // Defensive check: if a non-allowlisted workflow run currently owns
                 // a required status context, keep it.
-                let hasRequiredContext = false;
-                if (requiredContexts.size > 0 && run.status === 'in_progress') {
-                  try {
-                    const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
-                      owner,
-                      repo,
-                      run_id: run.id,
-                      per_page: 100,
-                    });
-                    hasRequiredContext = jobs.some((job) => requiredContexts.has(job.name));
-                  } catch (error) {
-                    core.warning(`Could not inspect jobs for run ${run.id}: ${error.message}`);
-                  }
-                }
+                const hasRequiredContext = await runHasRequiredContext(run);
                 if (hasRequiredContext) continue;
 
                 try {
@@ -127,7 +184,18 @@ jobs:
                 }
               }
 
-              core.info(`Sweep ${pass}/${sweeps}: canceled ${passCanceled} run(s)`);
+              core.info(
+                `Sweep ${pass}/${sweeps}: considered ${passConsidered} run(s), canceled ${passCanceled} run(s)`
+              );
+              if (passCanceled === 0) {
+                emptySweepCount += 1;
+              } else {
+                emptySweepCount = 0;
+              }
+              if (emptySweepCount >= 2) {
+                core.info('No cancellable runs for two consecutive sweeps; exiting early');
+                break;
+              }
               if (pass < sweeps) {
                 await sleep(sweepDelayMs);
               }
