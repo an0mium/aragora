@@ -53,14 +53,21 @@ class TestSimilarityFactory:
 
     @pytest.fixture(autouse=True)
     def reset_factory(self):
-        """Reset factory state before each test, restore after."""
+        """Reset factory state before each test, restore after.
+
+        Always sets ``_initialized = False`` on teardown so that the
+        next ``_ensure_initialized()`` call re-registers all default
+        backends.  Restoring the original ``_initialized`` value risks
+        leaving the factory in an ``_initialized=True`` state with an
+        empty ``_registry`` when the conftest ``_clear_similarity_backend_state``
+        fixture (or another teardown) clears the registry dict in-place.
+        """
         orig_registry = SimilarityFactory._registry
-        orig_initialized = SimilarityFactory._initialized
         SimilarityFactory._registry = {}
         SimilarityFactory._initialized = False
         yield
         SimilarityFactory._registry = orig_registry
-        SimilarityFactory._initialized = orig_initialized
+        SimilarityFactory._initialized = False
 
     def test_ensure_initialized(self):
         """Test factory auto-initializes with default backends."""
@@ -125,12 +132,12 @@ class TestSimilarityFactory:
     def test_create_jaccard_backend(self):
         """Test creating jaccard backend."""
         backend = SimilarityFactory.create("jaccard")
-        assert isinstance(backend, JaccardBackend)
+        assert isinstance(backend, JaccardBackend) or type(backend).__name__ == "JaccardBackend"
 
     def test_create_tfidf_backend(self):
         """Test creating tfidf backend."""
         backend = SimilarityFactory.create("tfidf")
-        assert isinstance(backend, TFIDFBackend)
+        assert isinstance(backend, TFIDFBackend) or type(backend).__name__ == "TFIDFBackend"
 
     def test_create_unknown_backend_raises(self):
         """Test creating unknown backend raises ValueError."""
@@ -165,7 +172,7 @@ class TestSimilarityFactory:
     def test_auto_select_respects_env_override(self):
         """Test auto_select respects ARAGORA_SIMILARITY_BACKEND env var."""
         backend = SimilarityFactory.auto_select()
-        assert isinstance(backend, JaccardBackend)
+        assert isinstance(backend, JaccardBackend) or type(backend).__name__ == "JaccardBackend"
 
 
 class TestGetBackend:
@@ -173,14 +180,17 @@ class TestGetBackend:
 
     @pytest.fixture(autouse=True)
     def reset_factory(self):
-        """Reset factory state before each test, restore after."""
+        """Reset factory state before each test, restore after.
+
+        Always sets ``_initialized = False`` on teardown — see
+        ``TestSimilarityFactory.reset_factory`` docstring for rationale.
+        """
         orig_registry = SimilarityFactory._registry
-        orig_initialized = SimilarityFactory._initialized
         SimilarityFactory._registry = {}
         SimilarityFactory._initialized = False
         yield
         SimilarityFactory._registry = orig_registry
-        SimilarityFactory._initialized = orig_initialized
+        SimilarityFactory._initialized = False
 
     def test_get_backend_auto(self):
         """Test get_backend with auto selection."""
@@ -190,7 +200,10 @@ class TestGetBackend:
     def test_get_backend_specific(self):
         """Test get_backend with specific backend."""
         backend = get_backend(preferred="jaccard")
-        assert isinstance(backend, JaccardBackend)
+        # Use type().__name__ check alongside isinstance to survive class
+        # identity mismatches caused by importlib.reload() of the backends
+        # module in tests/debate/similarity/test_backends.py.
+        assert isinstance(backend, JaccardBackend) or type(backend).__name__ == "JaccardBackend"
 
     def test_get_backend_with_input_size(self):
         """Test get_backend uses input_size for auto selection."""
@@ -208,14 +221,17 @@ class TestBackendFunctionality:
 
     @pytest.fixture(autouse=True)
     def reset_factory(self):
-        """Reset factory state before each test, restore after."""
+        """Reset factory state before each test, restore after.
+
+        Always sets ``_initialized = False`` on teardown — see
+        ``TestSimilarityFactory.reset_factory`` docstring for rationale.
+        """
         orig_registry = SimilarityFactory._registry
-        orig_initialized = SimilarityFactory._initialized
         SimilarityFactory._registry = {}
         SimilarityFactory._initialized = False
         yield
         SimilarityFactory._registry = orig_registry
-        SimilarityFactory._initialized = orig_initialized
+        SimilarityFactory._initialized = False
 
     def test_jaccard_compute_similarity(self):
         """Test jaccard backend computes similarity."""
@@ -261,14 +277,17 @@ class TestFactoryExtensibility:
 
     @pytest.fixture(autouse=True)
     def reset_factory(self):
-        """Reset factory state before each test, restore after."""
+        """Reset factory state before each test, restore after.
+
+        Always sets ``_initialized = False`` on teardown — see
+        ``TestSimilarityFactory.reset_factory`` docstring for rationale.
+        """
         orig_registry = SimilarityFactory._registry
-        orig_initialized = SimilarityFactory._initialized
         SimilarityFactory._registry = {}
         SimilarityFactory._initialized = False
         yield
         SimilarityFactory._registry = orig_registry
-        SimilarityFactory._initialized = orig_initialized
+        SimilarityFactory._initialized = False
 
     def test_register_and_use_custom_backend(self):
         """Test registering and using a custom backend."""
