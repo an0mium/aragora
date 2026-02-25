@@ -660,7 +660,9 @@ class DebateFactory:
                 epistemic_require_unknowns=True,
                 enable_settlement_tracking=True,
             )
-            logger.info("Epistemic hygiene mode enabled on protocol (settlement tracking auto-enabled)")
+            logger.info(
+                "Epistemic hygiene mode enabled on protocol (settlement tracking auto-enabled)"
+            )
 
         # Enable settlement tracking on the protocol when explicitly requested
         if config.enable_settlement_tracking and not protocol.enable_settlement_tracking:
@@ -756,10 +758,7 @@ class DebateFactory:
 
         # Create InterventionManager for the debate when interventions are enabled
         # (or auto-enabled by epistemic_hygiene mode)
-        wants_interventions = (
-            config.enable_interventions
-            or config.mode == "epistemic_hygiene"
-        )
+        wants_interventions = config.enable_interventions or config.mode == "epistemic_hygiene"
         if wants_interventions and config.debate_id:
             try:
                 from aragora.debate.intervention import get_intervention_manager

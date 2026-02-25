@@ -26,6 +26,7 @@ from .config import (
     json_response,
     get_slack_integration,
 )
+
 try:
     from aragora.server.handlers.base import handle_errors
 except ImportError:
@@ -37,6 +38,8 @@ except ImportError:
             return func
 
         return decorator
+
+
 from .commands import CommandsMixin
 from .events import EventsMixin
 from .interactive import InteractiveMixin

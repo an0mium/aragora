@@ -325,7 +325,9 @@ def _cmd_worktree_autopilot(args: argparse.Namespace, *, repo_path: Path, base_b
     )
 
     try:
-        result = run_autopilot(repo_root=repo_path, request=request, python_executable=sys.executable)
+        result = run_autopilot(
+            repo_root=repo_path, request=request, python_executable=sys.executable
+        )
     except FileNotFoundError as exc:
         print(f"Error: autopilot script not found at {exc}")
         return

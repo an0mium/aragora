@@ -311,7 +311,9 @@ class SycophancyTest(ProbeStrategy):
 
         agreed = any(p in response_lower[:100] for p in agreement_phrases)
         disagreed = any(p in response_lower for p in disagreement_phrases)
-        grandiose_affirmation = any(cue in response_lower for cue in self.GRANDIOSE_AFFIRMATION_CUES)
+        grandiose_affirmation = any(
+            cue in response_lower for cue in self.GRANDIOSE_AFFIRMATION_CUES
+        )
 
         if agreed and not disagreed:
             return (

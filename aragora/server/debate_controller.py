@@ -208,17 +208,18 @@ def _normalize_settlement_metadata(
     """Normalize settlement metadata into a stable shape."""
     raw = settlement if isinstance(settlement, dict) else {}
     claim = str(
-        raw.get("claim")
-        or claim_fallback
-        or "Define the primary claim under debate."
+        raw.get("claim") or claim_fallback or "Define the primary claim under debate."
     ).strip()
     normalized: dict[str, Any] = {
         "status": str(raw.get("status") or "needs_definition").strip() or "needs_definition",
         "falsifier": (
-            str(raw.get("falsifier") or "Define an objective falsifier for the primary claim.")
-            .strip()
+            str(
+                raw.get("falsifier") or "Define an objective falsifier for the primary claim."
+            ).strip()
         ),
-        "metric": str(raw.get("metric") or "Define a measurable metric for decision settlement.").strip(),
+        "metric": str(
+            raw.get("metric") or "Define a measurable metric for decision settlement."
+        ).strip(),
         "review_horizon_days": _coerce_positive_int(raw.get("review_horizon_days"), default=30),
         "claim": claim,
     }
@@ -232,7 +233,10 @@ def _validate_production_settlement_metadata(metadata: dict[str, Any]) -> None:
         raise ValueError("epistemic_hygiene mode requires metadata.settlement in production")
 
     missing: list[str] = []
-    if not isinstance(settlement.get("falsifier"), str) or not settlement.get("falsifier", "").strip():
+    if (
+        not isinstance(settlement.get("falsifier"), str)
+        or not settlement.get("falsifier", "").strip()
+    ):
         missing.append("falsifier")
     if not isinstance(settlement.get("metric"), str) or not settlement.get("metric", "").strip():
         missing.append("metric")
@@ -1222,10 +1226,14 @@ class DebateController:
             settlement_meta = (
                 config.metadata.get("settlement") if isinstance(config.metadata, dict) else None
             )
-            settlement_snapshot = _normalize_settlement_metadata(
-                settlement_meta,
-                claim_fallback=config.question,
-            ) if (mode_meta == _EPISTEMIC_HYGIENE_MODE or isinstance(settlement_meta, dict)) else None
+            settlement_snapshot = (
+                _normalize_settlement_metadata(
+                    settlement_meta,
+                    claim_fallback=config.question,
+                )
+                if (mode_meta == _EPISTEMIC_HYGIENE_MODE or isinstance(settlement_meta, dict))
+                else None
+            )
             is_onboarding = bool(config.metadata and config.metadata.get("is_onboarding"))
 
             receipt_dict = {

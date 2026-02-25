@@ -161,7 +161,6 @@ class HarnessesHandler(BaseHandler):
 
         harnesses = []
         for name, info in _KNOWN_HARNESSES.items():
-            cls = info["class"]
             # Create a temporary instance to read properties
             instance = _get_harness(name)
             supported_types = []

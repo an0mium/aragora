@@ -137,7 +137,9 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         retry_backoff=2.0,
         retryable_exceptions=(AgentRateLimitError, AgentConnectionError, AgentTimeoutError),
     )
-    async def generate(self, prompt: str, context: list[Message] | None = None, **kwargs: Any) -> str:
+    async def generate(
+        self, prompt: str, context: list[Message] | None = None, **kwargs: Any
+    ) -> str:
         """Generate a response using Anthropic API.
 
         Falls back to OpenRouter if billing/quota errors are encountered
