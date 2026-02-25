@@ -1267,9 +1267,8 @@ Please provide an improved answer based on the feedback."""
     def __enter__(self) -> "AragoraRLM":
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:  # type: ignore[exit-return]
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self.close()
-        return False
 
     def get_trajectory_log_path(self) -> str | None:
         """Get the trajectory log directory path."""
