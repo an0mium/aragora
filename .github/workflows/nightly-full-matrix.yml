@@ -1,0 +1,150 @@
+name: Nightly Full Matrix
+
+on:
+  schedule:
+    # Daily at 04:30 UTC
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-full-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pre-release-gates:
+    name: Pre-release Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,research,code-intel,test,monitoring]"
+
+      - name: Security gates
+        run: python scripts/pre_release_check.py --category security
+        env:
+          PYTHONPATH: .
+
+      - name: Integration gates
+        run: python scripts/pre_release_check.py --category integration
+        env:
+          PYTHONPATH: .
+
+      - name: Release gates
+        run: python scripts/pre_release_check.py --category release
+        env:
+          PYTHONPATH: .
+
+  regression-matrix:
+    name: Regression Matrix (${{ matrix.shard.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - name: debate-workflow-handlers
+            cmd: >-
+              python -m pytest tests/debate tests/workflow tests/server/handlers
+              -m "not load and not e2e and not benchmark and not network"
+              -q --timeout=240 --tb=short
+          - name: server-integration-memory
+            cmd: >-
+              python -m pytest tests/server tests/integration tests/control_plane tests/memory
+              -m "not load and not e2e and not benchmark and not network"
+              -q --timeout=240 --tb=short
+          - name: sdk-openapi-observability
+            cmd: >-
+              python -m pytest tests/sdk tests/server/openapi tests/observability
+              tests/server/startup/test_observability.py tests/test_logging_config.py
+              -m "not load and not e2e and not benchmark and not network"
+              -q --timeout=240 --tb=short
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,research,code-intel,test,monitoring]"
+          pip install pytest-timeout
+
+      - name: Run shard
+        run: ${{ matrix.shard.cmd }}
+        env:
+          PYTHONPATH: .
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: aragora/live
+        run: npm ci
+
+      - name: TypeScript type check
+        working-directory: aragora/live
+        run: npx tsc --noEmit
+
+      - name: Build frontend
+        working-directory: aragora/live
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+  summary:
+    name: Nightly Matrix Summary
+    runs-on: ubuntu-latest
+    needs: [pre-release-gates, regression-matrix, frontend-build]
+    if: always()
+
+    steps:
+      - name: Publish summary
+        run: |
+          echo "## Nightly Full Matrix Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Pre-release Gates | ${{ needs.pre-release-gates.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Regression Matrix | ${{ needs.regression-matrix.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Build | ${{ needs.frontend-build.result }} |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.pre-release-gates.result }}" != "success" ] || \
+             [ "${{ needs.regression-matrix.result }}" != "success" ] || \
+             [ "${{ needs.frontend-build.result }}" != "success" ]; then
+            echo "::error::Nightly full matrix failed"
+            exit 1
+          fi

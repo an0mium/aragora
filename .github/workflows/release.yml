@@ -377,7 +377,7 @@ jobs:
           pip install pytest-timeout
 
       - name: Run smoke test harness (--skip-server)
-        run: python scripts/smoke_test.py --skip-server --verbose
+        run: python scripts/smoke_test.py --skip-server --quick --verbose
         env:
           PYTHONPATH: .
 
