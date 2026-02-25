@@ -1455,7 +1455,7 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                             session.active_task.cancel()
                             try:
                                 await session.active_task
-                            except (asyncio.CancelledError, Exception):
+                            except (asyncio.CancelledError, Exception):  # noqa: BLE001, S110 - awaiting cancelled task; any exception is expected
                                 pass
 
                         # Extract optional session tracking params
@@ -1499,7 +1499,7 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
                             session.active_task.cancel()
                             try:
                                 await session.active_task
-                            except (asyncio.CancelledError, Exception):
+                            except (asyncio.CancelledError, Exception):  # noqa: BLE001, S110 - awaiting cancelled task on stop
                                 pass
 
                 except json.JSONDecodeError:
@@ -1521,7 +1521,7 @@ async def oracle_websocket_handler(request: web.Request) -> web.WebSocketRespons
             session.active_task.cancel()
             try:
                 await session.active_task
-            except (asyncio.CancelledError, Exception):
+            except (asyncio.CancelledError, Exception):  # noqa: BLE001, S110 - cleanup on WS disconnect
                 pass
 
     return ws

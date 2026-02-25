@@ -292,8 +292,8 @@ class ExplainabilityHandler(BaseHandler):
             from aragora.ranking.calibration import get_calibration_tracker
 
             self.calibration_tracker = get_calibration_tracker()
-        except (ImportError, Exception):
-            pass
+        except Exception:  # noqa: BLE001, S110 - optional calibration tracker; graceful fallback to None
+            logger.debug("Calibration tracker unavailable", exc_info=True)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""

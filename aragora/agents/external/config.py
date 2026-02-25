@@ -7,6 +7,7 @@ circuit breaker settings, security controls, and resource limits.
 from __future__ import annotations
 
 import os
+import tempfile
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -68,7 +69,7 @@ class WorkspaceConfig:
     network_enabled: bool = True
     mount_secrets: bool = False  # Never mount secrets directly
     cleanup_on_exit: bool = True
-    base_path: str = "/tmp/aragora-workspaces"
+    base_path: str = field(default_factory=lambda: os.path.join(tempfile.gettempdir(), "aragora-workspaces"))  # noqa: S108
 
 
 @dataclass
@@ -170,7 +171,7 @@ class OpenHandsConfig(ExternalAgentConfig):
                 permission_key="external_agents:tool:file_write",
                 risk_level="high",
                 approval_mode=ApprovalMode.AUTO,
-                allowed_paths=["./workspace/", "/tmp/"],
+                allowed_paths=["./workspace/", tempfile.gettempdir() + "/"],
                 blocked_patterns=[r"\.env$", r"credentials", r"\.key$"],
             ),
             "BrowserTool": ToolConfig(

@@ -159,8 +159,8 @@ class NotificationHistoryHandler(BaseHandler):
                 dispatcher = get_default_notification_dispatcher()
                 if dispatcher and hasattr(dispatcher, "dead_letter_count"):
                     dlq_count = dispatcher.dead_letter_count
-            except (ImportError, Exception):
-                pass
+            except Exception:  # noqa: BLE001, S110 - optional DLQ count; graceful fallback
+                logger.debug("Notification dispatcher DLQ count unavailable", exc_info=True)
 
             return json_response(
                 {

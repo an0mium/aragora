@@ -378,8 +378,8 @@ async def initialize_debate_context(
                         await arena.prompt_builder.classify_question_async(use_llm=True)
                     except (asyncio.CancelledError, asyncio.TimeoutError):
                         pass
-                    except Exception:  # noqa: BLE001
-                        pass
+                    except Exception:  # noqa: BLE001, S110 - best-effort background classification; failure is non-critical
+                        logger.debug("Background question classification failed", exc_info=True)
 
                 ctx.background_classification_task = asyncio.create_task(_bg_classify())  # type: ignore[attr-defined]
             else:

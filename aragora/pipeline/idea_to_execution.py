@@ -30,6 +30,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import tempfile
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -2084,7 +2086,7 @@ class IdeaToExecutionPipeline:
             loop = DebugLoop(loop_cfg)
             debug_result = await loop.execute_with_retry(
                 instruction=instruction,
-                worktree_path=getattr(cfg, "worktree_path", None) or "/tmp/aragora-worktree",
+                worktree_path=getattr(cfg, "worktree_path", None) or os.path.join(tempfile.gettempdir(), "aragora-worktree"),
                 test_scope=task.get("test_scope", []),
             )
             return {

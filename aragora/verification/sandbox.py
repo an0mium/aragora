@@ -147,7 +147,7 @@ class ProofSandbox:
         except Exception as e:  # noqa: BLE001 - GC cleanup must not raise
             try:
                 logger.debug("Sandbox __del__ cleanup failed: %s", e)
-            except Exception:  # noqa: BLE001 - logger may be unavailable during shutdown
+            except Exception:  # noqa: BLE001, S110 - logger may be unavailable during __del__ shutdown
                 pass
 
     def _create_temp_dir(self) -> Path:

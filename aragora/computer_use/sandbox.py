@@ -191,7 +191,7 @@ class DockerSandboxProvider(SandboxProvider):
 
             if config.read_only_root:
                 cmd.append("--read-only")
-                cmd.extend(["--tmpfs", "/tmp:rw,exec,size=100m"])
+                cmd.extend(["--tmpfs", "/tmp:rw,exec,size=100m"])  # noqa: S108 - container-internal tmpfs mount
                 cmd.extend(["--tmpfs", "/run:rw,size=50m"])
 
             cmd.extend(config.docker_extra_args)
@@ -402,8 +402,8 @@ class ProcessSandboxProvider(SandboxProvider):
         timeout = timeout or instance.config.timeout_seconds
 
         env = os.environ.copy()
-        env["HOME"] = instance.temp_dir or "/tmp"
-        env["TMPDIR"] = instance.temp_dir or "/tmp"
+        env["HOME"] = instance.temp_dir or tempfile.gettempdir()
+        env["TMPDIR"] = instance.temp_dir or tempfile.gettempdir()
 
         try:
             proc = await asyncio.create_subprocess_exec(

@@ -57,7 +57,7 @@ def _safe_log(level: int, msg: str) -> None:
         return
     try:
         logger.log(level, msg)
-    except Exception as exc:  # noqa: BLE001, F841 - intentional broad catch: logging may fail in any way during interpreter shutdown
+    except Exception as exc:  # noqa: BLE001, S110, F841 - logging may fail during interpreter shutdown
         # Logging failed (likely during shutdown), ignore silently
         # Cannot log this error since logging itself failed
         # exc: captured for debugging if needed
