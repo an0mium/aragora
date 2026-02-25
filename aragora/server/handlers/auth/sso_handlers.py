@@ -232,7 +232,7 @@ def _get_sso_provider(provider_type: str = "oidc"):
                     client_id=os.environ.get("GITHUB_CLIENT_ID", ""),
                     client_secret=os.environ.get("GITHUB_CLIENT_SECRET", ""),
                     authorization_endpoint="https://github.com/login/oauth/authorize",
-                    token_endpoint="https://github.com/login/oauth/access_token",
+                    token_endpoint="https://github.com/login/oauth/access_token",  # noqa: S106 - OAuth config field name, not a secret
                     userinfo_endpoint="https://api.github.com/user",
                     callback_url=os.environ.get(
                         "GITHUB_CALLBACK_URL",

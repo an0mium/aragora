@@ -143,9 +143,9 @@ class ProxyConfig:
         config = cls()
         config.services["elevenlabs"] = ServiceKeyConfig(
             service_name="elevenlabs",
-            secret_manager_key="ELEVENLABS_API_KEY",
-            secret_id="aragora/production",
-            standalone_secret_id="aragora/api/elevenlabs",
+            secret_manager_key="ELEVENLABS_API_KEY",  # noqa: S106 - secret manager lookup key, not a secret
+            secret_id="aragora/production",  # noqa: S106 - secret manager path, not a secret
+            standalone_secret_id="aragora/api/elevenlabs",  # noqa: S106 - secret manager path, not a secret
             rotation_strategy=RotationStrategy.JITTERED,
             rotation_interval_hours=6.0,
             rotation_jitter_hours=2.0,
@@ -166,9 +166,9 @@ class ProxyConfig:
         )
         config.services["gemini"] = ServiceKeyConfig(
             service_name="gemini",
-            secret_manager_key="GEMINI_API_KEY",
-            secret_id="aragora/production",
-            standalone_secret_id="aragora/api/gemini",
+            secret_manager_key="GEMINI_API_KEY",  # noqa: S106 - secret manager lookup key, not a secret
+            secret_id="aragora/production",  # noqa: S106 - secret manager path, not a secret
+            standalone_secret_id="aragora/api/gemini",  # noqa: S106 - secret manager path, not a secret
             rotation_strategy=RotationStrategy.JITTERED,
             rotation_interval_hours=4.0,  # Shorter interval due to potential compromise
             rotation_jitter_hours=1.5,
