@@ -539,7 +539,7 @@ def agent_to_dict(
 def _enrich_with_calibration(
     result: dict[str, Any],
     agent_name: str,
-    calibration_tracker: CalibrationTracker,
+    calibration_tracker: Any,
 ) -> dict[str, Any]:
     """Add calibration sub-dict to an agent result dict.
 

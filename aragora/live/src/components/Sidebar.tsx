@@ -61,7 +61,7 @@ const pipelineItems: NavItem[] = [
 
 /* === DECISIONS SECTION === Progressive disclosure group */
 const decisionsItems: NavItem[] = [
-  { label: 'Deliberations', href: '/deliberations', icon: '\u2696', minMode: 'standard' },
+  { label: 'Active Debates', href: '/deliberations', icon: '\u2696', minMode: 'standard' },
   { label: 'Batch Debates', href: '/batch', icon: '\u229E', minMode: 'standard' },
   { label: 'Forks', href: '/forks', icon: '\u2442', minMode: 'advanced' },
   { label: 'Impasse', href: '/impasse', icon: '\u26A0', minMode: 'advanced' },

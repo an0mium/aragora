@@ -41,11 +41,11 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # Runtime imports for Gauntlet components (optional dependency)
-_GauntletRunner = None
-_GauntletConfig = None
-_AttackCategory = None
-_ProbeCategory = None
-_SeverityLevel = None
+_GauntletRunner: Any = None
+_GauntletConfig: Any = None
+_AttackCategory: Any = None
+_ProbeCategory: Any = None
+_SeverityLevel: Any = None
 _GAUNTLET_AVAILABLE = False
 
 try:

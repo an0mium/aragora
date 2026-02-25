@@ -106,7 +106,7 @@ class DecisionBridge:
         """Create Jira issues from DecisionPlan tasks."""
         from aragora.connectors.enterprise.collaboration.jira import JiraConnector
 
-        connector = JiraConnector()
+        connector = JiraConnector(base_url="")
         created: list[dict[str, Any]] = []
 
         implement_plan = getattr(plan, "implement_plan", None)
@@ -127,7 +127,7 @@ class DecisionBridge:
             }
             try:
                 response = await connector._api_request(
-                    "POST", "/rest/api/3/issue", json=issue_data
+                    "/rest/api/3/issue", method="POST", json_data=issue_data
                 )
                 created.append(
                     {"key": response.get("key", ""), "id": response.get("id", ""), "summary": title}
@@ -140,9 +140,9 @@ class DecisionBridge:
 
     async def _create_linear_issues(self, plan: Any) -> list[dict[str, Any]]:
         """Create Linear issues from DecisionPlan tasks."""
-        from aragora.connectors.enterprise.collaboration.linear import LinearConnector
+        from aragora.connectors.enterprise.collaboration.linear import LinearConnector, LinearCredentials
 
-        connector = LinearConnector()
+        connector = LinearConnector(credentials=LinearCredentials(api_key=""))
         created: list[dict[str, Any]] = []
 
         implement_plan = getattr(plan, "implement_plan", None)

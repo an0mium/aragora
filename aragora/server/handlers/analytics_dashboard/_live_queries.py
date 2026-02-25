@@ -44,12 +44,14 @@ def _query_debate_analytics() -> dict[str, Any] | None:
 
         leaderboard = asyncio.run(analytics.get_agent_leaderboard(limit=10, days_back=30))
         cost_breakdown = asyncio.run(analytics.get_cost_breakdown(days_back=30))
+        try:
+            from aragora.analytics.debate_analytics import DebateMetricType
+            debate_metric: Any = DebateMetricType.DEBATE_COUNT
+        except ImportError:
+            debate_metric = "debate_count"
         debate_trends = asyncio.run(
             analytics.get_usage_trends(
-                metric=analytics.__class__.__module__
-                and __import__(
-                    "aragora.analytics.debate_analytics", fromlist=["DebateMetricType"]
-                ).DebateMetricType.DEBATE_COUNT,
+                metric=debate_metric,
                 days_back=7,
             )
         )
@@ -441,7 +443,9 @@ def query_compliance() -> dict[str, Any] | None:
         from aragora.compliance.monitor import get_compliance_monitor
 
         monitor = get_compliance_monitor()
-        scores = monitor.get_scorecard()
+        if monitor is None:
+            return None
+        scores = getattr(monitor, "get_scorecard", lambda: None)()
 
         if not scores:
             return None
