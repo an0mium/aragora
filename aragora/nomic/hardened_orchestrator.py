@@ -96,7 +96,7 @@ class HardenedConfig:
     # DebugLoop: test-failure-retry cycle for agent execution
     enable_debug_loop: bool = True
     debug_loop_max_retries: int = 3
-    budget_limit_usd: float | None = None
+    budget_limit_usd: float | None = 5.0  # GA default: $5 safety cap
     budget_enforcement: BudgetEnforcementConfig | None = None
     generate_receipts: bool = True
     spectate_stream: bool = False
@@ -158,7 +158,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
         enable_execution_bridge: bool = True,
         enable_debug_loop: bool = True,
         debug_loop_max_retries: int = 3,
-        budget_limit_usd: float | None = None,
+        budget_limit_usd: float | None = 5.0,
         budget_enforcement: BudgetEnforcementConfig | None = None,
         generate_receipts: bool = True,
         spectate_stream: bool = False,

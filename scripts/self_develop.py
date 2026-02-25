@@ -649,7 +649,14 @@ Examples:
     parser.add_argument(
         "--require-approval",
         action="store_true",
-        help="Require human approval at checkpoints",
+        default=True,
+        help="Require human approval at checkpoints (default: on for GA safety)",
+    )
+    parser.add_argument(
+        "--no-approval",
+        action="store_true",
+        default=False,
+        help="Disable human approval gates (use with caution)",
     )
     parser.add_argument(
         "--dry-run",
@@ -826,6 +833,10 @@ Examples:
     )
 
     args = parser.parse_args()
+
+    # --no-approval explicitly disables the approval gate
+    if args.no_approval:
+        args.require_approval = False
 
     # --auto implies require_approval=False and a conservative budget-limit default
     if args.auto:
