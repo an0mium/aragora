@@ -1189,9 +1189,34 @@ async def cleanup_debate_resources(
         result = await _auto_execute_plan(arena, result)
 
     # Route result to originating channel (Slack, Teams, webhook, etc.)
-    if result and getattr(arena.protocol, "enable_result_routing", True):
+    # Opt-in via ArenaConfig.enable_result_routing or debate_origin metadata on the env.
+    _result_routing_enabled = getattr(arena, "enable_result_routing", False)
+    if not _result_routing_enabled:
+        # Also check for debate_origin metadata on the environment (inline origin)
+        _env_metadata = getattr(arena.env, "metadata", None) or {}
+        _result_routing_enabled = bool(_env_metadata.get("debate_origin"))
+    if result and _result_routing_enabled:
         try:
             from aragora.server.result_router import route_result
+
+            # If the environment carries inline debate_origin metadata and no
+            # origin was registered in the store yet, register it now so the
+            # router can look it up by debate_id.
+            _env_meta = getattr(arena.env, "metadata", None) or {}
+            _origin_meta = _env_meta.get("debate_origin")
+            if isinstance(_origin_meta, dict) and _origin_meta.get("platform"):
+                try:
+                    from aragora.server.debate_origin import register_debate_origin
+
+                    register_debate_origin(
+                        debate_id=state.debate_id,
+                        platform=_origin_meta["platform"],
+                        channel_id=_origin_meta.get("channel_id", ""),
+                        user_id=_origin_meta.get("user_id", ""),
+                        metadata=_origin_meta.get("metadata", {}),
+                    )
+                except (ImportError, OSError, RuntimeError, ValueError, TypeError) as reg_err:
+                    logger.debug("[result_routing] Origin registration failed: %s", reg_err)
 
             if hasattr(result, "to_dict"):
                 result_dict = result.to_dict()
@@ -1203,7 +1228,14 @@ async def cleanup_debate_resources(
                     "final_answer": getattr(result, "final_answer", ""),
                     "confidence": getattr(result, "confidence", 0.0),
                 }
-            await route_result(state.debate_id, result_dict)
+            success = await route_result(state.debate_id, result_dict)
+            if success:
+                logger.info("[result_routing] Routed debate %s result to origin", state.debate_id)
+            else:
+                logger.debug(
+                    "[result_routing] No origin found or routing skipped for debate %s",
+                    state.debate_id,
+                )
         except (ImportError, RuntimeError, OSError, TypeError, ValueError) as e:
             logger.debug("[result_routing] Failed (non-critical): %s", e)
 

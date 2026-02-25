@@ -1008,8 +1008,6 @@ async def check_compliance(
     fw=Depends(get_compliance_framework),
 ) -> ComplianceCheckResponse:
     """Run a compliance check on provided content against one or more frameworks."""
-    from datetime import datetime, timezone
-
     mgr = _get_framework_manager(fw)
     if not mgr:
         raise HTTPException(status_code=503, detail="Compliance framework not available")
@@ -1162,8 +1160,6 @@ async def get_compliance_report(
     fw=Depends(get_compliance_framework),
 ) -> ComplianceReportResponse:
     """Generate a compliance report for a specific debate."""
-    from datetime import datetime, timezone
-
     try:
         framework_list = [f.strip() for f in frameworks.split(",")] if frameworks else None
 

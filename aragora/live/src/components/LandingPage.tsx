@@ -135,6 +135,28 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
             </button>
           </form>
 
+          {/* Example topics — reduce blank-page friction */}
+          {!result && !isRunning && (
+            <div className="max-w-xl mx-auto mt-4">
+              <p className="text-xs font-mono text-text-muted/60 mb-2 text-center">Or try an example:</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {[
+                  'Should we build or buy our analytics platform?',
+                  'Is remote work better for a 50-person company?',
+                  'Should we adopt microservices or keep our monolith?',
+                ].map((topic) => (
+                  <button
+                    key={topic}
+                    onClick={() => { setQuestion(topic); runDebate(topic); }}
+                    className="text-xs font-mono px-3 py-1.5 border border-border text-text-muted hover:border-acid-green hover:text-acid-green transition-colors"
+                  >
+                    {topic}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {isRunning && (
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center gap-3 text-acid-green">
