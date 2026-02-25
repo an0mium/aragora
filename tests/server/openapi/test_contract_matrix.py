@@ -171,12 +171,10 @@ def test_python_sdk_endpoints_in_openapi(
 ) -> None:
     """Every endpoint referenced by a Python SDK namespace must exist in OpenAPI."""
     ns_file = _repo_root() / "sdk/python/aragora_sdk/namespaces" / f"{namespace}.py"
-    if not ns_file.exists():
-        pytest.skip(f"Namespace file not found: {namespace}.py")
+    assert ns_file.exists(), f"Namespace file not found: {namespace}.py"
     content = ns_file.read_text()
     sdk_eps = _extract_py_endpoints(content)
-    if not sdk_eps:
-        pytest.skip(f"No endpoints extracted from {namespace}.py")
+    assert sdk_eps, f"No endpoints extracted from {namespace}.py"
     missing = sorted(sdk_eps - openapi_endpoints)
     if missing and namespace in _PY_BUDGET_NAMESPACES:
         pytest.xfail(f"Known gap: '{namespace}' has {len(missing)} endpoints not in OpenAPI spec")
