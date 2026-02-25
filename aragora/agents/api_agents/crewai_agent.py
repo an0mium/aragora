@@ -24,15 +24,13 @@ from typing import Any
 
 import aiohttp
 
-from aragora.agents.api_agents import common as api_common
-
-create_client_session = api_common.create_client_session
 from aragora.agents.api_agents.common import (
     AgentAPIError,
     AgentConnectionError,
     AgentRateLimitError,
     AgentTimeoutError,
     _sanitize_error_message,
+    create_client_session,
 )
 from aragora.agents.errors import AgentError
 from aragora.agents.api_agents.external_framework import (
@@ -515,7 +513,9 @@ class CrewAIAgent(ExternalFrameworkAgent):
                         return {
                             "status": "error",
                             "progress": 0.0,
-                            "message": f"Error fetching status: {_sanitize_error_message(error_text)}",
+                            "message": (
+                                f"Error fetching status: {_sanitize_error_message(error_text)}"
+                            ),
                             "crew_id": crew_id,
                         }
 

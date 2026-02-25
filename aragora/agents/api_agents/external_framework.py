@@ -369,7 +369,8 @@ class ExternalFrameworkAgent(APIAgent):
                 if response.status == 429:
                     error_text = await response.text()
                     raise AgentRateLimitError(
-                        f"Rate limited by external framework: {_sanitize_error_message(error_text)}",
+                        "Rate limited by external framework: "
+                        f"{_sanitize_error_message(error_text)}",
                         agent_name=self.name,
                         retry_after=self._parse_retry_after(response),
                     )

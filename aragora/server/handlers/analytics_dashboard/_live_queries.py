@@ -810,7 +810,7 @@ def query_flips_consistency() -> dict[str, Any] | None:
                 }
             )
 
-        consistency.sort(key=lambda x: float(x["consistency_score"]), reverse=True)
+        consistency.sort(key=lambda x: float(x["consistency_score"]), reverse=True)  # type: ignore[arg-type]
         return {"consistency": consistency}
     except Exception:  # noqa: BLE001
         logger.debug("Flips consistency query failed", exc_info=True)

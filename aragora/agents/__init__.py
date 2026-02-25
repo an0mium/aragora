@@ -273,8 +273,7 @@ __all__ = [
     "reset_scheduler",
 ]
 
-# Email-specific agents for inbox prioritization
-from aragora.agents.email_agents import (
+from aragora.agents.email_agents import (  # noqa: E402
     SenderReputationAgent,
     ContentUrgencyAgent,
     ContextRelevanceAgent,

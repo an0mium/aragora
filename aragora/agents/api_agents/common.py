@@ -420,7 +420,8 @@ class SSEStreamParser:
 
     Usage:
         parser = SSEStreamParser(
-            content_extractor=lambda e: e.get('choices', [{}])[0].get('delta', {}).get('content', '')
+            content_extractor=lambda e: e.get('choices', [{}])[0].get(  # noqa: E501
+                'delta', {}).get('content', '')
         )
         async for content in parser.parse_stream(response.content):
             yield content
