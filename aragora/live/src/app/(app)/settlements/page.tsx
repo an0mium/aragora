@@ -1,0 +1,222 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { fetchApi } from '@/lib/api';
+
+interface Settlement {
+  id: string;
+  claim: string;
+  agent_name: string;
+  debate_id: string;
+  confidence: number;
+  outcome?: string;
+  settled_at?: string;
+  created_at: string;
+}
+
+interface SettlementSummary {
+  total_claims: number;
+  settled: number;
+  pending: number;
+  accuracy_rate: number;
+}
+
+type TabType = 'pending' | 'history' | 'stats';
+
+export default function SettlementsPage() {
+  const [tab, setTab] = useState<TabType>('pending');
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
+  const [summary, setSummary] = useState<SettlementSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (tab === 'pending') {
+        const res = await fetchApi('/api/v1/settlements');
+        const data = await res.json();
+        setSettlements(data.data?.settlements || data.settlements || []);
+      } else if (tab === 'history') {
+        const res = await fetchApi('/api/v1/settlements/history');
+        const data = await res.json();
+        setSettlements(data.data?.settlements || data.settlements || []);
+      } else if (tab === 'stats') {
+        const res = await fetchApi('/api/v1/settlements/summary');
+        const data = await res.json();
+        setSummary(data.data || data);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load settlements');
+    } finally {
+      setLoading(false);
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-mono font-bold text-[var(--text)]">
+            Claim Settlements
+          </h1>
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            Verify debate claims against real outcomes to calibrate agent accuracy
+          </p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 border-b border-[var(--border)]">
+        {(['pending', 'history', 'stats'] as TabType[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-sm font-mono transition-colors border-b-2 -mb-px ${
+              tab === t
+                ? 'border-[var(--acid-green)] text-[var(--acid-green)]'
+                : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text)]'
+            }`}
+          >
+            {t === 'pending' ? 'Pending' : t === 'history' ? 'History' : 'Agent Stats'}
+          </button>
+        ))}
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="p-4 mb-4 bg-crimson/10 border border-crimson/30 rounded-md">
+          <p className="text-sm text-crimson font-mono">{error}</p>
+          <button
+            onClick={loadData}
+            className="mt-2 text-xs text-crimson underline hover:no-underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-20 bg-[var(--surface-elevated)] rounded-md animate-pulse"
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Stats tab */}
+      {!loading && tab === 'stats' && summary && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard label="Total Claims" value={summary.total_claims} />
+          <StatCard label="Settled" value={summary.settled} />
+          <StatCard label="Pending" value={summary.pending} />
+          <StatCard
+            label="Accuracy"
+            value={`${(summary.accuracy_rate * 100).toFixed(1)}%`}
+            highlight
+          />
+        </div>
+      )}
+
+      {/* Settlements list */}
+      {!loading && tab !== 'stats' && (
+        <div className="space-y-3">
+          {settlements.length === 0 ? (
+            <div className="text-center py-12 text-[var(--text-muted)]">
+              <p className="text-lg font-mono mb-2">
+                {tab === 'pending' ? 'No pending settlements' : 'No settlement history'}
+              </p>
+              <p className="text-sm">
+                {tab === 'pending'
+                  ? 'Claims from completed debates will appear here for verification'
+                  : 'Settled claims will appear here with their outcomes'}
+              </p>
+            </div>
+          ) : (
+            settlements.map((s) => (
+              <SettlementCard key={s.id} settlement={s} isPending={tab === 'pending'} />
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string | number;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-md">
+      <p className="text-xs text-[var(--text-muted)] font-mono uppercase tracking-wider">
+        {label}
+      </p>
+      <p
+        className={`text-2xl font-mono font-bold mt-1 ${
+          highlight ? 'text-[var(--acid-green)]' : 'text-[var(--text)]'
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function SettlementCard({
+  settlement,
+  isPending,
+}: {
+  settlement: Settlement;
+  isPending: boolean;
+}) {
+  return (
+    <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-md hover:border-[var(--acid-green)]/30 transition-colors">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-mono text-[var(--text)] truncate">
+            {settlement.claim}
+          </p>
+          <div className="flex items-center gap-3 mt-2 text-xs text-[var(--text-muted)]">
+            <span>Agent: {settlement.agent_name}</span>
+            <span>Confidence: {(settlement.confidence * 100).toFixed(0)}%</span>
+            <span>
+              {new Date(settlement.created_at).toLocaleDateString()}
+            </span>
+          </div>
+        </div>
+        <div className="flex-shrink-0">
+          {isPending ? (
+            <span className="px-2 py-1 text-xs font-mono bg-acid-yellow/10 text-acid-yellow border border-acid-yellow/30 rounded">
+              PENDING
+            </span>
+          ) : (
+            <span
+              className={`px-2 py-1 text-xs font-mono rounded ${
+                settlement.outcome === 'correct'
+                  ? 'bg-acid-green/10 text-acid-green border border-acid-green/30'
+                  : 'bg-crimson/10 text-crimson border border-crimson/30'
+              }`}
+            >
+              {settlement.outcome?.toUpperCase() || 'UNKNOWN'}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -21,10 +21,10 @@ from aragora.server.debate_utils import (
     update_debate_status,
     cleanup_stale_debates,
     increment_cleanup_counter,
-    wrap_agent_for_streaming,
     _ActiveDebatesProxy,
     _DEBATE_TTL_SECONDS,
 )
+from aragora.server.stream.arena_hooks import wrap_agent_for_streaming
 from aragora.server.state import get_state_manager, reset_state_manager
 
 

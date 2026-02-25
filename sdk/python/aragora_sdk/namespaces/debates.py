@@ -693,6 +693,53 @@ class DebatesAPI:
         return self._client.request("POST", "/api/v1/debate-this", json=data)
 
 
+    # ========== Intervention & Reasoning ==========
+
+    def intervene(
+        self,
+        debate_id: str,
+        intervention_type: str,
+        content: str,
+        apply_at_round: int = 0,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Submit a mid-debate intervention.
+
+        Args:
+            debate_id: The debate ID
+            intervention_type: Type of intervention (redirect, constraint, challenge, evidence_request)
+            content: Intervention content
+            apply_at_round: Round to apply at (0 = next available)
+            **kwargs: Additional metadata
+
+        Returns:
+            Dict with intervention_id, status, and apply_at_round
+        """
+        data: dict[str, Any] = {
+            "type": intervention_type,
+            "content": content,
+            "apply_at_round": apply_at_round,
+            **kwargs,
+        }
+        return self._client.request(
+            "POST", f"/api/v1/debates/{debate_id}/intervene", json=data
+        )
+
+    def get_reasoning(self, debate_id: str) -> dict[str, Any]:
+        """Get per-agent reasoning summary for a debate.
+
+        Returns agent reasoning chains, key cruxes, and unresolved
+        disagreements.
+
+        Args:
+            debate_id: The debate ID
+
+        Returns:
+            Dict with agents, cruxes, unresolved_disagreements, and interventions
+        """
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/reasoning")
+
+
 class AsyncDebatesAPI:
     """
     Asynchronous Debates API.
@@ -1260,3 +1307,49 @@ class AsyncDebatesAPI:
         if source is not None:
             data["source"] = source
         return await self._client.request("POST", "/api/v1/debate-this", json=data)
+
+    # ========== Intervention & Reasoning ==========
+
+    async def intervene(
+        self,
+        debate_id: str,
+        intervention_type: str,
+        content: str,
+        apply_at_round: int = 0,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Submit a mid-debate intervention.
+
+        Args:
+            debate_id: The debate ID
+            intervention_type: Type of intervention (redirect, constraint, challenge, evidence_request)
+            content: Intervention content
+            apply_at_round: Round to apply at (0 = next available)
+            **kwargs: Additional metadata
+
+        Returns:
+            Dict with intervention_id, status, and apply_at_round
+        """
+        data: dict[str, Any] = {
+            "type": intervention_type,
+            "content": content,
+            "apply_at_round": apply_at_round,
+            **kwargs,
+        }
+        return await self._client.request(
+            "POST", f"/api/v1/debates/{debate_id}/intervene", json=data
+        )
+
+    async def get_reasoning(self, debate_id: str) -> dict[str, Any]:
+        """Get per-agent reasoning summary for a debate.
+
+        Returns agent reasoning chains, key cruxes, and unresolved
+        disagreements.
+
+        Args:
+            debate_id: The debate ID
+
+        Returns:
+            Dict with agents, cruxes, unresolved_disagreements, and interventions
+        """
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/reasoning")

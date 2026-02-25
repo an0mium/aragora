@@ -37,13 +37,25 @@ class SelectionAPI:
         """Select a team of agents for a task."""
         return self._client.request("POST", "/api/v1/selection/team", json=kwargs)
 
+    def list_scorers(self) -> dict[str, Any]:
+        """List available scorer plugins."""
+        return self._client.request("GET", "/api/v1/selection/scorers/")
+
     def get_scorer(self, name: str) -> dict[str, Any]:
         """Get details for a specific scorer plugin."""
         return self._client.request("GET", f"/api/v1/selection/scorers/{name}")
 
+    def list_team_selectors(self) -> dict[str, Any]:
+        """List available team selector plugins."""
+        return self._client.request("GET", "/api/v1/selection/team-selectors/")
+
     def get_team_selector(self, name: str) -> dict[str, Any]:
         """Get details for a specific team selector plugin."""
         return self._client.request("GET", f"/api/v1/selection/team-selectors/{name}")
+
+    def list_role_assigners(self) -> dict[str, Any]:
+        """List available role assigner plugins."""
+        return self._client.request("GET", "/api/v1/selection/role-assigners/")
 
     def get_role_assigner(self, name: str) -> dict[str, Any]:
         """Get details for a specific role assigner plugin."""
@@ -72,13 +84,25 @@ class AsyncSelectionAPI:
         """Select a team of agents for a task."""
         return await self._client.request("POST", "/api/v1/selection/team", json=kwargs)
 
+    async def list_scorers(self) -> dict[str, Any]:
+        """List available scorer plugins."""
+        return await self._client.request("GET", "/api/v1/selection/scorers/")
+
     async def get_scorer(self, name: str) -> dict[str, Any]:
         """Get details for a specific scorer plugin."""
         return await self._client.request("GET", f"/api/v1/selection/scorers/{name}")
 
+    async def list_team_selectors(self) -> dict[str, Any]:
+        """List available team selector plugins."""
+        return await self._client.request("GET", "/api/v1/selection/team-selectors/")
+
     async def get_team_selector(self, name: str) -> dict[str, Any]:
         """Get details for a specific team selector plugin."""
         return await self._client.request("GET", f"/api/v1/selection/team-selectors/{name}")
+
+    async def list_role_assigners(self) -> dict[str, Any]:
+        """List available role assigner plugins."""
+        return await self._client.request("GET", "/api/v1/selection/role-assigners/")
 
     async def get_role_assigner(self, name: str) -> dict[str, Any]:
         """Get details for a specific role assigner plugin."""

@@ -748,6 +748,32 @@ class AuthAPI:
         return self._client.request("POST", "/api/auth/setup-organization", json=data)
 
 
+    # ===========================================================================
+    # Onboarding
+    # ===========================================================================
+
+    def get_onboarding_status(self) -> dict[str, Any]:
+        """
+        Get the current onboarding status for the organization.
+
+        Returns:
+            Dict with onboarding progress, completed steps, and remaining tasks
+        """
+        return self._client.request("GET", "/api/onboarding/status")
+
+    def complete_onboarding(self, **kwargs: Any) -> dict[str, Any]:
+        """
+        Mark the onboarding process as complete.
+
+        Args:
+            **kwargs: Additional completion parameters
+
+        Returns:
+            Dict with completion confirmation
+        """
+        return self._client.request("POST", "/api/onboarding/complete", json=kwargs)
+
+
 class AsyncAuthAPI:
     """
     Asynchronous Auth API.
@@ -1151,3 +1177,15 @@ class AsyncAuthAPI:
             data["slug"] = slug
 
         return await self._client.request("POST", "/api/auth/setup-organization", json=data)
+
+    # ===========================================================================
+    # Onboarding
+    # ===========================================================================
+
+    async def get_onboarding_status(self) -> dict[str, Any]:
+        """Get the current onboarding status for the organization."""
+        return await self._client.request("GET", "/api/onboarding/status")
+
+    async def complete_onboarding(self, **kwargs: Any) -> dict[str, Any]:
+        """Mark the onboarding process as complete."""
+        return await self._client.request("POST", "/api/onboarding/complete", json=kwargs)

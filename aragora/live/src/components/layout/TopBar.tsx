@@ -8,6 +8,7 @@ import { useCommandPalette } from '@/context/CommandPaletteContext';
 import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BudgetBadge } from '@/components/layout/BudgetBadge';
+import { GlobalConnectionStatus } from '@/components/GlobalConnectionStatus';
 
 export function TopBar() {
   const { isMobile, toggleLeftSidebar, toggleRightSidebar, rightSidebarOpen } = useLayout();
@@ -65,6 +66,9 @@ export function TopBar() {
             <span className="font-mono">⊞</span>
           </button>
         )}
+
+        {/* Connection status indicator */}
+        <GlobalConnectionStatus />
 
         {/* Budget usage indicator */}
         <BudgetBadge />

@@ -260,6 +260,17 @@ class SMEAPI:
             data["inputs"] = inputs
         return self._client.request("POST", "/api/sme/workflows", json=data)
 
+    def get_workflow_info(self, workflow_type: str) -> dict[str, Any]:
+        """Get schema and info for a specific SME workflow type.
+
+        Args:
+            workflow_type: The workflow type identifier (e.g. invoice, followup, inventory)
+
+        Returns:
+            Dict with workflow schema, inputs, and description
+        """
+        return self._client.request("GET", f"/api/v1/sme/workflows/{workflow_type}")
+
     # ===========================================================================
     # Quick Helpers
     # ===========================================================================
@@ -561,6 +572,17 @@ class AsyncSMEAPI:
         if inputs:
             data["inputs"] = inputs
         return await self._client.request("POST", "/api/sme/workflows", json=data)
+
+    async def get_workflow_info(self, workflow_type: str) -> dict[str, Any]:
+        """Get schema and info for a specific SME workflow type.
+
+        Args:
+            workflow_type: The workflow type identifier (e.g. invoice, followup, inventory)
+
+        Returns:
+            Dict with workflow schema, inputs, and description
+        """
+        return await self._client.request("GET", f"/api/v1/sme/workflows/{workflow_type}")
 
     # ===========================================================================
     # Quick Helpers

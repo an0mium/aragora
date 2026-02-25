@@ -54,6 +54,17 @@ class AuditTrailAPI:
             params["offset"] = offset
         return self._client.request("GET", "/api/v1/audit-trails", params=params or None)
 
+    def get_trail(self, trail_id: str) -> dict[str, Any]:
+        """Get a specific audit trail by ID.
+
+        Args:
+            trail_id: The audit trail ID
+
+        Returns:
+            Dict with full audit trail details
+        """
+        return self._client.request("GET", f"/api/v1/audit-trails/{trail_id}")
+
     # -- Audit entries ---------------------------------------------------------
 
     def list_entries(self) -> dict[str, Any]:
@@ -175,6 +186,17 @@ class AsyncAuditTrailAPI:
         if offset is not None:
             params["offset"] = offset
         return await self._client.request("GET", "/api/v1/audit-trails", params=params or None)
+
+    async def get_trail(self, trail_id: str) -> dict[str, Any]:
+        """Get a specific audit trail by ID.
+
+        Args:
+            trail_id: The audit trail ID
+
+        Returns:
+            Dict with full audit trail details
+        """
+        return await self._client.request("GET", f"/api/v1/audit-trails/{trail_id}")
 
     async def list_entries(self) -> dict[str, Any]:
         """List audit entries."""
