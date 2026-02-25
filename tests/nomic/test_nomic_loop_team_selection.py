@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -19,7 +19,10 @@ class DummyAgent:
 
 def _make_loop(tmp_path, agent_names=None):
     """Create a NomicLoop with a minimal agent pool and circuit breaker."""
-    loop = nomic_loop.NomicLoop(aragora_path=str(tmp_path))
+    # Team-selection tests set agent_pool directly, so skip external/provider
+    # agent initialization to avoid env/API key coupling.
+    with patch.object(nomic_loop.NomicLoop, "_init_agents", lambda self: None):
+        loop = nomic_loop.NomicLoop(aragora_path=str(tmp_path))
 
     if agent_names is None:
         agent_names = AgentSettings().default_agent_list
