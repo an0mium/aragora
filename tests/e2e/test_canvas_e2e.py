@@ -704,7 +704,11 @@ class TestCanvasActionExecutionE2E:
         result = await manager.execute_action(
             canvas_id=canvas.id,
             action="start_debate",
-            params={"question": "Should we use microservices?", "rounds": 3},
+            params={
+                "question": "Should we use microservices?",
+                "rounds": 3,
+                "timeout_seconds": 10,
+            },
         )
 
         # Should succeed (node created, even if execution not available)
