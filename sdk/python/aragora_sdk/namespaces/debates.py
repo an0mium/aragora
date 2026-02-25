@@ -739,6 +739,7 @@ class DebatesAPI:
         """
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/reasoning")
 
+
     # ========== CRUD & Lifecycle ==========
 
     def get(self, debate_id: str) -> dict[str, Any]:
@@ -782,7 +783,7 @@ class DebatesAPI:
         return self._client.request("POST", f"/api/v1/debates/{debate_id}/restore")
 
     def make_permanent(self, debate_id: str) -> dict[str, Any]:
-        """Make a debate permanent (prevent auto-archival)."""
+        """Make a debate permanent."""
         return self._client.request("POST", f"/api/v1/debates/{debate_id}/make-permanent")
 
     def clone(self, debate_id: str, **options: Any) -> dict[str, Any]:
@@ -794,10 +795,8 @@ class DebatesAPI:
         return self._client.request("POST", f"/api/v1/debates/{debate_id}/archive")
 
     def export_format(self, debate_id: str, format: str = "json") -> dict[str, Any]:
-        """Export a debate in a specific format (json, markdown, html, pdf)."""
-        return self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/export", params={"format": format}
-        )
+        """Export a debate in a specific format."""
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/export", params={"format": format})
 
     # ========== Rounds, Agents, Votes ==========
 
@@ -817,15 +816,9 @@ class DebatesAPI:
         """Get consensus information for a debate."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/consensus")
 
-    def add_user_input(
-        self, debate_id: str, input: str, input_type: str = "suggestion"
-    ) -> dict[str, Any]:
+    def add_user_input(self, debate_id: str, input: str, input_type: str = "suggestion") -> dict[str, Any]:
         """Add user input to a debate."""
-        return self._client.request(
-            "POST",
-            f"/api/v1/debates/{debate_id}/user-input",
-            json={"input": input, "type": input_type},
-        )
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/user-input", json={"input": input, "type": input_type})
 
     def get_timeline(self, debate_id: str) -> dict[str, Any]:
         """Get the timeline of events in a debate."""
@@ -837,9 +830,7 @@ class DebatesAPI:
 
     def find_similar(self, debate_id: str, limit: int = 5) -> dict[str, Any]:
         """Find debates similar to this one."""
-        return self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/similar", params={"limit": limit}
-        )
+        return self._client.request("GET", f"/api/v1/debates/{debate_id}/similar", params={"limit": limit})
 
     # ========== Graph & Matrix ==========
 
@@ -879,9 +870,7 @@ class DebatesAPI:
 
     def create_counterfactual(self, debate_id: str, changes: dict[str, Any]) -> dict[str, Any]:
         """Create a counterfactual scenario."""
-        return self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/explainability/counterfactual", json=changes
-        )
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/explainability/counterfactual", json=changes)
 
     # ========== Red Team & Analysis ==========
 
@@ -890,7 +879,7 @@ class DebatesAPI:
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/red-team")
 
     def get_rhetorical(self, debate_id: str) -> dict[str, Any]:
-        """Get rhetorical pattern observations for a debate."""
+        """Get rhetorical pattern observations."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/rhetorical")
 
     def get_trickster(self, debate_id: str) -> dict[str, Any]:
@@ -902,12 +891,10 @@ class DebatesAPI:
         return self._client.request("GET", f"/api/v1/debate/{debate_id}/meta-critique")
 
     def get_quality(self, debate_id: str) -> dict[str, Any]:
-        """Get argument quality analysis for a debate."""
+        """Get argument quality analysis."""
         return self._client.request("GET", f"/api/v1/debates/{debate_id}/quality")
 
-    def verify_claim(
-        self, debate_id: str, claim_id: str, evidence: str | None = None
-    ) -> dict[str, Any]:
+    def verify_claim(self, debate_id: str, claim_id: str, evidence: str | None = None) -> dict[str, Any]:
         """Verify a specific claim from the debate."""
         data: dict[str, Any] = {"claim_id": claim_id}
         if evidence is not None:
@@ -922,9 +909,7 @@ class DebatesAPI:
 
     def add_note(self, debate_id: str, content: str) -> dict[str, Any]:
         """Add a note to a debate."""
-        return self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/notes", json={"content": content}
-        )
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/notes", json={"content": content})
 
     def delete_note(self, debate_id: str, note_id: str) -> dict[str, Any]:
         """Delete a note from a debate."""
@@ -966,11 +951,7 @@ class DebatesAPI:
 
     def intervention_inject(self, debate_id: str, content: str, **kwargs: Any) -> dict[str, Any]:
         """Inject content into a debate via intervention."""
-        return self._client.request(
-            "POST",
-            f"/api/v1/debates/{debate_id}/intervention/inject",
-            json={"content": content, **kwargs},
-        )
+        return self._client.request("POST", f"/api/v1/debates/{debate_id}/intervention/inject", json={"content": content, **kwargs})
 
     def get_intervention_log(self, debate_id: str) -> dict[str, Any]:
         """Get the intervention log for a debate."""
@@ -982,21 +963,11 @@ class DebatesAPI:
 
     def set_intervention_threshold(self, debate_id: str, threshold: float) -> dict[str, Any]:
         """Set the intervention threshold for a debate."""
-        return self._client.request(
-            "PUT",
-            f"/api/v1/debates/{debate_id}/intervention/threshold",
-            json={"threshold": threshold},
-        )
+        return self._client.request("PUT", f"/api/v1/debates/{debate_id}/intervention/threshold", json={"threshold": threshold})
 
     def set_intervention_weights(self, debate_id: str, weights: dict[str, float]) -> dict[str, Any]:
         """Set intervention weights for a debate."""
-        return self._client.request(
-            "PUT",
-            f"/api/v1/debates/{debate_id}/intervention/weights",
-            json={"weights": weights},
-        )
-
-    # ========== YouTube ==========
+        return self._client.request("PUT", f"/api/v1/debates/{debate_id}/intervention/weights", json={"weights": weights})
 
     def get_youtube_publish_status(self, debate_id: str) -> dict[str, Any]:
         """Get YouTube publish status for a debate."""
@@ -1660,7 +1631,7 @@ class AsyncDebatesAPI:
         return await self._client.request("POST", f"/api/v1/debates/{debate_id}/restore")
 
     async def make_permanent(self, debate_id: str) -> dict[str, Any]:
-        """Make a debate permanent (prevent auto-archival)."""
+        """Make a debate permanent."""
         return await self._client.request("POST", f"/api/v1/debates/{debate_id}/make-permanent")
 
     async def clone(self, debate_id: str, **options: Any) -> dict[str, Any]:
@@ -1672,10 +1643,8 @@ class AsyncDebatesAPI:
         return await self._client.request("POST", f"/api/v1/debates/{debate_id}/archive")
 
     async def export_format(self, debate_id: str, format: str = "json") -> dict[str, Any]:
-        """Export a debate in a specific format (json, markdown, html, pdf)."""
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/export", params={"format": format}
-        )
+        """Export a debate in a specific format."""
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/export", params={"format": format})
 
     # ========== Rounds, Agents, Votes ==========
 
@@ -1695,15 +1664,9 @@ class AsyncDebatesAPI:
         """Get consensus information for a debate."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/consensus")
 
-    async def add_user_input(
-        self, debate_id: str, input: str, input_type: str = "suggestion"
-    ) -> dict[str, Any]:
+    async def add_user_input(self, debate_id: str, input: str, input_type: str = "suggestion") -> dict[str, Any]:
         """Add user input to a debate."""
-        return await self._client.request(
-            "POST",
-            f"/api/v1/debates/{debate_id}/user-input",
-            json={"input": input, "type": input_type},
-        )
+        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/user-input", json={"input": input, "type": input_type})
 
     async def get_timeline(self, debate_id: str) -> dict[str, Any]:
         """Get the timeline of events in a debate."""
@@ -1715,9 +1678,7 @@ class AsyncDebatesAPI:
 
     async def find_similar(self, debate_id: str, limit: int = 5) -> dict[str, Any]:
         """Find debates similar to this one."""
-        return await self._client.request(
-            "GET", f"/api/v1/debates/{debate_id}/similar", params={"limit": limit}
-        )
+        return await self._client.request("GET", f"/api/v1/debates/{debate_id}/similar", params={"limit": limit})
 
     # ========== Graph & Matrix ==========
 
@@ -1757,9 +1718,7 @@ class AsyncDebatesAPI:
 
     async def create_counterfactual(self, debate_id: str, changes: dict[str, Any]) -> dict[str, Any]:
         """Create a counterfactual scenario."""
-        return await self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/explainability/counterfactual", json=changes
-        )
+        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/explainability/counterfactual", json=changes)
 
     # ========== Red Team & Analysis ==========
 
@@ -1768,7 +1727,7 @@ class AsyncDebatesAPI:
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/red-team")
 
     async def get_rhetorical(self, debate_id: str) -> dict[str, Any]:
-        """Get rhetorical pattern observations for a debate."""
+        """Get rhetorical pattern observations."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/rhetorical")
 
     async def get_trickster(self, debate_id: str) -> dict[str, Any]:
@@ -1780,12 +1739,10 @@ class AsyncDebatesAPI:
         return await self._client.request("GET", f"/api/v1/debate/{debate_id}/meta-critique")
 
     async def get_quality(self, debate_id: str) -> dict[str, Any]:
-        """Get argument quality analysis for a debate."""
+        """Get argument quality analysis."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/quality")
 
-    async def verify_claim(
-        self, debate_id: str, claim_id: str, evidence: str | None = None
-    ) -> dict[str, Any]:
+    async def verify_claim(self, debate_id: str, claim_id: str, evidence: str | None = None) -> dict[str, Any]:
         """Verify a specific claim from the debate."""
         data: dict[str, Any] = {"claim_id": claim_id}
         if evidence is not None:
@@ -1800,9 +1757,7 @@ class AsyncDebatesAPI:
 
     async def add_note(self, debate_id: str, content: str) -> dict[str, Any]:
         """Add a note to a debate."""
-        return await self._client.request(
-            "POST", f"/api/v1/debates/{debate_id}/notes", json={"content": content}
-        )
+        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/notes", json={"content": content})
 
     async def delete_note(self, debate_id: str, note_id: str) -> dict[str, Any]:
         """Delete a note from a debate."""
@@ -1844,11 +1799,7 @@ class AsyncDebatesAPI:
 
     async def intervention_inject(self, debate_id: str, content: str, **kwargs: Any) -> dict[str, Any]:
         """Inject content into a debate via intervention."""
-        return await self._client.request(
-            "POST",
-            f"/api/v1/debates/{debate_id}/intervention/inject",
-            json={"content": content, **kwargs},
-        )
+        return await self._client.request("POST", f"/api/v1/debates/{debate_id}/intervention/inject", json={"content": content, **kwargs})
 
     async def get_intervention_log(self, debate_id: str) -> dict[str, Any]:
         """Get the intervention log for a debate."""
@@ -1860,22 +1811,14 @@ class AsyncDebatesAPI:
 
     async def set_intervention_threshold(self, debate_id: str, threshold: float) -> dict[str, Any]:
         """Set the intervention threshold for a debate."""
-        return await self._client.request(
-            "PUT",
-            f"/api/v1/debates/{debate_id}/intervention/threshold",
-            json={"threshold": threshold},
-        )
+        return await self._client.request("PUT", f"/api/v1/debates/{debate_id}/intervention/threshold", json={"threshold": threshold})
 
     async def set_intervention_weights(self, debate_id: str, weights: dict[str, float]) -> dict[str, Any]:
         """Set intervention weights for a debate."""
-        return await self._client.request(
-            "PUT",
-            f"/api/v1/debates/{debate_id}/intervention/weights",
-            json={"weights": weights},
-        )
-
-    # ========== YouTube ==========
+        return await self._client.request("PUT", f"/api/v1/debates/{debate_id}/intervention/weights", json={"weights": weights})
 
     async def get_youtube_publish_status(self, debate_id: str) -> dict[str, Any]:
         """Get YouTube publish status for a debate."""
         return await self._client.request("GET", f"/api/v1/debates/{debate_id}/publish/youtube/status")
+
+

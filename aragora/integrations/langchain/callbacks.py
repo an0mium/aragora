@@ -43,8 +43,15 @@ class _StubAgentFinish:
 LANGCHAIN_AVAILABLE: bool
 
 try:
-    from langchain.callbacks.base import BaseCallbackHandler
-    from langchain.schema import AgentAction, AgentFinish, LLMResult
+    try:
+        from langchain_core.callbacks.base import BaseCallbackHandler
+    except ImportError:
+        from langchain.callbacks.base import BaseCallbackHandler
+    try:
+        from langchain_core.agents import AgentAction, AgentFinish
+        from langchain_core.outputs import LLMResult
+    except ImportError:
+        from langchain.schema import AgentAction, AgentFinish, LLMResult
 
     LANGCHAIN_AVAILABLE = True
 except ImportError:

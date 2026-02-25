@@ -50,7 +50,7 @@ This is not a theoretical approach. ICE research on multi-agent debate demonstra
 | **Decision receipts** | Cryptographic audit trails with evidence chains, dissent tracking, and confidence calibration |
 | **Calibrated trust** | ELO rankings and Brier scores track which models are actually reliable on which domains |
 | **Hollow consensus detection** | The Trickster catches cases where models agree without genuine reasoning |
-| **Institutional memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound (33 adapters) |
+| **Institutional memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound (34 adapters) |
 | **Channel delivery** | Results route to Slack, Teams, Discord, Telegram, WhatsApp, email, or voice |
 
 ---
@@ -91,7 +91,9 @@ Over time, the system learns which models to trust for which kinds of decisions.
 
 Aragora includes an autonomous self-improvement system where agents debate improvements to the platform itself, design solutions, implement code, and verify changes. Safety rails include automatic backups, protected file checksums, rollback on failure, and human approval gates. The system cannot modify its own safety constraints.
 
-This is how the platform grew from a debate engine to 3,000+ modules with 132,000+ tests. No competitor has anything equivalent -- it is a structural advantage that compounds over time.
+The MetaPlanner uses 12 codebase signal sources for self-directed goal generation, and now automatically extracts improvement goals from debate outcome patterns -- when debates consistently show low consensus or recurring failure modes, the system self-directs toward fixing those weaknesses.
+
+This is how the platform grew from a debate engine to 3,000+ modules with 151,000+ tests. No competitor has anything equivalent -- it is a structural advantage that compounds over time.
 
 ---
 

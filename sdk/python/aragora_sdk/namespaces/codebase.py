@@ -101,6 +101,7 @@ class CodebaseAPI:
             data["repo"] = repo
         return self._client.request("POST", "/api/v1/codebase/clear-cache", json=data)
 
+
     # =========================================================================
     # Top-level Analysis
     # =========================================================================
@@ -550,3 +551,5 @@ class AsyncCodebaseAPI:
     async def get_repo_vulnerabilities(self, repo: str) -> dict[str, Any]:
         """Get repo vulnerabilities."""
         return await self._client.request("GET", f"/api/v1/codebase/{repo}/vulnerabilities")
+
+

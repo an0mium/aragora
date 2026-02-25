@@ -42,12 +42,22 @@ class _StubCallbackManager:
 LANGCHAIN_AVAILABLE = False
 
 try:
-    from langchain.callbacks.manager import (
-        AsyncCallbackManagerForRetrieverRun as _AsyncCallbackManagerForRetrieverRun,
-        CallbackManagerForRetrieverRun as _CallbackManagerForRetrieverRun,
-    )
-    from langchain.schema import BaseRetriever as _BaseRetriever
-    from langchain.schema import Document as _Document
+    try:
+        from langchain_core.callbacks.manager import (
+            AsyncCallbackManagerForRetrieverRun as _AsyncCallbackManagerForRetrieverRun,
+            CallbackManagerForRetrieverRun as _CallbackManagerForRetrieverRun,
+        )
+    except ImportError:
+        from langchain.callbacks.manager import (
+            AsyncCallbackManagerForRetrieverRun as _AsyncCallbackManagerForRetrieverRun,
+            CallbackManagerForRetrieverRun as _CallbackManagerForRetrieverRun,
+        )
+    try:
+        from langchain_core.retrievers import BaseRetriever as _BaseRetriever
+        from langchain_core.documents import Document as _Document
+    except ImportError:
+        from langchain.schema import BaseRetriever as _BaseRetriever
+        from langchain.schema import Document as _Document
 
     LANGCHAIN_AVAILABLE = True
     _ActualBaseRetriever: Any = _BaseRetriever
@@ -62,11 +72,20 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from langchain.callbacks.manager import (
-        AsyncCallbackManagerForRetrieverRun,
-        CallbackManagerForRetrieverRun,
-    )
-    from langchain.schema import Document
+    try:
+        from langchain_core.callbacks.manager import (
+            AsyncCallbackManagerForRetrieverRun,
+            CallbackManagerForRetrieverRun,
+        )
+    except ImportError:
+        from langchain.callbacks.manager import (
+            AsyncCallbackManagerForRetrieverRun,
+            CallbackManagerForRetrieverRun,
+        )
+    try:
+        from langchain_core.documents import Document
+    except ImportError:
+        from langchain.schema import Document
 
 
 class AragoraRetriever(_ActualBaseRetriever):

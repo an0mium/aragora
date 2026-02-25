@@ -7,14 +7,14 @@ description: Connector Catalog
 
 This catalog is generated from the codebase. Do not edit by hand.
 
-_Generated: 2026-02-13T16:45:30.079589+00:00_
+_Generated: 2026-02-23T18:03:13.576690+00:00_
 
 ## Summary
 
-- Total connectors: 116
+- Total connectors: 121
 - Enterprise connectors: 29
 - Evidence connectors: 24
-- Operational connectors: 63
+- Operational connectors: 68
 
 ## Enterprise connectors
 
@@ -118,6 +118,7 @@ _Generated: 2026-02-13T16:45:30.079589+00:00_
 - `IRSConnector` — `aragora.connectors.accounting.irs`
 - `PlaidConnector` — `aragora.connectors.accounting.plaid`
 - `QuickBooksConnector` — `aragora.connectors.accounting.qbo`
+- `QuickBooksConnector` — `aragora.connectors.accounting.quickbooks`
 - `XeroConnector` — `aragora.connectors.accounting.xero`
 
 ### advertising
@@ -164,6 +165,11 @@ _Generated: 2026-02-13T16:45:30.079589+00:00_
 - `TeamsConnector` — `aragora.connectors.chat.teams.connector`
 - `TelegramConnector` — `aragora.connectors.chat.telegram`
 - `WhatsAppConnector` — `aragora.connectors.chat.whatsapp`
+
+### communication
+
+- `SendGridConnector` — `aragora.connectors.communication.sendgrid`
+- `TwilioConnector` — `aragora.connectors.communication.twilio`
 
 ### crm
 
@@ -228,6 +234,14 @@ _Generated: 2026-02-13T16:45:30.079589+00:00_
 
 - `AuthorizeNetConnector` — `aragora.connectors.payments.authorize_net`
 - `StripeConnector` — `aragora.connectors.payments.stripe`
+
+### productivity
+
+- `TrelloConnector` — `aragora.connectors.productivity.trello`
+
+### social
+
+- `InstagramConnector` — `aragora.connectors.social.instagram`
 
 ### support
 

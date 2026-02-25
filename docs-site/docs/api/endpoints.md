@@ -14,7 +14,9 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [AnalyticsMetrics](#analyticsmetrics)
 - [AnalyticsPerformance](#analyticsperformance)
 - [Ap Automation](#ap-automation)
+- [UnifiedApprovals](#unifiedapprovals)
 - [Ar Automation](#ar-automation)
+- [Audience Suggestions](#audience-suggestions)
 - [Audit Export](#audit-export)
 - [Audit Trail](#audit-trail)
 - [Auditing](#auditing)
@@ -31,9 +33,11 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Composite](#composite)
 - [ComputerUse](#computeruse)
 - [Consensus](#consensus)
+- [Context Budget](#context-budget)
 - [Critique](#critique)
 - [Cross Pollination](#cross-pollination)
 - [Dashboard](#dashboard)
+- [Debate Stats](#debate-stats)
 - [Decision](#decision)
 - [Deliberations](#deliberations)
 - [Dependency Analysis](#dependency-analysis)
@@ -42,6 +46,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Dr Handler](#dr-handler)
 - [EmailDebate](#emaildebate)
 - [Email Services](#email-services)
+- [EmailTriage](#emailtriage)
 - [EndpointAnalytics](#endpointanalytics)
 - [ERC8004](#erc8004)
 - [Evaluation](#evaluation)
@@ -49,6 +54,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Explainability](#explainability)
 - [External Agents](#external-agents)
 - [External Integrations](#external-integrations)
+- [Feature Flags](#feature-flags)
 - [Feedback](#feedback)
 - [Gallery](#gallery)
 - [Gastown Dashboard](#gastown-dashboard)
@@ -57,25 +63,32 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [GatewayCredentials](#gatewaycredentials)
 - [Gateway](#gateway)
 - [GatewayHealth](#gatewayhealth)
+- [Gdpr Deletion](#gdpr-deletion)
 - [Genesis](#genesis)
 - [HybridDebate](#hybriddebate)
 - [Inbox Command](#inbox-command)
 - [Integration Management](#integration-management)
 - [Introspection](#introspection)
 - [Invoices](#invoices)
+- [KMAdapterStatus](#kmadapterstatus)
 - [KnowledgeChat](#knowledgechat)
 - [Laboratory](#laboratory)
 - [Marketplace](#marketplace)
+- [MarketplaceBrowse](#marketplacebrowse)
 - [Metrics](#metrics)
 - [Metrics Endpoint](#metrics-endpoint)
 - [Ml](#ml)
+- [ModerationAnalytics](#moderationanalytics)
 - [Moments](#moments)
 - [Nomic](#nomic)
 - [Oauth Wizard](#oauth-wizard)
 - [Onboarding](#onboarding)
+- [OpenClawGateway](#openclawgateway)
 - [Organizations](#organizations)
 - [Partner](#partner)
 - [Persona](#persona)
+- [Plans](#plans)
+- [Playground](#playground)
 - [Policy](#policy)
 - [Privacy](#privacy)
 - [Queue](#queue)
@@ -86,6 +99,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Reviews](#reviews)
 - [RLMContext](#rlmcontext)
 - [SCIM](#scim)
+- [Security Debate](#security-debate)
 - [Selection](#selection)
 - [Skill Marketplace](#skill-marketplace)
 - [Skills](#skills)
@@ -93,6 +107,8 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Slo](#slo)
 - [SMESuccessDashboard](#smesuccessdashboard)
 - [SMEUsageDashboard](#smeusagedashboard)
+- [SSO](#sso)
+- [TemplateDiscovery](#templatediscovery)
 - [Template Marketplace](#template-marketplace)
 - [Threat Intel](#threat-intel)
 - [Tournaments](#tournaments)
@@ -320,6 +336,20 @@ Get discount opportunities
 
 ---
 
+## UnifiedApprovals
+
+Aggregate approval requests across subsystems.
+
+### `GET` `/api/v1/approvals`
+
+GET /api/v1/approvals
+
+### `GET` `/api/v1/approvals/pending`
+
+GET /api/v1/approvals/pending
+
+---
+
 ## Ar Automation
 
 HTTP API Handlers for Accounts Receivable Automation.
@@ -363,6 +393,20 @@ Add customer
 ### `GET` `/api/v1/accounting/ar/customers/\{id\}/balance`
 
 Get customer balance
+
+---
+
+## Audience Suggestions
+
+Audience suggestion handler for debate audience input.
+
+### `GET` `/api/v1/audience/suggestions`
+
+List clustered suggestions for a debate
+
+### `POST` `/api/v1/audience/suggestions`
+
+Submit a new audience suggestion
 
 ---
 
@@ -864,80 +908,6 @@ GET /api/v1/computer-use/approvals/*
 
 ---
 
-## Memory
-
-Memory management, retrieval, and analytics endpoints.
-
-### `GET` `/api/v1/memory/continuum/retrieve`
-
-Retrieve memories from ContinuumMemory
-
-### `POST` `/api/v1/memory/continuum/consolidate`
-
-Trigger memory consolidation
-
-### `POST` `/api/v1/memory/continuum/cleanup`
-
-Cleanup expired memories
-
-### `DELETE` `/api/v1/memory/continuum/\{id\}`
-
-Delete a memory entry by ID
-
-### `GET` `/api/v1/memory/tier-stats`
-
-Get tier statistics
-
-### `GET` `/api/v1/memory/archive-stats`
-
-Get archive statistics
-
-### `GET` `/api/v1/memory/pressure`
-
-Get memory pressure and utilization
-
-### `GET` `/api/v1/memory/tiers`
-
-List all memory tiers
-
-### `GET` `/api/v1/memory/search`
-
-Search memories across tiers
-
-### `GET` `/api/v1/memory/search-index`
-
-Progressive search index (stage 1)
-
-### `GET` `/api/v1/memory/search-timeline`
-
-Progressive timeline context (stage 2)
-
-### `GET` `/api/v1/memory/entries`
-
-Progressive full entry retrieval (stage 3)
-
-### `GET` `/api/v1/memory/viewer`
-
-Memory Viewer UI
-
-### `GET` `/api/v1/memory/critiques`
-
-Browse critique store entries
-
-### `GET` `/api/v1/memory/analytics`
-
-Memory analytics overview
-
-### `GET` `/api/v1/memory/analytics/tier/\{tier\}`
-
-Memory analytics per tier
-
-### `POST` `/api/v1/memory/analytics/snapshot`
-
-Capture memory analytics snapshot
-
----
-
 ## Consensus
 
 Consensus Memory endpoint handlers.
@@ -969,6 +939,24 @@ Get risk warnings and edge cases
 ### `GET` `/api/consensus/domain/:domain`
 
 Get domain-specific history
+
+---
+
+## Context Budget
+
+Context budget handler for managing debate prompt token budgets.
+
+### `GET` `/api/v1/context/budget`
+
+Get current context budget configuration
+
+### `PUT` `/api/v1/context/budget`
+
+Update context budget settings
+
+### `POST` `/api/v1/context/budget/estimate`
+
+Estimate token usage for given sections
 
 ---
 
@@ -1043,6 +1031,20 @@ Get available quick actions
 ### `POST` `/api/v1/dashboard/quick-actions/\{action\}`
 
 Execute quick action
+
+---
+
+## Debate Stats
+
+Debate statistics handler for aggregate debate metrics.
+
+### `GET` `/api/v1/debates/stats`
+
+Get aggregate debate statistics
+
+### `GET` `/api/v1/debates/stats/agents`
+
+Get per-agent statistics
 
 ---
 
@@ -1255,6 +1257,20 @@ List available categories
 ### `POST` `/api/v1/email/categories/learn`
 
 Submit category feedback
+
+---
+
+## EmailTriage
+
+Handler for email triage rules management.
+
+### `GET` `/api/v1/email/triage/rules`
+
+Return current triage rules
+
+### `GET` `/api/v1/email/triage/test`
+
+Test a message against current triage rules
 
 ---
 
@@ -1544,6 +1560,20 @@ Get node definitions
 
 ---
 
+## Feature Flags
+
+Feature flags handler for reading flag values.
+
+### `GET` `/api/v1/feature-flags`
+
+List all feature flags with current values
+
+### `GET` `/api/v1/feature-flags/:name`
+
+Get a specific flag value
+
+---
+
 ## Feedback
 
 User Feedback Collection Handler.
@@ -1697,6 +1727,24 @@ Handle GET /api/v1/gateway/agents/\{name\}/health
 ### `GET` `/api/v1/gateway/agents/*/health` 🔒
 
 Handle GET /api/v1/gateway/agents/\{name\}/health
+
+---
+
+## Gdpr Deletion
+
+GDPR Self-Service Deletion Handler.
+
+### `POST` `/api/v1/users/self/deletion`
+
+request  (schedule with grace period)
+
+### `GET` `/api/v1/users/self/deletion`
+
+request   (check status)
+
+### `DELETE` `/api/v1/users/self/deletion`
+
+request   (cancel during grace period)
 
 ---
 
@@ -1892,6 +1940,16 @@ Get scheduled payments
 
 ---
 
+## KMAdapterStatus
+
+Handler for KM adapter status endpoints.
+
+### `GET` `/api/v1/knowledge/adapters` 🔒
+
+List all KM adapters with status information
+
+---
+
 ## KnowledgeChat
 
 HTTP handler for Knowledge + Chat bridge endpoints.
@@ -1971,6 +2029,28 @@ Import a template
 ### `GET` `/api/v1/marketplace/status`
 
 Health and circuit breaker status
+
+---
+
+## MarketplaceBrowse
+
+Handler for marketplace template browsing endpoints.
+
+### `GET` `/api/v1/marketplace/templates`
+
+GET /api/v1/marketplace/templates
+
+### `GET` `/api/v1/marketplace/templates/*`
+
+GET /api/v1/marketplace/templates/*
+
+### `GET` `/api/v1/marketplace/featured`
+
+Return featured templates
+
+### `GET` `/api/v1/marketplace/popular`
+
+Return popular templates sorted by downloads
 
 ---
 
@@ -2067,6 +2147,20 @@ List available ML models/capabilities
 ### `GET` `/api/ml/stats`
 
 Get ML module statistics
+
+---
+
+## ModerationAnalytics
+
+Handler for moderation analytics dashboard endpoints.
+
+### `GET` `/api/v1/moderation/stats`
+
+Return moderation statistics
+
+### `GET` `/api/v1/moderation/queue`
+
+Return pending review items
 
 ---
 
@@ -2187,6 +2281,108 @@ Apply quick-start configuration
 ### `GET` `/api/v1/onboarding/analytics`
 
 Get onboarding funnel analytics
+
+---
+
+## OpenClawGateway
+
+HTTP handler for OpenClaw gateway operations.
+
+### `GET` `/api/v1/openclaw/sessions` 🔒
+
+List sessions with optional filtering
+
+### `GET` `/api/v1/openclaw/sessions/\{session_id\}`
+
+GET /api/v1/openclaw/sessions/\{session_id\}
+
+### `GET` `/api/v1/openclaw/sessions/\{session_id\}/end` 🔒
+
+End a session via POST (SDK-compatible endpoint)
+
+### `GET` `/api/v1/openclaw/actions`
+
+GET /api/v1/openclaw/actions
+
+### `GET` `/api/v1/openclaw/actions/\{action_id\}`
+
+GET /api/v1/openclaw/actions/\{action_id\}
+
+### `GET` `/api/v1/openclaw/actions/\{action_id\}/cancel` 🔒
+
+Cancel a running action
+
+### `GET` `/api/v1/openclaw/credentials` 🔒
+
+List credentials (metadata only, no secret values)
+
+### `GET` `/api/v1/openclaw/credentials/\{credential_id\}`
+
+GET /api/v1/openclaw/credentials/\{credential_id\}
+
+### `GET` `/api/v1/openclaw/credentials/\{credential_id\}/rotate` 🔒
+
+Rotate a credential's secret value
+
+### `GET` `/api/v1/openclaw/policy/rules` 🔒
+
+Get active policy rules
+
+### `GET` `/api/v1/openclaw/policy/rules/\{rule_name\}`
+
+GET /api/v1/openclaw/policy/rules/\{rule_name\}
+
+### `GET` `/api/v1/openclaw/approvals` 🔒
+
+List pending approval requests
+
+### `GET` `/api/v1/openclaw/approvals/\{approval_id\}/approve` 🔒
+
+Approve a pending action
+
+### `GET` `/api/v1/openclaw/approvals/\{approval_id\}/deny` 🔒
+
+Deny a pending action
+
+### `GET` `/api/v1/openclaw/health`
+
+Get gateway health status
+
+### `GET` `/api/v1/openclaw/metrics` 🔒
+
+Get gateway metrics
+
+### `GET` `/api/v1/openclaw/audit` 🔒
+
+Get audit log entries
+
+### `GET` `/api/v1/openclaw/stats` 🔒
+
+Get proxy statistics
+
+### `GET` `/api/gateway/openclaw/sessions` 🔒
+
+List sessions with optional filtering
+
+### `GET` `/api/gateway/openclaw/actions`
+
+GET /api/gateway/openclaw/actions
+
+### `GET` `/api/gateway/openclaw/credentials` 🔒
+
+List credentials (metadata only, no secret values)
+
+### `GET` `/api/gateway/openclaw/health`
+
+Get gateway health status
+
+### `GET` `/api/gateway/openclaw/metrics` 🔒
+
+Get gateway metrics
+
+### `GET` `/api/gateway/openclaw/audit` 🔒
+
+Get audit log entries
 
 ---
 
@@ -2325,6 +2521,58 @@ Get agent expertise domains
 ### `GET` `/api/agent/\{name\}/accuracy`
 
 Get position accuracy stats
+
+---
+
+## Plans
+
+Decision Plan API handler.
+
+### `POST` `/api/v1/plans`
+
+Create plan from debate result
+
+### `GET` `/api/v1/plans`
+
+List plans with pagination
+
+### `GET` `/api/v1/plans/\{id\}`
+
+Get plan details
+
+### `POST` `/api/v1/plans/\{id\}/approve`
+
+Approve a plan
+
+### `POST` `/api/v1/plans/\{id\}/reject`
+
+Reject a plan with reason
+
+### `POST` `/api/v1/plans/\{id\}/execute`
+
+Execute an approved plan
+
+---
+
+## Playground
+
+HTTP handler for the public playground demo.
+
+### `GET` `/api/v1/playground/debate`
+
+Run a live debate with real API-backed agents
+
+### `GET` `/api/v1/playground/debate/live`
+
+Run a live debate with real API-backed agents
+
+### `GET` `/api/v1/playground/debate/live/cost-estimate`
+
+GET /api/v1/playground/debate/live/cost-estimate
+
+### `GET` `/api/v1/playground/status`
+
+GET /api/v1/playground/status
 
 ---
 
@@ -2492,6 +2740,10 @@ Get specific receipt
 
 Export (format=json|html|md|pdf)
 
+### `GET` `/api/v2/receipts/:receipt_id/verify`
+
+Verify integrity + signature
+
 ### `POST` `/api/v2/receipts/:receipt_id/verify`
 
 Verify integrity checksum
@@ -2652,6 +2904,20 @@ GET /scim/v2/Groups/*
 
 ---
 
+## Security Debate
+
+Security Debate API endpoint handlers.
+
+### `POST` `/api/v1/audit/security/debate`
+
+Trigger a security debate on findings
+
+### `GET` `/api/v1/audit/security/debate/:id`
+
+Get status of a security debate
+
+---
+
 ## Selection
 
 Handler for selection plugin endpoints.
@@ -2675,6 +2941,34 @@ Get information about a specific team selector
 ### `GET` `/api/v1/team-selection`
 
 GET /api/v1/team-selection
+
+### `GET` `/api/v1/agent-selection/plugins` 🔒
+
+List all available selection plugins
+
+### `GET` `/api/v1/agent-selection/defaults` 🔒
+
+Get default plugin configuration
+
+### `GET` `/api/v1/agent-selection/score` 🔒
+
+Get information about a specific scorer
+
+### `GET` `/api/v1/agent-selection/best`
+
+GET /api/v1/agent-selection/best
+
+### `GET` `/api/v1/agent-selection/select-team`
+
+GET /api/v1/agent-selection/select-team
+
+### `GET` `/api/v1/agent-selection/assign-roles`
+
+GET /api/v1/agent-selection/assign-roles
+
+### `GET` `/api/v1/agent-selection/history` 🔒
+
+Get agent selection history
 
 ---
 
@@ -2713,6 +3007,14 @@ Uninstall a skill
 ### `POST` `/api/v1/skills/marketplace/\{skill_id\}/rate`
 
 Rate a skill
+
+### `PUT` `/api/v1/skills/marketplace/\{skill_id\}/verify`
+
+Set skill verified (admin)
+
+### `DELETE` `/api/v1/skills/marketplace/\{skill_id\}/verify`
+
+Revoke verification (admin)
 
 ### `GET` `/api/v1/skills/marketplace/installed`
 
@@ -2865,6 +3167,94 @@ Get usage forecast based on current patterns
 ### `GET` `/api/v1/usage/benchmarks` 🔒
 
 Get industry benchmark comparison data
+
+---
+
+## SSO
+
+Handler for SSO (Single Sign-On) endpoints.
+
+### `GET` `/auth/sso/login`
+
+GET /auth/sso/login
+
+### `GET` `/auth/sso/callback`
+
+GET /auth/sso/callback
+
+### `GET` `/auth/sso/logout`
+
+GET /auth/sso/logout
+
+### `GET` `/auth/sso/metadata`
+
+GET /auth/sso/metadata
+
+### `GET` `/auth/sso/status`
+
+GET /auth/sso/status
+
+### `GET` `/api/v2/sso/login`
+
+GET /api/v2/sso/login
+
+### `GET` `/api/v2/sso/callback`
+
+GET /api/v2/sso/callback
+
+### `GET` `/api/v2/sso/logout`
+
+GET /api/v2/sso/logout
+
+### `GET` `/api/v2/sso/status`
+
+GET /api/v2/sso/status
+
+### `GET` `/api/v2/sso/metadata`
+
+GET /api/v2/sso/metadata
+
+### `GET` `/api/sso/login`
+
+GET /api/sso/login
+
+### `GET` `/api/sso/callback`
+
+GET /api/sso/callback
+
+### `GET` `/api/sso/logout`
+
+GET /api/sso/logout
+
+### `GET` `/api/sso/status`
+
+GET /api/sso/status
+
+### `GET` `/api/sso/metadata`
+
+GET /api/sso/metadata
+
+---
+
+## TemplateDiscovery
+
+Handler for template discovery endpoints.
+
+### `GET` `/api/v1/templates`
+
+GET /api/v1/templates
+
+### `GET` `/api/v1/templates/categories`
+
+Return categories with counts
+
+### `GET` `/api/v1/templates/recommend`
+
+Recommend templates for a given question
+
+### `GET` `/api/v1/templates/*`
+
+GET /api/v1/templates/*
 
 ---
 

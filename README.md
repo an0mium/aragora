@@ -147,11 +147,11 @@ Aragora is useful to a 5-person startup on day one and scales to regulated enter
 
 ### 2. Leading-Edge Memory and Context
 
-Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 33 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
+Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 0 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
 
 ### 3. Extensible and Modular
 
-Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript (140 namespaces in the TypeScript SDK). 2,000+ API operations across 1,800+ paths and 190+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 50+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack -- not the other way around.
+Connectors for Slack, Teams, Discord, Telegram, WhatsApp, email, voice, Kafka, RabbitMQ, GitHub, Jira, Salesforce, healthcare HL7/FHIR, and dozens more. SDKs in Python and TypeScript (140 namespaces in the TypeScript SDK). 3,000+ API operations across 2,900+ paths and 260+ WebSocket event types. OpenClaw integration for portable agent governance. A workflow engine with DAG execution and 60+ templates. A marketplace for agent personas, debate templates, and workflow patterns. Aragora adapts to your stack -- not the other way around.
 
 ### 4. Multi-Agent Robustness
 
@@ -297,9 +297,9 @@ aragora/
 │   ├── cli_agents.py     # Claude Code, Codex, Gemini CLI, Grok CLI
 │   └── fallback.py       # OpenRouter fallback on quota errors
 ├── gauntlet/       # Adversarial stress testing
-├── knowledge/      # Knowledge Mound with 33 registered adapters
+├── knowledge/      # Knowledge Mound with 0 registered adapters
 ├── memory/         # 4-tier memory (fast/medium/slow/glacial)
-├── server/         # 2,000+ API operations, 190+ WebSocket event types
+├── server/         # 3,000+ API operations, 260+ WebSocket event types
 ├── pipeline/       # Decision-to-PR generation
 ├── genesis/        # Fractal debates, agent evolution
 ├── sandbox/        # Docker-based safe execution
@@ -308,7 +308,7 @@ aragora/
 └── workflow/       # DAG-based automation engine
 ```
 
-**Scale:** 3,200+ Python modules | 140,000+ tests
+**Scale:** 3,000+ Python modules | 207,000+ tests
 
 ### Performance and Costs
 

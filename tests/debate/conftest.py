@@ -122,6 +122,33 @@ def _mock_scan_code_markers(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _disable_post_debate_external_calls(monkeypatch):
+    """Disable post-debate pipeline steps that make external calls.
+
+    The DEFAULT_POST_DEBATE_CONFIG enables gauntlet validation, explanation
+    building, plan creation, and other steps that call _run_async_callable()
+    which starts threads making real HTTP calls. In tests without real API
+    keys, these threads block indefinitely.
+    """
+    try:
+        import aragora.debate.post_debate_coordinator as pdc_mod
+
+        patched = pdc_mod.PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=False,
+            auto_notify=False,
+            auto_gauntlet_validate=False,
+            auto_verify_arguments=False,
+            auto_push_calibration=False,
+            auto_queue_improvement=False,
+            auto_outcome_feedback=False,
+        )
+        monkeypatch.setattr(pdc_mod, "DEFAULT_POST_DEBATE_CONFIG", patched)
+    except ImportError:
+        pass
+
+
+@pytest.fixture(autouse=True)
 def _resync_all_backend_refs():
     """Re-synchronize ALL module class references after each test.
 

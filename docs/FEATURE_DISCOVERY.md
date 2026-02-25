@@ -22,7 +22,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | [Developer Tools](#8-developer-tools) | 25+ | Stable |
 | [Self-Improvement](#9-self-improvement--nomic-loop) | 12+ | Stable |
 
-**Total**: 180+ features | 3,000+ Python modules | 131,000+ tests | 2,000+ API operations
+**Total**: 180+ features | 3,000+ Python modules | 207,000+ tests | 3,000+ API operations
 
 ---
 
@@ -76,7 +76,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 
 ## 2. Agent System
 
-### Supported Providers (42+ agent types)
+### Supported Providers (30+ agent types)
 
 | Provider | Type | Models | Key Files |
 |----------|------|--------|-----------|
@@ -429,7 +429,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Unified Server** | Stable | 2,000+ API operations | `aragora/server/unified_server.py` | [API_REFERENCE.md](./api/API_REFERENCE.md) |
+| **Unified Server** | Stable | 3,000+ API operations | `aragora/server/unified_server.py` | [API_REFERENCE.md](./api/API_REFERENCE.md) |
 | **Handler Registry** | Stable | O(1) route lookup with LRU caching | `aragora/server/handler_registry.py` | |
 | **GraphQL API** | Stable | Schema for debates, agents, memory | `aragora/server/graphql/` | |
 | **WebSocket Streaming** | Stable | 26 stream modules for real-time events | `aragora/server/stream/` | |
@@ -458,7 +458,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **Workflow Engine** | Stable | DAG-based automation | `aragora/workflow/engine.py` | [WORKFLOWS.md](./workflow/WORKFLOWS.md) |
 | **Workflow Nodes** | Stable | Reusable node types | `aragora/workflow/nodes/` | |
 | **Workflow Patterns** | Stable | Hive-mind, map-reduce, review-cycle factories | `aragora/workflow/patterns/` | |
-| **Workflow Templates** | Stable | 50+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
+| **Workflow Templates** | Stable | 60+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
 | **Post-Debate Workflows** | Stable | Automated processing via `enable_post_debate_workflow` | `aragora/workflow/triggers.py` | |
 
 ### Gauntlet (Compliance Testing)

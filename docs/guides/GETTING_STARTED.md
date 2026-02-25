@@ -86,7 +86,7 @@ API Keys:
 
 Environment:
   Python: 3.10.13
-  aragora: 2.6.3
+  aragora: 2.8.0
 
 Status: Ready
 ```
