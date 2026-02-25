@@ -108,7 +108,7 @@ const navSections: NavSection[] = [
       { label: 'Audit', href: '/audit', icon: '\u2611' },
       { label: 'New Audit', href: '/audit/new', icon: '\u271A', minMode: 'advanced' },
       { label: 'Audit Templates', href: '/audit/templates', icon: '\u2610', minMode: 'advanced' },
-      { label: 'Control Plane', href: '/control-plane', icon: '\u25CE' },
+      { label: 'Dashboard', href: '/control-plane', icon: '\u25CE' },
       { label: 'Receipts', href: '/receipts', icon: '$' },
       { label: 'Policy', href: '/policy', icon: '\u2696' },
       { label: 'Privacy', href: '/privacy', icon: '\u229E' },

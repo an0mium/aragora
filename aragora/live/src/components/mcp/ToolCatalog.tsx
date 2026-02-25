@@ -33,7 +33,7 @@ const CATEGORY_META: Record<MCPCategory, { label: string; icon: string }> = {
   workflow: { label: 'Workflow', icon: '>' },
   evidence: { label: 'Evidence', icon: '#' },
   verification: { label: 'Verification', icon: '^' },
-  'control-plane': { label: 'Control Plane', icon: '@' },
+  'control-plane': { label: 'Platform', icon: '@' },
   integration: { label: 'Integrations', icon: '<' },
   canvas: { label: 'Canvas', icon: '*' },
 };
@@ -108,16 +108,16 @@ export const MCP_TOOLS: MCPTool[] = [
   { name: 'test_integration', description: 'Test an integration connection', category: 'integration', params: ['integration_id'] },
   { name: 'get_integration_events', description: 'Get recent events from an integration', category: 'integration', params: ['integration_id', 'limit'] },
 
-  // Control plane
-  { name: 'register_agent', description: 'Register an agent in the control plane', category: 'control-plane', params: ['agent_id', 'capabilities'] },
+  // Platform
+  { name: 'register_agent', description: 'Register an agent in the platform', category: 'control-plane', params: ['agent_id', 'capabilities'] },
   { name: 'unregister_agent', description: 'Unregister an agent', category: 'control-plane', params: ['agent_id'] },
-  { name: 'list_registered_agents', description: 'List agents in the control plane', category: 'control-plane', params: [] },
+  { name: 'list_registered_agents', description: 'List agents in the platform', category: 'control-plane', params: [] },
   { name: 'get_agent_health', description: 'Get health status of a registered agent', category: 'control-plane', params: ['agent_id'] },
   { name: 'submit_task', description: 'Submit a task to the scheduler', category: 'control-plane', params: ['task_type', 'payload'] },
   { name: 'get_task_status', description: 'Get task execution status', category: 'control-plane', params: ['task_id'] },
   { name: 'cancel_task', description: 'Cancel a pending task', category: 'control-plane', params: ['task_id'] },
   { name: 'list_pending_tasks', description: 'List pending tasks in the queue', category: 'control-plane', params: [] },
-  { name: 'get_control_plane_status', description: 'Get overall control plane status', category: 'control-plane', params: [] },
+  { name: 'get_control_plane_status', description: 'Get overall platform status', category: 'control-plane', params: [] },
   { name: 'trigger_health_check', description: 'Trigger a health check across agents', category: 'control-plane', params: [] },
   { name: 'get_resource_utilization', description: 'Get resource utilization metrics', category: 'control-plane', params: [] },
 

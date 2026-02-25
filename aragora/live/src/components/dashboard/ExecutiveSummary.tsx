@@ -278,7 +278,7 @@ export function ExecutiveSummary({
           href="/control-plane"
           className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
         >
-          CONTROL PLANE
+          DASHBOARD
         </a>
         <a
           href="/usage"

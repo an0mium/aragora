@@ -67,7 +67,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   {
     id: 'nav-control-plane',
     keys: sequence('g', 'c'),
-    description: 'Go to Control Plane',
+    description: 'Go to Dashboard',
     category: 'navigation',
   },
   {

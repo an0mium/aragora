@@ -50,7 +50,6 @@ function TierBadge({ tier }: { tier: string }) {
     starter: 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40',
     professional: 'bg-acid-green/20 text-acid-green border-acid-green/40',
     enterprise: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
-    enterprise_plus: 'bg-acid-magenta/20 text-acid-magenta border-acid-magenta/40',
   };
 
   return (
@@ -478,14 +477,13 @@ function OrganizationsAdminPageContent() {
           <option value="">All Tiers</option>
           <option value="free">Free</option>
           <option value="starter">Starter</option>
-          <option value="professional">Professional</option>
+          <option value="professional">Pro</option>
           <option value="enterprise">Enterprise</option>
-          <option value="enterprise_plus">Enterprise+</option>
         </select>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div className="card p-4">
           <div className="font-mono text-xs text-text-muted">Total</div>
           <div className="font-mono text-2xl text-acid-green">{total}</div>
@@ -505,10 +503,6 @@ function OrganizationsAdminPageContent() {
         <div className="card p-4">
           <div className="font-mono text-xs text-text-muted">Enterprise</div>
           <div className="font-mono text-2xl text-acid-yellow">{tierStats.enterprise || 0}</div>
-        </div>
-        <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted">Enterprise+</div>
-          <div className="font-mono text-2xl text-acid-magenta">{tierStats.enterprise_plus || 0}</div>
         </div>
       </div>
 

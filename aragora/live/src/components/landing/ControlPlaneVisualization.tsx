@@ -35,7 +35,7 @@ export function ControlPlaneVisualization() {
   return (
     <section className="py-12 border-t border-acid-green/20">
       <div className="container mx-auto px-4">
-        <SectionHeader title="CONTROL PLANE ARCHITECTURE" />
+        <SectionHeader title="PLATFORM ARCHITECTURE" />
         <p className="text-text-muted font-mono text-xs text-center mb-8 max-w-xl mx-auto">
           How Aragora connects your data sources, debates your questions, and delivers decisions to your channels.
         </p>
@@ -77,7 +77,7 @@ export function ControlPlaneVisualization() {
             <div className="flex-1 max-w-[220px]">
               <div className="border-2 border-acid-green/60 rounded-lg p-4 bg-acid-green/5 h-full">
                 <div className="text-acid-green font-mono text-xs font-bold mb-3 text-center">
-                  [CONTROL PLANE]
+                  [PLATFORM]
                 </div>
 
                 {/* Orchestration */}
@@ -175,7 +175,7 @@ export function ControlPlaneVisualization() {
 
             {/* Control Plane */}
             <div className="border-2 border-acid-green/60 rounded-lg p-4 bg-acid-green/5">
-              <div className="text-acid-green font-mono text-xs font-bold mb-2">[CONTROL PLANE]</div>
+              <div className="text-acid-green font-mono text-xs font-bold mb-2">[PLATFORM]</div>
               <div className="flex flex-wrap gap-2 text-xs font-mono text-text-muted">
                 <span>Orchestration</span>
                 <span>|</span>

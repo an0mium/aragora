@@ -43,7 +43,6 @@ STRIPE_PRICES = {
     SubscriptionTier.STARTER: os.environ.get("STRIPE_PRICE_STARTER", ""),
     SubscriptionTier.PROFESSIONAL: os.environ.get("STRIPE_PRICE_PROFESSIONAL", ""),
     SubscriptionTier.ENTERPRISE: os.environ.get("STRIPE_PRICE_ENTERPRISE", ""),
-    SubscriptionTier.ENTERPRISE_PLUS: os.environ.get("STRIPE_PRICE_ENTERPRISE_PLUS", ""),
 }
 
 # Metered billing price IDs for usage-based pricing

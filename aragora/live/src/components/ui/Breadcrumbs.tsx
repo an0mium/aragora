@@ -85,7 +85,7 @@ const ROUTE_LABELS: Record<string, string> = {
   'observability': 'Observability',
   'developer': 'Developer',
   'api-explorer': 'API Explorer',
-  'control-plane': 'Control Plane',
+  'control-plane': 'Dashboard',
   'nomic-control': 'Nomic Control',
   'organization': 'Organization',
   'members': 'Members',

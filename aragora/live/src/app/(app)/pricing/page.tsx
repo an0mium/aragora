@@ -34,10 +34,10 @@ const plans: Plan[] = [
     description: 'Get started with decision stress-tests',
     cta: 'Current Plan',
     features: [
-      { text: '10 stress-tests / month', included: true },
-      { text: '3 agents per stress-test', included: true },
-      { text: 'Public stress-tests only', included: true },
+      { text: '10 debates / month', included: true },
+      { text: '3 agents per debate', included: true },
       { text: 'Basic analytics', included: true },
+      { text: 'Community support', included: true },
       { text: 'API access', included: false },
       { text: 'Priority support', included: false },
     ],
@@ -50,61 +50,45 @@ const plans: Plan[] = [
     description: 'For individuals and small teams',
     cta: 'Upgrade',
     features: [
-      { text: '100 stress-tests / month', included: true },
-      { text: '5 agents per stress-test', included: true },
-      { text: 'Private stress-tests', included: true },
+      { text: '100 debates / month', included: true },
+      { text: '10 agents per debate', included: true },
       { text: 'Full analytics', included: true },
-      { text: 'API access', included: false },
+      { text: 'Email support', included: true },
+      { text: 'API access', included: true },
       { text: 'Priority support', included: false },
     ],
   },
   {
     id: 'professional',
-    name: 'PROFESSIONAL',
+    name: 'PRO',
     price: 99,
     period: 'month',
     description: 'For power users and growing teams',
     highlighted: true,
     cta: 'Upgrade',
     features: [
-      { text: '1,000 stress-tests / month', included: true },
-      { text: 'Unlimited agents', included: true },
-      { text: 'Private stress-tests', included: true },
+      { text: '1,000 debates / month', included: true },
+      { text: 'All 42+ agents', included: true },
       { text: 'Advanced analytics', included: true },
+      { text: 'Priority support', included: true },
       { text: 'Full API access', included: true },
-      { text: 'Email support', included: true },
+      { text: 'Slack, Teams, Email delivery', included: true },
     ],
   },
   {
     id: 'enterprise',
     name: 'ENTERPRISE',
-    price: 999,
-    period: 'month',
-    description: 'For organizations with custom needs',
+    price: -1,
+    period: 'custom',
+    description: 'For organizations with compliance needs',
     cta: 'Contact Sales',
     features: [
-      { text: 'Unlimited stress-tests', included: true },
-      { text: 'Unlimited agents', included: true },
-      { text: 'SSO / SAML', included: true },
+      { text: 'Unlimited debates', included: true },
+      { text: 'SSO (OIDC/SAML) + SCIM', included: true },
+      { text: 'SLA + dedicated support', included: true },
+      { text: 'SOC 2 / HIPAA / EU AI Act', included: true },
+      { text: 'On-prem or dedicated cloud', included: true },
       { text: 'Custom integrations', included: true },
-      { text: 'Dedicated support', included: true },
-      { text: 'SLA guarantee', included: true },
-    ],
-  },
-  {
-    id: 'enterprise_plus',
-    name: 'ENTERPRISE+',
-    price: 5000,
-    period: 'month',
-    description: 'Premium tier with dedicated infrastructure',
-    cta: 'Contact Sales',
-    features: [
-      { text: 'Everything in Enterprise', included: true },
-      { text: 'Dedicated infrastructure', included: true },
-      { text: 'Custom model training', included: true },
-      { text: 'Private model deployment', included: true },
-      { text: 'SOC2 / HIPAA compliance', included: true },
-      { text: 'Token-based API billing', included: true },
     ],
   },
 ];
@@ -127,11 +111,8 @@ export default function PricingPage() {
     }
 
     if (planId === 'free') return;
-    if (planId === 'enterprise' || planId === 'enterprise_plus') {
-      const subject = planId === 'enterprise_plus'
-        ? 'Enterprise+ Inquiry'
-        : 'Enterprise Inquiry';
-      window.location.href = `mailto:sales@aragora.ai?subject=${encodeURIComponent(subject)}`;
+    if (planId === 'enterprise') {
+      window.location.href = `mailto:sales@aragora.ai?subject=${encodeURIComponent('Enterprise Inquiry')}`;
       return;
     }
 
@@ -231,7 +212,7 @@ export default function PricingPage() {
 
         {/* Pricing Grid */}
         <section className="pb-16 px-4">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+          <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {plans.map((plan) => (
               <div
                 key={plan.id}
@@ -252,12 +233,18 @@ export default function PricingPage() {
                     {plan.name}
                   </h2>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-mono text-text">
-                      ${plan.price}
-                    </span>
-                    <span className="text-sm font-mono text-text-muted">
-                      /{plan.period}
-                    </span>
+                    {plan.price >= 0 ? (
+                      <>
+                        <span className="text-3xl font-mono text-text">
+                          ${plan.price}
+                        </span>
+                        <span className="text-sm font-mono text-text-muted">
+                          /{plan.period}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-3xl font-mono text-text">Custom</span>
+                    )}
                   </div>
                   <p className="mt-2 text-sm font-mono text-text-muted">
                     {plan.description}

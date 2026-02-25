@@ -277,7 +277,7 @@ $ aragora nomic --cycles 3  # Run self-improvement loop
             <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Advanced Capabilities</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
-                { title: 'Enterprise Control Plane', desc: 'Service discovery, distributed task scheduling, and health monitoring for agent pools.' },
+                { title: 'Enterprise Dashboard', desc: 'Service discovery, distributed task scheduling, and health monitoring for agent pools.' },
                 { title: 'Continuum Memory', desc: '4-tier learning system (fast/medium/slow/glacial) with automatic promotion based on utility.' },
                 { title: 'ELO Calibration', desc: 'Skill ratings, confidence calibration, and tournament brackets for agent performance tracking.' },
                 { title: 'Gauntlet Validation', desc: 'Pre-built compliance gauntlets for GDPR, HIPAA, SOX, AI Act, and security testing.' },

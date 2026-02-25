@@ -458,7 +458,7 @@ export default function NomicControlPage() {
                 href="/control-plane"
                 className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
               >
-                [CONTROL PLANE]
+                [DASHBOARD]
               </Link>
               <BackendSelector compact />
               <ThemeToggle />
@@ -747,7 +747,7 @@ export default function NomicControlPage() {
                         href="/control-plane"
                         className="block text-xs font-mono text-text-muted hover:text-acid-cyan transition-colors"
                       >
-                        {'>'} Control Plane
+                        {'>'} Dashboard
                       </Link>
                       <Link
                         href="/debates"

@@ -17,7 +17,7 @@ Usage:
         ...
 
 Tier hierarchy (lowest to highest):
-    free < starter < professional < enterprise < enterprise_plus
+    free < starter < professional < enterprise
 
 The decorator extracts the user's organization tier from the AuthorizationContext
 (via org_id -> Organization lookup). If the billing module is unavailable or the
@@ -46,16 +46,14 @@ TIER_ORDER: dict[str, int] = {
     "starter": 1,
     "professional": 2,
     "enterprise": 3,
-    "enterprise_plus": 4,
 }
 
 # Friendly display names for upgrade prompts
 TIER_DISPLAY_NAMES: dict[str, str] = {
     "free": "Free",
     "starter": "Starter",
-    "professional": "Professional",
+    "professional": "Pro",
     "enterprise": "Enterprise",
-    "enterprise_plus": "Enterprise+",
 }
 
 

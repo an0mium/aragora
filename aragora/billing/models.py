@@ -56,7 +56,6 @@ class SubscriptionTier(Enum):
     STARTER = "starter"
     PROFESSIONAL = "professional"
     ENTERPRISE = "enterprise"
-    ENTERPRISE_PLUS = "enterprise_plus"
 
 
 @dataclass
@@ -73,14 +72,10 @@ class TierLimits(SerializableMixin):
     priority_support: bool
     price_monthly_cents: int  # Price in cents
 
-    # Enterprise+ features
+    # Enterprise features
     dedicated_infrastructure: bool = False
     sla_guarantee: bool = False
-    custom_model_training: bool = False
-    private_model_deployment: bool = False
     compliance_certifications: bool = False  # SOC2, HIPAA-ready
-    unlimited_api_calls: bool = False
-    token_based_billing: bool = False
 
     # to_dict() inherited from SerializableMixin
 
@@ -99,26 +94,26 @@ TIER_LIMITS: dict[SubscriptionTier, TierLimits] = {
         price_monthly_cents=0,
     ),
     SubscriptionTier.STARTER: TierLimits(
-        debates_per_month=50,
-        users_per_org=2,
-        api_access=False,
+        debates_per_month=100,
+        users_per_org=5,
+        api_access=True,
         all_agents=False,
         custom_agents=False,
         sso_enabled=False,
         audit_logs=False,
         priority_support=False,
-        price_monthly_cents=9900,  # $99
+        price_monthly_cents=2900,  # $29
     ),
     SubscriptionTier.PROFESSIONAL: TierLimits(
-        debates_per_month=200,
-        users_per_org=10,
+        debates_per_month=1000,
+        users_per_org=25,
         api_access=True,
         all_agents=True,
         custom_agents=False,
         sso_enabled=False,
         audit_logs=True,
-        priority_support=False,
-        price_monthly_cents=29900,  # $299
+        priority_support=True,
+        price_monthly_cents=9900,  # $99
     ),
     SubscriptionTier.ENTERPRISE: TierLimits(
         debates_per_month=999999,  # Unlimited
@@ -129,26 +124,11 @@ TIER_LIMITS: dict[SubscriptionTier, TierLimits] = {
         sso_enabled=True,
         audit_logs=True,
         priority_support=True,
-        price_monthly_cents=99900,  # $999 base
-    ),
-    SubscriptionTier.ENTERPRISE_PLUS: TierLimits(
-        debates_per_month=999999,  # Unlimited
-        users_per_org=999999,
-        api_access=True,
-        all_agents=True,
-        custom_agents=True,
-        sso_enabled=True,
-        audit_logs=True,
-        priority_support=True,
-        price_monthly_cents=500000,  # $5,000 base
-        # Enterprise+ exclusive features
+        price_monthly_cents=0,  # Custom pricing
+        # Enterprise features
         dedicated_infrastructure=True,
         sla_guarantee=True,
-        custom_model_training=True,
-        private_model_deployment=True,
         compliance_certifications=True,
-        unlimited_api_calls=True,
-        token_based_billing=True,
     ),
 }
 
