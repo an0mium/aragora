@@ -600,7 +600,8 @@ class TestBillingEdgeCases:
         )
 
         # Should handle large numbers without overflow
-        expected = Decimal("100") * Decimal("15.00") + Decimal("50") * Decimal("75.00")
+        # Opus: $5/1M input, $25/1M output
+        expected = Decimal("100") * Decimal("5.00") + Decimal("50") * Decimal("25.00")
         assert cost == expected
 
     def test_negative_tokens_handled(self):
