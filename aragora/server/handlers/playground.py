@@ -1832,7 +1832,7 @@ class PlaygroundHandler(BaseHandler):
 _LIVE_TIMEOUT = 60  # seconds
 _LIVE_BUDGET_CAP = 0.05  # USD
 _LIVE_MAX_CONCURRENT = 2
-_LIVE_DEFAULT_AGENTS = ["anthropic", "openai"]
+_LIVE_DEFAULT_AGENTS = ["anthropic-api", "openai-api"]
 _LIVE_FALLBACK_AGENTS = ["openrouter"]
 
 _live_semaphore = asyncio.Semaphore(_LIVE_MAX_CONCURRENT)
@@ -1849,13 +1849,13 @@ def _get_available_live_agents(count: int) -> list[str]:
 
     candidates: list[str] = []
     if _get_api_key("ANTHROPIC_API_KEY"):
-        candidates.append("anthropic")
+        candidates.append("anthropic-api")
     if _get_api_key("OPENAI_API_KEY") or has_openrouter:
-        candidates.append("openai")
+        candidates.append("openai-api")
     if has_openrouter:
         candidates.append("openrouter")
     if _get_api_key("MISTRAL_API_KEY") or has_openrouter:
-        candidates.append("mistral")
+        candidates.append("mistral-api")
 
     # De-duplicate while preserving order
     seen: set[str] = set()
