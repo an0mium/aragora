@@ -10,12 +10,15 @@ from collections.abc import AsyncGenerator
 import aiohttp
 
 from aragora.agents.api_agents.base import APIAgent
+from aragora.agents.errors.decorators import handle_stream_errors
 from aragora.core_types import AgentRole
 from aragora.agents.api_agents.common import (
     AgentAPIError,
+    AgentCircuitOpenError,
     AgentConnectionError,
     AgentRateLimitError,
     AgentStreamError,
+    AgentTimeoutError,
     Critique,
     Message,
     _sanitize_error_message,
@@ -23,7 +26,9 @@ from aragora.agents.api_agents.common import (
     create_openai_sse_parser,
     get_api_key,
     get_trace_headers,
+    handle_agent_errors,
 )
+from aragora.agents.errors import handle_stream_errors  # noqa: F401 - used as decorator
 from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
 from aragora.config import DB_TIMEOUT_SECONDS
@@ -158,23 +163,48 @@ class OpenRouterAgent(APIAgent):
         return prompt + "\n"
 
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
-        """Generate a response using OpenRouter API with rate limiting, retry, and fallback."""
-        return await self._generate_with_model(self.model, prompt, context)
+        """Generate a response using OpenRouter API with rate limiting, retry, and fallback.
 
+        Wraps _generate_with_model via @handle_agent_errors for retry/backoff,
+        then falls back to an alternate model if all retries are exhausted.
+        """
+        try:
+            return await self._generate_with_model(self.model, prompt, context)
+        except (AgentRateLimitError, AgentConnectionError, AgentTimeoutError):
+            # All retries exhausted - try fallback model if available
+            fallback = OPENROUTER_FALLBACK_MODELS.get(self.model)
+            if fallback:
+                logger.warning(
+                    "OpenRouter %s exhausted retries, falling back to %s",
+                    self.model,
+                    fallback,
+                )
+                record_fallback_chain_depth(1)
+                return await self._generate_with_model(fallback, prompt, context)
+            raise
+
+    @handle_agent_errors(
+        max_retries=3,
+        retry_delay=2.0,
+        retry_backoff=2.0,
+        max_delay=300.0,
+        retryable_exceptions=(AgentRateLimitError, AgentConnectionError, AgentTimeoutError),
+    )
     async def _generate_with_model(
         self,
         model: str,
         prompt: str,
         context: list[Message] | None = None,
-        is_fallback: bool = False,
-        fallback_depth: int = 0,
     ) -> str:
-        """Internal generate method that supports model fallback on failure."""
+        """Single-attempt generate for a specific model.
+
+        The @handle_agent_errors decorator provides retry with exponential backoff
+        for AgentRateLimitError, AgentConnectionError, and AgentTimeoutError.
+        OpenRouter-specific rate limiter integration and metrics are handled here.
+        """
         import time
 
         start_time = time.perf_counter()
-        max_retries = 3
-        base_delay = 30  # Start with 30s backoff for rate limits
 
         full_prompt = prompt
         if context:
@@ -208,211 +238,131 @@ class OpenRouterAgent(APIAgent):
         if self.frequency_penalty is not None:
             payload["frequency_penalty"] = self.frequency_penalty
 
-        last_error = None
-        for attempt in range(max_retries):
-            # Acquire rate limit token for each attempt
-            limiter = get_openrouter_limiter()
-            if not await limiter.acquire(timeout=DB_TIMEOUT_SECONDS):
-                record_provider_call(
-                    provider="openrouter",
-                    success=False,
-                    error_type=ErrorType.RATE_LIMIT,
-                    latency_seconds=time.perf_counter() - start_time,
-                    model=model,
-                )
-                raise AgentRateLimitError(
-                    "OpenRouter rate limit exceeded, request timed out",
-                    agent_name=self.name,
-                )
+        # Acquire rate limit token
+        limiter = get_openrouter_limiter()
+        if not await limiter.acquire(timeout=DB_TIMEOUT_SECONDS):
+            record_provider_call(
+                provider="openrouter",
+                success=False,
+                error_type=ErrorType.RATE_LIMIT,
+                latency_seconds=time.perf_counter() - start_time,
+                model=model,
+            )
+            raise AgentRateLimitError(
+                "OpenRouter rate limit exceeded, request timed out",
+                agent_name=self.name,
+            )
 
-            try:
-                async with create_client_session(timeout=self.timeout) as session:
-                    async with session.post(
-                        url,
-                        headers=headers,
-                        json=payload,
-                    ) as response:
-                        # Update rate limit state from headers
-                        limiter.update_from_headers(dict(response.headers))
+        try:
+            async with create_client_session(timeout=self.timeout) as session:
+                async with session.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                ) as response:
+                    # Update rate limit state from headers
+                    limiter.update_from_headers(dict(response.headers))
 
-                        if response.status == 429:
-                            # Rate limited - use centralized backoff
-                            # This records failure and calculates delay with jitter
-                            backoff_delay = limiter.record_rate_limit_error(429)
-                            record_rate_limit_detected("openrouter", backoff_delay)
-
-                            # Check for Retry-After header override
-                            retry_after_header = response.headers.get("Retry-After")
-                            if retry_after_header:
-                                try:
-                                    wait_time = min(float(retry_after_header), 300)
-                                except ValueError:
-                                    wait_time = min(backoff_delay, 300)
-                            else:
-                                wait_time = min(backoff_delay, 300)
-
-                            if attempt < max_retries - 1:
-                                logger.warning(
-                                    f"OpenRouter rate limited (429) for {model}, waiting {wait_time:.0f}s before retry {attempt + 2}/{max_retries}"
-                                )
-                                await asyncio.sleep(wait_time)
-                                last_error = "Rate limited (429)"
-                                continue
-                            else:
-                                # Try fallback model if available (only once)
-                                if not is_fallback:
-                                    fallback = OPENROUTER_FALLBACK_MODELS.get(model)
-                                    if fallback:
-                                        logger.warning(
-                                            "OpenRouter %s exhausted retries, falling back to %s",
-                                            model,
-                                            fallback,
-                                        )
-                                        return await self._generate_with_model(
-                                            fallback,
-                                            prompt,
-                                            context,
-                                            is_fallback=True,
-                                            fallback_depth=fallback_depth + 1,
-                                        )
-                                record_provider_call(
-                                    provider="openrouter",
-                                    success=False,
-                                    error_type=ErrorType.RATE_LIMIT,
-                                    latency_seconds=time.perf_counter() - start_time,
-                                    model=model,
-                                )
-                                raise AgentRateLimitError(
-                                    f"OpenRouter rate limited (429) after {max_retries} retries",
-                                    agent_name=self.name,
-                                )
-
-                        if response.status != 200:
-                            error_text = await response.text()
-                            sanitized = _sanitize_error_message(error_text)
-                            record_provider_call(
-                                provider="openrouter",
-                                success=False,
-                                error_type=ErrorType.API_ERROR,
-                                latency_seconds=time.perf_counter() - start_time,
-                                model=model,
-                            )
-                            raise AgentAPIError(
-                                f"OpenRouter API error {response.status}: {sanitized}",
-                                agent_name=self.name,
-                                status_code=response.status,
-                            )
-
-                        data = await response.json()
-
-                        # Record token usage for billing (OpenAI format)
-                        usage = data.get("usage", {})
-                        input_tokens = usage.get("prompt_tokens", 0)
-                        output_tokens = usage.get("completion_tokens", 0)
-                        self._record_token_usage(
-                            tokens_in=input_tokens,
-                            tokens_out=output_tokens,
-                        )
-
-                        try:
-                            content = data["choices"][0]["message"]["content"]
-                        except (KeyError, IndexError):
-                            record_provider_call(
-                                provider="openrouter",
-                                success=False,
-                                error_type=ErrorType.API_ERROR,
-                                latency_seconds=time.perf_counter() - start_time,
-                                model=model,
-                            )
-                            raise AgentAPIError(
-                                f"Unexpected OpenRouter response format: {data}",
-                                agent_name=self.name,
-                            )
-
-                        # Validate content is non-empty (empty responses should trigger retry/fallback)
-                        if not content or not content.strip():
-                            record_provider_call(
-                                provider="openrouter",
-                                success=False,
-                                error_type=ErrorType.API_ERROR,
-                                latency_seconds=time.perf_counter() - start_time,
-                                model=model,
-                            )
-                            raise AgentAPIError(
-                                f"Model {model} returned empty response",
-                                agent_name=self.name,
-                            )
-
-                        # Success - reset backoff state
-                        limiter.record_success()
-
-                        # Record successful provider metrics
-                        latency = time.perf_counter() - start_time
+                    if response.status == 429:
+                        # Rate limited - record and raise for decorator retry
+                        backoff_delay = limiter.record_rate_limit_error(429)
+                        record_rate_limit_detected("openrouter", backoff_delay)
                         record_provider_call(
                             provider="openrouter",
-                            success=True,
-                            latency_seconds=latency,
+                            success=False,
+                            error_type=ErrorType.RATE_LIMIT,
+                            latency_seconds=time.perf_counter() - start_time,
                             model=model,
                         )
-                        record_provider_token_usage(
+                        raise AgentRateLimitError(
+                            f"OpenRouter rate limited (429) for {model}",
+                            agent_name=self.name,
+                        )
+
+                    if response.status != 200:
+                        error_text = await response.text()
+                        sanitized = _sanitize_error_message(error_text)
+                        record_provider_call(
                             provider="openrouter",
-                            input_tokens=input_tokens,
-                            output_tokens=output_tokens,
+                            success=False,
+                            error_type=ErrorType.API_ERROR,
+                            latency_seconds=time.perf_counter() - start_time,
+                            model=model,
+                        )
+                        raise AgentAPIError(
+                            f"OpenRouter API error {response.status}: {sanitized}",
+                            agent_name=self.name,
+                            status_code=response.status,
                         )
 
-                        # Record fallback chain depth (0 means no fallback was needed)
-                        record_fallback_chain_depth(fallback_depth)
+                    data = await response.json()
 
-                        return content
-
-            except aiohttp.ClientError as e:
-                limiter.release_on_error()
-                last_error = str(e)
-                if attempt < max_retries - 1:
-                    wait_time = base_delay * (2**attempt)
-                    logger.warning(
-                        f"OpenRouter connection error for {model}, waiting {wait_time:.0f}s before retry: {e}"
+                    # Record token usage for billing (OpenAI format)
+                    usage = data.get("usage", {})
+                    input_tokens = usage.get("prompt_tokens", 0)
+                    output_tokens = usage.get("completion_tokens", 0)
+                    self._record_token_usage(
+                        tokens_in=input_tokens,
+                        tokens_out=output_tokens,
                     )
-                    await asyncio.sleep(wait_time)
-                    continue
-                # Try fallback model if available (only once)
-                if not is_fallback:
-                    fallback = OPENROUTER_FALLBACK_MODELS.get(model)
-                    if fallback:
-                        logger.warning(
-                            "OpenRouter %s connection failed, falling back to %s", model, fallback
-                        )
-                        return await self._generate_with_model(
-                            fallback,
-                            prompt,
-                            context,
-                            is_fallback=True,
-                            fallback_depth=fallback_depth + 1,
-                        )
-                record_provider_call(
-                    provider="openrouter",
-                    success=False,
-                    error_type=ErrorType.CONNECTION,
-                    latency_seconds=time.perf_counter() - start_time,
-                    model=model,
-                )
-                raise AgentConnectionError(
-                    f"OpenRouter connection failed after {max_retries} retries: {last_error}",
-                    agent_name=self.name,
-                    cause=e,
-                )
 
-        # Should not reach here, but satisfy mypy
-        record_provider_call(
-            provider="openrouter",
-            success=False,
-            error_type=ErrorType.UNKNOWN,
-            model=model,
-        )
-        raise AgentAPIError(
-            f"OpenRouter request failed after {max_retries} retries: {last_error}",
-            agent_name=self.name,
-        )
+                    try:
+                        content = data["choices"][0]["message"]["content"]
+                    except (KeyError, IndexError):
+                        record_provider_call(
+                            provider="openrouter",
+                            success=False,
+                            error_type=ErrorType.API_ERROR,
+                            latency_seconds=time.perf_counter() - start_time,
+                            model=model,
+                        )
+                        raise AgentAPIError(
+                            f"Unexpected OpenRouter response format: {data}",
+                            agent_name=self.name,
+                        )
+
+                    # Validate content is non-empty
+                    if not content or not content.strip():
+                        record_provider_call(
+                            provider="openrouter",
+                            success=False,
+                            error_type=ErrorType.API_ERROR,
+                            latency_seconds=time.perf_counter() - start_time,
+                            model=model,
+                        )
+                        raise AgentAPIError(
+                            f"Model {model} returned empty response",
+                            agent_name=self.name,
+                        )
+
+                    # Success - reset backoff state
+                    limiter.record_success()
+
+                    # Record successful provider metrics
+                    latency = time.perf_counter() - start_time
+                    record_provider_call(
+                        provider="openrouter",
+                        success=True,
+                        latency_seconds=latency,
+                        model=model,
+                    )
+                    record_provider_token_usage(
+                        provider="openrouter",
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                    )
+
+                    record_fallback_chain_depth(0)
+
+                    return content
+        except (AgentAPIError, AgentRateLimitError):
+            raise  # Re-raise for decorator handling
+        except aiohttp.ClientError:
+            limiter.release_on_error()
+            raise  # Decorator transforms to AgentConnectionError
+        except asyncio.TimeoutError:
+            limiter.release_on_error()
+            raise  # Decorator transforms to AgentTimeoutError
 
     @handle_stream_errors()
     async def generate_stream(
