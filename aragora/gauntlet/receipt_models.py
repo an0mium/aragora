@@ -118,6 +118,9 @@ class DecisionReceipt:
     # Cost summary (per-debate cost breakdown when available)
     cost_summary: dict[str, Any] | None = None
 
+    # Epistemic settlement metadata (optional, for quality feedback loop)
+    settlement_metadata: dict[str, Any] | None = None
+
     # Schema version for forward compatibility
     schema_version: str = "1.1"
 
@@ -571,6 +574,7 @@ class DecisionReceipt:
         result: Any,
         input_hash: str | None = None,
         cost_summary: dict[str, Any] | None = None,
+        settlement_metadata: dict[str, Any] | None = None,
     ) -> DecisionReceipt:
         """Create receipt from aragora.core_types.DebateResult.
 
@@ -582,6 +586,8 @@ class DecisionReceipt:
             input_hash: Optional pre-computed hash of input content
             cost_summary: Optional per-debate cost breakdown dict from
                 DebateCostSummary.to_dict()
+            settlement_metadata: Optional settlement metadata dict from
+                SettlementMetadata.to_dict() for epistemic quality tracking
 
         Returns:
             DecisionReceipt for audit trail
@@ -723,6 +729,7 @@ class DecisionReceipt:
             consensus_proof=consensus,
             provenance_chain=provenance,
             cost_summary=cost_summary,
+            settlement_metadata=settlement_metadata,
             config_used={
                 "rounds": result.rounds_used,
                 "participants": participants,
@@ -1249,6 +1256,7 @@ class DecisionReceipt:
             "consensus_proof": self.consensus_proof.to_dict() if self.consensus_proof else None,
             "provenance_chain": [p.to_dict() for p in self.provenance_chain],
             "cost_summary": self.cost_summary,
+            "settlement_metadata": self.settlement_metadata,
             "explainability": self.explainability,
             "schema_version": self.schema_version,
             "artifact_hash": self.artifact_hash,
@@ -1295,6 +1303,7 @@ class DecisionReceipt:
             schema_version=data.get("schema_version", "1.0"),
             artifact_hash=data.get("artifact_hash", ""),
             cost_summary=data.get("cost_summary"),
+            settlement_metadata=data.get("settlement_metadata"),
             config_used=data.get("config_used", {}) or {},
             # Signature fields
             signature=data.get("signature"),

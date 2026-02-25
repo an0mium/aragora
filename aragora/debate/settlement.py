@@ -1256,6 +1256,554 @@ class ClaimCalibrationTracker:
         ]
 
 
+# ---------------------------------------------------------------------------
+# Epistemic Settlement Loop -- decision quality feedback
+# ---------------------------------------------------------------------------
+
+
+class SettlementMetadataStatus(str, Enum):
+    """Status of a settlement metadata record through its lifecycle."""
+
+    SETTLED = "settled"
+    DUE_REVIEW = "due_review"
+    INVALIDATED = "invalidated"
+    CONFIRMED = "confirmed"
+
+
+@dataclass
+class SettlementMetadata:
+    """Metadata captured at debate conclusion for future review.
+
+    When a debate reaches consensus, this captures the falsifiable claims,
+    confidence horizons, and alternatives so the system can later review
+    whether the decision was correct.
+
+    Attributes:
+        debate_id: Unique identifier for the debate.
+        settled_at: ISO timestamp when the decision was settled.
+        confidence: Overall confidence level at settlement (0.0-1.0).
+        falsifiers: Conditions that would invalidate the decision.
+        alternatives: Rejected alternatives that were considered.
+        review_horizon: ISO timestamp when this should be re-evaluated.
+        cruxes: Key disagreement points that were resolved.
+        status: Lifecycle status of this settlement.
+        review_notes: Notes from review cycles (appended over time).
+        reviewed_at: ISO timestamp of last review.
+        reviewed_by: Who/what performed the last review.
+    """
+
+    debate_id: str
+    settled_at: str
+    confidence: float
+    falsifiers: list[str] = field(default_factory=list)
+    alternatives: list[str] = field(default_factory=list)
+    review_horizon: str = ""
+    cruxes: list[str] = field(default_factory=list)
+    status: str = "settled"
+    review_notes: list[str] = field(default_factory=list)
+    reviewed_at: str | None = None
+    reviewed_by: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to a JSON-safe dictionary."""
+        return {
+            "debate_id": self.debate_id,
+            "settled_at": self.settled_at,
+            "confidence": self.confidence,
+            "falsifiers": self.falsifiers,
+            "alternatives": self.alternatives,
+            "review_horizon": self.review_horizon,
+            "cruxes": self.cruxes,
+            "status": self.status,
+            "review_notes": self.review_notes,
+            "reviewed_at": self.reviewed_at,
+            "reviewed_by": self.reviewed_by,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SettlementMetadata:
+        """Deserialize from a dictionary."""
+        return cls(
+            debate_id=data.get("debate_id", ""),
+            settled_at=data.get("settled_at", ""),
+            confidence=float(data.get("confidence", 0.0)),
+            falsifiers=list(data.get("falsifiers", [])),
+            alternatives=list(data.get("alternatives", [])),
+            review_horizon=data.get("review_horizon", ""),
+            cruxes=list(data.get("cruxes", [])),
+            status=data.get("status", "settled"),
+            review_notes=list(data.get("review_notes", [])),
+            reviewed_at=data.get("reviewed_at"),
+            reviewed_by=data.get("reviewed_by"),
+        )
+
+    def is_due(self, as_of: datetime | None = None) -> bool:
+        """Check whether this settlement is due for review.
+
+        Args:
+            as_of: Evaluation timestamp (defaults to now).
+
+        Returns:
+            True if the review horizon has passed and the status allows review.
+        """
+        if self.status in ("invalidated", "confirmed"):
+            return False
+        if not self.review_horizon:
+            return False
+        as_of = as_of or datetime.now(timezone.utc)
+        try:
+            horizon = datetime.fromisoformat(self.review_horizon)
+            # Ensure timezone-aware comparison
+            if horizon.tzinfo is None:
+                horizon = horizon.replace(tzinfo=timezone.utc)
+            if as_of.tzinfo is None:
+                as_of = as_of.replace(tzinfo=timezone.utc)
+            return as_of >= horizon
+        except (ValueError, TypeError):
+            return False
+
+
+# ---------------------------------------------------------------------------
+# Settlement Store Interface
+# ---------------------------------------------------------------------------
+
+
+class SettlementStore:
+    """Abstract interface for settlement metadata persistence.
+
+    Subclass this to provide persistent storage (e.g., PostgreSQL, SQLite).
+    The default implementation is in-memory.
+    """
+
+    def save(self, metadata: SettlementMetadata) -> None:
+        """Save or update a settlement metadata record."""
+        raise NotImplementedError
+
+    def get(self, debate_id: str) -> SettlementMetadata | None:
+        """Retrieve a settlement by debate ID."""
+        raise NotImplementedError
+
+    def list_all(self) -> list[SettlementMetadata]:
+        """Return all settlement records."""
+        raise NotImplementedError
+
+    def delete(self, debate_id: str) -> bool:
+        """Delete a settlement record. Returns True if found."""
+        raise NotImplementedError
+
+
+class InMemorySettlementStore(SettlementStore):
+    """In-memory settlement store for development and testing."""
+
+    def __init__(self) -> None:
+        self._data: dict[str, SettlementMetadata] = {}
+
+    def save(self, metadata: SettlementMetadata) -> None:
+        self._data[metadata.debate_id] = metadata
+
+    def get(self, debate_id: str) -> SettlementMetadata | None:
+        return self._data.get(debate_id)
+
+    def list_all(self) -> list[SettlementMetadata]:
+        return list(self._data.values())
+
+    def delete(self, debate_id: str) -> bool:
+        if debate_id in self._data:
+            del self._data[debate_id]
+            return True
+        return False
+
+
+class JsonFileSettlementStore(SettlementStore):
+    """JSON file-based settlement store for lightweight persistence.
+
+    Stores all settlements in a single JSON file under
+    ``{data_dir}/settlement/metadata.json``.
+
+    Args:
+        data_dir: Root data directory. Creates the settlement subdirectory
+            if it does not exist.
+    """
+
+    def __init__(self, data_dir: Path) -> None:
+        self._data: dict[str, SettlementMetadata] = {}
+        settlement_dir = data_dir / "settlement"
+        settlement_dir.mkdir(parents=True, exist_ok=True)
+        self._json_path = settlement_dir / "metadata.json"
+        self._load()
+
+    def save(self, metadata: SettlementMetadata) -> None:
+        self._data[metadata.debate_id] = metadata
+        self._persist()
+
+    def get(self, debate_id: str) -> SettlementMetadata | None:
+        return self._data.get(debate_id)
+
+    def list_all(self) -> list[SettlementMetadata]:
+        return list(self._data.values())
+
+    def delete(self, debate_id: str) -> bool:
+        if debate_id in self._data:
+            del self._data[debate_id]
+            self._persist()
+            return True
+        return False
+
+    def _persist(self) -> None:
+        try:
+            payload = [m.to_dict() for m in self._data.values()]
+            tmp_path = self._json_path.with_suffix(".tmp")
+            tmp_path.write_text(json.dumps(payload, indent=2))
+            tmp_path.replace(self._json_path)
+        except OSError as e:
+            logger.warning("Failed to persist settlement metadata: %s", e)
+
+    def _load(self) -> None:
+        if not self._json_path.exists():
+            return
+        try:
+            raw = json.loads(self._json_path.read_text())
+            for item in raw:
+                meta = SettlementMetadata.from_dict(item)
+                self._data[meta.debate_id] = meta
+        except (json.JSONDecodeError, OSError, KeyError, TypeError) as e:
+            logger.warning(
+                "Failed to load settlement metadata from %s: %s",
+                self._json_path,
+                e,
+            )
+
+
+# ---------------------------------------------------------------------------
+# Epistemic Settlement Loop Tracker
+# ---------------------------------------------------------------------------
+
+
+class EpistemicSettlementTracker:
+    """Tracks debate settlements and schedules reviews.
+
+    This is the core quality feedback mechanism: when a debate reaches
+    consensus, it captures falsifiable claims, confidence horizons, and
+    alternatives so the system can later review whether the decision was
+    correct.
+
+    Args:
+        store: Optional settlement store for persistence. Defaults to
+            an in-memory store.
+    """
+
+    def __init__(self, store: SettlementStore | None = None) -> None:
+        self._store = store or InMemorySettlementStore()
+
+    def capture_settlement(
+        self,
+        debate_result: Any,
+        receipt: Any | None = None,
+        *,
+        review_horizon_days: int = 30,
+        domain: str = "general",
+    ) -> SettlementMetadata:
+        """Capture settlement metadata from a completed debate.
+
+        Extracts falsifiable claims, alternatives considered, and cruxes
+        from the debate result and optional receipt, then schedules a
+        review based on the specified horizon.
+
+        Args:
+            debate_result: The debate result object (has consensus_reached,
+                confidence, final_answer, messages, etc.).
+            receipt: Optional DecisionReceipt for additional metadata.
+            review_horizon_days: Days until this decision should be reviewed.
+            domain: Problem domain for categorization.
+
+        Returns:
+            The captured SettlementMetadata.
+        """
+        now = datetime.now(timezone.utc)
+        debate_id = (
+            getattr(debate_result, "debate_id", "")
+            or getattr(debate_result, "id", "")
+            or f"debate-{uuid.uuid4().hex[:8]}"
+        )
+
+        confidence = float(getattr(debate_result, "confidence", 0.0))
+
+        # Extract falsifiers from epistemic hygiene scores if available
+        falsifiers = self._extract_falsifiers(debate_result, receipt)
+
+        # Extract alternatives from dissenting views and rejected proposals
+        alternatives = self._extract_alternatives(debate_result, receipt)
+
+        # Extract cruxes from unresolved tensions or key disagreements
+        cruxes = self._extract_cruxes(debate_result, receipt)
+
+        # Compute review horizon
+        from datetime import timedelta
+
+        review_dt = now + timedelta(days=review_horizon_days)
+
+        metadata = SettlementMetadata(
+            debate_id=debate_id,
+            settled_at=now.isoformat(),
+            confidence=confidence,
+            falsifiers=falsifiers,
+            alternatives=alternatives,
+            review_horizon=review_dt.isoformat(),
+            cruxes=cruxes,
+            status="settled",
+        )
+
+        self._store.save(metadata)
+
+        logger.info(
+            "Captured settlement for debate %s (confidence=%.2f, "
+            "falsifiers=%d, alternatives=%d, cruxes=%d, review=%s)",
+            debate_id,
+            confidence,
+            len(falsifiers),
+            len(alternatives),
+            len(cruxes),
+            review_dt.date().isoformat(),
+        )
+
+        return metadata
+
+    def get_due_settlements(
+        self,
+        as_of: datetime | None = None,
+    ) -> list[SettlementMetadata]:
+        """Get all settlements that are due for review.
+
+        Args:
+            as_of: Evaluation timestamp. Defaults to now.
+
+        Returns:
+            List of settlements whose review horizon has passed.
+        """
+        as_of = as_of or datetime.now(timezone.utc)
+        return [m for m in self._store.list_all() if m.is_due(as_of)]
+
+    def mark_reviewed(
+        self,
+        debate_id: str,
+        status: str,
+        notes: str = "",
+        *,
+        reviewed_by: str = "manual",
+    ) -> SettlementMetadata | None:
+        """Mark a settlement as reviewed with a new status.
+
+        Args:
+            debate_id: The debate ID to update.
+            status: New status ("confirmed", "invalidated", "due_review",
+                or "settled").
+            notes: Review notes to append.
+            reviewed_by: Who/what performed the review.
+
+        Returns:
+            The updated SettlementMetadata, or None if not found.
+
+        Raises:
+            ValueError: If status is not a valid SettlementMetadataStatus.
+        """
+        # Validate status
+        valid_statuses = {s.value for s in SettlementMetadataStatus}
+        if status not in valid_statuses:
+            raise ValueError(
+                f"Invalid status {status!r}. Must be one of: {valid_statuses}"
+            )
+
+        metadata = self._store.get(debate_id)
+        if metadata is None:
+            return None
+
+        now = datetime.now(timezone.utc)
+        metadata.status = status
+        metadata.reviewed_at = now.isoformat()
+        metadata.reviewed_by = reviewed_by
+        if notes:
+            metadata.review_notes.append(
+                f"[{now.isoformat()}] ({reviewed_by}) {notes}"
+            )
+
+        self._store.save(metadata)
+
+        logger.info(
+            "Reviewed settlement %s: status=%s, by=%s",
+            debate_id,
+            status,
+            reviewed_by,
+        )
+
+        return metadata
+
+    def get_settlement(self, debate_id: str) -> SettlementMetadata | None:
+        """Get a specific settlement metadata record.
+
+        Args:
+            debate_id: The debate ID to look up.
+
+        Returns:
+            The SettlementMetadata, or None if not found.
+        """
+        return self._store.get(debate_id)
+
+    def get_all_settlements(self) -> list[SettlementMetadata]:
+        """Get all settlement records."""
+        return self._store.list_all()
+
+    def get_summary(self) -> dict[str, Any]:
+        """Get a summary of settlement activity.
+
+        Returns:
+            Dictionary with counts by status and review statistics.
+        """
+        all_records = self._store.list_all()
+        now = datetime.now(timezone.utc)
+
+        status_counts: dict[str, int] = {}
+        for m in all_records:
+            status_counts[m.status] = status_counts.get(m.status, 0) + 1
+
+        due_count = sum(1 for m in all_records if m.is_due(now))
+        avg_confidence = (
+            sum(m.confidence for m in all_records) / len(all_records)
+            if all_records
+            else 0.0
+        )
+
+        return {
+            "total": len(all_records),
+            "by_status": status_counts,
+            "due_for_review": due_count,
+            "average_confidence": round(avg_confidence, 3),
+        }
+
+    # ------------------------------------------------------------------
+    # Extraction helpers
+    # ------------------------------------------------------------------
+
+    def _extract_falsifiers(
+        self, debate_result: Any, receipt: Any | None
+    ) -> list[str]:
+        """Extract falsifiable conditions from the debate."""
+        falsifiers: list[str] = []
+
+        # From epistemic hygiene metadata
+        hygiene = getattr(debate_result, "epistemic_hygiene", None)
+        if hygiene and hasattr(hygiene, "scores"):
+            for score in getattr(hygiene, "scores", []):
+                if getattr(score, "has_falsifiers", False):
+                    agent = getattr(score, "agent", "unknown")
+                    falsifiers.append(f"Agent {agent} identified falsifiers")
+
+        # From dissenting views (each dissent is a potential falsifier)
+        dissenting = list(getattr(debate_result, "dissenting_views", []))
+        for view in dissenting:
+            text = str(view) if not isinstance(view, str) else view
+            if text:
+                falsifiers.append(f"Dissent: {text[:200]}")
+
+        # From receipt's consensus proof
+        if receipt:
+            proof = getattr(receipt, "consensus_proof", None)
+            if proof:
+                for agent in getattr(proof, "dissenting_agents", []):
+                    falsifiers.append(
+                        f"Agent {agent} dissented from consensus"
+                    )
+
+        # From explicit claims if available
+        claims_kernel = getattr(debate_result, "claims_kernel", None)
+        if claims_kernel and hasattr(claims_kernel, "get_claims"):
+            try:
+                for claim in claims_kernel.get_claims():
+                    criteria = getattr(claim, "verification_criteria", "")
+                    if criteria:
+                        falsifiers.append(f"Verifiable: {criteria[:200]}")
+            except (AttributeError, TypeError):
+                pass
+
+        return falsifiers
+
+    def _extract_alternatives(
+        self, debate_result: Any, receipt: Any | None
+    ) -> list[str]:
+        """Extract rejected alternatives from the debate."""
+        alternatives: list[str] = []
+
+        # From participants who lost the consensus vote
+        winner = getattr(debate_result, "winner", None)
+        participants = list(getattr(debate_result, "participants", []))
+        if winner and participants:
+            losers = [p for p in participants if p != winner]
+            for loser in losers:
+                alternatives.append(f"Rejected proposal from {loser}")
+
+        # From dissenting views that suggest alternatives
+        dissenting = list(getattr(debate_result, "dissenting_views", []))
+        for view in dissenting:
+            text = str(view) if not isinstance(view, str) else view
+            if text:
+                alternatives.append(f"Alternative view: {text[:200]}")
+
+        # From receipt provenance if available
+        if receipt:
+            for record in getattr(receipt, "provenance_chain", []):
+                event_type = getattr(record, "event_type", "")
+                if event_type in ("split_opinion", "dissent"):
+                    desc = getattr(record, "description", "")
+                    if desc:
+                        alternatives.append(f"Split: {desc[:200]}")
+
+        return alternatives
+
+    def _extract_cruxes(
+        self, debate_result: Any, receipt: Any | None
+    ) -> list[str]:
+        """Extract key disagreement cruxes from the debate."""
+        cruxes: list[str] = []
+
+        # From unresolved tensions
+        tensions = list(getattr(debate_result, "unresolved_tensions", []))
+        for tension in tensions:
+            desc = getattr(tension, "description", str(tension))
+            cruxes.append(f"Tension: {str(desc)[:200]}")
+
+        # From consensus strength signals
+        consensus_reached = getattr(debate_result, "consensus_reached", False)
+        confidence = getattr(debate_result, "confidence", 0.0)
+        if consensus_reached and confidence < 0.7:
+            cruxes.append(
+                f"Low confidence consensus ({confidence:.1%})"
+            )
+
+        # From convergence data
+        convergence = getattr(debate_result, "convergence_similarity", None)
+        if convergence is not None and convergence < 0.5:
+            cruxes.append(
+                f"Low convergence ({convergence:.1%}): positions remained far apart"
+            )
+
+        # From the final answer if it mentions trade-offs
+        final = getattr(debate_result, "final_answer", "")
+        if final:
+            lower = final.lower()
+            tradeoff_markers = ["trade-off", "tradeoff", "however", "on the other hand",
+                                "tension between", "competing"]
+            for marker in tradeoff_markers:
+                if marker in lower:
+                    # Find the sentence containing the marker
+                    idx = lower.index(marker)
+                    # Extract surrounding context (up to 200 chars)
+                    start = max(0, idx - 50)
+                    end = min(len(final), idx + 150)
+                    cruxes.append(f"Crux: {final[start:end].strip()}")
+                    break  # Only one per final answer
+
+        return cruxes
+
+
 __all__ = [
     # Existing settlement types
     "SettlementBatch",
@@ -1271,4 +1819,11 @@ __all__ = [
     "ClaimCalibrationTracker",
     "CalibrationBucket",
     "CalibrationReport",
+    # Epistemic settlement loop
+    "SettlementMetadata",
+    "SettlementMetadataStatus",
+    "SettlementStore",
+    "InMemorySettlementStore",
+    "JsonFileSettlementStore",
+    "EpistemicSettlementTracker",
 ]
