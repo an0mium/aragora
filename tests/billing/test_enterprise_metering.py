@@ -961,8 +961,8 @@ class TestHistoricalUsageReports:
         await meter.record_token_usage(
             provider="anthropic",
             model="claude-opus-4",
-            tokens_in=10000,
-            tokens_out=5000,
+            tokens_in=1000000,
+            tokens_out=500000,
             tenant_id="tenant_tax_disc",
         )
         await meter._flush_buffer()
