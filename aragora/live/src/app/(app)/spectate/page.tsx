@@ -144,7 +144,7 @@ export default function SpectatePage() {
     });
 
     return () => clearContext();
-  }, [liveDebates, setContext, clearContext]);
+  }, [liveDebates, spectateConnected, spectateStatus, setContext, clearContext]);
 
   return (
     <>
