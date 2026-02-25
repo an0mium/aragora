@@ -634,9 +634,7 @@ class TestInfrastructureFailures:
 
         # Patch the event bus emit to always fail
         if hasattr(arena, "event_bus") and arena.event_bus is not None:
-            arena.event_bus.emit = MagicMock(
-                side_effect=RuntimeError("Event bus down")
-            )
+            arena.event_bus.emit = MagicMock(side_effect=RuntimeError("Event bus down"))
 
         result = await arena.run()
 

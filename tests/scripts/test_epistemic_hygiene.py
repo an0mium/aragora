@@ -132,9 +132,7 @@ class TestValidateReceipt:
         assert any(f.code == "EH-002" for f in result.errors)
 
     def test_eh002_partial_keys(self):
-        result = validate_receipt({
-            "settlement_metadata": {"debate_id": "x", "settled_at": "y"}
-        })
+        result = validate_receipt({"settlement_metadata": {"debate_id": "x", "settled_at": "y"}})
         errors_002 = [f for f in result.errors if f.code == "EH-002"]
         assert len(errors_002) == 1
         assert "confidence" in errors_002[0].message
@@ -239,15 +237,19 @@ class TestValidateFile:
 
     def test_valid_json_file(self, tmp_path):
         f = tmp_path / "receipt.json"
-        f.write_text(json.dumps({
-            "settlement_metadata": {
-                "debate_id": "d1",
-                "settled_at": "2026-01-01",
-                "confidence": 0.7,
-                "falsifiers": ["f1"],
-                "review_horizon": "2026-06-01",
-            }
-        }))
+        f.write_text(
+            json.dumps(
+                {
+                    "settlement_metadata": {
+                        "debate_id": "d1",
+                        "settled_at": "2026-01-01",
+                        "confidence": 0.7,
+                        "falsifiers": ["f1"],
+                        "review_horizon": "2026-06-01",
+                    }
+                }
+            )
+        )
         result = validate_file(f)
         assert result.passed is True
         assert result.files_checked == 1
@@ -290,15 +292,19 @@ class TestValidateDirectory:
     def test_multiple_files(self, tmp_path):
         for i in range(3):
             f = tmp_path / f"receipt_{i}.json"
-            f.write_text(json.dumps({
-                "settlement_metadata": {
-                    "debate_id": f"d{i}",
-                    "settled_at": "2026-01-01",
-                    "confidence": 0.5,
-                    "falsifiers": [],
-                    "review_horizon": "2026-06-01",
-                }
-            }))
+            f.write_text(
+                json.dumps(
+                    {
+                        "settlement_metadata": {
+                            "debate_id": f"d{i}",
+                            "settled_at": "2026-01-01",
+                            "confidence": 0.5,
+                            "falsifiers": [],
+                            "review_horizon": "2026-06-01",
+                        }
+                    }
+                )
+            )
         result = validate_directory(tmp_path)
         assert result.files_checked == 3
         assert result.passed is True
@@ -310,15 +316,19 @@ class TestValidateDirectory:
 
     def test_mixed_valid_invalid(self, tmp_path):
         good = tmp_path / "good.json"
-        good.write_text(json.dumps({
-            "settlement_metadata": {
-                "debate_id": "d1",
-                "settled_at": "2026-01-01",
-                "confidence": 0.5,
-                "falsifiers": [],
-                "review_horizon": "2026-06-01",
-            }
-        }))
+        good.write_text(
+            json.dumps(
+                {
+                    "settlement_metadata": {
+                        "debate_id": "d1",
+                        "settled_at": "2026-01-01",
+                        "confidence": 0.5,
+                        "falsifiers": [],
+                        "review_horizon": "2026-06-01",
+                    }
+                }
+            )
+        )
         bad = tmp_path / "bad.json"
         bad.write_text("{invalid")
         result = validate_directory(tmp_path)
@@ -336,15 +346,19 @@ class TestMain:
 
     def test_check_file_valid(self, tmp_path):
         f = tmp_path / "receipt.json"
-        f.write_text(json.dumps({
-            "settlement_metadata": {
-                "debate_id": "d1",
-                "settled_at": "2026-01-01",
-                "confidence": 0.5,
-                "falsifiers": [],
-                "review_horizon": "2026-06-01",
-            }
-        }))
+        f.write_text(
+            json.dumps(
+                {
+                    "settlement_metadata": {
+                        "debate_id": "d1",
+                        "settled_at": "2026-01-01",
+                        "confidence": 0.5,
+                        "falsifiers": [],
+                        "review_horizon": "2026-06-01",
+                    }
+                }
+            )
+        )
         assert main(["--check-file", str(f)]) == 0
 
     def test_check_file_invalid(self, tmp_path):
@@ -357,15 +371,19 @@ class TestMain:
 
     def test_check_dir(self, tmp_path):
         f = tmp_path / "r.json"
-        f.write_text(json.dumps({
-            "settlement_metadata": {
-                "debate_id": "d1",
-                "settled_at": "2026-01-01",
-                "confidence": 0.5,
-                "falsifiers": [],
-                "review_horizon": "2026-06-01",
-            }
-        }))
+        f.write_text(
+            json.dumps(
+                {
+                    "settlement_metadata": {
+                        "debate_id": "d1",
+                        "settled_at": "2026-01-01",
+                        "confidence": 0.5,
+                        "falsifiers": [],
+                        "review_horizon": "2026-06-01",
+                    }
+                }
+            )
+        )
         assert main(["--check-dir", str(tmp_path)]) == 0
 
     def test_check_dir_not_a_dir(self, tmp_path):
@@ -375,15 +393,19 @@ class TestMain:
 
     def test_strict_mode(self, tmp_path):
         f = tmp_path / "receipt.json"
-        f.write_text(json.dumps({
-            "settlement_metadata": {
-                "debate_id": "d1",
-                "settled_at": "2026-01-01",
-                "confidence": 0.95,
-                "falsifiers": [],
-                "review_horizon": "2026-06-01",
-            }
-        }))
+        f.write_text(
+            json.dumps(
+                {
+                    "settlement_metadata": {
+                        "debate_id": "d1",
+                        "settled_at": "2026-01-01",
+                        "confidence": 0.95,
+                        "falsifiers": [],
+                        "review_horizon": "2026-06-01",
+                    }
+                }
+            )
+        )
         # Non-strict: passes (only warning for no falsifiers at high confidence)
         assert main(["--check-file", str(f)]) == 0
         # Strict: fails (warning promoted to error)
@@ -391,15 +413,19 @@ class TestMain:
 
     def test_json_output(self, tmp_path, capsys):
         f = tmp_path / "receipt.json"
-        f.write_text(json.dumps({
-            "settlement_metadata": {
-                "debate_id": "d1",
-                "settled_at": "2026-01-01",
-                "confidence": 0.5,
-                "falsifiers": [],
-                "review_horizon": "2026-06-01",
-            }
-        }))
+        f.write_text(
+            json.dumps(
+                {
+                    "settlement_metadata": {
+                        "debate_id": "d1",
+                        "settled_at": "2026-01-01",
+                        "confidence": 0.5,
+                        "falsifiers": [],
+                        "review_horizon": "2026-06-01",
+                    }
+                }
+            )
+        )
         main(["--check-file", str(f), "--json-output"])
         output = json.loads(capsys.readouterr().out)
         assert output["passed"] is True

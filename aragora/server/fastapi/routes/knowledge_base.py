@@ -222,7 +222,9 @@ class VerifyFactResponse(BaseModel):
 class QueryRequest(BaseModel):
     """Request body for POST /query."""
 
-    question: str = Field(..., min_length=1, max_length=5000, description="Natural language question")
+    question: str = Field(
+        ..., min_length=1, max_length=5000, description="Natural language question"
+    )
     workspace_id: str = Field("default", max_length=100, description="Workspace ID")
     options: dict[str, Any] = Field(
         default_factory=dict,
@@ -662,7 +664,11 @@ async def verify_fact(
             verified=result_dict.get("verified"),
             status="completed",
             message=result_dict.get("message", ""),
-            **{k: v for k, v in result_dict.items() if k not in ("fact_id", "verified", "status", "message")},
+            **{
+                k: v
+                for k, v in result_dict.items()
+                if k not in ("fact_id", "verified", "status", "message")
+            },
         )
 
     except NotFoundError:
@@ -707,7 +713,9 @@ async def get_contradictions(
 @router.get("/facts/{fact_id}/relations", response_model=FactRelationsResponse)
 async def get_relations(
     fact_id: str,
-    relation_type: str | None = Query(None, alias="type", max_length=50, description="Filter by type"),
+    relation_type: str | None = Query(
+        None, alias="type", max_length=50, description="Filter by type"
+    ),
     as_source: bool = Query(True, description="Include relations where fact is source"),
     as_target: bool = Query(True, description="Include relations where fact is target"),
     auth: AuthorizationContext = Depends(require_authenticated),
@@ -863,7 +871,11 @@ async def query_knowledge_base(
             confidence=result_dict.get("confidence", 0.0),
             citations=result_dict.get("citations", []),
             sources=result_dict.get("sources", []),
-            **{k: v for k, v in result_dict.items() if k not in ("answer", "confidence", "citations", "sources")},
+            **{
+                k: v
+                for k, v in result_dict.items()
+                if k not in ("answer", "confidence", "citations", "sources")
+            },
         )
 
     except HTTPException:

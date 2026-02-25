@@ -337,9 +337,7 @@ def _run_async_helper(coro: Any) -> Any:
         return run_async(coro)
     except (ImportError, RuntimeError) as e:
         logger.debug("run_async helper not available: %s", e)
-        raise HTTPException(
-            status_code=503, detail="Async runtime not available"
-        ) from e
+        raise HTTPException(status_code=503, detail="Async runtime not available") from e
 
 
 # =============================================================================
@@ -391,9 +389,7 @@ async def get_summary(
 async def get_finding_trends(
     workspace_id: str = Query(..., description="Workspace to analyze"),
     time_range: TimeRangeEnum = Query(TimeRangeEnum.d30, description="Time range"),
-    granularity: GranularityEnum = Query(
-        GranularityEnum.day, description="Time bucket size"
-    ),
+    granularity: GranularityEnum = Query(GranularityEnum.day, description="Time bucket size"),
     auth: AuthorizationContext = Depends(require_authenticated),
 ) -> FindingTrendsResponse:
     """
@@ -415,9 +411,7 @@ async def get_finding_trends(
         tr = TimeRange(time_range.value)
         gran = Granularity(granularity.value)
 
-        trends = asyncio.run(
-            dashboard.get_finding_trends(workspace_id, tr, gran)
-        )
+        trends = asyncio.run(dashboard.get_finding_trends(workspace_id, tr, gran))
 
         return FindingTrendsResponse(
             workspace_id=workspace_id,
@@ -454,9 +448,7 @@ async def get_remediation_metrics(
 
         dashboard = get_analytics_dashboard()
         tr = TimeRange(time_range.value)
-        metrics = _run_async_helper(
-            dashboard.get_remediation_metrics(workspace_id, tr)
-        )
+        metrics = _run_async_helper(dashboard.get_remediation_metrics(workspace_id, tr))
 
         return RemediationResponse(
             workspace_id=workspace_id,
@@ -472,9 +464,7 @@ async def get_remediation_metrics(
         raise HTTPException(status_code=400, detail="Data error in remediation metrics")
     except (ImportError, RuntimeError, OSError) as e:
         logger.exception("Error getting remediation metrics: %s", e)
-        raise HTTPException(
-            status_code=500, detail="Failed to get remediation metrics"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get remediation metrics")
 
 
 @router.get("/agents", response_model=AgentMetricsResponse)
@@ -494,9 +484,7 @@ async def get_agent_metrics(
 
         dashboard = get_analytics_dashboard()
         tr = TimeRange(time_range.value)
-        metrics = _run_async_helper(
-            dashboard.get_agent_metrics(workspace_id, tr)
-        )
+        metrics = _run_async_helper(dashboard.get_agent_metrics(workspace_id, tr))
 
         return AgentMetricsResponse(
             workspace_id=workspace_id,
@@ -532,9 +520,7 @@ async def get_risk_heatmap(
 
         dashboard = get_analytics_dashboard()
         tr = TimeRange(time_range.value)
-        cells = _run_async_helper(
-            dashboard.get_risk_heatmap(workspace_id, tr)
-        )
+        cells = _run_async_helper(dashboard.get_risk_heatmap(workspace_id, tr))
 
         return HeatmapResponse(
             workspace_id=workspace_id,
@@ -562,9 +548,7 @@ async def get_risk_heatmap(
 async def get_cost_metrics(
     workspace_id: str = Query(..., description="Workspace to analyze"),
     time_range: TimeRangeEnum = Query(TimeRangeEnum.d30, description="Time range"),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:cost:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:cost:read")),
 ) -> CostMetricsResponse:
     """
     Get cost analysis for audits.
@@ -579,9 +563,7 @@ async def get_cost_metrics(
 
         dashboard = get_analytics_dashboard()
         tr = TimeRange(time_range.value)
-        metrics = _run_async_helper(
-            dashboard.get_cost_metrics(workspace_id, tr)
-        )
+        metrics = _run_async_helper(dashboard.get_cost_metrics(workspace_id, tr))
 
         return CostMetricsResponse(
             workspace_id=workspace_id,
@@ -603,9 +585,7 @@ async def get_cost_metrics(
 @router.get("/cost/breakdown", response_model=CostBreakdownResponse)
 async def get_cost_breakdown(
     workspace_id: str = Query(..., description="Workspace/org ID"),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:cost:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:cost:read")),
 ) -> CostBreakdownResponse:
     """
     Get cost breakdown with per-agent costs and budget utilization.
@@ -627,9 +607,7 @@ async def get_cost_breakdown(
         # Get budget utilization
         budget_info: dict[str, Any] = {}
         try:
-            budget = cost_tracker.get_budget(
-                workspace_id=workspace_id, org_id=workspace_id
-            )
+            budget = cost_tracker.get_budget(workspace_id=workspace_id, org_id=workspace_id)
             if budget and budget.monthly_limit_usd:
                 monthly_limit = float(budget.monthly_limit_usd)
                 current_spend = float(budget.current_monthly_spend)
@@ -638,9 +616,7 @@ async def get_cost_breakdown(
                     "current_spend_usd": current_spend,
                     "remaining_usd": max(0, monthly_limit - current_spend),
                     "utilization_percent": (
-                        round(current_spend / monthly_limit * 100, 1)
-                        if monthly_limit > 0
-                        else 0
+                        round(current_spend / monthly_limit * 100, 1) if monthly_limit > 0 else 0
                     ),
                 }
         except (AttributeError, TypeError, ValueError) as e:
@@ -670,9 +646,7 @@ async def get_compliance_scorecard(
         "SOC2,GDPR,HIPAA,PCI-DSS",
         description="Comma-separated list of compliance frameworks",
     ),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:compliance:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:compliance:read")),
 ) -> ComplianceScorecardResponse:
     """
     Get compliance scorecard for specified frameworks.
@@ -688,9 +662,7 @@ async def get_compliance_scorecard(
         from aragora.analytics import get_analytics_dashboard
 
         dashboard = get_analytics_dashboard()
-        scores = _run_async_helper(
-            dashboard.get_compliance_scorecard(workspace_id, framework_list)
-        )
+        scores = _run_async_helper(dashboard.get_compliance_scorecard(workspace_id, framework_list))
 
         return ComplianceScorecardResponse(
             workspace_id=workspace_id,
@@ -702,14 +674,10 @@ async def get_compliance_scorecard(
         raise HTTPException(status_code=400, detail="Invalid parameter")
     except (KeyError, TypeError, AttributeError) as e:
         logger.warning("Data error in compliance scorecard: %s", e)
-        raise HTTPException(
-            status_code=400, detail="Data error in compliance scorecard"
-        )
+        raise HTTPException(status_code=400, detail="Data error in compliance scorecard")
     except (ImportError, RuntimeError, OSError) as e:
         logger.exception("Error getting compliance scorecard: %s", e)
-        raise HTTPException(
-            status_code=500, detail="Failed to get compliance scorecard"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get compliance scorecard")
 
 
 # =============================================================================
@@ -721,9 +689,7 @@ async def get_compliance_scorecard(
 async def get_token_usage(
     org_id: str = Query(..., description="Organization ID"),
     days: int = Query(30, ge=1, le=365, description="Days to look back"),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:tokens:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:tokens:read")),
 ) -> TokenUsageResponse:
     """
     Get token usage summary.
@@ -757,9 +723,7 @@ async def get_token_usage(
             total_cost_usd=str(summary.total_cost_usd),
             total_debates=summary.total_debates,
             total_agent_calls=summary.total_agent_calls,
-            cost_by_provider={
-                k: str(v) for k, v in summary.cost_by_provider.items()
-            },
+            cost_by_provider={k: str(v) for k, v in summary.cost_by_provider.items()},
             debates_by_day=summary.debates_by_day,
         )
 
@@ -775,9 +739,7 @@ async def get_token_trends(
     granularity: TokenGranularityEnum = Query(
         TokenGranularityEnum.day, description="Aggregation granularity"
     ),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:tokens:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:tokens:read")),
 ) -> TokenTrendsResponse:
     """
     Get token usage trends over time.
@@ -828,8 +790,7 @@ async def get_token_trends(
                         "period": row["period"],
                         "tokens_in": row["tokens_in"] or 0,
                         "tokens_out": row["tokens_out"] or 0,
-                        "total_tokens": (row["tokens_in"] or 0)
-                        + (row["tokens_out"] or 0),
+                        "total_tokens": (row["tokens_in"] or 0) + (row["tokens_out"] or 0),
                         "cost_usd": f"{row['cost'] or 0:.4f}",
                         "event_count": row["event_count"],
                     }
@@ -855,9 +816,7 @@ async def get_token_trends(
 async def get_provider_breakdown(
     org_id: str = Query(..., description="Organization ID"),
     days: int = Query(30, ge=1, le=365, description="Days to look back"),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:tokens:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:tokens:read")),
 ) -> ProviderBreakdownResponse:
     """
     Get detailed breakdown by provider and model.
@@ -936,9 +895,7 @@ async def get_provider_breakdown(
             p["total_cost"] = f"{p['total_cost']:.4f}"
             result_providers.append(p)
 
-        result_providers.sort(
-            key=lambda x: float(x["total_cost"]), reverse=True
-        )
+        result_providers.sort(key=lambda x: float(x["total_cost"]), reverse=True)
 
         return ProviderBreakdownResponse(
             org_id=org_id,
@@ -952,9 +909,7 @@ async def get_provider_breakdown(
 
     except (ImportError, RuntimeError, OSError, LookupError) as e:
         logger.exception("Error getting provider breakdown: %s", e)
-        raise HTTPException(
-            status_code=500, detail="Failed to get provider breakdown"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get provider breakdown")
 
 
 # =============================================================================
@@ -964,9 +919,7 @@ async def get_provider_breakdown(
 
 @router.get("/flips/summary", response_model=FlipSummaryResponse)
 async def get_flip_summary(
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:flips:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:flips:read")),
 ) -> FlipSummaryResponse:
     """
     Get flip detection summary for the dashboard.
@@ -996,9 +949,7 @@ async def get_recent_flips(
         None,
         description="Filter by type (contradiction, retraction, qualification, refinement)",
     ),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:flips:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:flips:read")),
 ) -> RecentFlipsResponse:
     """
     Get recent flip events.
@@ -1036,9 +987,7 @@ async def get_agent_consistency(
         None,
         description="Comma-separated list of agent names (returns all if empty)",
     ),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:flips:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:flips:read")),
 ) -> AgentConsistencyResponse:
     """
     Get agent consistency scores.
@@ -1069,26 +1018,18 @@ async def get_agent_consistency(
             discovered_names = list(summary.get("by_agent", {}).keys())
             if discovered_names:
                 scores = detector.get_agents_consistency_batch(discovered_names)
-                formatted = [
-                    format_consistency_for_ui(s) for s in scores.values()
-                ]
+                formatted = [format_consistency_for_ui(s) for s in scores.values()]
             else:
                 formatted = []
 
         # Sort by consistency score (highest first)
-        formatted.sort(
-            key=lambda x: float(x["consistency"].rstrip("%")), reverse=True
-        )
+        formatted.sort(key=lambda x: float(x["consistency"].rstrip("%")), reverse=True)
 
-        return AgentConsistencyResponse(
-            agents=formatted, count=len(formatted)
-        )
+        return AgentConsistencyResponse(agents=formatted, count=len(formatted))
 
     except (ImportError, RuntimeError, OSError, LookupError) as e:
         logger.exception("Error getting agent consistency: %s", e)
-        raise HTTPException(
-            status_code=500, detail="Failed to get agent consistency"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get agent consistency")
 
 
 @router.get("/flips/trends", response_model=FlipTrendsResponse)
@@ -1097,9 +1038,7 @@ async def get_flip_trends(
     granularity: DayGranularityEnum = Query(
         DayGranularityEnum.day, description="Aggregation granularity"
     ),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:flips:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:flips:read")),
 ) -> FlipTrendsResponse:
     """
     Get flip trends over time.
@@ -1125,11 +1064,7 @@ async def get_flip_trends(
             else:
                 date_format = "strftime('%Y-W%W', detected_at)"
 
-            max_periods = (
-                days
-                if granularity == DayGranularityEnum.day
-                else (days // 7) + 1
-            )
+            max_periods = days if granularity == DayGranularityEnum.day else (days // 7) + 1
             row_limit = min(max_periods * 20, 1000)
 
             rows = conn.execute(
@@ -1211,9 +1146,7 @@ async def get_flip_trends(
 async def get_deliberation_summary(
     org_id: str = Query(..., description="Organization ID"),
     days: int = Query(30, ge=1, le=365, description="Days to look back"),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:deliberations:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:deliberations:read")),
 ) -> DeliberationSummaryResponse:
     """
     Get deliberation analytics summary.
@@ -1241,11 +1174,7 @@ async def get_deliberation_summary(
         total = stats.get("total", 0)
         completed = stats.get("completed", 0)
         consensus_reached = stats.get("consensus_reached", 0)
-        consensus_rate = (
-            f"{(consensus_reached / completed * 100):.1f}%"
-            if completed > 0
-            else "0%"
-        )
+        consensus_rate = f"{(consensus_reached / completed * 100):.1f}%" if completed > 0 else "0%"
 
         return DeliberationSummaryResponse(
             org_id=org_id,
@@ -1261,29 +1190,21 @@ async def get_deliberation_summary(
             consensus_reached=consensus_reached,
             consensus_rate=consensus_rate,
             avg_rounds=round(stats.get("avg_rounds", 0), 1),
-            avg_duration_seconds=round(
-                stats.get("avg_duration_seconds", 0), 1
-            ),
+            avg_duration_seconds=round(stats.get("avg_duration_seconds", 0), 1),
             by_template=stats.get("by_template", {}),
             by_priority=stats.get("by_priority", {}),
         )
 
     except (ImportError, RuntimeError, OSError, LookupError) as e:
         logger.exception("Error getting deliberation summary: %s", e)
-        raise HTTPException(
-            status_code=500, detail="Failed to get deliberation summary"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get deliberation summary")
 
 
-@router.get(
-    "/deliberations/channels", response_model=DeliberationByChannelResponse
-)
+@router.get("/deliberations/channels", response_model=DeliberationByChannelResponse)
 async def get_deliberation_by_channel(
     org_id: str = Query(..., description="Organization ID"),
     days: int = Query(30, ge=1, le=365, description="Days to look back"),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:deliberations:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:deliberations:read")),
 ) -> DeliberationByChannelResponse:
     """
     Get deliberation breakdown by channel/platform.
@@ -1318,24 +1239,16 @@ async def get_deliberation_by_channel(
                     "consensus_count": 0,
                     "total_duration": 0,
                 }
-            by_platform[platform]["count"] += ch.get(
-                "total_deliberations", 0
-            )
-            by_platform[platform]["consensus_count"] += ch.get(
-                "consensus_reached", 0
-            )
-            by_platform[platform]["total_duration"] += ch.get(
-                "total_duration", 0
-            )
+            by_platform[platform]["count"] += ch.get("total_deliberations", 0)
+            by_platform[platform]["consensus_count"] += ch.get("consensus_reached", 0)
+            by_platform[platform]["total_duration"] += ch.get("total_duration", 0)
 
         # Calculate platform-level rates
         platform_summary: dict[str, dict[str, Any]] = {}
         for platform, data in by_platform.items():
             count = data["count"]
             consensus_rate = (
-                f"{(data['consensus_count'] / count * 100):.0f}%"
-                if count > 0
-                else "0%"
+                f"{(data['consensus_count'] / count * 100):.0f}%" if count > 0 else "0%"
             )
             platform_summary[platform] = {
                 "count": count,
@@ -1361,15 +1274,11 @@ async def get_deliberation_by_channel(
         )
 
 
-@router.get(
-    "/deliberations/consensus", response_model=ConsensusRatesResponse
-)
+@router.get("/deliberations/consensus", response_model=ConsensusRatesResponse)
 async def get_consensus_rates(
     org_id: str = Query(..., description="Organization ID"),
     days: int = Query(30, ge=1, le=365, description="Days to look back"),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:deliberations:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:deliberations:read")),
 ) -> ConsensusRatesResponse:
     """
     Get consensus rates by agent team composition.
@@ -1401,9 +1310,7 @@ async def get_consensus_rates(
                 end=period_end.isoformat(),
                 days=days,
             ),
-            overall_consensus_rate=consensus_stats.get(
-                "overall_consensus_rate", "0%"
-            ),
+            overall_consensus_rate=consensus_stats.get("overall_consensus_rate", "0%"),
             by_team_size=consensus_stats.get("by_team_size", {}),
             by_agent=consensus_stats.get("by_agent", []),
             top_teams=consensus_stats.get("top_teams", []),
@@ -1411,9 +1318,7 @@ async def get_consensus_rates(
 
     except (ImportError, RuntimeError, OSError, LookupError) as e:
         logger.exception("Error getting consensus rates: %s", e)
-        raise HTTPException(
-            status_code=500, detail="Failed to get consensus rates"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get consensus rates")
 
 
 @router.get(
@@ -1426,9 +1331,7 @@ async def get_deliberation_performance(
     granularity: DayGranularityEnum = Query(
         DayGranularityEnum.day, description="Aggregation granularity"
     ),
-    auth: AuthorizationContext = Depends(
-        require_permission("analytics:deliberations:read")
-    ),
+    auth: AuthorizationContext = Depends(require_permission("analytics:deliberations:read")),
 ) -> DeliberationPerformanceResponse:
     """
     Get deliberation performance metrics (latency, cost, efficiency).

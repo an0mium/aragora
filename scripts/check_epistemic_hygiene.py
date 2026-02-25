@@ -124,7 +124,11 @@ def validate_receipt(receipt: dict[str, Any], strict: bool = False) -> CheckResu
 
     # EH-003: Falsifiers non-empty for high-confidence verdicts
     falsifiers = sm.get("falsifiers", [])
-    if conf_val >= HIGH_CONFIDENCE_THRESHOLD and isinstance(falsifiers, list) and len(falsifiers) == 0:
+    if (
+        conf_val >= HIGH_CONFIDENCE_THRESHOLD
+        and isinstance(falsifiers, list)
+        and len(falsifiers) == 0
+    ):
         _add("EH-003", "warning", f"No falsifiers for high-confidence verdict ({conf_val:.0%})")
 
     # EH-004: review_horizon (confidence horizon) is set
@@ -135,11 +139,7 @@ def validate_receipt(receipt: dict[str, Any], strict: bool = False) -> CheckResu
     # EH-005: Dissent documentation when dissenting_views present
     dissenting = receipt.get("dissenting_views") or receipt.get("dissent") or []
     if dissenting and isinstance(dissenting, list) and len(dissenting) > 0:
-        has_docs = bool(
-            sm.get("cruxes")
-            or sm.get("alternatives")
-            or sm.get("review_notes")
-        )
+        has_docs = bool(sm.get("cruxes") or sm.get("alternatives") or sm.get("review_notes"))
         if not has_docs:
             _add(
                 "EH-005",
@@ -156,18 +156,36 @@ def validate_file(path: Path, strict: bool = False) -> CheckResult:
         data = json.loads(path.read_text())
     except json.JSONDecodeError as e:
         return CheckResult(
-            errors=[Finding(code="EH-000", severity="error", message=f"Invalid JSON: {e}", file_path=str(path))],
+            errors=[
+                Finding(
+                    code="EH-000",
+                    severity="error",
+                    message=f"Invalid JSON: {e}",
+                    file_path=str(path),
+                )
+            ],
             files_checked=1,
         )
     except FileNotFoundError:
         return CheckResult(
-            errors=[Finding(code="EH-000", severity="error", message="File not found", file_path=str(path))],
+            errors=[
+                Finding(
+                    code="EH-000", severity="error", message="File not found", file_path=str(path)
+                )
+            ],
             files_checked=1,
         )
 
     if not isinstance(data, dict):
         return CheckResult(
-            errors=[Finding(code="EH-000", severity="error", message="Root is not an object", file_path=str(path))],
+            errors=[
+                Finding(
+                    code="EH-000",
+                    severity="error",
+                    message="Root is not an object",
+                    file_path=str(path),
+                )
+            ],
             files_checked=1,
         )
 

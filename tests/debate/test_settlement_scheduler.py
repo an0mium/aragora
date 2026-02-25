@@ -399,11 +399,13 @@ class TestModuleExports:
 
     def test_all_exports_exist(self):
         import aragora.debate.settlement_scheduler as mod
+
         for name in mod.__all__:
             assert hasattr(mod, name), f"Missing export: {name}"
 
     def test_key_classes_exported(self):
         import aragora.debate.settlement_scheduler as mod
+
         expected = {
             "SettlementReviewScheduler",
             "SettlementReviewEvent",

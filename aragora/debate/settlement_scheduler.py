@@ -37,7 +37,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -69,9 +69,7 @@ class SettlementReviewEvent:
     review_horizon: str
     confidence: float
     falsifier_count: int
-    flagged_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    flagged_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a JSON-safe dictionary."""
@@ -114,9 +112,7 @@ class SchedulerStats:
             "total_checks": self.total_checks,
             "total_flagged": self.total_flagged,
             "total_errors": self.total_errors,
-            "last_check_at": (
-                self.last_check_at.isoformat() if self.last_check_at else None
-            ),
+            "last_check_at": (self.last_check_at.isoformat() if self.last_check_at else None),
             "last_flagged_count": self.last_flagged_count,
         }
 
@@ -380,9 +376,7 @@ class SettlementReviewScheduler:
                     reviewed_by="settlement_scheduler",
                 )
             except (ValueError, KeyError, AttributeError, TypeError) as e:
-                logger.debug(
-                    "Could not update settlement %s status: %s", debate_id, e
-                )
+                logger.debug("Could not update settlement %s status: %s", debate_id, e)
 
         return SettlementReviewEvent(
             debate_id=debate_id,
@@ -392,9 +386,7 @@ class SettlementReviewScheduler:
             falsifier_count=len(getattr(metadata, "falsifiers", [])),
         )
 
-    def _handle_scheduled_review(
-        self, debate_id: str
-    ) -> SettlementReviewEvent | None:
+    def _handle_scheduled_review(self, debate_id: str) -> SettlementReviewEvent | None:
         """Handle an explicitly scheduled review.
 
         Looks up the settlement in the tracker and flags it.  If the
@@ -413,9 +405,7 @@ class SettlementReviewScheduler:
                 if metadata is not None:
                     return self._flag_settlement(metadata)
             except (AttributeError, TypeError) as e:
-                logger.debug(
-                    "Could not look up settlement %s: %s", debate_id, e
-                )
+                logger.debug("Could not look up settlement %s: %s", debate_id, e)
 
         # Fallback: emit a minimal event for the scheduled review
         return SettlementReviewEvent(

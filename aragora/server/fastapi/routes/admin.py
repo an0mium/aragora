@@ -49,7 +49,7 @@ from pydantic import BaseModel, Field
 from aragora.rbac.models import AuthorizationContext
 
 from ..dependencies.auth import require_permission
-from ..middleware.error_handling import ForbiddenError, NotFoundError
+from ..middleware.error_handling import NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -1056,10 +1056,7 @@ async def list_tenants(
             raise HTTPException(status_code=503, detail="Tenant listing not supported")
 
         return TenantListResponse(
-            tenants=[
-                t.to_dict() if hasattr(t, "to_dict") else t
-                for t in tenants
-            ],
+            tenants=[t.to_dict() if hasattr(t, "to_dict") else t for t in tenants],
             total=total,
             limit=limit,
             offset=offset,
