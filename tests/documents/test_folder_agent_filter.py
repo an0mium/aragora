@@ -85,7 +85,7 @@ class TestAgentFileFilterConstruction:
 
     def test_default_config(self):
         filter = AgentFileFilter()
-        assert filter.model == "gemini-2.0-flash"
+        assert filter.model == "gemini-3.1-pro-preview"
         assert filter.batch_size == AgentFileFilter.DEFAULT_BATCH_SIZE
         assert filter.include_previews is True
         assert filter.max_preview_size == AgentFileFilter.MAX_PREVIEW_SIZE
