@@ -165,6 +165,7 @@ class TestOpenAPISpecStructure:
             "/.well-known/",
             "/audio/",
             "/auth/sso/",
+            "/health/",
             "/inbox/",
             "/scim/v2/",
         )
