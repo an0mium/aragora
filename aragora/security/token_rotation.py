@@ -99,7 +99,7 @@ TOKEN_GITHUB_SECRET_NAMES: dict[TokenType, str] = {
 class TokenRotationConfig:
     """Configuration for token rotation."""
 
-    aws_secret_name: str = "aragora/tokens"
+    aws_secret_name: str = "aragora/tokens"  # noqa: S105 -- AWS Secrets Manager path
     """AWS Secrets Manager secret name for token storage."""
 
     aws_region: str = "us-east-1"

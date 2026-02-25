@@ -38,7 +38,7 @@ class ErrorCode:
     AUTH_REQUIRED = "AUTH_REQUIRED"
     """Authentication is required but no credentials were provided."""
 
-    AUTH_INVALID_TOKEN = "AUTH_INVALID_TOKEN"
+    AUTH_INVALID_TOKEN = "AUTH_INVALID_TOKEN"  # noqa: S105 -- error code
     """The provided authentication token is invalid or malformed."""
 
     AUTH_EXPIRED = "AUTH_EXPIRED"
