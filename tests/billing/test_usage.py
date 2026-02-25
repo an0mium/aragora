@@ -191,8 +191,8 @@ class TestCalculateTokenCost:
     def test_deepseek_v3(self):
         """Test cost calculation for DeepSeek V3."""
         cost = calculate_token_cost("deepseek", "deepseek-v3", 1_000_000, 1_000_000)
-        # Input: $0.14/1M, Output: $0.28/1M
-        expected = Decimal("0.14") + Decimal("0.28")
+        # Input: $0.28/1M, Output: $0.42/1M
+        expected = Decimal("0.28") + Decimal("0.42")
         assert cost == expected
 
     def test_unknown_provider_uses_openrouter_default(self):
