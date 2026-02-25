@@ -350,25 +350,45 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
 
     def _collect_settlement_review(self) -> dict[str, Any]:
         """Collect settlement review scheduler status and rollup stats."""
+        calibration_outcomes_fallback: dict[str, Any] = {
+            "correct": 0,
+            "incorrect": 0,
+            "skipped": 0,
+            "deferred": 0,
+            "total": 0,
+            "raw": {},
+            "available": False,
+        }
         fallback: dict[str, Any] = {
             "running": False,
             "interval_hours": None,
             "max_receipts_per_run": None,
             "startup_delay_seconds": None,
             "stats": None,
+            "calibration_outcomes": calibration_outcomes_fallback,
             "available": False,
         }
+        calibration_outcomes = dict(calibration_outcomes_fallback)
+        try:
+            from aragora.observability.metrics.settlement import get_calibration_outcomes_summary
+
+            calibration_outcomes = get_calibration_outcomes_summary()
+        except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
+            pass
         try:
             from aragora.scheduler.settlement_review import get_settlement_review_scheduler
 
             scheduler = get_settlement_review_scheduler()
             if scheduler is None:
+                fallback["calibration_outcomes"] = calibration_outcomes
                 return fallback
 
             status = scheduler.get_status()
+            status["calibration_outcomes"] = calibration_outcomes
             status["available"] = True
             return status
         except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
+            fallback["calibration_outcomes"] = calibration_outcomes
             return fallback
 
     def _collect_operational_alerts(

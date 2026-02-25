@@ -422,6 +422,95 @@ class TestSettlementReviewScheduler:
         assert settled["calibration_outcome"] == "correct"
         assert isinstance(settled.get("calibration_recorded_at"), str)
 
+    @pytest.mark.parametrize(
+        "resolver_type,expected_resolver",
+        [
+            ("human", "human"),
+            ("deterministic", "deterministic"),
+            ("oracle", "oracle"),
+        ],
+    )
+    def test_end_to_end_settlement_resolver_paths_record_calibration(
+        self,
+        resolver_type: str,
+        expected_resolver: str,
+    ) -> None:
+        """Resolver path coverage from receipt generation through settlement review."""
+        from aragora.server.debate_controller import DebateController
+
+        store = _InMemoryReceiptStore()
+        controller = DebateController(
+            factory=MagicMock(),
+            emitter=MagicMock(),
+            storage=MagicMock(),
+        )
+
+        config = MagicMock()
+        config.question = "Should we enable a staged rollout?"
+        config.agents_str = "claude,gpt-5"
+        config.rounds = 2
+        config.mode = "epistemic_hygiene"
+        config.metadata = {
+            "mode": "epistemic_hygiene",
+            "settlement": {
+                "claim": "Staged rollout lowers incident severity.",
+                "falsifier": "Incident severity increases by >= 10%.",
+                "metric": "incident_severity_30d",
+                "review_horizon_days": 1,
+                "resolver_type": resolver_type,
+            },
+        }
+
+        result = MagicMock()
+        result.consensus_reached = True
+        result.confidence = 0.71
+        result.final_answer = "Proceed with staged rollout."
+        result.participants = ["claude", "gpt-5"]
+
+        with patch("aragora.storage.receipt_store.get_receipt_store", return_value=store):
+            controller._generate_debate_receipt(
+                debate_id=f"debate-resolver-{resolver_type}",
+                config=config,
+                result=result,
+                duration_seconds=9.0,
+            )
+
+        generated = store.latest()
+        generated_settlement = generated.data["settlement"]
+        assert generated_settlement["resolver_type"] == expected_resolver
+
+        old = datetime.now(timezone.utc) - timedelta(days=10)
+        generated.data["timestamp"] = _iso(old)
+        generated.data["settlement"]["status"] = "pending_outcome"
+        generated.data["settlement"]["outcome"] = True
+        generated.data["settlement"]["review_horizon_days"] = 1
+        generated.data["settlement"]["resolver_type"] = resolver_type
+        store.save(generated.data)
+
+        scheduler = SettlementReviewScheduler(store, max_receipts_per_run=10)
+        tracker = MagicMock()
+        scheduler._calibration_tracker = tracker
+        (
+            scanned,
+            due,
+            updated,
+            calibration_predictions,
+            unresolved_due,
+        ) = scheduler._review_due_receipts_sync()
+
+        assert scanned >= 1
+        assert due == 1
+        assert updated == 1
+        assert calibration_predictions == 2
+        assert unresolved_due == 0
+        assert tracker.record_prediction.call_count == 2
+
+        settled = store.latest().data["settlement"]
+        assert settled["status"] == "settled_true"
+        assert settled["calibration_outcome"] == "correct"
+        assert settled["calibration_resolver_type"] == expected_resolver
+        assert isinstance(settled.get("calibration_recorded_at"), str)
+
 
 class TestGlobalSettlementScheduler:
     def teardown_method(self) -> None:
