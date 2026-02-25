@@ -1117,18 +1117,46 @@ async def cleanup_debate_resources(
     """
     ctx = state.ctx
 
+    async def _drain_background_task(task: Any, *, timeout_s: float = 0.75) -> None:
+        """Await/cancel debate-scoped background tasks to avoid task leaks."""
+        if task is None:
+            return
+        if task.done():
+            if not task.cancelled():
+                try:
+                    task.exception()
+                except (RuntimeError, TypeError):
+                    pass
+            return
+        try:
+            await asyncio.wait_for(asyncio.shield(task), timeout=timeout_s)
+        except asyncio.TimeoutError:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, RuntimeError):
+                pass
+        except (RuntimeError, TypeError):
+            pass
+
+    # Drain debate-scoped background tasks. They are only useful while the debate
+    # is active; after completion they should not outlive this coroutine.
+    await _drain_background_task(getattr(ctx, "background_classification_task", None), timeout_s=0.75)
+    await _drain_background_task(getattr(ctx, "background_research_task", None), timeout_s=0.75)
+    await _drain_background_task(getattr(ctx, "background_evidence_task", None), timeout_s=0.75)
+    for _attr in (
+        "background_classification_task",
+        "background_research_task",
+        "background_evidence_task",
+    ):
+        if hasattr(ctx, _attr):
+            setattr(ctx, _attr, None)
+
     # In pytest runs, ensure background KM ingest doesn't outlive the test event
     # loop and emit "Task was destroyed but it is pending!" warnings.
     km_task = getattr(ctx, "_km_ingest_task", None)
     if km_task is not None and os.environ.get("PYTEST_CURRENT_TEST"):
-        try:
-            await asyncio.wait_for(asyncio.shield(km_task), timeout=0.75)
-        except asyncio.TimeoutError:
-            km_task.cancel()
-            try:
-                await km_task
-            except (asyncio.CancelledError, RuntimeError):
-                pass
+        await _drain_background_task(km_task, timeout_s=0.75)
 
     # Clean up checkpoints after successful completion
     if state.debate_status == "completed" and getattr(

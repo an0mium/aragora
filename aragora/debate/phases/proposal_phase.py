@@ -278,26 +278,33 @@ class ProposalPhase:
             for idx, agent in enumerate(proposers)
         ]
 
-        # Wait for all proposals and process as they complete.
-        # Track time-to-first-response for latency visibility (issue #268).
-        _first_response_logged = False
-        _proposals_start = time.perf_counter()
-        for completed_task in asyncio.as_completed(tasks):
-            try:
-                agent, result_or_error = await completed_task
-            except asyncio.CancelledError:
-                raise  # Propagate cancellation
-            except Exception as e:  # noqa: BLE001 - phase isolation
-                logger.error("task_exception phase=proposal error=%s", e)
-                continue
+        try:
+            # Wait for all proposals and process as they complete.
+            # Track time-to-first-response for latency visibility (issue #268).
+            _first_response_logged = False
+            _proposals_start = time.perf_counter()
+            for completed_task in asyncio.as_completed(tasks):
+                try:
+                    agent, result_or_error = await completed_task
+                except asyncio.CancelledError:
+                    raise  # Propagate cancellation
+                except Exception as e:  # noqa: BLE001 - phase isolation
+                    logger.error("task_exception phase=proposal error=%s", e)
+                    continue
 
-            if not _first_response_logged:
-                _first_ms = (time.perf_counter() - _proposals_start) * 1000
-                logger.info("time_to_first_proposal_ms=%.1f agent=%s", _first_ms, agent.name)
-                _first_response_logged = True
+                if not _first_response_logged:
+                    _first_ms = (time.perf_counter() - _proposals_start) * 1000
+                    logger.info("time_to_first_proposal_ms=%.1f agent=%s", _first_ms, agent.name)
+                    _first_response_logged = True
 
-            # Process the result
-            self._process_proposal_result(ctx, agent, result_or_error)
+                # Process the result
+                self._process_proposal_result(ctx, agent, result_or_error)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _generate_single_proposal(
         self, ctx: DebateContextType, agent: AgentType
