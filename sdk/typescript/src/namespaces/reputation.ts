@@ -56,4 +56,27 @@ export class ReputationAPI {
   async getAgent(agentName: string): Promise<AgentReputation> {
     return this.client.request('GET', `/api/v1/agent/${agentName}/reputation`);
   }
+
+  /**
+   * Get reputation history with optional date range filter.
+   */
+  async getHistory(params?: {
+    start_date?: string;
+    end_date?: string;
+    agent?: string;
+    limit?: number;
+  }): Promise<{ history: Array<{ timestamp: string; agent: string; reputation: number; event?: string }> }> {
+    return this.client.request('GET', '/api/v1/reputation/history', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /**
+   * Get reputation scores filtered by domain.
+   */
+  async getByDomain(domain: string): Promise<{ domain: string; reputations: ReputationEntry[] }> {
+    return this.client.request('GET', '/api/v1/reputation/domain', {
+      params: { domain },
+    });
+  }
 }

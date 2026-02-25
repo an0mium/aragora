@@ -29,6 +29,19 @@ import pytest
 
 
 # ---------------------------------------------------------------------------
+# Capture original _get_context_from_args at import time (before any test
+# can replace it with a patched closure).
+# ---------------------------------------------------------------------------
+
+try:
+    from aragora.rbac.decorators import (
+        _get_context_from_args as _original_get_context_from_args,
+    )
+except ImportError:
+    _original_get_context_from_args = None  # type: ignore[assignment]
+
+
+# ---------------------------------------------------------------------------
 # Autouse fixture: clear global rate limiter state between tests
 # ---------------------------------------------------------------------------
 
@@ -47,7 +60,7 @@ def _clear_rate_limiter():
 
 @pytest.fixture(autouse=True)
 def _reset_permission_checker():
-    """Reset the singleton PermissionChecker between tests.
+    """Reset the singleton PermissionChecker and context helpers between tests.
 
     The tests/server/handlers/conftest.py auto-bypass fixture patches
     check_permission on the PermissionChecker singleton instance for
@@ -57,7 +70,23 @@ def _reset_permission_checker():
 
     We explicitly delete any instance-level override so the class method
     is always used at the start of each test.
+
+    Additionally, we restore ``_get_context_from_args`` in
+    ``aragora.rbac.decorators`` to its original implementation.  The
+    conftest auto-bypass patches this function to always return an admin
+    context; if monkeypatch teardown ordering allows the patched version
+    to linger, ``@require_permission`` may receive an admin context
+    instead of the one explicitly passed by the test, or skip the RBAC
+    check entirely when ``auth_config.enabled`` is False.
     """
+    # Restore _get_context_from_args to its original implementation
+    try:
+        from aragora.rbac import decorators as _rbac_dec
+
+        _rbac_dec._get_context_from_args = _original_get_context_from_args
+    except (ImportError, AttributeError):
+        pass
+
     try:
         from aragora.rbac.checker import get_permission_checker
 

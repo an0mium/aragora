@@ -24,6 +24,8 @@
     "GET /api/knowledge/facts/stats",
     "GET /api/laboratory/agent/{param}/analysis",
     "GET /api/monitoring/dashboards/{param}",
+    "GET /api/reputation/domain",
+    "GET /api/reputation/history",
     "POST /api/debates/{param}/intervene",
     "POST /api/documents/{param}/reprocess",
     "POST /api/knowledge/facts/batch",

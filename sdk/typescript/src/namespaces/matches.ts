@@ -40,4 +40,23 @@ export class MatchesAPI {
       params: params as Record<string, unknown>,
     });
   }
+
+  /**
+   * Get details for a specific match.
+   */
+  async get(matchId: string): Promise<MatchEntry> {
+    return this.client.request('GET', `/api/v1/matches/${matchId}`);
+  }
+
+  /**
+   * Get match statistics with optional filters.
+   */
+  async getStats(params?: {
+    agent?: string;
+    period?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/matches/stats', {
+      params: params as Record<string, unknown>,
+    });
+  }
 }

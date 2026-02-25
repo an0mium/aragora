@@ -123,7 +123,7 @@ class TestGatewayFanOutBenchmark:
     @pytest.mark.asyncio
     async def test_parallel_4_sources_2000_results(self):
         """Fan-out merges 500 results from each of 4 sources."""
-        continuum = SimpleNamespace(search=lambda query, limit: _make_continuum_results(500))
+        continuum = SimpleNamespace(retrieve=lambda query, limit: _make_continuum_results(500))
         km = AsyncMock()
         km.query = AsyncMock(return_value=_make_km_query_result(500))
         supermemory = AsyncMock()
@@ -172,7 +172,7 @@ class TestGatewayFanOutBenchmark:
             for i in range(n)
         ]
 
-        continuum = SimpleNamespace(search=lambda query, limit: continuum_results)
+        continuum = SimpleNamespace(retrieve=lambda query, limit: continuum_results)
         km = AsyncMock()
         km.query = AsyncMock(return_value=SimpleNamespace(items=km_items))
 

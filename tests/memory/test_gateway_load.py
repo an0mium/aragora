@@ -119,7 +119,7 @@ class TestGatewayFanOut:
     @pytest.mark.asyncio
     async def test_parallel_4_sources_200_results(self):
         """Fan-out merges 50 results x 4 sources."""
-        continuum = SimpleNamespace(search=lambda query, limit: _make_continuum_results(50))
+        continuum = SimpleNamespace(retrieve=lambda query, limit: _make_continuum_results(50))
         km = AsyncMock()
         km.query = AsyncMock(return_value=_make_km_query_result(50))
         supermemory = AsyncMock()
@@ -150,7 +150,7 @@ class TestGatewayFanOut:
             await asyncio.sleep(10)
             return _make_km_query_result(10)
 
-        continuum = SimpleNamespace(search=lambda query, limit: _make_continuum_results(10))
+        continuum = SimpleNamespace(retrieve=lambda query, limit: _make_continuum_results(10))
         km = AsyncMock()
         km.query = slow_query
 
@@ -173,7 +173,7 @@ class TestGatewayFanOut:
         """Cross-source dedup removes identical content."""
         shared_content = "identical content across sources"
         continuum = SimpleNamespace(
-            search=lambda query, limit: [
+            retrieve=lambda query, limit: [
                 SimpleNamespace(
                     id="c_0",
                     content=shared_content,
@@ -204,7 +204,7 @@ class TestGatewayFanOut:
     async def test_ranking_by_confidence(self):
         """Results sorted by confidence score."""
         continuum = SimpleNamespace(
-            search=lambda query, limit: [
+            retrieve=lambda query, limit: [
                 SimpleNamespace(
                     id="low",
                     content="low confidence item",

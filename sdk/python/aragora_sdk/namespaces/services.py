@@ -87,6 +87,30 @@ class ServicesAPI:
         """
         return self._client.request("GET", f"/api/v1/services/{service_id}/metrics")
 
+    def register(
+        self,
+        name: str,
+        version: str,
+        endpoint: str,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Register a new service."""
+        body: dict[str, Any] = {"name": name, "version": version, "endpoint": endpoint}
+        if tags:
+            body["tags"] = tags
+        if metadata:
+            body["metadata"] = metadata
+        return self._client.request("POST", "/api/v1/services", json=body)
+
+    def deregister(self, service_id: str) -> dict[str, Any]:
+        """Deregister a service."""
+        return self._client.request("DELETE", f"/api/v1/services/{service_id}")
+
+    def get_dependencies(self, service_id: str) -> dict[str, Any]:
+        """Get service dependencies."""
+        return self._client.request("GET", f"/api/v1/services/{service_id}/dependencies")
+
 
 class AsyncServicesAPI:
     """
@@ -119,3 +143,27 @@ class AsyncServicesAPI:
     async def get_metrics(self, service_id: str) -> dict[str, Any]:
         """Get metrics for a specific service."""
         return await self._client.request("GET", f"/api/v1/services/{service_id}/metrics")
+
+    async def register(
+        self,
+        name: str,
+        version: str,
+        endpoint: str,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Register a new service."""
+        body: dict[str, Any] = {"name": name, "version": version, "endpoint": endpoint}
+        if tags:
+            body["tags"] = tags
+        if metadata:
+            body["metadata"] = metadata
+        return await self._client.request("POST", "/api/v1/services", json=body)
+
+    async def deregister(self, service_id: str) -> dict[str, Any]:
+        """Deregister a service."""
+        return await self._client.request("DELETE", f"/api/v1/services/{service_id}")
+
+    async def get_dependencies(self, service_id: str) -> dict[str, Any]:
+        """Get service dependencies."""
+        return await self._client.request("GET", f"/api/v1/services/{service_id}/dependencies")

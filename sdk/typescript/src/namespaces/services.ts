@@ -93,4 +93,14 @@ export class ServicesNamespace {
     );
     return response.dependencies;
   }
+
+  /** Get health status for a specific service. */
+  async getHealth(serviceId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/services/${encodeURIComponent(serviceId)}/health`);
+  }
+
+  /** Get metrics for a specific service. */
+  async getMetrics(serviceId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/services/${encodeURIComponent(serviceId)}/metrics`);
+  }
 }

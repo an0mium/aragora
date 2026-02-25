@@ -54,7 +54,7 @@ class FakeSupermemoryResult:
 
 def _mock_continuum(entries=None):
     mock = MagicMock()
-    mock.search.return_value = entries or [FakeContinuumEntry()]
+    mock.retrieve.return_value = entries or [FakeContinuumEntry()]
     return mock
 
 

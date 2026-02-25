@@ -248,6 +248,33 @@ class AgentsAPI:
         return self._client.request("GET", "/api/agents/local/status")
 
     # =========================================================================
+    # Calibration, ELO & Quotas
+    # =========================================================================
+
+    def calibrate(self, name: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Trigger calibration for an agent."""
+        return self._client.request("POST", f"/api/v1/agents/{name}/calibrate", json=options or {})
+
+    def get_elo(self, name: str) -> dict[str, Any]:
+        """Get agent's current ELO rating."""
+        return self._client.request("GET", f"/api/v1/agents/{name}/elo")
+
+    def update_elo(self, name: str, elo_change: int, reason: str | None = None) -> dict[str, Any]:
+        """Update agent's ELO rating."""
+        body: dict[str, Any] = {"elo_change": elo_change}
+        if reason:
+            body["reason"] = reason
+        return self._client.request("PUT", f"/api/v1/agents/{name}/elo", json=body)
+
+    def get_quota(self, name: str) -> dict[str, Any]:
+        """Get agent's usage quota."""
+        return self._client.request("GET", f"/api/v1/agents/{name}/quota")
+
+    def set_quota(self, name: str, limits: dict[str, Any]) -> dict[str, Any]:
+        """Set agent's usage quota limits."""
+        return self._client.request("PUT", f"/api/v1/agents/{name}/quota", json=limits)
+
+    # =========================================================================
     # Agent Details
     # =========================================================================
 
@@ -535,6 +562,33 @@ class AsyncAgentsAPI:
     async def get_local_status(self) -> dict[str, Any]:
         """Get status of local agent providers."""
         return await self._client.request("GET", "/api/agents/local/status")
+
+    # =========================================================================
+    # Calibration, ELO & Quotas
+    # =========================================================================
+
+    async def calibrate(self, name: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Trigger calibration for an agent."""
+        return await self._client.request("POST", f"/api/v1/agents/{name}/calibrate", json=options or {})
+
+    async def get_elo(self, name: str) -> dict[str, Any]:
+        """Get agent's current ELO rating."""
+        return await self._client.request("GET", f"/api/v1/agents/{name}/elo")
+
+    async def update_elo(self, name: str, elo_change: int, reason: str | None = None) -> dict[str, Any]:
+        """Update agent's ELO rating."""
+        body: dict[str, Any] = {"elo_change": elo_change}
+        if reason:
+            body["reason"] = reason
+        return await self._client.request("PUT", f"/api/v1/agents/{name}/elo", json=body)
+
+    async def get_quota(self, name: str) -> dict[str, Any]:
+        """Get agent's usage quota."""
+        return await self._client.request("GET", f"/api/v1/agents/{name}/quota")
+
+    async def set_quota(self, name: str, limits: dict[str, Any]) -> dict[str, Any]:
+        """Set agent's usage quota limits."""
+        return await self._client.request("PUT", f"/api/v1/agents/{name}/quota", json=limits)
 
     # =========================================================================
     # Agent Details
