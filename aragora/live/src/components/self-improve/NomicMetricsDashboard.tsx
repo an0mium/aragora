@@ -21,6 +21,7 @@ interface MetricsSummary {
   completed_subtasks: number;
   total_goals_queued: number;
   recent_activity: ActivityEntry[];
+  autopilot_worktrees?: AutopilotWorktreeSummary;
 }
 
 interface ActivityEntry {
@@ -29,6 +30,15 @@ interface ActivityEntry {
   timestamp: string;
   run_id?: string;
   status?: string;
+}
+
+interface AutopilotWorktreeSummary {
+  ok?: boolean;
+  managed_dir?: string;
+  sessions_total?: number;
+  sessions_active?: number;
+  error?: string;
+  stderr?: string;
 }
 
 interface GoalEntry {
@@ -165,6 +175,20 @@ function outcomeLabel(status: string): { text: string; color: string } {
     pending: { text: 'PENDING', color: 'text-blue-400 border-blue-400/40 bg-blue-400/10' },
   };
   return map[status] || { text: status.toUpperCase(), color: 'text-[var(--text-muted)] border-[var(--border)]' };
+}
+
+function autopilotStatus(summary?: AutopilotWorktreeSummary): { text: string; color: string } {
+  if (!summary) {
+    return { text: 'UNAVAILABLE', color: 'text-[var(--text-muted)] border-[var(--border)] bg-[var(--bg)]' };
+  }
+  if (summary.error || summary.ok === false) {
+    return { text: 'DEGRADED', color: 'text-red-400 border-red-400/40 bg-red-400/10' };
+  }
+  const active = summary.sessions_active ?? 0;
+  if (active > 0) {
+    return { text: 'ACTIVE', color: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/10' };
+  }
+  return { text: 'IDLE', color: 'text-cyan-400 border-cyan-400/40 bg-cyan-400/10' };
 }
 
 // ---------------------------------------------------------------------------
@@ -532,6 +556,60 @@ function ActivityFeedSection({ activity }: { activity: ActivityEntry[] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Section: Autopilot Worktree Health
+// ---------------------------------------------------------------------------
+
+function AutopilotWorktreesSection({ summary }: { summary?: AutopilotWorktreeSummary }) {
+  const status = autopilotStatus(summary);
+  const total = summary?.sessions_total ?? 0;
+  const active = summary?.sessions_active ?? 0;
+  const activeRatio = total > 0 ? active / total : 0;
+
+  return (
+    <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-mono text-[var(--acid-green)]">AUTOPILOT WORKTREES</h2>
+        <span className={`inline-block px-1.5 py-0.5 text-[9px] font-mono border rounded ${status.color}`}>
+          {status.text}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+        <div className="bg-[var(--bg)] border border-[var(--border)] rounded p-3">
+          <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider mb-1">
+            Managed Dir
+          </div>
+          <div className="text-xs font-mono text-[var(--text)] truncate">
+            {summary?.managed_dir || '--'}
+          </div>
+        </div>
+        <StatCard
+          label="Active Sessions"
+          value={active}
+          subtext={total > 0 ? `${Math.round(activeRatio * 100)}% in use` : 'no active sessions'}
+          color={active > 0 ? 'text-emerald-400' : 'text-[var(--text-muted)]'}
+        />
+        <StatCard
+          label="Total Sessions"
+          value={total}
+          subtext="tracked by autopilot"
+          color={total > 0 ? 'text-[var(--acid-cyan)]' : 'text-[var(--text-muted)]'}
+        />
+      </div>
+
+      <div className="space-y-1">
+        <MiniBar value={activeRatio} color={active > 0 ? 'bg-emerald-400' : 'bg-[var(--border)]'} />
+        {summary?.error && (
+          <div className="text-[10px] font-mono text-red-400">
+            error: {summary.error}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Dashboard Component
 // ---------------------------------------------------------------------------
 
@@ -591,6 +669,7 @@ export function NomicMetricsDashboard() {
     completed_subtasks: 0,
     total_goals_queued: goals.length,
     recent_activity: [],
+    autopilot_worktrees: undefined,
   };
 
   // If we have runs but no summary, compute a basic health score
@@ -626,6 +705,11 @@ export function NomicMetricsDashboard() {
       {/* Health Score + Key Metrics - Full Width */}
       <PanelErrorBoundary panelName="HealthMetrics">
         <HealthAndMetricsSection summary={safeSummary} />
+      </PanelErrorBoundary>
+
+      {/* Managed worktree autopilot telemetry */}
+      <PanelErrorBoundary panelName="AutopilotWorktrees">
+        <AutopilotWorktreesSection summary={safeSummary.autopilot_worktrees} />
       </PanelErrorBoundary>
 
       {/* Two-column layout: Timeline + Goals */}
