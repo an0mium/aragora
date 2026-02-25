@@ -314,6 +314,49 @@ export interface ConsensusStats {
   by_domain?: Record<string, any>;
 }
 
+export interface ConsensusDetectionData {
+  debate_id?: string;
+  consensus_reached?: boolean;
+  confidence?: number;
+  threshold?: number;
+  agreement_ratio?: number;
+  has_strong_consensus?: boolean;
+  final_claim?: string;
+  reasoning_summary?: string;
+  supporting_agents?: string[];
+  dissenting_agents?: string[];
+  claims_count?: number;
+  evidence_count?: number;
+  unresolved_tensions_count?: number;
+  proof?: Record<string, any>;
+  checksum?: string;
+}
+
+export interface ConsensusDetectionResponse {
+  data: ConsensusDetectionData;
+}
+
+export interface ConsensusStatusData {
+  debate_id?: string;
+  consensus_reached?: boolean;
+  confidence?: number;
+  agreement_ratio?: number;
+  has_strong_consensus?: boolean;
+  final_claim?: string;
+  supporting_agents?: string[];
+  dissenting_agents?: string[];
+  claims_count?: number;
+  dissents_count?: number;
+  unresolved_tensions_count?: number;
+  partial_consensus?: Record<string, any>;
+  proof?: Record<string, any>;
+  checksum?: string;
+}
+
+export interface ConsensusStatusResponse {
+  data: ConsensusStatusData;
+}
+
 export interface DissentingView {
   debate_id?: string;
   agent?: string;
