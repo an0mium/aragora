@@ -46,8 +46,8 @@ class CredentialType(Enum):
     """Credential types supported by the gateway."""
 
     API_KEY = "api_key"
-    OAUTH_TOKEN = "oauth_token"
-    PASSWORD = "password"
+    OAUTH_TOKEN = "oauth_token"  # noqa: S105 -- enum value
+    PASSWORD = "password"  # noqa: S105 -- enum value
     CERTIFICATE = "certificate"
     SSH_KEY = "ssh_key"
     SERVICE_ACCOUNT = "service_account"

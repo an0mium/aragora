@@ -62,7 +62,7 @@ DISCORD_BOT_PERMISSIONS = os.environ.get("DISCORD_BOT_PERMISSIONS", DEFAULT_PERM
 
 # Discord OAuth URLs
 DISCORD_OAUTH_AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize"
-DISCORD_OAUTH_TOKEN_URL = "https://discord.com/api/oauth2/token"
+DISCORD_OAUTH_TOKEN_URL = "https://discord.com/api/oauth2/token"  # noqa: S105 -- OAuth endpoint URL
 DISCORD_API_BASE = "https://discord.com/api/v10"
 
 # State token storage (in production, use Redis or database)
