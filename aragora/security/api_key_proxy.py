@@ -266,6 +266,35 @@ class ProxyConfig:
             active_hours=(0, 23),
             budget_limit_credits=None,
         )
+        # --- Anomaly-detection-only services ---
+        # These providers do NOT support programmatic key creation.
+        # The proxy still monitors usage for rate spikes, off-hours access,
+        # budget breaches, and unknown-endpoint calls, triggering alerts
+        # so ops can manually rotate via the provider's web console.
+        config.services["anthropic"] = ServiceKeyConfig(
+            service_name="anthropic",
+            secret_manager_key="ANTHROPIC_API_KEY",  # noqa: S106
+            secret_id="aragora/production",  # noqa: S106
+            rotation_strategy=RotationStrategy.MANUAL,
+            rotation_interval_hours=720.0,  # 30 days (reminder cadence)
+            max_calls_per_minute=60,
+            max_calls_per_hour=2000,
+            allowed_endpoints=frozenset({"/v1/messages", "/v1/complete"}),
+            active_hours=(0, 23),
+            budget_limit_credits=None,
+        )
+        config.services["openai"] = ServiceKeyConfig(
+            service_name="openai",
+            secret_manager_key="OPENAI_API_KEY",  # noqa: S106
+            secret_id="aragora/production",  # noqa: S106
+            rotation_strategy=RotationStrategy.MANUAL,
+            rotation_interval_hours=720.0,  # 30 days (reminder cadence)
+            max_calls_per_minute=60,
+            max_calls_per_hour=2000,
+            allowed_endpoints=frozenset({"/v1/chat/completions", "/v1/embeddings"}),
+            active_hours=(0, 23),
+            budget_limit_credits=None,
+        )
         return config
 
 
