@@ -904,7 +904,12 @@ class TestCanvasMCPToolsE2E:
         result = await canvas_execute_action_tool(
             canvas_id=canvas_id,
             action="start_debate",
-            params=json.dumps({"question": "What is the best programming language?"}),
+            params=json.dumps(
+                {
+                    "question": "What is the best programming language?",
+                    "timeout_seconds": 30,
+                }
+            ),
         )
 
         # Should either succeed or gracefully indicate execution not available
