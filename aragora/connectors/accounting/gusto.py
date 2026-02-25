@@ -72,7 +72,7 @@ class GustoCredentials:
     refresh_token: str
     company_id: str
     company_name: str
-    token_type: str = "Bearer"
+    token_type: str = "Bearer"  # noqa: S105 -- OAuth2 token type
     expires_at: datetime | None = None
     scope: str = ""
 
@@ -309,7 +309,7 @@ class GustoConnector:
 
     BASE_URL = "https://api.gusto.com"
     AUTH_URL = "https://api.gusto.com/oauth/authorize"
-    TOKEN_URL = "https://api.gusto.com/oauth/token"
+    TOKEN_URL = "https://api.gusto.com/oauth/token"  # noqa: S105 -- OAuth endpoint URL
 
     # Default QBO account mappings
     DEFAULT_ACCOUNTS = {

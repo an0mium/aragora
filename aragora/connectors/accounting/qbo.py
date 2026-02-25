@@ -69,7 +69,7 @@ class QuickBooksConnector(QBOOperationsMixin):
     BASE_URL_SANDBOX = "https://sandbox-quickbooks.api.intuit.com"
     BASE_URL_PRODUCTION = "https://quickbooks.api.intuit.com"
     AUTH_URL = "https://appcenter.intuit.com/connect/oauth2"
-    TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
+    TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"  # noqa: S105 -- OAuth endpoint URL
 
     def __init__(
         self,

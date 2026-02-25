@@ -190,7 +190,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
     API_BASE = "https://graph.microsoft.com/v1.0"
     AUTH_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
-    TOKEN_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+    TOKEN_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"  # noqa: S105 -- OAuth endpoint URL
 
     def __init__(
         self,

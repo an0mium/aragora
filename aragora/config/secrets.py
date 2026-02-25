@@ -204,7 +204,7 @@ class SecretsConfig:
     # AWS Secrets Manager settings
     aws_region: str = "us-east-1"
     aws_regions: list[str] = field(default_factory=list)
-    secret_name: str = "aragora/production"
+    secret_name: str = "aragora/production"  # noqa: S105 -- AWS Secrets Manager path
     use_aws: bool = False
 
     # Cache settings

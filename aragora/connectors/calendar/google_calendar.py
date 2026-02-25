@@ -171,7 +171,7 @@ class GoogleCalendarConnector(EnterpriseConnector):
     """
 
     API_BASE = "https://www.googleapis.com/calendar/v3"
-    TOKEN_URL = "https://oauth2.googleapis.com/token"
+    TOKEN_URL = "https://oauth2.googleapis.com/token"  # noqa: S105 -- OAuth endpoint URL
     AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 
     def __init__(

@@ -208,7 +208,7 @@ class AlexaConnector(DeviceConnector):
             return self._access_token
 
         # Request new token
-        token_url = "https://api.amazon.com/auth/o2/token"
+        token_url = "https://api.amazon.com/auth/o2/token"  # noqa: S105 -- OAuth endpoint URL
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {
             "grant_type": "client_credentials",

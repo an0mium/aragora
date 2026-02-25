@@ -42,7 +42,7 @@ class QBOCredentials:
     access_token: str
     refresh_token: str
     realm_id: str  # Company ID
-    token_type: str = "Bearer"
+    token_type: str = "Bearer"  # noqa: S105 -- OAuth2 token type
     expires_at: datetime | None = None
 
     @property

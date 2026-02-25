@@ -263,7 +263,7 @@ class GoogleHomeConnector(DeviceConnector):
                 jwt = f"{header_b64}.{payload_b64}.mock_signature"
 
             # Exchange JWT for access token
-            token_url = "https://oauth2.googleapis.com/token"
+            token_url = "https://oauth2.googleapis.com/token"  # noqa: S105 -- OAuth endpoint URL
             headers = {"Content-Type": "application/x-www-form-urlencoded"}
             data = {
                 "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
