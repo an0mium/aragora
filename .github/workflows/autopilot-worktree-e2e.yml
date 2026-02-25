@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Detect autopilot-relevant changes
         id: filter
@@ -32,8 +34,12 @@ jobs:
             exit 0
           fi
 
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-          CHANGED="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
+          git fetch --no-tags --prune origin "${{ github.base_ref }}"
+          if ! CHANGED="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" 2>/tmp/autopilot_diff_err.log)"; then
+            echo "::warning::Three-dot diff failed; falling back to two-dot diff."
+            sed 's/^/::warning::/g' /tmp/autopilot_diff_err.log || true
+            CHANGED="$(git diff --name-only "origin/${{ github.base_ref }}..HEAD")"
+          fi
 
           if printf '%s\n' "$CHANGED" | grep -Eq '^(aragora/server/handlers/self_improve.py|aragora/worktree/.*|scripts/codex_worktree_autopilot.py|tests/handlers/test_self_improve_api.py|\\.github/workflows/autopilot-worktree-e2e.yml|pyproject.toml)$'; then
             echo "run_autopilot=true" >> "$GITHUB_OUTPUT"
