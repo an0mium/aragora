@@ -30,6 +30,7 @@ from aragora.server.handlers.auth.sso_handlers import (
     _idp_circuit_breakers,
     _sso_providers,
     _sso_providers_lock,
+    _sso_state_store,
     get_sso_handlers,
     handle_get_sso_config,
     handle_list_providers,
@@ -124,16 +125,23 @@ class MockOAuthState:
 
 @pytest.fixture(autouse=True)
 def _clear_sso_state():
-    """Clear module-level SSO state between tests."""
+    """Clear module-level SSO state between tests.
+
+    Resets all four mutable module-level globals in sso_handlers to prevent
+    cross-test pollution from tests in other files that call SSO handlers
+    without proper cleanup.
+    """
     _auth_sessions.clear()
     with _sso_providers_lock:
         _sso_providers.clear()
     _idp_circuit_breakers.clear()
+    _sso_state_store.reset()
     yield
     _auth_sessions.clear()
     with _sso_providers_lock:
         _sso_providers.clear()
     _idp_circuit_breakers.clear()
+    _sso_state_store.reset()
 
 
 @pytest.fixture
@@ -465,6 +473,7 @@ class TestHandleSSOCallback:
     async def test_successful_callback_existing_user(
         self, mock_provider, mock_state_store, mock_user_store
     ):
+        mock_token_pair = MockTokenPair()
         with (
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
@@ -476,7 +485,11 @@ class TestHandleSSOCallback:
             ),
             patch(
                 "aragora.billing.jwt_auth.create_token_pair",
-                return_value=MockTokenPair(),
+                return_value=mock_token_pair,
+            ),
+            patch(
+                "aragora.billing.auth.tokens.create_token_pair",
+                return_value=mock_token_pair,
             ),
         ):
             result = await handle_sso_callback(
@@ -736,6 +749,7 @@ class TestHandleSSOCallback:
             email="user@example.com", name="SSO Updated"
         )
 
+        mock_token_pair = MockTokenPair()
         with (
             patch(
                 "aragora.server.handlers.auth.sso_handlers._get_sso_provider",
@@ -747,7 +761,11 @@ class TestHandleSSOCallback:
             ),
             patch(
                 "aragora.billing.jwt_auth.create_token_pair",
-                return_value=MockTokenPair(),
+                return_value=mock_token_pair,
+            ),
+            patch(
+                "aragora.billing.auth.tokens.create_token_pair",
+                return_value=mock_token_pair,
             ),
         ):
             result = await handle_sso_callback(

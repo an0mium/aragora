@@ -2209,6 +2209,21 @@ def _reset_lazy_globals_impl():
     except (ImportError, AttributeError):
         pass
 
+    # Reset SSO handler module-level state to prevent cross-test pollution.
+    # The SSO handler has its own circuit breaker dict (_idp_circuit_breakers),
+    # auth sessions dict (_auth_sessions), provider cache (_sso_providers),
+    # and a LazyStore singleton (_sso_state_store) that all accumulate state.
+    try:
+        import aragora.server.handlers.auth.sso_handlers as _sso
+
+        _sso._auth_sessions.clear()
+        _sso._idp_circuit_breakers.clear()
+        with _sso._sso_providers_lock:
+            _sso._sso_providers.clear()
+        _sso._sso_state_store.reset()
+    except (ImportError, AttributeError):
+        pass
+
 
 @pytest.fixture(autouse=True)
 def reset_lazy_globals():
@@ -2242,6 +2257,8 @@ def reset_lazy_globals():
     - aragora.config.secrets SecretManager (cached encryption keys)
     - aragora.embeddings._default_provider (EmbeddingProvider singleton)
     - aragora.connectors.runtime_registry.ConnectorRegistry._instance
+    - aragora.server.handlers.auth.sso_handlers (4 globals: _auth_sessions, _idp_circuit_breakers,
+      _sso_providers, _sso_state_store LazyStore)
     """
     _reset_lazy_globals_impl()  # Reset BEFORE test
     yield
