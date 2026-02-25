@@ -85,16 +85,16 @@ class SecretType(str, Enum):
     API_KEY = "api_key"
     ENCRYPTION_KEY = "encryption_key"
     JWT_SIGNING_KEY = "jwt_signing_key"
-    REDIS_PASSWORD = "redis_password"
+    REDIS_PASSWORD = "redis_password"  # noqa: S105 -- enum value
 
 
 class RotationStep(str, Enum):
     """AWS Secrets Manager rotation steps."""
 
-    CREATE_SECRET = "createSecret"
-    SET_SECRET = "setSecret"
-    TEST_SECRET = "testSecret"
-    FINISH_SECRET = "finishSecret"
+    CREATE_SECRET = "createSecret"  # noqa: S105 -- enum value
+    SET_SECRET = "setSecret"  # noqa: S105 -- enum value
+    TEST_SECRET = "testSecret"  # noqa: S105 -- enum value
+    FINISH_SECRET = "finishSecret"  # noqa: S105 -- enum value
 
 
 class RotationEventType(str, Enum):

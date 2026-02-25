@@ -90,7 +90,7 @@ class ServiceKeyConfig:
     secret_manager_key: str
     """Key name in AWS Secrets Manager (e.g., 'ELEVENLABS_API_KEY')."""
 
-    secret_id: str = "aragora/production"
+    secret_id: str = "aragora/production"  # noqa: S105 -- AWS Secrets Manager path
     """AWS Secrets Manager secret ID containing this key."""
 
     standalone_secret_id: str | None = None
