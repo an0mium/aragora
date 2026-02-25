@@ -304,9 +304,7 @@ async def _get_cost_summary(workspace_id: str, time_range: str):
     try:
         from aragora.server.handlers.costs.models import get_cost_summary
 
-        return await get_cost_summary(
-            workspace_id=workspace_id, time_range=time_range
-        )
+        return await get_cost_summary(workspace_id=workspace_id, time_range=time_range)
     except (ImportError, RuntimeError, OSError) as e:
         logger.debug("Cost summary unavailable: %s", e)
         return None
@@ -668,7 +666,7 @@ async def estimate_cost(
 ) -> EstimateResponse:
     """Estimate cost for a debate configuration."""
     try:
-        from aragora.billing.usage import PROVIDER_PRICING, calculate_token_cost
+        from aragora.billing.usage import calculate_token_cost
 
         tokens_in = body.estimated_tokens_per_round * body.rounds * body.agents
         tokens_out = int(tokens_in * 0.3)
@@ -715,8 +713,12 @@ async def list_budgets(
                 "budgets": [
                     {
                         "workspace_id": workspace_id,
-                        "monthly_limit_usd": float(budget.monthly_limit_usd) if budget.monthly_limit_usd else 0,
-                        "current_spend_usd": float(budget.current_monthly_spend) if budget.current_monthly_spend else 0,
+                        "monthly_limit_usd": float(budget.monthly_limit_usd)
+                        if budget.monthly_limit_usd
+                        else 0,
+                        "current_spend_usd": float(budget.current_monthly_spend)
+                        if budget.current_monthly_spend
+                        else 0,
                         "alert_threshold": getattr(budget, "alert_threshold", 0.8),
                     }
                 ]
@@ -744,10 +746,18 @@ async def get_spend_trend(
         if len(daily) >= 2:
             first_half = daily[: len(daily) // 2]
             second_half = daily[len(daily) // 2 :]
-            first_total = sum(float(d.get("cost", 0)) if isinstance(d, dict) else 0 for d in first_half)
-            second_total = sum(float(d.get("cost", 0)) if isinstance(d, dict) else 0 for d in second_half)
-            change_pct = ((second_total - first_total) / first_total * 100) if first_total > 0 else 0
-            trend = "increasing" if change_pct > 10 else "decreasing" if change_pct < -10 else "stable"
+            first_total = sum(
+                float(d.get("cost", 0)) if isinstance(d, dict) else 0 for d in first_half
+            )
+            second_total = sum(
+                float(d.get("cost", 0)) if isinstance(d, dict) else 0 for d in second_half
+            )
+            change_pct = (
+                ((second_total - first_total) / first_total * 100) if first_total > 0 else 0
+            )
+            trend = (
+                "increasing" if change_pct > 10 else "decreasing" if change_pct < -10 else "stable"
+            )
         else:
             change_pct = 0
             trend = "stable"

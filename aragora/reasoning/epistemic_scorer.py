@@ -177,9 +177,7 @@ class EpistemicScorer:
         components["provenance_completeness"] = self._score_provenance(
             debate_result, provenance_chain
         )
-        components["hollow_consensus_risk"] = self._score_hollow_consensus(
-            trickster_report, votes
-        )
+        components["hollow_consensus_risk"] = self._score_hollow_consensus(trickster_report, votes)
 
         overall = self._compute_weighted_overall(components)
 
@@ -310,9 +308,7 @@ class EpistemicScorer:
 
         return supported / total
 
-    def _score_calibration_quality(
-        self, calibration_data: dict[str, Any] | None
-    ) -> float:
+    def _score_calibration_quality(self, calibration_data: dict[str, Any] | None) -> float:
         """Score based on agent calibration accuracy.
 
         Uses Brier score data when available. Lower Brier = better
@@ -515,9 +511,7 @@ class EpistemicScorer:
         if total_weight == 0:
             return _NEUTRAL
 
-        weighted_sum = sum(
-            components.get(key, _NEUTRAL) * w for key, w in weights.items()
-        )
+        weighted_sum = sum(components.get(key, _NEUTRAL) * w for key, w in weights.items())
         return max(0.0, min(1.0, weighted_sum / total_weight))
 
 

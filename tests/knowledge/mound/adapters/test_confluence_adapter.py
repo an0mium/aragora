@@ -143,9 +143,7 @@ class TestSyncToKM:
         assert len(result.errors) == 1
 
     @pytest.mark.asyncio
-    async def test_sync_emits_complete_event(
-        self, sample_page: ConfluencePageRecord
-    ) -> None:
+    async def test_sync_emits_complete_event(self, sample_page: ConfluencePageRecord) -> None:
         callback = MagicMock()
         adapter = ConfluenceAdapter(event_callback=callback)
         adapter.store_page(sample_page)

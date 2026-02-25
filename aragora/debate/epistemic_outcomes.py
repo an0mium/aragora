@@ -135,7 +135,9 @@ class EpistemicOutcomeStore:
             return None
         return EpistemicOutcome.from_row(row)
 
-    def list_outcomes(self, *, status: str | None = None, limit: int = 100) -> list[EpistemicOutcome]:
+    def list_outcomes(
+        self, *, status: str | None = None, limit: int = 100
+    ) -> list[EpistemicOutcome]:
         clauses: list[str] = []
         params: list[Any] = []
         if status:

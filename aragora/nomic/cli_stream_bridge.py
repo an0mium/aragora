@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import time
 import uuid
 from typing import Any, Callable
@@ -268,30 +269,41 @@ class CLIStreamBridge:
     def _stdout_print(self, event: str, data: dict[str, Any]) -> None:
         """Print event to stdout, matching _print_progress format."""
         if event == "cycle_started":
-            print(f"  [start] Cycle {data.get('cycle_id', '?')}")
+            self._write_stdout(f"  [start] Cycle {data.get('cycle_id', '?')}")
         elif event == "planning_complete":
-            print(f"  [plan] {data.get('goals', 0)} goals identified")
+            self._write_stdout(f"  [plan] {data.get('goals', 0)} goals identified")
         elif event == "decomposition_complete":
-            print(f"  [decompose] {data.get('subtasks', 0)} subtasks created")
+            self._write_stdout(f"  [decompose] {data.get('subtasks', 0)} subtasks created")
         elif event == "risk_assessment_complete":
-            print(
+            self._write_stdout(
                 f"  [risk] {data.get('total', 0)} scored: "
                 f"{data.get('auto_approved', 0)} auto, "
                 f"{data.get('needs_review', 0)} review, "
                 f"{data.get('blocked', 0)} blocked"
             )
         elif event == "risk_blocked":
-            print(f"  [risk:BLOCKED] {str(data.get('subtask', ''))[:60]} (score={data.get('score', 0):.2f})")
+            self._write_stdout(
+                f"  [risk:BLOCKED] {str(data.get('subtask', ''))[:60]} (score={data.get('score', 0):.2f})"
+            )
         elif event == "risk_review_needed":
-            print(f"  [risk:REVIEW] {str(data.get('subtask', ''))[:60]} (score={data.get('score', 0):.2f})")
+            self._write_stdout(
+                f"  [risk:REVIEW] {str(data.get('subtask', ''))[:60]} (score={data.get('score', 0):.2f})"
+            )
         elif event == "execution_complete":
-            print(f"  [exec] {data.get('completed', 0)} completed, {data.get('failed', 0)} failed")
+            self._write_stdout(
+                f"  [exec] {data.get('completed', 0)} completed, {data.get('failed', 0)} failed"
+            )
         elif event == "cycle_complete":
-            print(
+            self._write_stdout(
                 f"  [done] {data.get('completed', 0)} completed, "
                 f"{data.get('failed', 0)} failed, "
                 f"{data.get('duration', 0):.1f}s"
             )
+
+    @staticmethod
+    def _write_stdout(message: str) -> None:
+        """Write one line to stdout without using print()."""
+        sys.stdout.write(f"{message}\n")
 
     def _emit_fire_and_forget(self, event: str, data: dict[str, Any]) -> None:
         """Schedule async event emission without blocking the caller.
@@ -321,13 +333,9 @@ class CLIStreamBridge:
             loop = asyncio.get_running_loop()
 
             if nomic_phase:
-                loop.create_task(
-                    self.emit_nomic_event(nomic_phase, nomic_status, data)
-                )
+                loop.create_task(self.emit_nomic_event(nomic_phase, nomic_status, data))
             if pipeline_stage:
-                loop.create_task(
-                    self.emit_pipeline_event(pipeline_stage, pipeline_status, data)
-                )
+                loop.create_task(self.emit_pipeline_event(pipeline_stage, pipeline_status, data))
         except RuntimeError:
             # No running event loop -- skip async emission
             logger.debug("No event loop available for CLI stream bridge emission")

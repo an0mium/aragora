@@ -210,9 +210,7 @@ class StakingRegistry:
 
         if actual_slash <= 0:
             actual_slash = 0
-            logger.warning(
-                "Agent %s slash capped to 0 (cumulative limit reached)", agent_id
-            )
+            logger.warning("Agent %s slash capped to 0 (cumulative limit reached)", agent_id)
 
         evidence_hash = hashlib.sha256(evidence).hexdigest()
 
@@ -302,10 +300,7 @@ class StakingRegistry:
             raise ValueError(f"Agent {agent_id} has no stake")
 
         if position.is_locked:
-            raise ValueError(
-                f"Agent {agent_id} stake is locked until "
-                f"{position.locked_until:.0f}"
-            )
+            raise ValueError(f"Agent {agent_id} stake is locked until {position.locked_until:.0f}")
 
         withdrawable = min(amount_wei, position.effective_stake)
         position.amount_wei -= withdrawable

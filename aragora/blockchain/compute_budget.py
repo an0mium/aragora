@@ -19,7 +19,7 @@ when available.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,9 @@ class ComputeBudget:
     @property
     def available_tokens(self) -> int:
         """Tokens available for use."""
-        return max(0, self.total_tokens + self.earned_tokens - self.used_tokens - self.penalty_tokens)
+        return max(
+            0, self.total_tokens + self.earned_tokens - self.used_tokens - self.penalty_tokens
+        )
 
 
 class ComputeBudgetManager:
@@ -109,7 +111,10 @@ class ComputeBudgetManager:
             summary = self._reputation.get_summary(agent_id=int(agent_id))
             raw_score = summary.normalized_value
             # Normalize to [0, MAX_REPUTATION_MULTIPLIER]
-            factor = min(MAX_REPUTATION_MULTIPLIER, max(0.0, raw_score / REPUTATION_SCORE_CAP * MAX_REPUTATION_MULTIPLIER))
+            factor = min(
+                MAX_REPUTATION_MULTIPLIER,
+                max(0.0, raw_score / REPUTATION_SCORE_CAP * MAX_REPUTATION_MULTIPLIER),
+            )
             return max(factor, 0.1)  # Floor at 0.1 so agents always get something
         except (ValueError, TypeError, AttributeError, RuntimeError) as exc:
             logger.debug("Could not fetch reputation for agent %s: %s", agent_id, exc)

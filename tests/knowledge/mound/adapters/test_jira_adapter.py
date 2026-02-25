@@ -149,9 +149,7 @@ class TestSyncToKM:
         assert len(result.errors) == 1
 
     @pytest.mark.asyncio
-    async def test_sync_emits_complete_event(
-        self, sample_ticket: JiraTicketRecord
-    ) -> None:
+    async def test_sync_emits_complete_event(self, sample_ticket: JiraTicketRecord) -> None:
         callback = MagicMock()
         adapter = JiraAdapter(event_callback=callback)
         adapter.store_ticket(sample_ticket)
@@ -186,9 +184,7 @@ class TestSearchByTopic:
         adapter.store_ticket(sample_ticket)
 
         # Should find with matching status
-        results = await adapter.search_by_topic(
-            "authentication", status_filter="In Progress"
-        )
+        results = await adapter.search_by_topic("authentication", status_filter="In Progress")
         assert len(results) >= 1
 
         # Should not find with non-matching status
@@ -223,16 +219,20 @@ class TestToKnowledgeItem:
         assert "[PROJ-123]" in item.content
         assert "Fix authentication timeout" in item.content
 
-    def test_priority_maps_to_confidence(
-        self, adapter: JiraAdapter
-    ) -> None:
+    def test_priority_maps_to_confidence(self, adapter: JiraAdapter) -> None:
         high = JiraTicketRecord(
-            ticket_id="1", key="X-1", project_key="X",
-            summary="High", priority="High",
+            ticket_id="1",
+            key="X-1",
+            project_key="X",
+            summary="High",
+            priority="High",
         )
         low = JiraTicketRecord(
-            ticket_id="2", key="X-2", project_key="X",
-            summary="Low", priority="Low",
+            ticket_id="2",
+            key="X-2",
+            project_key="X",
+            summary="Low",
+            priority="Low",
         )
         high_item = adapter.to_knowledge_item(high)
         low_item = adapter.to_knowledge_item(low)

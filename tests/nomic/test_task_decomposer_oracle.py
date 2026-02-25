@@ -166,9 +166,7 @@ class TestOracleValidation:
         assert result.valid is True
         assert result.checked_files == []
 
-    def test_non_python_file_existence_only(
-        self, decomposer: TaskDecomposer, tmp_path
-    ) -> None:
+    def test_non_python_file_existence_only(self, decomposer: TaskDecomposer, tmp_path) -> None:
         """Non-Python files are checked for existence only, not syntax."""
         ts_file = tmp_path / "component.tsx"
         ts_file.write_text("invalid python {{ but valid for existence check")
@@ -217,9 +215,7 @@ class TestDecompositionQuality:
         assert quality.score >= 0.8
         assert 1 <= quality.avg_scope_size <= 5
 
-    def test_conflicting_decomposition_scores_lower(
-        self, decomposer: TaskDecomposer
-    ) -> None:
+    def test_conflicting_decomposition_scores_lower(self, decomposer: TaskDecomposer) -> None:
         """Overlapping file scopes reduce the score."""
         subtasks = [
             _make_subtask("s1", file_scope=["shared.py", "a.py"]),

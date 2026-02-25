@@ -24,7 +24,6 @@ Usage:
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import time
 from dataclasses import dataclass, field
@@ -114,10 +113,13 @@ class ReceiptAnchor:
         )
 
         # Encode the receipt hash as bytes32
-        receipt_hash_bytes = bytes.fromhex(receipt_hash) if len(receipt_hash) == 64 else hashlib.sha256(receipt_hash.encode()).digest()
+        receipt_hash_bytes = (
+            bytes.fromhex(receipt_hash)
+            if len(receipt_hash) == 64
+            else hashlib.sha256(receipt_hash.encode()).digest()
+        )
 
-        # Create a metadata URI from the metadata dict
-        metadata_json = json.dumps(metadata, default=str)
+        # Create a lightweight metadata URI token.
         metadata_uri = f"data:application/json;receipt={receipt_hash[:16]}"
 
         try:
@@ -147,9 +149,7 @@ class ReceiptAnchor:
             return tx_hash
 
         except (RuntimeError, ConnectionError, ValueError, OSError) as exc:
-            logger.warning(
-                "On-chain anchoring failed, falling back to local: %s", exc
-            )
+            logger.warning("On-chain anchoring failed, falling back to local: %s", exc)
             return self._anchor_locally(receipt_hash, metadata)
 
     def _anchor_locally(

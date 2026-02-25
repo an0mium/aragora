@@ -638,7 +638,9 @@ class ReceiptsHandler(BaseHandler):
                 body = content.encode("utf-8") if isinstance(content, str) else content
                 headers = {}
                 if download:
-                    headers["Content-Disposition"] = f"attachment; filename=receipt-{receipt_id}.json"
+                    headers["Content-Disposition"] = (
+                        f"attachment; filename=receipt-{receipt_id}.json"
+                    )
                 return HandlerResult(
                     status_code=200,
                     content_type="application/json; charset=utf-8",
@@ -651,7 +653,9 @@ class ReceiptsHandler(BaseHandler):
                 body = content.encode("utf-8") if isinstance(content, str) else content
                 headers = {}
                 if download:
-                    headers["Content-Disposition"] = f"attachment; filename=receipt-{receipt_id}.html"
+                    headers["Content-Disposition"] = (
+                        f"attachment; filename=receipt-{receipt_id}.html"
+                    )
                 return HandlerResult(
                     status_code=200,
                     content_type="text/html; charset=utf-8",

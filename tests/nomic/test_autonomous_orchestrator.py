@@ -1422,7 +1422,8 @@ class TestPreflightIntegration:
         )
 
         orchestrator = AutonomousOrchestrator(
-            enable_preflight=True, branch_coordinator=None,
+            enable_preflight=True,
+            branch_coordinator=None,
         )
 
         with patch(
@@ -1850,7 +1851,10 @@ class TestPipelineWiring:
 
         subtask = SubTask(id="1", title="T", description="D")
         assignment = AgentAssignment(
-            subtask=subtask, track=Track.QA, agent_type="claude", status="completed",
+            subtask=subtask,
+            track=Track.QA,
+            agent_type="claude",
+            status="completed",
         )
         # Should not raise
         orchestrator._bridge_ingest_result(assignment)
@@ -1914,15 +1918,19 @@ class TestPipelineWiring:
 
         # The workflow engine should have been called with enriched inputs
         call_kwargs = mock_workflow_engine.execute.call_args
-        inputs = call_kwargs[1]["inputs"] if "inputs" in (call_kwargs[1] or {}) else call_kwargs[0][1] if len(call_kwargs[0]) > 1 else {}
+        inputs = (
+            call_kwargs[1]["inputs"]
+            if "inputs" in (call_kwargs[1] or {})
+            else call_kwargs[0][1]
+            if len(call_kwargs[0]) > 1
+            else {}
+        )
         # The subtask input should contain structured sections from ExecutionBridge
         if isinstance(inputs, dict) and "subtask" in inputs:
             assert "Task:" in inputs["subtask"] or "Do a test thing" in inputs["subtask"]
 
     @pytest.mark.asyncio
-    async def test_debug_loop_called_on_failure(
-        self, mock_workflow_engine, mock_task_decomposer
-    ):
+    async def test_debug_loop_called_on_failure(self, mock_workflow_engine, mock_task_decomposer):
         """DebugLoop should be invoked when workflow execution fails."""
         mock_workflow_engine.execute = AsyncMock(
             return_value=MagicMock(

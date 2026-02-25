@@ -68,8 +68,12 @@ class TestStakePosition:
             staked_at=time.time(),
             locked_until=time.time() + 100,
             slashing_events=[
-                SlashEvent(reason="r1", amount_slashed_wei=100, timestamp=time.time(), evidence_hash="abc"),
-                SlashEvent(reason="r2", amount_slashed_wei=200, timestamp=time.time(), evidence_hash="def"),
+                SlashEvent(
+                    reason="r1", amount_slashed_wei=100, timestamp=time.time(), evidence_hash="abc"
+                ),
+                SlashEvent(
+                    reason="r2", amount_slashed_wei=200, timestamp=time.time(), evidence_hash="def"
+                ),
             ],
         )
         assert pos.total_slashed == 300
@@ -83,7 +87,9 @@ class TestStakePosition:
             staked_at=time.time(),
             locked_until=time.time() + 100,
             slashing_events=[
-                SlashEvent(reason="r1", amount_slashed_wei=200, timestamp=time.time(), evidence_hash="abc"),
+                SlashEvent(
+                    reason="r1", amount_slashed_wei=200, timestamp=time.time(), evidence_hash="abc"
+                ),
             ],
         )
         assert pos.effective_stake == 0
@@ -129,7 +135,9 @@ class TestStakingRegistry:
     async def test_slash_basic(self, registry: StakingRegistry):
         """Slashing deducts from effective stake."""
         await registry.stake("agent_1", amount_wei=1000)
-        event = await registry.slash("agent_1", amount_wei=200, reason="factual_error", evidence=b"evidence")
+        event = await registry.slash(
+            "agent_1", amount_wei=200, reason="factual_error", evidence=b"evidence"
+        )
         assert event.amount_slashed_wei == 200
         assert event.reason == "factual_error"
         assert len(event.evidence_hash) == 64  # SHA-256 hex

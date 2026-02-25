@@ -334,9 +334,7 @@ class EmailAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Knowledge
                 record.metadata["km_sync_error"] = f"Sync failed: {type(e).__name__}"
 
         synced_ids = {r.email_id for r in pending if r.metadata.get("km_sync_pending") is False}
-        self._pending_emails = [
-            r for r in self._pending_emails if r.email_id not in synced_ids
-        ]
+        self._pending_emails = [r for r in self._pending_emails if r.email_id not in synced_ids]
 
         duration_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000
 

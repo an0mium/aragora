@@ -429,9 +429,7 @@ class TestCompositeScoring:
             ),
         ]
         msgs = [
-            MockMessage(
-                content="I'm uncertain about this caveat. There are limitations."
-            ),
+            MockMessage(content="I'm uncertain about this caveat. There are limitations."),
         ]
         result = MockDebateResult(claims=claims, messages=msgs)
         votes = [

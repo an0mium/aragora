@@ -93,9 +93,7 @@ class TestEmailAdapterInit:
 
 
 class TestStoreEmail:
-    def test_store_adds_to_pending(
-        self, adapter: EmailAdapter, sample_record: EmailRecord
-    ) -> None:
+    def test_store_adds_to_pending(self, adapter: EmailAdapter, sample_record: EmailRecord) -> None:
         adapter.store_email(sample_record)
         assert len(adapter._pending_emails) == 1
         assert adapter._pending_emails[0].metadata["km_sync_pending"] is True
@@ -180,9 +178,7 @@ class TestSyncToKM:
         assert len(result.errors) == 1
 
     @pytest.mark.asyncio
-    async def test_sync_sanitizes_pii_in_knowledge_item(
-        self, adapter: EmailAdapter
-    ) -> None:
+    async def test_sync_sanitizes_pii_in_knowledge_item(self, adapter: EmailAdapter) -> None:
         record = EmailRecord(
             email_id="msg-pii",
             thread_id="t-pii",

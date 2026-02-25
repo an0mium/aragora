@@ -1062,11 +1062,14 @@ class AutonomousOrchestrator:
                                 }
                                 await self._update_bead_status(subtask.id, "done")
                                 await self._record_agent_outcome(
-                                    assignment, success=True, domain=assignment.track.value,
+                                    assignment,
+                                    success=True,
+                                    domain=assignment.track.value,
                                 )
                                 logger.info(
                                     "debug_loop_recovered subtask=%s attempts=%d",
-                                    subtask.id, debug_result.total_attempts,
+                                    subtask.id,
+                                    debug_result.total_attempts,
                                 )
                                 return
                     except (RuntimeError, OSError, ValueError, AttributeError) as e:
@@ -1869,7 +1872,8 @@ class AutonomousOrchestrator:
             )
             logger.info(
                 "pipeline_outcome_recorded goal=%s success=%s",
-                result.goal[:60], result.success,
+                result.goal[:60],
+                result.success,
             )
         except (RuntimeError, OSError, ValueError, TypeError, AttributeError) as e:
             logger.debug("pipeline_outcome_recording_skipped: %s", e)
@@ -2112,7 +2116,8 @@ class AutonomousOrchestrator:
                 # Use safe_merge_with_gate for test-gated merges when available
                 if hasattr(self.branch_coordinator, "safe_merge_with_gate"):
                     merge_result = await self.branch_coordinator.safe_merge_with_gate(
-                        branch, auto_revert=True,
+                        branch,
+                        auto_revert=True,
                     )
                 else:
                     merge_result = await self.branch_coordinator.safe_merge(branch)

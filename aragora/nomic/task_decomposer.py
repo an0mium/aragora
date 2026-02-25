@@ -1063,9 +1063,7 @@ class TaskDecomposer:
         conflicts: list[FileConflict] = []
         for file_path, subtask_ids in file_to_subtasks.items():
             if len(subtask_ids) > 1:
-                conflicts.append(
-                    FileConflict(file_path=file_path, subtask_ids=list(subtask_ids))
-                )
+                conflicts.append(FileConflict(file_path=file_path, subtask_ids=list(subtask_ids)))
 
         if conflicts:
             logger.info(
@@ -1230,11 +1228,7 @@ class TaskDecomposer:
             coverage_ratio = has_scope / len(subtasks) if subtasks else 0.0
 
         # Weighted combination
-        score = (
-            independence_score * 0.4
-            + granularity_score * 0.3
-            + coverage_ratio * 0.3
-        )
+        score = independence_score * 0.4 + granularity_score * 0.3 + coverage_ratio * 0.3
 
         logger.info(
             "decomposition_quality score=%.2f independence=%.2f granularity=%.2f "

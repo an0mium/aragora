@@ -67,12 +67,15 @@ class TestBridgeLifecycle:
         ):
             bridge = CLIStreamBridge(pipeline_id="test")
             # Patch the internal creation to use mocks
-            with patch(
-                "aragora.server.stream.nomic_loop_stream.NomicLoopStreamServer",
-                return_value=mock_nomic,
-            ), patch(
-                "aragora.server.stream.pipeline_stream.get_pipeline_emitter",
-                return_value=mock_emitter,
+            with (
+                patch(
+                    "aragora.server.stream.nomic_loop_stream.NomicLoopStreamServer",
+                    return_value=mock_nomic,
+                ),
+                patch(
+                    "aragora.server.stream.pipeline_stream.get_pipeline_emitter",
+                    return_value=mock_emitter,
+                ),
             ):
                 await bridge.start()
                 assert bridge.started is True
@@ -178,9 +181,7 @@ class TestNomicEventEmission:
 
         with patch("aragora.nomic.cli_stream_bridge.time") as mock_time:
             mock_time.time.return_value = 110.0
-            await bridge.emit_nomic_event(
-                "implement", "completed", {"summary": "done"}
-            )
+            await bridge.emit_nomic_event("implement", "completed", {"summary": "done"})
 
         mock_server.emit_phase_completed.assert_awaited_once()
         call_kwargs = mock_server.emit_phase_completed.call_args.kwargs
@@ -193,9 +194,7 @@ class TestNomicEventEmission:
         bridge._nomic_server = mock_server
         bridge._started = True
 
-        await bridge.emit_nomic_event(
-            "verify", "failed", {"error": "tests failed"}
-        )
+        await bridge.emit_nomic_event("verify", "failed", {"error": "tests failed"})
         mock_server.emit_phase_failed.assert_awaited_once_with(
             phase="verify",
             cycle=0,
@@ -224,9 +223,7 @@ class TestNomicEventEmission:
     @pytest.mark.asyncio
     async def test_emit_nomic_catches_connection_error(self, bridge):
         mock_server = AsyncMock()
-        mock_server.emit_phase_started = AsyncMock(
-            side_effect=ConnectionError("disconnected")
-        )
+        mock_server.emit_phase_started = AsyncMock(side_effect=ConnectionError("disconnected"))
         bridge._nomic_server = mock_server
 
         # Should not raise
@@ -265,9 +262,7 @@ class TestPipelineEventEmission:
         mock_emitter = AsyncMock()
         bridge._pipeline_emitter = mock_emitter
 
-        await bridge.emit_pipeline_event(
-            "orchestration", "failed", {"error": "boom"}
-        )
+        await bridge.emit_pipeline_event("orchestration", "failed", {"error": "boom"})
         mock_emitter.emit_failed.assert_awaited_once_with(
             pipeline_id="test-pipeline-001",
             error="boom",
@@ -278,9 +273,7 @@ class TestPipelineEventEmission:
         mock_emitter = AsyncMock()
         bridge._pipeline_emitter = mock_emitter
 
-        await bridge.emit_pipeline_event(
-            "ideas", "progress", {"step": "extract", "progress": 0.5}
-        )
+        await bridge.emit_pipeline_event("ideas", "progress", {"step": "extract", "progress": 0.5})
         mock_emitter.emit_step_progress.assert_awaited_once_with(
             pipeline_id="test-pipeline-001",
             step_name="extract",

@@ -94,9 +94,7 @@ class TestQuickRegressionCheck:
             stdout="2 passed in 0.1s\n",
             stderr="",
         )
-        NomicOutcomeTracker.quick_regression_check(
-            "/tmp/worktree", test_pattern="test_decomposer"
-        )
+        NomicOutcomeTracker.quick_regression_check("/tmp/worktree", test_pattern="test_decomposer")
         call_args = mock_run.call_args
         cmd = call_args[0][0]
         assert "-k" in cmd

@@ -330,12 +330,8 @@ class JiraAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, KnowledgeM
                 logger.warning(error_msg)
                 record.metadata["km_sync_error"] = f"Sync failed: {type(e).__name__}"
 
-        synced_ids = {
-            r.ticket_id for r in pending if r.metadata.get("km_sync_pending") is False
-        }
-        self._pending_tickets = [
-            r for r in self._pending_tickets if r.ticket_id not in synced_ids
-        ]
+        synced_ids = {r.ticket_id for r in pending if r.metadata.get("km_sync_pending") is False}
+        self._pending_tickets = [r for r in self._pending_tickets if r.ticket_id not in synced_ids]
 
         duration_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000
 

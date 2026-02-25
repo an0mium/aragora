@@ -41,7 +41,9 @@ class ReliabilityScheduler:
         for outcome in outcomes:
             if outcome.status != "resolved":
                 continue
-            participants = outcome.metadata.get("participants") if isinstance(outcome.metadata, dict) else []
+            participants = (
+                outcome.metadata.get("participants") if isinstance(outcome.metadata, dict) else []
+            )
             if not isinstance(participants, list):
                 continue
             for agent in participants:

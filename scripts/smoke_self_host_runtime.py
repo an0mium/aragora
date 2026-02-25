@@ -204,7 +204,7 @@ def main() -> int:
     base = args.base_url.rstrip("/")
     token = args.api_token
 
-    _log(f"Aragora runtime smoke test")
+    _log("Aragora runtime smoke test")
     _log(f"Target: {base}")
     _log("")
 
