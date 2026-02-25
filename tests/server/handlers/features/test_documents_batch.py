@@ -222,13 +222,16 @@ def bypass_rbac():
             @functools.wraps(func)
             def wrapper(*a, **kw):
                 return func(*a, **kw)
+
             return wrapper
 
         # If used as @require_permission("permission"), return identity
         if args and callable(args[0]):
+
             @functools.wraps(args[0])
             def passthrough(*a, **kw):
                 return args[0](*a, **kw)
+
             return passthrough
         return identity
 

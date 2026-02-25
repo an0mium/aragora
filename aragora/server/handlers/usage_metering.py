@@ -577,7 +577,6 @@ class UsageMeteringHandler(SecureHandler):
             },
         )
 
-
     @handle_errors("get quota usage")
     @require_permission("org:billing")
     async def _get_quota_usage(
@@ -669,7 +668,9 @@ class UsageMeteringHandler(SecureHandler):
                 "percentage_used": status.percentage_used,
                 "is_exceeded": status.is_exceeded,
                 "is_warning": status.is_warning,
-                "resets_at": status.period_resets_at.isoformat() if status.period_resets_at else None,
+                "resets_at": status.period_resets_at.isoformat()
+                if status.period_resets_at
+                else None,
             }
         )
 

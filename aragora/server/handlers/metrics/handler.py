@@ -29,7 +29,14 @@ from aragora.persistence.db_config import LEGACY_DB_NAMES, DatabaseType
 from aragora.server.versioning.compat import strip_version_prefix
 
 from ..admin.cache import _cache, get_cache_stats
-from ..base import BaseHandler, HandlerResult, error_response, handle_errors, json_response, safe_error_message
+from ..base import (
+    BaseHandler,
+    HandlerResult,
+    error_response,
+    handle_errors,
+    json_response,
+    safe_error_message,
+)
 from ..utils.rate_limit import RateLimiter, get_client_ip
 from .formatters import format_size, format_uptime
 from .tracking import get_request_stats, get_start_time, get_verification_stats
@@ -174,7 +181,9 @@ class MetricsHandler(BaseHandler):
         return None
 
     @handle_errors("monitoring alert action")
-    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route POST requests for monitoring alert actions."""
         path = strip_version_prefix(path)
 

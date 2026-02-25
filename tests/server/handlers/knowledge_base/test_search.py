@@ -39,6 +39,7 @@ def _bypass_require_permission(permission):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
+
         return wrapper
 
     return decorator

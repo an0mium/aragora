@@ -28,15 +28,18 @@ def _passthrough_decorator(*args, **kwargs):
     test pollution when other tests check for decorator metadata.
     """
     if len(args) == 1 and callable(args[0]):
+
         @functools.wraps(args[0])
         def passthrough(*a, **kw):
             return args[0](*a, **kw)
+
         return passthrough
 
     def wrapper(func):
         @functools.wraps(func)
         def inner(*a, **kw):
             return func(*a, **kw)
+
         return inner
 
     return wrapper

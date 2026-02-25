@@ -70,7 +70,9 @@ class LaboratoryHandler(BaseHandler):
         normalized_routes = {strip_version_prefix(route) for route in self.ROUTES}
         if normalized in normalized_routes:
             return True
-        return normalized.startswith(self._AGENT_ANALYSIS_PREFIX) and normalized.endswith("/analysis")
+        return normalized.startswith(self._AGENT_ANALYSIS_PREFIX) and normalized.endswith(
+            "/analysis"
+        )
 
     @require_permission("laboratory:read")
     def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:

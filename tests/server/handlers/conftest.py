@@ -961,6 +961,7 @@ def bypass_rbac():
             @functools.wraps(func)
             def wrapper(*a, **kw):
                 return func(*a, **kw)
+
             return wrapper
 
         return decorator

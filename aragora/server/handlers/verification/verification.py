@@ -250,8 +250,12 @@ class VerificationHandler(BaseHandler):
                 }
             )
 
-        debate_id = query_params.get("debate_id", [None])[0] if query_params.get("debate_id") else None
-        proof_type = query_params.get("proof_type", [None])[0] if query_params.get("proof_type") else None
+        debate_id = (
+            query_params.get("debate_id", [None])[0] if query_params.get("debate_id") else None
+        )
+        proof_type = (
+            query_params.get("proof_type", [None])[0] if query_params.get("proof_type") else None
+        )
         try:
             limit = int(query_params.get("limit", [20])[0])
         except (ValueError, TypeError, IndexError):
@@ -286,8 +290,10 @@ class VerificationHandler(BaseHandler):
         if not claim:
             return error_response("claim field required", 400)
 
-        evidence = body.get("evidence", "")
+        evidence = body.get("evidence", "").strip()
         context = body.get("context", "")
+        if evidence:
+            context = f"{context}\n\nEvidence:\n{evidence}" if context else f"Evidence:\n{evidence}"
 
         if not FORMAL_VERIFICATION_AVAILABLE:
             return json_response(

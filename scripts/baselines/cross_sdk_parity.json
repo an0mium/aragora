@@ -1,6 +1,10 @@
 {
   "python_only": [
+    "/api/admin/feature-flags/{param}",
     "/api/audio/{param}",
+    "/api/auth/sessions/active",
+    "/api/auth/sessions/health",
+    "/api/auth/sessions/sweep",
     "/api/backups/schedules",
     "/api/backups/schedules/{param}",
     "/api/backups/{param}/restore",
