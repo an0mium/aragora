@@ -328,6 +328,14 @@ class AuditAPI:
         """
         return self._client.request("GET", f"/api/v1/audit/findings/{finding_id}/history")
 
+    def get_resource_history(self, resource_type: str, resource_id: str) -> dict[str, Any]:
+        """Get audit history for a specific resource."""
+        return self._client.request(
+            "GET",
+            f"/api/v1/audit/resource/{resource_id}/history",
+            params={"resource_type": resource_type},
+        )
+
     def set_finding_priority(self, finding_id: str, priority: str) -> dict[str, Any]:
         """Set the priority of a finding.
 
@@ -735,6 +743,14 @@ class AsyncAuditAPI:
             Dict with history entries (status changes, assignments, comments).
         """
         return await self._client.request("GET", f"/api/v1/audit/findings/{finding_id}/history")
+
+    async def get_resource_history(self, resource_type: str, resource_id: str) -> dict[str, Any]:
+        """Get audit history for a specific resource."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/audit/resource/{resource_id}/history",
+            params={"resource_type": resource_type},
+        )
 
     async def set_finding_priority(self, finding_id: str, priority: str) -> dict[str, Any]:
         """Set the priority of a finding.

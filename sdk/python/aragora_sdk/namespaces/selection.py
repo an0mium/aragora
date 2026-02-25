@@ -37,6 +37,18 @@ class SelectionAPI:
         """Select a team of agents for a task."""
         return self._client.request("POST", "/api/v1/selection/team", json=kwargs)
 
+    def get_scorer(self, name: str) -> dict[str, Any]:
+        """Get details for a specific scorer plugin."""
+        return self._client.request("GET", f"/api/v1/selection/scorers/{name}")
+
+    def get_team_selector(self, name: str) -> dict[str, Any]:
+        """Get details for a specific team selector plugin."""
+        return self._client.request("GET", f"/api/v1/selection/team-selectors/{name}")
+
+    def get_role_assigner(self, name: str) -> dict[str, Any]:
+        """Get details for a specific role assigner plugin."""
+        return self._client.request("GET", f"/api/v1/selection/role-assigners/{name}")
+
 
 class AsyncSelectionAPI:
     """Asynchronous Selection API."""
@@ -59,3 +71,15 @@ class AsyncSelectionAPI:
     async def select_team(self, **kwargs: Any) -> dict[str, Any]:
         """Select a team of agents for a task."""
         return await self._client.request("POST", "/api/v1/selection/team", json=kwargs)
+
+    async def get_scorer(self, name: str) -> dict[str, Any]:
+        """Get details for a specific scorer plugin."""
+        return await self._client.request("GET", f"/api/v1/selection/scorers/{name}")
+
+    async def get_team_selector(self, name: str) -> dict[str, Any]:
+        """Get details for a specific team selector plugin."""
+        return await self._client.request("GET", f"/api/v1/selection/team-selectors/{name}")
+
+    async def get_role_assigner(self, name: str) -> dict[str, Any]:
+        """Get details for a specific role assigner plugin."""
+        return await self._client.request("GET", f"/api/v1/selection/role-assigners/{name}")

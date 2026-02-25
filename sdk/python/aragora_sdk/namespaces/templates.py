@@ -63,6 +63,18 @@ class TemplatesAPI:
         """
         return self._client.request("POST", "/api/v1/templates/registry", json=kwargs)
 
+    def get_registered(self, template_id: str) -> dict[str, Any]:
+        """Get a registered template by ID."""
+        return self._client.request("GET", f"/api/v1/templates/registry/{template_id}")
+
+    def update_registered(self, template_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Update a registered template."""
+        return self._client.request("PUT", f"/api/v1/templates/registry/{template_id}", json=kwargs)
+
+    def delete_registered(self, template_id: str) -> dict[str, Any]:
+        """Delete a registered template."""
+        return self._client.request("DELETE", f"/api/v1/templates/registry/{template_id}")
+
 
 class AsyncTemplatesAPI:
     """Asynchronous Templates API."""
@@ -87,3 +99,17 @@ class AsyncTemplatesAPI:
     async def register(self, **kwargs: Any) -> dict[str, Any]:
         """Register a custom template."""
         return await self._client.request("POST", "/api/v1/templates/registry", json=kwargs)
+
+    async def get_registered(self, template_id: str) -> dict[str, Any]:
+        """Get a registered template by ID."""
+        return await self._client.request("GET", f"/api/v1/templates/registry/{template_id}")
+
+    async def update_registered(self, template_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Update a registered template."""
+        return await self._client.request(
+            "PUT", f"/api/v1/templates/registry/{template_id}", json=kwargs
+        )
+
+    async def delete_registered(self, template_id: str) -> dict[str, Any]:
+        """Delete a registered template."""
+        return await self._client.request("DELETE", f"/api/v1/templates/registry/{template_id}")

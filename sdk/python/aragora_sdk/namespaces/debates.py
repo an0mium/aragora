@@ -644,6 +644,10 @@ class DebatesAPI:
         """
         return self._client.request("POST", f"/api/debates/{debate_id}/share/revoke")
 
+    def get_shared(self, share_token: str) -> dict[str, Any]:
+        """View a publicly shared debate by share token."""
+        return self._client.request("GET", f"/api/v1/shared/{share_token}")
+
     def get_public_spectate(self, debate_id: str) -> dict[str, Any]:
         """
         Get the public spectate view for a debate.
@@ -1231,6 +1235,10 @@ class AsyncDebatesAPI:
     async def revoke_share(self, debate_id: str) -> dict[str, Any]:
         """Revoke a shared debate link."""
         return await self._client.request("POST", f"/api/debates/{debate_id}/share/revoke")
+
+    async def get_shared(self, share_token: str) -> dict[str, Any]:
+        """View a publicly shared debate by share token."""
+        return await self._client.request("GET", f"/api/v1/shared/{share_token}")
 
     async def get_public_spectate(self, debate_id: str) -> dict[str, Any]:
         """Get the public spectate view for a debate."""
