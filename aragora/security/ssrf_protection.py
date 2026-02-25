@@ -139,7 +139,7 @@ LOCALHOST_HOSTNAMES: frozenset[str] = frozenset(
         "127.0.0.1",
         "::1",
         "[::1]",
-        "0.0.0.0",
+        "0.0.0.0",  # noqa: S104 - SSRF blocklist entry, not a bind address
         "0",
     }
 )

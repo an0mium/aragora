@@ -37,7 +37,7 @@ class CanvasStreamServer:
     with real-time broadcasting to all connected clients.
     """
 
-    def __init__(self, port: int = 8767, host: str = "0.0.0.0"):
+    def __init__(self, port: int = 8767, host: str = "0.0.0.0"):  # noqa: S104 - WS server binds all interfaces by default
         """
         Initialize the canvas stream server.
 
