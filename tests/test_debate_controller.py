@@ -547,7 +547,10 @@ class TestDebateControllerRunDebate:
         assert result_payload["mode"] == "epistemic_hygiene"
         assert result_payload["settlement"]["status"] == "needs_definition"
         assert result_payload["settlement"]["falsifier"] == "Metric X drops below threshold"
-        assert result_payload["settlement"]["metric"] == "Define a measurable metric for decision settlement."
+        assert (
+            result_payload["settlement"]["metric"]
+            == "Define a measurable metric for decision settlement."
+        )
         assert result_payload["settlement"]["review_horizon_days"] == 30
         assert result_payload["settlement"]["claim"] == "Test?"
 

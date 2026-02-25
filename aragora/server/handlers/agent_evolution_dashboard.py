@@ -149,7 +149,7 @@ def _get_demo_timeline(limit: int = 20, offset: int = 0) -> dict:
             "approved_by": None,
         },
     ]
-    sliced = events[offset: offset + limit]
+    sliced = events[offset : offset + limit]
     return {
         "events": sliced,
         "total": len(events),
@@ -168,12 +168,14 @@ def _get_demo_elo_trends(period: str = "7d") -> dict:
         elo = base
         for i, change in enumerate(changes):
             elo += change
-            result.append({
-                "timestamp": _iso(now - (len(changes) - i) * day),
-                "elo": elo,
-                "debate_id": f"dbt-{100 + i}",
-                "change": change,
-            })
+            result.append(
+                {
+                    "timestamp": _iso(now - (len(changes) - i) * day),
+                    "elo": elo,
+                    "debate_id": f"dbt-{100 + i}",
+                    "change": change,
+                }
+            )
         return result
 
     return {
@@ -301,10 +303,12 @@ class AgentEvolutionDashboardHandler(SecureHandler):
         """Check if this handler can process the given path."""
         if not path.startswith("/api/v1/agent-evolution/"):
             return False
-        suffix = path[len("/api/v1/agent-evolution/"):]
+        suffix = path[len("/api/v1/agent-evolution/") :]
         if suffix in ("timeline", "elo-trends", "pending"):
             return True
-        if suffix.startswith("pending/") and (suffix.endswith("/approve") or suffix.endswith("/reject")):
+        if suffix.startswith("pending/") and (
+            suffix.endswith("/approve") or suffix.endswith("/reject")
+        ):
             return True
         return False
 
@@ -321,7 +325,7 @@ class AgentEvolutionDashboardHandler(SecureHandler):
             logger.warning("Rate limit exceeded for agent-evolution: %s", client_ip)
             return error_response("Rate limit exceeded", 429)
 
-        suffix = path[len("/api/v1/agent-evolution/"):]
+        suffix = path[len("/api/v1/agent-evolution/") :]
 
         if suffix == "timeline":
             return self._handle_timeline(query_params)
@@ -390,13 +394,15 @@ class AgentEvolutionDashboardHandler(SecureHandler):
         logger.info("Approving agent evolution change: %s", change_id)
 
         # In production, this would update the database and trigger the change
-        return json_response({
-            "data": {
-                "id": change_id,
-                "status": "approved",
-                "message": f"Change {change_id} approved successfully",
+        return json_response(
+            {
+                "data": {
+                    "id": change_id,
+                    "status": "approved",
+                    "message": f"Change {change_id} approved successfully",
+                }
             }
-        })
+        )
 
     @handle_errors
     @require_permission("evolution:write")
@@ -409,13 +415,15 @@ class AgentEvolutionDashboardHandler(SecureHandler):
 
         logger.info("Rejecting agent evolution change: %s", change_id)
 
-        return json_response({
-            "data": {
-                "id": change_id,
-                "status": "rejected",
-                "message": f"Change {change_id} rejected",
+        return json_response(
+            {
+                "data": {
+                    "id": change_id,
+                    "status": "rejected",
+                    "message": f"Change {change_id} rejected",
+                }
             }
-        })
+        )
 
     def _fetch_real_timeline(self, limit: int, offset: int) -> dict:
         """Attempt to fetch real evolution timeline data from the database."""
@@ -426,9 +434,7 @@ class AgentEvolutionDashboardHandler(SecureHandler):
         if not nomic_dir:
             raise RuntimeError("Nomic directory not configured")
 
-        evolver = PromptEvolver(
-            db_path=str(get_db_path(DatabaseType.PROMPT_EVOLUTION, nomic_dir))
-        )
+        evolver = PromptEvolver(db_path=str(get_db_path(DatabaseType.PROMPT_EVOLUTION, nomic_dir)))
 
         # Get evolution history across all agents
         with evolver.connection() as conn:
@@ -449,20 +455,22 @@ class AgentEvolutionDashboardHandler(SecureHandler):
 
         events = []
         for i, row in enumerate(rows):
-            events.append({
-                "id": f"evt-{offset + i + 1:03d}",
-                "agent_name": row[0],
-                "event_type": "prompt_modification",
-                "timestamp": row[2],
-                "description": f"Evolution via {row[1]} strategy",
-                "old_value": None,
-                "new_value": None,
-                "elo_before": row[3],
-                "elo_after": row[4],
-                "nomic_cycle_id": None,
-                "approved": True,
-                "approved_by": "system",
-            })
+            events.append(
+                {
+                    "id": f"evt-{offset + i + 1:03d}",
+                    "agent_name": row[0],
+                    "event_type": "prompt_modification",
+                    "timestamp": row[2],
+                    "description": f"Evolution via {row[1]} strategy",
+                    "old_value": None,
+                    "new_value": None,
+                    "elo_before": row[3],
+                    "elo_after": row[4],
+                    "nomic_cycle_id": None,
+                    "approved": True,
+                    "approved_by": "system",
+                }
+            )
 
         return {
             "events": events,
@@ -480,15 +488,17 @@ class AgentEvolutionDashboardHandler(SecureHandler):
 
         agents = []
         for agent_name, rating in rankings.items():
-            agents.append({
-                "agent_name": agent_name,
-                "provider": "unknown",
-                "current_elo": rating,
-                "trend": [],
-                "peak_elo": rating,
-                "lowest_elo": rating,
-                "total_debates": 0,
-            })
+            agents.append(
+                {
+                    "agent_name": agent_name,
+                    "provider": "unknown",
+                    "current_elo": rating,
+                    "trend": [],
+                    "peak_elo": rating,
+                    "lowest_elo": rating,
+                    "total_debates": 0,
+                }
+            )
 
         return {
             "agents": sorted(agents, key=lambda a: a["current_elo"], reverse=True),

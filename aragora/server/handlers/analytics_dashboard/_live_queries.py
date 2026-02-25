@@ -72,8 +72,6 @@ def query_summary() -> dict[str, Any] | None:
     """
     try:
         from aragora.analytics.debate_analytics import (
-            DebateMetricType,
-            DebateTimeGranularity,
             get_debate_analytics,
         )
 
@@ -88,7 +86,11 @@ def query_summary() -> dict[str, Any] | None:
         # Get top topics from debate records
         top_topics = _query_top_topics()
 
-        consensus_rate = round(stats.consensus_rate * 100, 1) if stats.consensus_rate <= 1.0 else round(stats.consensus_rate, 1)
+        consensus_rate = (
+            round(stats.consensus_rate * 100, 1)
+            if stats.consensus_rate <= 1.0
+            else round(stats.consensus_rate, 1)
+        )
 
         return {
             "summary": {
@@ -128,7 +130,10 @@ def _query_top_topics() -> list[dict[str, Any]]:
                 return []
 
             return [
-                {"topic": row[0][:60] if isinstance(row[0], str) else str(row[0])[:60], "count": row[1]}
+                {
+                    "topic": row[0][:60] if isinstance(row[0], str) else str(row[0])[:60],
+                    "count": row[1],
+                }
                 for row in rows
             ]
     except Exception:  # noqa: BLE001
@@ -261,13 +266,15 @@ def query_agents() -> dict[str, Any] | None:
         for agent in leaderboard:
             elo = elo_ratings.get(agent.agent_id, agent.current_elo)
             win_rate = agent.vote_ratio if agent.vote_ratio > 0 else 0.5
-            agents.append({
-                "agent_id": agent.agent_id,
-                "name": agent.agent_name or agent.agent_id,
-                "debates": agent.debates_participated,
-                "win_rate": round(win_rate, 2),
-                "elo": round(elo, 0),
-            })
+            agents.append(
+                {
+                    "agent_id": agent.agent_id,
+                    "name": agent.agent_name or agent.agent_id,
+                    "debates": agent.debates_participated,
+                    "win_rate": round(win_rate, 2),
+                    "elo": round(elo, 0),
+                }
+            )
 
         return {"agents": agents}
     except Exception:  # noqa: BLE001
@@ -743,14 +750,17 @@ def query_flips_recent() -> dict[str, Any] | None:
 
         formatted = []
         for f in flips[:3]:
-            formatted.append({
-                "agent": getattr(f, "agent_name", "unknown"),
-                "topic": getattr(f, "topic", "")[:30],
-                "from": getattr(f, "old_position", "unknown"),
-                "to": getattr(f, "new_position", "unknown"),
-                "date": getattr(f, "detected_at", datetime.now(timezone.utc)).isoformat()[:10]
-                if hasattr(f, "detected_at") else "",
-            })
+            formatted.append(
+                {
+                    "agent": getattr(f, "agent_name", "unknown"),
+                    "topic": getattr(f, "topic", "")[:30],
+                    "from": getattr(f, "old_position", "unknown"),
+                    "to": getattr(f, "new_position", "unknown"),
+                    "date": getattr(f, "detected_at", datetime.now(timezone.utc)).isoformat()[:10]
+                    if hasattr(f, "detected_at")
+                    else "",
+                }
+            )
 
         return {"flips": formatted}
     except Exception:  # noqa: BLE001
@@ -786,10 +796,12 @@ def query_flips_consistency() -> dict[str, Any] | None:
                 score = getattr(score_data, "consistency", 0.0)
                 if isinstance(score, str) and score.endswith("%"):
                     score = float(score.rstrip("%")) / 100.0
-            consistency.append({
-                "agent": agent_name,
-                "consistency_score": round(score, 2),
-            })
+            consistency.append(
+                {
+                    "agent": agent_name,
+                    "consistency_score": round(score, 2),
+                }
+            )
 
         consistency.sort(key=lambda x: x["consistency_score"], reverse=True)
         return {"consistency": consistency}
@@ -824,10 +836,7 @@ def query_flips_trends() -> dict[str, Any] | None:
             if not rows:
                 return None
 
-            trends = [
-                {"date": row[0], "flips": row[1]}
-                for row in reversed(rows)
-            ]
+            trends = [{"date": row[0], "flips": row[1]} for row in reversed(rows)]
             return {"trends": trends}
     except Exception:  # noqa: BLE001
         logger.debug("Flips trends query failed", exc_info=True)
@@ -849,7 +858,11 @@ def query_deliberations() -> dict[str, Any] | None:
         if stats.total_debates == 0:
             return None
 
-        consensus_rate = round(stats.consensus_rate * 100, 1) if stats.consensus_rate <= 1.0 else round(stats.consensus_rate, 1)
+        consensus_rate = (
+            round(stats.consensus_rate * 100, 1)
+            if stats.consensus_rate <= 1.0
+            else round(stats.consensus_rate, 1)
+        )
 
         return {
             "summary": {
@@ -972,7 +985,9 @@ def query_deliberations_performance() -> dict[str, Any] | None:
         if stats.total_debates == 0:
             return None
 
-        convergence_rate = stats.consensus_rate if stats.consensus_rate <= 1.0 else stats.consensus_rate / 100.0
+        convergence_rate = (
+            stats.consensus_rate if stats.consensus_rate <= 1.0 else stats.consensus_rate / 100.0
+        )
 
         return {
             "performance": [

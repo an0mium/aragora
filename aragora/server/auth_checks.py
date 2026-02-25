@@ -162,9 +162,7 @@ class LiveStreamingBudgetGate:
 
     # -- main check -----------------------------------------------------------
 
-    def check_budget(
-        self, org_id: str, tier: str
-    ) -> tuple[bool, dict[str, Any] | None]:
+    def check_budget(self, org_id: str, tier: str) -> tuple[bool, dict[str, Any] | None]:
         """Check whether the org still has live-streaming budget.
 
         Returns ``(True, None)`` if allowed, or ``(False, error_dict)``
@@ -787,6 +785,7 @@ class AuthChecksMixin:
 
             class _TierCtx:
                 """Minimal context for tier resolution."""
+
                 def __init__(self, oid: str | None) -> None:
                     self.org_id = oid
                     self.subscription_tier = None

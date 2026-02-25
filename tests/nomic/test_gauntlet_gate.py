@@ -509,7 +509,9 @@ class TestGauntletGateVerifyPhaseIntegration:
             enable_gauntlet_gate=True,
         )
 
-        phase._get_diff_text = AsyncMock(return_value="--- a/file.py\n+++ b/file.py\n@@ -1 +1 @@\n-old\n+new")
+        phase._get_diff_text = AsyncMock(
+            return_value="--- a/file.py\n+++ b/file.py\n@@ -1 +1 @@\n-old\n+new"
+        )
 
         # Mock the gate to return blocked
         blocked_gate_result = GauntletGateResult(
