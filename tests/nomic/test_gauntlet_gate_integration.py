@@ -283,9 +283,7 @@ class TestGauntletGateRejectionPath:
         await orchestrator.execute_goal(goal="Test rejection", max_cycles=1)
 
         # Check the completed assignments to find the rejected one
-        all_assignments = (
-            orchestrator._active_assignments + orchestrator._completed_assignments
-        )
+        all_assignments = orchestrator._active_assignments + orchestrator._completed_assignments
         rejected = [a for a in all_assignments if a.status == "rejected"]
         assert len(rejected) >= 1
 
@@ -312,9 +310,7 @@ class TestGauntletGateRejectionPath:
 
         await orchestrator.execute_goal(goal="Test preserve output", max_cycles=1)
 
-        all_assignments = (
-            orchestrator._active_assignments + orchestrator._completed_assignments
-        )
+        all_assignments = orchestrator._active_assignments + orchestrator._completed_assignments
         rejected = [a for a in all_assignments if a.status == "rejected"]
         assert len(rejected) >= 1
         assert "workflow_result" in rejected[0].result
@@ -440,9 +436,7 @@ class TestRunGauntletGateMethod:
             "aragora.nomic.gauntlet_gate._GauntletRunner",
             return_value=mock_runner,
         ):
-            gate_result = await orchestrator._run_gauntlet_gate(
-                assignment, workflow_result
-            )
+            gate_result = await orchestrator._run_gauntlet_gate(assignment, workflow_result)
 
         assert gate_result is not None
         assert gate_result.blocked is False
@@ -509,9 +503,7 @@ class TestRunGauntletGateMethod:
             "aragora.nomic.gauntlet_gate._GauntletRunner",
             return_value=mock_runner,
         ):
-            gate_result = await orchestrator._run_gauntlet_gate(
-                assignment, workflow_result
-            )
+            gate_result = await orchestrator._run_gauntlet_gate(assignment, workflow_result)
 
         assert gate_result is not None
         assert gate_result.blocked is True
@@ -531,9 +523,7 @@ class TestRunGauntletGateMethod:
         )
 
         subtask = SubTask(id="sub1", title="T", description="D")
-        assignment = AgentAssignment(
-            subtask=subtask, track=Track.QA, agent_type="claude"
-        )
+        assignment = AgentAssignment(subtask=subtask, track=Track.QA, agent_type="claude")
         workflow_result = MagicMock(success=True, final_output={})
 
         with patch.dict(
@@ -591,9 +581,7 @@ class TestGauntletGateFullEndToEnd:
             "aragora.nomic.gauntlet_gate._GauntletRunner",
             return_value=mock_runner,
         ):
-            result = await orchestrator.execute_goal(
-                goal="Improve auth security", max_cycles=1
-            )
+            result = await orchestrator.execute_goal(goal="Improve auth security", max_cycles=1)
 
         assert result.success is True
         assert result.completed_subtasks == 1
@@ -650,9 +638,7 @@ class TestGauntletGateFullEndToEnd:
             "aragora.nomic.gauntlet_gate._GauntletRunner",
             return_value=mock_runner,
         ):
-            result = await orchestrator.execute_goal(
-                goal="Improve auth security", max_cycles=1
-            )
+            result = await orchestrator.execute_goal(goal="Improve auth security", max_cycles=1)
 
         # The subtask was rejected (not failed/completed), so completed_subtasks == 0
         assert result.completed_subtasks == 0
@@ -680,9 +666,7 @@ class TestGauntletGateFullEndToEnd:
             "aragora.nomic.gauntlet_gate._GauntletRunner",
             return_value=mock_runner,
         ):
-            result = await orchestrator.execute_goal(
-                goal="Improve auth security", max_cycles=1
-            )
+            result = await orchestrator.execute_goal(goal="Improve auth security", max_cycles=1)
 
         # Gate errors are non-blocking: the gate returns skipped=True, blocked=False
         # So _run_gauntlet_gate returns a result with blocked=False, and the

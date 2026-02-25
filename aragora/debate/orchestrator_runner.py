@@ -1141,7 +1141,9 @@ async def cleanup_debate_resources(
 
     # Drain debate-scoped background tasks. They are only useful while the debate
     # is active; after completion they should not outlive this coroutine.
-    await _drain_background_task(getattr(ctx, "background_classification_task", None), timeout_s=0.75)
+    await _drain_background_task(
+        getattr(ctx, "background_classification_task", None), timeout_s=0.75
+    )
     await _drain_background_task(getattr(ctx, "background_research_task", None), timeout_s=0.75)
     await _drain_background_task(getattr(ctx, "background_evidence_task", None), timeout_s=0.75)
     for _attr in (

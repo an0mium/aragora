@@ -515,7 +515,9 @@ def gate_sdk_parity_strict() -> bool:
             detail = output.splitlines()[-1] if output else f"{check_name} check failed"
             return _gate("sdk_parity_strict", False, f"{check_name}: {detail}")
 
-    return _gate("sdk_parity_strict", True, "sdk_parity + namespace + cross-sdk strict checks passed")
+    return _gate(
+        "sdk_parity_strict", True, "sdk_parity + namespace + cross-sdk strict checks passed"
+    )
 
 
 # ---------------------------------------------------------------------------
