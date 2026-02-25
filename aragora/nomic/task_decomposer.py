@@ -1210,7 +1210,7 @@ class TaskDecomposer:
             granularity_score = 0.5
 
         # Coverage score
-        all_subtask_files = set()
+        all_subtask_files: set[str] = set()
         for s in subtasks:
             all_subtask_files.update(f.rstrip("/") for f in s.file_scope)
 

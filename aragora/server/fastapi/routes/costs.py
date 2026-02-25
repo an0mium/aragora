@@ -47,6 +47,24 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v2", tags=["Costs"])
 
 
+def _infer_provider(model: str) -> str:
+    """Infer provider name from a model identifier for pricing lookup."""
+    model_lower = model.lower()
+    if "claude" in model_lower:
+        return "anthropic"
+    if "gpt" in model_lower:
+        return "openai"
+    if "gemini" in model_lower:
+        return "google"
+    if "deepseek" in model_lower:
+        return "deepseek"
+    if "grok" in model_lower:
+        return "xai"
+    if "mistral" in model_lower:
+        return "mistral"
+    return "openrouter"
+
+
 # =============================================================================
 # Pydantic Models
 # =============================================================================
@@ -671,7 +689,10 @@ async def estimate_cost(
         tokens_in = body.estimated_tokens_per_round * body.rounds * body.agents
         tokens_out = int(tokens_in * 0.3)
 
-        cost = calculate_token_cost(body.model, tokens_in, tokens_out)
+        # Infer provider from model name for pricing lookup
+        provider = getattr(body, "provider", None) or _infer_provider(body.model)
+
+        cost = calculate_token_cost(provider, body.model, tokens_in, tokens_out)
 
         return EstimateResponse(
             data=EstimateData(
@@ -680,8 +701,8 @@ async def estimate_cost(
                 tokens_output=tokens_out,
                 model=body.model,
                 breakdown={
-                    "input_cost": float(calculate_token_cost(body.model, tokens_in, 0)),
-                    "output_cost": float(calculate_token_cost(body.model, 0, tokens_out)),
+                    "input_cost": float(calculate_token_cost(provider, body.model, tokens_in, 0)),
+                    "output_cost": float(calculate_token_cost(provider, body.model, 0, tokens_out)),
                     "rounds": body.rounds,
                     "agents": body.agents,
                 },

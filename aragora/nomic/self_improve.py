@@ -1162,7 +1162,7 @@ class SelfImprovePipeline:
 
                 # Create a worktree for this task
                 create_name = f"si-{cycle_id[:8]}-{task.task_id}"
-                create_common_kwargs = {
+                create_common_kwargs: dict[str, Any] = {
                     "name": create_name,
                     "track": task.track,
                     "agent_id": f"self-improve-{cycle_id}",
