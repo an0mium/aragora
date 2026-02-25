@@ -481,7 +481,7 @@ jobs:
           echo "external_ok=false" >> $GITHUB_OUTPUT
 
       - name: Rollback on failure
-        if: steps.deploy.outputs.deploy_success != 'true' || steps.health.outputs.health_ok == 'false'
+        if: always() && steps.deploy.conclusion != 'skipped' && (steps.deploy.outputs.deploy_success != 'true' || steps.health.outputs.health_ok == 'false')
         run: |
           echo "::warning::Deployment failed - initiating rollback"
           IFS=',' read -ra IDS <<< "${{ steps.get-instance.outputs.instance_ids }}"
