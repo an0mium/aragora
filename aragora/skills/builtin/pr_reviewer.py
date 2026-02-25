@@ -142,8 +142,8 @@ class PRReviewerSkill(Skill):
             return None, f"Invalid PR URL format: {pr_url}"
 
         try:
-            result = subprocess.run(
-                ["gh", "pr", "diff", pr_number, "--repo", owner_repo],
+            result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
+                ["gh", "pr", "diff", pr_number, "--repo", owner_repo],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -182,7 +182,7 @@ class PRReviewerSkill(Skill):
             cmd.append("--demo")
 
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                 cmd,
                 input=diff,
                 capture_output=True,
@@ -221,8 +221,8 @@ class PRReviewerSkill(Skill):
         comment_body = self._format_comment(findings)
 
         try:
-            result = subprocess.run(
-                [
+            result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
+                [  # noqa: S607 -- fixed command
                     "gh",
                     "pr",
                     "comment",

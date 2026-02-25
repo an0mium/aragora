@@ -62,7 +62,7 @@ def _detect_audio_codec(audio_file: Path) -> str | None:
             "csv=p=0",
             str(audio_file),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, shell=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, shell=False)  # noqa: S603 -- subprocess with fixed args, no shell
         if result.returncode == 0:
             return result.stdout.strip() or None
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
@@ -233,7 +233,7 @@ def mix_audio_with_ffmpeg(audio_files: list[Path], output_path: Path) -> bool:
                     str(output_path),
                 ]
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, shell=False)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, shell=False)  # noqa: S603 -- subprocess with fixed args, no shell
             if result.returncode != 0:
                 logger.error("FFmpeg mixing failed (exit %s): %s", result.returncode, result.stderr)
                 return False

@@ -254,8 +254,7 @@ class TestBroadcastPipeline:
         from aragora.broadcast.pipeline import BroadcastPipeline, BroadcastOptions
         from aragora.broadcast.video_gen import is_ffmpeg_available
 
-        if not is_ffmpeg_available():
-            pytest.skip("FFmpeg not available for video generation")
+        assert is_ffmpeg_available(), "FFmpeg not available for video generation"
 
         pipeline = BroadcastPipeline(nomic_dir=temp_output_dir)
 

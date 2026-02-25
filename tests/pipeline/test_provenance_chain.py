@@ -178,8 +178,7 @@ class TestCrossStageReferences:
 
     def test_orchestration_source_action_ids_resolve(self, full_result):
         """Orchestration nodes should reference real action nodes."""
-        if not full_result.orchestration_canvas:
-            pytest.skip("No orchestration canvas")
+        assert full_result.orchestration_canvas, "No orchestration canvas"
         action_ids = set(full_result.actions_canvas.nodes.keys())
         for node_id, node in full_result.orchestration_canvas.nodes.items():
             source = node.data.get("source_action_id", "")

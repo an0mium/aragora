@@ -160,12 +160,12 @@ class MicrosoftOAuthMixin:
             asyncio.get_running_loop()
         except RuntimeError:
             encoded = urlencode(data).encode("utf-8")
-            req = Request(
+            req = Request(  # noqa: S310 -- hardcoded Microsoft OAuth URL
                 token_url,
                 data=encoded,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
-            with urlopen(req) as response:
+            with urlopen(req) as response:  # noqa: S310 -- hardcoded Microsoft OAuth URL
                 body = response.read()
             return json.loads(body.decode("utf-8")) if body else {}
 
@@ -188,11 +188,11 @@ class MicrosoftOAuthMixin:
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            req = Request(
+            req = Request(  # noqa: S310 -- hardcoded Microsoft API URL
                 impl.MICROSOFT_USERINFO_URL,
                 headers={"Authorization": f"Bearer {access_token}"},
             )
-            with urlopen(req) as response:
+            with urlopen(req) as response:  # noqa: S310 -- hardcoded Microsoft API URL
                 body = response.read()
             user_data = json.loads(body.decode("utf-8")) if body else {}
 

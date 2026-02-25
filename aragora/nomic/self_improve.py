@@ -1567,15 +1567,15 @@ class SelfImprovePipeline:
             if files_changed and worktree_path:
                 try:
                     commit_result = subprocess.run(
-                        ["git", "add", "-A"],
+                        ["git", "add", "-A"],  # noqa: S607 -- fixed command
                         capture_output=True,
                         text=True,
                         cwd=worktree_path,
                         timeout=10,
                     )
                     if commit_result.returncode == 0:
-                        subprocess.run(
-                            [
+                        subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
+                            [  # noqa: S607 -- fixed command
                                 "git",
                                 "commit",
                                 "-m",
@@ -1860,7 +1860,7 @@ class SelfImprovePipeline:
                 import subprocess
 
                 diff_result = subprocess.run(
-                    ["git", "diff", "--name-only", "HEAD"],
+                    ["git", "diff", "--name-only", "HEAD"],  # noqa: S607 -- fixed command
                     capture_output=True,
                     text=True,
                     cwd=worktree_path,

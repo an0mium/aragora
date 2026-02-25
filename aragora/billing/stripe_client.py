@@ -251,10 +251,10 @@ class StripeClient:
         if data:
             body = self._encode_form_data(data).encode("utf-8")
 
-        req = Request(url, data=body, headers=headers, method=method)
+        req = Request(url, data=body, headers=headers, method=method)  # noqa: S310 -- hardcoded Stripe API URL
 
         try:
-            with urlopen(req, timeout=30) as response:
+            with urlopen(req, timeout=30) as response:  # noqa: S310 -- hardcoded Stripe API URL
                 return json.loads(response.read().decode("utf-8"))
         except HTTPError as e:
             error_body = e.read().decode("utf-8")

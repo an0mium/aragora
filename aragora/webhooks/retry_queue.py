@@ -888,7 +888,7 @@ class WebhookRetryQueue:
                 if parsed.scheme not in ("http", "https"):
                     return False, 0, f"Unsupported URL scheme: {parsed.scheme}"
 
-                request = Request(
+                request = Request(  # noqa: S310 -- URL scheme validated above
                     delivery.url,
                     data=payload_json.encode("utf-8"),
                     headers=headers,

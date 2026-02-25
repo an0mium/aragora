@@ -1198,7 +1198,7 @@ class PlanExecutor:
                 cmd.extend(["--assignee", assignee])
 
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                 cmd,
                 capture_output=True,
                 text=True,
@@ -1276,7 +1276,7 @@ class PlanExecutor:
             cmd.append("--draft")
 
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                 cmd,
                 capture_output=True,
                 text=True,

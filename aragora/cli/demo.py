@@ -479,7 +479,7 @@ def _run_server_demo() -> None:
     print()
 
     try:
-        subprocess.run(
+        subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
             [sys.executable, "-m", "aragora.cli.main", "serve", "--offline"],
             check=False,
         )

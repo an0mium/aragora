@@ -36,8 +36,7 @@ HTTP_METHODS = {"get", "post", "put", "patch", "delete", "options", "head"}
 
 def _load_spec(path: Path) -> dict:
     """Load and return an OpenAPI spec as a dict."""
-    if not path.exists():
-        pytest.skip(f"OpenAPI spec not found: {path}")
+    assert path.exists(), f"OpenAPI spec not found: {path}"
     return json.loads(path.read_text())
 
 
@@ -274,8 +273,7 @@ class TestTypeScriptSDKDrift:
 
     def test_ts_namespace_count(self):
         """There should be a reasonable number of TypeScript namespaces."""
-        if not TS_NAMESPACES.exists():
-            pytest.skip("TypeScript namespaces not found")
+        assert TS_NAMESPACES.exists(), "TypeScript namespaces not found"
         ns_files = [
             p
             for p in TS_NAMESPACES.glob("*.ts")
@@ -295,8 +293,7 @@ class TestTypeScriptSDKDrift:
             gen_spec = json.loads(OPENAPI_GENERATED.read_text())
             openapi_eps |= _spec_endpoints(gen_spec)
 
-        if not TS_NAMESPACES.exists():
-            pytest.skip("TypeScript namespaces not found")
+        assert TS_NAMESPACES.exists(), "TypeScript namespaces not found"
 
         ts_drift: list[tuple[str, str, str]] = []
         for ts_file in sorted(TS_NAMESPACES.glob("*.ts")):
@@ -339,8 +336,7 @@ class TestPythonSDKDrift:
             gen_spec = json.loads(OPENAPI_GENERATED.read_text())
             openapi_eps |= _spec_endpoints(gen_spec)
 
-        if not PY_NAMESPACES.exists():
-            pytest.skip("Python namespaces not found")
+        assert PY_NAMESPACES.exists(), "Python namespaces not found"
 
         py_drift: list[tuple[str, str, str]] = []
         for py_file in sorted(PY_NAMESPACES.glob("*.py")):
@@ -372,8 +368,8 @@ class TestCrossSDKParity:
 
     def test_namespace_parity(self):
         """Both SDKs should cover the same core namespaces."""
-        if not TS_NAMESPACES.exists() or not PY_NAMESPACES.exists():
-            pytest.skip("One or both SDK namespace directories missing")
+        assert TS_NAMESPACES.exists() and PY_NAMESPACES.exists(), \
+            "One or both SDK namespace directories missing"
 
         ts_ns = {
             p.stem.replace("-", "_")

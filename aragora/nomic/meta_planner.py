@@ -1131,7 +1131,7 @@ class MetaPlanner:
         # Signal 1: Recent git changes → map files to tracks
         try:
             git_result = subprocess.run(
-                ["git", "log", "--oneline", "--name-only", "-20"],
+                ["git", "log", "--oneline", "--name-only", "-20"],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -1205,7 +1205,7 @@ class MetaPlanner:
         # Signal 5: ruff lint violations
         try:
             ruff_result = subprocess.run(
-                ["ruff", "check", "--quiet", "--output-format=concise", "."],
+                ["ruff", "check", "--quiet", "--output-format=concise", "."],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -1227,7 +1227,7 @@ class MetaPlanner:
         # Signal 6: TODO/FIXME/HACK comments
         try:
             todo_result = subprocess.run(
-                ["grep", "-rn", r"TODO\|FIXME\|HACK", "aragora/", "--include=*.py", "-l"],
+                ["grep", "-rn", r"TODO\|FIXME\|HACK", "aragora/", "--include=*.py", "-l"],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 timeout=10,

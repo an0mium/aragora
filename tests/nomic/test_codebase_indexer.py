@@ -129,8 +129,7 @@ class TestAnalyzeModule:
         indexer = CodebaseIndexer(repo_path=repo)
         target = repo / "aragora" / "nomic" / "outcome_tracker.py"
 
-        if not target.exists():
-            pytest.skip("outcome_tracker.py not found")
+        assert target.exists(), "outcome_tracker.py not found"
 
         info = indexer._analyze_module(target)
         assert info is not None
@@ -686,8 +685,7 @@ class TestEndToEnd:
         repo = Path(__file__).resolve().parent.parent.parent
         nomic_dir = repo / "aragora" / "nomic"
 
-        if not nomic_dir.exists():
-            pytest.skip("aragora/nomic not found")
+        assert nomic_dir.exists(), "aragora/nomic not found"
 
         indexer = CodebaseIndexer(
             repo_path=repo,

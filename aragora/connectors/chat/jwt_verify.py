@@ -110,8 +110,8 @@ def _fetch_openid_metadata(
         Parsed metadata dict containing at minimum 'jwks_uri', or None on failure
     """
     try:
-        req = Request(metadata_url, headers={"Accept": "application/json"})
-        with urlopen(req, timeout=timeout) as resp:
+        req = Request(metadata_url, headers={"Accept": "application/json"})  # noqa: S310 -- OpenID provider metadata URL
+        with urlopen(req, timeout=timeout) as resp:  # noqa: S310 -- OpenID provider metadata URL
             data = json.loads(resp.read().decode("utf-8"))
             if isinstance(data, dict) and "jwks_uri" in data:
                 return data

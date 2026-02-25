@@ -148,8 +148,8 @@ class OIDCOAuthMixin:
             asyncio.get_running_loop()
         except RuntimeError:
             try:
-                req = Request(discovery_url)
-                with urllib_request.urlopen(req) as response:
+                req = Request(discovery_url)  # noqa: S310 -- OIDC discovery URL from config
+                with urllib_request.urlopen(req) as response:  # noqa: S310 -- OIDC discovery URL from config
                     body = response.read()
                 return json.loads(body.decode("utf-8")) if body else {}
             except (ConnectionError, TimeoutError, OSError, ValueError, json.JSONDecodeError) as e:
@@ -186,12 +186,12 @@ class OIDCOAuthMixin:
             asyncio.get_running_loop()
         except RuntimeError:
             encoded = urlencode(data).encode("utf-8")
-            req = Request(
+            req = Request(  # noqa: S310 -- OIDC token endpoint from discovery
                 token_endpoint,
                 data=encoded,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
-            with urllib_request.urlopen(req) as response:
+            with urllib_request.urlopen(req) as response:  # noqa: S310 -- OIDC token endpoint from discovery
                 body = response.read()
             return json.loads(body.decode("utf-8")) if body else {}
 
@@ -250,11 +250,11 @@ class OIDCOAuthMixin:
             user_data: dict = {}
             if userinfo_endpoint and access_token:
                 try:
-                    req = Request(
+                    req = Request(  # noqa: S310 -- OIDC userinfo endpoint from discovery
                         userinfo_endpoint,
                         headers={"Authorization": f"Bearer {access_token}"},
                     )
-                    with urllib_request.urlopen(req) as response:
+                    with urllib_request.urlopen(req) as response:  # noqa: S310 -- OIDC userinfo endpoint from discovery
                         body = response.read()
                     user_data = json.loads(body.decode("utf-8")) if body else {}
                 except (

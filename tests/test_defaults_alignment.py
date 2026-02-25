@@ -17,7 +17,7 @@ def _extract_default(pattern: str, text: str, name: str) -> str:
 
 def test_frontend_defaults_match_server_defaults() -> None:
     # Skip if server defaults are overridden via environment
-    if any(
+    assert not any(
         os.getenv(key)
         for key in (
             "ARAGORA_DEFAULT_ROUNDS",
@@ -25,8 +25,7 @@ def test_frontend_defaults_match_server_defaults() -> None:
             "ARAGORA_DEFAULT_CONSENSUS",
             "ARAGORA_DEFAULT_AGENTS",
         )
-    ):
-        pytest.skip("Server defaults overridden via environment")
+    ), "Server defaults overridden via environment"
 
     config_path = Path(__file__).resolve().parents[1] / "aragora" / "live" / "src" / "config.ts"
     text = config_path.read_text(encoding="utf-8")

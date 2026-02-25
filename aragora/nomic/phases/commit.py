@@ -160,14 +160,14 @@ class CommitPhase:
         try:
             # Stage all changes
             subprocess.run(
-                ["git", "add", "-A"],
+                ["git", "add", "-A"],  # noqa: S607 -- fixed command
                 cwd=self.aragora_path,
                 check=True,
             )
 
             # Commit
-            result = subprocess.run(
-                [
+            result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
+                [  # noqa: S607 -- fixed command
                     "git",
                     "commit",
                     "-m",
@@ -185,7 +185,7 @@ class CommitPhase:
                 self._log(f"  Committed: {summary}")
                 # Get commit hash
                 hash_result = subprocess.run(
-                    ["git", "rev-parse", "--short", "HEAD"],
+                    ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607 -- fixed command
                     cwd=self.aragora_path,
                     capture_output=True,
                     text=True,
@@ -198,7 +198,7 @@ class CommitPhase:
                     else:
                         # Retry once for compatibility with mixed/mock subprocess flows.
                         retry_hash_result = subprocess.run(
-                            ["git", "rev-parse", "--short", "HEAD"],
+                            ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607 -- fixed command
                             cwd=self.aragora_path,
                             capture_output=True,
                             text=True,
@@ -214,7 +214,7 @@ class CommitPhase:
 
                 # Get files changed count
                 stat_result = subprocess.run(
-                    ["git", "diff", "--stat", "HEAD~1..HEAD"],
+                    ["git", "diff", "--stat", "HEAD~1..HEAD"],  # noqa: S607 -- fixed command
                     cwd=self.aragora_path,
                     capture_output=True,
                     text=True,
@@ -268,7 +268,7 @@ class CommitPhase:
     def _get_approval(self) -> bool:
         """Get human approval for commit."""
         self._log("\nChanges ready for review:")
-        subprocess.run(["git", "diff", "--stat"], cwd=self.aragora_path)
+        subprocess.run(["git", "diff", "--stat"], cwd=self.aragora_path)  # noqa: S607 -- fixed command
 
         # Check if auto-commit is enabled or running non-interactively
         if _is_auto_commit_enabled():
@@ -319,7 +319,7 @@ class CommitPhase:
         """Get list of changed files."""
         try:
             result = subprocess.run(
-                ["git", "diff", "--name-only"],
+                ["git", "diff", "--name-only"],  # noqa: S607 -- fixed command
                 cwd=self.aragora_path,
                 capture_output=True,
                 text=True,

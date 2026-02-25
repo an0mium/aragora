@@ -40,8 +40,7 @@ def _namespace_files() -> list[str]:
 
     Excludes __tests__, index, and CLAUDE.md.
     """
-    if not NAMESPACES_DIR.exists():
-        pytest.skip("TypeScript SDK namespaces directory not found")
+    assert NAMESPACES_DIR.exists(), "TypeScript SDK namespaces directory not found"
     return sorted(
         p.stem
         for p in NAMESPACES_DIR.glob("*.ts")
@@ -187,8 +186,7 @@ class TestTopLevelReExports:
         """Barrel API classes must appear in top-level src/index.ts or be
         reachable via the namespaces re-export."""
         barrel_classes = _barrel_exported_api_classes(BARREL_INDEX)
-        if not barrel_classes:
-            pytest.skip("No barrel API classes found")
+        assert barrel_classes, "No barrel API classes found"
 
         top_classes = _top_index_reexports(TOP_INDEX)
 
@@ -224,8 +222,7 @@ class TestClientNamespaceInstantiation:
         where newly added namespaces forget to wire up the client.
         """
         barrel_classes = _barrel_exported_api_classes(BARREL_INDEX)
-        if not barrel_classes:
-            pytest.skip("No barrel API classes found")
+        assert barrel_classes, "No barrel API classes found"
 
         instantiated = _client_instantiated_namespaces(CLIENT_TS)
 
@@ -245,8 +242,7 @@ class TestNoDuplicateTypeExports:
     def test_no_duplicate_export_names(self):
         """Verify no duplicate export names in the barrel."""
         names = _barrel_type_export_names(BARREL_INDEX)
-        if not names:
-            pytest.skip("No type exports found in barrel")
+        assert names, "No type exports found in barrel"
 
         seen: dict[str, int] = {}
         for name in names:
@@ -266,12 +262,10 @@ class TestTypeScriptCompilation:
     def test_sdk_compiles_cleanly(self):
         """Run tsc --noEmit on the TypeScript SDK."""
         tsconfig = TS_SDK / "tsconfig.json"
-        if not tsconfig.exists():
-            pytest.skip("tsconfig.json not found")
+        assert tsconfig.exists(), "tsconfig.json not found"
 
         npx = shutil.which("npx")
-        if npx is None:
-            pytest.skip("npx not available")
+        assert npx is not None, "npx not available"
 
         result = subprocess.run(
             [npx, "tsc", "--noEmit"],

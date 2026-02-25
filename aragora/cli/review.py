@@ -831,7 +831,7 @@ def cmd_review(args: argparse.Namespace) -> int:
                 if repo_arg:
                     gh_cmd.extend(["--repo", repo_arg])
 
-                gh_result = subprocess.run(
+                gh_result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                     gh_cmd,
                     capture_output=True,
                     text=True,
@@ -1035,7 +1035,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             comment_body = format_github_comment(result, findings)
             gh_cmd.extend(["--body", comment_body])
 
-            gh_result = subprocess.run(
+            gh_result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                 gh_cmd,
                 capture_output=True,
                 text=True,

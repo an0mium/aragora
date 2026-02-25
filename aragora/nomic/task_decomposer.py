@@ -1127,7 +1127,7 @@ class TaskDecomposer:
             # Python syntax check
             if file_path.endswith(".py"):
                 try:
-                    result = subprocess.run(
+                    result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                         [
                             sys.executable,
                             "-c",

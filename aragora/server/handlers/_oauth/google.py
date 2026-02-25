@@ -338,12 +338,12 @@ class GoogleOAuthMixin:
             asyncio.get_running_loop()
         except RuntimeError:
             encoded = urlencode(data).encode("utf-8")
-            req = Request(
+            req = Request(  # noqa: S310 -- hardcoded Google OAuth URL
                 impl.GOOGLE_TOKEN_URL,
                 data=encoded,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
-            with urllib_request.urlopen(req) as response:
+            with urllib_request.urlopen(req) as response:  # noqa: S310 -- hardcoded Google OAuth URL
                 body = response.read()
             if not body:
                 raise ValueError("Empty response from Google token endpoint")
@@ -378,11 +378,11 @@ class GoogleOAuthMixin:
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            req = Request(
+            req = Request(  # noqa: S310 -- hardcoded Google API URL
                 impl.GOOGLE_USERINFO_URL,
                 headers={"Authorization": f"Bearer {access_token}"},
             )
-            with urllib_request.urlopen(req) as response:
+            with urllib_request.urlopen(req) as response:  # noqa: S310 -- hardcoded Google API URL
                 body = response.read()
             try:
                 data = json.loads(body.decode("utf-8")) if body else {}

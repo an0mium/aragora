@@ -414,7 +414,7 @@ class TokenRotationManager:
                 "Set ARAGORA_GITHUB_OWNER or pass github_owner in config."
             )
 
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
             cmd,
             input=token_value,
             capture_output=True,
@@ -485,7 +485,7 @@ class TokenRotationManager:
         """Verify PyPI token via twine check or pip config."""
         try:
             result = subprocess.run(
-                ["pip", "config", "get", "global.index-url"],
+                ["pip", "config", "get", "global.index-url"],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -499,7 +499,7 @@ class TokenRotationManager:
         """Verify npm token via npm whoami."""
         try:
             result = subprocess.run(
-                ["npm", "whoami"],
+                ["npm", "whoami"],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -512,7 +512,7 @@ class TokenRotationManager:
         """Verify GitHub PAT via gh auth status."""
         try:
             result = subprocess.run(
-                ["gh", "auth", "status"],
+                ["gh", "auth", "status"],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 timeout=10,

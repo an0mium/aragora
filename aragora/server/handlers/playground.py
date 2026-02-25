@@ -1324,7 +1324,7 @@ class PlaygroundHandler(BaseHandler):
                 },
             }
         ).encode()
-        req = urllib.request.Request(
+        req = urllib.request.Request(  # noqa: S310 -- hardcoded ElevenLabs API URL
             url,
             data=payload,
             headers={
@@ -1335,7 +1335,7 @@ class PlaygroundHandler(BaseHandler):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 -- hardcoded ElevenLabs API URL
                 audio_bytes = resp.read()
         except urllib.error.HTTPError as exc:
             logger.warning("ElevenLabs TTS failed: %s", exc.code)

@@ -99,7 +99,7 @@ class GitHubConnector(BaseConnector):
 
         try:
             result = subprocess.run(
-                ["gh", "auth", "status"],
+                ["gh", "auth", "status"],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 timeout=Timeouts.CONNECTOR_AUTH,

@@ -152,12 +152,12 @@ class AppleOAuthMixin:
         }
 
         encoded = urlencode(data).encode("utf-8")
-        req = Request(
+        req = Request(  # noqa: S310 -- hardcoded Apple OAuth URL
             impl.APPLE_TOKEN_URL,
             data=encoded,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
-        with urlopen(req) as response:
+        with urlopen(req) as response:  # noqa: S310 -- hardcoded Apple OAuth URL
             body = response.read()
         return json.loads(body.decode("utf-8")) if body else {}
 

@@ -623,8 +623,8 @@ class CodebaseAuditor:
 
         # Get list of changed files
         try:
-            result = subprocess.run(
-                ["git", "diff", "--name-only", "--diff-filter=ACMR", base_ref, head_ref],
+            result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
+                ["git", "diff", "--name-only", "--diff-filter=ACMR", base_ref, head_ref],  # noqa: S607 -- fixed command
                 cwd=str(self.root_path),
                 capture_output=True,
                 text=True,
@@ -647,7 +647,7 @@ class CodebaseAuditor:
         if include_untracked:
             try:
                 result = subprocess.run(
-                    ["git", "ls-files", "--others", "--exclude-standard"],
+                    ["git", "ls-files", "--others", "--exclude-standard"],  # noqa: S607 -- fixed command
                     cwd=str(self.root_path),
                     capture_output=True,
                     text=True,

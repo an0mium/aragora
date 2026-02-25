@@ -111,7 +111,7 @@ class GitReconciler:
     ) -> subprocess.CompletedProcess[str]:
         """Run a git command."""
         cmd = ["git"] + list(args)
-        return subprocess.run(
+        return subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
             cmd,
             cwd=cwd or self.repo_path,
             capture_output=True,
@@ -342,7 +342,7 @@ class GitReconciler:
             cmd.extend(["--ignore", ignored])
 
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                 cmd,
                 cwd=cwd,
                 capture_output=True,

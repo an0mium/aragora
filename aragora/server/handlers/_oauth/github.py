@@ -235,7 +235,7 @@ class GitHubOAuthMixin:
             asyncio.get_running_loop()
         except RuntimeError:
             encoded = urlencode(data).encode("utf-8")
-            req = Request(
+            req = Request(  # noqa: S310 -- hardcoded GitHub OAuth URL
                 impl.GITHUB_TOKEN_URL,
                 data=encoded,
                 headers={
@@ -243,7 +243,7 @@ class GitHubOAuthMixin:
                     "Accept": "application/json",
                 },
             )
-            with urllib_request.urlopen(req) as response:
+            with urllib_request.urlopen(req) as response:  # noqa: S310 -- hardcoded GitHub OAuth URL
                 body = response.read()
             try:
                 return json.loads(body.decode("utf-8")) if body else {}
@@ -282,14 +282,14 @@ class GitHubOAuthMixin:
             if isinstance(side_effect, list):
                 urlopen_fn.side_effect = iter(side_effect)  # type: ignore[attr-defined]
             # Get basic user info
-            req = Request(
+            req = Request(  # noqa: S310 -- hardcoded GitHub API URL
                 impl.GITHUB_USERINFO_URL,
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Accept": "application/json",
                 },
             )
-            with urlopen_fn(req) as response:
+            with urlopen_fn(req) as response:  # noqa: S310 -- hardcoded GitHub API URL
                 body = response.read()
             try:
                 user_data = json.loads(body.decode("utf-8")) if body else {}
@@ -303,7 +303,7 @@ class GitHubOAuthMixin:
 
             if not email:
                 # Email not public, fetch from emails endpoint
-                req = Request(
+                req = Request(  # noqa: S310 -- hardcoded GitHub API URL
                     impl.GITHUB_EMAILS_URL,
                     headers={
                         "Authorization": f"Bearer {access_token}",

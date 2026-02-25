@@ -295,11 +295,7 @@ class TestOpenAPIDecoratorCoverageAudit:
     @pytest.mark.parametrize("module_path", _HANDLERS_EXPECTED_TO_HAVE_API_ENDPOINT)
     def test_known_handlers_have_api_endpoint(self, module_path: str) -> None:
         """Known handler modules with can_handle/handle should use @api_endpoint."""
-        try:
-            module = importlib.import_module(module_path)
-        except ImportError:
-            pytest.skip(f"Module {module_path} not importable (optional dependency?)")
-            return
+        module = importlib.import_module(module_path)
 
         assert _module_has_handler_class(module), (
             f"{module_path} should define a handler class with can_handle or handle"

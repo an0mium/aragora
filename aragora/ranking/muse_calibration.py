@@ -16,7 +16,13 @@ from collections.abc import Sequence
 from itertools import combinations
 import logging
 
-import numpy as np
+
+def _np():
+    """Lazy-load numpy to avoid ~3-5s import at module level."""
+    import numpy as np
+
+    return np
+
 
 try:
     from scipy.spatial.distance import jensenshannon
@@ -26,8 +32,9 @@ except ImportError:
     HAS_SCIPY = False
 
     # Fallback JSD implementation
-    def jensenshannon(p: np.ndarray, q: np.ndarray) -> float:
+    def jensenshannon(p, q) -> float:  # type: ignore[misc]
         """Fallback Jensen-Shannon divergence."""
+        np = _np()
         p = np.asarray(p, dtype=float)
         q = np.asarray(q, dtype=float)
         p = p / p.sum()
@@ -130,7 +137,7 @@ class MUSECalculator:
 
         # Handle small ensembles
         if len(agent_responses) < self.config.min_subset_size:
-            avg_confidence = np.mean([r.get("confidence", 0.5) for r in agent_responses.values()])
+            avg_confidence = _np().mean([r.get("confidence", 0.5) for r in agent_responses.values()])
             return MUSEResult(
                 consensus_confidence=float(avg_confidence),
                 divergence_score=0.0,
@@ -150,13 +157,13 @@ class MUSECalculator:
             consensus_confidence = 1.0 - min(divergence_score, 1.0)
         else:
             # Use average confidence from subset
-            consensus_confidence = np.mean(
+            consensus_confidence = _np().mean(
                 [agent_responses[a].get("confidence", 0.5) for a in best_subset]
             )
 
         # Calculate subset agreement (inverse of confidence variance)
         subset_confidences = [agent_responses[a].get("confidence", 0.5) for a in best_subset]
-        subset_agreement = 1.0 - min(float(np.std(subset_confidences)), 1.0)
+        subset_agreement = 1.0 - min(float(_np().std(subset_confidences)), 1.0)
 
         logger.debug(
             "muse_calculation subset=%s jsd=%.3f confidence=%.3f agreement=%.3f",
@@ -222,7 +229,7 @@ class MUSECalculator:
     ) -> float:
         """Calculate average Brier score for agents."""
         scores = [calibration.get(a, self.config.default_brier) for a in agents]
-        return float(np.mean(scores))
+        return float(_np().mean(scores))
 
     def _answer_agreement_bonus(
         self,
@@ -271,7 +278,7 @@ class MUSECalculator:
                 # Create binary distribution from confidence
                 conf = response.get("confidence", 0.5)
                 dist = [conf, 1 - conf]
-            distributions.append(np.array(dist, dtype=float))
+            distributions.append(_np().array(dist, dtype=float))
 
         # Normalize to same length
         max_len = max(len(d) for d in distributions)
@@ -284,10 +291,10 @@ class MUSECalculator:
                 jsd = jensenshannon(normalized[i], normalized[j])
                 jsd_scores.append(jsd)
 
-        avg_jsd = float(np.mean(jsd_scores)) if jsd_scores else 0.0
+        avg_jsd = float(_np().mean(jsd_scores)) if jsd_scores else 0.0
 
         # Calculate individual divergences from mean distribution
-        mean_dist = np.mean(normalized, axis=0)
+        mean_dist = _np().mean(normalized, axis=0)
         individual_divs = {
             agent_id: float(jensenshannon(normalized[i], mean_dist))
             for i, agent_id in enumerate(agents)
@@ -297,10 +304,11 @@ class MUSECalculator:
 
     def _normalize_distribution(
         self,
-        dist: np.ndarray,
+        dist: Any,
         target_len: int,
-    ) -> np.ndarray:
+    ) -> Any:
         """Normalize distribution to target length with valid probabilities."""
+        np = _np()
         dist = np.array(dist, dtype=float)
 
         if len(dist) == target_len:
@@ -350,7 +358,7 @@ class MUSECalculator:
             Mapping of agent_id to average Brier score
         """
         return {
-            agent_id: float(np.mean(scores))
+            agent_id: float(_np().mean(scores))
             for agent_id, scores in self._calibration_history.items()
             if scores
         }

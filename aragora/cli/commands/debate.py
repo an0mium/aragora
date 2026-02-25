@@ -45,7 +45,7 @@ def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Any | N
         import urllib.request
 
         # Quick health check
-        with urllib.request.urlopen(f"{server_url}/api/health", timeout=2) as resp:
+        with urllib.request.urlopen(f"{server_url}/api/health", timeout=2) as resp:  # noqa: S310 -- local server health check
             status_code = getattr(resp, "status", None) or resp.getcode()
             if status_code == 200:
                 # Server is up, try to get emitter
@@ -134,7 +134,7 @@ def _is_server_available(server_url: str) -> bool:
     try:
         import urllib.request
 
-        with urllib.request.urlopen(f"{server_url}/api/health", timeout=2) as resp:
+        with urllib.request.urlopen(f"{server_url}/api/health", timeout=2) as resp:  # noqa: S310 -- local server health check
             status_code = getattr(resp, "status", None) or resp.getcode()
             return status_code == 200
     except (OSError, TimeoutError):

@@ -303,15 +303,11 @@ class TestValidateRedisConnectivity:
         Marked as integration test since it depends on Redis.
         """
         with patch.dict("os.environ", {"REDIS_URL": "redis://localhost:6379"}, clear=True):
-            try:
-                result = await validate_redis_connectivity(timeout_seconds=1.0)
-                assert isinstance(result, tuple)
-                assert len(result) == 2
-                assert isinstance(result[0], bool)
-                assert isinstance(result[1], str)
-            except Exception:
-                # If exception escapes, skip - service unavailable
-                pytest.skip("Redis not available")
+            result = await validate_redis_connectivity(timeout_seconds=1.0)
+            assert isinstance(result, tuple)
+            assert len(result) == 2
+            assert isinstance(result[0], bool)
+            assert isinstance(result[1], str)
 
 
 # ---------------------------------------------------------------------------

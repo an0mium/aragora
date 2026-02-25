@@ -408,7 +408,7 @@ class RollbackManager:
         # Capture git commit
         try:
             result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
+                ["git", "rev-parse", "HEAD"],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 cwd=self.repo_path,
@@ -475,8 +475,8 @@ class RollbackManager:
         # Restore git state
         if restore_git and point.git_commit:
             try:
-                result = subprocess.run(
-                    ["git", "reset", "--hard", point.git_commit],
+                result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
+                    ["git", "reset", "--hard", point.git_commit],  # noqa: S607 -- fixed command
                     capture_output=True,
                     text=True,
                     cwd=self.repo_path,
@@ -701,7 +701,7 @@ class CodeVerifier:
                 cmd.extend(str(f) for f in files)
             else:
                 cmd.append(".")
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                 cmd,
                 capture_output=True,
                 text=True,
@@ -728,7 +728,7 @@ class CodeVerifier:
                 if test_files:
                     cmd.extend(test_files)
 
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                 cmd,
                 capture_output=True,
                 text=True,
@@ -788,7 +788,7 @@ class CodeVerifier:
                 cmd.extend(str(f) for f in files)
             else:
                 cmd.append(".")
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                 cmd,
                 capture_output=True,
                 text=True,

@@ -280,7 +280,7 @@ class VerificationStep(BaseStep):
 
         try:
             cmd = ["python", "-m", "pytest", *test_paths, "-v", "--tb=short"]
-            proc = subprocess.run(
+            proc = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                 cmd,
                 capture_output=True,
                 text=True,

@@ -435,7 +435,7 @@ class ExecutionBridge:
                 }
             ).encode()
 
-            req = urllib.request.Request(
+            req = urllib.request.Request(  # noqa: S310 -- webhook URL from config
                 webhook_url,
                 data=payload,
                 headers={"Content-Type": "application/json"},

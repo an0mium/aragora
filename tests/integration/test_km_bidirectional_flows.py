@@ -542,8 +542,7 @@ class TestHandlerKMWiring:
             BELIEF_NETWORK_AVAILABLE,
         )
 
-        if not BELIEF_NETWORK_AVAILABLE:
-            pytest.skip("BeliefNetwork not available")
+        assert BELIEF_NETWORK_AVAILABLE, "BeliefNetwork not available"
 
         ctx = {}
         handler = BeliefHandler(ctx)

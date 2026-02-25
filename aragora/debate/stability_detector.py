@@ -15,14 +15,19 @@ from typing import Any
 from collections.abc import Iterable
 import logging
 
-import numpy as np
-
 try:
     from scipy import stats
 
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
+
+
+def _np():
+    """Lazy-load numpy to avoid ~3-5s import at module level."""
+    import numpy as np
+
+    return np
 
 logger = logging.getLogger(__name__)
 
@@ -268,6 +273,7 @@ class BetaBinomialStabilityDetector:
         votes2: dict[str, float],
     ) -> float:
         """Calculate KS-distance between two vote distributions."""
+        np = _np()
         # Get union of all agents
         all_agents = set(votes1.keys()) | set(votes2.keys())
 
@@ -292,8 +298,9 @@ class BetaBinomialStabilityDetector:
             cdf2 = np.cumsum(dist2)
             return float(np.max(np.abs(cdf1 - cdf2)))
 
-    def _normalize_distribution(self, dist: np.ndarray) -> np.ndarray:
+    def _normalize_distribution(self, dist: Any) -> Any:
         """Normalize array to valid probability distribution."""
+        np = _np()
         dist = np.clip(dist, 0, None)  # Ensure non-negative
         total = dist.sum()
         if total == 0:
@@ -382,7 +389,7 @@ class BetaBinomialStabilityDetector:
             "total_rounds": len(self._vote_history),
             "stability_scores": self._stability_scores.copy(),
             "avg_stability": (
-                float(np.mean(self._stability_scores)) if self._stability_scores else 0.0
+                float(_np().mean(self._stability_scores)) if self._stability_scores else 0.0
             ),
             "stable_since": self._stable_since,
         }

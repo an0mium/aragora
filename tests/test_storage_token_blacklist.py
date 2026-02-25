@@ -344,16 +344,16 @@ class TestRedisBlacklist:
 
     @pytest.fixture
     def blacklist(self, redis_url):
-        """Create Redis blacklist with test prefix."""
+        """Create Redis blacklist with test prefix.
+
+        Raises ConnectionError if Redis is not available.
+        """
         from aragora.storage.token_blacklist_store import RedisBlacklist
 
-        try:
-            bl = RedisBlacklist(redis_url, key_prefix="aragora:test:blacklist:")
-            # Clear test keys
-            bl._client.delete(*bl._client.keys(f"{bl._prefix}*") or ["_dummy"])
-            yield bl
-        except Exception:
-            pytest.skip("Redis not available for testing")
+        bl = RedisBlacklist(redis_url, key_prefix="aragora:test:blacklist:")
+        # Clear test keys
+        bl._client.delete(*bl._client.keys(f"{bl._prefix}*") or ["_dummy"])
+        yield bl
 
     def test_add_and_contains_redis(self, blacklist):
         """Test adding and checking tokens in Redis."""

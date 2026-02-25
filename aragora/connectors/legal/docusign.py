@@ -430,8 +430,8 @@ class DocuSignConnector:
 
                         if response.status >= 500 and attempt < _MAX_RETRIES:
                             delay = min(
-                                _BASE_DELAY * (2**attempt) + random.uniform(0, 1),
-                                _MAX_DELAY,  # noqa: S311 -- retry jitter
+                                _BASE_DELAY * (2**attempt) + random.uniform(0, 1),  # noqa: S311 -- retry jitter
+                                _MAX_DELAY,
                             )
                             logger.warning(
                                 "DocuSign server error %d, retrying in %.1fs (attempt %d/%d)",

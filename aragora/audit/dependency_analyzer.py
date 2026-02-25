@@ -668,8 +668,8 @@ class DependencyAnalyzer:
         try:
             # Use pip show to get dependencies
             for dep_name in list(direct_deps.keys())[:50]:  # Limit to avoid timeout
-                result = subprocess.run(
-                    ["pip", "show", dep_name],
+                result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
+                    ["pip", "show", dep_name],  # noqa: S607 -- fixed command
                     capture_output=True,
                     text=True,
                     timeout=10,
@@ -719,7 +719,7 @@ class DependencyAnalyzer:
         # Try pip-audit first
         try:
             result = subprocess.run(
-                ["pip-audit", "--format", "json"],
+                ["pip-audit", "--format", "json"],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -784,7 +784,7 @@ class DependencyAnalyzer:
 
         try:
             result = subprocess.run(
-                ["npm", "audit", "--json"],
+                ["npm", "audit", "--json"],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 cwd=path,

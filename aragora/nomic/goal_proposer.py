@@ -465,7 +465,7 @@ class GoalProposer:
             import subprocess
 
             result = subprocess.run(
-                ["ruff", "check", "--quiet", "--output-format=concise", "."],
+                ["ruff", "check", "--quiet", "--output-format=concise", "."],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 timeout=20,

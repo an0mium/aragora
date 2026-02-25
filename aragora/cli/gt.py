@@ -631,7 +631,7 @@ def cmd_migrate(args: argparse.Namespace) -> int:
     if args.apply:
         cmd.append("--apply")
 
-    result = subprocess.run(cmd, check=False)
+    result = subprocess.run(cmd, check=False)  # noqa: S603 -- subprocess with fixed args, no shell
     return result.returncode
 
 

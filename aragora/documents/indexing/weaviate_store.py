@@ -32,13 +32,23 @@ from aragora.documents.models import DocumentChunk
 
 logger = logging.getLogger(__name__)
 
-# Weaviate library (always available)
-import weaviate  # noqa: F401
-from weaviate.classes.config import Configure, Property, DataType  # noqa: F401
-from weaviate.classes.query import MetadataQuery, Filter  # noqa: F401
-from weaviate.classes.data import DataObject  # noqa: F401
+try:
+    import weaviate
+    from weaviate.classes.config import Configure, Property, DataType
+    from weaviate.classes.query import MetadataQuery, Filter
+    from weaviate.classes.data import DataObject  # noqa: F401
 
-WEAVIATE_AVAILABLE = True
+    WEAVIATE_AVAILABLE = True
+except ImportError:
+    weaviate = None  # type: ignore[assignment]
+    Configure = None  # type: ignore[assignment,misc]
+    Property = None  # type: ignore[assignment,misc]
+    DataType = None  # type: ignore[assignment,misc]
+    MetadataQuery = None  # type: ignore[assignment,misc]
+    Filter = None  # type: ignore[assignment,misc]
+    DataObject = None  # type: ignore[assignment,misc]
+
+    WEAVIATE_AVAILABLE = False
 
 
 @dataclass

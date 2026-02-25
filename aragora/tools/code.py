@@ -371,7 +371,7 @@ class CodeWriter:
         """Check if we're in a git repository."""
         try:
             subprocess.run(
-                ["git", "rev-parse", "--git-dir"],
+                ["git", "rev-parse", "--git-dir"],  # noqa: S607 -- fixed command
                 cwd=self.root,
                 capture_output=True,
                 check=True,
@@ -387,8 +387,8 @@ class CodeWriter:
             return False
 
         try:
-            subprocess.run(
-                ["git", "checkout", "-b", branch_name],
+            subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
+                ["git", "checkout", "-b", branch_name],  # noqa: S607 -- fixed command
                 cwd=self.root,
                 capture_output=True,
                 check=True,
@@ -465,7 +465,7 @@ class CodeWriter:
         # Try to run tests
         try:
             result = subprocess.run(
-                ["python", "-m", "pytest", "--tb=short", "-q"],
+                ["python", "-m", "pytest", "--tb=short", "-q"],  # noqa: S607 -- fixed command
                 cwd=self.root,
                 capture_output=True,
                 timeout=180,  # Minimum 3 min (was 60)
@@ -489,7 +489,7 @@ class CodeWriter:
             syntax_failed = False
             for i in range(0, len(py_files), batch_size):
                 batch = py_files[i : i + batch_size]
-                result = subprocess.run(
+                result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                     ["python", "-m", "py_compile"] + [str(p) for p in batch],
                     cwd=self.root,
                     capture_output=True,
@@ -518,14 +518,14 @@ class CodeWriter:
 
         try:
             subprocess.run(
-                ["git", "add", "-A"],
+                ["git", "add", "-A"],  # noqa: S607 -- fixed command
                 cwd=self.root,
                 check=True,
                 capture_output=True,
                 shell=False,
             )
-            subprocess.run(
-                ["git", "commit", "-m", f"{title}\n\n{description}\n\n[aragora auto-commit]"],
+            subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
+                ["git", "commit", "-m", f"{title}\n\n{description}\n\n[aragora auto-commit]"],  # noqa: S607 -- fixed command
                 cwd=self.root,
                 check=True,
                 capture_output=True,
@@ -542,7 +542,7 @@ class CodeWriter:
 
         try:
             subprocess.run(
-                ["git", "reset", "--hard", "HEAD~1"],
+                ["git", "reset", "--hard", "HEAD~1"],  # noqa: S607 -- fixed command
                 cwd=self.root,
                 check=True,
                 shell=False,

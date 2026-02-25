@@ -323,7 +323,7 @@ async def run_sandboxed(
         result = await asyncio.wait_for(
             loop.run_in_executor(
                 None,
-                lambda: subprocess.run(
+                lambda: subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
                     list(cmd),
                     cwd=cwd,
                     capture_output=capture_output,
@@ -420,7 +420,7 @@ def run_sandboxed_sync(
     logger.debug("Running sandboxed (sync): %s", shlex.join(cmd))
 
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
             list(cmd),
             cwd=cwd,
             capture_output=capture_output,

@@ -217,7 +217,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         if getattr(args, "test_first", False):
             wt_path = coordinator.get_worktree_path(branch) or repo_root
             result = subprocess.run(
-                ["python", "-m", "pytest", "tests/", "-x", "-q", "--tb=short"],
+                ["python", "-m", "pytest", "tests/", "-x", "-q", "--tb=short"],  # noqa: S607 -- fixed command
                 cwd=wt_path,
                 capture_output=True,
                 text=True,
@@ -256,7 +256,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
             if getattr(args, "test_first", False):
                 wt_path = coordinator.get_worktree_path(branch) or repo_root
                 result = subprocess.run(
-                    ["python", "-m", "pytest", "tests/", "-x", "-q", "--tb=short"],
+                    ["python", "-m", "pytest", "tests/", "-x", "-q", "--tb=short"],  # noqa: S607 -- fixed command
                     cwd=wt_path,
                     capture_output=True,
                     text=True,

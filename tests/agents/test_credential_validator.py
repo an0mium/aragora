@@ -119,7 +119,16 @@ class TestFilterAvailableAgents:
         openai_available = validate_agent_credentials("openai-api")
 
         if anthropic_available and openai_available:
-            pytest.skip("Skipping: agents have valid credentials in this environment")
+            # Both agents have credentials; fall through to test with mock credentials
+            specs = [
+                AgentSpec(provider="anthropic-api", name="claude-1"),
+                AgentSpec(provider="openai-api", name="gpt-1"),
+            ]
+            # Force unavailable by patching env
+            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "", "OPENAI_API_KEY": ""}, clear=False):
+                with pytest.raises(ValueError, match="agents have valid credentials"):
+                    filter_available_agents(specs, log_filtered=False, min_agents=2)
+            return
 
         # Test with unavailable agents
         specs = []
@@ -128,8 +137,7 @@ class TestFilterAvailableAgents:
         if not openai_available:
             specs.append(AgentSpec(provider="openai-api", name="gpt-1"))
 
-        if len(specs) < 2:
-            pytest.skip("Need at least 2 unavailable agents to test minimum threshold")
+        assert len(specs) >= 2, "Need at least 2 unavailable agents to test minimum threshold"
 
         with pytest.raises(ValueError, match="agents have valid credentials"):
             filter_available_agents(specs, log_filtered=False, min_agents=2)

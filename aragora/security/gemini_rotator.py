@@ -207,7 +207,7 @@ def _get_project_id() -> str | None:
         import subprocess
 
         result = subprocess.run(
-            ["gcloud", "config", "get-value", "project"],
+            ["gcloud", "config", "get-value", "project"],  # noqa: S607 -- fixed command
             capture_output=True,
             text=True,
             timeout=10,

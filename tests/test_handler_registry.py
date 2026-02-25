@@ -170,8 +170,7 @@ class TestHandlerRouting:
     @pytest.mark.parametrize("handler_name,expected_paths", EXPECTED_ROUTES)
     def test_handler_routes_expected_paths(self, handlers, handler_name, expected_paths):
         """Each handler should route its expected paths."""
-        if handler_name not in handlers:
-            pytest.skip(f"{handler_name} not available")
+        assert handler_name in handlers, f"{handler_name} not available"
 
         handler = handlers[handler_name]
         for path in expected_paths:

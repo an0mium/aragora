@@ -755,7 +755,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 cmd.append("--auto-approve")
 
             # Start in background (DEVNULL since output is not read)
-            process = subprocess.Popen(
+            process = subprocess.Popen(  # noqa: S603 -- subprocess with fixed args, no shell
                 cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,

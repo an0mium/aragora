@@ -461,7 +461,7 @@ class StrategicScanner:
         result: dict[str, float] = {}
         try:
             proc = subprocess.run(
-                ["git", "log", "--format=%at", "--name-only", "--diff-filter=ACMR"],
+                ["git", "log", "--format=%at", "--name-only", "--diff-filter=ACMR"],  # noqa: S607 -- fixed command
                 capture_output=True,
                 text=True,
                 cwd=str(self._repo_path),

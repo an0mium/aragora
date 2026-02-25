@@ -165,8 +165,7 @@ class TestAssessmentIntegration:
         assert len(scanner_sources) == 1
         scanner = scanner_sources[0]
 
-        if scanner.error:
-            pytest.skip(f"Scanner unavailable: {scanner.error}")
+        assert not scanner.error, f"Scanner unavailable: {scanner.error}"
 
         assert len(scanner.findings) > 0
 
@@ -250,8 +249,7 @@ class TestGoalGenerationIntegration:
         generator = GoalGenerator(max_goals=5)
         goals = generator.generate_goals(self.report)
 
-        if not self.report.improvement_candidates:
-            pytest.skip("No improvement candidates found")
+        assert self.report.improvement_candidates, "No improvement candidates found"
 
         assert len(goals) > 0
         assert len(goals) <= 5
@@ -268,8 +266,7 @@ class TestGoalGenerationIntegration:
         generator = GoalGenerator(max_goals=5)
         ideas = generator.generate_ideas(self.report)
 
-        if not self.report.improvement_candidates:
-            pytest.skip("No improvement candidates found")
+        assert self.report.improvement_candidates, "No improvement candidates found"
 
         assert len(ideas) > 0
         assert len(ideas) <= 5

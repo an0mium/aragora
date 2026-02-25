@@ -463,8 +463,8 @@ class WorktreeWatchdog:
             worktree_path = session.worktree_path
             if worktree_path.exists():
                 try:
-                    result = subprocess.run(
-                        ["git", "worktree", "remove", "--force", str(worktree_path)],
+                    result = subprocess.run(  # noqa: S603 -- subprocess with fixed args, no shell
+                        ["git", "worktree", "remove", "--force", str(worktree_path)],  # noqa: S607 -- fixed command
                         cwd=self.repo_path,
                         capture_output=True,
                         text=True,
@@ -507,7 +507,7 @@ class WorktreeWatchdog:
         if cleaned:
             try:
                 subprocess.run(
-                    ["git", "worktree", "prune"],
+                    ["git", "worktree", "prune"],  # noqa: S607 -- fixed command
                     cwd=self.repo_path,
                     capture_output=True,
                     text=True,
