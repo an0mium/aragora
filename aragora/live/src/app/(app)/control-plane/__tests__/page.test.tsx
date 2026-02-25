@@ -286,7 +286,7 @@ describe('ControlPlanePage', () => {
       'Assess migration risk for service X'
     );
 
-    await user.click(screen.getByRole('button', { name: /RUN ROBUST DECISIONMAKING/i }));
+    await user.click(screen.getByRole('button', { name: /START DEBATE/i }));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(

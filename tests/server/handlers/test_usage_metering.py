@@ -127,7 +127,7 @@ class MockUsageBreakdown:
 class MockUsageLimits:
     """Mock usage limits response."""
 
-    tier: str = "enterprise_plus"
+    tier: str = "enterprise"
     token_limit: int = 999999999
     debate_limit: int = 999999
     api_call_limit: int = 999999

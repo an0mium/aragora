@@ -120,11 +120,6 @@ TIER_USAGE_CAPS: dict[str, dict[str, int]] = {
         "max_api_calls": 10_000,
     },
     "enterprise": {
-        "max_tokens": 100_000_000,
-        "max_debates": 999_999,
-        "max_api_calls": 999_999,
-    },
-    "enterprise_plus": {
         "max_tokens": 999_999_999,  # Effectively unlimited
         "max_debates": 999_999,
         "max_api_calls": 999_999,

@@ -1,5 +1,5 @@
 """
-Usage-Based Billing Metering Service for ENTERPRISE_PLUS Tier.
+Usage-Based Billing Metering Service for ENTERPRISE Tier.
 
 Provides comprehensive token-level metering with:
 - Per-model, per-provider cost tracking
@@ -69,7 +69,7 @@ DEFAULT_METERING_DB = get_nomic_dir() / "usage_metering.db"
 
 class UsageMeter:
     """
-    Usage metering service for ENTERPRISE_PLUS tier.
+    Usage metering service for ENTERPRISE tier.
 
     Provides comprehensive token-level tracking, hourly aggregation,
     and billing integration.
@@ -714,7 +714,7 @@ class UsageMeter:
         self,
         org_id: str,
         period: str = "month",
-        tier: str = "enterprise_plus",
+        tier: str = "enterprise",
         start_date: datetime | None = None,
         end_date: datetime | None = None,
     ) -> UsageSummary:
@@ -834,7 +834,7 @@ class UsageMeter:
             summary.cost_by_day[row["day"]] = Decimal(str(row["cost"] or 0))
 
         # Set limits based on tier
-        caps = TIER_USAGE_CAPS.get(tier, TIER_USAGE_CAPS["enterprise_plus"])
+        caps = TIER_USAGE_CAPS.get(tier, TIER_USAGE_CAPS["enterprise"])
         summary.token_limit = caps["max_tokens"]
         summary.debate_limit = caps["max_debates"]
         summary.api_call_limit = caps["max_api_calls"]
@@ -1027,7 +1027,7 @@ class UsageMeter:
     async def get_usage_limits(
         self,
         org_id: str,
-        tier: str = "enterprise_plus",
+        tier: str = "enterprise",
     ) -> UsageLimits:
         """
         Get current usage limits and utilization.
@@ -1051,7 +1051,7 @@ class UsageMeter:
         )
 
         # Set limits based on tier
-        caps = TIER_USAGE_CAPS.get(tier, TIER_USAGE_CAPS["enterprise_plus"])
+        caps = TIER_USAGE_CAPS.get(tier, TIER_USAGE_CAPS["enterprise"])
         limits.max_tokens = caps["max_tokens"]
         limits.max_debates = caps["max_debates"]
         limits.max_api_calls = caps["max_api_calls"]

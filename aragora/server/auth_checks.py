@@ -50,7 +50,6 @@ _DEFAULT_LIVE_LIMITS: dict[str, int] = {
     "starter": 50,
     "professional": 200,
     "enterprise": 999999,
-    "enterprise_plus": 999999,
 }
 
 

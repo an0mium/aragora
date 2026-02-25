@@ -1,7 +1,7 @@
 """
 Usage Metering API Handlers.
 
-Provides billing usage endpoints for ENTERPRISE_PLUS tier:
+Provides billing usage endpoints for ENTERPRISE tier:
 - GET /api/v1/billing/usage - Current usage summary
 - GET /api/v1/billing/usage/breakdown - Detailed breakdown
 - GET /api/v1/billing/limits - Current limits and usage %
@@ -37,7 +37,7 @@ class UsageMeteringHandler(SecureHandler):
     """Handler for usage metering endpoints.
 
     Provides comprehensive usage tracking and billing information
-    for ENTERPRISE_PLUS tier customers.
+    for ENTERPRISE tier customers.
     """
 
     def __init__(self, ctx: dict | None = None):
@@ -299,7 +299,7 @@ class UsageMeteringHandler(SecureHandler):
             JSON response with limits and usage:
             {
                 "limits": {
-                    "tier": "enterprise_plus",
+                    "tier": "enterprise",
                     "limits": {
                         "tokens": 999999999,
                         "debates": 999999,

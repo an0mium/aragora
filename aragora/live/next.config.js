@@ -15,12 +15,11 @@ const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString()
 const nextConfig = {
   // Use 'standalone' for Docker, 'export' for static hosting
   output: requestedOutput || 'standalone',
-  // Ensure dev and build use separate output dirs to prevent stale-artifact
-  // race conditions (ENOENT on _ssgManifest.js / pages-manifest.json).
-  isolatedDevBuild: true,
-  // Force-clean the .next build output before each build so no stale build-ID
-  // artifacts can conflict with the new compilation.
-  cleanDistDir: true,
+  // Production builds use --webpack (see package.json) because Turbopack has a
+  // build-ID race condition in Next.js 16.1.x: the "finalizing page optimization"
+  // step reads _ssgManifest.js under one build ID while Turbopack wrote it under
+  // another, causing ENOENT.  Turbopack remains the default for `next dev`.
+  // The "clean" npm script also does rm -rf .next before every build.
   trailingSlash: true,
   images: {
     unoptimized: true,

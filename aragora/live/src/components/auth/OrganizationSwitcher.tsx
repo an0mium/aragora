@@ -102,7 +102,6 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
       case 'starter': return 'text-acid-cyan';
       case 'professional': return 'text-acid-green';
       case 'enterprise': return 'text-warning';
-      case 'enterprise_plus': return 'text-acid-magenta';
       default: return 'text-text-muted';
     }
   };

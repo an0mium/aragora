@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 import { logger } from '@/utils/logger';
+import { useQueueMonitoring, type SubmitJobPayload } from '@/hooks/useQueueMonitoring';
 
 interface QueueStats {
   pending: number;
@@ -60,6 +61,13 @@ export default function QueuePage() {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [submitQuestion, setSubmitQuestion] = useState('');
+  const [submitPriority, setSubmitPriority] = useState(5);
+  const [submitting, setSubmitting] = useState(false);
+
+  // useQueueMonitoring provides submitJob, retryJob, cancelJob with proper API calls
+  const queueMonitor = useQueueMonitoring({ autoRefresh: false });
 
   const fetchData = useCallback(async () => {
     try {
@@ -126,6 +134,26 @@ export default function QueuePage() {
     }
   };
 
+  const handleSubmitJob = async () => {
+    if (!submitQuestion.trim()) return;
+    setSubmitting(true);
+    try {
+      const payload: SubmitJobPayload = {
+        question: submitQuestion.trim(),
+        priority: submitPriority,
+      };
+      await queueMonitor.submitJob(payload);
+      setShowSubmitModal(false);
+      setSubmitQuestion('');
+      setSubmitPriority(5);
+      fetchData(); // Refresh the job list
+    } catch (err) {
+      logger.error('Failed to submit job:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const filteredJobs = statusFilter === 'all'
     ? jobs
     : jobs.filter(j => j.status === statusFilter);
@@ -160,13 +188,21 @@ export default function QueuePage() {
                 Job queue status and worker management
               </p>
             </div>
-            <button
-              onClick={fetchData}
-              disabled={refreshing}
-              className="px-4 py-2 font-mono text-sm border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50"
-            >
-              {refreshing ? '[REFRESHING...]' : '[REFRESH]'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSubmitModal(true)}
+                className="px-4 py-2 font-mono text-sm bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+              >
+                [+ SUBMIT JOB]
+              </button>
+              <button
+                onClick={fetchData}
+                disabled={refreshing}
+                className="px-4 py-2 font-mono text-sm border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50"
+              >
+                {refreshing ? '[REFRESHING...]' : '[REFRESH]'}
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -337,6 +373,62 @@ export default function QueuePage() {
           )}
         </div>
       </main>
+
+      {/* Submit Job Modal (powered by useQueueMonitoring) */}
+      {showSubmitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-lg font-mono font-bold text-acid-green">[SUBMIT_JOB]</h2>
+              <button onClick={() => setShowSubmitModal(false)} className="text-text-muted hover:text-text text-xl">
+                x
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs font-mono text-text-muted uppercase mb-1">
+                  Question / Task
+                </label>
+                <textarea
+                  value={submitQuestion}
+                  onChange={(e) => setSubmitQuestion(e.target.value)}
+                  placeholder="Enter a debate question or task..."
+                  rows={3}
+                  className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-text-muted uppercase mb-1">
+                  Priority (1-10)
+                </label>
+                <input
+                  type="number"
+                  value={submitPriority}
+                  onChange={(e) => setSubmitPriority(Math.max(1, Math.min(10, parseInt(e.target.value) || 5)))}
+                  min={1}
+                  max={10}
+                  className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowSubmitModal(false)}
+                  className="flex-1 px-4 py-2 font-mono text-sm border border-border text-text-muted hover:border-text transition-colors rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitJob}
+                  disabled={submitting || !submitQuestion.trim()}
+                  className="flex-1 px-4 py-2 font-mono text-sm bg-acid-green text-bg hover:bg-acid-green/80 transition-colors rounded disabled:opacity-50"
+                >
+                  {submitting ? '[SUBMITTING...]' : '[SUBMIT]'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

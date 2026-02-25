@@ -1,9 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToastContext } from '@/context/ToastContext';
 import { API_BASE_URL } from '@/config';
 import { logger } from '@/utils/logger';
+import {
+  useConnectorWebSocket,
+  type ConnectorSyncState,
+} from '@/hooks/useConnectorWebSocket';
 import {
   type Connector,
   type ConnectorDetails,
@@ -737,6 +741,43 @@ export default function ConnectorsPage() {
   const [viewingConnectorId, setViewingConnectorId] = useState<string | null>(null);
   const [syncingConnectors, setSyncingConnectors] = useState<Set<string>>(new Set());
 
+  // Real-time connector sync updates via WebSocket
+  const {
+    isConnected: wsConnected,
+    syncs: activeSyncs,
+    recentDocuments,
+    rateLimitWarnings,
+    reconnect: wsReconnect,
+  } = useConnectorWebSocket({
+    enabled: true,
+    autoReconnect: true,
+    onSyncUpdate: useCallback((sync: ConnectorSyncState) => {
+      if (sync.status === 'completed' || sync.status === 'failed') {
+        showToast(
+          `Sync ${sync.connector_name}: ${sync.status}`,
+          sync.status === 'completed' ? 'success' : 'error',
+        );
+      }
+    }, [showToast]),
+  });
+
+  // Merge WebSocket sync progress into connector list for real-time updates
+  const connectorsWithLiveSync = useMemo(() => {
+    if (activeSyncs.length === 0) return connectors;
+    return connectors.map((c) => {
+      const liveSync = activeSyncs.find((s) => s.connector_id === c.id);
+      if (liveSync && liveSync.status === 'running') {
+        return {
+          ...c,
+          is_running: true,
+          sync_progress: liveSync.progress / 100,
+          status: 'syncing' as const,
+        };
+      }
+      return c;
+    });
+  }, [connectors, activeSyncs]);
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -887,6 +928,15 @@ export default function ConnectorsPage() {
             <p className="text-text-muted">
               Connect and sync data from external sources
             </p>
+            {wsConnected && (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="w-2 h-2 rounded-full bg-acid-green animate-pulse" />
+                <span className="text-xs font-mono text-acid-green">
+                  Live sync stream connected
+                  {activeSyncs.length > 0 && ` -- ${activeSyncs.length} active`}
+                </span>
+              </div>
+            )}
           </div>
 
           <button
@@ -982,7 +1032,7 @@ export default function ConnectorsPage() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {connectors.map((connector) => (
+            {connectorsWithLiveSync.map((connector) => (
               <ConnectorCard
                 key={connector.job_id || connector.id}
                 connector={connector}
@@ -997,8 +1047,44 @@ export default function ConnectorsPage() {
           </div>
         </div>
 
-        {/* Sync History */}
-        <div>
+        {/* Live Sync Activity (WebSocket) */}
+        <div className="space-y-6">
+          {/* Rate Limit Warnings */}
+          {rateLimitWarnings.length > 0 && (
+            <div>
+              <h3 className="text-sm font-mono font-bold text-red-400 mb-2">Rate Limit Warnings</h3>
+              <div className="space-y-2">
+                {rateLimitWarnings.map((w, i) => (
+                  <div key={`${w.connector_id}-${i}`} className="p-2 bg-red-500/10 border border-red-500/30 rounded text-xs font-mono text-red-400">
+                    {w.message}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent Document Ingestion */}
+          {recentDocuments.length > 0 && (
+            <div>
+              <h3 className="text-sm font-mono font-bold text-text mb-2">
+                Recent Documents ({recentDocuments.length})
+              </h3>
+              <div className="bg-surface border border-border rounded-lg overflow-hidden max-h-[200px] overflow-y-auto">
+                <div className="divide-y divide-border">
+                  {recentDocuments.slice(0, 10).map((doc, i) => (
+                    <div key={`${doc.document_id}-${i}`} className="px-3 py-2 flex items-center justify-between text-xs font-mono">
+                      <span className="truncate text-text">{doc.document_name}</span>
+                      <span className={doc.status === 'success' ? 'text-green-400' : doc.status === 'failed' ? 'text-red-400' : 'text-text-muted'}>
+                        {doc.status.toUpperCase()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sync History */}
           <h2 className="text-lg font-mono font-bold text-text mb-4">
             Recent Syncs
           </h2>

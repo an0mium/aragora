@@ -71,7 +71,7 @@ class MockOrganization:
         self.id = org_id
         self.name = name
         self.slug = slug
-        self.tier = tier if tier is not None else SubscriptionTier.ENTERPRISE_PLUS
+        self.tier = tier if tier is not None else SubscriptionTier.ENTERPRISE
 
 
 class MockUsageSummary:
@@ -119,7 +119,7 @@ class MockUsageLimits:
 
     def __init__(self, data: dict | None = None):
         self._data = data or {
-            "tier": "enterprise_plus",
+            "tier": "enterprise",
             "limits": {"tokens": 999999999, "debates": 999999, "api_calls": 999999},
             "used": {"tokens": 750000, "debates": 45, "api_calls": 1500},
             "percent": {"tokens": 0.075, "debates": 0.0045, "api_calls": 0.15},
@@ -314,7 +314,7 @@ class TestGetUsage:
         http = FakeHTTPHandler()
         await handler.handle("/api/v1/billing/usage", {}, http)
         call_kwargs = mock_meter.get_usage_summary.call_args
-        assert call_kwargs.kwargs["tier"] == "enterprise_plus"
+        assert call_kwargs.kwargs["tier"] == "enterprise"
 
     @pytest.mark.asyncio
     async def test_no_user_store_503(self, mock_meter):
@@ -507,14 +507,14 @@ class TestGetLimits:
         result = await handler.handle("/api/v1/billing/limits", {}, http_handler)
         data = parse_body(result)
         limits = data["limits"]
-        assert limits["tier"] == "enterprise_plus"
+        assert limits["tier"] == "enterprise"
 
     @pytest.mark.asyncio
     async def test_tier_passed_to_meter(self, handler, mock_meter):
         http = FakeHTTPHandler()
         await handler.handle("/api/v1/billing/limits", {}, http)
         call_kwargs = mock_meter.get_usage_limits.call_args
-        assert call_kwargs.kwargs["tier"] == "enterprise_plus"
+        assert call_kwargs.kwargs["tier"] == "enterprise"
 
     @pytest.mark.asyncio
     async def test_org_id_passed_to_meter(self, handler, mock_meter):
@@ -1028,10 +1028,10 @@ class TestGetOrgTier:
         result = handler._get_org_tier(org)
         assert result == "starter"
 
-    def test_enterprise_plus_tier(self, handler):
-        org = MockOrganization(tier=SubscriptionTier.ENTERPRISE_PLUS)
+    def test_enterprise_tier(self, handler):
+        org = MockOrganization(tier=SubscriptionTier.ENTERPRISE)
         result = handler._get_org_tier(org)
-        assert result == "enterprise_plus"
+        assert result == "enterprise"
 
 
 # ===========================================================================

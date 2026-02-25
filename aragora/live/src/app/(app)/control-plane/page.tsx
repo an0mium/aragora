@@ -688,7 +688,7 @@ export default function ControlPlanePage() {
                             onClick={submitDeliberation}
                             disabled={deliberationLoading || !deliberationInput.trim()}
                           >
-                            {deliberationLoading ? 'SUBMITTING...' : 'RUN ROBUST DECISIONMAKING'}
+                            {deliberationLoading ? 'SUBMITTING...' : 'START DEBATE'}
                           </button>
                         </div>
                         {deliberationError && (

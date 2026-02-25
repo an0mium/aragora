@@ -798,8 +798,8 @@ class TestDowngradedNotification:
                 assert payload["previous_tier"] == "professional"
                 assert payload["new_tier"] == "free"
 
-    def test_notify_downgraded_enterprise_plus(self):
-        """Test downgrade notification for Enterprise Plus tier."""
+    def test_notify_downgraded_enterprise(self):
+        """Test downgrade notification for Enterprise tier."""
         notifier = BillingNotifier()
 
         with patch.object(notifier, "_send_email") as mock_email:
@@ -809,12 +809,12 @@ class TestDowngradedNotification:
                 org_id="org-123",
                 org_name="Test Org",
                 email="admin@example.com",
-                previous_tier=SubscriptionTier.ENTERPRISE_PLUS,
+                previous_tier=SubscriptionTier.ENTERPRISE,
             )
 
             call_args = mock_email.call_args
             html_body = call_args[0][2]
-            assert "ENTERPRISE_PLUS" in html_body
+            assert "ENTERPRISE" in html_body
 
 
 # =============================================================================

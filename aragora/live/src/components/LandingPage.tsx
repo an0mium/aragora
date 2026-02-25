@@ -43,7 +43,7 @@ const STEPS = [
   {
     num: '02',
     title: 'AGENTS DEBATE',
-    desc: '42 heterogeneous AI agents argue, critique, and red-team each proposal',
+    desc: 'Multiple AI models argue, critique, and stress-test each proposal',
     icon: '#',
   },
   {
@@ -57,7 +57,7 @@ const STEPS = [
 const FEATURES = [
   {
     title: 'ADVERSARIAL DEBATE',
-    desc: '42 heterogeneous AI agents (Claude, GPT, Gemini, Mistral, Grok, DeepSeek, Qwen) argue, critique, and converge. Real diversity. Real disagreement.',
+    desc: 'Claude, GPT, Gemini, Mistral, Grok, DeepSeek, and more argue every angle. Different models catch different blind spots.',
     accent: 'acid-green',
     icon: '>',
   },

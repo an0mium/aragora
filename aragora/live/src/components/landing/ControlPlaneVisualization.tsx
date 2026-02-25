@@ -115,7 +115,7 @@ export function ControlPlaneVisualization() {
             <div className="flex-1 max-w-[180px]">
               <div className="border border-acid-yellow/40 rounded-lg p-4 bg-surface/30 h-full">
                 <div className="text-acid-yellow font-mono text-xs font-bold mb-3 text-center">
-                  [ROBUST DECISIONMAKING]
+                  [AI DEBATE]
                 </div>
                 <div className="space-y-1 mb-3">
                   {MODELS.map((model) => (
@@ -189,7 +189,7 @@ export function ControlPlaneVisualization() {
 
             {/* AI Debate */}
             <div className="border border-acid-yellow/40 rounded-lg p-4 bg-surface/30">
-              <div className="text-acid-yellow font-mono text-xs font-bold mb-2">[ROBUST DECISIONMAKING] 15+ models</div>
+              <div className="text-acid-yellow font-mono text-xs font-bold mb-2">[AI DEBATE] 15+ models</div>
               <div className="flex flex-wrap gap-2">
                 {MODELS.slice(0, 4).map((m) => (
                   <span key={m.name} className={`text-xs font-mono ${m.color}`}>{m.name}</span>

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { useFeatures } from '@/hooks/useFeatures';
 
 type FeatureStatus = 'active' | 'available' | 'beta';
 
@@ -213,6 +214,24 @@ export default function FeaturesPage() {
   const [filter, setFilter] = useState<FeatureStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Dynamic feature availability from the backend /api/features endpoint
+  const {
+    features: backendFeatures,
+    loading: featuresLoading,
+    isAvailable,
+    getFeatureInfo,
+  } = useFeatures();
+
+  // Count how many features have confirmed backend availability
+  const backendAvailableCount = useMemo(
+    () => backendFeatures?.available?.length ?? 0,
+    [backendFeatures],
+  );
+  const backendUnavailableCount = useMemo(
+    () => backendFeatures?.unavailable?.length ?? 0,
+    [backendFeatures],
+  );
+
   const filteredCategories = CATEGORIES.map(cat => ({
     ...cat,
     features: cat.features.filter(f => {
@@ -264,7 +283,23 @@ export default function FeaturesPage() {
               <div className="text-xl font-mono text-blue-400">{CATEGORIES.length}</div>
               <div className="text-[10px] font-mono text-text-muted">Categories</div>
             </div>
+            {backendFeatures && (
+              <div className="p-3 bg-surface border border-border text-center">
+                <div className="text-xl font-mono text-acid-cyan">{backendAvailableCount}</div>
+                <div className="text-[10px] font-mono text-text-muted">Backend Ready</div>
+              </div>
+            )}
           </div>
+
+          {/* Backend Feature Status */}
+          {!featuresLoading && backendFeatures && (
+            <div className="mb-4 p-3 border border-acid-cyan/30 bg-acid-cyan/5 flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full bg-acid-cyan animate-pulse" />
+              <span className="text-xs font-mono text-acid-cyan">
+                Backend connected: {backendAvailableCount} features available, {backendUnavailableCount} unavailable
+              </span>
+            </div>
+          )}
 
           {/* Search + Filter */}
           <div className="flex flex-wrap gap-3 mb-6">
@@ -305,6 +340,10 @@ export default function FeaturesPage() {
                 <div className="divide-y divide-border">
                   {category.features.map((feature) => {
                     const style = STATUS_STYLES[feature.status];
+                    // Lookup backend availability for this feature (normalize name to snake_case id)
+                    const featureId = feature.name.toLowerCase().replace(/[\s/]+/g, '_').replace(/[^a-z0-9_]/g, '');
+                    const backendInfo = getFeatureInfo(featureId);
+                    const backendReady = backendFeatures ? isAvailable(featureId) : null;
                     const content = (
                       <div className="p-3 flex items-center justify-between hover:bg-bg/50 transition-colors">
                         <div className="flex-1 min-w-0 mr-3">
@@ -313,8 +352,23 @@ export default function FeaturesPage() {
                             <span className={`px-1.5 py-0.5 text-[10px] font-mono ${style.bg} ${style.text} border border-current/20`}>
                               {style.label}
                             </span>
+                            {backendReady === true && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/20" title={backendInfo?.description || 'Available on backend'}>
+                                LIVE
+                              </span>
+                            )}
+                            {backendReady === false && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-mono bg-text-muted/10 text-text-muted border border-text-muted/20" title={backendInfo?.reason || 'Not available on backend'}>
+                                OFFLINE
+                              </span>
+                            )}
                           </div>
-                          <p className="text-xs font-mono text-text-muted mt-0.5 truncate">{feature.description}</p>
+                          <p className="text-xs font-mono text-text-muted mt-0.5 truncate">
+                            {backendInfo?.description || feature.description}
+                          </p>
+                          {backendInfo?.reason && (
+                            <p className="text-[10px] font-mono text-acid-yellow mt-0.5">{backendInfo.reason}</p>
+                          )}
                         </div>
                         {feature.href && (
                           <span className="text-xs font-mono text-acid-green/60 flex-shrink-0">

@@ -342,17 +342,13 @@ class TestSubscriptionTiers:
 
         assert free_debates < starter_debates < pro_debates < enterprise_debates
 
-    def test_enterprise_plus_has_exclusive_features(self):
-        """ENTERPRISE_PLUS should have dedicated infrastructure features."""
-        limits = TIER_LIMITS[SubscriptionTier.ENTERPRISE_PLUS]
+    def test_enterprise_has_exclusive_features(self):
+        """ENTERPRISE should have dedicated infrastructure features."""
+        limits = TIER_LIMITS[SubscriptionTier.ENTERPRISE]
 
         assert limits.dedicated_infrastructure is True
         assert limits.sla_guarantee is True
-        assert limits.custom_model_training is True
-        assert limits.private_model_deployment is True
         assert limits.compliance_certifications is True
-        assert limits.unlimited_api_calls is True
-        assert limits.token_based_billing is True
 
 
 class TestNeedsRehash:

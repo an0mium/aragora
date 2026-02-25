@@ -47,12 +47,22 @@ const quickActions: NavItem[] = [
   { label: 'Inbox', href: '/inbox', icon: '!', minMode: 'standard' },
 ];
 
-// ---------------------------------------------------------------------------
-// Navigation Sections
-// ---------------------------------------------------------------------------
+// =============================================================================
+// SIDEBAR NAVIGATION - Progressive Disclosure
+// =============================================================================
+// All ~197 frontend pages are organized into collapsible category groups below.
+// Each section is clearly marked so that other agents and developers understand
+// the structure.  DO NOT remove links from these sections -- they exist to make
+// every page discoverable via the sidebar.  If a page is added to the app
+// directory, add a corresponding NavItem here.
+// =============================================================================
 
 const navSections: NavSection[] = [
-  // ---- Core ---------------------------------------------------------------
+
+  /* === CORE SECTION === Progressive disclosure group
+   * Always-visible top-level pages. Not collapsible so users always see
+   * the primary entry points (Dashboard, Debates, Pipeline, etc.).
+   */
   {
     title: 'Core',
     key: 'core',
@@ -73,7 +83,9 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- Decisions & Debates ------------------------------------------------
+  /* === DECISIONS SECTION === Progressive disclosure group
+   * All debate-related workflows: deliberations, spectating, replays, etc.
+   */
   {
     title: 'Decisions',
     key: 'decisions',
@@ -95,7 +107,10 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- Enterprise ---------------------------------------------------------
+  /* === ENTERPRISE SECTION === Progressive disclosure group
+   * Enterprise features: compliance, audit, policy, backup, moderation.
+   * Highlighted with PRO badge.
+   */
   {
     title: 'Enterprise',
     key: 'enterprise',
@@ -108,6 +123,7 @@ const navSections: NavSection[] = [
       { label: 'Audit', href: '/audit', icon: '\u2611' },
       { label: 'New Audit', href: '/audit/new', icon: '\u271A', minMode: 'advanced' },
       { label: 'Audit Templates', href: '/audit/templates', icon: '\u2610', minMode: 'advanced' },
+      { label: 'Audit View', href: '/audit/view', icon: '\u2630', minMode: 'advanced' },
       { label: 'Dashboard', href: '/control-plane', icon: '\u25CE' },
       { label: 'Receipts', href: '/receipts', icon: '$' },
       { label: 'Policy', href: '/policy', icon: '\u2696' },
@@ -115,10 +131,13 @@ const navSections: NavSection[] = [
       { label: 'Audit Trail', href: '/audit-trail', icon: '\u2610' },
       { label: 'Backup', href: '/backup', icon: '\u2B73', minMode: 'advanced' },
       { label: 'Moderation', href: '/moderation', icon: '\u2691' },
+      { label: 'Blockchain', href: '/blockchain', icon: '\u26D3', minMode: 'advanced' },
     ],
   },
 
-  // ---- Analytics & Insights -----------------------------------------------
+  /* === ANALYTICS & INSIGHTS SECTION === Progressive disclosure group
+   * Dashboards, performance tracking, cost analysis, ELO analytics.
+   */
   {
     title: 'Analytics & Insights',
     key: 'analytics',
@@ -128,14 +147,19 @@ const navSections: NavSection[] = [
       { label: 'Intelligence', href: '/intelligence', icon: '\u269B' },
       { label: 'System Intelligence', href: '/system-intelligence', icon: '\u2328' },
       { label: 'Outcome Dashboard', href: '/outcome-dashboard', icon: '\u2611' },
+      { label: 'Analytics Outcomes', href: '/analytics/outcomes', icon: '\u2714', minMode: 'standard' },
       { label: 'Leaderboard', href: '/leaderboard', icon: '^' },
       { label: 'Agent Performance', href: '/agent-performance', icon: '\u2261' },
+      { label: 'Agents Performance', href: '/agents/performance', icon: '\u2197', minMode: 'advanced' },
+      { label: 'ELO Analytics', href: '/elo-analytics', icon: '\u2295', minMode: 'standard' },
+      { label: 'Agent Evolution', href: '/agent-evolution', icon: '\u267E', minMode: 'advanced' },
       { label: 'Tournaments', href: '/tournaments', icon: '\u2295' },
       { label: 'Calibration', href: '/calibration', icon: '\u2316', minMode: 'advanced' },
       { label: 'Evaluation', href: '/evaluation', icon: '\u2606', minMode: 'advanced' },
       { label: 'Uncertainty', href: '/uncertainty', icon: '\u00B1', minMode: 'advanced' },
       { label: 'Quality', href: '/quality', icon: '\u2605', minMode: 'advanced' },
       { label: 'Costs', href: '/costs', icon: '\u00A2', minMode: 'standard' },
+      { label: 'Budgets', href: '/budgets', icon: '\u00A3', minMode: 'standard' },
       { label: 'Differentiation', href: '/differentiation', icon: '\u25C7', minMode: 'standard' },
       { label: 'Spend Analytics', href: '/analytics/spend', icon: '\u00A4', minMode: 'standard' },
       { label: 'Spend', href: '/spend', icon: '$', minMode: 'standard' },
@@ -145,12 +169,15 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- Tools & Integrations -----------------------------------------------
+  /* === TOOLS & INTEGRATIONS SECTION === Progressive disclosure group
+   * External tools, connectors, plugins, API docs, marketplace.
+   */
   {
     title: 'Tools',
     key: 'tools',
     minMode: 'standard',
     items: [
+      { label: 'Tools', href: '/tools', icon: '\u2692' },
       { label: 'Documents', href: '/documents', icon: ']' },
       { label: 'Connectors', href: '/connectors', icon: '<' },
       { label: 'Templates', href: '/templates', icon: '[' },
@@ -161,10 +188,13 @@ const navSections: NavSection[] = [
       { label: 'Plugins', href: '/plugins', icon: '\u2699', minMode: 'advanced' },
       { label: 'MCP Tools', href: '/mcp', icon: '\u2699', minMode: 'advanced' },
       { label: 'API Explorer', href: '/api-explorer', icon: '{', minMode: 'advanced' },
+      { label: 'API Docs', href: '/api-docs', icon: '\u2261', minMode: 'advanced' },
     ],
   },
 
-  // ---- Browse & Social ----------------------------------------------------
+  /* === BROWSE & SOCIAL SECTION === Progressive disclosure group
+   * Gallery, reviews, social features, shared inbox, broadcast.
+   */
   {
     title: 'Browse',
     key: 'browse',
@@ -181,7 +211,9 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- Memory & Knowledge -------------------------------------------------
+  /* === MEMORY & KNOWLEDGE SECTION === Progressive disclosure group
+   * Memory systems, knowledge flow, supermemory, evidence, beliefs, RLM.
+   */
   {
     title: 'Memory & Knowledge',
     key: 'memory',
@@ -191,6 +223,7 @@ const navSections: NavSection[] = [
       { label: 'Memory Gateway', href: '/memory-gateway', icon: '\u2194' },
       { label: 'Supermemory', href: '/supermemory', icon: '\u221E', minMode: 'standard' },
       { label: 'Knowledge Flow', href: '/knowledge-flow', icon: '\u21C4' },
+      { label: 'Knowledge Learning', href: '/knowledge/learning', icon: '\u2042', minMode: 'advanced' },
       { label: 'Cross-Debate', href: '/cross-debate', icon: '\u2728', minMode: 'standard' },
       { label: 'Pulse', href: '/pulse', icon: '\u2665', minMode: 'standard' },
       { label: 'Memory Analytics', href: '/memory-analytics', icon: '\u2261', minMode: 'advanced' },
@@ -204,7 +237,9 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- Development & Code -------------------------------------------------
+  /* === DEVELOPMENT SECTION === Progressive disclosure group
+   * Code review, codebase audit, security scanning, sandbox, feature flags.
+   */
   {
     title: 'Development',
     key: 'development',
@@ -215,10 +250,13 @@ const navSections: NavSection[] = [
       { label: 'Security Scan', href: '/security-scan', icon: '\u26BF' },
       { label: 'Developer', href: '/developer', icon: '>_', minMode: 'advanced' },
       { label: 'Sandbox', href: '/sandbox', icon: '\u25A1', minMode: 'advanced' },
+      { label: 'Feature Flags', href: '/feature-flags', icon: '\u2691', minMode: 'advanced' },
     ],
   },
 
-  // ---- Orchestration & Automation -----------------------------------------
+  /* === ORCHESTRATION & AUTOMATION SECTION === Progressive disclosure group
+   * Workflow engine, scheduling, queues, autonomous mode, command center.
+   */
   {
     title: 'Orchestration',
     key: 'orchestration',
@@ -227,9 +265,11 @@ const navSections: NavSection[] = [
       { label: 'Orchestration', href: '/orchestration', icon: '\u266B' },
       { label: 'Autonomous', href: '/autonomous', icon: '\u2699' },
       { label: 'Scheduler', href: '/scheduler', icon: '\u25F7' },
+      { label: 'Pulse Scheduler', href: '/pulse-scheduler', icon: '\u23F1', minMode: 'advanced' },
       { label: 'Queue', href: '/queue', icon: '\u2630' },
       { label: 'Nomic Control', href: '/nomic-control', icon: '\u221E' },
       { label: 'Command Center', href: '/command-center', icon: '\u2318' },
+      { label: 'Command', href: '/command', icon: '\u276F', minMode: 'advanced' },
       { label: 'Workflow Templates', href: '/workflows', icon: '\u2610' },
       { label: 'Workflow Builder', href: '/workflows/builder', icon: '\u2692' },
       { label: 'Workflow Runtime', href: '/workflows/runtime', icon: '\u25B6' },
@@ -239,7 +279,9 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- Security & Compliance ----------------------------------------------
+  /* === SECURITY SECTION === Progressive disclosure group
+   * Security scanning, verification, data classification.
+   */
   {
     title: 'Security',
     key: 'security',
@@ -252,7 +294,9 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- AI & ML ------------------------------------------------------------
+  /* === AI & ML SECTION === Progressive disclosure group
+   * Training, model management, ML experiments, A/B testing.
+   */
   {
     title: 'AI & ML',
     key: 'ai-ml',
@@ -268,7 +312,9 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- Voice & Media ------------------------------------------------------
+  /* === VOICE & MEDIA SECTION === Progressive disclosure group
+   * Voice synthesis, speech, transcription.
+   */
   {
     title: 'Voice & Media',
     key: 'voice-media',
@@ -280,7 +326,9 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- Advanced & Expert --------------------------------------------------
+  /* === ADVANCED SECTION === Progressive disclosure group
+   * Power-user pages: genesis, introspection, red-team, laboratory.
+   */
   {
     title: 'Advanced',
     key: 'advanced',
@@ -298,18 +346,22 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- Monitoring ---------------------------------------------------------
+  /* === MONITORING SECTION === Progressive disclosure group
+   * Observability, system status, pulse trending.
+   */
   {
     title: 'Monitoring',
     key: 'monitoring',
     minMode: 'advanced',
     items: [
       { label: 'Observability', href: '/observability', icon: '\u25C9' },
-      { label: 'Pulse', href: '/pulse', icon: '\u2764' },
+      { label: 'System Status', href: '/system-status', icon: '\u2665', minMode: 'advanced' },
     ],
   },
 
-  // ---- Business -----------------------------------------------------------
+  /* === BUSINESS SECTION === Progressive disclosure group
+   * Billing, accounting, pricing, verticals, organization management.
+   */
   {
     title: 'Business',
     key: 'business',
@@ -325,7 +377,9 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- Settings -----------------------------------------------------------
+  /* === SETTINGS SECTION === Progressive disclosure group
+   * Always-visible bottom section. Not collapsible.
+   */
   {
     title: 'Settings',
     key: 'settings',
@@ -338,7 +392,10 @@ const navSections: NavSection[] = [
     ],
   },
 
-  // ---- Admin (admin-only) -------------------------------------------------
+  /* === ADMIN SECTION === Progressive disclosure group
+   * Admin-only pages.  Only visible to users with admin role.
+   * Contains all /admin/* sub-pages including dedup, retention, velocity.
+   */
   {
     title: 'Admin',
     key: 'admin',
@@ -357,10 +414,13 @@ const navSections: NavSection[] = [
       { label: 'Evidence', href: '/admin/evidence', icon: '\u2690' },
       { label: 'Forensic', href: '/admin/forensic', icon: '\u2623' },
       { label: 'Knowledge', href: '/admin/knowledge', icon: '?' },
+      { label: 'Knowledge Velocity', href: '/admin/knowledge/velocity', icon: '\u21C8' },
       { label: 'Memory', href: '/admin/memory', icon: '=' },
       { label: 'Nomic', href: '/admin/nomic', icon: '\u221E' },
       { label: 'Personas', href: '/admin/personas', icon: '&' },
       { label: 'Queue', href: '/admin/queue', icon: '\u2630' },
+      { label: 'Dedup', href: '/admin/dedup', icon: '\u2A01' },
+      { label: 'Retention', href: '/admin/retention', icon: '\u23F3' },
       { label: 'Streaming', href: '/admin/streaming', icon: '\u25B6' },
       { label: 'Training', href: '/admin/training', icon: '\u2699' },
       { label: 'Verticals', href: '/admin/verticals', icon: '/' },
@@ -511,6 +571,12 @@ export function LeftSidebar() {
           >
             <span className="flex items-center gap-1.5">
               {section.title}
+              {/* Count badge -- shows how many items are in this section */}
+              {canCollapse && (
+                <span className="px-1 py-0.5 text-[9px] font-medium bg-[var(--surface-elevated)] text-[var(--text-muted)] rounded leading-none">
+                  {filtered.length}
+                </span>
+              )}
               {section.highlight && (
                 <span className="px-1 py-0.5 text-[9px] font-medium bg-[var(--acid-green)]/10 text-[var(--acid-green)] rounded leading-none">
                   PRO

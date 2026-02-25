@@ -37,7 +37,6 @@ class FakeTier(Enum):
     STARTER = "starter"
     PROFESSIONAL = "professional"
     ENTERPRISE = "enterprise"
-    ENTERPRISE_PLUS = "enterprise_plus"
 
 
 @dataclass
@@ -74,7 +73,7 @@ class FakeOrganization:
     id: str = "org-123"
     name: str = "Test Org"
     slug: str = "test-org"
-    tier: FakeTier = field(default_factory=lambda: FakeTier.ENTERPRISE_PLUS)
+    tier: FakeTier = field(default_factory=lambda: FakeTier.ENTERPRISE)
     limits: FakeTierLimits = field(default_factory=FakeTierLimits)
     debates_used_this_month: int = 10
     billing_cycle_start: datetime = field(
@@ -154,7 +153,7 @@ class FakeUsageBreakdown:
 class FakeUsageLimits:
     """Mock usage limits."""
 
-    tier: str = "enterprise_plus"
+    tier: str = "enterprise"
     limits: dict = field(default_factory=lambda: {"tokens": 999999999, "debates": 999999})
     used: dict = field(default_factory=lambda: {"tokens": 750000, "debates": 45})
     percent: dict = field(default_factory=lambda: {"tokens": 0.075, "debates": 0.0045})

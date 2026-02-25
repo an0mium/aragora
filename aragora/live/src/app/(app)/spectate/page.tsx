@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/config';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { TrustBadge } from '@/components/TrustBadge';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { fetchWithRetry } from '@/utils/retry';
+import { useSpectate, type SpectateEvent } from '@/hooks/useSpectate';
 
 interface LiveDebate {
   id: string;
@@ -17,12 +18,44 @@ interface LiveDebate {
   spectator_count: number;
 }
 
+function EventTypeIcon({ eventType }: { eventType: string }) {
+  const icons: Record<string, string> = {
+    proposal: '$',
+    critique: '!',
+    vote: '#',
+    consensus: '*',
+    round_start: '>',
+    round_end: '<',
+    agent_message: '@',
+  };
+  return <span>{icons[eventType] || '>'}</span>;
+}
+
 export default function SpectatePage() {
   const [liveDebates, setLiveDebates] = useState<LiveDebate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const { setContext, clearContext } = useRightSidebar();
+
+  // Real-time spectate events from SpectatorStream bridge
+  const { events: spectateEvents, connected: spectateConnected, status: spectateStatus } = useSpectate(
+    undefined,
+    undefined,
+    { pollInterval: 3000 },
+  );
+
+  // Group spectate events by debate_id for per-debate activity counts
+  const eventsByDebate = useMemo(() => {
+    const grouped: Record<string, SpectateEvent[]> = {};
+    for (const evt of spectateEvents) {
+      if (evt.debate_id) {
+        if (!grouped[evt.debate_id]) grouped[evt.debate_id] = [];
+        grouped[evt.debate_id].push(evt);
+      }
+    }
+    return grouped;
+  }, [spectateEvents]);
 
   // Fetch live debates
   useEffect(() => {
@@ -78,6 +111,18 @@ export default function SpectatePage() {
               {liveDebates.reduce((sum, d) => sum + d.spectator_count, 0)}
             </span>
           </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-[var(--text-muted)]">Event Stream</span>
+            <span className={`text-sm font-mono ${spectateConnected ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
+              {spectateConnected ? 'LIVE' : 'OFF'}
+            </span>
+          </div>
+          {spectateStatus && (
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-[var(--text-muted)]">Buffer Size</span>
+              <span className="text-sm font-mono text-[var(--text)]">{spectateStatus.buffer_size}</span>
+            </div>
+          )}
         </div>
       ),
       actionsContent: (
@@ -113,6 +158,11 @@ export default function SpectatePage() {
             <div className="flex items-center gap-3 mb-2">
               <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
               <h1 className="text-2xl font-mono text-acid-green">SPECTATE MODE</h1>
+              {spectateConnected && (
+                <span className="px-2 py-0.5 text-xs font-mono bg-acid-green/10 text-acid-green border border-acid-green/30 rounded">
+                  STREAM CONNECTED
+                </span>
+              )}
             </div>
             <p className="text-text-muted text-sm font-mono">
               Watch debates in real-time without participating. Read-only observation mode.
@@ -182,6 +232,12 @@ export default function SpectatePage() {
                           <span className="text-text-muted">Watching</span>
                           <span className="text-acid-cyan">{debate.spectator_count}</span>
                         </div>
+                        {eventsByDebate[debate.id]?.length ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-text-muted">Events</span>
+                            <span className="text-acid-yellow">{eventsByDebate[debate.id].length}</span>
+                          </div>
+                        ) : null}
                         <div className="flex items-center gap-1 text-red-400">
                           <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                           LIVE
@@ -189,6 +245,43 @@ export default function SpectatePage() {
                       </div>
                     </div>
                   </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Live Event Feed from SpectatorStream */}
+          {spectateEvents.length > 0 && (
+            <div className="mt-6 space-y-4">
+              <h2 className="text-sm font-mono text-acid-cyan uppercase tracking-wider">
+                Live Event Feed ({spectateEvents.length} recent events)
+              </h2>
+              <div className="border border-acid-green/20 bg-surface/30 divide-y divide-border max-h-[400px] overflow-y-auto">
+                {spectateEvents.slice(-20).reverse().map((evt, i) => (
+                  <div key={`${evt.timestamp}-${i}`} className="px-4 py-2 flex items-start gap-3 text-xs font-mono hover:bg-surface/50 transition-colors">
+                    <span className="text-acid-green mt-0.5">
+                      <EventTypeIcon eventType={evt.event_type} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-acid-cyan">{evt.event_type}</span>
+                        {evt.agent_name && (
+                          <span className="text-text-muted">by {evt.agent_name}</span>
+                        )}
+                        {evt.round_number != null && (
+                          <span className="text-text-muted">R{evt.round_number}</span>
+                        )}
+                      </div>
+                      {evt.debate_id && (
+                        <span className="text-text-muted/60 truncate block">
+                          debate: {evt.debate_id.slice(0, 12)}...
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-text-muted/40 flex-shrink-0">
+                      {new Date(evt.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
                 ))}
               </div>
             </div>

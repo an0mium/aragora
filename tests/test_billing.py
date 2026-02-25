@@ -575,7 +575,7 @@ class TestBillingHandler:
 
         data = json.loads(result.body)
         assert "plans" in data
-        assert len(data["plans"]) == 5  # FREE, STARTER, PROFESSIONAL, ENTERPRISE, ENTERPRISE_PLUS
+        assert len(data["plans"]) == 4  # FREE, STARTER, PROFESSIONAL, ENTERPRISE
 
         # Check plan structure
         starter = next(p for p in data["plans"] if p["id"] == "starter")

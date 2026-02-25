@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/config';
 import { useProgressiveMode } from '@/context/ProgressiveModeContext';
 import { TemplateMarketplace } from '@/components/TemplateMarketplace';
+import { useWorkflows, type Workflow } from '@/hooks/useWorkflows';
 
 interface WorkflowStep {
   id: string;
@@ -119,54 +120,87 @@ const useCaseDescriptions: Record<string, { problem: string; solution: string; b
 
 export default function WorkflowsPage() {
   const { isFeatureVisible } = useProgressiveMode();
-  const [templates, setTemplates] = useState<WorkflowSummary[]>([]);
-  const [userWorkflows] = useState<WorkflowSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<CategoryKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'gallery' | 'my-workflows' | 'marketplace'>('gallery');
   const [selectedTemplate, setSelectedTemplate] = useState<WorkflowSummary | null>(null);
+  const [templates, setTemplates] = useState<WorkflowSummary[]>([]);
 
-  const fetchTemplates = useCallback(async () => {
-    try {
-      setLoading(true);
-      // Try new canonical endpoint first, fallback to legacy
-      let response = await fetch(`${API_BASE_URL}/api/workflow/templates`);
-      if (!response.ok) {
-        response = await fetch(`${API_BASE_URL}/api/workflow-templates`);
-      }
-      if (!response.ok) throw new Error('Failed to fetch templates');
+  // Use the useWorkflows hook for CRUD operations and workflow data
+  const {
+    workflows: userWorkflows,
+    loading: workflowsLoading,
+    error: workflowsError,
+    fetchTemplates: fetchWorkflowTemplates,
+    deleteWorkflow,
+  } = useWorkflows();
 
-      const data = await response.json();
-      const templateList: WorkflowSummary[] = (data.templates || []).map(
-        (t: WorkflowTemplate) => ({
-          id: t.id,
-          name: t.name,
-          description: t.description,
-          category: t.category,
-          version: t.version,
-          tags: t.tags || [],
-          stepCount: t.steps?.length || 0,
-          steps: t.steps || [],
-          createdAt: '',
-          updatedAt: '',
-        })
-      );
-      setTemplates(templateList);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load');
-      // Provide demo data for development
-      setTemplates(getDemoTemplates());
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [templateLoading, setTemplateLoading] = useState(true);
+  const [templateError, setTemplateError] = useState<string | null>(null);
 
+  // Fetch templates via the hook, with fallback to direct fetch + demo data
   useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
+    let cancelled = false;
+    const loadTemplates = async () => {
+      setTemplateLoading(true);
+      try {
+        // Try via the hook first
+        const hookTemplates = await fetchWorkflowTemplates();
+        if (!cancelled && hookTemplates.length > 0) {
+          setTemplates(
+            hookTemplates.map((t) => ({
+              id: t.id,
+              name: t.name || '',
+              description: t.description || '',
+              category: t.category || 'general',
+              version: '1.0.0',
+              tags: t.tags || [],
+              stepCount: t.steps?.length || 0,
+              steps: (t.steps || []).map((s) => ({ id: s.id, name: s.name, type: s.step_type || 'task' })),
+              createdAt: '',
+              updatedAt: '',
+            }))
+          );
+          setTemplateError(null);
+        } else if (!cancelled) {
+          // Fallback: try direct fetch to legacy endpoint
+          const response = await fetch(`${API_BASE_URL}/api/workflow/templates`);
+          if (response.ok) {
+            const data = await response.json();
+            const templateList: WorkflowSummary[] = (data.templates || []).map(
+              (t: WorkflowTemplate) => ({
+                id: t.id,
+                name: t.name,
+                description: t.description,
+                category: t.category,
+                version: t.version,
+                tags: t.tags || [],
+                stepCount: t.steps?.length || 0,
+                steps: t.steps || [],
+                createdAt: '',
+                updatedAt: '',
+              })
+            );
+            setTemplates(templateList);
+          } else {
+            setTemplates(getDemoTemplates());
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setTemplateError('Failed to load templates');
+          setTemplates(getDemoTemplates());
+        }
+      } finally {
+        if (!cancelled) setTemplateLoading(false);
+      }
+    };
+    loadTemplates();
+    return () => { cancelled = true; };
+  }, [fetchWorkflowTemplates]);
+
+  const loading = templateLoading || workflowsLoading;
+  const error = templateError || workflowsError;
 
   // Filter templates by category and search
   const filteredTemplates = useMemo(() => {
@@ -454,7 +488,7 @@ export default function WorkflowsPage() {
           </div>
         </div>
       ) : activeTab === 'my-workflows' ? (
-        // My Workflows tab
+        // My Workflows tab - populated by useWorkflows hook
         <div className="max-w-7xl mx-auto px-6 py-8">
           {userWorkflows.length === 0 ? (
             <div className="text-center py-12 bg-surface border border-border rounded-lg">
@@ -474,13 +508,39 @@ export default function WorkflowsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {userWorkflows.map((workflow) => (
-                <TemplateCard
-                  key={workflow.id}
-                  template={workflow}
-                  onSelect={() => setSelectedTemplate(workflow)}
-                />
-              ))}
+              {userWorkflows.map((wf: Workflow) => {
+                const summary: WorkflowSummary = {
+                  id: wf.id,
+                  name: wf.name,
+                  description: wf.description || '',
+                  category: wf.category || 'general',
+                  version: String(wf.version || '1.0.0'),
+                  tags: wf.tags || [],
+                  stepCount: wf.steps?.length || 0,
+                  steps: (wf.steps || []).map((s) => ({ id: s.id, name: s.name, type: s.step_type || 'task' })),
+                  createdAt: wf.created_at || '',
+                  updatedAt: wf.updated_at || '',
+                };
+                return (
+                  <div key={wf.id} className="relative group">
+                    <TemplateCard
+                      template={summary}
+                      onSelect={() => setSelectedTemplate(summary)}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Delete workflow "${wf.name}"?`)) {
+                          deleteWorkflow(wf.id);
+                        }
+                      }}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 px-2 py-1 text-xs font-mono bg-red-500/20 text-red-400 border border-red-500/30 rounded hover:bg-red-500/30 transition-all"
+                    >
+                      DELETE
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

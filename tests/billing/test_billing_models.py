@@ -56,7 +56,7 @@ class TestSubscriptionTier:
         assert SubscriptionTier.STARTER.value == "starter"
         assert SubscriptionTier.PROFESSIONAL.value == "professional"
         assert SubscriptionTier.ENTERPRISE.value == "enterprise"
-        assert SubscriptionTier.ENTERPRISE_PLUS.value == "enterprise_plus"
+        assert len(SubscriptionTier) == 4  # Free, Starter, Professional, Enterprise
 
     def test_tier_from_string(self):
         """Test creating tier from string value."""
@@ -98,19 +98,21 @@ class TestTierLimits:
     def test_starter_tier_limits(self):
         """Test STARTER tier has correct limits."""
         limits = TIER_LIMITS[SubscriptionTier.STARTER]
-        assert limits.debates_per_month == 50
-        assert limits.users_per_org == 2
-        assert limits.price_monthly_cents == 9900  # $99
+        assert limits.debates_per_month == 100
+        assert limits.users_per_org == 5
+        assert limits.api_access is True
+        assert limits.price_monthly_cents == 2900  # $29
 
     def test_professional_tier_limits(self):
         """Test PROFESSIONAL tier has correct limits."""
         limits = TIER_LIMITS[SubscriptionTier.PROFESSIONAL]
-        assert limits.debates_per_month == 200
-        assert limits.users_per_org == 10
+        assert limits.debates_per_month == 1000
+        assert limits.users_per_org == 25
         assert limits.api_access is True
         assert limits.all_agents is True
         assert limits.audit_logs is True
-        assert limits.price_monthly_cents == 29900  # $299
+        assert limits.priority_support is True
+        assert limits.price_monthly_cents == 9900  # $99
 
     def test_enterprise_tier_limits(self):
         """Test ENTERPRISE tier has correct limits."""
@@ -119,19 +121,10 @@ class TestTierLimits:
         assert limits.users_per_org == 999999
         assert limits.sso_enabled is True
         assert limits.priority_support is True
-        assert limits.price_monthly_cents == 99900  # $999
-
-    def test_enterprise_plus_tier_limits(self):
-        """Test ENTERPRISE_PLUS tier has exclusive features."""
-        limits = TIER_LIMITS[SubscriptionTier.ENTERPRISE_PLUS]
+        assert limits.price_monthly_cents == 0  # Custom pricing
         assert limits.dedicated_infrastructure is True
         assert limits.sla_guarantee is True
-        assert limits.custom_model_training is True
-        assert limits.private_model_deployment is True
         assert limits.compliance_certifications is True
-        assert limits.unlimited_api_calls is True
-        assert limits.token_based_billing is True
-        assert limits.price_monthly_cents == 500000  # $5,000
 
     def test_tier_limits_to_dict(self):
         """Test TierLimits serialization."""
@@ -573,7 +566,7 @@ class TestOrganization:
         limits = org.limits
 
         assert limits == TIER_LIMITS[SubscriptionTier.PROFESSIONAL]
-        assert limits.debates_per_month == 200
+        assert limits.debates_per_month == 1000
 
     def test_organization_debates_remaining(self):
         """Test debates remaining calculation."""
@@ -643,7 +636,7 @@ class TestOrganization:
         assert data["name"] == "Test Org"
         assert data["tier"] == "professional"
         assert data["debates_used_this_month"] == 50
-        assert data["debates_remaining"] == 150
+        assert data["debates_remaining"] == 950
         assert "limits" in data
 
     def test_organization_from_dict(self):
@@ -1426,14 +1419,14 @@ class TestUserExtended:
 class TestOrganizationExtended:
     """Extended tests for Organization dataclass."""
 
-    def test_organization_enterprise_plus_limits(self):
-        """Test ENTERPRISE_PLUS tier limits on organization."""
-        org = Organization(tier=SubscriptionTier.ENTERPRISE_PLUS)
+    def test_organization_enterprise_limits(self):
+        """Test ENTERPRISE tier limits on organization."""
+        org = Organization(tier=SubscriptionTier.ENTERPRISE)
         limits = org.limits
 
         assert limits.dedicated_infrastructure is True
         assert limits.sla_guarantee is True
-        assert limits.unlimited_api_calls is True
+        assert limits.compliance_certifications is True
 
     def test_organization_increment_debates_by_count(self):
         """Test incrementing debates by various counts."""
@@ -1811,13 +1804,14 @@ class TestTierLimitsExtended:
             assert limits.token_based_billing is False
 
     def test_tier_pricing_monotonically_increasing(self):
-        """Test that tier pricing increases with each level."""
+        """Test that self-serve tier pricing increases with each level.
+
+        Enterprise tier uses custom pricing (0 cents) so is excluded.
+        """
         tier_order = [
             SubscriptionTier.FREE,
             SubscriptionTier.STARTER,
             SubscriptionTier.PROFESSIONAL,
-            SubscriptionTier.ENTERPRISE,
-            SubscriptionTier.ENTERPRISE_PLUS,
         ]
 
         for i in range(len(tier_order) - 1):
@@ -1842,13 +1836,12 @@ class TestTierLimitsExtended:
             higher = TIER_LIMITS[tier_order[i + 1]].debates_per_month
             assert higher > lower
 
-    def test_enterprise_tiers_have_all_features(self):
-        """Test that ENTERPRISE and ENTERPRISE_PLUS have all base features enabled."""
-        for tier in [SubscriptionTier.ENTERPRISE, SubscriptionTier.ENTERPRISE_PLUS]:
-            limits = TIER_LIMITS[tier]
-            assert limits.api_access is True
-            assert limits.all_agents is True
-            assert limits.custom_agents is True
-            assert limits.sso_enabled is True
-            assert limits.audit_logs is True
-            assert limits.priority_support is True
+    def test_enterprise_tier_has_all_features(self):
+        """Test that ENTERPRISE has all base features enabled."""
+        limits = TIER_LIMITS[SubscriptionTier.ENTERPRISE]
+        assert limits.api_access is True
+        assert limits.all_agents is True
+        assert limits.custom_agents is True
+        assert limits.sso_enabled is True
+        assert limits.audit_logs is True
+        assert limits.priority_support is True

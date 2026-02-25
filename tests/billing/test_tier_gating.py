@@ -72,7 +72,7 @@ class TestTierConstants:
         assert "starter" in TIER_ORDER
         assert "professional" in TIER_ORDER
         assert "enterprise" in TIER_ORDER
-        assert "enterprise_plus" in TIER_ORDER
+        assert len(TIER_ORDER) == 4
 
     def test_tier_order_is_ascending(self):
         tiers = list(TIER_ORDER.keys())
@@ -97,7 +97,7 @@ class TestTierConstants:
 class TestTierInsufficientError:
     def test_error_message_without_feature(self):
         err = TierInsufficientError("professional", "free")
-        assert "Professional" in str(err)
+        assert "Pro" in str(err)
 
     def test_error_message_with_feature(self):
         err = TierInsufficientError("enterprise", "free", feature="SSO")
@@ -112,7 +112,7 @@ class TestTierInsufficientError:
         assert resp["current_tier"] == "free"
         assert resp["upgrade_url"] == "/pricing"
         assert "upgrade_prompt" in resp
-        assert "Professional" in resp["upgrade_prompt"]
+        assert "Pro" in resp["upgrade_prompt"]
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 """
-Enterprise Usage Metering for ENTERPRISE_PLUS Tier.
+Enterprise Usage Metering for ENTERPRISE Tier.
 
 Provides granular token-level metering with:
 - Per-model, per-provider cost tracking
@@ -318,7 +318,7 @@ class UsageForecast:
 
 class EnterpriseMeter:
     """
-    Enterprise-grade usage metering for ENTERPRISE_PLUS tier.
+    Enterprise-grade usage metering for ENTERPRISE tier.
 
     Provides granular token-level tracking, budget management,
     and invoice generation.

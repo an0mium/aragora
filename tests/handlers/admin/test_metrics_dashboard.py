@@ -71,7 +71,6 @@ MOCK_TIER_LIMITS: dict[str, MockTierLimits] = {
     "starter": MockTierLimits(price_monthly_cents=9900),
     "professional": MockTierLimits(price_monthly_cents=29900),
     "enterprise": MockTierLimits(price_monthly_cents=99900),
-    "enterprise_plus": MockTierLimits(price_monthly_cents=500000),
 }
 
 
@@ -829,19 +828,19 @@ class TestGetRevenueStats:
         assert data["revenue"]["mrr_cents"] == 2 * 99900
 
     @patch("aragora.billing.models.TIER_LIMITS", MOCK_TIER_LIMITS)
-    def test_revenue_enterprise_plus_tier(self, http):
+    def test_revenue_enterprise_tier_custom_pricing(self, http):
         store = MagicMock()
         store.get_admin_stats.return_value = {
-            "tier_distribution": {"enterprise_plus": 1},
+            "tier_distribution": {"enterprise": 1},
             "total_organizations": 1,
         }
         h = TestableHandler(user_store=store)
         result = h._get_revenue_stats(http())
         data = _body(result)
         rev = data["revenue"]
-        assert rev["mrr_cents"] == 500000
-        assert rev["mrr_dollars"] == 5000.0
-        assert rev["arr_dollars"] == 60000.0
+        assert rev["mrr_cents"] == 99900
+        assert rev["mrr_dollars"] == 999.0
+        assert rev["arr_dollars"] == 11988.0
 
     @patch("aragora.billing.models.TIER_LIMITS", MOCK_TIER_LIMITS)
     def test_revenue_free_tier_zero_contribution(self, http):

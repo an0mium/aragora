@@ -147,9 +147,9 @@ def _resync_convergence_after_backend_reload():
         "get_similarity_backend",
     ]
 
-    # Update any module that re-exports these names (convergence, etc.)
+    # Update any module that re-exports these names (convergence, test modules, etc.)
     for mod_name in list(sys.modules):
-        if not mod_name.startswith("aragora.debate"):
+        if not (mod_name.startswith("aragora.debate") or mod_name.startswith("tests.debate")):
             continue
         if mod_name == "aragora.debate.similarity.backends":
             continue

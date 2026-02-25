@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSidebar } from '@/context/SidebarContext';
 import { useAuth } from '@/context/AuthContext';
@@ -37,23 +37,19 @@ const authenticatedAccountItems: NavItem[] = [
   { label: 'Organization', href: '/organization', icon: '@', requiresAuth: true },
 ];
 
-// ---------------------------------------------------------------------------
-// Start section -- use-case focused
-// ---------------------------------------------------------------------------
-
+/* === START SECTION === Progressive disclosure group */
 const startItems: NavItem[] = [
   { label: 'Hub', href: '/hub', icon: '+' },
   { label: 'New Debate', href: '/arena', icon: '!' },
+  { label: 'Demo', href: '/demo', icon: '\u2605' },
+  { label: 'Try Now', href: '/demo/instant', icon: '\u26A1' },
   { label: 'Playbooks', href: '/playbooks', icon: 'P', minMode: 'standard' },
   { label: 'Stress-Test', href: '/gauntlet', icon: '%', minMode: 'standard' },
   { label: 'Code Review', href: '/code-review', icon: '<', minMode: 'standard' },
   { label: 'Document Audit', href: '/audit', icon: '|', minMode: 'standard' },
 ];
 
-// ---------------------------------------------------------------------------
-// Pipeline section -- Idea-to-Execution stages
-// ---------------------------------------------------------------------------
-
+/* === PIPELINE SECTION === Progressive disclosure group */
 const pipelineItems: NavItem[] = [
   { label: 'Mission Control', href: '/mission-control', icon: '\u25A3', minMode: 'standard' },
   { label: 'Pipeline', href: '/pipeline', icon: '|' },
@@ -63,10 +59,7 @@ const pipelineItems: NavItem[] = [
   { label: 'Orchestration', href: '/orchestration', icon: '!', minMode: 'advanced' },
 ];
 
-// ---------------------------------------------------------------------------
-// Decisions section
-// ---------------------------------------------------------------------------
-
+/* === DECISIONS SECTION === Progressive disclosure group */
 const decisionsItems: NavItem[] = [
   { label: 'Deliberations', href: '/deliberations', icon: '\u2696', minMode: 'standard' },
   { label: 'Batch Debates', href: '/batch', icon: '\u229E', minMode: 'standard' },
@@ -78,11 +71,9 @@ const decisionsItems: NavItem[] = [
   { label: 'Replays', href: '/replays', icon: '\u21BB', minMode: 'advanced' },
 ];
 
-// ---------------------------------------------------------------------------
-// Browse section -- viewing past content
-// ---------------------------------------------------------------------------
-
+/* === BROWSE SECTION === Progressive disclosure group */
 const browseItems: NavItem[] = [
+  { label: 'Dashboard', href: '/dashboard', icon: '\u25A6' },
   { label: 'Debates', href: '/debates', icon: '#' },
   { label: 'Knowledge', href: '/knowledge', icon: '?' },
   { label: 'Leaderboard', href: '/leaderboard', icon: '^', minMode: 'standard' },
@@ -96,15 +87,14 @@ const browseItems: NavItem[] = [
   { label: 'Portal', href: '/portal', icon: '\u2302', minMode: 'standard' },
   { label: 'Social', href: '/social', icon: '\u263A', minMode: 'standard' },
   { label: 'Moments', href: '/moments', icon: '\u25C6', minMode: 'standard' },
+  { label: 'Reviews', href: '/reviews', icon: '\u2606', minMode: 'standard' },
 ];
 
-// ---------------------------------------------------------------------------
-// Tools section -- management and configuration
-// ---------------------------------------------------------------------------
-
+/* === TOOLS SECTION === Progressive disclosure group */
 const toolsItems: NavItem[] = [
   { label: 'Inbox', href: '/inbox', icon: '@', requiresAuth: true },
   { label: 'Shared Inbox', href: '/shared-inbox', icon: '\u2709', requiresAuth: true },
+  { label: 'Tools', href: '/tools', icon: '\u2692', minMode: 'standard' },
   { label: 'Documents', href: '/documents', icon: ']', minMode: 'standard' },
   { label: 'Workflows', href: '/workflows', icon: '>', minMode: 'advanced' },
   { label: 'Connectors', href: '/connectors', icon: '<', minMode: 'advanced' },
@@ -115,33 +105,41 @@ const toolsItems: NavItem[] = [
   { label: 'Webhooks', href: '/webhooks', icon: '\u21C4', minMode: 'advanced' },
   { label: 'Plugins', href: '/plugins', icon: '\u2699', minMode: 'advanced' },
   { label: 'API Explorer', href: '/api-explorer', icon: '{', minMode: 'advanced' },
+  { label: 'API Docs', href: '/api-docs', icon: '\u2261', minMode: 'advanced' },
   { label: 'Broadcast', href: '/broadcast', icon: '\u25CE', minMode: 'advanced' },
   { label: 'Command Center', href: '/command-center', icon: '\u2318', minMode: 'advanced' },
+  { label: 'Command', href: '/command', icon: '\u276F', minMode: 'advanced' },
+  { label: 'Integrations', href: '/integrations', icon: ':', minMode: 'advanced' },
+  { label: 'Chat Integrations', href: '/integrations/chat', icon: '\u2709', minMode: 'advanced' },
 ];
 
-// ---------------------------------------------------------------------------
-// Analytics & Insights
-// ---------------------------------------------------------------------------
-
+/* === ANALYTICS & INSIGHTS SECTION === Progressive disclosure group */
 const analyticsItems: NavItem[] = [
   { label: 'Insights', href: '/insights', icon: '\u272A', minMode: 'standard' },
   { label: 'Outcomes', href: '/analytics/outcomes', icon: '\u2713', minMode: 'standard' },
   { label: 'Intelligence', href: '/intelligence', icon: '\u269B', minMode: 'standard' },
+  { label: 'System Intelligence', href: '/system-intelligence', icon: '\u2328', minMode: 'standard' },
+  { label: 'Outcome Dashboard', href: '/outcome-dashboard', icon: '\u2611', minMode: 'standard' },
+  { label: 'ELO Analytics', href: '/elo-analytics', icon: '\u2295', minMode: 'standard' },
+  { label: 'Agent Evolution', href: '/agent-evolution', icon: '\u267E', minMode: 'advanced' },
+  { label: 'Agent Performance', href: '/agent-performance', icon: '\u2261', minMode: 'standard' },
   { label: 'Calibration', href: '/calibration', icon: '\u2316', minMode: 'advanced' },
   { label: 'Evaluation', href: '/evaluation', icon: '\u2606', minMode: 'advanced' },
   { label: 'Uncertainty', href: '/uncertainty', icon: '\u00B1', minMode: 'advanced' },
   { label: 'Quality', href: '/quality', icon: '\u2605', minMode: 'advanced' },
   { label: 'Costs', href: '/costs', icon: '\u00A2', minMode: 'standard' },
+  { label: 'Budgets', href: '/budgets', icon: '\u00A3', minMode: 'standard' },
   { label: 'Tournaments', href: '/tournaments', icon: '\u2295', minMode: 'standard' },
   { label: 'Argument Analysis', href: '/argument-analysis', icon: '\u2726', minMode: 'standard' },
   { label: 'Consensus', href: '/consensus', icon: '\u2299', minMode: 'standard' },
-  { label: 'Agent Evolution', href: '/agent-evolution', icon: '\u267E', minMode: 'advanced' },
+  { label: 'Differentiation', href: '/differentiation', icon: '\u25C7', minMode: 'standard' },
+  { label: 'Spend Analytics', href: '/analytics/spend', icon: '\u00A4', minMode: 'standard' },
+  { label: 'Spend', href: '/spend', icon: '$', minMode: 'standard' },
+  { label: 'Decision Outcomes', href: '/analytics/decisions', icon: '\u2713', minMode: 'standard' },
+  { label: 'Usage', href: '/usage', icon: '%', minMode: 'standard' },
 ];
 
-// ---------------------------------------------------------------------------
-// Enterprise
-// ---------------------------------------------------------------------------
-
+/* === ENTERPRISE SECTION === Progressive disclosure group */
 const enterpriseItems: NavItem[] = [
   { label: 'Decision Integrity', href: '/decision-integrity', icon: '\u2726', minMode: 'standard' },
   { label: 'Compliance', href: '/compliance', icon: '\u2713', minMode: 'standard' },
@@ -149,40 +147,45 @@ const enterpriseItems: NavItem[] = [
   { label: 'Receipts', href: '/receipts', icon: '$', minMode: 'standard' },
   { label: 'Policy', href: '/policy', icon: '\u2696', minMode: 'standard' },
   { label: 'Privacy', href: '/privacy', icon: '\u229E', minMode: 'standard' },
+  { label: 'Audit Trail', href: '/audit-trail', icon: '\u2610', minMode: 'standard' },
+  { label: 'Audit View', href: '/audit/view', icon: '\u2630', minMode: 'advanced' },
+  { label: 'Audit Templates', href: '/audit/templates', icon: '\u2610', minMode: 'advanced' },
+  { label: 'New Audit', href: '/audit/new', icon: '\u271A', minMode: 'advanced' },
+  { label: 'Backup', href: '/backup', icon: '\u2B73', minMode: 'advanced' },
   { label: 'Moderation', href: '/moderation', icon: '\u2691', minMode: 'standard' },
   { label: 'Security', href: '/security', icon: '\u26BF', minMode: 'advanced' },
+  { label: 'Blockchain', href: '/blockchain', icon: '\u26D3', minMode: 'advanced' },
   { label: 'Observability', href: '/observability', icon: '\u25C9', minMode: 'advanced' },
   { label: 'Pulse', href: '/pulse', icon: '\u2764', minMode: 'advanced' },
 ];
 
-// ---------------------------------------------------------------------------
-// Memory & Knowledge
-// ---------------------------------------------------------------------------
-
+/* === MEMORY & KNOWLEDGE SECTION === Progressive disclosure group */
 const memoryItems: NavItem[] = [
   { label: 'Memory', href: '/memory', icon: '=', minMode: 'advanced' },
+  { label: 'Memory Gateway', href: '/memory-gateway', icon: '\u2194', minMode: 'advanced' },
   { label: 'Memory Analytics', href: '/memory-analytics', icon: '\u2261', minMode: 'advanced' },
-  { label: 'Cross-Debate Learning', href: '/knowledge/learning', icon: '\u2042', minMode: 'advanced' },
+  { label: 'Supermemory', href: '/supermemory', icon: '\u221E', minMode: 'advanced' },
+  { label: 'Knowledge Flow', href: '/knowledge-flow', icon: '\u21C4', minMode: 'advanced' },
+  { label: 'Knowledge Learning', href: '/knowledge/learning', icon: '\u2042', minMode: 'advanced' },
+  { label: 'Cross-Debate', href: '/cross-debate', icon: '\u2728', minMode: 'advanced' },
   { label: 'Evidence', href: '/evidence', icon: '\u2690', minMode: 'advanced' },
+  { label: 'Beliefs', href: '/beliefs', icon: '\u0394', minMode: 'advanced' },
+  { label: 'Explainability', href: '/explainability', icon: '?!', minMode: 'advanced' },
   { label: 'Repository', href: '/repository', icon: '\u25A3', minMode: 'advanced' },
   { label: 'RLM', href: '/rlm', icon: '\u21BA', minMode: 'advanced' },
+  { label: 'Reasoning', href: '/reasoning', icon: '\u2234', minMode: 'advanced' },
 ];
 
-// ---------------------------------------------------------------------------
-// Development
-// ---------------------------------------------------------------------------
-
+/* === DEVELOPMENT SECTION === Progressive disclosure group */
 const developmentItems: NavItem[] = [
   { label: 'Codebase Audit', href: '/codebase-audit', icon: '\u2611', minMode: 'standard' },
   { label: 'Security Scan', href: '/security-scan', icon: '\u26BF', minMode: 'standard' },
   { label: 'Developer', href: '/developer', icon: '>_', minMode: 'advanced' },
   { label: 'Sandbox', href: '/sandbox', icon: '\u25A1', minMode: 'advanced' },
+  { label: 'Feature Flags', href: '/feature-flags', icon: '\u2691', minMode: 'advanced' },
 ];
 
-// ---------------------------------------------------------------------------
-// AI & ML
-// ---------------------------------------------------------------------------
-
+/* === AI & ML SECTION === Progressive disclosure group */
 const aiMlItems: NavItem[] = [
   { label: 'Training', href: '/training', icon: '\u2699', minMode: 'advanced' },
   { label: 'ML', href: '/ml', icon: '\u2206', minMode: 'advanced' },
@@ -191,43 +194,43 @@ const aiMlItems: NavItem[] = [
   { label: 'AB Testing', href: '/ab-testing', icon: 'A|B', minMode: 'advanced' },
 ];
 
-// ---------------------------------------------------------------------------
-// Voice & Media
-// ---------------------------------------------------------------------------
-
+/* === VOICE & MEDIA SECTION === Progressive disclosure group */
 const voiceMediaItems: NavItem[] = [
   { label: 'Voice', href: '/voice', icon: '\u266A', minMode: 'advanced' },
   { label: 'Speech', href: '/speech', icon: '\u25B6', minMode: 'advanced' },
   { label: 'Transcribe', href: '/transcribe', icon: '\u270E', minMode: 'advanced' },
 ];
 
-// ---------------------------------------------------------------------------
-// Business
-// ---------------------------------------------------------------------------
-
+/* === BUSINESS SECTION === Progressive disclosure group */
 const businessItems: NavItem[] = [
   { label: 'Accounting', href: '/accounting', icon: '\u2211', requiresAuth: true },
+  { label: 'Plaid Connect', href: '/accounting/plaid', icon: '\u2194', requiresAuth: true },
   { label: 'Pricing', href: '/pricing', icon: '\u00A4', minMode: 'standard' },
   { label: 'Verticals', href: '/verticals', icon: '/', minMode: 'advanced' },
+  { label: 'Organization', href: '/organization', icon: '\u2302', requiresAuth: true },
+  { label: 'Members', href: '/organization/members', icon: '\uD83D\uDC65', requiresAuth: true },
 ];
 
-// ---------------------------------------------------------------------------
-// Orchestration
-// ---------------------------------------------------------------------------
-
+/* === ORCHESTRATION SECTION === Progressive disclosure group */
 const orchestrationItems: NavItem[] = [
   { label: 'Scheduler', href: '/scheduler', icon: '\u25F7', minMode: 'advanced' },
+  { label: 'Pulse Scheduler', href: '/pulse-scheduler', icon: '\u23F1', minMode: 'advanced' },
   { label: 'Queue', href: '/queue', icon: '\u2630', minMode: 'advanced' },
   { label: 'Automation', href: '/nomic-control', icon: '\u221E', minMode: 'advanced' },
   { label: 'Auto-Improve', href: '/self-improve', icon: '\u21BB', minMode: 'advanced' },
   { label: 'Verification', href: '/verification', icon: '\u2713', minMode: 'advanced' },
   { label: 'Verify', href: '/verify', icon: '\u2714', minMode: 'advanced' },
+  { label: 'Coordination', href: '/coordination', icon: '\u2693', minMode: 'advanced' },
+  { label: 'Feedback Hub', href: '/feedback-hub', icon: '\u21C4', minMode: 'advanced' },
 ];
 
-// ---------------------------------------------------------------------------
-// Advanced section -- power user features
-// ---------------------------------------------------------------------------
+/* === MONITORING SECTION === Progressive disclosure group */
+const monitoringItems: NavItem[] = [
+  { label: 'System Status', href: '/system-status', icon: '\u2665', minMode: 'advanced' },
+  { label: 'Data Classification', href: '/data-classification', icon: '\u2263', minMode: 'advanced' },
+];
 
+/* === ADVANCED SECTION === Progressive disclosure group */
 const advancedItems: NavItem[] = [
   { label: 'Genesis', href: '/genesis', icon: '@', minMode: 'expert' },
   { label: 'Introspection', href: '/introspection', icon: '?', minMode: 'expert' },
@@ -242,10 +245,9 @@ const advancedItems: NavItem[] = [
   { label: 'Integrations', href: '/integrations', icon: ':', minMode: 'advanced' },
 ];
 
-// ---------------------------------------------------------------------------
-// Admin
-// ---------------------------------------------------------------------------
-
+/* === ADMIN SECTION === Progressive disclosure group
+ * Admin-only pages including dedup, retention, knowledge velocity.
+ */
 const adminNavItems: NavItem[] = [
   { label: 'Admin Dashboard', href: '/admin', icon: '!', adminOnly: true },
   { label: 'User Management', href: '/admin/users', icon: '@', adminOnly: true },
@@ -260,16 +262,21 @@ const adminNavItems: NavItem[] = [
   { label: 'Admin Evidence', href: '/admin/evidence', icon: '\u2690', adminOnly: true },
   { label: 'Forensic', href: '/admin/forensic', icon: '\u2623', adminOnly: true },
   { label: 'Admin Knowledge', href: '/admin/knowledge', icon: '?', adminOnly: true },
+  { label: 'Knowledge Velocity', href: '/admin/knowledge/velocity', icon: '\u21C8', adminOnly: true },
   { label: 'Admin Memory', href: '/admin/memory', icon: '=', adminOnly: true },
   { label: 'Nomic', href: '/admin/nomic', icon: '\u221E', adminOnly: true },
   { label: 'Personas', href: '/admin/personas', icon: '&', adminOnly: true },
   { label: 'Admin Queue', href: '/admin/queue', icon: '\u2630', adminOnly: true },
+  { label: 'Dedup', href: '/admin/dedup', icon: '\u2A01', adminOnly: true },
+  { label: 'Retention', href: '/admin/retention', icon: '\u23F3', adminOnly: true },
   { label: 'Streaming', href: '/admin/streaming', icon: '\u25B6', adminOnly: true },
   { label: 'Admin Training', href: '/admin/training', icon: '\u2699', adminOnly: true },
   { label: 'Admin Verticals', href: '/admin/verticals', icon: '/', adminOnly: true },
   { label: 'Workspace', href: '/admin/workspace', icon: '\u25A3', adminOnly: true },
   { label: 'AB Tests', href: '/admin/ab-tests', icon: 'A|B', adminOnly: true },
+  { label: 'Federation', href: '/admin/federation', icon: '\u2318', adminOnly: true },
   { label: 'Intelligence', href: '/admin/intelligence', icon: '\u269B', adminOnly: true },
+  { label: 'Observability', href: '/admin/observability', icon: '\u25C9', adminOnly: true },
   { label: 'System Health', href: '/admin/system-health', icon: '\u2764', adminOnly: true },
 ];
 
@@ -287,6 +294,26 @@ export function Sidebar() {
   const firstFocusableRef = useRef<HTMLButtonElement>(null);
 
   const isAdmin = user?.role === 'admin';
+
+  // Collapsible section state -- persisted in localStorage
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('aragora-mobile-sidebar-collapsed');
+      if (saved) setCollapsedSections(new Set(JSON.parse(saved)));
+    } catch { /* ignore */ }
+  }, []);
+
+  const toggleSection = useCallback((key: string) => {
+    setCollapsedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try { localStorage.setItem('aragora-mobile-sidebar-collapsed', JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
 
   // Edge swipe to open sidebar (from left edge of screen)
   useEdgeSwipe({
@@ -336,7 +363,7 @@ export function Sidebar() {
     close();
   };
 
-  const renderNavSection = (title: string, items: NavItem[], sectionMinMode?: ProgressiveMode) => {
+  const renderNavSection = (title: string, items: NavItem[], sectionMinMode?: ProgressiveMode, sectionKey?: string) => {
     // Don't show section at all if user's mode is below section minimum
     if (sectionMinMode && !isFeatureVisible(sectionMinMode)) {
       return null;
@@ -351,26 +378,55 @@ export function Sidebar() {
 
     if (filteredItems.length === 0) return null;
 
+    // Collapsible support: use sectionKey if provided
+    const canCollapse = !!sectionKey;
+    const isCollapsed = canCollapse && collapsedSections.has(sectionKey!);
+
     return (
       <div className="mb-6">
-        <h3 className="text-acid-cyan text-xs uppercase tracking-wider mb-2 px-2">
-          {title}
-        </h3>
-        <nav>
-          {filteredItems.map(item => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={close}
-              className="flex items-center gap-2 px-2 py-2 text-acid-green hover:bg-acid-green/10 hover:text-acid-cyan transition-colors font-mono text-sm"
-            >
-              {item.icon && (
-                <span className="w-4 text-center text-acid-green/70">{item.icon}</span>
-              )}
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        {/* Section header with collapse toggle and count badge */}
+        <button
+          onClick={canCollapse ? () => toggleSection(sectionKey!) : undefined}
+          className={`
+            w-full flex items-center justify-between px-2 mb-2
+            text-acid-cyan text-xs uppercase tracking-wider
+            ${canCollapse ? 'cursor-pointer hover:text-acid-green transition-colors' : 'cursor-default'}
+          `}
+        >
+          <span className="flex items-center gap-1.5">
+            {title}
+            {/* Count badge -- shows number of visible items in this group */}
+            {canCollapse && (
+              <span className="px-1 py-0.5 text-[9px] font-medium bg-acid-green/10 text-acid-green/70 rounded leading-none">
+                {filteredItems.length}
+              </span>
+            )}
+          </span>
+          {canCollapse && (
+            <span className="font-mono text-[10px] text-acid-green/50">
+              {isCollapsed ? '\u25B8' : '\u25BE'}
+            </span>
+          )}
+        </button>
+
+        {/* Collapsible nav items */}
+        {!isCollapsed && (
+          <nav>
+            {filteredItems.map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={close}
+                className="flex items-center gap-2 px-2 py-2 text-acid-green hover:bg-acid-green/10 hover:text-acid-cyan transition-colors font-mono text-sm"
+              >
+                {item.icon && (
+                  <span className="w-4 text-center text-acid-green/70">{item.icon}</span>
+                )}
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </div>
     );
   };
@@ -437,53 +493,56 @@ export function Sidebar() {
             <ModeSelector compact />
           </div>
 
-          {/* Start - Use cases */}
+          {/* === START === Use cases (not collapsible) */}
           {renderNavSection('Start', showOnboarding
             ? [{ label: 'Get Started', href: '/onboarding', icon: '>', minMode: 'simple' as ProgressiveMode }, ...startItems]
             : startItems
           )}
 
-          {/* Pipeline - Idea-to-Execution stages (always visible) */}
+          {/* === PIPELINE === Idea-to-Execution stages (not collapsible) */}
           {renderNavSection('Pipeline', pipelineItems)}
 
-          {/* Decisions */}
-          {renderNavSection('Decisions', decisionsItems, 'standard')}
+          {/* === DECISIONS === Progressive disclosure group */}
+          {renderNavSection('Decisions', decisionsItems, 'standard', 'decisions')}
 
-          {/* Browse - View past content */}
-          {renderNavSection('Browse', browseItems)}
+          {/* === BROWSE === Progressive disclosure group */}
+          {renderNavSection('Browse', browseItems, undefined, 'browse')}
 
-          {/* Analytics & Insights */}
-          {renderNavSection('Analytics & Insights', analyticsItems, 'standard')}
+          {/* === ANALYTICS & INSIGHTS === Progressive disclosure group */}
+          {renderNavSection('Analytics & Insights', analyticsItems, 'standard', 'analytics')}
 
-          {/* Enterprise */}
-          {renderNavSection('Enterprise', enterpriseItems, 'standard')}
+          {/* === ENTERPRISE === Progressive disclosure group */}
+          {renderNavSection('Enterprise', enterpriseItems, 'standard', 'enterprise')}
 
-          {/* Tools - Management */}
-          {renderNavSection('Tools', toolsItems, 'standard')}
+          {/* === TOOLS === Progressive disclosure group */}
+          {renderNavSection('Tools', toolsItems, 'standard', 'tools')}
 
-          {/* Memory & Knowledge */}
-          {renderNavSection('Memory & Knowledge', memoryItems, 'advanced')}
+          {/* === MEMORY & KNOWLEDGE === Progressive disclosure group */}
+          {renderNavSection('Memory & Knowledge', memoryItems, 'advanced', 'memory')}
 
-          {/* Development */}
-          {renderNavSection('Development', developmentItems, 'standard')}
+          {/* === DEVELOPMENT === Progressive disclosure group */}
+          {renderNavSection('Development', developmentItems, 'standard', 'development')}
 
-          {/* AI & ML */}
-          {renderNavSection('AI & ML', aiMlItems, 'advanced')}
+          {/* === AI & ML === Progressive disclosure group */}
+          {renderNavSection('AI & ML', aiMlItems, 'advanced', 'ai-ml')}
 
-          {/* Voice & Media */}
-          {renderNavSection('Voice & Media', voiceMediaItems, 'advanced')}
+          {/* === VOICE & MEDIA === Progressive disclosure group */}
+          {renderNavSection('Voice & Media', voiceMediaItems, 'advanced', 'voice-media')}
 
-          {/* Orchestration */}
-          {renderNavSection('Orchestration', orchestrationItems, 'advanced')}
+          {/* === ORCHESTRATION === Progressive disclosure group */}
+          {renderNavSection('Orchestration', orchestrationItems, 'advanced', 'orchestration')}
 
-          {/* Business */}
-          {renderNavSection('Business', businessItems, 'standard')}
+          {/* === MONITORING === Progressive disclosure group */}
+          {renderNavSection('Monitoring', monitoringItems, 'advanced', 'monitoring')}
 
-          {/* Advanced - Power features */}
-          {renderNavSection('Advanced', advancedItems, 'advanced')}
+          {/* === BUSINESS === Progressive disclosure group */}
+          {renderNavSection('Business', businessItems, 'standard', 'business')}
 
-          {/* Admin section */}
-          {isAdmin && renderNavSection('Admin', adminNavItems, 'expert')}
+          {/* === ADVANCED === Progressive disclosure group */}
+          {renderNavSection('Advanced', advancedItems, 'advanced', 'advanced')}
+
+          {/* === ADMIN === Progressive disclosure group (admin-only) */}
+          {isAdmin && renderNavSection('Admin', adminNavItems, 'expert', 'admin')}
         </div>
 
         {/* Footer */}

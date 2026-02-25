@@ -201,7 +201,7 @@ class TestCodeValidation:
         await discount_manager.create_code(
             code="ENTERPRISE",
             discount_percent=25.0,
-            eligible_tiers=["enterprise", "enterprise_plus"],
+            eligible_tiers=["enterprise"],
         )
 
         # Wrong tier

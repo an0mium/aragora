@@ -41,11 +41,10 @@ interface PlanInfo {
 }
 
 const TIER_PRICES: Record<string, { monthly: number; features: string[] }> = {
-  free: { monthly: 0, features: ['5 debates/month', 'Basic agents', 'Community support'] },
-  starter: { monthly: 29, features: ['50 debates/month', 'All agents', 'Email support', 'Basic analytics'] },
-  professional: { monthly: 99, features: ['200 debates/month', 'Priority agents', 'Priority support', 'Advanced analytics', 'API access'] },
-  enterprise: { monthly: 299, features: ['Unlimited debates', 'Custom agents', 'Dedicated support', 'Full analytics', 'API access', 'SSO'] },
-  enterprise_plus: { monthly: 999, features: ['Everything in Enterprise', 'Custom integrations', 'SLA guarantee', 'On-prem option', 'Training'] },
+  free: { monthly: 0, features: ['10 debates/month', '3 agents', 'Community support'] },
+  starter: { monthly: 29, features: ['100 debates/month', '10 agents', 'Email support', 'API access'] },
+  professional: { monthly: 99, features: ['1,000 debates/month', 'All agents', 'Priority support', 'Advanced analytics', 'Full API access'] },
+  enterprise: { monthly: 0, features: ['Unlimited debates', 'SSO/SCIM', 'Dedicated support', 'SLA guarantee', 'On-prem option', 'Compliance'] },
 };
 
 function formatCurrency(cents: number, currency = 'USD'): string {
@@ -493,7 +492,7 @@ export default function BillingPage() {
               Choose the plan that best fits your needs. Upgrade or downgrade anytime.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {Object.keys(TIER_PRICES).map((tier) => (
               <TierCard
                 key={tier}
@@ -505,21 +504,21 @@ export default function BillingPage() {
           </div>
 
           {/* Upgrade CTA */}
-          {planInfo?.current_tier && planInfo.current_tier !== 'enterprise_plus' && (
-            <div className="mt-8 card p-6 border-acid-magenta/40 bg-acid-magenta/5">
+          {planInfo?.current_tier && planInfo.current_tier !== 'enterprise' && (
+            <div className="mt-8 card p-6 border-acid-yellow/40 bg-acid-yellow/5">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <h3 className="font-mono text-lg text-acid-magenta mb-1">Need more power?</h3>
+                  <h3 className="font-mono text-lg text-acid-yellow mb-1">Need more power?</h3>
                   <p className="font-mono text-sm text-text-muted">
-                    Upgrade to Enterprise+ for unlimited debates, custom agents, and dedicated support.
+                    Contact sales for Enterprise pricing with unlimited debates, SSO, and dedicated support.
                   </p>
                 </div>
-                <button
-                  onClick={() => handleUpgrade('enterprise_plus')}
-                  className="px-6 py-3 bg-acid-magenta/20 border border-acid-magenta/40 text-acid-magenta font-mono text-sm rounded hover:bg-acid-magenta/30 transition-colors"
+                <a
+                  href="mailto:sales@aragora.ai?subject=Enterprise%20Inquiry"
+                  className="px-6 py-3 bg-acid-yellow/20 border border-acid-yellow/40 text-acid-yellow font-mono text-sm rounded hover:bg-acid-yellow/30 transition-colors"
                 >
-                  Upgrade to Enterprise+
-                </button>
+                  Contact Sales
+                </a>
               </div>
             </div>
           )}

@@ -2,7 +2,7 @@
 Usage Metering Integration with Aragora Debate System.
 
 Provides integration hooks between the debate orchestration system
-and the usage metering service for ENTERPRISE_PLUS tier billing.
+and the usage metering service for ENTERPRISE tier billing.
 
 Usage:
     from aragora.billing.usage_metering_integration import (

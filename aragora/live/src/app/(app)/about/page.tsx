@@ -169,7 +169,7 @@ export default function AboutPage() {
               <div className="border border-acid-green/30 p-6 bg-acid-green/5">
                 <h3 className="text-acid-green font-mono mb-4">Aragora (Multi Agent)</h3>
                 <ul className="space-y-2 text-text-muted text-sm font-mono">
-                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Heterogeneous viewpoints</li>
+                  <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Diverse AI perspectives</li>
                   <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Structured critique and debate</li>
                   <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Audit-ready decision transcript</li>
                   <li className="flex items-center gap-2"><span className="text-acid-green">✓</span> Decision receipts with dissent</li>
