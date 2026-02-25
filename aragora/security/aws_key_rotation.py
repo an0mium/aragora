@@ -101,10 +101,10 @@ class RotationEventType(str, Enum):
     """Rotation lifecycle events for auditing."""
 
     ROTATION_STARTED = "rotation_started"
-    SECRET_CREATED = "secret_created"
-    SECRET_SET = "secret_set"
-    SECRET_TESTED = "secret_tested"
-    SECRET_FINISHED = "secret_finished"
+    SECRET_CREATED = "secret_created"  # noqa: S105 -- enum value
+    SECRET_SET = "secret_set"  # noqa: S105 -- enum value
+    SECRET_TESTED = "secret_tested"  # noqa: S105 -- enum value
+    SECRET_FINISHED = "secret_finished"  # noqa: S105 -- enum value
     ROTATION_FAILED = "rotation_failed"
     ROTATION_COMPLETED = "rotation_completed"
 
