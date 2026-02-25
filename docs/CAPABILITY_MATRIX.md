@@ -9,7 +9,7 @@
 |---------|-----------|---------------------|
 | **HTTP API** | 1772 paths / 2100 operations | 81.1% |
 | **CLI** | 75 commands | 43.2% |
-| **SDK (Python)** | 185 namespaces | 70.3% |
+| **SDK (Python)** | 186 namespaces | 70.3% |
 | **SDK (TypeScript)** | 184 namespaces | 70.3% |
 | **UI** | tracked in capability surfaces | 86.5% |
 | **Capability Catalog** | 37/37 mapped | 100.0% |

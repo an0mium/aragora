@@ -55,7 +55,23 @@ jobs:
 
       - name: Install dependencies
         working-directory: docs-site
-        run: npm ci
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+
+          for attempt in 1 2 3; do
+            if npm ci --ignore-scripts; then
+              exit 0
+            fi
+            echo "::warning::npm ci attempt ${attempt} failed; retrying after cache clean"
+            npm cache clean --force || true
+            sleep $((attempt * 10))
+          done
+
+          echo "::warning::npm ci failed after retries; falling back to npm install --ignore-scripts"
+          npm install --ignore-scripts
 
       - name: Update doc stats
         run: python scripts/doc_stats.py --write

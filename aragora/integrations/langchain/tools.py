@@ -59,11 +59,20 @@ def _FieldStub(*args: Any, **kwargs: Any) -> Any:
 
 # LangChain imports with fallback
 try:
-    from langchain.tools import BaseTool as _LCBaseTool
-    from langchain.callbacks.manager import (
-        AsyncCallbackManagerForToolRun as _LCAsyncCBManager,
-        CallbackManagerForToolRun as _LCCBManager,
-    )
+    try:
+        from langchain_core.tools import BaseTool as _LCBaseTool
+    except ImportError:
+        from langchain.tools import BaseTool as _LCBaseTool
+    try:
+        from langchain_core.callbacks.manager import (
+            AsyncCallbackManagerForToolRun as _LCAsyncCBManager,
+            CallbackManagerForToolRun as _LCCBManager,
+        )
+    except ImportError:
+        from langchain.callbacks.manager import (
+            AsyncCallbackManagerForToolRun as _LCAsyncCBManager,
+            CallbackManagerForToolRun as _LCCBManager,
+        )
     from pydantic import BaseModel as _PydanticBaseModel, Field as _PydanticField
 
     BaseTool = _LCBaseTool

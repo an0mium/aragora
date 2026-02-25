@@ -30,10 +30,16 @@ logger = logging.getLogger(__name__)
 
 # Type-only imports for static analysis
 if TYPE_CHECKING:
-    from langchain.callbacks.manager import (
-        AsyncCallbackManagerForChainRun,
-        CallbackManagerForChainRun,
-    )
+    try:
+        from langchain_core.callbacks.manager import (
+            AsyncCallbackManagerForChainRun,
+            CallbackManagerForChainRun,
+        )
+    except ImportError:
+        from langchain.callbacks.manager import (
+            AsyncCallbackManagerForChainRun,
+            CallbackManagerForChainRun,
+        )
 
 
 # Stub classes for when LangChain is not installed
@@ -58,11 +64,20 @@ class _StubCallbackManager:
 
 # LangChain imports with fallback
 try:
-    from langchain.chains.base import Chain as _LangChainBase
-    from langchain.callbacks.manager import (
-        AsyncCallbackManagerForChainRun,
-        CallbackManagerForChainRun,
-    )
+    try:
+        from langchain.chains.base import Chain as _LangChainBase
+    except ImportError:
+        from langchain_core.chains.base import Chain as _LangChainBase  # type: ignore[no-redef]
+    try:
+        from langchain_core.callbacks.manager import (
+            AsyncCallbackManagerForChainRun,
+            CallbackManagerForChainRun,
+        )
+    except ImportError:
+        from langchain.callbacks.manager import (
+            AsyncCallbackManagerForChainRun,
+            CallbackManagerForChainRun,
+        )
 
     LANGCHAIN_AVAILABLE = True
     _ChainBase: type = _LangChainBase

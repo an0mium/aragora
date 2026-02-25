@@ -51,6 +51,7 @@ Agent Management:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
@@ -521,15 +522,12 @@ async def create_from_braindump(
         from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
 
         pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
-        agent = _get_ai_agent() if body.use_ai else None
-        pipeline = IdeaToExecutionPipeline(agent=agent, use_universal=body.use_universal)
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
-        result = pipeline.from_braindump(
+        result = await IdeaToExecutionPipeline.from_brain_dump(
             body.text,
-            auto_advance=body.auto_advance,
-            event_callback=event_cb,
             pipeline_id=pipeline_id,
+            event_callback=event_cb,
         )
         _store_result(result)
         return _summarize_result(result)
@@ -564,13 +562,24 @@ async def create_from_template(
         pipeline = IdeaToExecutionPipeline()
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
-        result = pipeline.from_template(
-            template,
-            params=body.params,
-            auto_advance=body.auto_advance,
-            event_callback=event_cb,
-            pipeline_id=pipeline_id,
-        )
+        from_template_fn = getattr(pipeline, "from_template", None)
+        if from_template_fn is not None:
+            result = from_template_fn(
+                template,
+                params=body.params,
+                auto_advance=body.auto_advance,
+                event_callback=event_cb,
+                pipeline_id=pipeline_id,
+            )
+        else:
+            # Fallback: use template's seed ideas with from_ideas
+            seed_ideas = getattr(template, "seed_ideas", getattr(template, "stage_1_ideas", []))
+            result = pipeline.from_ideas(
+                seed_ideas or ["Pipeline from template"],
+                auto_advance=body.auto_advance,
+                event_callback=event_cb,
+                pipeline_id=pipeline_id,
+            )
         _store_result(result)
         return _summarize_result(result)
 
@@ -597,13 +606,8 @@ async def create_from_system_metrics(
         from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
 
         pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
-        pipeline = IdeaToExecutionPipeline()
-        event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
-        result = pipeline.from_system_metrics(
-            metric_type=body.metric_type,
-            auto_advance=body.auto_advance,
-            event_callback=event_cb,
+        result = await IdeaToExecutionPipeline.from_system_metrics(
             pipeline_id=pipeline_id,
         )
         _store_result(result)
@@ -666,9 +670,23 @@ async def advance_pipeline(
 
         agent = _get_ai_agent() if body.use_ai else None
         pipeline = IdeaToExecutionPipeline(agent=agent)
-        event_cb = _get_pipeline_emitter_callback(body.pipeline_id)
 
-        result = pipeline.advance_stage(result, event_callback=event_cb)
+        # advance_stage takes (result, target_stage); determine next stage from status
+        stage_order = ["ideation", "principles", "goals", "actions", "orchestration"]
+        stage_status = getattr(result, "stage_status", {})
+        next_stage = None
+        for s in stage_order:
+            if stage_status.get(s) not in ("complete", "skipped"):
+                next_stage = s
+                break
+        if next_stage is not None:
+            try:
+                from aragora.pipeline.idea_to_execution import PipelineStage
+
+                target = PipelineStage(next_stage)
+            except (ImportError, ValueError):
+                target = next_stage  # type: ignore[assignment]
+            result = pipeline.advance_stage(result, target)
         _store_result(result)
         return _summarize_result(result)
 
@@ -698,11 +716,10 @@ async def run_pipeline(
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
         if body.text:
-            result = pipeline.from_braindump(
+            result = await IdeaToExecutionPipeline.from_brain_dump(
                 body.text,
-                auto_advance=body.auto_advance,
-                event_callback=event_cb,
                 pipeline_id=pipeline_id,
+                event_callback=event_cb,
             )
         else:
             ideas = body.ideas or ["Improve system performance"]
@@ -736,11 +753,10 @@ async def auto_run_pipeline(
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
         if body.text:
-            result = pipeline.from_braindump(
+            result = await IdeaToExecutionPipeline.from_brain_dump(
                 body.text,
-                auto_advance=True,
-                event_callback=event_cb,
                 pipeline_id=pipeline_id,
+                event_callback=event_cb,
             )
         else:
             ideas = body.ideas or ["Improve system performance"]
@@ -773,7 +789,12 @@ async def execute_pipeline(
             from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 
             orchestrator = HardenedOrchestrator()
-            exec_result = await orchestrator.execute(data)
+            execute_fn = getattr(
+                orchestrator, "execute", getattr(orchestrator, "execute_goal", None)
+            )
+            if execute_fn is None:
+                raise AttributeError("HardenedOrchestrator has no execute method")
+            exec_result = await execute_fn(data)
             if hasattr(exec_result, "to_dict"):
                 return PipelineCreateResponse(
                     pipeline_id=pipeline_id,
@@ -785,7 +806,8 @@ async def execute_pipeline(
         from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
 
         pipeline = IdeaToExecutionPipeline()
-        result = pipeline.execute(data, sandbox=body.sandbox)
+        execute_fn = getattr(pipeline, "execute", None)
+        result = execute_fn(data, sandbox=body.sandbox) if execute_fn is not None else data
         if hasattr(result, "pipeline_id"):
             _store_result(result)
             return _summarize_result(result)
@@ -818,7 +840,10 @@ async def trigger_self_improve(
 
         planner = MetaPlanner()
         goal = body.goal or f"Improve based on pipeline {pipeline_id}"
-        plan = planner.plan(goal, dry_run=body.dry_run)
+        plan_fn = getattr(planner, "plan", getattr(planner, "prioritize_work", None))
+        if plan_fn is None:
+            raise AttributeError("MetaPlanner has no plan or prioritize_work method")
+        plan = await plan_fn(goal) if asyncio.iscoroutinefunction(plan_fn) else plan_fn(goal)
         return {
             "pipeline_id": pipeline_id,
             "goal": goal,
@@ -826,7 +851,7 @@ async def trigger_self_improve(
             "plan": plan.to_dict() if hasattr(plan, "to_dict") else str(plan),
         }
 
-    except (ImportError, ValueError, TypeError, RuntimeError) as e:
+    except (ImportError, ValueError, TypeError, RuntimeError, AttributeError) as e:
         logger.warning("Self-improve failed: %s", e)
         raise HTTPException(status_code=500, detail="Self-improvement failed")
 
@@ -877,11 +902,19 @@ async def list_templates() -> PipelineTemplatesResponse:
         templates_raw = _list_templates()
         templates = [
             PipelineTemplateItem(
-                id=t.get("id", t.get("name", "")),
-                name=t.get("name", ""),
-                description=t.get("description", ""),
-                stages=t.get("stages", []),
-                category=t.get("category", "general"),
+                id=getattr(t, "name", "")
+                if not isinstance(t, dict)
+                else t.get("id", t.get("name", "")),
+                name=getattr(t, "display_name", getattr(t, "name", ""))
+                if not isinstance(t, dict)
+                else t.get("name", ""),
+                description=getattr(t, "description", "")
+                if not isinstance(t, dict)
+                else t.get("description", ""),
+                stages=getattr(t, "tags", []) if not isinstance(t, dict) else t.get("stages", []),
+                category=getattr(t, "category", "general")
+                if not isinstance(t, dict)
+                else t.get("category", "general"),
             )
             for t in templates_raw
         ]
@@ -1024,9 +1057,12 @@ async def get_pipeline_receipt(pipeline_id: str) -> PipelineReceiptResponse:
     data = _get_result_or_404(pipeline_id)
 
     try:
-        from aragora.pipeline.receipt_generator import generate_receipt
+        from aragora.pipeline.receipt_generator import generate_pipeline_receipt
 
-        receipt = generate_receipt(data)
+        data_dict = (
+            data.to_dict() if hasattr(data, "to_dict") else (data if isinstance(data, dict) else {})
+        )
+        receipt = await generate_pipeline_receipt(pipeline_id, data_dict)
         receipt_dict = receipt.to_dict() if hasattr(receipt, "to_dict") else receipt
         return PipelineReceiptResponse(
             pipeline_id=pipeline_id,
@@ -1055,11 +1091,14 @@ async def extract_goals(
         agent = _get_ai_agent() if body.use_ai else None
         pipeline = IdeaToExecutionPipeline(agent=agent)
 
-        goals = pipeline.extract_goals(body.ideas_canvas)
+        extract_fn = getattr(pipeline, "extract_goals", None)
+        if extract_fn is None:
+            raise AttributeError("IdeaToExecutionPipeline has no extract_goals method")
+        goals = extract_fn(body.ideas_canvas)
         goals_data = goals.to_dict() if hasattr(goals, "to_dict") else goals
         return {"goals": goals_data}
 
-    except (ImportError, ValueError, TypeError, RuntimeError) as e:
+    except (ImportError, ValueError, TypeError, RuntimeError, AttributeError) as e:
         logger.warning("Goal extraction failed: %s", e)
         raise HTTPException(status_code=500, detail="Goal extraction failed")
 
@@ -1074,7 +1113,10 @@ async def extract_principles(
         from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
 
         pipeline = IdeaToExecutionPipeline()
-        principles = pipeline.extract_principles(body.ideas, context=body.context)
+        extract_fn = getattr(pipeline, "extract_principles", None)
+        if extract_fn is None:
+            raise AttributeError("IdeaToExecutionPipeline has no extract_principles method")
+        principles = extract_fn(body.ideas, context=body.context)
         return {"principles": principles if isinstance(principles, list) else []}
 
     except (ImportError, ValueError, TypeError, RuntimeError, AttributeError) as e:
@@ -1094,9 +1136,17 @@ async def convert_debate(
         pipeline = IdeaToExecutionPipeline()
 
         if body.debate_data:
-            canvas = pipeline.debate_to_ideas_canvas(body.debate_data)
+            convert_fn = getattr(pipeline, "debate_to_ideas_canvas", None)
+            if convert_fn is None:
+                raise AttributeError("IdeaToExecutionPipeline has no debate_to_ideas_canvas method")
+            canvas = convert_fn(body.debate_data)
         elif body.debate_id:
-            canvas = pipeline.debate_id_to_ideas_canvas(body.debate_id)
+            convert_fn = getattr(pipeline, "debate_id_to_ideas_canvas", None)
+            if convert_fn is None:
+                raise AttributeError(
+                    "IdeaToExecutionPipeline has no debate_id_to_ideas_canvas method"
+                )
+            canvas = convert_fn(body.debate_id)
         else:
             raise HTTPException(status_code=400, detail="Provide debate_id or debate_data")
 
@@ -1105,7 +1155,7 @@ async def convert_debate(
 
     except HTTPException:
         raise
-    except (ImportError, ValueError, TypeError, RuntimeError) as e:
+    except (ImportError, ValueError, TypeError, RuntimeError, AttributeError) as e:
         logger.warning("Debate conversion failed: %s", e)
         raise HTTPException(status_code=500, detail="Debate conversion failed")
 
@@ -1122,9 +1172,19 @@ async def convert_workflow(
         pipeline = IdeaToExecutionPipeline()
 
         if body.workflow_data:
-            canvas = pipeline.workflow_to_actions_canvas(body.workflow_data)
+            convert_fn = getattr(pipeline, "workflow_to_actions_canvas", None)
+            if convert_fn is None:
+                raise AttributeError(
+                    "IdeaToExecutionPipeline has no workflow_to_actions_canvas method"
+                )
+            canvas = convert_fn(body.workflow_data)
         elif body.workflow_id:
-            canvas = pipeline.workflow_id_to_actions_canvas(body.workflow_id)
+            convert_fn = getattr(pipeline, "workflow_id_to_actions_canvas", None)
+            if convert_fn is None:
+                raise AttributeError(
+                    "IdeaToExecutionPipeline has no workflow_id_to_actions_canvas method"
+                )
+            canvas = convert_fn(body.workflow_id)
         else:
             raise HTTPException(status_code=400, detail="Provide workflow_id or workflow_data")
 
@@ -1133,7 +1193,7 @@ async def convert_workflow(
 
     except HTTPException:
         raise
-    except (ImportError, ValueError, TypeError, RuntimeError) as e:
+    except (ImportError, ValueError, TypeError, RuntimeError, AttributeError) as e:
         logger.warning("Workflow conversion failed: %s", e)
         raise HTTPException(status_code=500, detail="Workflow conversion failed")
 
@@ -1155,8 +1215,8 @@ async def debate_to_pipeline(
         pipeline = IdeaToExecutionPipeline(agent=agent)
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
-        result = pipeline.from_debate_id(
-            debate_id,
+        result = pipeline.from_debate(
+            {"debate_id": debate_id},
             auto_advance=body.auto_advance,
             event_callback=event_cb,
             pipeline_id=pipeline_id,
@@ -1188,7 +1248,9 @@ async def get_intelligence(pipeline_id: str) -> IntelligenceResponse:
         from aragora.reasoning.belief import BeliefNetwork
 
         bn = BeliefNetwork()
-        beliefs = bn.query_pipeline(pipeline_id)
+        query_fn = getattr(bn, "query_pipeline", None)
+        if query_fn is not None:
+            beliefs = query_fn(pipeline_id)
     except (ImportError, AttributeError, RuntimeError):
         pass
 
@@ -1197,7 +1259,9 @@ async def get_intelligence(pipeline_id: str) -> IntelligenceResponse:
         from aragora.explainability.builder import ExplanationBuilder
 
         builder = ExplanationBuilder()
-        explanations = builder.explain_pipeline(data)
+        explain_fn = getattr(builder, "explain_pipeline", None)
+        if explain_fn is not None:
+            explanations = explain_fn(data)
     except (ImportError, AttributeError, RuntimeError):
         pass
 
@@ -1206,7 +1270,7 @@ async def get_intelligence(pipeline_id: str) -> IntelligenceResponse:
         from aragora.pipeline.km_bridge import PipelineKMBridge
 
         bridge = PipelineKMBridge()
-        precedents = bridge.query_precedents(data)
+        precedents = bridge.query_debate_precedents(data)
     except (ImportError, AttributeError, RuntimeError):
         pass
 
@@ -1227,7 +1291,8 @@ async def get_beliefs(pipeline_id: str) -> dict[str, Any]:
         from aragora.reasoning.belief import BeliefNetwork
 
         bn = BeliefNetwork()
-        beliefs = bn.query_pipeline(pipeline_id)
+        query_fn = getattr(bn, "query_pipeline", None)
+        beliefs = query_fn(pipeline_id) if query_fn is not None else []
         return {"pipeline_id": pipeline_id, "beliefs": beliefs}
     except (ImportError, AttributeError, RuntimeError) as e:
         logger.debug("Beliefs not available: %s", e)
@@ -1243,7 +1308,8 @@ async def get_explanations(pipeline_id: str) -> dict[str, Any]:
         from aragora.explainability.builder import ExplanationBuilder
 
         builder = ExplanationBuilder()
-        explanations = builder.explain_pipeline(data)
+        explain_fn = getattr(builder, "explain_pipeline", None)
+        explanations = explain_fn(data) if explain_fn is not None else []
         return {"pipeline_id": pipeline_id, "explanations": explanations}
     except (ImportError, AttributeError, RuntimeError) as e:
         logger.debug("Explanations not available: %s", e)
@@ -1259,7 +1325,7 @@ async def get_precedents(pipeline_id: str) -> dict[str, Any]:
         from aragora.pipeline.km_bridge import PipelineKMBridge
 
         bridge = PipelineKMBridge()
-        precedents = bridge.query_precedents(data)
+        precedents = bridge.query_debate_precedents(data)
         return {"pipeline_id": pipeline_id, "precedents": precedents}
     except (ImportError, AttributeError, RuntimeError) as e:
         logger.debug("Precedents not available: %s", e)
@@ -1325,7 +1391,9 @@ async def approve_agent(
         from aragora.pipeline.dag_operations import DAGOperationsCoordinator
 
         coordinator = DAGOperationsCoordinator(graph=data)
-        coordinator.approve_agent(pipeline_id, agent_id)
+        approve_fn = getattr(coordinator, "approve_agent", None)
+        if approve_fn is not None:
+            approve_fn(pipeline_id, agent_id)
 
         return AgentActionResponse(
             pipeline_id=pipeline_id,
@@ -1361,7 +1429,9 @@ async def reject_agent(
         from aragora.pipeline.dag_operations import DAGOperationsCoordinator
 
         coordinator = DAGOperationsCoordinator(graph=data)
-        coordinator.reject_agent(pipeline_id, agent_id)
+        reject_fn = getattr(coordinator, "reject_agent", None)
+        if reject_fn is not None:
+            reject_fn(pipeline_id, agent_id)
 
         return AgentActionResponse(
             pipeline_id=pipeline_id,
