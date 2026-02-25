@@ -109,6 +109,17 @@ class KnowledgeItem:
     # Cross-reference tracking
     cross_references: list[str] = field(default_factory=list)  # IDs of related items
 
+    def __post_init__(self) -> None:
+        """Normalize importance to float | None to prevent mixed-type sort crashes."""
+        if self.importance is not None:
+            if not isinstance(self.importance, (int, float)):
+                try:
+                    self.importance = float(self.importance)
+                except (TypeError, ValueError):
+                    self.importance = None
+            else:
+                self.importance = float(self.importance)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {

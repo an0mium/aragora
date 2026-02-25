@@ -98,7 +98,7 @@ const VERDICT_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 /**
- * AuditTrailViewer - Visualizes the complete audit trail from a vetted decisionmaking session.
+ * AuditTrailViewer - Visualizes the complete audit trail from a debate session.
  *
  * Shows timeline of events, agent activity, evidence chains, and supports
  * export to multiple formats for compliance documentation.

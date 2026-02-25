@@ -79,13 +79,16 @@ def _run_async(coro: Coroutine[Any, Any, T]) -> T:
 
 
 def _build_analytics_stub_responses() -> dict[str, dict]:
-    """Build demo-quality stub responses for unauthenticated analytics.
+    """Build demo-quality fallback responses for unauthenticated analytics.
 
     Returns realistic sample data so the dashboard looks populated
-    even without auth context or workspace ID.
+    even without auth context or workspace ID.  Each response includes
+    ``"demo": True`` so the frontend can distinguish sample data from
+    real database results.
     """
     return {
         "/api/analytics/summary": {
+            "demo": True,
             "summary": {
                 "total_debates": 47,
                 "total_messages": 312,
@@ -98,27 +101,30 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                     {"topic": "Authentication architecture", "count": 5},
                     {"topic": "Cost optimization", "count": 4},
                 ],
-            }
+            },
         },
         "/api/analytics/trends/findings": {
+            "demo": True,
             "trends": [
                 {"date": "2026-02-16", "findings": 3, "resolved": 2},
                 {"date": "2026-02-17", "findings": 5, "resolved": 4},
                 {"date": "2026-02-18", "findings": 2, "resolved": 3},
                 {"date": "2026-02-19", "findings": 7, "resolved": 5},
                 {"date": "2026-02-20", "findings": 4, "resolved": 4},
-            ]
+            ],
         },
         "/api/analytics/remediation": {
+            "demo": True,
             "metrics": {
                 "total_findings": 21,
                 "remediated": 18,
                 "pending": 3,
                 "avg_remediation_time_hours": 2.4,
                 "remediation_rate": 85.7,
-            }
+            },
         },
         "/api/analytics/agents": {
+            "demo": True,
             "agents": [
                 {
                     "agent_id": "claude-opus",
@@ -155,9 +161,10 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                     "win_rate": 0.58,
                     "elo": 1688,
                 },
-            ]
+            ],
         },
         "/api/analytics/cost": {
+            "demo": True,
             "analysis": {
                 "total_cost_usd": 12.47,
                 "cost_by_model": {
@@ -176,9 +183,10 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                     {"date": "2026-02-19", "cost_usd": 3.14},
                     {"date": "2026-02-20", "cost_usd": 2.46},
                 ],
-            }
+            },
         },
         "/api/analytics/cost/breakdown": {
+            "demo": True,
             "breakdown": {
                 "total_spend_usd": 12.47,
                 "agents": [
@@ -189,9 +197,10 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                     {"agent": "mistral-large", "spend_usd": 0.32, "debates": 28},
                 ],
                 "budget_utilization_pct": 62.4,
-            }
+            },
         },
         "/api/analytics/compliance": {
+            "demo": True,
             "compliance": {
                 "overall_score": 94,
                 "categories": [
@@ -201,9 +210,10 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                     {"name": "Encryption", "score": 91, "status": "pass"},
                 ],
                 "last_audit": "2026-02-20T10:30:00Z",
-            }
+            },
         },
         "/api/analytics/heatmap": {
+            "demo": True,
             "heatmap": {
                 "x_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"],
                 "y_labels": ["9AM", "12PM", "3PM", "6PM"],
@@ -214,9 +224,10 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                     [4, 3, 6, 2, 1],
                 ],
                 "max_value": 8,
-            }
+            },
         },
         "/api/analytics/tokens": {
+            "demo": True,
             "summary": {
                 "total_tokens_in": 284500,
                 "total_tokens_out": 142300,
@@ -239,26 +250,30 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
             },
         },
         "/api/analytics/tokens/trends": {
+            "demo": True,
             "trends": [
                 {"date": "2026-02-16", "tokens_in": 52100, "tokens_out": 26400},
                 {"date": "2026-02-17", "tokens_in": 61800, "tokens_out": 30900},
                 {"date": "2026-02-18", "tokens_in": 48300, "tokens_out": 24200},
                 {"date": "2026-02-19", "tokens_in": 68900, "tokens_out": 34500},
                 {"date": "2026-02-20", "tokens_in": 53400, "tokens_out": 26300},
-            ]
+            ],
         },
         "/api/analytics/tokens/providers": {
+            "demo": True,
             "providers": [
                 {"provider": "Anthropic", "tokens": 207100, "pct": 48.5},
                 {"provider": "OpenAI", "tokens": 124600, "pct": 29.2},
                 {"provider": "Google", "tokens": 72400, "pct": 17.0},
                 {"provider": "Mistral", "tokens": 22700, "pct": 5.3},
-            ]
+            ],
         },
         "/api/analytics/flips/summary": {
-            "summary": {"total": 14, "consistent": 11, "inconsistent": 3}
+            "demo": True,
+            "summary": {"total": 14, "consistent": 11, "inconsistent": 3},
         },
         "/api/analytics/flips/recent": {
+            "demo": True,
             "flips": [
                 {
                     "agent": "gpt-4o",
@@ -281,53 +296,97 @@ def _build_analytics_stub_responses() -> dict[str, dict]:
                     "to": "approve",
                     "date": "2026-02-17",
                 },
-            ]
+            ],
         },
         "/api/analytics/flips/consistency": {
+            "demo": True,
             "consistency": [
                 {"agent": "claude-opus", "consistency_score": 0.94},
                 {"agent": "gpt-4o", "consistency_score": 0.87},
                 {"agent": "gemini-pro", "consistency_score": 0.82},
                 {"agent": "claude-sonnet", "consistency_score": 0.90},
                 {"agent": "mistral-large", "consistency_score": 0.85},
-            ]
+            ],
         },
         "/api/analytics/flips/trends": {
+            "demo": True,
             "trends": [
                 {"date": "2026-02-16", "flips": 2},
                 {"date": "2026-02-17", "flips": 3},
                 {"date": "2026-02-18", "flips": 4},
                 {"date": "2026-02-19", "flips": 3},
                 {"date": "2026-02-20", "flips": 2},
-            ]
+            ],
         },
-        "/api/analytics/deliberations": {"summary": {"total": 47, "consensus_rate": 72.3}},
+        "/api/analytics/deliberations": {
+            "demo": True,
+            "summary": {"total": 47, "consensus_rate": 72.3},
+        },
         "/api/analytics/deliberations/channels": {
+            "demo": True,
             "channels": [
                 {"channel": "web", "count": 28, "consensus_rate": 75.0},
                 {"channel": "api", "count": 12, "consensus_rate": 66.7},
                 {"channel": "cli", "count": 7, "consensus_rate": 71.4},
-            ]
+            ],
         },
         "/api/analytics/deliberations/consensus": {
+            "demo": True,
             "consensus": [
                 {"method": "majority", "count": 22, "avg_rounds": 2.8},
                 {"method": "supermajority", "count": 15, "avg_rounds": 3.4},
                 {"method": "unanimous", "count": 10, "avg_rounds": 4.1},
-            ]
+            ],
         },
         "/api/analytics/deliberations/performance": {
+            "demo": True,
             "performance": [
                 {"metric": "avg_duration_s", "value": 45.2},
                 {"metric": "avg_rounds", "value": 3.1},
                 {"metric": "avg_agents", "value": 4.2},
                 {"metric": "convergence_rate", "value": 0.84},
-            ]
+            ],
         },
     }
 
 
-ANALYTICS_STUB_RESPONSES = _build_analytics_stub_responses()
+# Demo fallback data (always available)
+_DEMO_FALLBACK_RESPONSES = _build_analytics_stub_responses()
+
+
+def get_analytics_response(path: str) -> dict:
+    """Get analytics response for *path*, preferring live database data.
+
+    Attempts a real database query first via :mod:`._live_queries`.
+    If the query returns data, the result is returned as-is (no ``"demo"``
+    key).  If the database is empty or the query fails for any reason, the
+    hardcoded demo data is returned with ``"demo": True`` so the frontend
+    knows it is sample data.
+
+    Args:
+        path: Normalised endpoint path (e.g. ``"/api/analytics/summary"``).
+
+    Returns:
+        A dict suitable for passing to ``json_response()``.
+    """
+    try:
+        from ._live_queries import LIVE_QUERY_REGISTRY
+
+        query_fn = LIVE_QUERY_REGISTRY.get(path)
+        if query_fn is not None:
+            result = query_fn()
+            if result is not None:
+                return result
+    except Exception:  # noqa: BLE001 -- graceful fallback to demo data
+        logger.debug("Live analytics query failed for %s, using demo fallback", path)
+
+    # Fallback: return demo data with demo flag
+    return _DEMO_FALLBACK_RESPONSES.get(path, {})
+
+
+# Backwards-compatible alias -- existing code references ANALYTICS_STUB_RESPONSES
+# to decide *which* paths get the fast-path treatment.
+ANALYTICS_STUB_RESPONSES = _DEMO_FALLBACK_RESPONSES
 
 __all__ = [
     "ANALYTICS_STUB_RESPONSES",
@@ -353,6 +412,7 @@ __all__ = [
     "check_permission",
     "error_response",
     "extract_user_from_request",
+    "get_analytics_response",
     "get_clamped_int_param",
     "get_string_param",
     "handle_errors",

@@ -54,7 +54,7 @@ export function DeliberationTracker({
   onDeliberationClick,
   onViewAll,
   className = '',
-  title = 'Vetted Decisionmaking',
+  title = 'Active Debates',
 }: DeliberationTrackerProps) {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
@@ -200,11 +200,11 @@ export function DeliberationTracker({
         )}
       </div>
 
-      {/* Vetted Decisionmaking list */}
+      {/* Debate list */}
       <div className="max-h-[500px] overflow-y-auto">
         {visibleDeliberations.length === 0 ? (
           <div className="p-6 text-center text-text-muted font-mono text-sm">
-            No vetted decisionmaking sessions to display
+            No debate sessions to display
           </div>
         ) : (
           <div className="p-4 space-y-3">

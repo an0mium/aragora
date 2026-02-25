@@ -6,12 +6,17 @@ This module provides the AuthChecksMixin class with methods for:
 - RBAC permission checking
 - MFA enforcement for admin roles (SOC 2 CC5-01, GitHub #275)
 - Upload rate limiting
+- Live streaming budget gating (auth + usage budget for live debate/TTS)
 
 These methods are extracted from UnifiedHandler to improve modularity
 and allow easier testing of authentication logic.
 """
 
 import logging
+import sqlite3
+import threading
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
@@ -20,6 +25,176 @@ if TYPE_CHECKING:
     from aragora.storage import UserStore
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Live Streaming Budget Gate
+# ---------------------------------------------------------------------------
+# Paths that require authentication + usage budget (not hard-blocked).
+# These endpoints consume real API credits so we gate on auth + remaining
+# monthly debate quota rather than blocking outright.
+
+BUDGET_GATED_PATHS: frozenset[str] = frozenset(
+    [
+        "/api/v1/playground/debate/live",
+        "/api/v1/playground/debate/live/cost-estimate",
+        "/api/v1/playground/tts",
+    ]
+)
+
+# Default monthly limits per tier for live streaming requests.
+# These mirror the debates_per_month from billing models but are kept here as
+# a fallback so the gate works even when the billing module is unavailable.
+_DEFAULT_LIVE_LIMITS: dict[str, int] = {
+    "free": 10,
+    "starter": 50,
+    "professional": 200,
+    "enterprise": 999999,
+    "enterprise_plus": 999999,
+}
+
+
+class LiveStreamingBudgetGate:
+    """Track and enforce monthly live-streaming usage per workspace/org.
+
+    Uses a lightweight SQLite counter (separate from the full billing DB)
+    so the gate works even when heavier billing infrastructure is unavailable.
+    When the billing models *are* importable, the gate reads tier limits from
+    ``TIER_LIMITS``; otherwise it falls back to ``_DEFAULT_LIVE_LIMITS``.
+    """
+
+    _instance: "LiveStreamingBudgetGate | None" = None
+    _lock = threading.Lock()
+
+    def __init__(self, db_path: str | None = None) -> None:
+        if db_path is None:
+            try:
+                from aragora.config import resolve_db_path
+
+                db_path = resolve_db_path("live_streaming_budget.db")
+            except ImportError:
+                db_path = str(Path.home() / ".aragora" / "live_streaming_budget.db")
+        self.db_path = db_path
+        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        self._init_db()
+
+    # -- singleton accessor ---------------------------------------------------
+
+    @classmethod
+    def get_instance(cls) -> "LiveStreamingBudgetGate":
+        """Return (or create) the module-level singleton."""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """Reset singleton (for tests)."""
+        with cls._lock:
+            cls._instance = None
+
+    # -- database -------------------------------------------------------------
+
+    def _init_db(self) -> None:
+        with sqlite3.connect(self.db_path, timeout=10.0) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS live_usage (
+                    org_id      TEXT    NOT NULL,
+                    period      TEXT    NOT NULL,
+                    usage_count INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (org_id, period)
+                )
+            """)
+            conn.commit()
+
+    def _current_period(self) -> str:
+        """Return the current billing period as ``YYYY-MM``."""
+        return datetime.now(timezone.utc).strftime("%Y-%m")
+
+    def get_usage(self, org_id: str) -> int:
+        """Return usage count for the current month."""
+        period = self._current_period()
+        with sqlite3.connect(self.db_path, timeout=10.0) as conn:
+            row = conn.execute(
+                "SELECT usage_count FROM live_usage WHERE org_id = ? AND period = ?",
+                (org_id, period),
+            ).fetchone()
+            return row[0] if row else 0
+
+    def increment(self, org_id: str) -> int:
+        """Atomically increment and return the new count."""
+        period = self._current_period()
+        with sqlite3.connect(self.db_path, timeout=10.0) as conn:
+            conn.execute(
+                """
+                INSERT INTO live_usage (org_id, period, usage_count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(org_id, period)
+                DO UPDATE SET usage_count = usage_count + 1
+                """,
+                (org_id, period),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT usage_count FROM live_usage WHERE org_id = ? AND period = ?",
+                (org_id, period),
+            ).fetchone()
+            return row[0] if row else 1
+
+    # -- tier limit resolution ------------------------------------------------
+
+    @staticmethod
+    def get_tier_limit(tier: str) -> int:
+        """Return the monthly live-streaming limit for a tier.
+
+        Tries the canonical ``TIER_LIMITS`` from the billing models first,
+        then falls back to the hardcoded defaults.
+        """
+        try:
+            from aragora.billing.models import TIER_LIMITS, SubscriptionTier
+
+            tier_enum = SubscriptionTier(tier)
+            return TIER_LIMITS[tier_enum].debates_per_month
+        except (ImportError, ValueError, KeyError):
+            return _DEFAULT_LIVE_LIMITS.get(tier, _DEFAULT_LIVE_LIMITS["free"])
+
+    # -- main check -----------------------------------------------------------
+
+    def check_budget(
+        self, org_id: str, tier: str
+    ) -> tuple[bool, dict[str, Any] | None]:
+        """Check whether the org still has live-streaming budget.
+
+        Returns ``(True, None)`` if allowed, or ``(False, error_dict)``
+        with a JSON-ready error payload if the budget is exhausted.
+        """
+        limit = self.get_tier_limit(tier)
+        current = self.get_usage(org_id)
+
+        if current >= limit:
+            from aragora.billing.tier_gating import TIER_DISPLAY_NAMES
+
+            next_tier = "starter" if tier == "free" else "professional"
+            display = TIER_DISPLAY_NAMES.get(next_tier, next_tier.title())
+            return False, {
+                "error": (
+                    f"Monthly live debate limit ({limit}) reached for your "
+                    f"{TIER_DISPLAY_NAMES.get(tier, tier)} plan."
+                ),
+                "code": "live_budget_exceeded",
+                "current_usage": current,
+                "limit": limit,
+                "upgrade_url": "/pricing",
+                "upgrade_prompt": f"Upgrade to {display} for more live debates.",
+            }
+
+        return True, None
+
+    def record_usage(self, org_id: str) -> int:
+        """Record a live-streaming usage event and return new count."""
+        return self.increment(org_id)
 
 
 def get_settings() -> Any:
@@ -134,12 +309,9 @@ class AuthChecksMixin:
             # "/api/v1/nomic/state",
             # Playground - only mock debate is free (no API credits used)
             "/api/v1/playground/debate",
-            # LOCKED: live debates burn real OpenRouter credits (~$0.03/request)
-            # "/api/v1/playground/debate/live",
-            # "/api/v1/playground/debate/live/cost-estimate",
+            # Live debate + TTS: NOT exempt — require auth + budget gate
+            # (handled by _check_live_streaming_budget in the request pipeline)
             "/api/v1/playground/status",
-            # LOCKED: TTS burns ElevenLabs credits
-            # "/api/v1/playground/tts",
             # OAuth callbacks from external providers (redirects carry no auth headers)
             "/api/integrations/slack/callback",
             "/api/integrations/teams/callback",
@@ -553,5 +725,108 @@ class AuthChecksMixin:
 
         return True
 
+    def _check_live_streaming_budget(self) -> bool:
+        """Check auth + usage budget for live streaming endpoints.
 
-__all__ = ["AuthChecksMixin"]
+        Budget-gated paths (live debate, cost-estimate, TTS) require:
+        1. A valid authenticated user (not anonymous)
+        2. Remaining monthly debate credits for the user's workspace/org
+
+        Free tier: 10 live debates/month.
+        Paid tiers: limits from TIER_LIMITS (starter=50, pro=200, enterprise=unlimited).
+
+        When auth is disabled (dev/demo mode), requests pass through freely.
+        When billing modules are unavailable, access is allowed (graceful degradation).
+
+        Returns:
+            True if request is allowed, False if blocked (response already sent).
+        """
+        parsed = urlparse(self.path)
+        if parsed.path not in BUDGET_GATED_PATHS:
+            return True
+
+        # When auth is disabled, allow live streaming in dev/demo mode
+        from aragora.server.auth import auth_config
+
+        if not auth_config.enabled:
+            return True
+
+        # Step 1: Require authentication
+        from aragora.billing.auth import extract_user_from_request
+
+        try:
+            user_ctx = extract_user_from_request(self, self.user_store)
+        except (ValueError, KeyError, AttributeError, TypeError) as e:
+            logger.debug("Live streaming budget: auth extraction failed: %s", e)
+            self._send_json(
+                {
+                    "error": "Authentication required for live debates",
+                    "code": "auth_required",
+                    "hint": "Sign in to access live debate streaming.",
+                },
+                status=401,
+            )
+            return False
+
+        if not user_ctx.authenticated or not user_ctx.user_id:
+            self._send_json(
+                {
+                    "error": "Authentication required for live debates",
+                    "code": "auth_required",
+                    "hint": "Sign in to access live debate streaming.",
+                },
+                status=401,
+            )
+            return False
+
+        # Step 2: Resolve org tier
+        org_id = user_ctx.org_id or user_ctx.user_id  # fall back to user as workspace
+        tier = "free"
+        try:
+            from aragora.billing.tier_gating import _resolve_org_tier
+
+            class _TierCtx:
+                """Minimal context for tier resolution."""
+                def __init__(self, oid: str | None) -> None:
+                    self.org_id = oid
+                    self.subscription_tier = None
+
+            resolved = _resolve_org_tier(_TierCtx(user_ctx.org_id))
+            if resolved:
+                tier = resolved
+        except (ImportError, ValueError, KeyError, AttributeError, TypeError):
+            pass  # graceful degradation: default to free
+
+        # Step 3: Check budget
+        try:
+            gate = LiveStreamingBudgetGate.get_instance()
+            allowed, error_info = gate.check_budget(org_id, tier)
+        except (OSError, sqlite3.Error) as e:
+            # Database issues should not block the user
+            logger.warning("Live streaming budget gate DB error, allowing request: %s", e)
+            return True
+
+        if not allowed and error_info:
+            self._send_json(error_info, status=429)
+            return False
+
+        # Step 4: Record usage (only for actual live debate requests, not cost estimates)
+        if parsed.path == "/api/v1/playground/debate/live":
+            try:
+                gate.record_usage(org_id)
+                logger.info(
+                    "Live debate usage recorded: org=%s tier=%s",
+                    org_id,
+                    tier,
+                )
+            except (OSError, sqlite3.Error) as e:
+                logger.warning("Failed to record live streaming usage: %s", e)
+
+        return True
+
+
+__all__ = [
+    "AuthChecksMixin",
+    "LiveStreamingBudgetGate",
+    "BUDGET_GATED_PATHS",
+]

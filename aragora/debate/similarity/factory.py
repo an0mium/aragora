@@ -268,8 +268,15 @@ class SimilarityFactory:
         if input_size >= 50 and cls.is_available("faiss"):
             return cls.create("faiss", debate_id=debate_id)
 
-        # For accuracy, prefer sentence-transformer
-        if prefer_accuracy and cls.is_available("sentence-transformer"):
+        # For accuracy, prefer sentence-transformer — but only if already
+        # imported (avoids 30+s cold import of torch/transformers at startup).
+        import sys
+
+        if (
+            prefer_accuracy
+            and "sentence_transformers" in sys.modules
+            and cls.is_available("sentence-transformer")
+        ):
             return cls.create("sentence-transformer", debate_id=debate_id)
 
         # Fall back to TF-IDF

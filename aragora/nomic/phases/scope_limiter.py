@@ -91,7 +91,7 @@ class ScopeLimiter:
             protected_files: Files that cannot be modified
         """
         self.max_complexity = max_complexity
-        self.max_files = max_files
+        self.max_files = max(max_files, 1)
         self.protected_files = protected_files or [
             "CLAUDE.md",
             "aragora/__init__.py",

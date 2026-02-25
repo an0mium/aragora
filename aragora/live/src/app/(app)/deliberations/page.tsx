@@ -164,10 +164,10 @@ export default function DeliberationsPage() {
             <div className="flex items-start justify-between">
               <div>
                 <h1 className="text-2xl font-mono text-acid-green mb-2">
-                  Vetted Decisionmaking Dashboard
+                  Debate Dashboard
                 </h1>
                 <p className="text-text-muted font-mono text-sm">
-                  Real-time view of multi-agent vetted decisionmaking sessions across your organization
+                  Real-time view of AI debate sessions across your organization
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -188,7 +188,7 @@ export default function DeliberationsPage() {
         </div>
 
         <div className="container mx-auto px-4 py-6 space-y-6">
-          <PanelErrorBoundary panelName="Vetted Decisionmaking">
+          <PanelErrorBoundary panelName="Debates">
             {/* Stats */}
             <DeliberationStats stats={stats} loading={loading} />
 
@@ -221,11 +221,11 @@ export default function DeliberationsPage() {
               ))}
             </div>
 
-            {/* Vetted Decisionmaking Grid */}
+            {/* Debate Grid */}
             <DeliberationGrid
               deliberations={filteredDeliberations}
               loading={loading}
-              emptyMessage={filter === 'active' ? 'No active vetted decisionmaking sessions' : 'No vetted decisionmaking sessions found'}
+              emptyMessage={filter === 'active' ? 'No active debate sessions' : 'No debate sessions found'}
             />
           </PanelErrorBoundary>
         </div>

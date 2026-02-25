@@ -18,6 +18,7 @@ from ._shared import (
     PERM_ANALYTICS_WRITE,
     RBAC_AVAILABLE,
     METRICS_AVAILABLE,
+    get_analytics_response,
     _run_async,  # noqa: F401
 )
 from .handler import AnalyticsDashboardHandler
@@ -36,4 +37,5 @@ __all__ = [
     "PERM_ANALYTICS_WRITE",
     "RBAC_AVAILABLE",
     "METRICS_AVAILABLE",
+    "get_analytics_response",
 ]

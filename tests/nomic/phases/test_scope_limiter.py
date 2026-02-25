@@ -721,9 +721,16 @@ class TestEdgeCases:
         assert isinstance(result, ScopeEvaluation)
 
     def test_zero_max_files(self):
-        """Should handle max_files of 0."""
+        """Should clamp max_files=0 to 1 to prevent ZeroDivisionError."""
         limiter = ScopeLimiter(max_files=0)
-        design = "Modify aragora/core.py"
+        # max_files is clamped to at least 1
+        assert limiter.max_files == 1
+        design = "Modify aragora/core.py and aragora/other.py"
         result = limiter.evaluate(design)
         assert result.is_implementable is False
         assert "files" in result.reason.lower()
+
+    def test_negative_max_files(self):
+        """Should clamp negative max_files to 1."""
+        limiter = ScopeLimiter(max_files=-5)
+        assert limiter.max_files == 1

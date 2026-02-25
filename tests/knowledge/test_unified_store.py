@@ -150,6 +150,95 @@ class TestKnowledgeItem:
         assert item.source == KnowledgeSource.FACT
         assert item.confidence == ConfidenceLevel.HIGH
 
+    def test_importance_normalized_from_string(self):
+        """String importance should be normalized to float in __post_init__."""
+        now = datetime.now(timezone.utc)
+        item = KnowledgeItem(
+            id="ki_str",
+            content="Test",
+            source=KnowledgeSource.FACT,
+            source_id="f_1",
+            confidence=ConfidenceLevel.HIGH,
+            created_at=now,
+            updated_at=now,
+            importance="0.75",
+        )
+        assert item.importance == 0.75
+        assert isinstance(item.importance, float)
+
+    def test_importance_non_numeric_string_becomes_none(self):
+        """Non-numeric string importance should become None."""
+        now = datetime.now(timezone.utc)
+        item = KnowledgeItem(
+            id="ki_bad",
+            content="Test",
+            source=KnowledgeSource.FACT,
+            source_id="f_1",
+            confidence=ConfidenceLevel.HIGH,
+            created_at=now,
+            updated_at=now,
+            importance="high",
+        )
+        assert item.importance is None
+
+    def test_importance_int_normalized_to_float(self):
+        """Integer importance should be normalized to float."""
+        now = datetime.now(timezone.utc)
+        item = KnowledgeItem(
+            id="ki_int",
+            content="Test",
+            source=KnowledgeSource.FACT,
+            source_id="f_1",
+            confidence=ConfidenceLevel.HIGH,
+            created_at=now,
+            updated_at=now,
+            importance=1,
+        )
+        assert item.importance == 1.0
+        assert isinstance(item.importance, float)
+
+    def test_importance_none_stays_none(self):
+        """None importance should remain None."""
+        now = datetime.now(timezone.utc)
+        item = KnowledgeItem(
+            id="ki_none",
+            content="Test",
+            source=KnowledgeSource.FACT,
+            source_id="f_1",
+            confidence=ConfidenceLevel.HIGH,
+            created_at=now,
+            updated_at=now,
+        )
+        assert item.importance is None
+
+    def test_mixed_importance_sort_no_crash(self):
+        """Sorting items with mixed importance types should not crash."""
+        now = datetime.now(timezone.utc)
+
+        def make_item(item_id, importance):
+            return KnowledgeItem(
+                id=item_id,
+                content="Test",
+                source=KnowledgeSource.FACT,
+                source_id=item_id,
+                confidence=ConfidenceLevel.HIGH,
+                created_at=now,
+                updated_at=now,
+                importance=importance,
+            )
+
+        items = [
+            make_item("a", 0.5),
+            make_item("b", "0.8"),
+            make_item("c", None),
+            make_item("d", "high"),
+            make_item("e", 1),
+        ]
+        # __post_init__ normalizes all importance values, so sort by
+        # importance should never raise TypeError
+        items.sort(key=lambda item: item.importance if item.importance is not None else 0.0)
+        assert items[0].id in ("c", "d")  # None becomes 0.0
+
 
 class TestKnowledgeLink:
     """Test KnowledgeLink dataclass."""

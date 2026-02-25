@@ -22,6 +22,7 @@ from ._shared import (
     check_permission,
     error_response,
     extract_user_from_request,
+    get_analytics_response,
     rbac_fail_closed,
     get_string_param,
     json_response,
@@ -165,7 +166,7 @@ class AnalyticsDashboardHandler(
             user_ctx = self.get_current_user(handler) if handler else None
             workspace_id = get_string_param(query_params, "workspace_id")
             if user_ctx is None or not workspace_id:
-                return json_response(ANALYTICS_STUB_RESPONSES[normalized])
+                return json_response(get_analytics_response(normalized))
 
         # Basic dashboard analytics - require analytics:dashboard:read (already checked by decorator)
         if normalized == "/api/analytics/summary":

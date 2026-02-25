@@ -377,6 +377,11 @@ class UnifiedHandler(  # type: ignore[misc]
             if not self._check_rate_limit():
                 return
 
+        # Budget gate for live streaming endpoints (auth + usage quota)
+        if path.startswith("/api/"):
+            if not self._check_live_streaming_budget():
+                return
+
         # Route all /api/* requests through modular handlers
         if path.startswith("/api/"):
             if self._try_modular_handler(path, query):
@@ -480,6 +485,11 @@ class UnifiedHandler(  # type: ignore[misc]
         # MFA enforcement for admin roles (SOC 2 CC5-01, GitHub #275)
         if path.startswith("/api/"):
             if not self._check_admin_mfa(path):
+                return
+
+        # Budget gate for live streaming endpoints (auth + usage quota)
+        if path.startswith("/api/"):
+            if not self._check_live_streaming_budget():
                 return
 
         # Route all /api/* requests through modular handlers

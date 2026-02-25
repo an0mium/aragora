@@ -176,10 +176,10 @@ export default function ControlPlanePage() {
     } : undefined,
   }));
 
-  // Mock vetted decisionmaking sessions data (would come from API in production)
+  // Mock debate sessions data (would come from API in production)
   const [deliberations, setDeliberations] = useState<Deliberation[]>([]);
 
-  // Fetch vetted decisionmaking sessions
+  // Fetch debate sessions
   useEffect(() => {
     const fetchDeliberations = async () => {
       try {
@@ -647,15 +647,15 @@ export default function ControlPlanePage() {
                     {/* Vetted Decisionmaking Console */}
                     <div className="card">
                       <div className="p-4 border-b border-border">
-                        <h2 className="font-mono text-sm text-acid-green">Vetted Decisionmaking Console</h2>
+                        <h2 className="font-mono text-sm text-acid-green">Decision Console</h2>
                         <p className="text-text-muted text-xs font-mono mt-1">
-                          Submit vetted decisionmaking sessions to the control plane and capture decision receipts.
+                          Submit decisions for AI debate and capture decision receipts.
                         </p>
                       </div>
                       <div className="p-4 space-y-4">
                         <textarea
                           className="w-full min-h-[120px] bg-surface border border-border rounded p-3 text-sm font-mono text-text"
-                          placeholder="Describe the decision for vetted decisionmaking..."
+                          placeholder="Describe the decision to debate..."
                           value={deliberationInput}
                           onChange={(event) => setDeliberationInput(event.target.value)}
                         />

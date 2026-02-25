@@ -208,21 +208,21 @@ describe('ControlPlanePage', () => {
       expect(screen.getByRole('button', { name: /SETTINGS/i })).toBeInTheDocument();
     });
 
-    it('renders vetted decisionmaking console', async () => {
+    it('renders decision console', async () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
         expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
       });
 
-      expect(screen.getByText('Vetted Decisionmaking Console')).toBeInTheDocument();
+      expect(screen.getByText('Decision Console')).toBeInTheDocument();
       expect(
-        screen.getByPlaceholderText('Describe the decision for vetted decisionmaking...')
+        screen.getByPlaceholderText('Describe the decision to debate...')
       ).toBeInTheDocument();
     });
   });
 
-  it('submits a vetted decisionmaking request', async () => {
+  it('submits a debate request', async () => {
     mockFetch.mockImplementation((url: string) => {
       if (url.includes('/api/control-plane/deliberations')) {
         return Promise.resolve({
@@ -282,7 +282,7 @@ describe('ControlPlanePage', () => {
     });
 
     await user.type(
-      screen.getByPlaceholderText('Describe the decision for vetted decisionmaking...'),
+      screen.getByPlaceholderText('Describe the decision to debate...'),
       'Assess migration risk for service X'
     );
 
