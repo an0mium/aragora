@@ -3122,4 +3122,13 @@ export class DebatesAPI {
     if (options?.source) body.source = options.source;
     return this.client.request('POST', '/api/v1/debate-this', { body });
   }
+
+  /**
+   * View a publicly shared debate by its share token.
+   *
+   * @param shareToken - The share token from the shared URL
+   */
+  async getShared(shareToken: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/shared/${encodeURIComponent(shareToken)}`);
+  }
 }

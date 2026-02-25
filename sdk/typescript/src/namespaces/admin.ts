@@ -378,6 +378,18 @@ export class AdminAPI {
   async updateFeatureFlags(data: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('PUT', '/api/v1/admin/feature-flags', { body: data });
   }
+
+  /** Get a specific feature flag by name. */
+  async getFeatureFlag(name: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/admin/feature-flags/${encodeURIComponent(name)}`);
+  }
+
+  /** Set a specific feature flag value. */
+  async setFeatureFlag(name: string, value: unknown): Promise<Record<string, unknown>> {
+    return this.client.request('PUT', `/api/v1/admin/feature-flags/${encodeURIComponent(name)}`, {
+      body: { value },
+    });
+  }
 }
 
 // Re-export types for convenience

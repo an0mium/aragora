@@ -729,4 +729,28 @@ export class AuthRoutesAPI {
   async getOAuthDiagnostics(): Promise<unknown> {
     return this.client.request('GET', '/api/auth/oauth/diagnostics');
   }
+
+  /**
+   * Get session store health status.
+   * @route GET /api/auth/sessions/health
+   */
+  async getSessionsHealth(): Promise<unknown> {
+    return this.client.request('GET', '/api/auth/sessions/health');
+  }
+
+  /**
+   * Sweep expired sessions from the session store.
+   * @route POST /api/auth/sessions/sweep
+   */
+  async sweepSessions(): Promise<unknown> {
+    return this.client.request('POST', '/api/auth/sessions/sweep');
+  }
+
+  /**
+   * List active sessions across all users.
+   * @route GET /api/auth/sessions/active
+   */
+  async getActiveSessions(params?: { limit?: number; offset?: number }): Promise<unknown> {
+    return this.client.request('GET', '/api/auth/sessions/active', { params });
+  }
 }
