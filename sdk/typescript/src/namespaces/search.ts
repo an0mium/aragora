@@ -68,7 +68,7 @@ export class SearchNamespace {
   async getFacets(query: string): Promise<SearchFacet[]> {
     const response = await this.client.request<{ facets: SearchFacet[] }>(
       'GET',
-      '/api/v1/search/facets',
+      '/api/search/facets',
       { params: { query } }
     );
     return response.facets;
@@ -78,7 +78,7 @@ export class SearchNamespace {
   async suggest(prefix: string, options?: { limit?: number }): Promise<string[]> {
     const response = await this.client.request<{ suggestions: string[] }>(
       'GET',
-      '/api/v1/search/suggest',
+      '/api/search/suggest',
       { params: { prefix, ...options } }
     );
     return response.suggestions;
@@ -88,7 +88,7 @@ export class SearchNamespace {
   async reindex(type: string): Promise<{ success: boolean; indexed_count: number }> {
     return this.client.request<{ success: boolean; indexed_count: number }>(
       'POST',
-      '/api/v1/search/reindex',
+      '/api/search/reindex',
       { body: { type } }
     );
   }

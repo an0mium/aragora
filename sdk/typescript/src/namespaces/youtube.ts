@@ -92,7 +92,7 @@ export class YouTubeNamespace {
    * Get current YouTube authentication status.
    */
   async getAuthStatus(): Promise<YouTubeAuthStatus> {
-    return this.client.request<YouTubeAuthStatus>('GET', '/api/v1/youtube/auth/status');
+    return this.client.request<YouTubeAuthStatus>('GET', '/api/youtube/auth/status');
   }
 
   /**

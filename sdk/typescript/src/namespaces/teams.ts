@@ -216,7 +216,7 @@ export class TeamsAPI {
   async listTenants(): Promise<TeamsTenant[]> {
     const response = await this.client.request<{ tenants: TeamsTenant[] }>(
       'GET',
-      '/api/v1/teams/tenants'
+      '/api/teams/tenants'
     );
     return response.tenants;
   }
@@ -364,7 +364,7 @@ export class TeamsAPI {
   }): Promise<TeamsDebateMessage[]> {
     const response = await this.client.request<{ messages: TeamsDebateMessage[] }>(
       'GET',
-      '/api/v1/teams/debates',
+      '/api/teams/debates',
       { params: options as Record<string, unknown> }
     );
     return response.messages;

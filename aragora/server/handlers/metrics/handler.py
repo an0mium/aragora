@@ -70,10 +70,23 @@ class MetricsHandler(BaseHandler):
         "/metrics",  # Prometheus-format endpoint
     ]
 
+    _ALERT_PREFIX = "/api/v1/monitoring/alerts/"
+    _DASHBOARD_PREFIX = "/api/v1/monitoring/dashboards/"
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        path = strip_version_prefix(path)
-        return path in self.ROUTES
+        normalized = strip_version_prefix(path)
+        if normalized in self.ROUTES:
+            return True
+        # Dynamic routes: /api/v1/monitoring/alerts/{id}/acknowledge|resolve
+        if path.startswith(self._ALERT_PREFIX) and (
+            path.endswith("/acknowledge") or path.endswith("/resolve")
+        ):
+            return True
+        # Dynamic route: /api/v1/monitoring/dashboards/{id}
+        if path.startswith(self._DASHBOARD_PREFIX) and path.count("/") == 5:
+            return True
+        return False
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route metrics requests to appropriate methods (public dashboard data)."""
@@ -143,6 +156,14 @@ class MetricsHandler(BaseHandler):
 
         if path == "/metrics":
             return self._get_prometheus_metrics()
+
+        # Dynamic GET: /api/v1/monitoring/dashboards/{id}
+        original = strip_version_prefix(handler.path) if hasattr(handler, "path") else path
+        if original.startswith("/api/v1/monitoring/dashboards/") and original.count("/") == 5:
+            dashboard_id, err = self.extract_path_param(original, 5, "dashboard_id")
+            if err:
+                return err
+            return self._get_dashboard(dashboard_id)
 
         return None
 

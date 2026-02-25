@@ -3,6 +3,7 @@ Persona laboratory endpoint handlers.
 
 Endpoints:
 - GET /api/laboratory/emergent-traits - Get emergent traits from agent performance
+- GET /api/laboratory/agent/{agent_name}/analysis - Get trait analysis for an agent
 - POST /api/laboratory/cross-pollinations/suggest - Suggest beneficial trait transfers
 """
 
@@ -56,9 +57,13 @@ class LaboratoryHandler(BaseHandler):
         "/api/v1/laboratory/experiments",
     ]
 
+    _AGENT_ANALYSIS_PREFIX = "/api/v1/laboratory/agent/"
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        if path in self.ROUTES:
+            return True
+        return path.startswith(self._AGENT_ANALYSIS_PREFIX) and path.endswith("/analysis")
 
     @require_permission("laboratory:read")
     def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:
@@ -75,6 +80,12 @@ class LaboratoryHandler(BaseHandler):
             )
             limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
             return self._get_emergent_traits(min_confidence, limit)
+        if path.startswith(self._AGENT_ANALYSIS_PREFIX) and path.endswith("/analysis"):
+            # /api/v1/laboratory/agent/{name}/analysis → segment 5
+            agent_name, err = self.extract_path_param(path, 5, "agent_name")
+            if err:
+                return err
+            return self._get_agent_analysis(agent_name)
         return None
 
     @handle_errors("laboratory creation")
@@ -90,6 +101,40 @@ class LaboratoryHandler(BaseHandler):
         if path == "/api/v1/laboratory/cross-pollinations/suggest":
             return self._suggest_cross_pollinations(handler)
         return None
+
+    @handle_errors("agent trait analysis")
+    def _get_agent_analysis(self, agent_name: str) -> HandlerResult:
+        """Get detailed trait analysis for a specific agent."""
+        if not LABORATORY_AVAILABLE or not PersonaLaboratory:
+            return error_response("Persona laboratory not available", 503)
+
+        nomic_dir = self.get_nomic_dir()
+        persona_manager = self.ctx.get("persona_manager")
+
+        lab = PersonaLaboratory(
+            db_path=str(nomic_dir / "laboratory.db") if nomic_dir else None,
+            persona_manager=persona_manager,
+        )
+
+        traits = lab.detect_emergent_traits()
+        agent_traits = [t for t in traits if t.agent_name == agent_name]
+
+        return json_response(
+            {
+                "agent": agent_name,
+                "traits": [
+                    {
+                        "trait": t.trait_name,
+                        "domain": t.domain,
+                        "confidence": t.confidence,
+                        "evidence": t.evidence,
+                        "detected_at": t.detected_at,
+                    }
+                    for t in agent_traits
+                ],
+                "count": len(agent_traits),
+            }
+        )
 
     @handle_errors("emergent traits")
     def _get_emergent_traits(self, min_confidence: float, limit: int) -> HandlerResult:

@@ -94,7 +94,7 @@ export class SelectionNamespace {
   }): Promise<SelectionScore> {
     return this.client.request<SelectionScore>(
       'POST',
-      '/api/v1/selection/best',
+      '/api/selection/best',
       { body: options }
     );
   }
@@ -106,7 +106,7 @@ export class SelectionNamespace {
   }): Promise<SelectionHistoryItem[]> {
     const response = await this.client.request<{ history: SelectionHistoryItem[] }>(
       'GET',
-      '/api/v1/selection/history',
+      '/api/selection/history',
       { params: options }
     );
     return response.history;

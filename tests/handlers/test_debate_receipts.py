@@ -294,7 +294,9 @@ class TestAutoReceiptGeneration:
             ) as mock_get_ledger,
         ):
             mock_store = MagicMock()
+            mock_ledger = MagicMock()
             mock_get_store.return_value = mock_store
+            mock_get_ledger.return_value = mock_ledger
 
             controller._generate_debate_receipt(
                 debate_id="adhoc_no_settlement",
@@ -303,4 +305,4 @@ class TestAutoReceiptGeneration:
                 duration_seconds=12.0,
             )
 
-            mock_get_ledger.assert_not_called()
+            mock_ledger.record_outcome.assert_not_called()

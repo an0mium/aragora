@@ -67,7 +67,7 @@ export class SharedInboxNamespace {
   async list(): Promise<SharedInbox[]> {
     const response = await this.client.request<{ inboxes: SharedInbox[] }>(
       'GET',
-      '/api/v1/shared-inbox'
+      '/api/shared-inbox'
     );
     return response.inboxes;
   }
@@ -76,7 +76,7 @@ export class SharedInboxNamespace {
   async create(request: CreateSharedInboxRequest): Promise<SharedInbox> {
     return this.client.request<SharedInbox>(
       'POST',
-      '/api/v1/shared-inbox',
+      '/api/shared-inbox',
       { body: request }
     );
   }
@@ -85,7 +85,7 @@ export class SharedInboxNamespace {
   async get(inboxId: string): Promise<SharedInbox> {
     return this.client.request<SharedInbox>(
       'GET',
-      `/api/v1/shared-inbox/${encodeURIComponent(inboxId)}`
+      `/api/shared-inbox/${encodeURIComponent(inboxId)}`
     );
   }
 
@@ -96,7 +96,7 @@ export class SharedInboxNamespace {
   ): Promise<SharedInboxMessage[]> {
     const response = await this.client.request<{ messages: SharedInboxMessage[] }>(
       'GET',
-      `/api/v1/shared-inbox/${encodeURIComponent(inboxId)}/messages`,
+      `/api/shared-inbox/${encodeURIComponent(inboxId)}/messages`,
       { params: options }
     );
     return response.messages;
@@ -110,7 +110,7 @@ export class SharedInboxNamespace {
   ): Promise<SharedInboxMessage> {
     return this.client.request<SharedInboxMessage>(
       'POST',
-      `/api/v1/shared-inbox/${encodeURIComponent(inboxId)}/messages/${encodeURIComponent(messageId)}/assign`,
+      `/api/shared-inbox/${encodeURIComponent(inboxId)}/messages/${encodeURIComponent(messageId)}/assign`,
       { body: { assigned_to: assignee } }
     );
   }
