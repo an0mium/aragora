@@ -133,7 +133,9 @@ class RateTemplateRequest(BaseModel):
     """Request body for POST /templates/{id}/ratings."""
 
     score: int = Field(..., ge=MIN_RATING, le=MAX_RATING, description="Rating score (1-5)")
-    review: str | None = Field(None, max_length=MAX_REVIEW_LENGTH, description="Optional review text")
+    review: str | None = Field(
+        None, max_length=MAX_REVIEW_LENGTH, description="Optional review text"
+    )
 
 
 class RateTemplateResponse(BaseModel):
@@ -438,7 +440,9 @@ async def get_template_ratings(
                     user_id=r.user_id,
                     score=r.score,
                     review=r.review,
-                    created_at=r.created_at.isoformat() if hasattr(r.created_at, "isoformat") else str(r.created_at),
+                    created_at=r.created_at.isoformat()
+                    if hasattr(r.created_at, "isoformat")
+                    else str(r.created_at),
                 )
                 for r in ratings
             ],

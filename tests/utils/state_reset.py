@@ -63,4 +63,3 @@ def restore_rbac_context_extractor(original_get_context_from_args: object) -> No
         rbac_decorators._get_context_from_args = original_get_context_from_args
     except (ImportError, AttributeError):
         pass
-
