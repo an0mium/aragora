@@ -1354,9 +1354,9 @@ class TestGetUsageLimits:
         assert limits.tokens_percent > 100.0
 
     @pytest.mark.asyncio
-    async def test_enterprise_plus_effectively_unlimited(self, meter):
-        """Test enterprise_plus tier has very high caps."""
-        limits = await meter.get_usage_limits(org_id="org_1", tier="enterprise_plus")
+    async def test_enterprise_effectively_unlimited(self, meter):
+        """Test enterprise tier has very high caps."""
+        limits = await meter.get_usage_limits(org_id="org_1", tier="enterprise")
 
         assert limits.max_tokens == 999_999_999
         assert limits.max_debates == 999_999
@@ -1671,14 +1671,14 @@ class TestTierUsageCaps:
         """Test all expected tiers are present."""
         from aragora.services.usage_metering import TIER_USAGE_CAPS
 
-        expected_tiers = {"free", "starter", "professional", "enterprise", "enterprise_plus"}
+        expected_tiers = {"free", "starter", "professional", "enterprise"}
         assert set(TIER_USAGE_CAPS.keys()) == expected_tiers
 
     def test_tiers_have_increasing_limits(self):
         """Test that tiers have non-decreasing token limits."""
         from aragora.services.usage_metering import TIER_USAGE_CAPS
 
-        tier_order = ["free", "starter", "professional", "enterprise", "enterprise_plus"]
+        tier_order = ["free", "starter", "professional", "enterprise"]
         for i in range(len(tier_order) - 1):
             current = TIER_USAGE_CAPS[tier_order[i]]["max_tokens"]
             next_tier = TIER_USAGE_CAPS[tier_order[i + 1]]["max_tokens"]
