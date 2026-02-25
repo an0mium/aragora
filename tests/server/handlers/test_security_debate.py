@@ -11,6 +11,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import functools
 import json
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -21,12 +22,22 @@ import pytest
 # We need to patch decorators before importing the handler class, because
 # @rate_limit and @require_permission are applied at class definition time.
 def _passthrough_decorator(*args, **kwargs):
-    """A no-op decorator that passes through the function unchanged."""
+    """A no-op decorator that passes through the function unchanged.
+
+    Uses functools.wraps to preserve __wrapped__ attribute, preventing
+    test pollution when other tests check for decorator metadata.
+    """
     if len(args) == 1 and callable(args[0]):
-        return args[0]
+        @functools.wraps(args[0])
+        def passthrough(*a, **kw):
+            return args[0](*a, **kw)
+        return passthrough
 
     def wrapper(func):
-        return func
+        @functools.wraps(func)
+        def inner(*a, **kw):
+            return func(*a, **kw)
+        return inner
 
     return wrapper
 

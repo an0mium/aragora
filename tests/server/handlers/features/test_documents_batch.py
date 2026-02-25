@@ -215,14 +215,21 @@ def bypass_rbac():
     """Bypass RBAC decorator for testing."""
 
     def passthrough_decorator(*args, **kwargs):
-        """Return identity decorator."""
+        """Return identity decorator that preserves __wrapped__."""
+        import functools
 
         def identity(func):
-            return func
+            @functools.wraps(func)
+            def wrapper(*a, **kw):
+                return func(*a, **kw)
+            return wrapper
 
         # If used as @require_permission("permission"), return identity
         if args and callable(args[0]):
-            return args[0]
+            @functools.wraps(args[0])
+            def passthrough(*a, **kw):
+                return args[0](*a, **kw)
+            return passthrough
         return identity
 
     with patch("aragora.rbac.decorators.require_permission", passthrough_decorator):

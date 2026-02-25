@@ -954,10 +954,14 @@ def bypass_rbac():
     from unittest.mock import patch
 
     def passthrough_decorator(*args, **kwargs):
-        """Decorator that does nothing."""
+        """Decorator that does nothing but preserves __wrapped__."""
+        import functools
 
         def decorator(func):
-            return func
+            @functools.wraps(func)
+            def wrapper(*a, **kw):
+                return func(*a, **kw)
+            return wrapper
 
         return decorator
 

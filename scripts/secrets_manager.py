@@ -678,6 +678,24 @@ SECRETS: list[SecretDefinition] = [
         provider="slack",
         description="Slack OAuth callback URL",
     ),
+    SecretDefinition(
+        name="Slack Bot Token",
+        env_var="SLACK_BOT_TOKEN",
+        category=SecretCategory.OAUTH,
+        aws_bundle_key="SLACK_BOT_TOKEN",
+        github_secret_name="SLACK_BOT_TOKEN",
+        provider="slack",
+        description="Slack bot user OAuth token",
+    ),
+    SecretDefinition(
+        name="Slack Refresh Token",
+        env_var="SLACK_REFRESH_TOKEN",
+        category=SecretCategory.OAUTH,
+        aws_bundle_key="SLACK_REFRESH_TOKEN",
+        github_secret_name="SLACK_REFRESH_TOKEN",
+        provider="slack",
+        description="Slack OAuth refresh token for token rotation",
+    ),
     # === DATABASE ===
     SecretDefinition(
         name="Database URL",

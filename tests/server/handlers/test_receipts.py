@@ -48,12 +48,23 @@ _original_require_permission = None
 
 
 def _passthrough_decorator(*args, **kwargs):
-    """A no-op decorator that passes through the function unchanged."""
+    """A no-op decorator that passes through the function unchanged.
+
+    Uses functools.wraps to preserve __wrapped__ attribute.
+    """
+    import functools
+
     if len(args) == 1 and callable(args[0]):
-        return args[0]
+        @functools.wraps(args[0])
+        def passthrough(*a, **kw):
+            return args[0](*a, **kw)
+        return passthrough
 
     def wrapper(func):
-        return func
+        @functools.wraps(func)
+        def inner(*a, **kw):
+            return func(*a, **kw)
+        return inner
 
     return wrapper
 

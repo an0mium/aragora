@@ -36,6 +36,8 @@ from .signup_handlers import (
     handle_accept_invite,
     handle_check_invite,
     handle_invite,
+    handle_onboarding_complete,
+    handle_onboarding_status,
     handle_resend_verification,
     handle_setup_organization,
     handle_verify_email,
@@ -162,6 +164,8 @@ class AuthHandler(SecureHandler):
         "/api/auth/invite",
         "/api/auth/check-invite",
         "/api/auth/accept-invite",
+        "/api/onboarding/status",
+        "/api/onboarding/complete",
         "/api/auth/health",
         # SDK aliases for API key management
         "/api/keys",
@@ -375,6 +379,27 @@ class AuthHandler(SecureHandler):
             if err:
                 return err
             return await handle_accept_invite(data, user_id=user_id)
+
+        if path == "/api/onboarding/status" and method == "GET":
+            user_store = self._get_user_store()
+            auth_ctx = extract_user_from_request(handler, user_store)
+            if not auth_ctx.is_authenticated or not auth_ctx.user_id:
+                return error_response("Authentication required", 401)
+            org_id = auth_ctx.org_id or "default"
+            return await handle_onboarding_status(organization_id=org_id, user_id=auth_ctx.user_id)
+
+        if path == "/api/onboarding/complete" and method == "POST":
+            user_store = self._get_user_store()
+            auth_ctx = extract_user_from_request(handler, user_store)
+            if not auth_ctx.is_authenticated or not auth_ctx.user_id:
+                return error_response("Authentication required", 401)
+            data = self.read_json_body(handler) or {}
+            org_id = auth_ctx.org_id or "default"
+            return await handle_onboarding_complete(
+                data,
+                user_id=auth_ctx.user_id,
+                organization_id=org_id,
+            )
 
         if path == "/api/auth/health" and method == "GET":
             return self._handle_health(handler)
