@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from aragora.resilience_config import (
     CircuitBreakerConfig,
@@ -197,15 +197,13 @@ def get_connector_circuit_breaker_states() -> dict[str, dict[str, Any]]:
         # {'slack_api': {'state': 'closed', 'failures': 0},
         #  'connector_GitHub': {'state': 'open', 'failures': 5, 'cooldown_remaining': 42.3}}
     """
-    from typing import Any as _Any
-
-    result: dict[str, dict[str, _Any]] = {}
+    result: dict[str, dict[str, Any]] = {}
     with _circuit_breakers_lock:
         for name, cb in _circuit_breakers.items():
             if not any(name.startswith(prefix) for prefix in _CONNECTOR_CB_PREFIXES):
                 continue
             state = cb.get_status()
-            info: dict[str, _Any] = {
+            info: dict[str, Any] = {
                 "state": state,
                 "failures": cb.failures,
             }

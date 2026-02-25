@@ -35,7 +35,7 @@ import tempfile
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.canvas.converters import (
     debate_to_ideas_canvas,
@@ -55,6 +55,9 @@ from aragora.canvas.stages import (
 from aragora.goals.extractor import GoalExtractionConfig, GoalExtractor, GoalGraph
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from aragora.workflow.types import WorkflowDefinition
 
 
 def _spectate(event_type: str, details: str) -> None:
@@ -3117,7 +3120,7 @@ class IdeaToExecutionPipeline:
         }
 
 
-def canvas_to_workflow(result: PipelineResult) -> "WorkflowDefinition":
+def canvas_to_workflow(result: PipelineResult) -> WorkflowDefinition:
     """Convert a PipelineResult into an executable WorkflowDefinition.
 
     Reads goal nodes from ``result.goal_graph`` and edges from

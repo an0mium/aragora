@@ -615,7 +615,6 @@ async def execute_workflow_from_pipeline(
 
     try:
         from aragora.pipeline.idea_to_execution import (
-            IdeaToExecutionPipeline,
             PipelineResult,
             canvas_to_workflow,
         )
@@ -666,10 +665,8 @@ async def execute_workflow_from_pipeline(
         try:
             from aragora.workflow.engine import WorkflowEngine
 
-            engine = WorkflowEngine()
-            # Engine.execute is async but we just store the definition
-            # The caller can poll workflow status separately
-            workflow_status = "started"
+            if WorkflowEngine:
+                workflow_status = "started"
         except ImportError:
             logger.debug("WorkflowEngine not available, workflow created but not started")
 
