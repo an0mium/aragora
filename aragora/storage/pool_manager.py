@@ -470,7 +470,9 @@ async def check_database_health(timeout_seconds: float = 5.0) -> dict[str, Any]:
     pool_size: int | None = pool.get_size() if hasattr(pool, "get_size") else None
     pool_idle: int | None = pool.get_idle_size() if hasattr(pool, "get_idle_size") else None
     pool_max: int | None = pool.get_max_size() if hasattr(pool, "get_max_size") else None
-    pool_active: int | None = (pool_size - pool_idle) if pool_size is not None and pool_idle is not None else None
+    pool_active: int | None = (
+        (pool_size - pool_idle) if pool_size is not None and pool_idle is not None else None
+    )
 
     utilization_pct: float | None = None
     if pool_max and pool_active is not None:
@@ -484,14 +486,18 @@ async def check_database_health(timeout_seconds: float = 5.0) -> dict[str, Any]:
                 await conn.fetchval("SELECT 1")
         connected = True
     except TimeoutError:
-        logger.warning("[pool_manager] Database health check timed out after %.1fs", timeout_seconds)
+        logger.warning(
+            "[pool_manager] Database health check timed out after %.1fs", timeout_seconds
+        )
     except (OSError, RuntimeError, ConnectionError) as exc:
         logger.warning("[pool_manager] Database health check failed: %s", exc)
 
     # --- Determine status ---
     if not connected:
         status = "unhealthy"
-    elif utilization_pct is not None and utilization_pct > _POOL_UTILIZATION_WARNING_THRESHOLD * 100:
+    elif (
+        utilization_pct is not None and utilization_pct > _POOL_UTILIZATION_WARNING_THRESHOLD * 100
+    ):
         status = "degraded"
         logger.warning(
             "[pool_manager] Pool utilization %.1f%% exceeds %.0f%% threshold "

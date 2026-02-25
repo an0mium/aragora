@@ -71,6 +71,10 @@ jobs:
     timeout-minutes: 10
     needs: scope
     if: github.event_name != 'pull_request' || needs.scope.outputs.run_openapi == 'true'
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
 
     steps:
       - name: Checkout
@@ -341,6 +345,7 @@ jobs:
 
       - name: Comment on PR (if spec changed)
         if: github.event_name == 'pull_request' && steps.compare.outputs.spec_changed == 'true'
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |

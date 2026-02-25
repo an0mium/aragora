@@ -10,10 +10,6 @@ on:
       - '.github/workflows/sdk-test.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'sdk/python/**'
-      - 'sdk/typescript/**'
-      - 'tests/sdk/**'
   workflow_dispatch:
 
 concurrency:
@@ -21,7 +17,29 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    name: SDK Change Detection
+    outputs:
+      run_python: ${{ steps.filter.outputs.python_sdk }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect Python SDK relevant changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            python_sdk:
+              - 'sdk/python/**'
+              - 'tests/sdk/**'
+
   python-sdk:
+    needs: changes
+    if: needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: Python SDK Tests
@@ -82,6 +100,8 @@ jobs:
           node -e "const sdk = require('./dist/index.js'); console.log('Exports:', Object.keys(sdk).length)" 2>/dev/null || echo "Build required first"
 
   sdk-integration:
+    needs: changes
+    if: needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: SDK Integration Tests

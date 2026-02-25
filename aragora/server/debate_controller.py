@@ -210,7 +210,9 @@ def _coerce_positive_int(value: Any, *, default: int) -> int:
     return parsed if parsed > 0 else default
 
 
-def _normalize_resolver_type(value: Any, *, default: str = _DEFAULT_SETTLEMENT_RESOLVER_TYPE) -> str:
+def _normalize_resolver_type(
+    value: Any, *, default: str = _DEFAULT_SETTLEMENT_RESOLVER_TYPE
+) -> str:
     """Normalize resolver types into stable canonical values."""
     raw = str(value or "").strip().lower()
     if not raw:
