@@ -217,7 +217,7 @@ class TestTestConnection:
         result = runner.invoke(app, ["test-connection"])
 
         assert result.exit_code == 1
-        assert "TINKER_API_KEY" in result.stdout
+        assert "TINKER_API_KEY" in result.output
 
     def test_connection_success(self, monkeypatch):
         """Test successful connection."""
@@ -247,7 +247,7 @@ class TestTestConnection:
             result = runner.invoke(app, ["test-connection"])
 
         assert result.exit_code == 1
-        assert "Connection failed" in result.stdout
+        assert "Connection failed" in result.output
 
 
 # ===========================================================================

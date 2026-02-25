@@ -266,11 +266,12 @@ class TestDebateFactoryCreateAgents:
             assert ("openai-api", "Agent creation failed for openai-api") in result.failed
 
     def test_create_agents_checks_api_key(self):
-        """Validates API key for API-based agents."""
+        """Validates API key for API-based agents without fallback."""
         import aragora.server.debate_factory as factory_module
 
         mock_agent = Mock()
         mock_agent.api_key = None  # Missing API key
+        mock_agent.enable_fallback = False  # No fallback available
 
         with patch.object(factory_module, "create_agent", return_value=mock_agent):
             factory = DebateFactory()
@@ -280,6 +281,23 @@ class TestDebateFactoryCreateAgents:
 
             assert result.failure_count == 1
             assert "Agent creation failed" in result.failed[0][1]
+
+    def test_create_agents_allows_missing_key_with_fallback(self):
+        """Agents with fallback enabled proceed despite missing API key."""
+        import aragora.server.debate_factory as factory_module
+
+        mock_agent = Mock()
+        mock_agent.api_key = None  # Missing API key
+        mock_agent.enable_fallback = True  # Fallback available
+
+        with patch.object(factory_module, "create_agent", return_value=mock_agent):
+            factory = DebateFactory()
+            specs = [AgentSpec(provider="anthropic-api")]
+
+            result = factory.create_agents(specs)
+
+            assert result.success_count == 1
+            assert result.failure_count == 0
 
     def test_create_agents_with_stream_wrapper(self):
         """Applies stream wrapper to created agents."""

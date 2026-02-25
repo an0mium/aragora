@@ -156,8 +156,8 @@ class TestCalculateTokenCost:
     def test_anthropic_claude_opus(self):
         """Test cost calculation for Claude Opus."""
         cost = calculate_token_cost("anthropic", "claude-opus-4", 1_000_000, 1_000_000)
-        # Input: $15/1M, Output: $75/1M
-        expected = Decimal("15.00") + Decimal("75.00")
+        # Input: $5/1M, Output: $25/1M
+        expected = Decimal("5.00") + Decimal("25.00")
         assert cost == expected
 
     def test_anthropic_claude_sonnet(self):
