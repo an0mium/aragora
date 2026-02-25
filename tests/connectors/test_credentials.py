@@ -156,8 +156,9 @@ class TestEnvCredentialProvider:
 class TestAWSSecretsManagerProvider:
     """Tests for AWS Secrets Manager credential provider."""
 
-    def test_init_defaults(self):
+    def test_init_defaults(self, monkeypatch):
         """Test initialization with defaults."""
+        monkeypatch.delenv("AWS_REGION", raising=False)
         provider = AWSSecretsManagerProvider(secret_name="my-secret")
 
         assert provider.secret_name == "my-secret"

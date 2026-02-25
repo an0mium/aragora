@@ -23,6 +23,14 @@ from tests.utils.managed_resources import (
     managed_async_fixture,
     managed_fixture,
 )
+from tests.utils.state_reset import (
+    clear_all_auth_rate_limiters,
+    invalidate_legacy_config_module,
+    reset_permission_checker_override,
+    restore_legacy_config_module,
+    restore_rbac_context_extractor,
+    unset_env_vars,
+)
 
 __all__ = [
     # Resource management
@@ -34,4 +42,11 @@ __all__ = [
     "run_with_cancellation",
     "gather_with_timeout",
     "AsyncTestContext",
+    # State reset helpers
+    "unset_env_vars",
+    "invalidate_legacy_config_module",
+    "restore_legacy_config_module",
+    "clear_all_auth_rate_limiters",
+    "reset_permission_checker_override",
+    "restore_rbac_context_extractor",
 ]

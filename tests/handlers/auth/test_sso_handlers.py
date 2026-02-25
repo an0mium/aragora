@@ -39,6 +39,7 @@ from aragora.server.handlers.auth.sso_handlers import (
     handle_sso_logout,
     handle_sso_refresh,
 )
+from tests.utils.state_reset import clear_all_auth_rate_limiters
 
 
 # ---------------------------------------------------------------------------
@@ -144,12 +145,7 @@ def _clear_sso_state():
 
     # Clear rate limiter state so tests are not affected by calls from
     # prior tests in the same session.
-    try:
-        from aragora.server.handlers.utils.rate_limit import clear_all_limiters
-
-        clear_all_limiters()
-    except (ImportError, AttributeError):
-        pass
+    clear_all_auth_rate_limiters()
 
     yield
     _auth_sessions.clear()

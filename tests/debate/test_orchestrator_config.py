@@ -32,6 +32,11 @@ from aragora.debate.arena_config import (
     ObservabilityConfig,
     StreamingConfig,
 )
+from tests.utils.state_reset import (
+    invalidate_legacy_config_module,
+    restore_legacy_config_module,
+    unset_env_vars,
+)
 
 
 # ===========================================================================
@@ -619,8 +624,6 @@ class TestConcurrencyLimits:
     @pytest.fixture(autouse=True)
     def _ensure_default_env(self, monkeypatch):
         """Remove env overrides and invalidate cached legacy constants."""
-        import sys
-
         env_vars = [
             "ARAGORA_MAX_CONCURRENT_PROPOSALS",
             "ARAGORA_MAX_CONCURRENT_CRITIQUES",
@@ -629,28 +632,12 @@ class TestConcurrencyLimits:
             "ARAGORA_MAX_CONCURRENT_BRANCHES",
             "ARAGORA_MAX_CONCURRENT_DEBATES",
         ]
-        for var in env_vars:
-            monkeypatch.delenv(var, raising=False)
-
-        # Remove cached legacy module so constants are re-evaluated from
-        # the (now clean) environment on next access.
-        _legacy_key = "aragora.config.legacy"
-        _saved = sys.modules.pop(_legacy_key, None)
-        # Also clear the cached reference in aragora.config's internal state
-        # so __getattr__ re-imports the legacy module.
-        try:
-            import aragora.config as _cfg_pkg
-
-            if hasattr(_cfg_pkg, "_legacy_mod"):
-                monkeypatch.setattr(_cfg_pkg, "_legacy_mod", None)
-        except (ImportError, AttributeError):
-            pass
+        unset_env_vars(monkeypatch, env_vars)
+        saved = invalidate_legacy_config_module(monkeypatch)
 
         yield
 
-        # Restore the legacy module if it was loaded before the test.
-        if _saved is not None:
-            sys.modules[_legacy_key] = _saved
+        restore_legacy_config_module(saved)
 
     def test_max_concurrent_proposals_env_var(self):
         """MAX_CONCURRENT_PROPOSALS is configurable via environment."""

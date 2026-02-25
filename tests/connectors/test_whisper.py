@@ -299,8 +299,9 @@ class TestWhisperConnector:
         with patch("aragora.connectors.whisper.HTTPX_AVAILABLE", False):
             assert not connector.is_available
 
-    def test_connector_is_available_without_api_key(self):
+    def test_connector_is_available_without_api_key(self, monkeypatch):
         """Test is_available when API key is missing."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         connector = WhisperConnector(api_key="")
         assert not connector.is_available
 
@@ -402,8 +403,9 @@ class TestWhisperConnector:
             assert "httpx not installed" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_transcribe_not_available_no_api_key(self):
+    async def test_transcribe_not_available_no_api_key(self, monkeypatch):
         """Test transcribe fails when API key not configured."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         connector = WhisperConnector(api_key="")
 
         with pytest.raises(ConnectorConfigError) as exc_info:
@@ -591,8 +593,9 @@ class TestWhisperConnector:
         assert cached.id == "trans_to_cache"
 
     @pytest.mark.asyncio
-    async def test_transcribe_stream_not_configured(self):
+    async def test_transcribe_stream_not_configured(self, monkeypatch):
         """Test stream transcription fails when not configured."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         connector = WhisperConnector(api_key="")
 
         async def mock_chunks():

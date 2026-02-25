@@ -26,6 +26,10 @@ from typing import Any, Optional
 from unittest.mock import MagicMock, AsyncMock, patch, PropertyMock
 
 import pytest
+from tests.utils.state_reset import (
+    reset_permission_checker_override,
+    restore_rbac_context_extractor,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -80,22 +84,8 @@ def _reset_permission_checker():
     check entirely when ``auth_config.enabled`` is False.
     """
     # Restore _get_context_from_args to its original implementation
-    try:
-        from aragora.rbac import decorators as _rbac_dec
-
-        _rbac_dec._get_context_from_args = _original_get_context_from_args
-    except (ImportError, AttributeError):
-        pass
-
-    try:
-        from aragora.rbac.checker import get_permission_checker
-
-        checker = get_permission_checker()
-        # Remove any instance-level shadow of check_permission
-        # so the class-level method is used.
-        checker.__dict__.pop("check_permission", None)
-    except (ImportError, AttributeError):
-        pass
+    restore_rbac_context_extractor(_original_get_context_from_args)
+    reset_permission_checker_override()
     yield
 
 
