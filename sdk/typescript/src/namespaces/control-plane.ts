@@ -245,6 +245,17 @@ export class ControlPlaneAPI {
   }
 
   /**
+   * Get metrics for a specific agent by agent ID.
+   * @route GET /api/control-plane/metrics/agents/{agent_id}
+   */
+  async getAgentMetricsById(agentId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/control-plane/metrics/agents/${encodeURIComponent(agentId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
    * Get control plane statistics.
    * @route GET /api/control-plane/stats
    */
@@ -308,6 +319,17 @@ export class ControlPlaneAPI {
    */
   async getAuditLogs(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/control-plane/audit-logs') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get a specific audit log by ID.
+   * @route GET /api/control-plane/audit-logs/{log_id}
+   */
+  async getAuditLog(logId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/control-plane/audit-logs/${encodeURIComponent(logId)}`
+    ) as Promise<Record<string, unknown>>;
   }
 
   /**
@@ -430,6 +452,50 @@ export class ControlPlaneAPI {
    */
   async listSchedules(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/control-plane/schedules') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get a specific schedule by ID.
+   * @route GET /api/control-plane/schedules/{schedule_id}
+   */
+  async getSchedule(scheduleId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/control-plane/schedules/${encodeURIComponent(scheduleId)}`
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Create a new schedule.
+   * @route POST /api/control-plane/schedules
+   */
+  async createSchedule(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/control-plane/schedules', {
+      body,
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Update a control plane task schedule.
+   * @route PUT /api/control-plane/schedules/{schedule_id}
+   */
+  async updateSchedule(scheduleId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'PUT',
+      `/api/v1/control-plane/schedules/${encodeURIComponent(scheduleId)}`,
+      { body }
+    ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Delete a control plane task schedule.
+   * @route DELETE /api/control-plane/schedules/{schedule_id}
+   */
+  async deleteSchedule(scheduleId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'DELETE',
+      `/api/v1/control-plane/schedules/${encodeURIComponent(scheduleId)}`
+    ) as Promise<Record<string, unknown>>;
   }
 
   /**

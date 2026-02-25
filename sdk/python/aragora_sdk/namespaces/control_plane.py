@@ -217,6 +217,10 @@ class ControlPlaneAPI:
             params={"limit": limit, "offset": offset},
         )
 
+    def get_audit_log(self, log_id: str) -> dict[str, Any]:
+        """Get a specific audit log by ID."""
+        return self._client.request("GET", f"/api/control-plane/audit-logs/{log_id}")
+
     # =========================================================================
     # Deliberation Transcript
     # =========================================================================
@@ -246,6 +250,10 @@ class ControlPlaneAPI:
     def get_task_metrics(self) -> dict[str, Any]:
         """Get task-level metrics (completion rate, avg duration)."""
         return self._client.request("GET", "/api/control-plane/metrics/tasks")
+
+    def get_agent_metrics_by_id(self, agent_id: str) -> dict[str, Any]:
+        """Get metrics for a specific agent by agent ID."""
+        return self._client.request("GET", f"/api/control-plane/metrics/agents/{agent_id}")
 
     # =========================================================================
     # Policies
@@ -278,6 +286,18 @@ class ControlPlaneAPI:
     def create_schedule(self, **kwargs: Any) -> dict[str, Any]:
         """Create a control plane task schedule."""
         return self._client.request("POST", "/api/control-plane/schedules", json=kwargs)
+
+    def get_schedule(self, schedule_id: str) -> dict[str, Any]:
+        """Get a specific schedule by ID."""
+        return self._client.request("GET", f"/api/control-plane/schedules/{schedule_id}")
+
+    def update_schedule(self, schedule_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Update a control plane task schedule."""
+        return self._client.request("PUT", f"/api/control-plane/schedules/{schedule_id}", json=kwargs)
+
+    def delete_schedule(self, schedule_id: str) -> dict[str, Any]:
+        """Delete a control plane task schedule."""
+        return self._client.request("DELETE", f"/api/control-plane/schedules/{schedule_id}")
 
     # =========================================================================
     # Stream
@@ -452,6 +472,10 @@ class AsyncControlPlaneAPI:
             params={"limit": limit, "offset": offset},
         )
 
+    async def get_audit_log(self, log_id: str) -> dict[str, Any]:
+        """Get a specific audit log by ID."""
+        return await self._client.request("GET", f"/api/control-plane/audit-logs/{log_id}")
+
     # Deliberation Transcript
     async def get_deliberation_transcript(self, request_id: str) -> dict[str, Any]:
         """Get the full transcript of a deliberation."""
@@ -467,6 +491,10 @@ class AsyncControlPlaneAPI:
     async def get_task_metrics(self) -> dict[str, Any]:
         """Get task-level metrics."""
         return await self._client.request("GET", "/api/control-plane/metrics/tasks")
+
+    async def get_agent_metrics_by_id(self, agent_id: str) -> dict[str, Any]:
+        """Get metrics for a specific agent by agent ID."""
+        return await self._client.request("GET", f"/api/control-plane/metrics/agents/{agent_id}")
 
     # Policies
     async def list_policies(self) -> dict[str, Any]:
@@ -492,6 +520,18 @@ class AsyncControlPlaneAPI:
     async def create_schedule(self, **kwargs: Any) -> dict[str, Any]:
         """Create a control plane task schedule."""
         return await self._client.request("POST", "/api/control-plane/schedules", json=kwargs)
+
+    async def get_schedule(self, schedule_id: str) -> dict[str, Any]:
+        """Get a specific schedule by ID."""
+        return await self._client.request("GET", f"/api/control-plane/schedules/{schedule_id}")
+
+    async def update_schedule(self, schedule_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Update a control plane task schedule."""
+        return await self._client.request("PUT", f"/api/control-plane/schedules/{schedule_id}", json=kwargs)
+
+    async def delete_schedule(self, schedule_id: str) -> dict[str, Any]:
+        """Delete a control plane task schedule."""
+        return await self._client.request("DELETE", f"/api/control-plane/schedules/{schedule_id}")
 
     # Stream
     async def get_stream_info(self) -> dict[str, Any]:

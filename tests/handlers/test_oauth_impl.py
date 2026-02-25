@@ -43,10 +43,7 @@ def _status(result: object) -> int:
 # Import the module under test
 # ---------------------------------------------------------------------------
 
-_oauth_impl = pytest.importorskip(
-    "aragora.server.handlers._oauth_impl",
-    reason="_oauth_impl module not available",
-)
+import aragora.server.handlers._oauth_impl as _oauth_impl
 
 
 # ============================================================================

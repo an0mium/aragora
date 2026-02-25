@@ -187,26 +187,22 @@ class TestProofSandboxExecution:
     @pytest.mark.asyncio
     async def test_execute_lean_not_installed(self):
         """Should handle Lean not being installed."""
-        import shutil
+        from unittest.mock import patch
 
-        if shutil.which("lean"):
-            pytest.skip("Lean is installed, skipping not-installed test")
-
-        with ProofSandbox(timeout=10.0) as sandbox:
-            result = await sandbox.execute_lean("-- some lean code")
-            assert result.status == SandboxStatus.SETUP_FAILED
+        with patch("shutil.which", return_value=None):
+            with ProofSandbox(timeout=10.0) as sandbox:
+                result = await sandbox.execute_lean("-- some lean code")
+                assert result.status == SandboxStatus.SETUP_FAILED
 
     @pytest.mark.asyncio
     async def test_execute_z3_not_installed(self):
         """Should handle Z3 not being installed."""
-        import shutil
+        from unittest.mock import patch
 
-        if shutil.which("z3"):
-            pytest.skip("Z3 is installed, skipping not-installed test")
-
-        with ProofSandbox(timeout=10.0) as sandbox:
-            result = await sandbox.execute_z3("(check-sat)")
-            assert result.status == SandboxStatus.SETUP_FAILED
+        with patch("shutil.which", return_value=None):
+            with ProofSandbox(timeout=10.0) as sandbox:
+                result = await sandbox.execute_z3("(check-sat)")
+                assert result.status == SandboxStatus.SETUP_FAILED
 
 
 class TestRunSandboxed:

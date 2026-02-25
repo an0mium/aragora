@@ -114,25 +114,25 @@ class TestGetRLMFactory:
 
     def test_get_rlm_true_rlm_mode_raises_without_library(self):
         """get_rlm with TRUE_RLM mode should raise if library not installed."""
+        from unittest.mock import patch
+
         from aragora.rlm import RLMMode, get_rlm
-        from aragora.rlm.bridge import HAS_OFFICIAL_RLM
 
-        if HAS_OFFICIAL_RLM:
-            pytest.skip("Official RLM is installed")
-
-        with pytest.raises(RuntimeError, match="TRUE RLM required"):
-            get_rlm(mode=RLMMode.TRUE_RLM, force_new=True)
+        with patch("aragora.rlm.bridge.HAS_OFFICIAL_RLM", False):
+            with patch("aragora.rlm.factory.HAS_OFFICIAL_RLM", False):
+                with pytest.raises(RuntimeError, match="TRUE RLM required"):
+                    get_rlm(mode=RLMMode.TRUE_RLM, force_new=True)
 
     def test_get_rlm_require_true_rlm_raises(self):
         """get_rlm with require_true_rlm should raise if not available."""
+        from unittest.mock import patch
+
         from aragora.rlm import get_rlm
-        from aragora.rlm.bridge import HAS_OFFICIAL_RLM
 
-        if HAS_OFFICIAL_RLM:
-            pytest.skip("Official RLM is installed")
-
-        with pytest.raises(RuntimeError, match="TRUE RLM required"):
-            get_rlm(require_true_rlm=True, force_new=True)
+        with patch("aragora.rlm.bridge.HAS_OFFICIAL_RLM", False):
+            with patch("aragora.rlm.factory.HAS_OFFICIAL_RLM", False):
+                with pytest.raises(RuntimeError, match="TRUE RLM required"):
+                    get_rlm(require_true_rlm=True, force_new=True)
 
 
 class TestCompressAndQuery:
