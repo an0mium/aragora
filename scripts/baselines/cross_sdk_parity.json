@@ -87,6 +87,7 @@
     "/api/reputation/{param}",
     "/api/services/{param}/health",
     "/api/services/{param}/metrics",
+    "/api/sme/workflows/{param}",
     "/api/teams/{param}",
     "/api/teams/{param}/members",
     "/api/teams/{param}/members/{param}",
