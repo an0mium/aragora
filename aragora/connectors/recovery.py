@@ -175,7 +175,7 @@ class RecoveryStrategy:
             self.config.base_delay_seconds * (2**attempt),
             self.config.max_delay_seconds,
         )
-        jitter = delay * self.config.jitter_factor * random.uniform(-1, 1)
+        jitter = delay * self.config.jitter_factor * random.uniform(-1, 1)  # noqa: S311 -- retry jitter
         return max(0.1, delay + jitter)
 
     def _determine_recovery_action(

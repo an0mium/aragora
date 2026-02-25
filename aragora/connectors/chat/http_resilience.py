@@ -160,7 +160,7 @@ class HTTPResilienceMixin:
                 if attempt < max_retries - 1:
                     # Calculate delay with exponential backoff and jitter
                     delay = min(base_delay * (2**attempt), max_delay)
-                    jitter = random.uniform(0, delay * 0.1)
+                    jitter = random.uniform(0, delay * 0.1)  # noqa: S311 -- retry jitter
                     total_delay = delay + jitter
 
                     logger.warning(
@@ -275,7 +275,7 @@ class HTTPResilienceMixin:
                         if attempt < max_retries - 1:
                             # Calculate delay with exponential backoff and jitter
                             delay = min(base_delay * (2**attempt), 30.0)
-                            jitter = random.uniform(0, delay * 0.1)
+                            jitter = random.uniform(0, delay * 0.1)  # noqa: S311 -- retry jitter
                             total_delay = delay + jitter
 
                             logger.warning(

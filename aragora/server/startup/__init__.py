@@ -85,6 +85,7 @@ from aragora.server.startup.security import (
     init_decision_router,
     init_deployment_validation,
     init_graphql_routes,
+    init_api_key_proxy,
     init_key_rotation_scheduler,
     init_rbac_distributed_cache,
     init_secrets_rotation_scheduler,
@@ -397,6 +398,7 @@ def _build_initial_status(
         "durable_jobs_recovered": 0,
         "gauntlet_worker": False,
         "redis_state_backend": False,
+        "api_key_proxy": False,
         "key_rotation_scheduler": False,
         "access_review_scheduler": False,
         "rbac_distributed_cache": False,
@@ -560,6 +562,7 @@ async def _init_all_components(
     for warning in secrets_validation.get("warnings", []):
         logger.warning("Secrets validation: %s", warning)
 
+    status["api_key_proxy"] = await init_api_key_proxy()
     status["key_rotation_scheduler"] = await init_key_rotation_scheduler()
     status["secrets_rotation_scheduler"] = await init_secrets_rotation_scheduler()
     status["aws_rotation_monitor"] = await init_aws_rotation_monitor()
@@ -727,6 +730,7 @@ __all__ = [
     "init_redis_state_backend",
     "init_decision_router",
     "init_aws_rotation_monitor",
+    "init_api_key_proxy",
     "init_key_rotation_scheduler",
     "init_access_review_scheduler",
     "init_rbac_distributed_cache",

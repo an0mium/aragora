@@ -585,6 +585,76 @@ async def init_secrets_rotation_scheduler() -> bool:
     return False
 
 
+async def init_api_key_proxy() -> bool:
+    """Initialize the API Key Proxy with frequency-hopping rotation.
+
+    Starts the proxy that securely manages third-party API keys (ElevenLabs,
+    Gemini, fal.ai) with jittered rotation schedules, usage anomaly detection,
+    and audit logging.
+
+    Environment Variables:
+        ARAGORA_API_KEY_PROXY_ENABLED: Set to "true" to enable (default: true in prod)
+        FAL_KEY: fal.ai API key (auto-registered for rotation)
+        ELEVENLABS_API_KEY: ElevenLabs API key (auto-registered for rotation)
+        GEMINI_API_KEY: Gemini API key (auto-registered for rotation)
+
+    Returns:
+        True if proxy was started, False otherwise
+    """
+    import os
+
+    env = os.environ.get("ARAGORA_ENV", "development")
+    default_enabled = "true" if env == "production" else "false"
+    enabled = os.environ.get("ARAGORA_API_KEY_PROXY_ENABLED", default_enabled).lower() == "true"
+
+    if not enabled:
+        logger.debug(
+            "API key proxy disabled (set ARAGORA_API_KEY_PROXY_ENABLED=true to enable)"
+        )
+        return False
+
+    try:
+        from aragora.security.api_key_proxy import get_api_key_proxy
+
+        proxy = get_api_key_proxy()
+
+        # Import rotation handlers to trigger auto-registration
+        try:
+            import aragora.security.elevenlabs_rotator  # noqa: F401
+        except ImportError:
+            logger.debug("ElevenLabs rotator not available")
+
+        try:
+            import aragora.security.gemini_rotator  # noqa: F401
+        except ImportError:
+            logger.debug("Gemini rotator not available")
+
+        try:
+            import aragora.security.fal_rotator  # noqa: F401
+        except ImportError:
+            logger.debug("fal.ai rotator not available")
+
+        # Start the proxy (begins rotation scheduler)
+        await proxy.start()
+
+        # Log which services are configured
+        services = list(proxy._config.services.keys())
+        logger.info(
+            "API key proxy started (services=%s, anomaly_detection=%s)",
+            ", ".join(services),
+            proxy._config.enable_anomaly_detection,
+        )
+
+        return True
+
+    except ImportError as e:
+        logger.debug("API key proxy not available: %s", e)
+    except (OSError, RuntimeError, ValueError) as e:
+        logger.warning("Failed to start API key proxy: %s", e)
+
+    return False
+
+
 def validate_required_secrets() -> dict:
     """Validate that required secrets are available at startup.
 

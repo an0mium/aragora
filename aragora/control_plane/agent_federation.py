@@ -449,7 +449,7 @@ class FederatedAgentPool:
         strategy = strategy or self._config.load_balance_strategy
 
         if strategy == LoadBalanceStrategy.RANDOM:
-            return random.choice(agents)
+            return random.choice(agents)  # noqa: S311 -- load balancing
 
         if strategy == LoadBalanceStrategy.ROUND_ROBIN:
             # Group by capability for RR
@@ -471,9 +471,9 @@ class FederatedAgentPool:
         if strategy == LoadBalanceStrategy.PREFER_LOCAL:
             # Score agents with local bias
             local_agents = [a for a in agents if a.is_local]
-            if local_agents and random.random() < self._config.local_bias:
-                return random.choice(local_agents)
-            return random.choice(agents)
+            if local_agents and random.random() < self._config.local_bias:  # noqa: S311 -- load balancing
+                return random.choice(local_agents)  # noqa: S311 -- load balancing
+            return random.choice(agents)  # noqa: S311 -- load balancing
 
         return agents[0]
 

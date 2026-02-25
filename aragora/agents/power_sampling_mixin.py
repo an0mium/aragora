@@ -259,7 +259,7 @@ class PowerSamplingMixin:
         """
         import random
 
-        r = random.random()
+        r = random.random()  # noqa: S311 -- probabilistic sampling
         cumsum = 0.0
         for i, w in enumerate(weights):
             cumsum += w

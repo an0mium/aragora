@@ -414,6 +414,17 @@ class ServerLifecycleManager:
         except (ImportError, RuntimeError, AttributeError) as e:
             logger.debug("Settlement review scheduler shutdown: %s", e)
 
+        # Stop API key proxy (frequency-hopping rotation)
+        try:
+            from aragora.security.api_key_proxy import get_api_key_proxy, reset_api_key_proxy
+
+            proxy = get_api_key_proxy()
+            await proxy.stop()
+            reset_api_key_proxy()
+            logger.info("API key proxy stopped")
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("API key proxy shutdown: %s", e)
+
         # Stop key rotation schedulers (security + ops modules)
         try:
             from aragora.security.key_rotation import (

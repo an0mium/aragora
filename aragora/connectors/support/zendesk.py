@@ -311,7 +311,7 @@ class ZendeskConnector:
                 if response.status_code == 429 or response.status_code >= 500:
                     if attempt < self._MAX_RETRIES:
                         delay = min(self._BASE_DELAY * (2**attempt), self._MAX_DELAY)
-                        jitter = delay * 0.3 * random.random()
+                        jitter = delay * 0.3 * random.random()  # noqa: S311 -- retry jitter
                         ra = response.headers.get("Retry-After")
                         if ra:
                             try:
@@ -351,7 +351,7 @@ class ZendeskConnector:
                 last_exc = exc
                 if attempt < self._MAX_RETRIES:
                     delay = min(self._BASE_DELAY * (2**attempt), self._MAX_DELAY)
-                    jitter = delay * 0.3 * random.random()
+                    jitter = delay * 0.3 * random.random()  # noqa: S311 -- retry jitter
                     logger.warning(
                         "Zendesk %s %s network error: %s, retrying in %.1fs (attempt %d/%d)",
                         method,

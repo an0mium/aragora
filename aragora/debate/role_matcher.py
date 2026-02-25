@@ -208,7 +208,7 @@ class RoleMatcher:
                 available = [r for r in CognitiveRole if r not in used_roles]
                 if not available:
                     available = list(CognitiveRole)
-                role = random.choice(available)
+                role = random.choice(available)  # noqa: S311 -- non-security role assignment
             else:
                 role = self._select_role_by_calibration(cal, used_roles)
                 if self.config.enable_developmental_assignment:
@@ -258,7 +258,7 @@ class RoleMatcher:
                 available = [r for r in CognitiveRole if r not in used_roles]
                 if not available:
                     available = list(CognitiveRole)
-                role = random.choice(available)
+                role = random.choice(available)  # noqa: S311 -- non-security role assignment
             else:
                 role = self._softmax_select_role(
                     affinity_matrix.get(agent, {}),
@@ -323,10 +323,10 @@ class RoleMatcher:
         # Fallback to any available role
         available = [r for r in CognitiveRole if r not in used_roles]
         if available:
-            return random.choice(available)
+            return random.choice(available)  # noqa: S311 -- non-security role assignment
 
         # All roles used, just pick one
-        return random.choice(list(CognitiveRole))
+        return random.choice(list(CognitiveRole))  # noqa: S311 -- non-security role assignment
 
     def _compute_affinity_matrix(
         self,
@@ -455,12 +455,12 @@ class RoleMatcher:
         total = sum(exp_scores.values())
 
         if total == 0:
-            return random.choice(list(available.keys()))
+            return random.choice(list(available.keys()))  # noqa: S311 -- non-security role assignment
 
         probs = {r: s / total for r, s in exp_scores.items()}
 
         # Sample
-        rand = random.random()
+        rand = random.random()  # noqa: S311 -- non-security role assignment
         cumulative = 0.0
         for role, prob in probs.items():
             cumulative += prob

@@ -210,9 +210,9 @@ async def handle_get_stats(
             # Email volume over time
             "email_volume": {
                 "labels": labels,
-                "received": [random.randint(5, 30) for _ in range(data_points)],
-                "sent": [random.randint(2, 15) for _ in range(data_points)],
-                "archived": [random.randint(10, 40) for _ in range(data_points)],
+                "received": [random.randint(5, 30) for _ in range(data_points)],  # noqa: S311 -- mock data generation
+                "sent": [random.randint(2, 15) for _ in range(data_points)],  # noqa: S311 -- mock data generation
+                "archived": [random.randint(10, 40) for _ in range(data_points)],  # noqa: S311 -- mock data generation
             },
             # Response time distribution
             "response_time": {

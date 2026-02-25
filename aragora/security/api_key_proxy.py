@@ -182,6 +182,24 @@ class ProxyConfig:
             active_hours=(0, 23),  # Debates can run any hour
             budget_limit_credits=None,  # Gemini uses token-based billing
         )
+        config.services["fal"] = ServiceKeyConfig(
+            service_name="fal",
+            secret_manager_key="FAL_KEY",  # noqa: S106 - secret manager lookup key, not a secret
+            secret_id="aragora/production",  # noqa: S106 - secret manager path, not a secret
+            standalone_secret_id="aragora/api/fal",  # noqa: S106 - secret manager path, not a secret
+            rotation_strategy=RotationStrategy.JITTERED,
+            rotation_interval_hours=6.0,
+            rotation_jitter_hours=2.0,
+            max_calls_per_minute=20,
+            max_calls_per_hour=300,
+            allowed_endpoints=frozenset(
+                {
+                    "/fal-ai/",  # Model inference endpoints
+                }
+            ),
+            active_hours=(0, 23),  # Inference can run any hour
+            budget_limit_credits=None,  # fal.ai uses per-request billing
+        )
         return config
 
 

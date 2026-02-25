@@ -337,7 +337,7 @@ class FreshdeskConnector:
                             self._BASE_DELAY * (2**attempt),
                             self._MAX_DELAY,
                         )
-                        jitter = delay * 0.3 * random.random()
+                        jitter = delay * 0.3 * random.random()  # noqa: S311 -- retry jitter
                         retry_after = response.headers.get("Retry-After")
                         if retry_after:
                             try:
@@ -389,7 +389,7 @@ class FreshdeskConnector:
                         self._BASE_DELAY * (2**attempt),
                         self._MAX_DELAY,
                     )
-                    jitter = delay * 0.3 * random.random()
+                    jitter = delay * 0.3 * random.random()  # noqa: S311 -- retry jitter
                     logger.warning(
                         "Freshdesk %s %s network error: %s, retrying in %.1fs (attempt %d/%d)",
                         method,

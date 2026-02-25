@@ -390,7 +390,7 @@ class HubSpotConnector:
                             self._BASE_DELAY * (2**attempt),
                             self._MAX_DELAY,
                         )
-                        jitter = delay * 0.3 * random.random()
+                        jitter = delay * 0.3 * random.random()  # noqa: S311 -- retry jitter
                         retry_after = response.headers.get("Retry-After")
                         if retry_after:
                             try:
@@ -440,7 +440,7 @@ class HubSpotConnector:
                         self._BASE_DELAY * (2**attempt),
                         self._MAX_DELAY,
                     )
-                    jitter = delay * 0.3 * random.random()
+                    jitter = delay * 0.3 * random.random()  # noqa: S311 -- retry jitter
                     logger.warning(
                         "HubSpot %s %s network error: %s, retrying in %.1fs (attempt %d/%d)",
                         method,

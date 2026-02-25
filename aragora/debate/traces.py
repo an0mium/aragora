@@ -341,7 +341,7 @@ class DebateTracer(SQLiteStore):
         self.debate_id = debate_id
         self.task = task
         self.agents = agents
-        self.random_seed = random_seed or random.randint(0, 2**32 - 1)
+        self.random_seed = random_seed or random.randint(0, 2**32 - 1)  # noqa: S311 -- deterministic seed for reproducibility
 
         # Seed random for determinism
         random.seed(self.random_seed)

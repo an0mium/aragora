@@ -221,7 +221,7 @@ class ChaosDirector:
             unused = available
             history = []
 
-        selected = random.choice(unused)
+        selected = random.choice(unused)  # noqa: S311 -- cosmetic text selection
 
         # Update history (keep last 3)
         history.append(selected)

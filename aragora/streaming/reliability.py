@@ -111,7 +111,7 @@ class ReconnectPolicy:
         delay = self.base_delay * (self.backoff_factor**attempt)
         delay = min(delay, self.max_delay)
         if self.jitter:
-            delay *= random.uniform(0.5, 1.0)
+            delay *= random.uniform(0.5, 1.0)  # noqa: S311 -- retry jitter
         return max(0.0, delay)
 
 

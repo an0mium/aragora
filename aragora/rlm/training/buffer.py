@@ -255,7 +255,7 @@ class ExperienceBuffer:
             priorities = [p**self.priority_alpha for p in self._priorities]
             total_priority = sum(priorities)
             probs = [p / total_priority for p in priorities]
-            indices = random.choices(
+            indices = random.choices(  # noqa: S311 -- ML exploration/sampling
                 range(len(self._buffer)),
                 weights=probs,
                 k=batch_size,

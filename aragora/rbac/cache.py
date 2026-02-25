@@ -295,7 +295,7 @@ class RBACDistributedCache:
                     logger.debug("RBAC pub/sub error (attempt %s): %s", consecutive_errors, e)
                     # Exponential backoff with jitter: base * 2^(errors-1) * (0.5 to 1.5)
                     sleep_time = min(backoff * (2 ** (consecutive_errors - 1)), max_backoff)
-                    jitter = random.uniform(0.5, 1.5)
+                    jitter = random.uniform(0.5, 1.5)  # noqa: S311 -- retry jitter
                     time.sleep(sleep_time * jitter)
 
     def _redis_key(self, key_type: str, *parts: str) -> str:

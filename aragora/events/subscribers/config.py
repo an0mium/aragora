@@ -26,7 +26,7 @@ class RetryConfig:
 
         delay = self.base_delay_ms * (self.exponential_base**attempt)
         # Add jitter (±20%)
-        jitter = delay * 0.2 * (random.random() * 2 - 1)
+        jitter = delay * 0.2 * (random.random() * 2 - 1)  # noqa: S311 -- retry jitter
         delay += jitter
         return min(delay, self.max_delay_ms)
 

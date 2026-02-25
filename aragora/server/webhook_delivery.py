@@ -769,7 +769,7 @@ class WebhookDeliveryManager:
         # Add jitter (±25%)
         import random
 
-        delay *= 0.75 + random.random() * 0.5
+        delay *= 0.75 + random.random() * 0.5  # noqa: S311 -- retry jitter
 
         delivery.next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
         delivery.metadata["retry_url"] = url

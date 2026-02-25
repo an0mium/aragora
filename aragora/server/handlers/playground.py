@@ -1062,7 +1062,7 @@ def _run_inline_mock_debate(
     topic_proposals = _build_mock_proposals(topic, question=question)
     proposals: dict[str, str] = {}
     for name, style in zip(names, styles):
-        proposals[name] = random.choice(topic_proposals[style])
+        proposals[name] = random.choice(topic_proposals[style])  # noqa: S311 -- mock data generation
 
     critiques: list[dict[str, Any]] = []
     for i, (name, style) in enumerate(zip(names, styles)):
@@ -1076,7 +1076,7 @@ def _run_inline_mock_debate(
                     "target_agent": target,
                     "issues": list(_MOCK_CRITIQUE_ISSUES[style]),
                     "suggestions": list(_MOCK_CRITIQUE_SUGGESTIONS[style]),
-                    "severity": round(random.uniform(lo, hi), 1),
+                    "severity": round(random.uniform(lo, hi), 1),  # noqa: S311 -- mock data generation
                 }
             )
 
@@ -1112,10 +1112,10 @@ def _run_inline_mock_debate(
         elif style == "contrarian":
             choice = others[-1]
         else:
-            choice = random.choice(others)
+            choice = random.choice(others)  # noqa: S311 -- mock data generation
         base_conf = _MOCK_CONFIDENCE.get(style, 0.7)
-        conf = round(max(0.1, min(1.0, base_conf + random.uniform(-0.05, 0.05))), 2)
-        reasoning = random.choice(_vote_reasoning.get(style, ["{choice}"])).format(
+        conf = round(max(0.1, min(1.0, base_conf + random.uniform(-0.05, 0.05))), 2)  # noqa: S311 -- mock data generation
+        reasoning = random.choice(_vote_reasoning.get(style, ["{choice}"])).format(  # noqa: S311 -- mock data generation
             choice=choice, topic=topic_snippet
         )
         votes.append(

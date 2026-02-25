@@ -1010,7 +1010,7 @@ class AutonomousLearningHandler(BaseHandler):
             content=body.get("content", "Knowledge extracted from debate analysis."),
             source_type="debate_analysis",
             source_debates=debate_ids,
-            confidence=random.uniform(0.7, 0.95),
+            confidence=random.uniform(0.7, 0.95),  # noqa: S311 -- simulated metric
             extracted_at=now,
             topics=body.get("topics", ["general"]),
         )
@@ -1223,7 +1223,7 @@ class AutonomousLearningHandler(BaseHandler):
         # Record calibration metric
         metric = LearningMetric(
             metric_type=MetricType.CALIBRATION,
-            value=random.uniform(0.85, 0.98),
+            value=random.uniform(0.85, 0.98),  # noqa: S311 -- simulated metric
             timestamp=now,
             metadata={
                 "calibration_id": calibration_id,

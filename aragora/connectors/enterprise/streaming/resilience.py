@@ -164,7 +164,7 @@ class ExponentialBackoff:
         # Add jitter (±25%)
         if self.config.jitter:
             jitter_range = delay * 0.25
-            delay = delay + random.uniform(-jitter_range, jitter_range)
+            delay = delay + random.uniform(-jitter_range, jitter_range)  # noqa: S311 -- retry jitter
             delay = max(self.config.initial_delay_seconds, delay)
 
         self._last_delay = delay

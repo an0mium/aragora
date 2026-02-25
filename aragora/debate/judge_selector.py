@@ -223,7 +223,7 @@ class RandomStrategy(JudgeSelectionStrategy):
         context: list[Message],
     ) -> Agent:
         """Select a random agent as judge."""
-        return random.choice(list(agents)) if agents else None
+        return random.choice(list(agents)) if agents else None  # noqa: S311 -- non-security agent selection
 
 
 class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
@@ -240,7 +240,7 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     ) -> Agent:
         """Select agent with highest ELO rating."""
         if not self._elo_system or not agents:
-            return random.choice(list(agents)) if agents else None
+            return random.choice(list(agents)) if agents else None  # noqa: S311 -- non-security agent selection
 
         agent_names = [a.name for a in agents]
 
@@ -257,7 +257,7 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         except (AttributeError, TypeError, KeyError, ValueError, RuntimeError) as e:
             logger.warning("ELO query failed: %s; falling back to random", e)
 
-        return random.choice(list(agents)) if agents else None
+        return random.choice(list(agents)) if agents else None  # noqa: S311 -- non-security agent selection
 
 
 class CalibratedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
@@ -274,7 +274,7 @@ class CalibratedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     ) -> Agent:
         """Select agent with best composite score."""
         if not self._elo_system or not agents:
-            return random.choice(list(agents)) if agents else None
+            return random.choice(list(agents)) if agents else None  # noqa: S311 -- non-security agent selection
 
         scores = self.get_all_scores(agents)
         if scores:
@@ -286,7 +286,7 @@ class CalibratedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
                 )
                 return judge
 
-        return random.choice(list(agents)) if agents else None
+        return random.choice(list(agents)) if agents else None  # noqa: S311 -- non-security agent selection
 
 
 class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
@@ -356,7 +356,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         # Ultimate fallback: random
         import random
 
-        return random.choice(list(agents))
+        return random.choice(list(agents))  # noqa: S311 -- non-security agent selection
 
     def _find_historical_dissenters(
         self,
@@ -494,12 +494,12 @@ class VotedStrategy(JudgeSelectionStrategy):
         if vote_counts:
             max_votes = max(vote_counts.values())
             candidates = [name for name, count in vote_counts.items() if count == max_votes]
-            winner_name = random.choice(candidates)
+            winner_name = random.choice(candidates)  # noqa: S311 -- non-security random selection
             winner = next((a for a in agents if a.name == winner_name), None)
             if winner:
                 return winner
 
-        return random.choice(list(agents)) if agents else None
+        return random.choice(list(agents)) if agents else None  # noqa: S311 -- non-security agent selection
 
 
 class JudgeSelector(JudgeScoringMixin):
@@ -638,7 +638,7 @@ class JudgeSelector(JudgeScoringMixin):
 
         if judge is None and available_agents:
             logger.warning("Judge selection returned None, falling back to random")
-            judge = random.choice(available_agents)
+            judge = random.choice(available_agents)  # noqa: S311 -- non-security random selection
 
         return judge
 
