@@ -3115,3 +3115,96 @@ class IdeaToExecutionPipeline:
             "tasks": tasks,
             "elo_used": elo_used,
         }
+
+
+def canvas_to_workflow(result: PipelineResult) -> "WorkflowDefinition":
+    """Convert a PipelineResult into an executable WorkflowDefinition.
+
+    Reads goal nodes from ``result.goal_graph`` and edges from
+    ``result.actions_canvas`` (when available) to build a DAG of
+    workflow task steps compatible with the WorkflowEngine.
+
+    Goal dependencies become ``next_steps`` links and TransitionRules
+    so the engine respects execution ordering.
+
+    Args:
+        result: A populated PipelineResult (at minimum with a goal_graph).
+
+    Returns:
+        A WorkflowDefinition ready for ``WorkflowEngine.execute()``.
+    """
+    from aragora.workflow.types import (
+        StepDefinition,
+        TransitionRule,
+        WorkflowDefinition,
+    )
+
+    goals = result.goal_graph.goals if result.goal_graph else []
+
+    if not goals:
+        return WorkflowDefinition(
+            id=f"wf-{result.pipeline_id}",
+            name=f"Workflow from pipeline {result.pipeline_id}",
+            description="Auto-generated from canvas pipeline (empty)",
+            steps=[],
+            transitions=[],
+            metadata={"source_pipeline_id": result.pipeline_id},
+        )
+
+    # Build a set of valid goal IDs for dependency filtering
+    goal_ids = {g.id for g in goals}
+
+    steps: list[StepDefinition] = []
+    transitions: list[TransitionRule] = []
+
+    for goal in goals:
+        # Filter dependencies to only reference goals that exist in this graph
+        valid_deps = [d for d in goal.dependencies if d in goal_ids]
+
+        step = StepDefinition(
+            id=goal.id,
+            name=goal.title,
+            step_type="task",
+            description=goal.description,
+            config={
+                "goal_type": goal.goal_type.value,
+                "priority": goal.priority,
+                "measurable": goal.measurable,
+                "source_idea_ids": goal.source_idea_ids,
+            },
+            next_steps=[],  # Populated via transitions below
+        )
+        steps.append(step)
+
+    # Build transitions from dependency edges.
+    # If goal B depends on goal A, then A -> B (A must complete before B).
+    for goal in goals:
+        valid_deps = [d for d in goal.dependencies if d in goal_ids]
+        for dep_id in valid_deps:
+            tr = TransitionRule(
+                id=f"tr-{dep_id}-to-{goal.id}",
+                from_step=dep_id,
+                to_step=goal.id,
+                condition="True",
+                label=f"{dep_id} -> {goal.id}",
+            )
+            transitions.append(tr)
+
+            # Also wire next_steps on the source step
+            for s in steps:
+                if s.id == dep_id and goal.id not in s.next_steps:
+                    s.next_steps.append(goal.id)
+
+    # Determine entry step: a goal with no dependencies is a root
+    root_ids = [g.id for g in goals if not any(d in goal_ids for d in g.dependencies)]
+    entry_step = root_ids[0] if root_ids else goals[0].id
+
+    return WorkflowDefinition(
+        id=f"wf-{result.pipeline_id}",
+        name=f"Workflow from pipeline {result.pipeline_id}",
+        description="Auto-generated from canvas pipeline goal graph",
+        steps=steps,
+        transitions=transitions,
+        entry_step=entry_step,
+        metadata={"source_pipeline_id": result.pipeline_id},
+    )

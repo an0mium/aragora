@@ -170,12 +170,58 @@ def prune_circuit_breakers() -> int:
         return _prune_stale_circuit_breakers()
 
 
+# Well-known connector circuit breaker names used by integrations/connectors
+_CONNECTOR_CB_PREFIXES = (
+    "slack_",
+    "discord_",
+    "teams_",
+    "email_",
+    "zapier_",
+    "connector_",
+    "chat_connector_",
+)
+
+
+def get_connector_circuit_breaker_states() -> dict[str, dict[str, Any]]:
+    """Get circuit breaker states for all registered connectors.
+
+    Returns a dict keyed by circuit breaker name, with each value containing:
+    - state: 'closed', 'open', or 'half-open'
+    - failures: current failure count
+    - cooldown_remaining: seconds until retry (only when open)
+
+    Only includes circuit breakers with connector-related prefixes.
+
+    Example:
+        states = get_connector_circuit_breaker_states()
+        # {'slack_api': {'state': 'closed', 'failures': 0},
+        #  'connector_GitHub': {'state': 'open', 'failures': 5, 'cooldown_remaining': 42.3}}
+    """
+    from typing import Any as _Any
+
+    result: dict[str, dict[str, _Any]] = {}
+    with _circuit_breakers_lock:
+        for name, cb in _circuit_breakers.items():
+            if not any(name.startswith(prefix) for prefix in _CONNECTOR_CB_PREFIXES):
+                continue
+            state = cb.get_status()
+            info: dict[str, _Any] = {
+                "state": state,
+                "failures": cb.failures,
+            }
+            if state == "open":
+                info["cooldown_remaining"] = round(cb.cooldown_remaining(), 1)
+            result[name] = info
+    return result
+
+
 __all__ = [
     "MAX_CIRCUIT_BREAKERS",
     "STALE_THRESHOLD_SECONDS",
     "get_circuit_breaker",
     "reset_all_circuit_breakers",
     "get_circuit_breakers",
+    "get_connector_circuit_breaker_states",
     "prune_circuit_breakers",
     # Internal but needed by other modules
     "_circuit_breakers",

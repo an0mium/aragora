@@ -113,18 +113,49 @@ export function useOrchCanvas(canvasId: string | null) {
     await fetch(`${API_BASE}/${canvasId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: canvasMeta?.name }) });
   }, [canvasId, canvasMeta]);
 
-  const executePipeline = useCallback(async (): Promise<{ pipelineId: string } | null> => {
+  const executePipeline = useCallback(async (): Promise<{ pipelineId: string; workflowId?: string } | null> => {
     if (!canvasId) return null;
     const pipelineId = canvasMeta?.metadata?.pipeline_id as string | undefined;
-    if (pipelineId) {
-      await fetch('/api/v1/canvas/pipeline/run', {
+    if (!pipelineId) return null;
+
+    // Mark all nodes as creating workflow
+    setNodes((nds) => nds.map((n) => ({
+      ...n, data: { ...n.data, workflowStatus: 'creating' as const },
+    })));
+
+    // Run the pipeline
+    await fetch('/api/v1/canvas/pipeline/run', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pipeline_id: pipelineId }),
+    });
+
+    // Trigger workflow creation from the pipeline
+    let workflowId: string | undefined;
+    try {
+      const wfRes = await fetch(`/api/v2/pipeline/runs/${pipelineId}/execute-workflow`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pipeline_id: pipelineId }),
       });
-      return { pipelineId };
+      if (wfRes.ok) {
+        const wfData = await wfRes.json();
+        workflowId = wfData.workflow_id as string;
+        // Mark nodes as started
+        setNodes((nds) => nds.map((n) => ({
+          ...n, data: { ...n.data, workflowStatus: 'started' as const },
+        })));
+      } else {
+        // Workflow creation failed — reset status
+        setNodes((nds) => nds.map((n) => ({
+          ...n, data: { ...n.data, workflowStatus: 'failed' as const },
+        })));
+      }
+    } catch {
+      setNodes((nds) => nds.map((n) => ({
+        ...n, data: { ...n.data, workflowStatus: 'failed' as const },
+      })));
     }
-    return null;
-  }, [canvasId, canvasMeta]);
+
+    return { pipelineId, workflowId };
+  }, [canvasId, canvasMeta, setNodes]);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   const selectedNodeData = selectedNode?.data as OrchNodeData | undefined;

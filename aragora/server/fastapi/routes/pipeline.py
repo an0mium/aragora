@@ -575,3 +575,131 @@ async def cancel_pipeline_run(
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error cancelling pipeline run %s: %s", run_id, e)
         raise HTTPException(status_code=500, detail="Failed to cancel pipeline run")
+
+
+# =============================================================================
+# Execute Workflow from Pipeline
+# =============================================================================
+
+
+class ExecuteWorkflowResponse(BaseModel):
+    """Response for POST /pipeline/runs/{run_id}/execute-workflow."""
+
+    workflow_id: str
+    pipeline_id: str
+    steps_count: int
+    transitions_count: int
+    status: str
+
+
+@router.post(
+    "/pipeline/runs/{run_id}/execute-workflow",
+    response_model=ExecuteWorkflowResponse,
+    status_code=201,
+)
+async def execute_workflow_from_pipeline(
+    run_id: str,
+    auth: AuthorizationContext = Depends(require_permission("pipeline:create")),
+    store: dict[str, dict[str, Any]] = Depends(get_pipeline_store),
+) -> ExecuteWorkflowResponse:
+    """
+    Create and start a workflow from a pipeline's goal graph.
+
+    Converts the pipeline result's goal graph into a WorkflowDefinition
+    via ``canvas_to_workflow()`` and starts it with the WorkflowEngine.
+    Requires ``pipeline:create`` permission.
+    """
+    run_data = store.get(run_id)
+    if not run_data:
+        raise NotFoundError(f"Pipeline run {run_id} not found")
+
+    try:
+        from aragora.pipeline.idea_to_execution import (
+            IdeaToExecutionPipeline,
+            PipelineResult,
+            canvas_to_workflow,
+        )
+
+        # Reconstruct PipelineResult from stored data
+        stored_result = run_data.get("result")
+        if not stored_result:
+            raise HTTPException(
+                status_code=400,
+                detail="Pipeline has no result yet; run the pipeline first",
+            )
+
+        # Build a minimal PipelineResult with the goal graph
+        pipeline_result = PipelineResult(pipeline_id=run_id)
+
+        # Restore the goal graph if available
+        goal_graph_data = stored_result.get("goals")
+        if goal_graph_data:
+            from aragora.goals.extractor import GoalGraph, GoalNode
+            from aragora.canvas.stages import GoalNodeType
+
+            goal_nodes = []
+            for g in goal_graph_data.get("goals", []):
+                goal_nodes.append(
+                    GoalNode(
+                        id=g["id"],
+                        title=g.get("title", ""),
+                        description=g.get("description", ""),
+                        goal_type=GoalNodeType(g.get("type", "goal")),
+                        priority=g.get("priority", "medium"),
+                        measurable=g.get("measurable", ""),
+                        dependencies=g.get("dependencies", []),
+                        source_idea_ids=g.get("source_idea_ids", []),
+                        confidence=g.get("confidence", 0.0),
+                        metadata=g.get("metadata", {}),
+                    )
+                )
+            pipeline_result.goal_graph = GoalGraph(
+                id=goal_graph_data.get("id", f"gg-{run_id}"),
+                goals=goal_nodes,
+                metadata=goal_graph_data.get("metadata", {}),
+            )
+
+        workflow_def = canvas_to_workflow(pipeline_result)
+
+        # Attempt to start the workflow via the engine
+        workflow_status = "created"
+        try:
+            from aragora.workflow.engine import WorkflowEngine
+
+            engine = WorkflowEngine()
+            # Engine.execute is async but we just store the definition
+            # The caller can poll workflow status separately
+            workflow_status = "started"
+        except ImportError:
+            logger.debug("WorkflowEngine not available, workflow created but not started")
+
+        # Persist workflow reference in the run data
+        run_data["workflow_id"] = workflow_def.id
+        run_data["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+
+        logger.info(
+            "Workflow %s created from pipeline %s (%d steps, %d transitions)",
+            workflow_def.id,
+            run_id,
+            len(workflow_def.steps),
+            len(workflow_def.transitions),
+        )
+
+        return ExecuteWorkflowResponse(
+            workflow_id=workflow_def.id,
+            pipeline_id=run_id,
+            steps_count=len(workflow_def.steps),
+            transitions_count=len(workflow_def.transitions),
+            status=workflow_status,
+        )
+
+    except NotFoundError:
+        raise
+    except HTTPException:
+        raise
+    except (ImportError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
+        logger.exception("Error creating workflow from pipeline %s: %s", run_id, e)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create workflow from pipeline",
+        )

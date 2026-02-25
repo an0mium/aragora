@@ -8,6 +8,8 @@ export type OrchNodeType = 'agent_task' | 'debate' | 'human_gate' | 'parallel_fa
 export type OrchEdgeType = 'sequence' | 'parallel' | 'conditional' | 'fallback' | 'feedback';
 export type OrchStatus = 'pending' | 'running' | 'completed' | 'failed' | 'awaiting_human';
 
+export type WorkflowStatus = 'idle' | 'creating' | 'started' | 'running' | 'completed' | 'failed';
+
 export interface OrchNodeData {
   orchType: OrchNodeType;
   label: string;
@@ -20,6 +22,7 @@ export interface OrchNodeData {
   creatorId?: string;
   kmNodeId?: string;
   lockedBy?: string;
+  workflowStatus?: WorkflowStatus;
   stage: 'orchestration';
   rfType: 'orchestrationNode';
 }
