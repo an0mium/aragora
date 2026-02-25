@@ -16,6 +16,9 @@ from . import auth
 from . import memory
 from . import api_explorer
 from . import costs
+from . import tasks
+from . import notifications
+from . import inbox
 
 __all__ = [
     "health",
@@ -34,4 +37,7 @@ __all__ = [
     "memory",
     "api_explorer",
     "costs",
+    "tasks",
+    "notifications",
+    "inbox",
 ]

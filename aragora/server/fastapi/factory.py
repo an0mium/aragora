@@ -39,6 +39,9 @@ from .routes import (
     memory,
     api_explorer,
     costs,
+    tasks,
+    notifications,
+    inbox,
 )
 
 logger = logging.getLogger(__name__)
@@ -304,6 +307,9 @@ def create_app(
     app.include_router(memory.router)
     app.include_router(api_explorer.router)
     app.include_router(costs.router)
+    app.include_router(tasks.router)
+    app.include_router(notifications.router)
+    app.include_router(inbox.router)
 
     # Setup exception handlers
     setup_exception_handlers(app)
