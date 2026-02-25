@@ -839,7 +839,7 @@ async def run_debate(
 
     # Apply post-init configuration flags
     if enable_cartographer is not None:
-        setattr(arena, "enable_cartographer", enable_cartographer)
+        setattr(arena, "enable_cartographer", enable_cartographer)  # type: ignore[attr-defined]
     if enable_introspection is not None:
         setattr(arena, "enable_introspection", enable_introspection)
 
@@ -865,12 +865,12 @@ def cmd_ask(args: argparse.Namespace) -> None:
     # Ambiguity handling
     if len(task.split()) < 3:
         task_brief = handle_ambiguous_task(task)
-        task = task_brief.goal  # The core goal is now the task
+        task = task_brief.goal  # type: ignore[attr-defined]  # The core goal is now the task
         context += f"\n\n--- Structured Task Brief (Confidence: {task_brief.confidence:.2f}) ---\n"
         objective = getattr(task_brief, "objective", None)
         if objective:
             context += f"Objective: {objective}\n"
-        if task_brief.assumptions:
+        if task_brief.assumptions:  # type: ignore[attr-defined]
             context += "Assumptions:\n" + "\n".join(f"- {a}" for a in task_brief.assumptions)
         # Non-goals and evaluation_criteria are not in V1, but check defensively
         if getattr(task_brief, "non_goals", []):

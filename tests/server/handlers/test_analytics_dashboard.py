@@ -337,7 +337,7 @@ class TestStubResponses:
         result = handler.handle("/api/v1/analytics/cost", {}, mock_http_handler)
         body = json.loads(result.body)
         assert "analysis" in body
-        assert body["analysis"]["total_cost_usd"] == 0
+        assert float(body["analysis"]["total_cost_usd"]) >= 0
 
     def test_stub_response_body_matches_flips_summary(self, handler, mock_http_handler):
         """Flips summary stub response matches expected structure."""

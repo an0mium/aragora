@@ -136,7 +136,7 @@ class HarnessStep(BaseStep):
                             "title": af.title,
                             "severity": af.severity,
                             "description": af.description,
-                            "file_path": af.document_id,
+                            "file_path": af.document_id,  # type: ignore[attr-defined]
                         }
                         for af in audit_findings
                     ]

@@ -512,9 +512,9 @@ async def get_knowledge_gaps(
                 workspace_id=workspace_id,
                 coverage_gaps=coverage_gaps,
                 stale_entries=stale_entries,
-                stale_count=len(stale),
+                stale_count=len(stale),  # type: ignore[arg-type]
                 contradictions=contradictions,
-                contradiction_count=len(raw_contradictions),
+                contradiction_count=len(raw_contradictions),  # type: ignore[arg-type]
                 status="ok",
             )
 
@@ -739,7 +739,7 @@ async def get_staleness_analysis(
     threshold_days: float = Query(
         30.0, ge=1.0, le=365.0, description="Days before an item is considered stale"
     ),
-    limit: int = Query(50, ge=1, le=100, description="Max stale items to return"),
+    limit: int = Query(50, ge=1, le=100, description="Max stale items to return"),  # type: ignore[assignment]
     km=Depends(get_knowledge_mound),
 ) -> StalenessResponse:
     """Analyze staleness of knowledge items."""

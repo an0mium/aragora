@@ -753,8 +753,8 @@ class DebateFactory:
         if config.budget_limit_usd and config.budget_limit_usd > 0:
             setattr(arena, "budget_limit_usd", config.budget_limit_usd)
             if hasattr(arena, "extensions") and arena.extensions is not None:
-                arena.extensions.debate_budget_limit_usd = config.budget_limit_usd
-                arena.extensions.enforce_budget_limit = True
+                arena.extensions.debate_budget_limit_usd = config.budget_limit_usd  # type: ignore[attr-defined]
+                arena.extensions.enforce_budget_limit = True  # type: ignore[attr-defined]
 
         # Create InterventionManager for the debate when interventions are enabled
         # (or auto-enabled by epistemic_hygiene mode)

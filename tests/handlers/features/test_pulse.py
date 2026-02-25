@@ -368,8 +368,8 @@ class TestGetTrending:
         assert body["topics"][1]["score"] == 0.5  # 100/200
         assert body["topics"][2]["score"] == 0.25  # 50/200
 
-    def test_trending_empty_topics(self, handler, mock_http):
-        """Empty topic list returns count=0."""
+    def test_trending_empty_topics_returns_demo_fallback(self, handler, mock_http):
+        """Empty topic list falls back to demo data instead of returning empty."""
         mock_pm = MagicMock()
         mock_pm.return_value = MagicMock(
             ingestors={"hackernews": MagicMock()},
@@ -384,18 +384,21 @@ class TestGetTrending:
                         with patch("aragora.pulse.ingestor.TwitterIngestor", MagicMock):
                             result = handler._get_trending_topics(10)
         body = _body(result)
-        assert body["count"] == 0
-        assert body["topics"] == []
+        assert body["count"] > 0
+        assert body["demo"] is True
+        assert len(body["topics"]) > 0
 
-    def test_trending_runtime_error(self, handler, mock_http):
-        """RuntimeError during fetch returns 500."""
+    def test_trending_runtime_error_returns_demo_fallback(self, handler, mock_http):
+        """RuntimeError during fetch returns demo data fallback (not 500)."""
         mock_pm = MagicMock(side_effect=RuntimeError("boom"))
         with patch("aragora.pulse.ingestor.PulseManager", mock_pm):
             with patch("aragora.pulse.ingestor.HackerNewsIngestor", MagicMock):
                 with patch("aragora.pulse.ingestor.RedditIngestor", MagicMock):
                     with patch("aragora.pulse.ingestor.TwitterIngestor", MagicMock):
                         result = handler._get_trending_topics(10)
-        assert _status(result) == 500
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["demo"] is True
 
     def test_trending_topic_fields(self, handler, mock_http):
         """Verify all topic fields are present in response."""
@@ -2012,3 +2015,128 @@ class TestConstants:
         body = _body(result)
         assert _status(result) == 400
         assert "200" in body.get("error", "")
+
+
+# ============================================================================
+# Demo / Offline mode
+# ============================================================================
+
+
+class TestDemoOfflineMode:
+    """Tests for demo/offline mode trending topics fallback."""
+
+    def test_trending_returns_demo_data_in_offline_mode(self, handler, monkeypatch):
+        """When ARAGORA_OFFLINE is set, returns demo topics without hitting ingestors."""
+        monkeypatch.setenv("ARAGORA_OFFLINE", "1")
+        result = handler._get_trending_topics(10)
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["demo"] is True
+        assert body["count"] > 0
+        assert len(body["topics"]) > 0
+        # Each demo topic has the required fields
+        for topic in body["topics"]:
+            assert "topic" in topic
+            assert "source" in topic
+            assert "score" in topic
+            assert "category" in topic
+
+    def test_trending_returns_demo_data_in_demo_mode(self, handler, monkeypatch):
+        """When DEMO_MODE is set, returns demo topics without hitting ingestors."""
+        monkeypatch.setenv("DEMO_MODE", "1")
+        result = handler._get_trending_topics(10)
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["demo"] is True
+        assert body["count"] > 0
+        assert len(body["topics"]) > 0
+
+    def test_demo_mode_respects_limit(self, handler, monkeypatch):
+        """Demo mode topics are trimmed to the requested limit."""
+        monkeypatch.setenv("ARAGORA_OFFLINE", "1")
+        result = handler._get_trending_topics(2)
+        body = _body(result)
+        assert body["count"] == 2
+        assert len(body["topics"]) == 2
+
+    def test_demo_mode_includes_sources(self, handler, monkeypatch):
+        """Demo mode response includes sources list."""
+        monkeypatch.setenv("ARAGORA_OFFLINE", "1")
+        result = handler._get_trending_topics(10)
+        body = _body(result)
+        assert "sources" in body
+        assert isinstance(body["sources"], list)
+
+    def test_import_error_returns_demo_data_not_503(self, handler):
+        """When pulse module is not importable, returns demo data instead of 503."""
+        with patch.dict("sys.modules", {"aragora.pulse.ingestor": None}):
+            result = handler._get_trending_topics(10)
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["demo"] is True
+        assert body["count"] > 0
+
+    def test_runtime_error_returns_demo_data_not_500(self, handler):
+        """When ingestor raises RuntimeError, returns demo fallback instead of 500."""
+        mock_pm = MagicMock(side_effect=RuntimeError("boom"))
+        with patch("aragora.pulse.ingestor.PulseManager", mock_pm):
+            with patch("aragora.pulse.ingestor.HackerNewsIngestor", MagicMock):
+                with patch("aragora.pulse.ingestor.RedditIngestor", MagicMock):
+                    with patch("aragora.pulse.ingestor.TwitterIngestor", MagicMock):
+                        result = handler._get_trending_topics(10)
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["demo"] is True
+
+    def test_empty_live_topics_returns_demo_fallback(self, handler):
+        """When live fetch returns empty list, falls back to demo topics."""
+        mock_pm = MagicMock()
+        mock_pm.return_value = MagicMock(
+            ingestors={"hackernews": MagicMock()},
+        )
+        with patch(
+            "aragora.server.handlers.features.pulse.PulseHandler._run_async_safely",
+            return_value=[],
+        ):
+            with patch("aragora.pulse.ingestor.PulseManager", mock_pm):
+                with patch("aragora.pulse.ingestor.HackerNewsIngestor", MagicMock):
+                    with patch("aragora.pulse.ingestor.RedditIngestor", MagicMock):
+                        with patch("aragora.pulse.ingestor.TwitterIngestor", MagicMock):
+                            result = handler._get_trending_topics(10)
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["demo"] is True
+        assert body["count"] > 0
+
+    def test_not_demo_when_env_unset(self, handler, monkeypatch):
+        """When neither ARAGORA_OFFLINE nor DEMO_MODE is set, _is_demo_mode is False."""
+        # Ensure both env vars are unset
+        monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+        monkeypatch.delenv("DEMO_MODE", raising=False)
+        from aragora.server.handlers.features.pulse import _is_demo_mode
+
+        assert _is_demo_mode() is False
+
+    def test_is_demo_mode_with_offline(self, monkeypatch):
+        """_is_demo_mode returns True when ARAGORA_OFFLINE is set."""
+        monkeypatch.setenv("ARAGORA_OFFLINE", "1")
+        monkeypatch.delenv("DEMO_MODE", raising=False)
+        from aragora.server.handlers.features.pulse import _is_demo_mode
+
+        assert _is_demo_mode() is True
+
+    def test_is_demo_mode_with_demo(self, monkeypatch):
+        """_is_demo_mode returns True when DEMO_MODE is set."""
+        monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+        monkeypatch.setenv("DEMO_MODE", "1")
+        from aragora.server.handlers.features.pulse import _is_demo_mode
+
+        assert _is_demo_mode() is True
+
+    def test_demo_topics_have_valid_scores(self, handler, monkeypatch):
+        """Demo topics all have scores in valid 0-1 range."""
+        monkeypatch.setenv("ARAGORA_OFFLINE", "1")
+        result = handler._get_trending_topics(10)
+        body = _body(result)
+        for topic in body["topics"]:
+            assert 0.0 <= topic["score"] <= 1.0

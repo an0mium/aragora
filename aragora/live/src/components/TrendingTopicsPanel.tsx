@@ -133,12 +133,18 @@ export function TrendingTopicsPanel({
           )}
 
           {error && (
-            <div className="text-warning text-xs text-center py-4">{error}</div>
+            <div className="text-text-muted text-xs text-center py-4">
+              <p className="mb-1">Unable to load trending topics</p>
+              <p className="text-text-muted/60">{error}</p>
+            </div>
           )}
 
           {!loading && !error && topics.length === 0 && (
-            <div className="text-text-muted text-xs text-center py-4">
-              No trending topics detected
+            <div className="text-text-muted text-xs text-center py-4 space-y-1">
+              <p>No topics trending yet</p>
+              <p className="text-text-muted/60">
+                Topics will appear once Pulse ingestors are active.
+              </p>
             </div>
           )}
 

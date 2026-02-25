@@ -711,7 +711,7 @@ class DebateStreamServer(ServerBase):
                     # Include per-client connection quality summary
                     quality = self._quality_tracker.get_quality(ws_id)
                     if quality:
-                        data["connection_quality"] = {
+                        data["connection_quality"] = {  # type: ignore[assignment]
                             "reconnect_count": quality["reconnect_count"],
                             "avg_latency_ms": quality["avg_latency_ms"],
                             "uptime_seconds": quality["uptime_seconds"],

@@ -511,3 +511,255 @@ class TestGauntletConstants:
         handler = GauntletHandler({})
         assert hasattr(handler, "AUTH_REQUIRED_ENDPOINTS")
         assert "/api/v1/gauntlet/run" in handler.AUTH_REQUIRED_ENDPOINTS
+
+
+# ============================================================================
+# Gauntlet Receipts List Endpoint Tests
+# ============================================================================
+
+
+class TestGauntletReceiptsList:
+    """Tests for GET /api/v1/gauntlet/receipts endpoint."""
+
+    def test_can_handle_receipts_endpoint(self, handler):
+        """Handler can handle GET /api/v1/gauntlet/receipts."""
+        assert handler.can_handle("/api/v1/gauntlet/receipts", method="GET")
+
+    def test_can_handle_legacy_receipts_endpoint(self, handler):
+        """Handler can handle GET /api/gauntlet/receipts (legacy)."""
+        assert handler.can_handle("/api/gauntlet/receipts", method="GET")
+
+    def test_receipts_route_in_routes_list(self, handler):
+        """Receipts route is in ROUTES list."""
+        assert "/api/v1/gauntlet/receipts" in handler.ROUTES
+        assert "/api/gauntlet/receipts" in handler.ROUTES
+
+    def test_receipts_in_direct_routes(self, handler):
+        """Receipts route is mapped in _direct_routes."""
+        assert ("/api/gauntlet/receipts", "GET") in handler._direct_routes
+        assert handler._direct_routes[("/api/gauntlet/receipts", "GET")] == "_list_receipts"
+
+    def test_list_receipts_returns_empty_when_no_store(self, handler):
+        """_list_receipts returns empty list when receipt store is not available."""
+        result = handler._list_receipts({})
+        assert result is not None
+        assert result.status_code == 200
+
+        import json
+
+        body = json.loads(result.body) if isinstance(result.body, bytes) else result.body
+        assert "receipts" in body
+        assert isinstance(body["receipts"], list)
+
+    def test_list_receipts_handles_import_error(self, handler):
+        """_list_receipts returns empty list on ImportError."""
+        import json
+
+        # The method uses a local import of get_receipt_store, so patch at source
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            side_effect=ImportError("receipt store not available"),
+        ):
+            result = handler._list_receipts({})
+
+        assert result is not None
+        assert result.status_code == 200
+
+        body = json.loads(result.body) if isinstance(result.body, bytes) else result.body
+        assert body["receipts"] == []
+
+    def test_list_receipts_with_mock_store(self, handler):
+        """_list_receipts returns formatted receipts from store."""
+        import json
+        from unittest.mock import MagicMock
+
+        mock_receipt = MagicMock()
+        mock_receipt.receipt_id = "receipt-abc123"
+        mock_receipt.gauntlet_id = "gauntlet-abc123"
+        mock_receipt.debate_id = "debate-1"
+        mock_receipt.created_at = 1700000000.0
+        mock_receipt.verdict = "PASS"
+        mock_receipt.confidence = 0.95
+        mock_receipt.risk_level = "LOW"
+        mock_receipt.risk_score = 0.1
+        mock_receipt.checksum = "sha256-abc"
+        mock_receipt.signature = None
+        mock_receipt.data = {
+            "input_summary": "Test decision",
+            "vulnerabilities_found": 3,
+            "artifact_hash": "hash-abc",
+        }
+
+        mock_store = MagicMock()
+        mock_store.list.return_value = [mock_receipt]
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_store,
+        ):
+            result = handler._list_receipts({"limit": "5"})
+
+        assert result is not None
+        assert result.status_code == 200
+
+        body = json.loads(result.body) if isinstance(result.body, bytes) else result.body
+        assert len(body["receipts"]) == 1
+
+        receipt = body["receipts"][0]
+        assert receipt["id"] == "receipt-abc123"
+        assert receipt["receipt_id"] == "receipt-abc123"
+        assert receipt["run_id"] == "gauntlet-abc123"
+        assert receipt["verdict"] == "PASS"
+        assert receipt["findings_count"] == 3
+        assert receipt["confidence"] == 0.95
+        assert receipt["artifact_hash"] == "sha256-abc"
+        assert receipt["input_summary"] == "Test decision"
+        assert "created_at" in receipt
+        assert receipt["metadata"]["risk_level"] == "LOW"
+        assert receipt["metadata"]["is_signed"] is False
+
+    def test_list_receipts_limit_param(self, handler):
+        """_list_receipts respects the limit query parameter."""
+        import json
+        from unittest.mock import MagicMock
+
+        mock_store = MagicMock()
+        mock_store.list.return_value = []
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_store,
+        ):
+            handler._list_receipts({"limit": "25"})
+
+        mock_store.list.assert_called_once_with(limit=25, verdict=None)
+
+    def test_list_receipts_clamps_limit(self, handler):
+        """_list_receipts clamps limit to 1-100 range."""
+        from unittest.mock import MagicMock
+
+        mock_store = MagicMock()
+        mock_store.list.return_value = []
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_store,
+        ):
+            # Over 100 should be clamped
+            handler._list_receipts({"limit": "999"})
+            mock_store.list.assert_called_with(limit=100, verdict=None)
+
+            # Under 1 should be clamped
+            handler._list_receipts({"limit": "0"})
+            mock_store.list.assert_called_with(limit=1, verdict=None)
+
+    def test_list_receipts_verdict_filter(self, handler):
+        """_list_receipts passes verdict filter to store."""
+        from unittest.mock import MagicMock
+
+        mock_store = MagicMock()
+        mock_store.list.return_value = []
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_store,
+        ):
+            handler._list_receipts({"verdict": "PASS"})
+
+        mock_store.list.assert_called_once_with(limit=10, verdict="PASS")
+
+    def test_list_receipts_findings_count_from_risk_summary(self, handler):
+        """_list_receipts extracts findings_count from risk_summary when vulnerabilities_found is missing."""
+        import json
+        from unittest.mock import MagicMock
+
+        mock_receipt = MagicMock()
+        mock_receipt.receipt_id = "receipt-def456"
+        mock_receipt.gauntlet_id = "gauntlet-def456"
+        mock_receipt.debate_id = None
+        mock_receipt.created_at = 1700000000.0
+        mock_receipt.verdict = "WARN"
+        mock_receipt.confidence = 0.7
+        mock_receipt.risk_level = "MEDIUM"
+        mock_receipt.risk_score = 0.3
+        mock_receipt.checksum = "sha256-def"
+        mock_receipt.signature = "sig-data"
+        mock_receipt.data = {
+            "risk_summary": {"total": 5, "critical": 1, "high": 2, "medium": 1, "low": 1},
+        }
+
+        mock_store = MagicMock()
+        mock_store.list.return_value = [mock_receipt]
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_store,
+        ):
+            result = handler._list_receipts({})
+
+        body = json.loads(result.body) if isinstance(result.body, bytes) else result.body
+        receipt = body["receipts"][0]
+        assert receipt["findings_count"] == 5
+        assert receipt["metadata"]["is_signed"] is True
+
+    def test_list_receipts_handles_runtime_error(self, handler):
+        """_list_receipts handles storage RuntimeError gracefully."""
+        import json
+        from unittest.mock import MagicMock
+
+        mock_store = MagicMock()
+        mock_store.list.side_effect = RuntimeError("DB connection failed")
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_store,
+        ):
+            result = handler._list_receipts({})
+
+        assert result.status_code == 200
+        body = json.loads(result.body) if isinstance(result.body, bytes) else result.body
+        assert body["receipts"] == []
+
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_list_receipts(self, handler, mock_http_handler):
+        """handle() routes /api/v1/gauntlet/receipts to _list_receipts."""
+        mock_http_handler.command = "GET"
+        mock_http_handler.path = "/api/v1/gauntlet/receipts?limit=5"
+
+        with (
+            patch.object(handler, "require_auth_or_error", return_value=(MagicMock(), None)),
+            patch.object(handler, "require_permission_or_error", return_value=(None, None)),
+            patch.object(handler, "_list_receipts") as mock_list,
+        ):
+            mock_list.return_value = MagicMock(
+                status_code=200, body=b'{"receipts": []}', headers=None
+            )
+            result = await handler.handle(
+                "/api/v1/gauntlet/receipts", {"limit": "5"}, mock_http_handler
+            )
+
+        mock_list.assert_called_once_with({"limit": "5"})
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_handle_routes_legacy_receipts(self, handler, mock_http_handler):
+        """handle() routes legacy /api/gauntlet/receipts to _list_receipts."""
+        mock_http_handler.command = "GET"
+        mock_http_handler.path = "/api/gauntlet/receipts?limit=3"
+
+        with (
+            patch.object(handler, "require_auth_or_error", return_value=(MagicMock(), None)),
+            patch.object(handler, "require_permission_or_error", return_value=(None, None)),
+            patch.object(handler, "_list_receipts") as mock_list,
+        ):
+            mock_list.return_value = MagicMock(
+                status_code=200, body=b'{"receipts": []}', headers=None
+            )
+            result = await handler.handle(
+                "/api/gauntlet/receipts", {"limit": "3"}, mock_http_handler
+            )
+
+        mock_list.assert_called_once_with({"limit": "3"})
+        assert result is not None
+        # Legacy route should get deprecation header
+        assert result.headers.get("Deprecation") == "true"

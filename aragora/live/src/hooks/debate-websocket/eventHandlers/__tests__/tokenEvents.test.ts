@@ -15,6 +15,7 @@ import {
   handleTokenDeltaEvent,
   handleTokenEndEvent,
   handleAgentThinkingEvent,
+  handleAgentReasoningEvent,
   handleAgentEvidenceEvent,
   handleAgentConfidenceEvent,
   tokenHandlers,
@@ -138,6 +139,7 @@ describe('tokenEvents handlers', () => {
         reasoning: [],
         evidence: [],
         confidence: null,
+        reasoningPhase: '',
       });
 
       // Override setStreamingMessages to capture updates against existing map
@@ -181,6 +183,7 @@ describe('tokenEvents handlers', () => {
         reasoning: [],
         evidence: [],
         confidence: null,
+        reasoningPhase: '',
       });
       ctx.setStreamingMessages = jest.fn((updater) => {
         if (typeof updater === 'function') updater(existingMap);
@@ -244,6 +247,7 @@ describe('tokenEvents handlers', () => {
         reasoning: [],
         evidence: [],
         confidence: null,
+        reasoningPhase: '',
       });
       ctx.setStreamingMessages = jest.fn((updater) => {
         if (typeof updater === 'function') updater(existingMap);
@@ -300,6 +304,7 @@ describe('tokenEvents handlers', () => {
         reasoning: [],
         evidence: [],
         confidence: null,
+        reasoningPhase: '',
       });
       ctx.setStreamingMessages = jest.fn((updater) => {
         if (typeof updater === 'function') updater(existingMap);
@@ -343,12 +348,157 @@ describe('tokenEvents handlers', () => {
 
     it('includes all reasoning handlers', () => {
       expect(tokenHandlers.agent_thinking).toBe(handleAgentThinkingEvent);
+      expect(tokenHandlers.agent_reasoning).toBe(handleAgentReasoningEvent);
       expect(tokenHandlers.agent_evidence).toBe(handleAgentEvidenceEvent);
       expect(tokenHandlers.agent_confidence).toBe(handleAgentConfidenceEvent);
     });
 
-    it('has exactly 6 handlers registered', () => {
-      expect(Object.keys(tokenHandlers)).toHaveLength(6);
+    it('has exactly 7 handlers registered', () => {
+      expect(Object.keys(tokenHandlers)).toHaveLength(7);
+    });
+  });
+
+  describe('handleAgentReasoningEvent', () => {
+    it('updates reasoning phase on streaming message', () => {
+      const ctx = createMockContext();
+      const existingMap = new Map<string, StreamingMessage>();
+      existingMap.set('claude', {
+        agent: 'claude',
+        taskId: '',
+        content: 'Response...',
+        isComplete: false,
+        startTime: Date.now(),
+        expectedSeq: 1,
+        pendingTokens: new Map(),
+        reasoning: [],
+        evidence: [],
+        confidence: null,
+        reasoningPhase: '',
+      });
+      ctx.setStreamingMessages = jest.fn((updater) => {
+        if (typeof updater === 'function') updater(existingMap);
+      });
+
+      const data: ParsedEventData = {
+        type: 'agent_reasoning',
+        agent: 'claude',
+        data: { phase: 'FORMING ARGUMENT' },
+      };
+
+      handleAgentReasoningEvent(data, ctx);
+
+      const updater = (ctx.setStreamingMessages as jest.Mock).mock.calls[0][0];
+      const result = updater(existingMap);
+      const msg = result.get('claude');
+
+      expect(msg.reasoningPhase).toBe('FORMING ARGUMENT');
+    });
+
+    it('accepts reasoning_phase field name', () => {
+      const ctx = createMockContext();
+      const existingMap = new Map<string, StreamingMessage>();
+      existingMap.set('gpt-4', {
+        agent: 'gpt-4',
+        taskId: '',
+        content: '',
+        isComplete: false,
+        startTime: Date.now(),
+        expectedSeq: 1,
+        pendingTokens: new Map(),
+        reasoning: [],
+        evidence: [],
+        confidence: null,
+        reasoningPhase: '',
+      });
+      ctx.setStreamingMessages = jest.fn((updater) => {
+        if (typeof updater === 'function') updater(existingMap);
+      });
+
+      const data: ParsedEventData = {
+        type: 'agent_reasoning',
+        agent: 'gpt-4',
+        data: { reasoning_phase: 'CRITIQUING' },
+      };
+
+      handleAgentReasoningEvent(data, ctx);
+
+      const updater = (ctx.setStreamingMessages as jest.Mock).mock.calls[0][0];
+      const result = updater(existingMap);
+      const msg = result.get('gpt-4');
+
+      expect(msg.reasoningPhase).toBe('CRITIQUING');
+    });
+
+    it('adds stream event for reasoning phase', () => {
+      const ctx = createMockContext();
+      const data: ParsedEventData = {
+        type: 'agent_reasoning',
+        agent: 'claude',
+        data: { phase: 'ANALYZING' },
+        timestamp: 1234567890,
+      };
+
+      handleAgentReasoningEvent(data, ctx);
+
+      expect(ctx.addStreamEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'agent_reasoning',
+          agent: 'claude',
+        })
+      );
+    });
+
+    it('ignores events without agent', () => {
+      const ctx = createMockContext();
+      const data: ParsedEventData = {
+        type: 'agent_reasoning',
+        data: { phase: 'ANALYZING' },
+      };
+
+      handleAgentReasoningEvent(data, ctx);
+
+      expect(ctx.setStreamingMessages).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleTokenEndEvent', () => {
+    it('propagates confidence and reasoning phase to transcript message', () => {
+      const ctx = createMockContext();
+      const existingMap = new Map<string, StreamingMessage>();
+      existingMap.set('claude', {
+        agent: 'claude',
+        taskId: '',
+        content: 'Final response text',
+        isComplete: false,
+        startTime: Date.now(),
+        expectedSeq: 1,
+        pendingTokens: new Map(),
+        reasoning: [{ thinking: 'Step 1 analysis', timestamp: Date.now(), step: 1 }],
+        evidence: [],
+        confidence: 0.92,
+        reasoningPhase: 'FORMING ARGUMENT',
+      });
+      ctx.setStreamingMessages = jest.fn((updater) => {
+        if (typeof updater === 'function') updater(existingMap);
+      });
+
+      const data: ParsedEventData = {
+        type: 'token_end',
+        agent: 'claude',
+        task_id: '',
+      };
+
+      handleTokenEndEvent(data, ctx);
+
+      expect(ctx.addMessageIfNew).toHaveBeenCalledWith(
+        expect.objectContaining({
+          agent: 'claude',
+          content: 'Final response text',
+          confidence_score: 0.92,
+          reasoning_phase: 'FORMING ARGUMENT',
+          thinking: 'Step 1 analysis',
+        })
+      );
     });
   });
 });

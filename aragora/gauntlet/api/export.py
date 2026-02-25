@@ -121,7 +121,7 @@ def export_receipt(
     elif format == ReceiptExportFormat.SARIF:
         result = _export_receipt_sarif(receipt, opts)
     elif format == ReceiptExportFormat.PDF:
-        result = _export_receipt_pdf(receipt, opts)
+        result = _export_receipt_pdf(receipt, opts)  # type: ignore[assignment]
     else:
         raise ValueError(f"Unsupported format: {format}")
 

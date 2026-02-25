@@ -1466,6 +1466,7 @@ Reply to this email to continue the discussion.
     except (ConnectionError, TimeoutError, OSError) as e:
         logger.error("SMTP connection error: %s: %s", type(e).__name__, e)
         return None
+    return None
 
 
 __all__ = [

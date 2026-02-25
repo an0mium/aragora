@@ -189,7 +189,7 @@ async def get_compliance_framework(request: Request):
 
     # Fall back to global compliance framework manager
     try:
-        from aragora.compliance.framework import ComplianceFrameworkManager
+        from aragora.compliance.framework import ComplianceFrameworkManager  # type: ignore[attr-defined]
 
         return ComplianceFrameworkManager()
     except (ImportError, RuntimeError, OSError, ValueError) as e:
@@ -207,7 +207,7 @@ async def get_audit_store(request: Request):
 
     # Fall back to global audit store
     try:
-        from aragora.audit.log import get_audit_log as _get_store
+        from aragora.audit.log import get_audit_log as _get_store  # type: ignore[attr-defined]
 
         return _get_store()
     except (ImportError, RuntimeError, OSError, ValueError) as e:

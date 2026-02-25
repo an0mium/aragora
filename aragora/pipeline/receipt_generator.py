@@ -34,7 +34,7 @@ async def generate_pipeline_receipt(
     # Load pipeline graph for provenance data
     stages: dict[str, list[dict[str, Any]]] = {}
     try:
-        from aragora.canvas.stages import PipelineStage
+        from aragora.canvas.stages import PipelineStage  # type: ignore[attr-defined]
         from aragora.pipeline.graph_store import get_graph_store
 
         graph_store = get_graph_store()

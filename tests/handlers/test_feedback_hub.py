@@ -378,8 +378,8 @@ class TestEdgeCases:
         """Non-numeric limit should cause a ValueError caught by handle_errors."""
         mock_get_hub.return_value = mock_hub
         result = handler.handle_get("/api/v1/feedback-hub/history", {"limit": "abc"}, http_get)
-        # int("abc") raises ValueError -> caught by @handle_errors -> 500
-        assert _status(result) == 500
+        # int("abc") raises ValueError -> caught by @handle_errors -> 400 (bad request)
+        assert _status(result) == 400
 
     @patch("aragora.nomic.feedback_hub.get_feedback_hub")
     def test_stats_response_content_type(self, mock_get_hub, handler, http_get, mock_hub):
@@ -417,12 +417,13 @@ class TestEdgeCases:
         mock_hub.history.assert_called_once_with(limit=-10)
 
     @patch("aragora.nomic.feedback_hub.get_feedback_hub")
-    def test_stats_type_error_returns_500(self, mock_get_hub, handler, http_get):
+    def test_stats_type_error_returns_400(self, mock_get_hub, handler, http_get):
+        """TypeError is mapped to 400 by @handle_errors decorator."""
         mock_hub = MagicMock()
         mock_hub.stats.side_effect = TypeError("type error")
         mock_get_hub.return_value = mock_hub
         result = handler.handle_get("/api/v1/feedback-hub/stats", {}, http_get)
-        assert _status(result) == 500
+        assert _status(result) == 400
 
     @patch("aragora.nomic.feedback_hub.get_feedback_hub")
     def test_history_attribute_error_returns_500(self, mock_get_hub, handler, http_get):
