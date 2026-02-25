@@ -68,7 +68,7 @@ export class GitHubNamespace {
   async triggerReview(request: TriggerReviewRequest): Promise<PRReviewResult> {
     return this.client.request<PRReviewResult>(
       'POST',
-      '/api/github/reviews',
+      '/api/v1/github/pr/review',
       { body: request }
     );
   }

@@ -431,7 +431,7 @@ async def handle_sso_callback(
             # Create new user (SSO users have no local password)
             user = user_store.create_user(
                 email=sso_user.email,
-                password_hash="sso",
+                password_hash="sso",  # noqa: S106 - SSO placeholder (no local password); field name is not a secret
                 password_salt="",
                 name=sso_user.name or sso_user.email.split("@")[0],
             )
