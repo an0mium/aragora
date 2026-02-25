@@ -36,13 +36,18 @@ export class TemplatesAPI {
     return this.client.request('GET', `/api/v1/templates/registry/${encodeURIComponent(templateId)}`);
   }
 
-  /** Update a registered template. */
+  /**
+   * Update is currently not exposed by the public template registry API contract.
+   * Use register() to submit a new listing revision.
+   */
   async updateRegistered(templateId: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('PUT', `/api/v1/templates/registry/${encodeURIComponent(templateId)}`, { body: data });
+    void templateId;
+    return this.register(data);
   }
 
-  /** Delete a registered template. */
+  /** Delete is currently not exposed by the public template registry API contract. */
   async deleteRegistered(templateId: string): Promise<Record<string, unknown>> {
-    return this.client.request('DELETE', `/api/v1/templates/registry/${encodeURIComponent(templateId)}`);
+    void templateId;
+    throw new Error("Template registry deletion is not currently exposed by the API contract.");
   }
 }

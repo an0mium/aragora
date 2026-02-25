@@ -13,7 +13,7 @@ export class TasksAPI {
 
   /** Create a new task. */
   async create(data: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('POST', '/api/v1/tasks', { body: data });
+    return this.client.request('POST', '/api/v2/tasks', { body: data });
   }
 
   /** Get a task by ID. */
@@ -21,18 +21,18 @@ export class TasksAPI {
     return this.client.request('GET', `/api/v2/tasks/${encodeURIComponent(taskId)}`);
   }
 
-  /** List tasks with optional filters. */
+  /** List task history with optional filters. */
   async list(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v2/tasks', { params });
+    return this.client.request('GET', '/api/control-plane/tasks/history', { params });
   }
 
-  /** Update a task. */
+  /** Approve task checkpoint data for an in-flight task. */
   async update(taskId: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('PUT', `/api/v2/tasks/${encodeURIComponent(taskId)}`, { body: data });
+    return this.client.request('POST', `/api/v2/tasks/${encodeURIComponent(taskId)}`, { body: data });
   }
 
-  /** Delete a task. */
+  /** Cancel a task by ID. */
   async delete(taskId: string): Promise<Record<string, unknown>> {
-    return this.client.request('DELETE', `/api/v2/tasks/${encodeURIComponent(taskId)}`);
+    return this.client.request('POST', `/api/control-plane/tasks/${encodeURIComponent(taskId)}/cancel`);
   }
 }
