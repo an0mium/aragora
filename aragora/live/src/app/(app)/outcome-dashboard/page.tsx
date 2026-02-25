@@ -13,25 +13,7 @@ import {
   useCalibrationCurve,
   type CalibrationBin,
 } from '@/hooks/useOutcomeAnalytics';
-import { useSWRFetch } from '@/hooks/useSWRFetch';
-
-interface ObservabilityTelemetry {
-  settlement_review?: {
-    running: boolean;
-    interval_hours: number | null;
-    stats?: {
-      success_rate?: number;
-      total_receipts_updated?: number;
-    } | null;
-    available: boolean;
-  };
-  oracle_stream?: {
-    active_sessions: number;
-    stalls_total: number;
-    ttft_avg_ms: number | null;
-    available: boolean;
-  };
-}
+import { useSettlementOracleTelemetry } from '@/hooks/useObservabilityDashboard';
 
 export default function OutcomeDashboardPage() {
   useBackend();
@@ -40,10 +22,11 @@ export default function OutcomeDashboardPage() {
   const { leaderboard: agents, isLoading: agentsLoading } = useOutcomeAgents();
   const { history, isLoading: historyLoading } = useDecisionHistory();
   const { calibration, isLoading: calibrationLoading } = useCalibrationCurve();
-  const { data: opsTelemetry, isLoading: opsLoading } = useSWRFetch<ObservabilityTelemetry>(
-    '/api/v1/observability/dashboard',
-    { refreshInterval: 30000 }
-  );
+  const {
+    settlementReview,
+    oracleStream,
+    isLoading: opsLoading,
+  } = useSettlementOracleTelemetry();
 
   const getScoreColor = (score: number) => {
     if (score >= 0.8) return 'text-acid-green';
@@ -99,44 +82,44 @@ export default function OutcomeDashboardPage() {
                   <div className="p-3 bg-bg rounded">
                     <div className="text-text-muted uppercase">Settlement Scheduler</div>
                     <div className="text-text mt-1">
-                      {opsTelemetry?.settlement_review?.available
-                        ? opsTelemetry.settlement_review.running
+                      {settlementReview?.available
+                        ? settlementReview.running
                           ? 'RUNNING'
                           : 'NOT RUNNING'
                         : 'UNAVAILABLE'}
                     </div>
                     <div className="text-text-muted mt-1">
-                      Every {opsTelemetry?.settlement_review?.interval_hours ?? '-'}h
+                      Every {settlementReview?.interval_hours ?? '-'}h
                     </div>
                   </div>
                   <div className="p-3 bg-bg rounded">
                     <div className="text-text-muted uppercase">Settlement Success</div>
                     <div className="text-acid-green mt-1">
-                      {opsTelemetry?.settlement_review?.available
-                        ? `${(((opsTelemetry.settlement_review.stats?.success_rate ?? 0) * 100).toFixed(1))}%`
+                      {settlementReview?.available
+                        ? `${(((settlementReview.stats?.success_rate ?? 0) * 100).toFixed(1))}%`
                         : '-'}
                     </div>
                     <div className="text-text-muted mt-1">
-                      Updated {opsTelemetry?.settlement_review?.stats?.total_receipts_updated ?? 0}
+                      Updated {settlementReview?.stats?.total_receipts_updated ?? 0}
                     </div>
                   </div>
                   <div className="p-3 bg-bg rounded">
                     <div className="text-text-muted uppercase">Oracle Active Sessions</div>
                     <div className="text-acid-cyan mt-1">
-                      {opsTelemetry?.oracle_stream?.available
-                        ? opsTelemetry.oracle_stream.active_sessions
+                      {oracleStream?.available
+                        ? oracleStream.active_sessions
                         : '-'}
                     </div>
                     <div className="text-text-muted mt-1">
-                      Stalls {opsTelemetry?.oracle_stream?.available ? opsTelemetry.oracle_stream.stalls_total : '-'}
+                      Stalls {oracleStream?.available ? oracleStream.stalls_total : '-'}
                     </div>
                   </div>
                   <div className="p-3 bg-bg rounded">
                     <div className="text-text-muted uppercase">Oracle TTFT Avg</div>
                     <div className="text-acid-green mt-1">
-                      {opsTelemetry?.oracle_stream?.available
-                        ? opsTelemetry.oracle_stream.ttft_avg_ms != null
-                          ? `${Math.round(opsTelemetry.oracle_stream.ttft_avg_ms)}ms`
+                      {oracleStream?.available
+                        ? oracleStream.ttft_avg_ms != null
+                          ? `${Math.round(oracleStream.ttft_avg_ms)}ms`
                           : '-'
                         : '-'}
                     </div>

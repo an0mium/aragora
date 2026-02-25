@@ -65,24 +65,22 @@ jest.mock('@/hooks/useOutcomeAnalytics', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useSWRFetch', () => ({
-  useSWRFetch: () => ({
-    data: {
-      settlement_review: {
-        running: true,
-        interval_hours: 12,
-        stats: {
-          success_rate: 0.91,
-          total_receipts_updated: 14,
-        },
-        available: true,
+jest.mock('@/hooks/useObservabilityDashboard', () => ({
+  useSettlementOracleTelemetry: () => ({
+    settlementReview: {
+      running: true,
+      interval_hours: 12,
+      stats: {
+        success_rate: 0.91,
+        total_receipts_updated: 14,
       },
-      oracle_stream: {
-        active_sessions: 4,
-        stalls_total: 2,
-        ttft_avg_ms: 122.4,
-        available: true,
-      },
+      available: true,
+    },
+    oracleStream: {
+      active_sessions: 4,
+      stalls_total: 2,
+      ttft_avg_ms: 122.4,
+      available: true,
     },
     isLoading: false,
     error: null,
@@ -111,4 +109,3 @@ describe('OutcomeDashboardPage', () => {
     expect(screen.getByText('122ms')).toBeInTheDocument();
   });
 });
-

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api';
-
+import { useSettlementOracleTelemetry } from '@/hooks/useObservabilityDashboard';
 interface Settlement {
   id: string;
   claim: string;
@@ -21,37 +21,15 @@ interface SettlementSummary {
   accuracy_rate: number;
 }
 
-interface ObservabilityTelemetry {
-  settlement_review?: {
-    running: boolean;
-    interval_hours: number | null;
-    stats?: {
-      total_runs?: number;
-      total_receipts_updated?: number;
-      success_rate?: number;
-      last_result?: {
-        unresolved_due?: number;
-      } | null;
-    } | null;
-    available: boolean;
-  };
-  oracle_stream?: {
-    active_sessions: number;
-    stalls_total: number;
-    ttft_avg_ms: number | null;
-    available: boolean;
-  };
-}
-
 type TabType = 'pending' | 'history' | 'stats';
 
 export default function SettlementsPage() {
   const [tab, setTab] = useState<TabType>('pending');
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [summary, setSummary] = useState<SettlementSummary | null>(null);
-  const [telemetry, setTelemetry] = useState<ObservabilityTelemetry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { settlementReview, oracleStream } = useSettlementOracleTelemetry();
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -74,27 +52,9 @@ export default function SettlementsPage() {
     }
   }, [tab]);
 
-  const loadTelemetry = useCallback(async () => {
-    try {
-      const data = await apiFetch<ObservabilityTelemetry>('/api/v1/observability/dashboard');
-      setTelemetry(data);
-    } catch {
-      setTelemetry(null);
-    }
-  }, []);
-
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  useEffect(() => {
-    loadTelemetry();
-    const interval = setInterval(loadTelemetry, 30000);
-    return () => clearInterval(interval);
-  }, [loadTelemetry]);
-
-  const settlementReview = telemetry?.settlement_review;
-  const oracleStream = telemetry?.oracle_stream;
   const settlementAvailable = settlementReview?.available === true;
   const oracleAvailable = oracleStream?.available === true;
 

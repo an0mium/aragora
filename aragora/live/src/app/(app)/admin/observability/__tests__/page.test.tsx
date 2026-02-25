@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import ObservabilityPage from '../page';
+import { useObservabilityDashboard } from '@/hooks/useObservabilityDashboard';
 
 // Keep test focused on page data rendering.
 jest.mock('@/components/admin/AdminLayout', () => ({
@@ -26,9 +27,12 @@ jest.mock('@/components/admin/AdminLayout', () => ({
 jest.mock('@/components/BackendSelector', () => ({
   useBackend: () => ({ config: { api: 'http://localhost:8080' } }),
 }));
+jest.mock('@/hooks/useObservabilityDashboard', () => ({
+  useObservabilityDashboard: jest.fn(),
+}));
 
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
+const mockUseObservabilityDashboard =
+  useObservabilityDashboard as jest.MockedFunction<typeof useObservabilityDashboard>;
 
 function buildDashboardData(overrides?: Record<string, unknown>) {
   return {
@@ -116,19 +120,18 @@ function buildDashboardData(overrides?: Record<string, unknown>) {
 describe('Admin ObservabilityPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseObservabilityDashboard.mockReturnValue({
+      dashboard: buildDashboardData(),
+      isLoading: false,
+      isValidating: false,
+      error: null,
+      mutate: jest.fn(),
+      data: buildDashboardData(),
+    });
   });
 
   it('renders settlement review and oracle metrics when available', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => buildDashboardData(),
-    });
-
     render(<ObservabilityPage />);
-
-    await waitFor(() =>
-      expect(mockFetch).toHaveBeenCalledWith('http://localhost:8080/api/v1/observability/dashboard')
-    );
 
     await screen.findByText('Every 6h');
     expect(screen.getByText('Settlement Review')).toBeInTheDocument();
@@ -142,33 +145,36 @@ describe('Admin ObservabilityPage', () => {
   });
 
   it('shows unavailable messages when settlement and oracle telemetry are disabled', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () =>
-        buildDashboardData({
-          settlement_review: {
-            running: false,
-            interval_hours: null,
-            max_receipts_per_run: null,
-            startup_delay_seconds: null,
-            stats: null,
-            available: false,
-          },
-          oracle_stream: {
-            sessions_started: 0,
-            sessions_completed: 0,
-            sessions_cancelled: 0,
-            sessions_errors: 0,
-            active_sessions: 0,
-            stalls_waiting_first_token: 0,
-            stalls_stream_inactive: 0,
-            stalls_total: 0,
-            ttft_samples: 0,
-            ttft_avg_ms: null,
-            ttft_last_ms: null,
-            available: false,
-          },
-        }),
+    mockUseObservabilityDashboard.mockReturnValue({
+      dashboard: buildDashboardData({
+        settlement_review: {
+          running: false,
+          interval_hours: null,
+          max_receipts_per_run: null,
+          startup_delay_seconds: null,
+          stats: null,
+          available: false,
+        },
+        oracle_stream: {
+          sessions_started: 0,
+          sessions_completed: 0,
+          sessions_cancelled: 0,
+          sessions_errors: 0,
+          active_sessions: 0,
+          stalls_waiting_first_token: 0,
+          stalls_stream_inactive: 0,
+          stalls_total: 0,
+          ttft_samples: 0,
+          ttft_avg_ms: null,
+          ttft_last_ms: null,
+          available: false,
+        },
+      }),
+      isLoading: false,
+      isValidating: false,
+      error: null,
+      mutate: jest.fn(),
+      data: buildDashboardData(),
     });
 
     render(<ObservabilityPage />);

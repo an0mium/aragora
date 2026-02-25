@@ -3,107 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useBackend } from '@/components/BackendSelector';
-
-interface AgentRanking {
-  name: string;
-  rating: number;
-  matches: number;
-  win_rate: number;
-}
-
-interface CircuitBreaker {
-  name: string;
-  state: string;
-  failure_count: number;
-  success_count?: number;
-}
-
-interface RecentRun {
-  id: string;
-  goal: string;
-  status: string;
-  started_at: string;
-}
-
-interface DashboardData {
-  timestamp: number;
-  collection_time_ms: number;
-  debate_metrics: {
-    total_debates: number;
-    avg_duration_seconds: number;
-    consensus_rate: number;
-    available: boolean;
-  };
-  agent_rankings: {
-    top_agents: AgentRanking[];
-    available: boolean;
-  };
-  circuit_breakers: {
-    breakers: CircuitBreaker[];
-    available: boolean;
-  };
-  self_improve: {
-    total_cycles: number;
-    successful: number;
-    failed: number;
-    recent_runs: RecentRun[];
-    available: boolean;
-  };
-  oracle_stream: {
-    sessions_started: number;
-    sessions_completed: number;
-    sessions_cancelled: number;
-    sessions_errors: number;
-    active_sessions: number;
-    stalls_waiting_first_token: number;
-    stalls_stream_inactive: number;
-    stalls_total: number;
-    ttft_samples: number;
-    ttft_avg_ms: number | null;
-    ttft_last_ms: number | null;
-    available: boolean;
-  };
-  settlement_review: {
-    running: boolean;
-    interval_hours: number | null;
-    max_receipts_per_run: number | null;
-    startup_delay_seconds: number | null;
-    stats: {
-      total_runs: number;
-      total_receipts_scanned: number;
-      total_receipts_updated: number;
-      total_calibration_predictions: number;
-      failures: number;
-      success_rate: number;
-      last_run: string | null;
-      last_result: {
-        receipts_scanned: number;
-        receipts_due: number;
-        receipts_updated: number;
-        calibration_predictions_recorded: number;
-        unresolved_due: number;
-        started_at: string;
-        completed_at: string;
-        duration_seconds: number;
-        success: boolean;
-        error: string | null;
-      } | null;
-    } | null;
-    available: boolean;
-  };
-  system_health: {
-    memory_percent: number | null;
-    cpu_percent: number | null;
-    pid: number;
-    available: boolean;
-  };
-  error_rates: {
-    total_requests: number;
-    total_errors: number;
-    error_rate: number;
-    available: boolean;
-  };
-}
+import { useObservabilityDashboard } from '@/hooks/useObservabilityDashboard';
 
 function StatusDot({ status }: { status: 'green' | 'yellow' | 'red' | 'gray' }) {
   const colors = {
@@ -171,33 +71,27 @@ function formatPercent(value: number | null | undefined): string {
 
 export default function ObservabilityPage() {
   const { config: backendConfig } = useBackend();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const {
+    dashboard: data,
+    isLoading,
+    isValidating,
+    error,
+    mutate,
+  } = useObservabilityDashboard({
+    baseUrl: backendConfig.api,
+    refreshInterval: 10000,
+  });
 
   const fetchData = useCallback(async () => {
-    try {
-      const res = await fetch(`${backendConfig.api}/api/v1/observability/dashboard`);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const json = await res.json();
-      setData(json);
-      setError(null);
-      setLastUpdated(new Date());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch');
-    } finally {
-      setLoading(false);
-    }
-  }, [backendConfig.api]);
+    await mutate();
+  }, [mutate]);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 10000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    if (data) {
+      setLastUpdated(new Date());
+    }
+  }, [data]);
 
   const overallHealth = (): 'green' | 'yellow' | 'red' => {
     if (!data) return 'gray' as 'green';
@@ -228,10 +122,10 @@ export default function ObservabilityPage() {
           )}
           <button
             onClick={fetchData}
-            disabled={loading}
+            disabled={isLoading || isValidating}
             className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
           >
-            {loading && !data ? 'Loading...' : 'Refresh'}
+            {isLoading && !data ? 'Loading...' : 'Refresh'}
           </button>
         </div>
       }
@@ -239,7 +133,7 @@ export default function ObservabilityPage() {
       {error && (
         <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
           <p className="text-acid-red font-mono text-sm">
-            Failed to load observability data: {error}
+            Failed to load observability data: {error.message}
           </p>
         </div>
       )}
