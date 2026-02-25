@@ -60,9 +60,9 @@ class DebateEventType(str, Enum):
     DEBATE_END = "debate_end"
 
     # Token streaming events
-    TOKEN_START = "token_start"
-    TOKEN_DELTA = "token_delta"
-    TOKEN_END = "token_end"
+    TOKEN_START = "token_start"  # noqa: S105 -- enum value
+    TOKEN_DELTA = "token_delta"  # noqa: S105 -- enum value
+    TOKEN_END = "token_end"  # noqa: S105 -- enum value
 
     # Nomic loop events
     CYCLE_START = "cycle_start"

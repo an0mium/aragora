@@ -1100,7 +1100,7 @@ class GauntletPersona(BaseModel):
 class GauntletResultStatus(str, Enum):
     """Status of a gauntlet result."""
 
-    PASS = "pass"
+    PASS = "pass"  # noqa: S105 -- enum value
     FAIL = "fail"
     ERROR = "error"
     SKIP = "skip"

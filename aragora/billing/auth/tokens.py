@@ -489,7 +489,7 @@ class TokenPair:
     def __init__(self, access_token: str, refresh_token: str):
         self.access_token = access_token
         self.refresh_token = refresh_token
-        self.token_type = "Bearer"
+        self.token_type = "Bearer"  # noqa: S105 -- OAuth2 token type
         self.expires_in = JWT_EXPIRY_HOURS * 3600
 
     def to_dict(self) -> dict[str, Any]:
