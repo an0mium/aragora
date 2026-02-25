@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 class UsageEventType(Enum):
     """Types of usage stream events."""
 
-    TOKEN_USAGE = "token_usage"  # Individual token consumption
+    TOKEN_USAGE = "token_usage"  # noqa: S105 -- enum value (individual token consumption)
     COST_UPDATE = "cost_update"  # Cost accumulation update
     BUDGET_ALERT = "budget_alert"  # Budget threshold reached
     USAGE_SUMMARY = "usage_summary"  # Periodic summary
