@@ -124,6 +124,22 @@ class KnowledgeItem:
             "cross_references": self.cross_references,
         }
 
+    @staticmethod
+    def _parse_importance(value: Any) -> float | None:
+        """Normalize an importance value to float or None.
+
+        Handles string, int, float, and None inputs to prevent
+        TypeError during mixed-type sorting.
+        """
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> KnowledgeItem:
         """Create from dictionary."""
@@ -136,7 +152,7 @@ class KnowledgeItem:
             created_at=datetime.fromisoformat(data["created_at"]),
             updated_at=datetime.fromisoformat(data["updated_at"]),
             metadata=data.get("metadata", {}),
-            importance=data.get("importance"),
+            importance=cls._parse_importance(data.get("importance")),
             cross_references=data.get("cross_references", []),
         )
 

@@ -332,7 +332,18 @@ class QueryOperationsMixin(_QueryMixinBase):
                             existing_ids.add(graph_item.id)
 
             # Sort by importance/relevance, apply offset, and limit
-            items.sort(key=lambda x: x.importance or 0, reverse=True)
+            def _safe_importance(item: "KnowledgeItem") -> float:
+                value = item.importance
+                if value is None:
+                    return 0.0
+                if isinstance(value, (int, float)):
+                    return float(value)
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return 0.0
+
+            items.sort(key=_safe_importance, reverse=True)
             if offset > 0:
                 items = items[offset:]
             items = items[:limit]

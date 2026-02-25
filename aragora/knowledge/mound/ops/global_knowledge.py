@@ -330,7 +330,18 @@ class GlobalKnowledgeMixin:
                 seen_hashes.add(content_hash)
 
         # Re-sort by importance
-        merged.sort(key=lambda x: x.importance or 0, reverse=True)
+        def _safe_importance(item: "KnowledgeItem") -> float:
+            value = item.importance
+            if value is None:
+                return 0.0
+            if isinstance(value, (int, float)):
+                return float(value)
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return 0.0
+
+        merged.sort(key=_safe_importance, reverse=True)
 
         return merged
 
