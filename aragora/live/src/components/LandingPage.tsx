@@ -170,8 +170,8 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
             >
               [TRY NOW]
             </button>
-            <a href="https://github.com/an0mium/aragora" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block">
-              [GITHUB]
+            <a href="/about" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors hidden sm:block">
+              [ABOUT]
             </a>
             {onEnterDashboard ? (
               <button

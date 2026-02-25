@@ -51,7 +51,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                     >
                       Log In
                     </a>
-                    {' '}to start vetted decisionmaking.
+                    {' '}to start debating with real AI models.
                   </>
                 ) : (
                   props.error

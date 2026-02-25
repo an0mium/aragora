@@ -135,6 +135,7 @@ const analyticsItems: NavItem[] = [
   { label: 'Tournaments', href: '/tournaments', icon: '\u2295', minMode: 'standard' },
   { label: 'Argument Analysis', href: '/argument-analysis', icon: '\u2726', minMode: 'standard' },
   { label: 'Consensus', href: '/consensus', icon: '\u2299', minMode: 'standard' },
+  { label: 'Agent Evolution', href: '/agent-evolution', icon: '\u267E', minMode: 'advanced' },
 ];
 
 // ---------------------------------------------------------------------------

@@ -139,6 +139,11 @@ SpendAnalyticsDashboardHandler = _safe_import(
     "aragora.server.handlers.spend_analytics_dashboard", "SpendAnalyticsDashboardHandler"
 )
 
+# Agent Evolution Dashboard (issue #307)
+AgentEvolutionDashboardHandler = _safe_import(
+    "aragora.server.handlers.agent_evolution_dashboard", "AgentEvolutionDashboardHandler"
+)
+
 # Pipeline handlers
 PipelineExecuteHandler = _safe_import(
     "aragora.server.handlers.pipeline.execute", "PipelineExecuteHandler"
@@ -225,6 +230,8 @@ ANALYTICS_HANDLER_REGISTRY: list[tuple[str, object]] = [
     # Differentiation and moderation analytics
     ("_differentiation_handler", DifferentiationHandler),
     ("_moderation_analytics_handler", ModerationAnalyticsHandler),
+    # Agent evolution dashboard (issue #307)
+    ("_agent_evolution_dashboard_handler", AgentEvolutionDashboardHandler),
 ]
 
 __all__ = [
@@ -278,6 +285,8 @@ __all__ = [
     # Differentiation and moderation analytics
     "DifferentiationHandler",
     "ModerationAnalyticsHandler",
+    # Agent evolution dashboard
+    "AgentEvolutionDashboardHandler",
     # Registry
     "ANALYTICS_HANDLER_REGISTRY",
 ]

@@ -174,27 +174,26 @@ class TestGoldenPathFlow:
         assert should_low is False
         assert "below threshold" in reason_low
 
-        # Now actually trigger the debate (mock the inline debate)
+        # Now actually trigger the debate (mock the inline debate).
+        # trigger_debate() does ``from aragora.server.handlers.playground
+        # import _run_inline_mock_debate`` at call time, so we patch at the
+        # definition site. Similarly, _emit_trigger_event imports
+        # ``dispatch_event`` from aragora.events.dispatcher.
         with patch(
-            "aragora.server.handlers.inbox.auto_debate._run_inline_mock_debate",
+            "aragora.server.handlers.playground._run_inline_mock_debate",
             return_value=mock_inline_debate_result,
-        ) as mock_debate, patch(
-            "aragora.server.handlers.inbox.auto_debate.dispatch_event",
+        ), patch(
+            "aragora.events.dispatcher.dispatch_event",
             side_effect=lambda *a, **kw: None,
         ):
-            # Patch the import inside trigger_debate to use our mock
-            with patch(
-                "aragora.server.handlers.playground._run_inline_mock_debate",
-                return_value=mock_inline_debate_result,
-            ):
-                trigger_result = await trigger.trigger_debate(
-                    email_id=email_id,
-                    subject=subject,
-                    body_preview=parsed_email_from_slack["snippet"],
-                    sender=parsed_email_from_slack["from"],
-                    agents=3,
-                    rounds=2,
-                )
+            trigger_result = await trigger.trigger_debate(
+                email_id=email_id,
+                subject=subject,
+                body_preview=parsed_email_from_slack["snippet"],
+                sender=parsed_email_from_slack["from"],
+                agents=3,
+                rounds=2,
+            )
 
         assert trigger_result.triggered is True, (
             f"Debate should have been triggered, reason: {trigger_result.reason}"
@@ -431,7 +430,7 @@ class TestGoldenPathFlow:
             "aragora.server.handlers.playground._run_inline_mock_debate",
             return_value=mock_inline_debate_result,
         ), patch(
-            "aragora.server.handlers.inbox.auto_debate.dispatch_event",
+            "aragora.events.dispatcher.dispatch_event",
             side_effect=lambda *a, **kw: None,
         ):
             first = await trigger.trigger_debate(
@@ -471,7 +470,7 @@ class TestGoldenPathFlow:
             "aragora.server.handlers.playground._run_inline_mock_debate",
             return_value=mock_inline_debate_result,
         ), patch(
-            "aragora.server.handlers.inbox.auto_debate.dispatch_event",
+            "aragora.events.dispatcher.dispatch_event",
             side_effect=lambda *a, **kw: None,
         ):
             result = await trigger.trigger_debate(

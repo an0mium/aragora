@@ -66,12 +66,10 @@ function GauntletListView() {
                 <p className="text-xs text-text-muted">
                   See{' '}
                   <a
-                    href="https://github.com/an0mium/aragora/blob/main/docs/GAUNTLET.md"
+                    href="/about"
                     className="text-acid-cyan hover:text-acid-green"
-                    target="_blank"
-                    rel="noopener noreferrer"
                   >
-                    GAUNTLET.md
+                    the documentation
                   </a>{' '}
                   for full documentation.
                 </p>

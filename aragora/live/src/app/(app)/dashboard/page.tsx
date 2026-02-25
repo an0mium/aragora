@@ -240,12 +240,12 @@ export default function DashboardPage() {
       statsContent: (
         <div className="space-y-3">
           <div className="text-xs text-[var(--text-muted)] font-mono">
-            Control plane overview for multi-agent vetted decisionmaking across your org.
+            Overview of AI-debated decisions across your organization.
           </div>
           <div className="border-t border-[var(--border)] pt-3">
-            <div className="text-xs text-[var(--acid-green)] font-mono mb-1">POSITIONING</div>
+            <div className="text-xs text-[var(--acid-green)] font-mono mb-1">WHAT IS ARAGORA?</div>
             <div className="text-xs text-[var(--text)] font-mono leading-relaxed">
-              &quot;Control plane for multi-agent vetted decisionmaking across org knowledge and channels&quot;
+              Multiple AI models debate your decisions and deliver verdicts with confidence scores and audit trails.
             </div>
           </div>
         </div>
@@ -304,7 +304,7 @@ export default function DashboardPage() {
                   {'>'} EXECUTIVE DASHBOARD
                 </h1>
                 <p className="text-xs text-[var(--text-muted)] font-mono">
-                  Control plane for multi-agent vetted decisionmaking across org knowledge and channels
+                  AI models that debate your decisions — with confidence scores and full audit trails
                 </p>
               </div>
               <div className="flex items-center gap-2">

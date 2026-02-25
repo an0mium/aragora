@@ -28,8 +28,8 @@ import { ThemeProvider, themeInitScript } from '@/context/ThemeContext';
 export const metadata: Metadata = {
   metadataBase: new URL('https://aragora.ai'),
   title: 'ARAGORA // LIVE',
-  description: 'Control plane for multi-agent vetted decisionmaking across org knowledge and channels. Ingest from any source, deliver defensible decisions anywhere.',
-  keywords: ['AI', 'multi-agent', 'vetted decisionmaking', 'control plane', 'decision making', 'debate', 'consensus', 'LLM', 'aragora', 'Claude', 'GPT', 'Gemini', 'Slack', 'Teams', 'Discord'],
+  description: 'Multiple AI models debate your decisions. Ask any question and get a verdict with confidence scores, minority opinions, and a full audit trail.',
+  keywords: ['AI', 'multi-agent', 'AI debate', 'decision making', 'debate', 'consensus', 'LLM', 'aragora', 'Claude', 'GPT', 'Gemini', 'Slack', 'Teams', 'Discord'],
   authors: [{ name: 'Aragora Team' }],
   manifest: '/manifest.json',
   appleWebApp: {
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'ARAGORA // LIVE',
-    description: 'Control plane for multi-agent vetted decisionmaking. Ingest any source, deliver decisions anywhere.',
+    description: 'Multiple AI models debate your decisions. Confidence scores, minority opinions, and full audit trails.',
     type: 'website',
     siteName: 'Aragora',
     images: [{ url: '/aragora-logo.png', width: 512, height: 512, alt: 'Aragora' }],
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary',
     title: 'ARAGORA // LIVE',
-    description: 'Control plane for multi-agent vetted decisionmaking. Ingest any source, deliver decisions anywhere.',
+    description: 'Multiple AI models debate your decisions. Confidence scores, minority opinions, and full audit trails.',
     images: ['/aragora-logo.png'],
   },
 };

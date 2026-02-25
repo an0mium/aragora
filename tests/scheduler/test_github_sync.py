@@ -183,23 +183,19 @@ class TestGitHubSecretsSyncBackend:
 
     def test_encrypt_secret(self, backend):
         """Test that _encrypt_secret produces valid base64 output."""
-        try:
-            from nacl.public import PrivateKey
+        from nacl.public import PrivateKey
 
-            # Generate a test keypair
-            private_key = PrivateKey.generate()
-            public_key_b64 = base64.b64encode(bytes(private_key.public_key)).decode()
+        # Generate a test keypair
+        private_key = PrivateKey.generate()
+        public_key_b64 = base64.b64encode(bytes(private_key.public_key)).decode()
 
-            encrypted = backend._encrypt_secret(public_key_b64, "test-secret-value")
+        encrypted = backend._encrypt_secret(public_key_b64, "test-secret-value")
 
-            # Should be valid base64
-            decoded = base64.b64decode(encrypted)
-            assert len(decoded) > 0
-            # Encrypted value should be different from plaintext
-            assert decoded != b"test-secret-value"
-
-        except ImportError:
-            pytest.skip("PyNaCl not installed")
+        # Should be valid base64
+        decoded = base64.b64decode(encrypted)
+        assert len(decoded) > 0
+        # Encrypted value should be different from plaintext
+        assert decoded != b"test-secret-value"
 
     def test_github_app_token_no_credentials(self):
         """Should return None when app credentials are not set."""

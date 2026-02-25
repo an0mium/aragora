@@ -43,7 +43,7 @@ const QUICK_LINKS: QuickLink[] = [
   { label: 'INTROSPECTION', href: '/introspection', minMode: 'expert' },
   { label: 'STATUS', href: '/system-status', minMode: 'expert' },
   { label: 'ABOUT', href: '/about', minMode: 'expert' },
-  { label: 'LIVE', href: 'https://live.aragora.ai', external: true, accent: true, minMode: 'expert' },
+  { label: 'ORACLE', href: '/oracle', accent: true, minMode: 'expert' },
 ];
 
 export function AppShell({ children }: AppShellProps) {

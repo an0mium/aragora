@@ -183,7 +183,7 @@ function TentacleMessage({ msg, index }: { msg: ChatMessage; index: number }) {
       <div className="text-xs mb-1 flex items-center gap-2">
         <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
         <span style={{ color }} className="font-bold">
-          TENTACLE: {(msg.agentName || 'unknown').toUpperCase()}
+          {(msg.agentName || 'unknown').toUpperCase()}
         </span>
         <span className="text-[var(--text-muted)]">
           {msg.isLive ? '(live)' : '(initial)'}
@@ -1801,7 +1801,7 @@ export default function Oracle() {
                     <div className="text-xs mb-1 flex items-center gap-2">
                       <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: getTentacleColor(agent) }} />
                       <span style={{ color: getTentacleColor(agent) }} className="font-bold">
-                        TENTACLE: {agent.toUpperCase()}
+                        {agent.toUpperCase()}
                       </span>
                       {!state.done && (
                         <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--acid-cyan)] animate-pulse" />
