@@ -5,87 +5,72 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { BackendSelector, useBackend } from '@/components/BackendSelector';
+import { BackendSelector } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
-import { useSWRFetch } from '@/hooks/useSWRFetch';
+import { useKnowledgeFlow, useConfidenceHistory, useAdapterHealth } from '@/hooks/useKnowledgeFlow';
 
-interface FlowNode {
-  id: string;
-  type: 'debate' | 'knowledge_mound' | 'adapter';
-  label: string;
-  count: number;
+type TabKey = 'flow' | 'confidence' | 'adapters';
+
+const TABS: Array<{ key: TabKey; label: string }> = [
+  { key: 'flow', label: 'Flow Visualization' },
+  { key: 'confidence', label: 'Confidence History' },
+  { key: 'adapters', label: 'Adapter Health' },
+];
+
+function getStatusColor(status: string): string {
+  switch (status) {
+    case 'healthy':
+    case 'active':
+      return 'text-acid-green bg-acid-green/20';
+    case 'degraded':
+    case 'stale':
+      return 'text-yellow-400 bg-yellow-500/20';
+    case 'unhealthy':
+    case 'offline':
+      return 'text-red-400 bg-red-500/20';
+    default:
+      return 'text-text-muted bg-surface';
+  }
 }
 
-interface FlowEdge {
-  from: string;
-  to: string;
-  count: number;
-  label: string;
+function getHealthIndicator(health: string): string {
+  switch (health) {
+    case 'healthy':
+      return '[OK]';
+    case 'degraded':
+      return '[!!]';
+    case 'unhealthy':
+      return '[XX]';
+    default:
+      return '[??]';
+  }
 }
 
-interface FlowData {
-  nodes: FlowNode[];
-  edges: FlowEdge[];
-  total_debates: number;
-  total_knowledge_items: number;
-  total_injections: number;
+function getConfidenceColor(value: number): string {
+  if (value >= 0.7) return 'text-acid-green';
+  if (value >= 0.4) return 'text-yellow-400';
+  return 'text-red-400';
 }
 
-interface ConfidencePoint {
-  timestamp: string;
-  topic: string;
-  confidence: number;
-  source: string;
-}
-
-interface ConfidenceHistory {
-  points: ConfidencePoint[];
-  count: number;
-}
-
-interface AdapterHealth {
-  adapter_name: string;
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  items_stored: number;
-  last_sync: string | null;
-  error_count: number;
-}
-
-interface AdapterHealthResponse {
-  adapters: AdapterHealth[];
+function getDeltaDisplay(delta: number): { text: string; color: string } {
+  if (delta > 0) return { text: `+${(delta * 100).toFixed(1)}%`, color: 'text-acid-green' };
+  if (delta < 0) return { text: `${(delta * 100).toFixed(1)}%`, color: 'text-red-400' };
+  return { text: '0.0%', color: 'text-text-muted' };
 }
 
 export default function KnowledgeFlowPage() {
-  const { config } = useBackend();
-  const [activeTab, setActiveTab] = useState<'flow' | 'confidence' | 'adapters'>('flow');
+  const [activeTab, setActiveTab] = useState<TabKey>('flow');
 
-  const { data: flowData, isLoading: flowLoading } = useSWRFetch<{ data: FlowData }>(
-    '/api/v1/knowledge/flow',
-    { refreshInterval: 30000, baseUrl: config.api }
-  );
-
-  const { data: confidenceData, isLoading: confLoading } = useSWRFetch<{ data: ConfidenceHistory }>(
-    activeTab === 'confidence' ? '/api/v1/knowledge/flow/confidence-history' : null,
-    { refreshInterval: 30000, baseUrl: config.api }
-  );
-
-  const { data: adapterData, isLoading: adapterLoading } = useSWRFetch<{ data: AdapterHealthResponse }>(
-    activeTab === 'adapters' ? '/api/v1/knowledge/adapters/health' : null,
-    { refreshInterval: 15000, baseUrl: config.api }
-  );
-
-  const flow = flowData?.data;
-  const confidence = confidenceData?.data;
-  const adapters = adapterData?.data?.adapters || [];
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy': return 'text-acid-green bg-acid-green/20';
-      case 'degraded': return 'text-yellow-400 bg-yellow-500/20';
-      case 'unhealthy': return 'text-red-400 bg-red-500/20';
-      default: return 'text-text-muted bg-surface';
-    }
-  };
+  const { flows, stats, loading: flowLoading, error: flowError } = useKnowledgeFlow();
+  const { entries, loading: confLoading, error: confError } = useConfidenceHistory();
+  const {
+    adapters,
+    total: adapterTotal,
+    active: adapterActive,
+    stale: adapterStale,
+    loading: adapterLoading,
+    error: adapterError,
+  } = useAdapterHealth();
 
   return (
     <>
@@ -99,7 +84,10 @@ export default function KnowledgeFlowPage() {
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-3">
-              <Link href="/knowledge" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link
+                href="/knowledge"
+                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              >
                 [KNOWLEDGE]
               </Link>
               <BackendSelector compact />
@@ -121,11 +109,7 @@ export default function KnowledgeFlowPage() {
 
           {/* Tabs */}
           <div className="flex gap-2 mb-6">
-            {([
-              { key: 'flow', label: 'Flow Visualization' },
-              { key: 'confidence', label: 'Confidence History' },
-              { key: 'adapters', label: 'Adapter Health' },
-            ] as const).map(({ key, label }) => (
+            {TABS.map(({ key, label }) => (
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
@@ -140,145 +124,338 @@ export default function KnowledgeFlowPage() {
             ))}
           </div>
 
-          <PanelErrorBoundary panelName="Knowledge Flow">
-            {activeTab === 'flow' && (
-              <div>
-                {flowLoading ? (
-                  <div className="text-acid-green font-mono animate-pulse text-center py-12">Loading flow data...</div>
-                ) : !flow ? (
-                  <div className="p-8 bg-surface border border-border rounded-lg text-center">
-                    <p className="text-text-muted font-mono">No flow data available. Run debates with Knowledge Mound enabled.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Summary Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                        <div className="text-3xl font-mono font-bold text-acid-green">{flow.total_debates}</div>
-                        <div className="text-xs text-text-muted uppercase">Total Debates</div>
+          {/* Flow Visualization Tab */}
+          {activeTab === 'flow' && (
+            <PanelErrorBoundary panelName="Knowledge Flow">
+              {flowLoading ? (
+                <div className="text-acid-green font-mono animate-pulse text-center py-12">
+                  Loading flow data...
+                </div>
+              ) : flowError ? (
+                <div className="p-8 bg-surface border border-red-500/30 rounded-lg text-center">
+                  <p className="text-red-400 font-mono text-sm">
+                    Failed to load flow data. The knowledge flow endpoint may be unavailable.
+                  </p>
+                </div>
+              ) : flows.length === 0 ? (
+                <div className="p-8 bg-surface border border-border rounded-lg text-center">
+                  <p className="text-text-muted font-mono">
+                    No flow data available. Run debates with Knowledge Mound enabled.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-surface border border-border rounded-lg text-center">
+                      <div className="text-3xl font-mono font-bold text-acid-green">
+                        {stats.total_flows}
                       </div>
-                      <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                        <div className="text-3xl font-mono font-bold text-blue-400">{flow.total_knowledge_items}</div>
-                        <div className="text-xs text-text-muted uppercase">Knowledge Items</div>
-                      </div>
-                      <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                        <div className="text-3xl font-mono font-bold text-purple-400">{flow.total_injections}</div>
-                        <div className="text-xs text-text-muted uppercase">Cross-Debate Injections</div>
+                      <div className="text-xs text-text-muted uppercase font-mono">
+                        Total Flows
                       </div>
                     </div>
+                    <div className="p-4 bg-surface border border-border rounded-lg text-center">
+                      <div className="text-3xl font-mono font-bold text-blue-400">
+                        {stats.debates_enriched}
+                      </div>
+                      <div className="text-xs text-text-muted uppercase font-mono">
+                        Debates Enriched
+                      </div>
+                    </div>
+                    <div className="p-4 bg-surface border border-border rounded-lg text-center">
+                      <div className={`text-3xl font-mono font-bold ${
+                        stats.avg_confidence_change >= 0 ? 'text-acid-green' : 'text-red-400'
+                      }`}>
+                        {stats.avg_confidence_change >= 0 ? '+' : ''}
+                        {(stats.avg_confidence_change * 100).toFixed(1)}%
+                      </div>
+                      <div className="text-xs text-text-muted uppercase font-mono">
+                        Avg Confidence Change
+                      </div>
+                    </div>
+                  </div>
 
-                    {/* Flow Nodes */}
-                    <div className="p-4 bg-surface border border-border rounded-lg">
-                      <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-4">Knowledge Flow Graph</h3>
-                      <div className="flex flex-wrap items-center justify-center gap-4">
-                        {flow.nodes.map((node) => (
+                  {/* Flow Graph - Visual representation of knowledge flow links */}
+                  <div className="p-4 bg-surface border border-border rounded-lg">
+                    <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-4">
+                      Knowledge Flow Graph
+                    </h3>
+
+                    {/* Flow links as a directed graph */}
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                      {flows.map((flow, i) => {
+                        const delta = getDeltaDisplay(flow.confidence_delta);
+                        return (
                           <div
-                            key={node.id}
-                            className={`p-3 rounded-lg border text-center min-w-[120px] ${
-                              node.type === 'debate' ? 'border-acid-green bg-acid-green/10' :
-                              node.type === 'knowledge_mound' ? 'border-blue-400 bg-blue-400/10' :
-                              'border-purple-400 bg-purple-400/10'
-                            }`}
+                            key={i}
+                            className="flex items-center gap-3 p-3 bg-bg rounded border border-border/50 hover:border-acid-green/30 transition-colors"
                           >
-                            <div className="text-lg font-mono font-bold">{node.count}</div>
-                            <div className="text-xs text-text-muted">{node.label}</div>
+                            {/* Source debate */}
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="text-acid-green font-mono text-xs shrink-0">
+                                [DEBATE]
+                              </span>
+                              <span className="text-text font-mono text-xs truncate">
+                                {flow.source_debate_id.slice(0, 8)}...
+                              </span>
+                            </div>
+
+                            {/* Arrow */}
+                            <span className="text-acid-green font-mono shrink-0">&rarr;</span>
+
+                            {/* KM node */}
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="text-blue-400 font-mono text-xs shrink-0">
+                                [KM]
+                              </span>
+                              <span className="text-text font-mono text-xs truncate">
+                                {flow.km_node_id.slice(0, 8)}...
+                              </span>
+                            </div>
+
+                            {/* Target (if exists) */}
+                            {flow.target_debate_id && (
+                              <>
+                                <span className="text-acid-green font-mono shrink-0">&rarr;</span>
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <span className="text-purple-400 font-mono text-xs shrink-0">
+                                    [TARGET]
+                                  </span>
+                                  <span className="text-text font-mono text-xs truncate">
+                                    {flow.target_debate_id.slice(0, 8)}...
+                                  </span>
+                                </div>
+                              </>
+                            )}
+
+                            {/* Confidence delta */}
+                            <span className={`font-mono text-xs shrink-0 ${delta.color}`}>
+                              {delta.text}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Content previews */}
+                    {flows.some((f) => f.content_preview) && (
+                      <div className="mt-4 border-t border-border/50 pt-4">
+                        <h4 className="text-xs font-mono text-text-muted uppercase mb-2">
+                          Recent Knowledge Snippets
+                        </h4>
+                        <div className="space-y-1">
+                          {flows
+                            .filter((f) => f.content_preview)
+                            .slice(0, 5)
+                            .map((flow, i) => (
+                              <div
+                                key={i}
+                                className="text-xs font-mono text-text-muted p-2 bg-bg/50 rounded"
+                              >
+                                <span className="text-acid-green/60">&gt; </span>
+                                {flow.content_preview}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </PanelErrorBoundary>
+          )}
+
+          {/* Confidence History Tab */}
+          {activeTab === 'confidence' && (
+            <PanelErrorBoundary panelName="Confidence History">
+              {confLoading ? (
+                <div className="text-acid-green font-mono animate-pulse text-center py-12">
+                  Loading confidence data...
+                </div>
+              ) : confError ? (
+                <div className="p-8 bg-surface border border-red-500/30 rounded-lg text-center">
+                  <p className="text-red-400 font-mono text-sm">
+                    Failed to load confidence history.
+                  </p>
+                </div>
+              ) : entries.length === 0 ? (
+                <div className="p-8 bg-surface border border-border rounded-lg text-center">
+                  <p className="text-text-muted font-mono">
+                    No confidence history available yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {entries.map((entry) => (
+                    <div
+                      key={entry.node_id}
+                      className="p-4 bg-surface border border-border rounded-lg"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <span className="font-mono text-sm text-text">
+                            {entry.content_preview || entry.node_id}
+                          </span>
+                          <span className="ml-2 text-xs font-mono text-text-muted">
+                            ({entry.confidence_history.length} changes)
+                          </span>
+                        </div>
+                        <span className="text-xs font-mono text-text-muted">
+                          {entry.node_id.slice(0, 12)}...
+                        </span>
+                      </div>
+
+                      {/* Confidence timeline as mini inline chart */}
+                      <div className="flex items-end gap-px h-16 mb-2">
+                        {entry.confidence_history.map((point, i) => {
+                          const heightPct = Math.max(point.value * 100, 2);
+                          return (
+                            <div
+                              key={i}
+                              className="flex-1 min-w-[4px] max-w-[24px] rounded-t transition-all"
+                              style={{
+                                height: `${heightPct}%`,
+                                backgroundColor:
+                                  point.value >= 0.7
+                                    ? 'var(--acid-green)'
+                                    : point.value >= 0.4
+                                      ? '#facc15'
+                                      : '#f87171',
+                                opacity: 0.7 + (i / entry.confidence_history.length) * 0.3,
+                              }}
+                              title={`${(point.value * 100).toFixed(1)}% - ${point.reason}`}
+                            />
+                          );
+                        })}
+                      </div>
+
+                      {/* History entries */}
+                      <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                        {entry.confidence_history.map((point, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center gap-3 text-xs font-mono p-1.5 bg-bg rounded"
+                          >
+                            <span className="text-text-muted w-32 shrink-0">
+                              {new Date(point.timestamp).toLocaleString()}
+                            </span>
+                            <span className={`shrink-0 ${getConfidenceColor(point.value)}`}>
+                              {(point.value * 100).toFixed(1)}%
+                            </span>
+                            <span className="text-text-muted truncate flex-1">
+                              {point.reason}
+                            </span>
                           </div>
                         ))}
                       </div>
-                      {flow.edges.length > 0 && (
-                        <div className="mt-4 space-y-1">
-                          {flow.edges.map((edge, i) => (
-                            <div key={i} className="flex items-center gap-2 text-xs font-mono text-text-muted">
-                              <span>{edge.from}</span>
-                              <span className="text-acid-green">&rarr;</span>
-                              <span>{edge.to}</span>
-                              <span className="text-acid-green ml-2">({edge.count} items)</span>
-                              {edge.label && <span className="text-text-muted">- {edge.label}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </PanelErrorBoundary>
+          )}
+
+          {/* Adapter Health Tab */}
+          {activeTab === 'adapters' && (
+            <PanelErrorBoundary panelName="Adapter Health">
+              {adapterLoading ? (
+                <div className="text-acid-green font-mono animate-pulse text-center py-12">
+                  Loading adapter health...
+                </div>
+              ) : adapterError ? (
+                <div className="p-8 bg-surface border border-red-500/30 rounded-lg text-center">
+                  <p className="text-red-400 font-mono text-sm">
+                    Failed to load adapter health data.
+                  </p>
+                </div>
+              ) : adapters.length === 0 ? (
+                <div className="p-8 bg-surface border border-border rounded-lg text-center">
+                  <p className="text-text-muted font-mono">
+                    No adapter health data available.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Adapter summary bar */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-surface border border-border rounded-lg text-center">
+                      <div className="text-3xl font-mono font-bold text-acid-green">
+                        {adapterTotal}
+                      </div>
+                      <div className="text-xs text-text-muted uppercase font-mono">
+                        Total Adapters
+                      </div>
+                    </div>
+                    <div className="p-4 bg-surface border border-border rounded-lg text-center">
+                      <div className="text-3xl font-mono font-bold text-acid-green">
+                        {adapterActive}
+                      </div>
+                      <div className="text-xs text-text-muted uppercase font-mono">
+                        Active
+                      </div>
+                    </div>
+                    <div className="p-4 bg-surface border border-border rounded-lg text-center">
+                      <div className={`text-3xl font-mono font-bold ${adapterStale > 0 ? 'text-yellow-400' : 'text-acid-green'}`}>
+                        {adapterStale}
+                      </div>
+                      <div className="text-xs text-text-muted uppercase font-mono">
+                        Stale
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
 
-            {activeTab === 'confidence' && (
-              <div>
-                {confLoading ? (
-                  <div className="text-acid-green font-mono animate-pulse text-center py-12">Loading...</div>
-                ) : !confidence || confidence.points.length === 0 ? (
-                  <div className="p-8 bg-surface border border-border rounded-lg text-center">
-                    <p className="text-text-muted font-mono">No confidence history available yet.</p>
-                  </div>
-                ) : (
-                  <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
-                      Confidence Changes Over Time ({confidence.count} records)
-                    </h3>
-                    <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                      {confidence.points.map((pt, i) => (
-                        <div key={i} className="flex items-center gap-3 text-sm p-2 bg-bg rounded">
-                          <span className="text-text-muted text-xs w-32 shrink-0">
-                            {new Date(pt.timestamp).toLocaleString()}
-                          </span>
-                          <span className="text-text flex-1">{pt.topic}</span>
-                          <span className="text-xs text-text-muted">{pt.source}</span>
-                          <span className={`font-mono text-sm ${pt.confidence >= 0.7 ? 'text-acid-green' : pt.confidence >= 0.4 ? 'text-yellow-400' : 'text-red-400'}`}>
-                            {(pt.confidence * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'adapters' && (
-              <div>
-                {adapterLoading ? (
-                  <div className="text-acid-green font-mono animate-pulse text-center py-12">Loading...</div>
-                ) : adapters.length === 0 ? (
-                  <div className="p-8 bg-surface border border-border rounded-lg text-center">
-                    <p className="text-text-muted font-mono">No adapter health data available.</p>
-                  </div>
-                ) : (
+                  {/* Adapter cards grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {adapters.map((adapter) => (
-                      <div key={adapter.adapter_name} className="p-4 bg-surface border border-border rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-mono text-sm text-text">{adapter.adapter_name}</span>
-                          <span className={`px-2 py-0.5 text-xs font-mono rounded ${getStatusColor(adapter.status)}`}>
+                      <div
+                        key={adapter.name}
+                        className="p-4 bg-surface border border-border rounded-lg hover:border-acid-green/30 transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="font-mono text-sm text-text font-bold">
+                            {adapter.name}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 text-xs font-mono rounded ${getStatusColor(adapter.status)}`}
+                          >
                             {adapter.status.toUpperCase()}
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
+
+                        <div className="grid grid-cols-2 gap-2 text-xs font-mono mb-3">
                           <div>
-                            <span className="text-text-muted">Items: </span>
-                            <span className="text-text">{adapter.items_stored}</span>
+                            <span className="text-text-muted">Entries: </span>
+                            <span className="text-text">{adapter.entry_count}</span>
                           </div>
                           <div>
-                            <span className="text-text-muted">Errors: </span>
-                            <span className={adapter.error_count > 0 ? 'text-red-400' : 'text-text'}>
-                              {adapter.error_count}
+                            <span className="text-text-muted">Health: </span>
+                            <span className={getStatusColor(adapter.health).split(' ')[0]}>
+                              {getHealthIndicator(adapter.health)}
                             </span>
                           </div>
-                          {adapter.last_sync && (
-                            <div className="col-span-2">
-                              <span className="text-text-muted">Last sync: </span>
-                              <span className="text-text">{new Date(adapter.last_sync).toLocaleString()}</span>
-                            </div>
-                          )}
                         </div>
+
+                        {adapter.last_sync && (
+                          <div className="text-xs font-mono">
+                            <span className="text-text-muted">Last sync: </span>
+                            <span className="text-text">
+                              {new Date(adapter.last_sync).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {!adapter.last_sync && (
+                          <div className="text-xs font-mono text-text-muted">
+                            Never synced
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
-            )}
-          </PanelErrorBoundary>
+                </div>
+              )}
+            </PanelErrorBoundary>
+          )}
         </div>
 
         <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">

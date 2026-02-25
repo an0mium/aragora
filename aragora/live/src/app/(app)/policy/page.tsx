@@ -1,11 +1,45 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 import { useToastContext } from '@/context/ToastContext';
+import { useSWRFetch } from '@/hooks/useSWRFetch';
+import { usePolicies, type Policy, type Violation } from '@/hooks/usePolicies';
 import { logger } from '@/utils/logger';
+
+// ============================================================================
+// Types for conflict detection and sync status
+// ============================================================================
+
+interface PolicyConflict {
+  id: string;
+  policy_a_id: string;
+  policy_a_name: string;
+  policy_b_id: string;
+  policy_b_name: string;
+  conflict_type: 'contradictory' | 'overlapping' | 'redundant' | 'escalation';
+  description: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  resolution_suggestion?: string;
+  detected_at: string;
+  resolved: boolean;
+}
+
+interface PolicySyncStatus {
+  scheduler_running: boolean;
+  last_sync: string | null;
+  next_sync: string | null;
+  sync_interval_seconds: number;
+  policies_synced: number;
+  sync_errors: number;
+  status: 'synced' | 'syncing' | 'error' | 'stale' | 'disabled';
+}
+
+// ============================================================================
+// Local Policy types (page-specific, extends hook types for display)
+// ============================================================================
 
 interface PolicyRule {
   id: string;
@@ -14,56 +48,16 @@ interface PolicyRule {
   message: string;
 }
 
-interface Policy {
-  id: string;
-  name: string;
-  description: string;
-  type: 'content' | 'output' | 'behavior' | 'custom';
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  enabled: boolean;
+interface LocalPolicy extends Omit<Policy, 'rules'> {
+  type?: 'content' | 'output' | 'behavior' | 'custom';
+  severity?: 'low' | 'medium' | 'high' | 'critical';
   rules: PolicyRule[];
-  framework_id?: string;
-  vertical_id?: string;
-  workspace_id?: string;
-  created_at: string;
-  updated_at?: string;
   violation_count?: number;
 }
 
-interface Violation {
-  id: string;
-  policy_id: string;
-  policy_name?: string;
-  rule_id?: string;
-  rule_name?: string;
-  content_snippet: string;
-  severity: string;
-  status: 'open' | 'investigating' | 'resolved' | 'false_positive' | 'ignored';
-  description?: string;
-  source?: string;
-  created_at: string;
-  resolved_at?: string;
-  resolution_notes?: string;
-}
-
-interface ComplianceStats {
-  policies: {
-    total: number;
-    enabled: number;
-    disabled: number;
-  };
-  violations: {
-    total: number;
-    open: number;
-    by_severity: {
-      critical: number;
-      high: number;
-      medium: number;
-      low: number;
-    };
-  };
-  risk_score: number;
-}
+// ============================================================================
+// Constants
+// ============================================================================
 
 const severityColors: Record<string, string> = {
   low: 'text-text-muted border-text-muted/30',
@@ -101,20 +95,57 @@ const actionColors: Record<string, string> = {
   redact: 'text-warning',
 };
 
+const conflictTypeColors: Record<string, string> = {
+  contradictory: 'text-crimson border-crimson/30 bg-crimson/10',
+  overlapping: 'text-acid-yellow border-acid-yellow/30 bg-acid-yellow/10',
+  redundant: 'text-text-muted border-text-muted/30 bg-text-muted/10',
+  escalation: 'text-warning border-warning/30 bg-warning/10',
+};
+
+const syncStatusColors: Record<string, string> = {
+  synced: 'text-acid-green',
+  syncing: 'text-acid-cyan',
+  error: 'text-crimson',
+  stale: 'text-acid-yellow',
+  disabled: 'text-text-muted',
+};
+
+const syncStatusBg: Record<string, string> = {
+  synced: 'bg-acid-green/10 border-acid-green/30',
+  syncing: 'bg-acid-cyan/10 border-acid-cyan/30',
+  error: 'bg-crimson/10 border-crimson/30',
+  stale: 'bg-acid-yellow/10 border-acid-yellow/30',
+  disabled: 'bg-text-muted/10 border-text-muted/30',
+};
+
+function timeAgo(timestamp: string): string {
+  const diff = Date.now() - new Date(timestamp).getTime();
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+// ============================================================================
 // Create/Edit Policy Modal
+// ============================================================================
+
 function PolicyModal({
   policy,
   onClose,
   onSave,
 }: {
-  policy?: Policy | null;
+  policy?: LocalPolicy | null;
   onClose: () => void;
-  onSave: (data: Partial<Policy>) => Promise<void>;
+  onSave: (data: Partial<LocalPolicy>) => Promise<void>;
 }) {
   const [name, setName] = useState(policy?.name || '');
   const [description, setDescription] = useState(policy?.description || '');
-  const [type, setType] = useState<Policy['type']>(policy?.type || 'content');
-  const [severity, setSeverity] = useState<Policy['severity']>(policy?.severity || 'medium');
+  const [type, setType] = useState<string>(policy?.type || 'content');
+  const [severity, setSeverity] = useState<string>(policy?.severity || 'medium');
   const [frameworkId, setFrameworkId] = useState(policy?.framework_id || 'default');
   const [verticalId, setVerticalId] = useState(policy?.vertical_id || 'general');
   const [rules, setRules] = useState<PolicyRule[]>(policy?.rules || []);
@@ -147,8 +178,8 @@ function PolicyModal({
       await onSave({
         name,
         description,
-        type,
-        severity,
+        type: type as LocalPolicy['type'],
+        severity: severity as LocalPolicy['severity'],
         framework_id: frameworkId,
         vertical_id: verticalId,
         rules,
@@ -197,7 +228,7 @@ function PolicyModal({
               <label className="block text-xs font-mono text-text-muted mb-1">Type</label>
               <select
                 value={type}
-                onChange={(e) => setType(e.target.value as Policy['type'])}
+                onChange={(e) => setType(e.target.value)}
                 className="w-full bg-bg border border-border px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
               >
                 <option value="content">Content</option>
@@ -210,7 +241,7 @@ function PolicyModal({
               <label className="block text-xs font-mono text-text-muted mb-1">Severity</label>
               <select
                 value={severity}
-                onChange={(e) => setSeverity(e.target.value as Policy['severity'])}
+                onChange={(e) => setSeverity(e.target.value)}
                 className="w-full bg-bg border border-border px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
               >
                 <option value="low">Low</option>
@@ -334,7 +365,10 @@ function PolicyModal({
   );
 }
 
+// ============================================================================
 // Violation Details Modal
+// ============================================================================
+
 function ViolationModal({
   violation,
   onClose,
@@ -342,12 +376,12 @@ function ViolationModal({
 }: {
   violation: Violation;
   onClose: () => void;
-  onUpdateStatus: (status: string, notes?: string) => Promise<void>;
+  onUpdateStatus: (status: Violation['status'], notes?: string) => Promise<void>;
 }) {
   const [notes, setNotes] = useState('');
   const [updating, setUpdating] = useState(false);
 
-  const handleUpdate = async (status: string) => {
+  const handleUpdate = async (status: Violation['status']) => {
     setUpdating(true);
     try {
       await onUpdateStatus(status, notes);
@@ -357,6 +391,10 @@ function ViolationModal({
     }
   };
 
+  const violationSeverity = violation.severity || 'medium';
+  const violationDescription = violation.description || '';
+  const violationSource = violation.source || '';
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
       <div className="card p-6 w-full max-w-lg">
@@ -365,12 +403,12 @@ function ViolationModal({
         <div className="space-y-3">
           <div>
             <span className="text-xs font-mono text-text-muted">Policy:</span>
-            <p className="font-mono text-text">{violation.policy_name || violation.policy_id}</p>
+            <p className="font-mono text-text">{violation.rule_name || violation.policy_id}</p>
           </div>
           <div>
             <span className="text-xs font-mono text-text-muted">Severity:</span>
-            <span className={`ml-2 px-2 py-0.5 text-xs font-mono border ${severityColors[violation.severity]}`}>
-              {violation.severity.toUpperCase()}
+            <span className={`ml-2 px-2 py-0.5 text-xs font-mono border ${severityColors[violationSeverity]}`}>
+              {violationSeverity.toUpperCase()}
             </span>
           </div>
           <div>
@@ -379,21 +417,21 @@ function ViolationModal({
               {violation.status.toUpperCase()}
             </span>
           </div>
-          {violation.description && (
+          {violationDescription && (
             <div>
               <span className="text-xs font-mono text-text-muted">Description:</span>
-              <p className="text-sm text-text">{violation.description}</p>
+              <p className="text-sm text-text">{violationDescription}</p>
+            </div>
+          )}
+          {violationSource && (
+            <div>
+              <span className="text-xs font-mono text-text-muted">Source:</span>
+              <p className="text-sm text-text">{violationSource}</p>
             </div>
           )}
           <div>
-            <span className="text-xs font-mono text-text-muted">Content:</span>
-            <div className="bg-bg p-2 rounded mt-1 text-sm font-mono text-text-muted">
-              {violation.content_snippet}
-            </div>
-          </div>
-          <div>
             <span className="text-xs font-mono text-text-muted">Detected:</span>
-            <p className="text-sm text-text">{new Date(violation.created_at).toLocaleString()}</p>
+            <p className="text-sm text-text">{new Date(violation.detected_at).toLocaleString()}</p>
           </div>
 
           {violation.status === 'open' && (
@@ -458,13 +496,21 @@ function ViolationModal({
   );
 }
 
+// ============================================================================
 // Compliance Check Modal
+// ============================================================================
+
 function ComplianceCheckModal({
-  apiBase,
   onClose,
+  onCheck,
 }: {
-  apiBase: string;
   onClose: () => void;
+  onCheck: (content: string) => Promise<{
+    compliant: boolean;
+    score: number;
+    issue_count: number;
+    result: unknown;
+  } | null>;
 }) {
   const [content, setContent] = useState('');
   const [checking, setChecking] = useState(false);
@@ -472,20 +518,14 @@ function ComplianceCheckModal({
     compliant: boolean;
     score: number;
     issue_count: number;
-    issues?: Array<{ description: string; severity: string; framework: string }>;
   } | null>(null);
 
   const handleCheck = async () => {
     if (!content.trim()) return;
     setChecking(true);
     try {
-      const res = await fetch(`${apiBase}/api/compliance/check`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await onCheck(content);
+      if (data) {
         setResult(data);
       }
     } catch (error) {
@@ -551,132 +591,322 @@ function ComplianceCheckModal({
   );
 }
 
+// ============================================================================
+// Policy Conflict Panel
+// ============================================================================
+
+function ConflictPanel({ conflicts }: { conflicts: PolicyConflict[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const unresolvedConflicts = useMemo(
+    () => conflicts.filter((c) => !c.resolved),
+    [conflicts],
+  );
+
+  if (unresolvedConflicts.length === 0) {
+    return (
+      <div className="card p-6 text-center">
+        <div className="text-acid-green font-mono text-lg mb-2">NO CONFLICTS</div>
+        <div className="text-text-muted font-mono text-xs">
+          PolicyConflictDetector found no contradictions between active policies.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-mono text-text-muted">
+          {unresolvedConflicts.length} unresolved conflict{unresolvedConflicts.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {unresolvedConflicts.map((conflict) => (
+        <div
+          key={conflict.id}
+          className={`card p-4 transition-colors ${expandedId === conflict.id ? 'border-acid-yellow/50' : ''}`}
+        >
+          <div
+            className="flex items-start justify-between cursor-pointer"
+            onClick={() => setExpandedId(expandedId === conflict.id ? null : conflict.id)}
+          >
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className={`text-xs font-mono uppercase px-2 py-0.5 border ${conflictTypeColors[conflict.conflict_type]}`}>
+                  {conflict.conflict_type}
+                </span>
+                <span className={`text-xs font-mono uppercase px-2 py-0.5 border ${severityColors[conflict.severity]} ${severityBgColors[conflict.severity]}`}>
+                  {conflict.severity}
+                </span>
+              </div>
+              <div className="text-sm font-mono text-text mt-1">
+                <span className="text-acid-cyan">{conflict.policy_a_name}</span>
+                <span className="text-text-muted mx-2">vs</span>
+                <span className="text-acid-cyan">{conflict.policy_b_name}</span>
+              </div>
+              <p className="text-xs text-text-muted mt-1">{conflict.description}</p>
+            </div>
+            <span className="text-text-muted font-mono text-xs ml-2">
+              {expandedId === conflict.id ? '[-]' : '[+]'}
+            </span>
+          </div>
+
+          {expandedId === conflict.id && (
+            <div className="mt-3 pt-3 border-t border-border space-y-2">
+              <div className="text-xs font-mono">
+                <span className="text-text-muted">Detected:</span>{' '}
+                <span className="text-text">{new Date(conflict.detected_at).toLocaleString()}</span>
+              </div>
+              <div className="text-xs font-mono">
+                <span className="text-text-muted">Policy A:</span>{' '}
+                <span className="text-text">{conflict.policy_a_name}</span>{' '}
+                <span className="text-text-muted">({conflict.policy_a_id})</span>
+              </div>
+              <div className="text-xs font-mono">
+                <span className="text-text-muted">Policy B:</span>{' '}
+                <span className="text-text">{conflict.policy_b_name}</span>{' '}
+                <span className="text-text-muted">({conflict.policy_b_id})</span>
+              </div>
+              {conflict.resolution_suggestion && (
+                <div className="bg-acid-green/5 border border-acid-green/20 rounded p-2 mt-2">
+                  <div className="text-xs font-mono text-acid-green mb-1">Suggested Resolution:</div>
+                  <div className="text-xs font-mono text-text">{conflict.resolution_suggestion}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================================
+// Policy Sync Status Panel
+// ============================================================================
+
+function SyncStatusPanel({ syncStatus }: { syncStatus: PolicySyncStatus | null }) {
+  if (!syncStatus) {
+    return (
+      <div className="card p-4">
+        <div className="text-xs font-mono text-text-muted text-center py-3">
+          Policy sync status unavailable.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-mono font-bold text-acid-green uppercase tracking-wide">
+          {'>'} Policy Sync Scheduler
+        </h3>
+        <div className={`flex items-center gap-2 px-3 py-1 border rounded-full ${syncStatusBg[syncStatus.status]}`}>
+          {syncStatus.status === 'syncing' && (
+            <span className="inline-block w-2 h-2 border border-acid-cyan border-t-transparent rounded-full animate-spin" />
+          )}
+          {syncStatus.status === 'synced' && (
+            <span className="w-2 h-2 bg-acid-green rounded-full" />
+          )}
+          {(syncStatus.status === 'error' || syncStatus.status === 'stale') && (
+            <span className={`w-2 h-2 rounded-full ${syncStatus.status === 'error' ? 'bg-crimson' : 'bg-acid-yellow'}`} />
+          )}
+          <span className={`text-xs font-mono ${syncStatusColors[syncStatus.status]}`}>
+            {syncStatus.status.toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <div className="text-xs font-mono text-text-muted mb-1">Scheduler</div>
+          <div className={`text-sm font-mono ${syncStatus.scheduler_running ? 'text-acid-green' : 'text-text-muted'}`}>
+            {syncStatus.scheduler_running ? 'RUNNING' : 'STOPPED'}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-mono text-text-muted mb-1">Sync Interval</div>
+          <div className="text-sm font-mono text-text">
+            {syncStatus.sync_interval_seconds}s
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-mono text-text-muted mb-1">Last Sync</div>
+          <div className="text-sm font-mono text-text">
+            {syncStatus.last_sync ? timeAgo(syncStatus.last_sync) : 'Never'}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-mono text-text-muted mb-1">Next Sync</div>
+          <div className="text-sm font-mono text-text">
+            {syncStatus.next_sync ? timeAgo(syncStatus.next_sync) : '--'}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-mono text-text-muted mb-1">Policies Synced</div>
+          <div className="text-sm font-mono text-acid-cyan">
+            {syncStatus.policies_synced}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-mono text-text-muted mb-1">Sync Errors</div>
+          <div className={`text-sm font-mono ${syncStatus.sync_errors > 0 ? 'text-crimson' : 'text-acid-green'}`}>
+            {syncStatus.sync_errors}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Main Page Component
+// ============================================================================
+
 export default function PolicyPage() {
   const { config: backendConfig } = useBackend();
   const { showToast } = useToastContext();
-  const [policies, setPolicies] = useState<Policy[]>([]);
-  const [violations, setViolations] = useState<Violation[]>([]);
-  const [stats, setStats] = useState<ComplianceStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'policies' | 'violations'>('policies');
-  const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
+
+  // Wire up the usePolicies hook for all CRUD operations
+  const {
+    policies: hookPolicies,
+    violations: hookViolations,
+    stats,
+    loading,
+    error,
+    openViolations,
+    criticalViolations,
+    riskScore,
+    createPolicy: hookCreatePolicy,
+    updatePolicy: hookUpdatePolicy,
+    deletePolicy: hookDeletePolicy,
+    togglePolicy: hookTogglePolicy,
+    updateViolationStatus: hookUpdateViolationStatus,
+    checkCompliance: hookCheckCompliance,
+    refetch,
+  } = usePolicies({ autoLoad: true });
+
+  // Cast to local types for display (hook types are compatible)
+  const policies = hookPolicies as unknown as LocalPolicy[];
+  const violations = hookViolations;
+
+  // ---- Fetch conflict detection results ----
+  const { data: conflictsData } = useSWRFetch<{ data: { conflicts: PolicyConflict[] } }>(
+    '/api/policies/conflicts',
+    { refreshInterval: 60000 },
+  );
+  const conflicts = useMemo(
+    () => (conflictsData?.data?.conflicts ?? []) as PolicyConflict[],
+    [conflictsData],
+  );
+  const unresolvedConflicts = useMemo(
+    () => conflicts.filter((c) => !c.resolved),
+    [conflicts],
+  );
+
+  // ---- Fetch sync status ----
+  const { data: syncData } = useSWRFetch<{ data: PolicySyncStatus }>(
+    '/api/policies/sync/status',
+    { refreshInterval: 30000 },
+  );
+  const syncStatus = (syncData?.data ?? null) as PolicySyncStatus | null;
+
+  // ---- UI state ----
+  const [activeTab, setActiveTab] = useState<'policies' | 'violations' | 'conflicts' | 'sync'>('policies');
+  const [selectedPolicy, setSelectedPolicy] = useState<LocalPolicy | null>(null);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
-  const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null);
+  const [editingPolicy, setEditingPolicy] = useState<LocalPolicy | null>(null);
   const [selectedViolation, setSelectedViolation] = useState<Violation | null>(null);
   const [showComplianceCheck, setShowComplianceCheck] = useState(false);
   const [violationFilter, setViolationFilter] = useState<'all' | 'open' | 'resolved'>('all');
   const [severityFilter, setSeverityFilter] = useState<'all' | 'critical' | 'high' | 'medium' | 'low'>('all');
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [policiesRes, violationsRes, statsRes] = await Promise.all([
-        fetch(`${backendConfig.api}/api/policies`),
-        fetch(`${backendConfig.api}/api/compliance/violations?limit=100`),
-        fetch(`${backendConfig.api}/api/compliance/stats`),
-      ]);
-
-      if (policiesRes.ok) {
-        const data = await policiesRes.json();
-        setPolicies(data.policies || []);
-      }
-
-      if (violationsRes.ok) {
-        const data = await violationsRes.json();
-        setViolations(data.violations || []);
-      }
-
-      if (statsRes.ok) {
-        const data = await statsRes.json();
-        setStats(data);
-      }
-
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch policy data');
-    } finally {
-      setLoading(false);
-    }
-  }, [backendConfig.api]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const handleCreatePolicy = async (data: Partial<Policy>) => {
-    const res = await fetch(`${backendConfig.api}/api/policies`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+  // ---- Handlers (wire to hook) ----
+  const handleCreatePolicy = useCallback(async (data: Partial<LocalPolicy>) => {
+    const result = await hookCreatePolicy({
+      name: data.name || '',
+      framework_id: data.framework_id || 'default',
+      vertical_id: data.vertical_id || 'general',
+      description: data.description,
+      level: 'recommended',
+      enabled: true,
+      rules: data.rules?.map((r) => ({
+        rule_id: r.id,
+        name: r.message,
+        description: r.message,
+        severity: (data.severity as 'critical' | 'high' | 'medium' | 'low') || 'medium',
+        enabled: true,
+      })),
     });
-    if (res.ok) {
+    if (result) {
       showToast('Policy created successfully', 'success');
-      fetchData();
     } else {
       showToast('Failed to create policy', 'error');
     }
-  };
+  }, [hookCreatePolicy, showToast]);
 
-  const handleUpdatePolicy = async (policyId: string, data: Partial<Policy>) => {
-    const res = await fetch(`${backendConfig.api}/api/policies/${policyId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+  const handleUpdatePolicy = useCallback(async (policyId: string, data: Partial<LocalPolicy>) => {
+    const result = await hookUpdatePolicy(policyId, {
+      name: data.name,
+      description: data.description,
+      level: data.level as 'mandatory' | 'recommended' | 'optional' | undefined,
+      enabled: data.enabled,
+      rules: data.rules?.map((r) => ({
+        rule_id: r.id,
+        name: r.message,
+        description: r.message,
+        severity: (data.severity as 'critical' | 'high' | 'medium' | 'low') || 'medium',
+        enabled: true,
+      })),
     });
-    if (res.ok) {
+    if (result) {
       showToast('Policy updated successfully', 'success');
-      fetchData();
     } else {
       showToast('Failed to update policy', 'error');
     }
-  };
+  }, [hookUpdatePolicy, showToast]);
 
-  const handleDeletePolicy = async (policyId: string) => {
+  const handleDeletePolicy = useCallback(async (policyId: string) => {
     if (!confirm('Are you sure you want to delete this policy?')) return;
-    const res = await fetch(`${backendConfig.api}/api/policies/${policyId}`, {
-      method: 'DELETE',
-    });
-    if (res.ok) {
+    const success = await hookDeletePolicy(policyId);
+    if (success) {
       showToast('Policy deleted successfully', 'success');
-      fetchData();
     } else {
       showToast('Failed to delete policy', 'error');
     }
-  };
+  }, [hookDeletePolicy, showToast]);
 
-  const handleTogglePolicy = async (policyId: string) => {
-    const res = await fetch(`${backendConfig.api}/api/policies/${policyId}/toggle`, {
-      method: 'POST',
-    });
-    if (res.ok) {
-      fetchData();
-    }
-  };
+  const handleTogglePolicy = useCallback(async (policyId: string) => {
+    await hookTogglePolicy(policyId);
+  }, [hookTogglePolicy]);
 
-  const handleUpdateViolation = async (violationId: string, status: string, notes?: string) => {
-    const res = await fetch(`${backendConfig.api}/api/compliance/violations/${violationId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, resolution_notes: notes }),
-    });
-    if (res.ok) {
+  const handleUpdateViolation = useCallback(async (violationId: string, status: Violation['status'], notes?: string) => {
+    const result = await hookUpdateViolationStatus(violationId, status, notes);
+    if (result) {
       showToast('Violation updated successfully', 'success');
-      fetchData();
     } else {
       showToast('Failed to update violation', 'error');
     }
-  };
+  }, [hookUpdateViolationStatus, showToast]);
 
-  // Filter violations
-  const filteredViolations = violations.filter((v) => {
-    if (violationFilter !== 'all' && v.status !== violationFilter && (violationFilter !== 'resolved' || v.status !== 'false_positive')) {
-      return false;
-    }
-    if (severityFilter !== 'all' && v.severity !== severityFilter) {
-      return false;
-    }
-    return true;
-  });
+  const handleComplianceCheck = useCallback(async (content: string) => {
+    return await hookCheckCompliance(content, { store_violations: true });
+  }, [hookCheckCompliance]);
+
+  // ---- Filter violations ----
+  const filteredViolations = useMemo(() => {
+    return violations.filter((v) => {
+      if (violationFilter !== 'all' && v.status !== violationFilter && (violationFilter !== 'resolved' || v.status !== 'false_positive')) {
+        return false;
+      }
+      if (severityFilter !== 'all' && v.severity !== severityFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [violations, violationFilter, severityFilter]);
 
   return (
     <>
@@ -689,7 +919,9 @@ export default function PolicyPage() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-2xl font-mono font-bold text-acid-green mb-2">[POLICY_ADMIN]</h1>
-              <p className="text-text-muted font-mono text-sm">Compliance policies and violation tracking</p>
+              <p className="text-text-muted font-mono text-sm">
+                Compliance policies, conflict detection, and violation tracking
+              </p>
             </div>
             <div className="flex gap-2">
               <button
@@ -710,7 +942,7 @@ export default function PolicyPage() {
             </div>
           </div>
 
-          {error && <ErrorWithRetry error={error} onRetry={fetchData} className="mb-6" />}
+          {error && <ErrorWithRetry error={error} onRetry={refetch} className="mb-6" />}
 
           {loading ? (
             <div className="text-center py-12">
@@ -720,10 +952,10 @@ export default function PolicyPage() {
             <>
               {/* Stats Cards */}
               {stats && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
                   <div className="card p-4 text-center">
-                    <div className={`text-3xl font-mono ${stats.risk_score < 25 ? 'text-acid-green' : stats.risk_score < 50 ? 'text-acid-yellow' : stats.risk_score < 75 ? 'text-warning' : 'text-crimson'}`}>
-                      {100 - stats.risk_score}%
+                    <div className={`text-3xl font-mono ${riskScore < 25 ? 'text-acid-green' : riskScore < 50 ? 'text-acid-yellow' : riskScore < 75 ? 'text-warning' : 'text-crimson'}`}>
+                      {100 - riskScore}%
                     </div>
                     <div className="text-xs font-mono text-text-muted">Compliance Score</div>
                   </div>
@@ -734,16 +966,24 @@ export default function PolicyPage() {
                     <div className="text-xs font-mono text-text-muted">Active Policies</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className="text-3xl font-mono text-crimson">{stats.violations.open}</div>
+                    <div className="text-3xl font-mono text-crimson">{openViolations.length}</div>
                     <div className="text-xs font-mono text-text-muted">Open Violations</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className="text-3xl font-mono text-warning">{stats.violations.by_severity.critical + stats.violations.by_severity.high}</div>
-                    <div className="text-xs font-mono text-text-muted">Critical/High</div>
+                    <div className="text-3xl font-mono text-warning">{criticalViolations.length}</div>
+                    <div className="text-xs font-mono text-text-muted">Critical</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className="text-3xl font-mono text-acid-cyan">{stats.violations.total - stats.violations.open}</div>
-                    <div className="text-xs font-mono text-text-muted">Resolved</div>
+                    <div className={`text-3xl font-mono ${unresolvedConflicts.length > 0 ? 'text-acid-yellow' : 'text-acid-green'}`}>
+                      {unresolvedConflicts.length}
+                    </div>
+                    <div className="text-xs font-mono text-text-muted">Conflicts</div>
+                  </div>
+                  <div className="card p-4 text-center">
+                    <div className={`text-3xl font-mono ${syncStatusColors[syncStatus?.status ?? 'disabled']}`}>
+                      {syncStatus?.status === 'synced' ? 'OK' : syncStatus?.status === 'syncing' ? '...' : syncStatus?.status?.toUpperCase() ?? '--'}
+                    </div>
+                    <div className="text-xs font-mono text-text-muted">Sync Status</div>
                   </div>
                 </div>
               )}
@@ -768,7 +1008,27 @@ export default function PolicyPage() {
                       : 'border-transparent text-text-muted hover:text-text'
                   }`}
                 >
-                  VIOLATIONS ({violations.filter((v) => v.status === 'open').length} open)
+                  VIOLATIONS ({openViolations.length} open)
+                </button>
+                <button
+                  onClick={() => setActiveTab('conflicts')}
+                  className={`px-4 py-2 font-mono text-sm border-b-2 transition-colors ${
+                    activeTab === 'conflicts'
+                      ? 'border-acid-yellow text-acid-yellow'
+                      : 'border-transparent text-text-muted hover:text-text'
+                  }`}
+                >
+                  CONFLICTS ({unresolvedConflicts.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('sync')}
+                  className={`px-4 py-2 font-mono text-sm border-b-2 transition-colors ${
+                    activeTab === 'sync'
+                      ? 'border-acid-cyan text-acid-cyan'
+                      : 'border-transparent text-text-muted hover:text-text'
+                  }`}
+                >
+                  SYNC
                 </button>
               </div>
 
@@ -790,21 +1050,34 @@ export default function PolicyPage() {
                             className="flex items-start gap-3 flex-1 cursor-pointer"
                             onClick={() => setSelectedPolicy(selectedPolicy?.id === policy.id ? null : policy)}
                           >
-                            <span className="text-acid-green font-mono text-lg">{typeIcons[policy.type] || '#'}</span>
+                            <span className="text-acid-green font-mono text-lg">{typeIcons[policy.type || 'content'] || '#'}</span>
                             <div className="flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <h3 className="font-mono font-bold text-text">{policy.name}</h3>
-                                <span className={`text-xs font-mono uppercase px-2 py-0.5 border ${severityColors[policy.severity]} ${severityBgColors[policy.severity]}`}>
-                                  {policy.severity}
+                                {policy.level && (
+                                  <span className={`text-xs font-mono uppercase px-2 py-0.5 border ${
+                                    policy.level === 'mandatory' ? 'text-crimson border-crimson/30 bg-crimson/10'
+                                    : policy.level === 'recommended' ? 'text-acid-yellow border-acid-yellow/30 bg-acid-yellow/10'
+                                    : 'text-text-muted border-text-muted/30 bg-text-muted/10'
+                                  }`}>
+                                    {policy.level}
+                                  </span>
+                                )}
+                                <span className="text-xs font-mono text-text-muted">
+                                  [{policy.rules_count ?? policy.rules?.length ?? 0} rules]
                                 </span>
-                                <span className="text-xs font-mono text-text-muted">[{policy.type}]</span>
                               </div>
                               <p className="text-sm text-text-muted mt-1">{policy.description}</p>
-                              {policy.violation_count !== undefined && policy.violation_count > 0 && (
-                                <span className="text-xs text-crimson font-mono mt-2 inline-block">
-                                  {policy.violation_count} violation{policy.violation_count !== 1 ? 's' : ''}
-                                </span>
-                              )}
+                              <div className="flex items-center gap-3 mt-1">
+                                {policy.framework_id && (
+                                  <span className="text-xs font-mono text-acid-cyan">{policy.framework_id}</span>
+                                )}
+                                {policy.updated_at && (
+                                  <span className="text-xs font-mono text-text-muted">
+                                    Updated {timeAgo(policy.updated_at)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -844,7 +1117,8 @@ export default function PolicyPage() {
                               <div className="space-y-2">
                                 {policy.rules.map((rule) => (
                                   <div key={rule.id} className="bg-bg p-2 rounded text-sm font-mono">
-                                    <span className={`${actionColors[rule.action]}`}>[{rule.action.toUpperCase()}]</span> {rule.message}
+                                    <span className={`${actionColors[rule.action] || 'text-text-muted'}`}>[{rule.action?.toUpperCase?.() || 'RULE'}]</span>{' '}
+                                    {rule.message}
                                     {rule.pattern && <span className="text-text-muted ml-2">/{rule.pattern}/</span>}
                                   </div>
                                 ))}
@@ -854,6 +1128,7 @@ export default function PolicyPage() {
                             )}
                             <div className="mt-3 text-xs text-text-muted font-mono">
                               Framework: {policy.framework_id || 'default'} | Vertical: {policy.vertical_id || 'general'}
+                              {policy.workspace_id && ` | Workspace: ${policy.workspace_id}`}
                             </div>
                           </div>
                         )}
@@ -915,7 +1190,7 @@ export default function PolicyPage() {
                           <thead>
                             <tr className="border-b border-border">
                               <th className="text-left py-3 px-4 text-text-muted">Policy</th>
-                              <th className="text-left py-3 px-4 text-text-muted">Content</th>
+                              <th className="text-left py-3 px-4 text-text-muted">Description</th>
                               <th className="text-left py-3 px-4 text-text-muted">Severity</th>
                               <th className="text-left py-3 px-4 text-text-muted">Status</th>
                               <th className="text-left py-3 px-4 text-text-muted">Date</th>
@@ -925,8 +1200,8 @@ export default function PolicyPage() {
                           <tbody>
                             {filteredViolations.map((violation) => (
                               <tr key={violation.id} className="border-b border-border/50 hover:bg-surface/50">
-                                <td className="py-3 px-4">{violation.policy_name || violation.policy_id}</td>
-                                <td className="py-3 px-4 text-text-muted max-w-[200px] truncate">{violation.content_snippet}</td>
+                                <td className="py-3 px-4">{violation.rule_name || violation.policy_id}</td>
+                                <td className="py-3 px-4 text-text-muted max-w-[200px] truncate">{violation.description}</td>
                                 <td className="py-3 px-4">
                                   <span className={`text-xs font-mono px-2 py-0.5 border ${severityColors[violation.severity]}`}>
                                     {violation.severity.toUpperCase()}
@@ -937,7 +1212,7 @@ export default function PolicyPage() {
                                     {violation.status.toUpperCase()}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-text-muted">{new Date(violation.created_at).toLocaleDateString()}</td>
+                                <td className="py-3 px-4 text-text-muted">{new Date(violation.detected_at).toLocaleDateString()}</td>
                                 <td className="py-3 px-4">
                                   <button
                                     onClick={() => setSelectedViolation(violation)}
@@ -953,6 +1228,30 @@ export default function PolicyPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* Conflicts Tab */}
+              {activeTab === 'conflicts' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-mono text-text-muted">
+                      PolicyConflictDetector analyzes active policies for contradictions, overlaps, and redundancies.
+                    </p>
+                  </div>
+                  <ConflictPanel conflicts={conflicts} />
+                </div>
+              )}
+
+              {/* Sync Tab */}
+              {activeTab === 'sync' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-mono text-text-muted">
+                      PolicySyncScheduler continuously synchronizes policies across distributed nodes.
+                    </p>
+                  </div>
+                  <SyncStatusPanel syncStatus={syncStatus} />
                 </div>
               )}
             </>
@@ -987,8 +1286,8 @@ export default function PolicyPage() {
 
         {showComplianceCheck && (
           <ComplianceCheckModal
-            apiBase={backendConfig.api}
             onClose={() => setShowComplianceCheck(false)}
+            onCheck={handleComplianceCheck}
           />
         )}
       </main>
