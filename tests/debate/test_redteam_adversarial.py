@@ -648,7 +648,7 @@ class TestProtocolGaming:
         )
         arena._run_inner = AsyncMock(return_value=mock_result)
 
-        result = asyncio.get_event_loop().run_until_complete(arena.run())
+        result = asyncio.run(arena.run())
 
         assert isinstance(result, DebateResult)
         assert result.consensus_reached is True
@@ -711,7 +711,7 @@ class TestProtocolGaming:
 
         arena._run_inner = slow_inner
 
-        result = asyncio.get_event_loop().run_until_complete(arena.run())
+        result = asyncio.run(arena.run())
 
         # Should get a partial/timeout result, not an exception
         assert isinstance(result, DebateResult)
@@ -752,7 +752,7 @@ class TestProtocolGaming:
         )
         arena._run_inner = AsyncMock(return_value=mock_result)
 
-        result = asyncio.get_event_loop().run_until_complete(arena.run())
+        result = asyncio.run(arena.run())
 
         assert isinstance(result, DebateResult)
         # Debate should complete despite the exploding agent
@@ -848,7 +848,7 @@ class TestManipulationResistance:
         ]
 
         # Get the injector's proposal -- verify it contains injection payload
-        proposal = asyncio.get_event_loop().run_until_complete(
+        proposal = asyncio.run(
             injector.generate("Design a rate limiter")
         )
         assert "SYSTEM OVERRIDE" in proposal
@@ -862,7 +862,7 @@ class TestManipulationResistance:
 
         votes = []
         for agent in honest_agents:
-            vote = asyncio.get_event_loop().run_until_complete(
+            vote = asyncio.run(
                 agent.vote(proposals, "Design a rate limiter")
             )
             votes.append(vote)
@@ -920,7 +920,7 @@ class TestEpistemicIntegrity:
         # Collect all proposals
         proposals = {}
         for agent in agents:
-            response = asyncio.get_event_loop().run_until_complete(
+            response = asyncio.run(
                 agent.generate("Design a rate limiter")
             )
             proposals[agent.name] = response
@@ -935,7 +935,7 @@ class TestEpistemicIntegrity:
         critiques = []
         for i, agent in enumerate(agents):
             target = agents[(i + 1) % len(agents)]
-            critique = asyncio.get_event_loop().run_until_complete(
+            critique = asyncio.run(
                 agent.critique(
                     proposals[target.name],
                     "Design a rate limiter",
@@ -991,7 +991,7 @@ class TestEpistemicIntegrity:
         )
         arena._run_inner = AsyncMock(return_value=mock_result)
 
-        result = asyncio.get_event_loop().run_until_complete(arena.run())
+        result = asyncio.run(arena.run())
 
         assert isinstance(result, DebateResult)
         assert result.rounds_used == 0
@@ -1021,7 +1021,7 @@ class TestEpistemicIntegrity:
                 participants=["solo"],
             )
             arena._run_inner = AsyncMock(return_value=mock_result)
-            result = asyncio.get_event_loop().run_until_complete(arena.run())
+            result = asyncio.run(arena.run())
             assert isinstance(result, DebateResult)
         except (ValueError, TypeError):
             # If Arena rejects 1 agent, that is also acceptable behavior
