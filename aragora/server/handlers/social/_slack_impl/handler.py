@@ -66,6 +66,10 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
         "/api/v1/integrations/slack/interactive",
         "/api/v1/integrations/slack/events",
         "/api/v1/integrations/slack/status",
+        "/api/v1/bots/slack/commands",
+        "/api/v1/bots/slack/interactive",
+        "/api/v1/bots/slack/events",
+        "/api/v1/bots/slack/status",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -77,8 +81,9 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
     ) -> HandlerResult | None:
         """Route Slack requests to appropriate methods."""
         logger.debug("Slack request: %s", path)
+        normalized_path = path.replace("/api/v1/bots/slack/", "/api/v1/integrations/slack/")
 
-        if path == "/api/v1/integrations/slack/status":
+        if normalized_path == "/api/v1/integrations/slack/status":
             # RBAC: Require authentication and bots.read permission
             try:
                 auth_context = await self.get_auth_context(handler, require_auth=True)
@@ -140,11 +145,11 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
         handler._slack_body = body
         handler._slack_team_id = team_id
 
-        if path == "/api/v1/integrations/slack/commands":
+        if normalized_path == "/api/v1/integrations/slack/commands":
             return self._handle_slash_command(handler)
-        elif path == "/api/v1/integrations/slack/interactive":
+        elif normalized_path == "/api/v1/integrations/slack/interactive":
             return self._handle_interactive(handler)
-        elif path == "/api/v1/integrations/slack/events":
+        elif normalized_path == "/api/v1/integrations/slack/events":
             return self._handle_events(handler)
 
         return error_response("Not found", 404)

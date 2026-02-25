@@ -113,6 +113,8 @@ class KMCheckpointHandler(BaseHandler):
         "/api/v1/km/checkpoints",
         "/api/v1/km/checkpoints/compare",
     ]
+    # Uppercase aliases for route validators that introspect ROUTES attributes.
+    ROUTES = routes
 
     # Dynamic routes handled via pattern matching in handle_*
     dynamic_routes = [
@@ -121,6 +123,7 @@ class KMCheckpointHandler(BaseHandler):
         "/api/v1/km/checkpoints/{name}/compare",
         "/api/v1/km/checkpoints/{name}/download",
     ]
+    DYNAMIC_ROUTES = dynamic_routes
 
     def __init__(self, server_context: dict[str, Any] | None = None):
         # Default to empty dict if None, then cast for BaseHandler

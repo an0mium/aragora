@@ -99,6 +99,15 @@ class CoordinationHandler(BaseHandler):
     """Handler for cross-workspace coordination API endpoints."""
 
     PREFIX = "/api/v1/coordination"
+    ROUTES = [
+        "/api/v1/coordination/workspaces",
+        "/api/v1/coordination/federation",
+        "/api/v1/coordination/execute",
+        "/api/v1/coordination/executions",
+        "/api/v1/coordination/consent",
+        "/api/v1/coordination/stats",
+        "/api/v1/coordination/health",
+    ]
 
     def __init__(self, ctx: dict[str, Any] | None = None):
         """Initialize handler with optional context."""
