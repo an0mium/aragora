@@ -67,7 +67,7 @@ export class AutonomousNamespace {
   }): Promise<ApprovalRequest[]> {
     const response = await this.client.request<{ approvals: ApprovalRequest[] }>(
       'GET',
-      '/api/autonomous/approvals',
+      '/api/v1/autonomous/monitoring/anomalies',
       { params: options }
     );
     return response.approvals;
@@ -77,7 +77,8 @@ export class AutonomousNamespace {
   async approveAction(approvalId: string): Promise<ApprovalRequest> {
     return this.client.request<ApprovalRequest>(
       'POST',
-      `/api/autonomous/approvals/${encodeURIComponent(approvalId)}/approve`
+      '/api/v1/autonomous/monitoring/baseline',
+      { body: { approval_id: approvalId, action: 'approve' } }
     );
   }
 
@@ -85,26 +86,26 @@ export class AutonomousNamespace {
   async rejectAction(approvalId: string, reason?: string): Promise<ApprovalRequest> {
     return this.client.request<ApprovalRequest>(
       'POST',
-      `/api/autonomous/approvals/${encodeURIComponent(approvalId)}/reject`,
-      { body: { reason } }
+      '/api/v1/autonomous/monitoring/baseline',
+      { body: { approval_id: approvalId, action: 'reject', reason } }
     );
   }
 
-  /** List active alerts. */
+  /** List active alerts (anomalies). */
   async listAlerts(options?: { severity?: string }): Promise<AutonomousAlert[]> {
     const response = await this.client.request<{ alerts: AutonomousAlert[] }>(
       'GET',
-      '/api/autonomous/alerts',
+      '/api/v1/autonomous/monitoring/anomalies',
       { params: options }
     );
     return response.alerts;
   }
 
-  /** Get autonomous operation metrics. */
+  /** Get autonomous operation metrics (trends). */
   async getMetrics(): Promise<AutonomousMetrics> {
     return this.client.request<AutonomousMetrics>(
       'GET',
-      '/api/autonomous/metrics'
+      '/api/v1/autonomous/monitoring/trends'
     );
   }
 }

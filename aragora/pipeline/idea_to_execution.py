@@ -1858,6 +1858,18 @@ class IdeaToExecutionPipeline:
 
             completed = sum(1 for r in results if r["status"] == "completed")
             total = len(results)
+
+            # Finalize convoy lifecycle if beads were used
+            if bead_manager and completed > 0:
+                try:
+                    ws_mgr = bead_manager["ws_mgr"]  # type: ignore[assignment]
+                    convoy_id = bead_manager["convoy"].id if hasattr(bead_manager["convoy"], "id") else str(bead_manager["convoy"])
+                    merge_result = {"completed": completed, "failed": total - completed}
+                    await ws_mgr.complete_convoy(convoy_id, merge_result)
+                    logger.info("convoy_completed convoy_id=%s tasks=%d", convoy_id, completed)
+                except (AttributeError, KeyError, TypeError, RuntimeError):
+                    pass
+
             orch_result: dict[str, Any] = {
                 "status": "executed",
                 "tasks_completed": completed,

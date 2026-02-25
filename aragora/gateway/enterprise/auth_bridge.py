@@ -1199,7 +1199,7 @@ class AuthBridge:
 
             result = TokenExchangeResult(
                 access_token=access_token,
-                token_type="Bearer",
+                token_type="Bearer",  # noqa: S106 - OAuth token_type field, not a password
                 expires_in=token_lifetime,
                 scope=final_scope,
                 audience=target_audience,
