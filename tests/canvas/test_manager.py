@@ -759,6 +759,26 @@ class TestActions:
         assert len(debates) == 1
 
     @pytest.mark.asyncio
+    async def test_execute_start_debate_timeout_is_bounded(self, manager_with_canvas):
+        """start_debate should fail fast when execution exceeds timeout_seconds."""
+        manager = manager_with_canvas
+
+        async def _slow_run(*_args, **_kwargs):
+            await asyncio.sleep(0.2)
+            return MagicMock()
+
+        with patch("aragora.debate.orchestrator.Arena.run", new=AsyncMock(side_effect=_slow_run)):
+            result = await manager.execute_action(
+                canvas_id="test-canvas",
+                action="start_debate",
+                params={"question": "Should we use AI?", "timeout_seconds": 0.01},
+            )
+
+        assert result["success"] is False
+        assert result["status"] == "timeout"
+        assert "debate_node_id" in result
+
+    @pytest.mark.asyncio
     async def test_execute_start_debate_no_question(self, manager_with_canvas):
         """Test start_debate without question fails."""
         manager = manager_with_canvas

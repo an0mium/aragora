@@ -634,7 +634,18 @@ class CanvasStateManager:
             agents = await self._get_debate_agents(params.get("agents"))
 
             arena = Arena(env, agents, protocol)
-            result = await arena.run()
+            # Optional timeout for callers (especially CI/E2E) that need bounded latency.
+            timeout_raw = params.get("timeout_seconds")
+            if timeout_raw is None:
+                result = await arena.run()
+            else:
+                try:
+                    debate_timeout_seconds = float(timeout_raw)
+                except (TypeError, ValueError):
+                    debate_timeout_seconds = 45.0
+                if debate_timeout_seconds <= 0:
+                    debate_timeout_seconds = 45.0
+                result = await asyncio.wait_for(arena.run(), timeout=debate_timeout_seconds)
 
             # Update node with results
             debate_node.data["status"] = "completed"
@@ -662,6 +673,26 @@ class CanvasStateManager:
                 "result": debate_node.data["result"],
             }
 
+        except asyncio.TimeoutError:
+            logger.warning("Debate execution timed out")
+            debate_node.data["status"] = "timeout"
+            debate_node.data["error"] = "Debate execution timed out"
+            await self._broadcast(
+                canvas.id,
+                CanvasEvent(
+                    event_type=CanvasEventType.ERROR,
+                    canvas_id=canvas.id,
+                    node_id=debate_node.id,
+                    data={"error": "Debate execution timed out"},
+                ),
+            )
+            return {
+                "success": False,
+                "action": "start_debate",
+                "debate_node_id": debate_node.id,
+                "status": "timeout",
+                "message": "Debate execution timed out",
+            }
         except ImportError as e:
             logger.warning("Debate modules not available: %s", e)
             debate_node.data["status"] = "error"
