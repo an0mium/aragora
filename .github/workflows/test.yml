@@ -478,6 +478,30 @@ jobs:
             /tmp/epistemic-gate-artifacts/epistemic-compliance-summary.md
           retention-days: 14
 
+  v1-scope-lock-gate:
+    name: V1 Scope Lock Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: baseline-determinism
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Enforce V1 scope lock
+        run: |
+          python scripts/check_v1_scope_lock.py \
+            --base "origin/${{ github.base_ref }}" \
+            --head "${{ github.sha }}"
+
   # Integration smoke lane for high-risk paths (PR only)
   integration-minimal:
     name: Integration Minimal
@@ -1384,7 +1408,7 @@ jobs:
     name: Quality Gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [test-fast, test-summary, epistemic-settlement-gate]
+    needs: [test-fast, test-summary, epistemic-settlement-gate, v1-scope-lock-gate]
 
     steps:
       - name: Checkout

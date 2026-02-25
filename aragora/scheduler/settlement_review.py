@@ -18,6 +18,7 @@ from collections.abc import Callable
 
 if TYPE_CHECKING:
     from aragora.storage.receipt_store import ReceiptStore
+    from aragora.scheduler.settlement_resolvers import SettlementResolverRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +224,7 @@ class SettlementReviewScheduler:
         self._running = False
         self._stats = SettlementReviewStats()
         self._calibration_tracker: Any | None = None
+        self._resolver_registry: SettlementResolverRegistry | None = None
 
     @property
     def is_running(self) -> bool:
@@ -329,6 +331,13 @@ class SettlementReviewScheduler:
             self._calibration_tracker = CalibrationTracker()
         return self._calibration_tracker
 
+    def _get_resolver_registry(self):
+        if self._resolver_registry is None:
+            from aragora.scheduler.settlement_resolvers import get_settlement_resolver_registry
+
+            self._resolver_registry = get_settlement_resolver_registry()
+        return self._resolver_registry
+
     def _review_due_receipts_sync(self) -> tuple[int, int, int, int, int]:
         now = datetime.now(timezone.utc)
         scanned = 0
@@ -368,12 +377,40 @@ class SettlementReviewScheduler:
                 settlement["last_reviewed_at"] = now.isoformat()
 
                 prior_status = str(settlement.get("status") or "").strip().lower()
+                resolver_type = _normalize_resolver_type(
+                    settlement.get("resolver_type")
+                    or settlement.get("resolution_tier")
+                    or settlement.get("verification_mode")
+                )
+                if resolver_type is not None:
+                    settlement["resolver_type"] = resolver_type
                 outcome = _resolve_settlement_outcome(settlement)
+                if outcome is None and resolver_type is not None:
+                    decision = self._get_resolver_registry().resolve(
+                        resolver_type,
+                        receipt_data=data,
+                        settlement=settlement,
+                        now=now,
+                    )
+                    settlement["last_resolution_attempt"] = decision.to_dict()
+                    if decision.resolved and decision.outcome is not None:
+                        outcome = bool(decision.outcome)
+                        settlement["outcome"] = outcome
+                        settlement["resolved_outcome"] = outcome
+                        settlement["resolved_by"] = decision.resolver_id
+                        settlement["resolution_evidence"] = decision.evidence
 
                 if outcome is None:
                     unresolved_due += 1
                     if not _is_terminal_status(prior_status):
-                        settlement["status"] = "pending_outcome"
+                        if resolver_type == "human":
+                            settlement["status"] = "pending_human_adjudication"
+                        elif resolver_type == "deterministic":
+                            settlement["status"] = "pending_deterministic"
+                        elif resolver_type == "oracle":
+                            settlement["status"] = "pending_oracle"
+                        else:
+                            settlement["status"] = "pending_outcome"
                     horizon_days = _coerce_positive_int(
                         settlement.get("review_horizon_days"), default=30
                     )
@@ -384,13 +421,6 @@ class SettlementReviewScheduler:
                     settlement["next_review_at"] = None
                     if not settlement.get("calibration_recorded_at"):
                         mode = str(data.get("mode") or "").strip().lower()
-                        resolver_type = _normalize_resolver_type(
-                            settlement.get("resolver_type")
-                            or settlement.get("resolution_tier")
-                            or settlement.get("verification_mode")
-                        )
-                        if resolver_type is not None:
-                            settlement["resolver_type"] = resolver_type
 
                         if mode != _EPISTEMIC_HYGIENE_MODE:
                             settlement["calibration_recorded_at"] = now.isoformat()
