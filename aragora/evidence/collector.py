@@ -733,7 +733,7 @@ class EvidenceCollector:
                 return False
 
             # Block localhost variants
-            if hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+            if hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):  # noqa: S104 - SSRF blocklist, not a bind address
                 logger.debug("SSRF: Blocked localhost: %s", hostname)
                 return False
 

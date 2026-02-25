@@ -867,7 +867,7 @@ class DeploymentValidator:
             metadata["origins_count"] = len(origins_list)
 
             # Check for localhost in production
-            localhost_patterns = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
+            localhost_patterns = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]  # noqa: S104 - validation checklist, not a bind address
             has_localhost = any(
                 any(pattern in origin.lower() for pattern in localhost_patterns)
                 for origin in origins_list
