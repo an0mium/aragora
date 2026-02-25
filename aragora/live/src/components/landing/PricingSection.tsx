@@ -256,6 +256,7 @@ function ComparisonTable({ loadingTier, onCheckout }: { loadingTier: string | nu
                 <tr key={f.label} className="border-b border-border/20 hover:bg-surface/40 transition-colors">
                   <td className="py-2 px-3 text-text-muted">{f.label}</td>
                   <td className={`py-2 px-3 text-center ${cellColor(f.free)}`}>{f.free}</td>
+                  <td className={`py-2 px-3 text-center ${cellColor(f.starter)}`}>{f.starter}</td>
                   <td className={`py-2 px-3 text-center ${cellColor(f.pro)}`}>{f.pro}</td>
                   <td className={`py-2 px-3 text-center ${cellColor(f.enterprise)}`}>{f.enterprise}</td>
                 </tr>
