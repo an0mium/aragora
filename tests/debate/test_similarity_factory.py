@@ -209,6 +209,9 @@ class TestBackendFunctionality:
         SimilarityFactory._registry.clear()
         SimilarityFactory._initialized = False
         yield
+        # Always reset to uninitialised so _ensure_initialized re-registers
+        SimilarityFactory._registry.clear()
+        SimilarityFactory._initialized = False
 
     def test_jaccard_compute_similarity(self):
         """Test jaccard backend computes similarity."""
@@ -258,6 +261,9 @@ class TestFactoryExtensibility:
         SimilarityFactory._registry.clear()
         SimilarityFactory._initialized = False
         yield
+        # Always reset to uninitialised so _ensure_initialized re-registers
+        SimilarityFactory._registry.clear()
+        SimilarityFactory._initialized = False
 
     def test_register_and_use_custom_backend(self):
         """Test registering and using a custom backend."""
