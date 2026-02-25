@@ -75,7 +75,7 @@ class BotErrorCode(str, Enum):
 
     # Authentication / Authorization
     INVALID_SIGNATURE = "INVALID_SIGNATURE"
-    INVALID_TOKEN = "INVALID_TOKEN"
+    INVALID_TOKEN = "INVALID_TOKEN"  # noqa: S105 -- error code
     AUTH_REQUIRED = "AUTH_REQUIRED"
     PERMISSION_DENIED = "PERMISSION_DENIED"
 
