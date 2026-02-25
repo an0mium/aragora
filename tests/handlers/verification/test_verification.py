@@ -231,7 +231,9 @@ class TestCanHandle:
 
         assert "/api/v1/verification/status" in VerificationHandler.ROUTES
         assert "/api/v1/verification/formal-verify" in VerificationHandler.ROUTES
-        assert len(VerificationHandler.ROUTES) == 2
+        assert "/api/v1/verification/proofs" in VerificationHandler.ROUTES
+        assert "/api/v1/verification/validate" in VerificationHandler.ROUTES
+        assert len(VerificationHandler.ROUTES) == 4
 
 
 # =============================================================================
