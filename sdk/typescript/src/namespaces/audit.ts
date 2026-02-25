@@ -334,7 +334,7 @@ export class AuditAPI {
 
     return this.client.request<AuditStats>(
       'GET',
-      '/api/audit/stats',
+      '/api/v1/audit/report',
       { params }
     );
   }
@@ -390,7 +390,7 @@ export class AuditAPI {
 
     return this.client.request<ComplianceReport>(
       'GET',
-      '/api/audit/compliance/report',
+      '/api/v1/audit/report',
       { params }
     );
   }
@@ -426,7 +426,7 @@ export class AuditAPI {
 
     return this.client.request<ActorActivity>(
       'GET',
-      '/api/audit/actors/activity',
+      `/api/v1/audit/actor/${encodeURIComponent(actorId)}/history`,
       { params }
     );
   }

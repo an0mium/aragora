@@ -32,7 +32,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run Aragora staging server")
     parser.add_argument(
         "--host",
-        default="0.0.0.0",
+        default="0.0.0.0",  # noqa: S104 - staging server binds all interfaces
         help="Host to bind to (default: 0.0.0.0)",
     )
     parser.add_argument(
