@@ -229,7 +229,7 @@ class TwitterIngestor(PulseIngestor):
             logger.info("[twitter] No API key configured (X API requires paid subscription)")
             return []  # Return empty, not mock data
 
-        async def _fetch():
+        async def _fetch() -> list[TrendingTopic]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 # Get trending topics for a location (WOEID 1 = worldwide)
                 url = f"{self.base_url}/trends/place.json"
@@ -299,7 +299,7 @@ class HackerNewsIngestor(PulseIngestor):
         """Fetch top stories from Hacker News."""
         limit = max(1, min(limit, 50))
 
-        async def _fetch():
+        async def _fetch() -> list[TrendingTopic]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 # Get front page stories sorted by popularity
                 url = f"{self.base_url}/search"
@@ -384,7 +384,7 @@ class RedditIngestor(PulseIngestor):
         limit = max(1, min(limit, 50))
         per_sub_limit = max(1, limit // len(self.subreddits))
 
-        async def _fetch():
+        async def _fetch() -> list[TrendingTopic]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 client.headers["User-Agent"] = "Aragora/1.0 (debate-platform)"
 
@@ -488,7 +488,7 @@ class GitHubTrendingIngestor(PulseIngestor):
         """
         limit = max(1, min(limit, 30))  # GitHub API returns max 30 per page
 
-        async def _fetch():
+        async def _fetch() -> list[TrendingTopic]:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 # Build headers
                 headers = {
@@ -668,7 +668,7 @@ class GoogleTrendsIngestor(PulseIngestor):
         """Fetch trending searches from Google Trends RSS feed."""
         limit = max(1, min(limit, 20))
 
-        async def _fetch():
+        async def _fetch() -> list[TrendingTopic]:
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
                 last_error: Exception | None = None
                 for url in self.urls_to_try:
@@ -783,7 +783,7 @@ class ArxivIngestor(PulseIngestor):
         """Fetch recent papers from ArXiv."""
         limit = max(1, min(limit, 50))
 
-        async def _fetch():
+        async def _fetch() -> list[TrendingTopic]:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 # Build category query (OR across categories)
                 cat_query = " OR ".join(f"cat:{cat}" for cat in self.categories)
@@ -881,7 +881,7 @@ class LobstersIngestor(PulseIngestor):
         """Fetch hottest stories from Lobste.rs."""
         limit = max(1, min(limit, 25))
 
-        async def _fetch():
+        async def _fetch() -> list[TrendingTopic]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 url = f"{self.base_url}/hottest.json"
                 response = await client.get(url)
@@ -941,7 +941,7 @@ class DevToIngestor(PulseIngestor):
         """Fetch top articles from Dev.to."""
         limit = max(1, min(limit, 30))
 
-        async def _fetch():
+        async def _fetch() -> list[TrendingTopic]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 url = f"{self.base_url}/articles"
                 params = {"per_page": limit, "top": 7}  # Top from last 7 days
@@ -1019,7 +1019,7 @@ class ProductHuntIngestor(PulseIngestor):
     async def _fetch_via_rss(self, limit: int) -> list[TrendingTopic]:
         """Fetch via public RSS feed (no auth required)."""
 
-        async def _fetch():
+        async def _fetch() -> list[TrendingTopic]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(self.rss_url)
                 response.raise_for_status()
@@ -1057,7 +1057,7 @@ class ProductHuntIngestor(PulseIngestor):
     async def _fetch_via_api(self, limit: int) -> list[TrendingTopic]:
         """Fetch via GraphQL API (requires auth)."""
 
-        async def _fetch():
+        async def _fetch() -> list[TrendingTopic]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 query = (
                     """
@@ -1170,7 +1170,7 @@ class SubstackIngestor(PulseIngestor):
         limit = max(1, min(limit, 20))
         per_feed = max(1, limit // len(self.feeds))
 
-        async def _fetch():
+        async def _fetch() -> list[TrendingTopic]:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 all_topics = []
 
