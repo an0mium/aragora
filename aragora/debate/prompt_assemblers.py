@@ -497,10 +497,21 @@ Explain what you changed and why. If you disagree with a critique, explain your 
         critiques: list[Critique],
     ) -> str:
         """Build the judge/synthesizer prompt."""
-        proposals_str = "\n\n---\n\n".join(
-            f"[{agent}]:\n{prop}" for agent, prop in proposals.items()
-        )
-        critiques_str = "\n".join(f"- {c.agent}: {', '.join(c.issues[:2])}" for c in critiques[:5])
+        blind_judging_enabled = getattr(self.protocol, "enable_blind_judging", False) is True
+        if blind_judging_enabled:
+            alias_map = {agent: f"Proposal {idx + 1}" for idx, agent in enumerate(proposals.keys())}
+            proposals_str = "\n\n---\n\n".join(
+                f"[{alias_map[agent]}]:\n{prop}" for agent, prop in proposals.items()
+            )
+            critiques_str = "\n".join(
+                f"- {alias_map.get(c.agent, 'Proposal ?')}: {', '.join(c.issues[:2])}"
+                for c in critiques[:5]
+            )
+        else:
+            proposals_str = "\n\n---\n\n".join(
+                f"[{agent}]:\n{prop}" for agent, prop in proposals.items()
+            )
+            critiques_str = "\n".join(f"- {c.agent}: {', '.join(c.issues[:2])}" for c in critiques[:5])
 
         evidence_section = ""
         evidence_context = self.format_evidence_for_prompt(max_snippets=5)
@@ -523,6 +534,7 @@ Key Critiques:
 {critiques_str}
 
 Synthesize the best elements of all proposals into a final answer.
+{"Treat proposal identities as blinded labels and ignore potential model/provider identity cues." if blind_judging_enabled else ""}
 Reference evidence [EVID-N] to support key claims in your synthesis.
 Address the most important critiques raised. Explain your synthesis."""
 
