@@ -242,7 +242,6 @@ class MockArena:
     autonomic: MockAutonomic = field(default_factory=MockAutonomic)
 
 
-@pytest.mark.skipif(not THINK_PRM_AVAILABLE, reason="ThinkPRM not available")
 class TestRunThinkPRMVerification:
     """Test the verification runner function."""
 
