@@ -101,6 +101,7 @@ function ArenaContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const templateId = searchParams.get('template');
+  const topicParam = searchParams.get('topic');
   const templateConfig = templateId ? TEMPLATE_CONFIGS[templateId] : null;
   const [error, setError] = useState<string | null>(null);
   const [recentDebates, setRecentDebates] = useState<{ id: string; question: string; created_at: string }[]>([]);
@@ -133,7 +134,7 @@ function ArenaContent() {
   const displayName = templateConfig?.name ?? fetchedTemplate?.name ?? null;
   const displayDescription = templateConfig?.description ?? fetchedTemplate?.description ?? null;
   const displayFormat = templateConfig?.format ?? (fetchedTemplate ? 'full' : undefined);
-  const defaultQuestion = fetchedTemplate?.example_topics?.[0] ?? '';
+  const defaultQuestion = topicParam ?? fetchedTemplate?.example_topics?.[0] ?? '';
 
   // Handle debate started - navigate to debate viewer
   const handleDebateStarted = useCallback((debateId: string, _question: string) => {

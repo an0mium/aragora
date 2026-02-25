@@ -396,6 +396,10 @@ class ArenaConfig:
         post_debate_workflow: Any | None = None,
         enable_post_debate_workflow: bool = False,
         post_debate_workflow_threshold: float = 0.7,
+        # Result routing: route debate results back to originating chat channel
+        # When enabled, completed debates route results to the platform that started them
+        # (Telegram, Slack, Discord, Teams, WhatsApp, email, webhook)
+        enable_result_routing: bool = False,
         # N+1 Query Detection
         enable_n1_detection: bool = False,
         n1_detection_mode: str = "warn",
@@ -500,6 +504,7 @@ class ArenaConfig:
         self.post_debate_workflow = post_debate_workflow
         self.enable_post_debate_workflow = enable_post_debate_workflow
         self.post_debate_workflow_threshold = post_debate_workflow_threshold
+        self.enable_result_routing = enable_result_routing
         self.enable_n1_detection = enable_n1_detection
         self.n1_detection_mode = n1_detection_mode
         self.n1_detection_threshold = n1_detection_threshold
@@ -802,6 +807,7 @@ class ArenaConfig:
             "post_debate_workflow": self.post_debate_workflow,
             "enable_post_debate_workflow": self.enable_post_debate_workflow,
             "post_debate_workflow_threshold": self.post_debate_workflow_threshold,
+            "enable_result_routing": self.enable_result_routing,
             # Post-debate coordinator pipeline
             "post_debate_config": self.post_debate_config,
             "disable_post_debate_pipeline": self.disable_post_debate_pipeline,

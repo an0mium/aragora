@@ -35,6 +35,7 @@ from .routes import (
     knowledge,
     workflows,
     compliance,
+    security,
     auth,
     memory,
     api_explorer,
@@ -303,6 +304,7 @@ def create_app(
     app.include_router(knowledge.router)
     app.include_router(workflows.router)
     app.include_router(compliance.router)
+    app.include_router(security.router)
     app.include_router(auth.router)
     app.include_router(memory.router)
     app.include_router(api_explorer.router)

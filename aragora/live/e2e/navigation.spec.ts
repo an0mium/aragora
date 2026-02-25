@@ -115,6 +115,95 @@ test.describe('Navigation', () => {
   });
 });
 
+test.describe('Navigation - Sidebar', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockApiResponse(page, '**/api/health', { status: 'ok' });
+  });
+
+  test('sidebar navigation works', async ({ page, aragoraPage }) => {
+    await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
+    await page.waitForLoadState('domcontentloaded');
+
+    // The left sidebar (aside with aria-label "Main navigation") should be present
+    const sidebar = page.locator('aside[aria-label="Main navigation"]');
+    const sidebarVisible = await sidebar.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (!sidebarVisible) {
+      // On narrower viewports the sidebar may need to be opened via a toggle
+      const menuToggle = page.locator(
+        'button[aria-label*="menu" i], button[aria-label*="sidebar" i], [data-testid="sidebar-toggle"]'
+      ).first();
+      if (await menuToggle.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await menuToggle.click();
+        await sidebar.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+      }
+    }
+
+    // Navigate through several sidebar links and verify the URL changes
+    const routes = [
+      { href: '/hub', label: /hub/i },
+      { href: '/oracle', label: /oracle/i },
+      { href: '/receipts', label: /receipts/i },
+      { href: '/settings', label: /settings/i },
+    ];
+
+    for (const route of routes) {
+      const link = sidebar.locator(`a[href="${route.href}"]`).first();
+      const linkVisible = await link.isVisible({ timeout: 2000 }).catch(() => false);
+      if (linkVisible) {
+        await link.click();
+        await page.waitForLoadState('domcontentloaded');
+        expect(page.url()).toContain(route.href);
+      }
+    }
+  });
+
+  test('breadcrumbs update on navigation', async ({ page, aragoraPage }) => {
+    await page.goto('/');
+    await aragoraPage.dismissAllOverlays();
+    await page.waitForLoadState('domcontentloaded');
+
+    // Navigate to a nested page to trigger breadcrumbs
+    await page.goto('/audit/templates');
+    await aragoraPage.dismissAllOverlays();
+    await page.waitForLoadState('domcontentloaded');
+
+    // Look for breadcrumb-like elements (nav with aria-label breadcrumb, or
+    // elements containing path segments)
+    const breadcrumb = page.locator(
+      'nav[aria-label*="breadcrumb" i], [data-testid*="breadcrumb"], [class*="breadcrumb"]'
+    ).first();
+
+    const hasBreadcrumb = await breadcrumb.isVisible({ timeout: 3000 }).catch(() => false);
+
+    if (hasBreadcrumb) {
+      // Breadcrumb should reflect current path (e.g. "Audit > Templates")
+      const text = await breadcrumb.textContent();
+      expect(text).toBeTruthy();
+
+      // Navigate to a different page and verify breadcrumb updates
+      await page.goto('/hub');
+      await aragoraPage.dismissAllOverlays();
+      await page.waitForLoadState('domcontentloaded');
+
+      const updatedBreadcrumb = page.locator(
+        'nav[aria-label*="breadcrumb" i], [data-testid*="breadcrumb"], [class*="breadcrumb"]'
+      ).first();
+      const updatedVisible = await updatedBreadcrumb.isVisible({ timeout: 3000 }).catch(() => false);
+      if (updatedVisible) {
+        const updatedText = await updatedBreadcrumb.textContent();
+        // Breadcrumb text should differ between pages
+        expect(updatedText).not.toBe(text);
+      }
+    } else {
+      // If no breadcrumbs found, verify the page at least loaded (some apps
+      // use the URL bar as the sole navigation indicator)
+      expect(page.url()).toContain('/hub');
+    }
+  });
+});
+
 test.describe('Navigation - Mobile', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });

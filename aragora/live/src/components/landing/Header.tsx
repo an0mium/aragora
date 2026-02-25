@@ -63,12 +63,18 @@ export function Header() {
               </Link>
             ))}
             <span className="text-acid-green/30">|</span>
-            <button
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            <Link
+              href="/try"
               className="text-xs font-mono text-acid-green font-bold hover:text-acid-cyan transition-colors whitespace-nowrap"
             >
-              [TRY NOW]
-            </button>
+              [TRY FREE]
+            </Link>
+            <Link
+              href="/signup"
+              className="text-xs font-mono text-bg bg-acid-green px-2 py-1 font-bold hover:bg-acid-cyan transition-colors whitespace-nowrap"
+            >
+              SIGN UP
+            </Link>
             <BackendSelector compact />
             <ThemeToggle />
           </nav>
