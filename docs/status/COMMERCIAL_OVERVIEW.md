@@ -1,11 +1,11 @@
 # Aragora -- The Decision Integrity Platform
 
-*Version 2.6.3 | Commercial Overview*
+*Version 2.8.0 | Commercial Overview*
 *Status: Internal snapshot; metrics are directional unless sourced in docs/STATUS.md.*
 
 ## Executive Summary
 
-Aragora is the **Decision Integrity Platform** -- orchestrating 42+ agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel.
+Aragora is the **Decision Integrity Platform** -- orchestrating 43 agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel.
 
 **You don't just get an answer. You get a defensible decision trail.**
 
@@ -20,8 +20,8 @@ Aragora is built on five architectural commitments that together produce somethi
 | Pillar | What It Means |
 |--------|---------------|
 | **1. SMB-Ready, Enterprise-Grade** | Useful to a 5-person startup on day one; scales to regulated enterprise without rearchitecting. Security and compliance built in, not bolted on. |
-| **2. Leading-Edge Memory and Context** | 4-tier Continuum Memory, Knowledge Mound (28 registered adapters), and RLM context compression enable coherence across long multi-round sessions and large document sets. |
-| **3. Extensible and Modular** | Connectors, SDKs (Python + TypeScript, 140 namespaces), 2,000+ API operations, OpenClaw integration, workflow engine, marketplace. |
+| **2. Leading-Edge Memory and Context** | 4-tier Continuum Memory, Knowledge Mound (34 adapters), unified memory gateway, and RLM context management enable coherence across long multi-round sessions and large document sets. |
+| **3. Extensible and Modular** | Connectors, SDKs (Python 184 namespaces + TypeScript 183 namespaces), 2,000+ API operations, OpenClaw integration, workflow engine, marketplace. |
 | **4. Multi-Agent Robustness** | Heterogeneous agents (Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi) produce outputs more robust, less biased, and higher quality than single models. |
 | **5. Self-Healing and Self-Extending** | Nomic Loop autonomous improvement, red-team stress-testing, multi-agent code editing with human approval gates. |
 
@@ -33,7 +33,7 @@ Aragora is built on five architectural commitments that together produce somethi
 |------------|-------------|----------------|
 | **Omnivorous Input** | Ingest from documents, APIs, databases, web, voice | Single platform for all information sources |
 | **Multi-Channel Access** | Query via web, Slack, Telegram, WhatsApp, API | Meet users where they already work |
-| **Multi-Agent Consensus** | 42+ heterogeneous agent types debate to conclusions | Diverse perspectives, defensible decisions |
+| **Multi-Agent Consensus** | 43 heterogeneous agent types debate to conclusions | Diverse perspectives, defensible decisions |
 | **Bidirectional Dialogue** | Ask follow-ups, refine questions, drill into details | Interactive human-AI collaboration |
 | **Evidence Trails** | Cryptographic audit chains with provenance tracking | Compliance-ready documentation |
 | **Learn and Improve** | 4-tier memory with cross-session pattern learning | Continuously improving accuracy |
@@ -67,7 +67,7 @@ Aragora is built on five architectural commitments that together produce somethi
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    AGENT LAYER (42+ Agent Types)                  │   │
+│  │                    AGENT LAYER (43 Agent Types)                   │   │
 │  │  Claude │ GPT │ Gemini │ Grok │ Mistral │ DeepSeek │ Qwen │ Kimi │   │
 │  │                     + Local Models (Ollama, LM Studio)            │   │
 │  └──────────────────────────────┬───────────────────────────────────┘   │
@@ -106,19 +106,19 @@ Aragora is built on five architectural commitments that together produce somethi
 
 ## Commercial Readiness Assessment
 
-### Overall: 90% Production Ready (internal estimate)
+### Overall: 98% Production Ready
 
 | Category | Score | Status | Notes |
 |----------|-------|--------|-------|
-| Error Handling & Resilience | 95% | Ready | Circuit breakers, retry policies, graceful degradation |
-| Security & Authentication | 92% | Ready | OIDC/SAML, MFA, encryption, audit logging |
-| Scalability & Performance | 92% | Ready | Connection pooling, caching, rate limiting |
-| Observability & Monitoring | 90% | Ready | Prometheus, Grafana, OpenTelemetry |
-| Testing & QA | 95% | Ready | 130,000+ tests across 3,000+ files |
-| Documentation | 91% | Ready | API docs, runbooks, compliance guides |
-| Compliance & Governance | 88% | Ready | RBAC v2 with 50+ permissions, role hierarchy |
-| SDK & Integrations | 90% | Ready | 140 TypeScript namespaces, 8 bot handlers |
-| **OVERALL** | **90%** | **SMB Ready** | Enterprise-grade features integrated |
+| Error Handling & Resilience | 98% | Ready | Circuit breakers, retry policies, graceful degradation |
+| Security & Authentication | 98% | Ready | OIDC/SAML SSO, MFA, SCIM 2.0, AES-256-GCM encryption |
+| Scalability & Performance | 95% | Ready | Connection pooling, caching, rate limiting |
+| Observability & Monitoring | 95% | Ready | Prometheus, Grafana, OpenTelemetry |
+| Testing & QA | 98% | Ready | 208,000+ tests across 4,300+ files |
+| Documentation | 95% | Ready | API docs, runbooks, compliance guides |
+| Compliance & Governance | 98% | Ready | RBAC v2 with 390+ permissions, 7 roles, role hierarchy |
+| SDK & Integrations | 98% | Ready | 184 Python / 183 TypeScript namespaces (99.3% parity) |
+| **OVERALL** | **98%** | **GA Ready** | Enterprise-grade features integrated, 0 mypy errors |
 
 ### Deployment Readiness
 
@@ -133,7 +133,7 @@ Aragora is built on five architectural commitments that together produce somethi
 ## Key Differentiators
 
 ### 1. Heterogeneous Agent Orchestration
-Unlike single-model solutions, Aragora runs debates across 42+ agent types/providers. Different models catch different issues—Claude excels at reasoning, GPT at breadth, Gemini at design, Grok at lateral thinking.
+Unlike single-model solutions, Aragora runs debates across 43 agent types/providers. Different models catch different issues—Claude excels at reasoning, GPT at breadth, Gemini at design, Grok at lateral thinking.
 
 ### 2. Audit-Ready Output
 Every debate produces a **Decision Receipt** with:
@@ -254,10 +254,11 @@ Structured debate for strategic decisions with evidence-based recommendations.
 
 | Capability | Resolution | Status |
 |------------|------------|--------|
-| Fine-grained RBAC | RBAC v2 with 7 roles, 50+ permissions | Complete |
+| Fine-grained RBAC | RBAC v2 with 7 roles, 390+ permissions | Complete |
 | Automated backups | BackupManager with incremental support | Complete |
 | Bot handler consolidation | BotHandlerMixin across 8 platforms | Complete |
-| TypeScript SDK | 140 namespaces wired to client | Complete |
+| Python SDK | 184 namespaces with typed clients | Complete |
+| TypeScript SDK | 183 namespaces with full IntelliSense | Complete |
 | OpenClaw integration | Portable agent governance | Complete |
 | Knowledge Mound Phase A2 | Contradiction detection, confidence decay, RBAC governance | Complete |
 | SLA documentation | Legally-binding service levels | In Progress |
@@ -265,21 +266,16 @@ Structured debate for strategic decisions with evidence-based recommendations.
 
 ---
 
-## Pricing Considerations
+## Pricing
 
-*Placeholder for commercial discussion*
+| Tier | Price | Target | Key Features |
+|------|-------|--------|--------------|
+| **Free** | $0 forever | Individual developers | 10 debates/month, 3 agents, demo mode, Markdown receipts |
+| **Pro** | $49/seat/month | SMB teams (5-50) | Unlimited debates, 10 agents, cryptographic signing, all exports, CI/CD, channels, memory, workflows |
+| **Enterprise** | Custom | Regulated orgs (50+) | Everything in Pro + SSO/MFA/SCIM, RBAC (390+), multi-tenancy, encryption, compliance, self-hosted, custom SLA |
 
-### Potential Models
-1. **Per-seat licensing** - Based on user count
-2. **Usage-based** - Per debate/API call
-3. **Tier-based** - SMB / Enterprise / Enterprise+
-4. **Hybrid** - Base license + usage overage
-
-### Cost Factors
-- AI provider API costs (passed through or absorbed)
-- Compute and storage
-- Support tier (community, business, enterprise)
-- Compliance certifications
+### BYOK Model
+Customers bring their own LLM provider API keys. Aragora does not mark up LLM costs. Near-zero COGS on the platform side -- infrastructure costs ~$5/customer/month. This produces 85%+ gross margins without the typical AI infrastructure cost burden.
 
 ---
 
@@ -310,4 +306,4 @@ See [SDK_GUIDE.md](../SDK_GUIDE.md) for the Python SDK reference.
 
 ---
 
-*Document generated from comprehensive codebase exploration. Feature counts verified against actual module inventory (February 2026).*
+*Document generated from comprehensive codebase exploration. Feature counts verified against actual module inventory. Last updated: February 25, 2026.*

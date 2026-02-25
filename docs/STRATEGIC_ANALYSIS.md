@@ -6,9 +6,9 @@
 
 ## Executive Summary
 
-Aragora is a **1.5M LOC Decision Integrity Platform** with genuine technical depth in areas no well-funded competitor covers. The adversarial multi-agent debate engine, calibrated trust system, and self-improvement loop are novel and defensible. Enterprise features (auth, RBAC, encryption, multi-tenancy) are production-ready. The integration surface is massive (200+ connectors, 155 SDK namespaces). Code quality is strong (8/10).
+Aragora is a **1.5M LOC Decision Integrity Platform** with genuine technical depth in areas no well-funded competitor covers. The adversarial multi-agent debate engine, calibrated trust system, and self-improvement loop are novel and defensible. Enterprise features (auth, RBAC, encryption, multi-tenancy) are production-ready. The integration surface is massive (200+ connectors, 184 Python / 183 TypeScript SDK namespaces). Code quality is strong (8/10).
 
-**The core thesis**: LLMs are unreliable. No single model should make high-stakes decisions alone. Aragora orchestrates 42+ agent types to adversarially vet decisions, producing cryptographic audit receipts.
+**The core thesis**: LLMs are unreliable. No single model should make high-stakes decisions alone. Aragora orchestrates 43 agent types to adversarially vet decisions, producing cryptographic audit receipts.
 
 **The competitive reality**: No well-funded competitor (LangChain $260M, CrewAI $25M, Microsoft AutoGen, OpenAI Agents SDK) implements adversarial multi-agent decision vetting. They all build *cooperative* agent orchestration. Aragora occupies an uncontested category.
 
@@ -25,7 +25,7 @@ Aragora is a **1.5M LOC Decision Integrity Platform** with genuine technical dep
 | API operations | 2,000+ | **~1,813 SDK endpoints** | Near-complete server coverage |
 | Connectors | Broad | **204 connector files, 122,979 LOC** | Real API integrations, not stubs |
 | KM adapters | 28 | **36 adapter files** | All wired into Knowledge Mound |
-| Agent types | 42+ | **12+ LLM providers + 10+ specialized agents** | Heterogeneous, real API integrations |
+| Agent types | 43 | **12+ LLM providers + 10+ specialized agents** | Heterogeneous, real API integrations |
 
 ### What's Genuinely Deep (Hard to Replicate)
 
@@ -75,7 +75,7 @@ Aragora is a **1.5M LOC Decision Integrity Platform** with genuine technical dep
 
 ### What's Broad but Shallow
 
-- **SDKs**: 155 namespaces, 5,837 Python methods -- all real HTTP wrappers, but thin (no client-side logic/caching)
+- **SDKs**: 184/183 namespaces, 5,837 Python methods -- all real HTTP wrappers, but thin (no client-side logic/caching)
 - **Connectors**: 200+ files with real API code, but untested against production workloads
 - **Compliance scanner**: Real detection logic, but regex-based, not a GRC platform
 

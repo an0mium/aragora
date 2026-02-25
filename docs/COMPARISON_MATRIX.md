@@ -73,7 +73,7 @@ This comparison is based on public documentation, source code analysis, and publ
 | Agent handoffs | Yes | Yes | Yes (delegation) | Yes | Yes (core feature) |
 | Tool use | Yes | Yes | Yes | Yes | Yes (core feature) |
 | Memory persistence | Yes (4-tier continuum) | Via LangSmith | Basic (short/long-term) | Basic | No built-in |
-| Custom agent types | Yes (42+ built-in) | Yes | Yes | Yes | Yes |
+| Custom agent types | Yes (43 built-in) | Yes | Yes | Yes | Yes |
 
 ### Integration Breadth
 

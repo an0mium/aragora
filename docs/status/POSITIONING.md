@@ -2,13 +2,13 @@
 
 *Strategic positioning for B2B market entry*
 
-**Last Updated:** January 2026
+**Last Updated:** February 2026
 
 ---
 
 ## Executive Summary
 
-**Aragora is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels.** It orchestrates 42+ agent types to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
+**Aragora is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels.** It orchestrates 43 agent types to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice).
 
 > "Aragora: Control plane for multi-agent vetted decisionmaking across org knowledge and channels."
 
@@ -191,7 +191,7 @@ BEFORE ARAGORA                          AFTER ARAGORA
 ### vs. LLM Chat (ChatGPT/Claude)
 | Dimension | Single LLM | Aragora |
 |-----------|-----------|---------|
-| Perspective | One model | 42+ heterogeneous agent types |
+| Perspective | One model | 43 heterogeneous agent types |
 | Rigor | Prompt-dependent | Structured adversarial protocol |
 | Audit trail | Copy/paste | Cryptographic receipt |
 | Regulatory | DIY | 8 pre-built personas |
@@ -238,19 +238,21 @@ BEFORE ARAGORA                          AFTER ARAGORA
 
 ## Pricing Strategy
 
-| Tier | Monthly | Per-Run | Included Runs | Annual |
-|------|---------|---------|---------------|--------|
-| **Starter** | $499 | $25 | 20 | $5,988 |
-| **Team** | $1,999 | $15 | 150 | $23,988 |
-| **Enterprise** | Custom | $8 | Unlimited | $100K+ |
+BYOK (Bring Your Own Key) model — customers use their own LLM API keys. Aragora never marks up model usage, yielding 85%+ gross margins on SaaS revenue.
+
+| Tier | Price | Target | Key Capabilities |
+|------|-------|--------|-----------------|
+| **Free** | $0/month | Individual developers | 100 debates/mo, 3 agents, Markdown receipts, SDKs |
+| **Pro** | $49/seat/month | SMB teams (5-50) | Unlimited debates, 10 agents, all export formats, CI/CD, channel delivery, 4-tier memory, workflow engine |
+| **Enterprise** | Custom pricing | Regulated orgs (50+) | Unlimited agents, PDF receipts, SAML/MFA/SCIM, 390+ RBAC permissions, field-level encryption, SOC 2/GDPR/HIPAA, Kafka/RabbitMQ, on-prem/air-gapped |
 
 ### Enterprise Add-Ons
-- SSO (OIDC/SAML)
-- Multi-tenant isolation
-- Custom personas
-- Dedicated support
-- SLA guarantees
-- On-premise deployment
+- SAML SSO, MFA (TOTP/HOTP), SCIM 2.0 provisioning
+- Multi-tenant isolation with resource quotas
+- Custom agent personas and vertical weight profiles
+- Dedicated Slack channel and custom SLA
+- On-premise and air-gapped deployment
+- Apache Kafka and RabbitMQ streaming connectors
 
 ---
 

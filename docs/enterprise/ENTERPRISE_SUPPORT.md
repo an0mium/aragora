@@ -29,7 +29,7 @@ This document defines the enterprise support offering for Aragora, including sup
 
 | Attribute | Value |
 |-----------|-------|
-| **Price** | $99/month |
+| **Price** | $49/seat/month |
 | **Support Channels** | Email, GitHub issues |
 | **Response Time** | See matrix below |
 | **Coverage Hours** | Business hours (9am-6pm PT, Mon-Fri) |
