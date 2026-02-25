@@ -1,0 +1,148 @@
+name: Required Check Priority
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+concurrency:
+  group: required-check-priority-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  prioritize-required-checks:
+    name: Prioritize Required Checks
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 10
+
+    steps:
+      - name: Cancel non-required workflow runs for this PR head
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const headSha = pr.head.sha;
+            const headBranch = pr.head.ref;
+            const baseBranch = pr.base.ref;
+            const selfRunId = Number(process.env.GITHUB_RUN_ID);
+
+            const sweeps = 8;
+            const sweepDelayMs = 15000;
+
+            // Required checks are currently produced by these workflows.
+            // Keep this list in sync with branch protection required contexts.
+            const alwaysKeepWorkflowPaths = new Set([
+              '.github/workflows/lint.yml',
+              '.github/workflows/sdk-parity.yml',
+              '.github/workflows/sdk-test.yml',
+              '.github/workflows/openapi.yml',
+              '.github/workflows/required-check-priority.yml',
+            ]);
+
+            const requiredContexts = new Set();
+            try {
+              const { data: protection } = await github.rest.repos.getBranchProtection({
+                owner,
+                repo,
+                branch: baseBranch,
+              });
+              for (const name of protection.required_status_checks?.contexts ?? []) {
+                requiredContexts.add(name);
+              }
+              core.info(
+                `Loaded required contexts from branch protection (${requiredContexts.size}): ` +
+                  `${Array.from(requiredContexts).join(', ')}`
+              );
+            } catch (error) {
+              core.warning(
+                `Could not read branch protection for '${baseBranch}' ` +
+                  `(continuing with static required-workflow keep-list): ${error.message}`
+              );
+            }
+
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            const canceledRuns = [];
+            const seenRunIds = new Set();
+
+            for (let pass = 1; pass <= sweeps; pass++) {
+              const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+                owner,
+                repo,
+                branch: headBranch,
+                event: 'pull_request',
+                per_page: 100,
+              });
+
+              let passCanceled = 0;
+              for (const run of runs) {
+                if (run.head_sha !== headSha) continue;
+                if (run.id === selfRunId) continue;
+                if (run.status !== 'queued' && run.status !== 'in_progress') continue;
+
+                const workflowPath = (run.path || '').split('@')[0];
+                if (alwaysKeepWorkflowPaths.has(workflowPath)) continue;
+
+                // Defensive check: if a non-allowlisted workflow run currently owns
+                // a required status context, keep it.
+                let hasRequiredContext = false;
+                if (requiredContexts.size > 0 && run.status === 'in_progress') {
+                  try {
+                    const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                      owner,
+                      repo,
+                      run_id: run.id,
+                      per_page: 100,
+                    });
+                    hasRequiredContext = jobs.some((job) => requiredContexts.has(job.name));
+                  } catch (error) {
+                    core.warning(`Could not inspect jobs for run ${run.id}: ${error.message}`);
+                  }
+                }
+                if (hasRequiredContext) continue;
+
+                try {
+                  await github.rest.actions.cancelWorkflowRun({
+                    owner,
+                    repo,
+                    run_id: run.id,
+                  });
+                  passCanceled += 1;
+                  if (!seenRunIds.has(run.id)) {
+                    seenRunIds.add(run.id);
+                    canceledRuns.push({
+                      id: run.id,
+                      workflow: run.name,
+                      status: run.status,
+                    });
+                  }
+                  core.info(`Canceled run ${run.id} (${run.name})`);
+                } catch (error) {
+                  core.warning(`Failed to cancel run ${run.id} (${run.name}): ${error.message}`);
+                }
+              }
+
+              core.info(`Sweep ${pass}/${sweeps}: canceled ${passCanceled} run(s)`);
+              if (pass < sweeps) {
+                await sleep(sweepDelayMs);
+              }
+            }
+
+            await core.summary
+              .addHeading('Required Check Priority')
+              .addRaw(`PR #${pr.number} (${headBranch} @ ${headSha})`, true)
+              .addRaw(`Canceled runs: ${canceledRuns.length}`, true)
+              .addTable([
+                [
+                  { data: 'Run ID', header: true },
+                  { data: 'Workflow', header: true },
+                  { data: 'Status', header: true },
+                ],
+                ...canceledRuns.map((run) => [String(run.id), run.workflow, run.status]),
+              ])
+              .write();
