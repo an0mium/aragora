@@ -439,9 +439,9 @@ class EmailIntegration:
         provider = credential.provider
 
         if provider in ("gmail", "google"):
-            token_url = "https://oauth2.googleapis.com/token"
+            token_url = "https://oauth2.googleapis.com/token"  # noqa: S105 -- OAuth endpoint URL
         elif provider in ("microsoft", "outlook", "office365"):
-            token_url = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+            token_url = "https://login.microsoftonline.com/common/oauth2/v2.0/token"  # noqa: S105 -- OAuth endpoint URL
         else:
             logger.debug("OAuth refresh not supported for provider: %s", provider)
             return None

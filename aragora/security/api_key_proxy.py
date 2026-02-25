@@ -200,6 +200,19 @@ class ProxyConfig:
             active_hours=(0, 23),  # Inference can run any hour
             budget_limit_credits=None,  # fal.ai uses per-request billing
         )
+        config.services["openrouter"] = ServiceKeyConfig(
+            service_name="openrouter",
+            secret_manager_key="OPENROUTER_API_KEY",  # noqa: S106
+            secret_id="aragora/production",  # noqa: S106
+            standalone_secret_id="aragora/api/openrouter",  # noqa: S106
+            rotation_strategy=RotationStrategy.JITTERED,
+            rotation_interval_hours=12.0,  # Twice daily (fallback provider, high exposure)
+            rotation_jitter_hours=3.0,
+            max_calls_per_minute=60,
+            max_calls_per_hour=1000,
+            active_hours=(0, 23),
+            budget_limit_credits=None,
+        )
         config.services["stripe"] = ServiceKeyConfig(
             service_name="stripe",
             secret_manager_key="STRIPE_SECRET_KEY",  # noqa: S106

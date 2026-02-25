@@ -42,7 +42,7 @@ class Verdict(Enum):
     """
 
     # Positive outcomes
-    PASS = "pass"
+    PASS = "pass"  # noqa: S105 -- enum value
     APPROVED = "approved"
 
     # Conditional outcomes
