@@ -29,7 +29,8 @@ class DummyAgent:
 @pytest.mark.asyncio
 async def test_create_implement_phase_prefers_gastown_executor(tmp_path):
     """NomicLoop should wire a GastownConvoyExecutor into the ImplementPhase."""
-    loop = NomicLoop(aragora_path=str(tmp_path))
+    with patch.object(NomicLoop, "_init_agents", lambda self: None):
+        loop = NomicLoop(aragora_path=str(tmp_path))
     loop.claude = DummyAgent("anthropic-api")
     loop.codex = DummyAgent("openai-api")
 
@@ -40,7 +41,8 @@ async def test_create_implement_phase_prefers_gastown_executor(tmp_path):
 @pytest.mark.asyncio
 async def test_create_implement_phase_returns_implement_phase(tmp_path):
     """The returned object should be an ImplementPhase instance."""
-    loop = NomicLoop(aragora_path=str(tmp_path))
+    with patch.object(NomicLoop, "_init_agents", lambda self: None):
+        loop = NomicLoop(aragora_path=str(tmp_path))
     loop.claude = DummyAgent("anthropic-api")
     loop.codex = DummyAgent("openai-api")
 
