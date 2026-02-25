@@ -390,6 +390,90 @@ export class AdminAPI {
       body: { value },
     });
   }
+
+  // ===========================================================================
+  // Security Keys & Scans
+  // ===========================================================================
+
+  /** Get a specific security key by ID. */
+  async getSecurityKey(keyId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/admin/security/keys/${encodeURIComponent(keyId)}`);
+  }
+
+  /** Revoke a specific security key. */
+  async revokeSecurityKey(keyId: string): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/admin/security/keys/${encodeURIComponent(keyId)}/revoke`);
+  }
+
+  /** Run a security scan. */
+  async runSecurityScan(): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/admin/security/scan');
+  }
+
+  /** Get a specific security scan result. */
+  async getSecurityScan(scanId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/admin/security/scan/${encodeURIComponent(scanId)}`);
+  }
+
+  /** Resolve a security threat. */
+  async resolveSecurityThreat(threatId: string, data?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/admin/security/threats/${encodeURIComponent(threatId)}/resolve`, {
+      body: data,
+    });
+  }
+
+  /** List detected security threats. */
+  async listSecurityThreats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/security/threats');
+  }
+
+  /** Get security audit report. */
+  async getSecurityAudit(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/security/audit');
+  }
+
+  /** Get security compliance status. */
+  async getSecurityCompliance(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/security/compliance');
+  }
+
+  /** Get key rotation status. */
+  async getRotationStatus(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/security/rotation-status');
+  }
+
+  // ===========================================================================
+  // System Health
+  // ===========================================================================
+
+  /** Get system health overview. */
+  async getSystemHealth(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/system-health');
+  }
+
+  /** Get health status for a specific component. */
+  async getSystemHealthComponent(component: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/admin/system-health/${encodeURIComponent(component)}`);
+  }
+
+  /** Get MFA compliance status. */
+  async getMfaCompliance(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/mfa-compliance');
+  }
+
+  // ===========================================================================
+  // User Management (additional)
+  // ===========================================================================
+
+  /** Deactivate a user. */
+  async deactivateUser(userId: string): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/admin/users/${encodeURIComponent(userId)}/deactivate`);
+  }
+
+  /** Unlock a locked user account. */
+  async unlockUser(userId: string): Promise<Record<string, unknown>> {
+    return this.client.request('POST', `/api/v1/admin/users/${encodeURIComponent(userId)}/unlock`);
+  }
 }
 
 // Re-export types for convenience

@@ -162,4 +162,7 @@ def _resync_convergence_after_backend_reload():
                 old_val = getattr(mod, name)
                 # Only update if it's actually stale (different object)
                 if old_val is not new_val:
+                    import os
+                    if os.environ.get("DEBUG_SYNC"):
+                        print(f"  [SYNC] {mod_name}.{name} id={id(old_val)} -> id={id(new_val)}")
                     setattr(mod, name, new_val)

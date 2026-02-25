@@ -373,4 +373,155 @@ export class CanvasNamespace {
       { body: reason ? { reason } : undefined }
     );
   }
+
+  // -----------------------------------------------------------------------
+  // Pipeline Demo & Async Run
+  // -----------------------------------------------------------------------
+
+  /** Run a demo pipeline with sample data. */
+  async runDemo(
+    options?: Record<string, unknown>,
+  ): Promise<PipelineResult> {
+    return this.client.request<PipelineResult>(
+      'POST',
+      '/api/v1/canvas/pipeline/demo',
+      { body: options }
+    );
+  }
+
+  /** Start an async pipeline run. */
+  async run(
+    request: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/pipeline/run',
+      { body: request }
+    );
+  }
+
+  /** Approve or reject a stage transition. */
+  async approveTransition(
+    pipelineId: string,
+    approved: boolean,
+    reason?: string,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/approve-transition`,
+      { body: { approved, reason } }
+    );
+  }
+
+  /** Save (overwrite) canvas state for a pipeline. */
+  async savePipeline(
+    pipelineId: string,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'PUT',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}`,
+      { body: data }
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Goal & Principle Extraction
+  // -----------------------------------------------------------------------
+
+  /** Extract goals from an ideas canvas. */
+  async extractGoals(
+    request: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/pipeline/extract-goals',
+      { body: request }
+    );
+  }
+
+  /** Extract principles from ideas or debate data. */
+  async extractPrinciples(
+    request: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/pipeline/extract-principles',
+      { body: request }
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Auto-Run & System Metrics
+  // -----------------------------------------------------------------------
+
+  /** Auto-run pipeline with intelligent stage advancement. */
+  async autoRun(
+    request: Record<string, unknown>,
+  ): Promise<PipelineResult> {
+    return this.client.request<PipelineResult>(
+      'POST',
+      '/api/v1/canvas/pipeline/auto-run',
+      { body: request }
+    );
+  }
+
+  /** Create pipeline from current system metrics. */
+  async runFromSystemMetrics(
+    options?: Record<string, unknown>,
+  ): Promise<PipelineResult> {
+    return this.client.request<PipelineResult>(
+      'POST',
+      '/api/v1/canvas/pipeline/from-system-metrics',
+      { body: options }
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Intelligence & Insights
+  // -----------------------------------------------------------------------
+
+  /** Get AI intelligence analysis for a pipeline. */
+  async getIntelligence(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/intelligence`
+    );
+  }
+
+  /** Get belief network analysis for a pipeline. */
+  async getBeliefs(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/beliefs`
+    );
+  }
+
+  /** Get explainability data for a pipeline's decisions. */
+  async getExplanations(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/explanations`
+    );
+  }
+
+  /** Get historical precedents relevant to a pipeline. */
+  async getPrecedents(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/precedents`
+    );
+  }
+
+  /** Trigger self-improvement analysis for a pipeline. */
+  async selfImprove(
+    pipelineId: string,
+    options?: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/self-improve`,
+      { body: options }
+    );
+  }
 }

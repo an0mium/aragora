@@ -342,6 +342,181 @@ class CanvasAPI:
             },
         )
 
+    # =========================================================================
+    # Pipeline Demo & Async Run
+    # =========================================================================
+
+    def run_demo(self, **kwargs: Any) -> dict[str, Any]:
+        """Run a demo pipeline with sample data."""
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/demo",
+            json=kwargs if kwargs else None,
+        )
+
+    def run_pipeline(self, **kwargs: Any) -> dict[str, Any]:
+        """Start an async pipeline run."""
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/run",
+            json=kwargs,
+        )
+
+    def approve_transition(
+        self,
+        pipeline_id: str,
+        *,
+        approved: bool = True,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """Approve or reject a stage transition.
+
+        Args:
+            pipeline_id: Pipeline identifier
+            approved: Whether to approve the transition
+            reason: Optional reason for approval/rejection
+        """
+        payload: dict[str, Any] = {"approved": approved}
+        if reason:
+            payload["reason"] = reason
+        return self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/approve-transition",
+            json=payload,
+        )
+
+    def save_pipeline(
+        self,
+        pipeline_id: str,
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Save (overwrite) canvas state for a pipeline.
+
+        Args:
+            pipeline_id: Pipeline identifier
+            data: Canvas state data to save
+        """
+        return self._client.request(
+            "PUT",
+            f"/api/v1/canvas/pipeline/{pipeline_id}",
+            json=data,
+        )
+
+    # =========================================================================
+    # Goal & Principle Extraction
+    # =========================================================================
+
+    def extract_goals(self, **kwargs: Any) -> dict[str, Any]:
+        """Extract goals from an ideas canvas."""
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/extract-goals",
+            json=kwargs,
+        )
+
+    def extract_principles(self, **kwargs: Any) -> dict[str, Any]:
+        """Extract principles from ideas or debate data."""
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/extract-principles",
+            json=kwargs,
+        )
+
+    # =========================================================================
+    # Auto-Run & System Metrics
+    # =========================================================================
+
+    def auto_run(self, **kwargs: Any) -> dict[str, Any]:
+        """Auto-run pipeline with intelligent stage advancement."""
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/auto-run",
+            json=kwargs,
+        )
+
+    def run_from_system_metrics(self, **kwargs: Any) -> dict[str, Any]:
+        """Create pipeline from current system metrics."""
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/from-system-metrics",
+            json=kwargs if kwargs else None,
+        )
+
+    # =========================================================================
+    # Intelligence & Insights
+    # =========================================================================
+
+    def get_intelligence(self, pipeline_id: str) -> dict[str, Any]:
+        """Get AI intelligence analysis for a pipeline."""
+        return self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/intelligence",
+        )
+
+    def get_beliefs(self, pipeline_id: str) -> dict[str, Any]:
+        """Get belief network analysis for a pipeline."""
+        return self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/beliefs",
+        )
+
+    def get_explanations(self, pipeline_id: str) -> dict[str, Any]:
+        """Get explainability data for a pipeline's decisions."""
+        return self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/explanations",
+        )
+
+    def get_precedents(self, pipeline_id: str) -> dict[str, Any]:
+        """Get historical precedents relevant to a pipeline."""
+        return self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/precedents",
+        )
+
+    def self_improve(self, pipeline_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Trigger self-improvement analysis for a pipeline."""
+        return self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/self-improve",
+            json=kwargs if kwargs else None,
+        )
+
+    # =========================================================================
+    # Pipeline Agents
+    # =========================================================================
+
+    def get_pipeline_agents(self, pipeline_id: str) -> dict[str, Any]:
+        """List agents assigned to a pipeline."""
+        return self._client.request(
+            "GET",
+            f"/api/v1/pipeline/{pipeline_id}/agents",
+        )
+
+    def approve_pipeline_agent(
+        self, pipeline_id: str, agent_id: str
+    ) -> dict[str, Any]:
+        """Approve an agent's assignment to a pipeline."""
+        return self._client.request(
+            "POST",
+            f"/api/v1/pipeline/{pipeline_id}/agents/{agent_id}/approve",
+        )
+
+    def reject_pipeline_agent(
+        self,
+        pipeline_id: str,
+        agent_id: str,
+        *,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """Reject an agent's assignment to a pipeline."""
+        payload = {"reason": reason} if reason else None
+        return self._client.request(
+            "POST",
+            f"/api/v1/pipeline/{pipeline_id}/agents/{agent_id}/reject",
+            json=payload,
+        )
+
 
 class AsyncCanvasAPI:
     """Asynchronous Canvas Pipeline API."""
@@ -535,4 +710,168 @@ class AsyncCanvasAPI:
                 "use_universal": use_universal,
                 "auto_advance": auto_advance,
             },
+        )
+
+    # =========================================================================
+    # Pipeline Demo & Async Run
+    # =========================================================================
+
+    async def run_demo(self, **kwargs: Any) -> dict[str, Any]:
+        """Run a demo pipeline with sample data."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/demo",
+            json=kwargs if kwargs else None,
+        )
+
+    async def run_pipeline(self, **kwargs: Any) -> dict[str, Any]:
+        """Start an async pipeline run."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/run",
+            json=kwargs,
+        )
+
+    async def approve_transition(
+        self,
+        pipeline_id: str,
+        *,
+        approved: bool = True,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """Approve or reject a stage transition."""
+        payload: dict[str, Any] = {"approved": approved}
+        if reason:
+            payload["reason"] = reason
+        return await self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/approve-transition",
+            json=payload,
+        )
+
+    async def save_pipeline(
+        self,
+        pipeline_id: str,
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Save (overwrite) canvas state for a pipeline."""
+        return await self._client.request(
+            "PUT",
+            f"/api/v1/canvas/pipeline/{pipeline_id}",
+            json=data,
+        )
+
+    # =========================================================================
+    # Goal & Principle Extraction
+    # =========================================================================
+
+    async def extract_goals(self, **kwargs: Any) -> dict[str, Any]:
+        """Extract goals from an ideas canvas."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/extract-goals",
+            json=kwargs,
+        )
+
+    async def extract_principles(self, **kwargs: Any) -> dict[str, Any]:
+        """Extract principles from ideas or debate data."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/extract-principles",
+            json=kwargs,
+        )
+
+    # =========================================================================
+    # Auto-Run & System Metrics
+    # =========================================================================
+
+    async def auto_run(self, **kwargs: Any) -> dict[str, Any]:
+        """Auto-run pipeline with intelligent stage advancement."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/auto-run",
+            json=kwargs,
+        )
+
+    async def run_from_system_metrics(self, **kwargs: Any) -> dict[str, Any]:
+        """Create pipeline from current system metrics."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/from-system-metrics",
+            json=kwargs if kwargs else None,
+        )
+
+    # =========================================================================
+    # Intelligence & Insights
+    # =========================================================================
+
+    async def get_intelligence(self, pipeline_id: str) -> dict[str, Any]:
+        """Get AI intelligence analysis for a pipeline."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/intelligence",
+        )
+
+    async def get_beliefs(self, pipeline_id: str) -> dict[str, Any]:
+        """Get belief network analysis for a pipeline."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/beliefs",
+        )
+
+    async def get_explanations(self, pipeline_id: str) -> dict[str, Any]:
+        """Get explainability data for a pipeline's decisions."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/explanations",
+        )
+
+    async def get_precedents(self, pipeline_id: str) -> dict[str, Any]:
+        """Get historical precedents relevant to a pipeline."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/precedents",
+        )
+
+    async def self_improve(self, pipeline_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Trigger self-improvement analysis for a pipeline."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/canvas/pipeline/{pipeline_id}/self-improve",
+            json=kwargs if kwargs else None,
+        )
+
+    # =========================================================================
+    # Pipeline Agents
+    # =========================================================================
+
+    async def get_pipeline_agents(self, pipeline_id: str) -> dict[str, Any]:
+        """List agents assigned to a pipeline."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/pipeline/{pipeline_id}/agents",
+        )
+
+    async def approve_pipeline_agent(
+        self, pipeline_id: str, agent_id: str
+    ) -> dict[str, Any]:
+        """Approve an agent's assignment to a pipeline."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/pipeline/{pipeline_id}/agents/{agent_id}/approve",
+        )
+
+    async def reject_pipeline_agent(
+        self,
+        pipeline_id: str,
+        agent_id: str,
+        *,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        """Reject an agent's assignment to a pipeline."""
+        payload = {"reason": reason} if reason else None
+        return await self._client.request(
+            "POST",
+            f"/api/v1/pipeline/{pipeline_id}/agents/{agent_id}/reject",
+            json=payload,
         )

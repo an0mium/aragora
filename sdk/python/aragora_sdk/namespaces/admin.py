@@ -303,6 +303,181 @@ class AdminAPI:
         """
         return self._client.request("GET", f"/api/v1/admin/feature-flags/{flag_name}")
 
+    def set_feature_flag(self, flag_name: str, value: Any) -> dict[str, Any]:
+        """Set a specific feature flag value."""
+        return self._client.request(
+            "PUT", f"/api/v1/admin/feature-flags/{flag_name}", json={"value": value}
+        )
+
+    # ===========================================================================
+    # Organization Management
+    # ===========================================================================
+
+    def get_organization(self, org_id: str) -> dict[str, Any]:
+        """Get an organization by ID."""
+        return self._client.request("GET", f"/api/v1/admin/organizations/{org_id}")
+
+    def update_organization(self, org_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Update an organization."""
+        return self._client.request(
+            "PUT", f"/api/v1/admin/organizations/{org_id}", json=kwargs
+        )
+
+    # ===========================================================================
+    # User Management
+    # ===========================================================================
+
+    def get_user(self, user_id: str) -> dict[str, Any]:
+        """Get a user by ID."""
+        return self._client.request("GET", f"/api/v1/admin/users/{user_id}")
+
+    def suspend_user(self, user_id: str, reason: str) -> dict[str, Any]:
+        """Suspend a user."""
+        return self._client.request(
+            "POST", f"/api/v1/admin/users/{user_id}/suspend", json={"reason": reason}
+        )
+
+    def activate_user(self, user_id: str) -> dict[str, Any]:
+        """Activate a user."""
+        return self._client.request("POST", f"/api/v1/admin/users/{user_id}/activate")
+
+    def deactivate_user(self, user_id: str) -> dict[str, Any]:
+        """Deactivate a user."""
+        return self._client.request(
+            "POST", f"/api/v1/admin/users/{user_id}/deactivate"
+        )
+
+    def impersonate_user(self, user_id: str) -> dict[str, Any]:
+        """Impersonate a user."""
+        return self._client.request(
+            "POST", f"/api/v1/admin/users/{user_id}/impersonate"
+        )
+
+    def unlock_user(self, user_id: str) -> dict[str, Any]:
+        """Unlock a locked user account."""
+        return self._client.request("POST", f"/api/v1/admin/users/{user_id}/unlock")
+
+    # ===========================================================================
+    # System Metrics
+    # ===========================================================================
+
+    def get_system_metrics(self) -> dict[str, Any]:
+        """Get system metrics (CPU, memory, disk, etc.)."""
+        return self._client.request("GET", "/api/v1/admin/system/metrics")
+
+    # ===========================================================================
+    # Credit Management
+    # ===========================================================================
+
+    def issue_credits(
+        self,
+        org_id: str,
+        amount: float,
+        reason: str,
+        *,
+        expires_at: str | None = None,
+    ) -> dict[str, Any]:
+        """Issue credits to an organization."""
+        payload: dict[str, Any] = {"amount": amount, "reason": reason}
+        if expires_at:
+            payload["expires_at"] = expires_at
+        return self._client.request(
+            "POST", f"/api/v1/admin/organizations/{org_id}/credits", json=payload
+        )
+
+    def get_credit_account(self, org_id: str) -> dict[str, Any]:
+        """Get credit account for an organization."""
+        return self._client.request(
+            "GET", f"/api/v1/admin/organizations/{org_id}/credits"
+        )
+
+    def list_credit_transactions(
+        self, org_id: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        """List credit transactions for an organization."""
+        return self._client.request(
+            "GET",
+            f"/api/v1/admin/organizations/{org_id}/credits/transactions",
+            params=kwargs if kwargs else None,
+        )
+
+    def adjust_credits(
+        self, org_id: str, amount: float, reason: str
+    ) -> dict[str, Any]:
+        """Adjust credit balance for an organization."""
+        return self._client.request(
+            "POST",
+            f"/api/v1/admin/organizations/{org_id}/credits",
+            json={"amount": amount, "reason": reason},
+        )
+
+    def get_expiring_credits(self, org_id: str) -> dict[str, Any]:
+        """Get expiring credits for an organization."""
+        return self._client.request(
+            "GET",
+            f"/api/v1/admin/organizations/{org_id}/credits/expiring",
+        )
+
+    # ===========================================================================
+    # Security Keys & Scans
+    # ===========================================================================
+
+    def get_security_key(self, key_id: str) -> dict[str, Any]:
+        """Get a specific security key by ID."""
+        return self._client.request(
+            "GET", f"/api/v1/admin/security/keys/{key_id}"
+        )
+
+    def revoke_security_key(self, key_id: str) -> dict[str, Any]:
+        """Revoke a specific security key."""
+        return self._client.request(
+            "POST", f"/api/v1/admin/security/keys/{key_id}/revoke"
+        )
+
+    def rotate_security_key(self, key_type: str) -> dict[str, Any]:
+        """Rotate a security key by type."""
+        return self._client.request(
+            "POST", "/api/v1/admin/security/rotate-key", json={"key_type": key_type}
+        )
+
+    def get_security_scan(self, scan_id: str) -> dict[str, Any]:
+        """Get a specific security scan result."""
+        return self._client.request(
+            "GET", f"/api/v1/admin/security/scan/{scan_id}"
+        )
+
+    def resolve_security_threat(
+        self, threat_id: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        """Resolve a security threat."""
+        return self._client.request(
+            "POST",
+            f"/api/v1/admin/security/threats/{threat_id}/resolve",
+            json=kwargs if kwargs else None,
+        )
+
+    def get_rotation_status(self) -> dict[str, Any]:
+        """Get key rotation status."""
+        return self._client.request("GET", "/api/v1/admin/security/rotation-status")
+
+    # ===========================================================================
+    # System Health
+    # ===========================================================================
+
+    def get_system_health(self) -> dict[str, Any]:
+        """Get system health overview."""
+        return self._client.request("GET", "/api/v1/admin/system-health")
+
+    def get_system_health_component(self, component: str) -> dict[str, Any]:
+        """Get health status for a specific component."""
+        return self._client.request(
+            "GET", f"/api/v1/admin/system-health/{component}"
+        )
+
+    def get_mfa_compliance(self) -> dict[str, Any]:
+        """Get MFA compliance status."""
+        return self._client.request("GET", "/api/v1/admin/mfa-compliance")
+
 
 class AsyncAdminAPI:
     """
@@ -473,3 +648,178 @@ class AsyncAdminAPI:
     async def get_feature_flag(self, flag_name: str) -> dict[str, Any]:
         """Get a specific feature flag by name."""
         return await self._client.request("GET", f"/api/v1/admin/feature-flags/{flag_name}")
+
+    async def set_feature_flag(self, flag_name: str, value: Any) -> dict[str, Any]:
+        """Set a specific feature flag value."""
+        return await self._client.request(
+            "PUT", f"/api/v1/admin/feature-flags/{flag_name}", json={"value": value}
+        )
+
+    # ===========================================================================
+    # Organization Management
+    # ===========================================================================
+
+    async def get_organization(self, org_id: str) -> dict[str, Any]:
+        """Get an organization by ID."""
+        return await self._client.request("GET", f"/api/v1/admin/organizations/{org_id}")
+
+    async def update_organization(self, org_id: str, **kwargs: Any) -> dict[str, Any]:
+        """Update an organization."""
+        return await self._client.request(
+            "PUT", f"/api/v1/admin/organizations/{org_id}", json=kwargs
+        )
+
+    # ===========================================================================
+    # User Management
+    # ===========================================================================
+
+    async def get_user(self, user_id: str) -> dict[str, Any]:
+        """Get a user by ID."""
+        return await self._client.request("GET", f"/api/v1/admin/users/{user_id}")
+
+    async def suspend_user(self, user_id: str, reason: str) -> dict[str, Any]:
+        """Suspend a user."""
+        return await self._client.request(
+            "POST", f"/api/v1/admin/users/{user_id}/suspend", json={"reason": reason}
+        )
+
+    async def activate_user(self, user_id: str) -> dict[str, Any]:
+        """Activate a user."""
+        return await self._client.request("POST", f"/api/v1/admin/users/{user_id}/activate")
+
+    async def deactivate_user(self, user_id: str) -> dict[str, Any]:
+        """Deactivate a user."""
+        return await self._client.request(
+            "POST", f"/api/v1/admin/users/{user_id}/deactivate"
+        )
+
+    async def impersonate_user(self, user_id: str) -> dict[str, Any]:
+        """Impersonate a user."""
+        return await self._client.request(
+            "POST", f"/api/v1/admin/users/{user_id}/impersonate"
+        )
+
+    async def unlock_user(self, user_id: str) -> dict[str, Any]:
+        """Unlock a locked user account."""
+        return await self._client.request("POST", f"/api/v1/admin/users/{user_id}/unlock")
+
+    # ===========================================================================
+    # System Metrics
+    # ===========================================================================
+
+    async def get_system_metrics(self) -> dict[str, Any]:
+        """Get system metrics (CPU, memory, disk, etc.)."""
+        return await self._client.request("GET", "/api/v1/admin/system/metrics")
+
+    # ===========================================================================
+    # Credit Management
+    # ===========================================================================
+
+    async def issue_credits(
+        self,
+        org_id: str,
+        amount: float,
+        reason: str,
+        *,
+        expires_at: str | None = None,
+    ) -> dict[str, Any]:
+        """Issue credits to an organization."""
+        payload: dict[str, Any] = {"amount": amount, "reason": reason}
+        if expires_at:
+            payload["expires_at"] = expires_at
+        return await self._client.request(
+            "POST", f"/api/v1/admin/organizations/{org_id}/credits", json=payload
+        )
+
+    async def get_credit_account(self, org_id: str) -> dict[str, Any]:
+        """Get credit account for an organization."""
+        return await self._client.request(
+            "GET", f"/api/v1/admin/organizations/{org_id}/credits"
+        )
+
+    async def list_credit_transactions(
+        self, org_id: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        """List credit transactions for an organization."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/admin/organizations/{org_id}/credits/transactions",
+            params=kwargs if kwargs else None,
+        )
+
+    async def adjust_credits(
+        self, org_id: str, amount: float, reason: str
+    ) -> dict[str, Any]:
+        """Adjust credit balance for an organization."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/admin/organizations/{org_id}/credits",
+            json={"amount": amount, "reason": reason},
+        )
+
+    async def get_expiring_credits(self, org_id: str) -> dict[str, Any]:
+        """Get expiring credits for an organization."""
+        return await self._client.request(
+            "GET",
+            f"/api/v1/admin/organizations/{org_id}/credits/expiring",
+        )
+
+    # ===========================================================================
+    # Security Keys & Scans
+    # ===========================================================================
+
+    async def get_security_key(self, key_id: str) -> dict[str, Any]:
+        """Get a specific security key by ID."""
+        return await self._client.request(
+            "GET", f"/api/v1/admin/security/keys/{key_id}"
+        )
+
+    async def revoke_security_key(self, key_id: str) -> dict[str, Any]:
+        """Revoke a specific security key."""
+        return await self._client.request(
+            "POST", f"/api/v1/admin/security/keys/{key_id}/revoke"
+        )
+
+    async def rotate_security_key(self, key_type: str) -> dict[str, Any]:
+        """Rotate a security key by type."""
+        return await self._client.request(
+            "POST", "/api/v1/admin/security/rotate-key", json={"key_type": key_type}
+        )
+
+    async def get_security_scan(self, scan_id: str) -> dict[str, Any]:
+        """Get a specific security scan result."""
+        return await self._client.request(
+            "GET", f"/api/v1/admin/security/scan/{scan_id}"
+        )
+
+    async def resolve_security_threat(
+        self, threat_id: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        """Resolve a security threat."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/admin/security/threats/{threat_id}/resolve",
+            json=kwargs if kwargs else None,
+        )
+
+    async def get_rotation_status(self) -> dict[str, Any]:
+        """Get key rotation status."""
+        return await self._client.request("GET", "/api/v1/admin/security/rotation-status")
+
+    # ===========================================================================
+    # System Health
+    # ===========================================================================
+
+    async def get_system_health(self) -> dict[str, Any]:
+        """Get system health overview."""
+        return await self._client.request("GET", "/api/v1/admin/system-health")
+
+    async def get_system_health_component(self, component: str) -> dict[str, Any]:
+        """Get health status for a specific component."""
+        return await self._client.request(
+            "GET", f"/api/v1/admin/system-health/{component}"
+        )
+
+    async def get_mfa_compliance(self) -> dict[str, Any]:
+        """Get MFA compliance status."""
+        return await self._client.request("GET", "/api/v1/admin/mfa-compliance")

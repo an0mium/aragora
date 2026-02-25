@@ -268,7 +268,7 @@ export class PaymentsAPI {
   async charge(
     request: ChargeRequest
   ): Promise<{ success: boolean; transaction: PaymentResult }> {
-    return this.client.request('POST', '/api/payments/charge', {
+    return this.client.request('POST', '/api/v1/payments/charge', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -279,7 +279,7 @@ export class PaymentsAPI {
   async authorize(
     request: AuthorizeRequest
   ): Promise<{ success: boolean; transaction_id: string; transaction: PaymentResult }> {
-    return this.client.request('POST', '/api/payments/authorize', {
+    return this.client.request('POST', '/api/v1/payments/authorize', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -292,7 +292,7 @@ export class PaymentsAPI {
     amount?: number,
     provider?: PaymentProvider
   ): Promise<{ success: boolean; transaction: PaymentResult }> {
-    return this.client.request('POST', '/api/payments/capture', {
+    return this.client.request('POST', '/api/v1/payments/capture', {
       json: { transaction_id: transactionId, amount, provider },
     });
   }
@@ -303,7 +303,7 @@ export class PaymentsAPI {
   async refund(
     request: RefundRequest
   ): Promise<{ success: boolean; refund_id?: string; transaction: PaymentResult }> {
-    return this.client.request('POST', '/api/payments/refund', {
+    return this.client.request('POST', '/api/v1/payments/refund', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -315,7 +315,7 @@ export class PaymentsAPI {
     transactionId: string,
     provider?: PaymentProvider
   ): Promise<{ success: boolean }> {
-    return this.client.request('POST', '/api/payments/void', {
+    return this.client.request('POST', '/api/v1/payments/void', {
       json: { transaction_id: transactionId, provider },
     });
   }
@@ -324,7 +324,7 @@ export class PaymentsAPI {
    * Get transaction details.
    */
   async getTransaction(transactionId: string): Promise<{ transaction: TransactionDetails }> {
-    return this.client.request('GET', `/api/payments/transaction/${transactionId}`);
+    return this.client.request('GET', `/api/v1/payments/transaction/${transactionId}`);
   }
 
   // =========================================================================
@@ -337,7 +337,7 @@ export class PaymentsAPI {
   async createCustomer(
     request: CreateCustomerRequest
   ): Promise<{ success: boolean; customer_id: string; customer: CustomerProfile }> {
-    return this.client.request('POST', '/api/payments/customer', {
+    return this.client.request('POST', '/api/v1/payments/customer', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -346,7 +346,7 @@ export class PaymentsAPI {
    * Get a customer profile.
    */
   async getCustomer(customerId: string): Promise<{ customer: CustomerProfile }> {
-    return this.client.request('GET', `/api/payments/customer/${customerId}`);
+    return this.client.request('GET', `/api/v1/payments/customer/${customerId}`);
   }
 
   /**
@@ -356,7 +356,7 @@ export class PaymentsAPI {
     customerId: string,
     request: UpdateCustomerRequest
   ): Promise<{ success: boolean; customer: CustomerProfile }> {
-    return this.client.request('PUT', `/api/payments/customer/${customerId}`, {
+    return this.client.request('PUT', `/api/v1/payments/customer/${customerId}`, {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -365,7 +365,7 @@ export class PaymentsAPI {
    * Delete a customer profile.
    */
   async deleteCustomer(customerId: string): Promise<{ success: boolean }> {
-    return this.client.request('DELETE', `/api/payments/customer/${customerId}`);
+    return this.client.request('DELETE', `/api/v1/payments/customer/${customerId}`);
   }
 
   // =========================================================================
@@ -378,7 +378,7 @@ export class PaymentsAPI {
   async createSubscription(
     request: CreateSubscriptionRequest
   ): Promise<{ success: boolean; subscription_id: string; subscription: Subscription }> {
-    return this.client.request('POST', '/api/payments/subscription', {
+    return this.client.request('POST', '/api/v1/payments/subscription', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -387,7 +387,7 @@ export class PaymentsAPI {
    * Get a subscription.
    */
   async getSubscription(subscriptionId: string): Promise<{ subscription: Subscription }> {
-    return this.client.request('GET', `/api/payments/subscription/${subscriptionId}`);
+    return this.client.request('GET', `/api/v1/payments/subscription/${subscriptionId}`);
   }
 
   /**
@@ -397,7 +397,7 @@ export class PaymentsAPI {
     subscriptionId: string,
     request: UpdateSubscriptionRequest
   ): Promise<{ success: boolean; subscription: Subscription }> {
-    return this.client.request('PUT', `/api/payments/subscription/${subscriptionId}`, {
+    return this.client.request('PUT', `/api/v1/payments/subscription/${subscriptionId}`, {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -409,7 +409,7 @@ export class PaymentsAPI {
     subscriptionId: string,
     cancelAtPeriodEnd = true
   ): Promise<{ success: boolean; subscription: Subscription }> {
-    return this.client.request('DELETE', `/api/payments/subscription/${subscriptionId}`, {
+    return this.client.request('DELETE', `/api/v1/payments/subscription/${subscriptionId}`, {
       json: { cancel_at_period_end: cancelAtPeriodEnd },
     });
   }
