@@ -32,6 +32,7 @@ import logging
 import mimetypes
 import os
 import re
+import tempfile
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -265,7 +266,7 @@ class LocalStorageBackend:
     def __init__(self, base_path: str | Path | None = None):
         """Initialize local storage backend."""
         self.base_path = Path(
-            base_path or os.environ.get("ARAGORA_STORAGE_PATH", "/tmp/aragora_storage")
+            base_path or os.environ.get("ARAGORA_STORAGE_PATH", os.path.join(tempfile.gettempdir(), "aragora_storage"))
         )
         self.base_path.mkdir(parents=True, exist_ok=True)
 
