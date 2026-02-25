@@ -486,10 +486,11 @@ jobs:
           initial_mem = p.memory_info().rss / (1024 * 1024)
 
           # Make 1000 requests
+          # Use /healthz (liveness probe) instead of /api/health (requires auth)
           import urllib.request
           for _ in range(1000):
               try:
-                  urllib.request.urlopen('http://localhost:8080/api/health', timeout=1)
+                  urllib.request.urlopen('http://localhost:8080/healthz', timeout=1)
               except:
                   pass
 
