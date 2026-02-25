@@ -3,13 +3,6 @@ name: Autopilot Worktree E2E
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'aragora/server/handlers/self_improve.py'
-      - 'aragora/worktree/**'
-      - 'scripts/codex_worktree_autopilot.py'
-      - 'tests/handlers/test_self_improve_api.py'
-      - '.github/workflows/autopilot-worktree-e2e.yml'
-      - 'pyproject.toml'
   workflow_dispatch:
 
 concurrency:
@@ -20,10 +13,40 @@ permissions:
   contents: read
 
 jobs:
+  scope:
+    name: Autopilot Scope
+    runs-on: ubuntu-latest
+    outputs:
+      run_autopilot: ${{ steps.filter.outputs.run_autopilot }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect autopilot-relevant changes
+        id: filter
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "run_autopilot=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          CHANGED="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
+
+          if printf '%s\n' "$CHANGED" | grep -Eq '^(aragora/server/handlers/self_improve.py|aragora/worktree/.*|scripts/codex_worktree_autopilot.py|tests/handlers/test_self_improve_api.py|\\.github/workflows/autopilot-worktree-e2e.yml|pyproject.toml)$'; then
+            echo "run_autopilot=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_autopilot=false" >> "$GITHUB_OUTPUT"
+          fi
+
   autopilot-api-e2e:
     name: Autopilot API E2E
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: scope
+    if: github.event_name != 'pull_request' || needs.scope.outputs.run_autopilot == 'true'
 
     steps:
       - name: Checkout

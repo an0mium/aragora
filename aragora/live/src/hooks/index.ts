@@ -359,3 +359,41 @@ export type {
 
 export { useStreamingAudio } from './useStreamingAudio';
 export { useDashboardEvents } from './useDashboardEvents';
+
+// =============================================================================
+// Agent Evolution & Blockchain
+// =============================================================================
+
+export { useAgentEvolution, useAgentEloTrends, usePendingChanges, useAgentEvolutionDashboard } from './useAgentEvolution';
+export type { EvolutionEvent, EvolutionTimeline, EloTrendPoint, AgentEloTrend, PendingChange } from './useAgentEvolution';
+export { useBlockchainConfig, useBlockchainAgents, useBlockchainAgent, useBlockchainReputation, useBlockchainValidations, useBlockchainHealth } from './useBlockchain';
+export type { ChainConfig, OnChainAgent, ReputationSummary, BlockchainHealth } from './useBlockchain';
+
+// =============================================================================
+// API Explorer & Command Center
+// =============================================================================
+
+export { useApiExplorer } from './useApiExplorer';
+export type { OpenApiOperation, ParsedEndpoint, EndpointGroup, UseApiExplorerReturn } from './useApiExplorer';
+export { useCommandCenter } from './useCommandCenter';
+export type { InputMode, AutoFlowPhase, CommandStats } from './useCommandCenter';
+
+// =============================================================================
+// Compliance & Decision Analytics
+// =============================================================================
+
+export { useComplianceStatus, useRBACCoverage, useEncryptionStatus, useAuditTrail } from './useComplianceDashboard';
+export type { RBACCoverage, EncryptionStatus, ComplianceFrameworks, AuditEntry } from './useComplianceDashboard';
+export { useDecisionOverview, useDecisionTrends, useDecisionOutcomes, useAgentQuality, useDomainQuality, useDecisionAnalytics } from './useDecisionAnalytics';
+export type { DecisionOverview, QualityTrendPoint as DecisionQualityTrend, AnalyticsPeriod } from './useDecisionAnalytics';
+export { useDecisionIntegrity } from './useDecisionIntegrity';
+export type { IntegrityMetrics, ConsensusMetrics, ReceiptStats } from './useDecisionIntegrity';
+
+// =============================================================================
+// Event Stream & Outcome Analytics
+// =============================================================================
+
+export { useEventStream } from './useEventStream';
+export type { StreamEvent as EventStreamEvent, EventCategory, EventSeverity, EventFilters } from './useEventStream';
+export { useOutcomeAnalytics, useOutcomeDashboard as useOutcomeAnalyticsDashboard, useQualityScore, useCalibrationCurve, useDecisionHistory } from './useOutcomeAnalytics';
+export type { OutcomeDashboardData, OutcomePeriod, CalibrationData, DecisionHistoryEntry } from './useOutcomeAnalytics';

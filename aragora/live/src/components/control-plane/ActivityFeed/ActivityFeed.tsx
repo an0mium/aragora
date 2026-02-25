@@ -65,7 +65,7 @@ const filterPresets: { label: string; types: ActivityEventType[] }[] = [
  * Displays:
  * - Agent registrations/failures
  * - Task completions/errors
- * - Vetted decisionmaking events
+ * - Debate events
  * - Connector sync events
  * - Policy violations
  */

@@ -163,14 +163,14 @@ describe('ControlPlanePage', () => {
     it('renders header elements', async () => {
       renderWithProviders(<ControlPlanePage />);
 
-      expect(screen.getByText('Control Plane')).toBeInTheDocument();
+      expect(screen.getByText('Dashboard')).toBeInTheDocument();
       expect(screen.getByText(/Monitor and orchestrate multi-agent document processing/)).toBeInTheDocument();
     });
 
     it('renders page title and description', async () => {
       renderWithProviders(<ControlPlanePage />);
 
-      expect(screen.getByText('Control Plane')).toBeInTheDocument();
+      expect(screen.getByText('Dashboard')).toBeInTheDocument();
       expect(screen.getByText(/Monitor and orchestrate multi-agent document processing/)).toBeInTheDocument();
     });
 
@@ -179,14 +179,14 @@ describe('ControlPlanePage', () => {
 
       renderWithProviders(<ControlPlanePage />);
 
-      expect(screen.getByText('Loading control plane...')).toBeInTheDocument();
+      expect(screen.getByText('Loading dashboard...')).toBeInTheDocument();
     });
 
     it('renders tab navigation buttons', async () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       expect(screen.getByText('OVERVIEW')).toBeInTheDocument();
@@ -197,7 +197,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       expect(screen.getByRole('button', { name: /OVERVIEW/i })).toBeInTheDocument();
@@ -212,7 +212,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       expect(screen.getByText('Decision Console')).toBeInTheDocument();
@@ -278,7 +278,7 @@ describe('ControlPlanePage', () => {
     renderWithProviders(<ControlPlanePage />);
 
     await waitFor(() => {
-      expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+      expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
     });
 
     await user.type(
@@ -394,7 +394,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -410,7 +410,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -426,7 +426,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -442,7 +442,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -458,7 +458,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -474,7 +474,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -490,7 +490,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -506,7 +506,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -522,7 +522,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -725,7 +725,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -779,7 +779,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -834,7 +834,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -895,7 +895,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -920,12 +920,12 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       // Auto-refresh polling is managed internally (no visible toggle in current UI)
       // Verify the page loaded correctly with overview tab active
-      expect(screen.getByText('Control Plane')).toBeInTheDocument();
+      expect(screen.getByText('Dashboard')).toBeInTheDocument();
     });
   });
 
@@ -936,7 +936,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -954,7 +954,7 @@ describe('ControlPlanePage', () => {
       renderWithProviders(<ControlPlanePage />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Loading control plane...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
       });
 
       await act(async () => {
@@ -972,7 +972,7 @@ describe('ControlPlanePage', () => {
     it('renders footer', async () => {
       renderWithProviders(<ControlPlanePage />);
 
-      expect(screen.getByText(/ARAGORA \/\/ CONTROL PLANE/)).toBeInTheDocument();
+      expect(screen.getByText(/ARAGORA \/\/ DASHBOARD/)).toBeInTheDocument();
     });
   });
 

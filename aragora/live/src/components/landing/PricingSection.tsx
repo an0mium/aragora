@@ -26,32 +26,47 @@ const TIERS: Tier[] = [
     name: 'FREE',
     id: 'free',
     price: '$0',
-    period: 'forever',
+    period: '/month',
     accent: 'acid-cyan',
     features: [
-      'Playground debates (mock agents)',
-      'Instant results, no signup',
-      'See proposals, critiques, votes',
-      'Community templates',
+      '10 debates/month',
+      '3 agents per debate',
+      'Basic analytics',
+      'Community support',
     ],
     cta: 'TRY NOW',
     action: 'link',
     href: '/playground',
   },
   {
+    name: 'STARTER',
+    id: 'starter',
+    price: '$29',
+    period: '/month',
+    accent: 'acid-cyan',
+    features: [
+      '100 debates/month',
+      '10 agents per debate',
+      'Full analytics + API access',
+      'Email support',
+    ],
+    cta: 'START FREE TRIAL',
+    action: 'checkout',
+  },
+  {
     name: 'PRO',
     id: 'professional',
-    price: '$49',
+    price: '$99',
     period: '/month',
     accent: 'acid-green',
     highlight: true,
     features: [
-      '15+ real AI models (Claude, GPT, Gemini, Mistral, DeepSeek)',
+      '1,000 debates/month',
+      'All 42+ agents',
+      'Advanced analytics + priority support',
+      'Slack, Teams, Email delivery',
       'Decision receipts with SHA-256 audit trail',
       'Knowledge base integration',
-      'ELO rankings and calibration tracking',
-      'Slack, Teams, Email delivery',
-      '1,000 debates/month',
     ],
     cta: 'START FREE TRIAL',
     action: 'checkout',
@@ -63,11 +78,9 @@ const TIERS: Tier[] = [
     period: '',
     accent: 'acid-cyan',
     features: [
-      'Everything in Pro',
+      'Everything in Pro + unlimited debates',
       'SSO (OIDC/SAML) + SCIM provisioning',
-      'RBAC with 50+ granular permissions',
       'SOC 2 / HIPAA / EU AI Act compliance',
-      'On-prem or dedicated cloud',
       'SLA + dedicated support',
     ],
     cta: 'CONTACT SALES',
@@ -81,6 +94,7 @@ const TIERS: Tier[] = [
 interface ComparisonFeature {
   label: string;
   free: string;
+  starter: string;
   pro: string;
   enterprise: string;
 }
@@ -89,41 +103,43 @@ const COMPARISON_CATEGORIES: { category: string; features: ComparisonFeature[] }
   {
     category: 'USAGE',
     features: [
-      { label: 'Debates per month', free: '10', pro: '1,000', enterprise: 'Unlimited' },
-      { label: 'AI agents', free: '3 basic', pro: 'All 42+', enterprise: 'All 42+ + custom' },
+      { label: 'Debates per month', free: '10', starter: '100', pro: '1,000', enterprise: 'Unlimited' },
+      { label: 'AI agents', free: '3 basic', starter: '10', pro: 'All 42+', enterprise: 'All 42+ + custom' },
     ],
   },
   {
     category: 'CORE FEATURES',
     features: [
-      { label: 'Decision receipts', free: 'Basic', pro: 'Full with provenance', enterprise: 'Full with provenance' },
-      { label: 'Workflow templates', free: '\u2014', pro: '\u2713', enterprise: '\u2713' },
-      { label: 'Knowledge Mound access', free: '\u2014', pro: '\u2713', enterprise: '\u2713' },
-      { label: 'Custom agent training', free: '\u2014', pro: '\u2014', enterprise: '\u2713' },
+      { label: 'Decision receipts', free: 'Basic', starter: 'Basic', pro: 'Full with provenance', enterprise: 'Full with provenance' },
+      { label: 'Workflow templates', free: '\u2014', starter: '\u2713', pro: '\u2713', enterprise: '\u2713' },
+      { label: 'Knowledge Mound access', free: '\u2014', starter: '\u2014', pro: '\u2713', enterprise: '\u2713' },
+      { label: 'Custom agent training', free: '\u2014', starter: '\u2014', pro: '\u2014', enterprise: '\u2713' },
     ],
   },
   {
-    category: 'DELIVERY',
+    category: 'SUPPORT & DELIVERY',
     features: [
-      { label: 'Email support', free: '\u2713', pro: '\u2713', enterprise: '\u2713' },
-      { label: 'Slack + Teams delivery', free: '\u2014', pro: '\u2713', enterprise: '\u2713' },
-      { label: 'Priority support', free: '\u2014', pro: '\u2713', enterprise: '\u2713' },
-      { label: 'Dedicated support + SLA', free: '\u2014', pro: '\u2014', enterprise: '\u2713' },
+      { label: 'Community support', free: '\u2713', starter: '\u2713', pro: '\u2713', enterprise: '\u2713' },
+      { label: 'Email support', free: '\u2014', starter: '\u2713', pro: '\u2713', enterprise: '\u2713' },
+      { label: 'Slack + Teams delivery', free: '\u2014', starter: '\u2014', pro: '\u2713', enterprise: '\u2713' },
+      { label: 'Priority support', free: '\u2014', starter: '\u2014', pro: '\u2713', enterprise: '\u2713' },
+      { label: 'Dedicated support + SLA', free: '\u2014', starter: '\u2014', pro: '\u2014', enterprise: '\u2713' },
     ],
   },
   {
     category: 'ENTERPRISE',
     features: [
-      { label: 'SAML / SCIM SSO', free: '\u2014', pro: '\u2014', enterprise: '\u2713' },
-      { label: 'SOC 2 compliance artifacts', free: '\u2014', pro: '\u2014', enterprise: '\u2713' },
-      { label: 'On-premise deployment', free: '\u2014', pro: '\u2014', enterprise: '\u2713' },
-      { label: 'Decision Intelligence analytics', free: '\u2014', pro: '\u2014', enterprise: '\u2713' },
+      { label: 'SAML / SCIM SSO', free: '\u2014', starter: '\u2014', pro: '\u2014', enterprise: '\u2713' },
+      { label: 'SOC 2 compliance artifacts', free: '\u2014', starter: '\u2014', pro: '\u2014', enterprise: '\u2713' },
+      { label: 'On-premise deployment', free: '\u2014', starter: '\u2014', pro: '\u2014', enterprise: '\u2713' },
+      { label: 'Decision Intelligence analytics', free: '\u2014', starter: '\u2014', pro: '\u2014', enterprise: '\u2713' },
     ],
   },
 ];
 
 const TABLE_TIERS = [
   { key: 'free' as const, id: 'free', name: 'FREE', accent: 'acid-cyan', cta: 'TRY NOW', action: 'link' as const, href: '/playground', highlight: false },
+  { key: 'starter' as const, id: 'starter', name: 'STARTER', accent: 'acid-cyan', cta: 'START FREE TRIAL', action: 'checkout' as const, highlight: false },
   { key: 'pro' as const, id: 'professional', name: 'PRO', accent: 'acid-green', cta: 'START FREE TRIAL', action: 'checkout' as const, highlight: true },
   { key: 'enterprise' as const, id: 'enterprise', name: 'ENTERPRISE', accent: 'acid-cyan', cta: 'CONTACT SALES', action: 'contact' as const, href: 'mailto:sales@aragora.ai?subject=Enterprise%20Inquiry', highlight: false },
 ];
@@ -211,9 +227,9 @@ function ComparisonTable({ loadingTier, onCheckout }: { loadingTier: string | nu
         {/* Header */}
         <thead>
           <tr className="border-b border-acid-green/30">
-            <th className="text-left py-3 px-3 text-text-muted font-normal w-[40%]">FEATURE</th>
+            <th className="text-left py-3 px-3 text-text-muted font-normal w-[28%]">FEATURE</th>
             {TABLE_TIERS.map((tier) => (
-              <th key={tier.key} className="text-center py-3 px-3 w-[20%]">
+              <th key={tier.key} className="text-center py-3 px-3 w-[18%]">
                 <div className="flex flex-col items-center gap-1">
                   <span className={`text-${tier.accent} font-bold text-sm`}>{tier.name}</span>
                   {tier.highlight && (
@@ -231,7 +247,7 @@ function ComparisonTable({ loadingTier, onCheckout }: { loadingTier: string | nu
             <React.Fragment key={cat.category}>
               {/* Category header row */}
               <tr className="border-t border-border/40">
-                <td colSpan={4} className="py-2 px-3 text-text-muted/60 text-[10px] tracking-wider">
+                <td colSpan={5} className="py-2 px-3 text-text-muted/60 text-[10px] tracking-wider">
                   {cat.category}
                 </td>
               </tr>
@@ -240,6 +256,7 @@ function ComparisonTable({ loadingTier, onCheckout }: { loadingTier: string | nu
                 <tr key={f.label} className="border-b border-border/20 hover:bg-surface/40 transition-colors">
                   <td className="py-2 px-3 text-text-muted">{f.label}</td>
                   <td className={`py-2 px-3 text-center ${cellColor(f.free)}`}>{f.free}</td>
+                  <td className={`py-2 px-3 text-center ${cellColor(f.starter)}`}>{f.starter}</td>
                   <td className={`py-2 px-3 text-center ${cellColor(f.pro)}`}>{f.pro}</td>
                   <td className={`py-2 px-3 text-center ${cellColor(f.enterprise)}`}>{f.enterprise}</td>
                 </tr>
@@ -336,7 +353,7 @@ export function PricingSection() {
         </p>
 
         {/* ── Tier cards ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
           {TIERS.map((tier) => (
             <div
               key={tier.name}

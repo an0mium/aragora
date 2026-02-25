@@ -28,7 +28,6 @@ function TierBar({ tier, data }: { tier: string; data: TierRevenue }) {
     starter: 'bg-acid-cyan',
     professional: 'bg-acid-green',
     enterprise: 'bg-acid-yellow',
-    enterprise_plus: 'bg-acid-magenta',
   };
 
   return (
