@@ -896,7 +896,7 @@ User feedback and NPS collection under `/api/v1/feedback`.
 
 | Endpoint | Description | Status |
 |----------|-------------|--------|
-| `POST /api/control-plane/deliberations` | Run or queue a AI debate session | NEW |
+| `POST /api/control-plane/deliberations` | Run or queue an AI debate session | NEW |
 | `GET /api/control-plane/deliberations/:id` | Get AI debate result | NEW |
 | `GET /api/control-plane/deliberations/:id/status` | Get AI debate status | NEW |
 | `POST /api/v1/decisions` | Create a decision request | NEW |

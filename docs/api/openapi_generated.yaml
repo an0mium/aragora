@@ -8397,7 +8397,7 @@ paths:
       tags:
       - Control Plane
       summary: Run AI debate session
-      description: Run or queue a AI debate session (async when async=true).
+      description: Run or queue an AI debate session (async when async=true).
       security:
       - bearerAuth: []
       requestBody:
@@ -50601,7 +50601,7 @@ paths:
       - Control Plane
       summary: Run AI debate session
       operationId: createControlPlaneDeliberations
-      description: Run or queue a AI debate session (async when async=true).
+      description: Run or queue an AI debate session (async when async=true).
       security:
       - bearerAuth: []
       requestBody:
