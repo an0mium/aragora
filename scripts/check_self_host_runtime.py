@@ -184,6 +184,78 @@ def _wait_for_service(base_cmd: list[str], service: str, timeout_seconds: int) -
     raise RuntimeCheckError(f"Timed out waiting for service {service} (last_status={last_status})")
 
 
+def _get_primary_container_id(base_cmd: list[str], service: str) -> str:
+    cid_result = _compose(base_cmd, ["ps", "-q", service], check=False)
+    if cid_result.returncode != 0:
+        details = cid_result.stderr.strip() or cid_result.stdout.strip() or "unknown error"
+        raise RuntimeCheckError(f"Failed to resolve container id for {service}: {details}")
+
+    container_ids = [line.strip() for line in cid_result.stdout.splitlines() if line.strip()]
+    if not container_ids:
+        raise RuntimeCheckError(f"No running container found for service {service}")
+
+    return container_ids[0]
+
+
+def _get_container_ip(container_id: str) -> str:
+    inspect_result = _run(
+        [
+            "docker",
+            "inspect",
+            "-f",
+            "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+            container_id,
+        ],
+        check=False,
+    )
+    if inspect_result.returncode != 0:
+        details = inspect_result.stderr.strip() or inspect_result.stdout.strip() or "unknown error"
+        raise RuntimeCheckError(f"Failed to inspect network IP for {container_id}: {details}")
+
+    ip_address = inspect_result.stdout.strip()
+    if not ip_address:
+        raise RuntimeCheckError(f"Container {container_id} has no network IP")
+
+    return ip_address
+
+
+def _resolve_runtime_base_url(
+    base_cmd: list[str],
+    requested_base_url: str,
+    app_service: str = "aragora",
+    app_port: int = 8080,
+) -> str:
+    parsed = urllib.parse.urlparse(requested_base_url)
+    host = (parsed.hostname or "").lower()
+    if host not in {"127.0.0.1", "localhost", "::1"}:
+        return requested_base_url
+
+    requested_port = parsed.port or app_port
+    if requested_port != app_port:
+        return requested_base_url
+
+    port_result = _compose(base_cmd, ["port", app_service, str(app_port)], check=False)
+    if port_result.returncode == 0 and port_result.stdout.strip():
+        return requested_base_url
+
+    try:
+        container_id = _get_primary_container_id(base_cmd, app_service)
+        container_ip = _get_container_ip(container_id)
+    except RuntimeCheckError as exc:
+        print(
+            f"[warn] unable to resolve internal endpoint for {app_service}:{app_port}: {exc}",
+            file=sys.stderr,
+        )
+        return requested_base_url
+
+    resolved_url = f"http://{container_ip}:{app_port}"
+    print(
+        f"[info] no host port mapping for {app_service}:{app_port}; "
+        f"probing container endpoint {resolved_url}"
+    )
+    return resolved_url
+
+
 def _http_request(
     url: str,
     method: str = "GET",
@@ -324,12 +396,14 @@ def main() -> int:
         for service in services:
             _wait_for_service(base_cmd, service, timeout_seconds=args.service_timeout)
 
+        runtime_base_url = _resolve_runtime_base_url(base_cmd, args.base_url)
+
         print("[step] waiting for HTTP health endpoints")
-        _wait_for_http_200(args.base_url, "/healthz", timeout_seconds=args.api_timeout)
-        _wait_for_http_200(args.base_url, "/readyz", timeout_seconds=args.api_timeout)
+        _wait_for_http_200(runtime_base_url, "/healthz", timeout_seconds=args.api_timeout)
+        _wait_for_http_200(runtime_base_url, "/readyz", timeout_seconds=args.api_timeout)
 
         print("[step] validating authenticated API flow")
-        _check_api_flow(args.base_url, api_token=api_token)
+        _check_api_flow(runtime_base_url, api_token=api_token)
 
         print("Self-host runtime validation passed")
         return 0
