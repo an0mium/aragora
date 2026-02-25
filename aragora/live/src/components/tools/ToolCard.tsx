@@ -11,7 +11,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Verification: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/10',
   Workflow: 'text-blue-400 border-blue-400/40 bg-blue-400/10',
   Evidence: 'text-orange-400 border-orange-400/40 bg-orange-400/10',
-  'Control Plane': 'text-rose-400 border-rose-400/40 bg-rose-400/10',
+  'Platform': 'text-rose-400 border-rose-400/40 bg-rose-400/10',
   Canvas: 'text-pink-400 border-pink-400/40 bg-pink-400/10',
   Pipeline: 'text-indigo-400 border-indigo-400/40 bg-indigo-400/10',
   Codebase: 'text-yellow-400 border-yellow-400/40 bg-yellow-400/10',

@@ -145,7 +145,7 @@ const analyticsItems: NavItem[] = [
 const enterpriseItems: NavItem[] = [
   { label: 'Decision Integrity', href: '/decision-integrity', icon: '\u2726', minMode: 'standard' },
   { label: 'Compliance', href: '/compliance', icon: '\u2713', minMode: 'standard' },
-  { label: 'Control Plane', href: '/control-plane', icon: '\u25CE', minMode: 'standard' },
+  { label: 'Dashboard', href: '/control-plane', icon: '\u25CE', minMode: 'standard' },
   { label: 'Receipts', href: '/receipts', icon: '$', minMode: 'standard' },
   { label: 'Policy', href: '/policy', icon: '\u2696', minMode: 'standard' },
   { label: 'Privacy', href: '/privacy', icon: '\u229E', minMode: 'standard' },

@@ -139,7 +139,7 @@ function ManualGuide() {
       <Step n={2} title="Configure your MCP client">
         <p className="text-xs font-mono text-[var(--text-muted)]">
           Point your MCP-compatible client to the server. The server exposes 60+ tools
-          across debate, audit, knowledge, workflow, and control plane categories.
+          across debate, audit, knowledge, workflow, and platform categories.
         </p>
       </Step>
 
