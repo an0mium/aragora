@@ -208,7 +208,7 @@ export default function ControlPlanePage() {
           setDeliberations(mapped);
         }
       } catch {
-        // Vetted decisionmaking endpoint may not be available
+        // Deliberations endpoint may not be available
       }
     };
     fetchDeliberations();
@@ -237,11 +237,11 @@ export default function ControlPlanePage() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error || 'Vetted decisionmaking request failed');
+        throw new Error(data?.error || 'Debate request failed');
       }
       setDeliberationResult(data);
     } catch (err) {
-      setDeliberationError(err instanceof Error ? err.message : 'Vetted decisionmaking request failed');
+      setDeliberationError(err instanceof Error ? err.message : 'Debate request failed');
     } finally {
       setDeliberationLoading(false);
     }
@@ -482,7 +482,7 @@ export default function ControlPlanePage() {
             {/* Page Header */}
             <div className="mb-6">
               <h1 className="text-2xl font-mono text-acid-green mb-2">
-                Control Plane
+                Dashboard
               </h1>
               <p className="text-text-muted font-mono text-sm">
                 Monitor and orchestrate multi-agent document processing and auditing.
@@ -491,7 +491,7 @@ export default function ControlPlanePage() {
 
             {loading ? (
               <div className="card p-8 text-center">
-                <div className="animate-pulse font-mono text-text-muted">Loading control plane...</div>
+                <div className="animate-pulse font-mono text-text-muted">Loading dashboard...</div>
               </div>
             ) : (
               <>
@@ -1015,7 +1015,7 @@ export default function ControlPlanePage() {
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">
-            {'>'} ARAGORA // CONTROL PLANE
+            {'>'} ARAGORA // DASHBOARD
           </p>
         </footer>
       </main>
