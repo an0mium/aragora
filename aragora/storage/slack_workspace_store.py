@@ -158,17 +158,17 @@ class SlackWorkspaceStore:
     # Migration to add signing_secret column to existing databases
     MIGRATION_ADD_SIGNING_SECRET = """
     ALTER TABLE slack_workspaces ADD COLUMN signing_secret TEXT;
-    """
+    """  # noqa: S105 -- migration name
 
     # Migration to add refresh_token column for OAuth token refresh
     MIGRATION_ADD_REFRESH_TOKEN = """
     ALTER TABLE slack_workspaces ADD COLUMN refresh_token TEXT;
-    """
+    """  # noqa: S105 -- migration name
 
     # Migration to add token_expires_at column for expiration tracking
     MIGRATION_ADD_TOKEN_EXPIRES_AT = """
     ALTER TABLE slack_workspaces ADD COLUMN token_expires_at REAL;
-    """
+    """  # noqa: S105 -- migration name
 
     def __init__(self, db_path: str | None = None):
         """Initialize the workspace store.
