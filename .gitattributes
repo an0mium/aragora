@@ -1,0 +1,8 @@
+# Mark large generated files as binary for efficient diff/merge
+docs/api/openapi.json linguist-generated=true -diff
+docs/api/openapi.yaml linguist-generated=true -diff
+docs/api/openapi_generated.json linguist-generated=true -diff
+docs/api/openapi_generated.yaml linguist-generated=true -diff
+
+# Lock files
+aragora/live/package-lock.json linguist-generated=true -diff
