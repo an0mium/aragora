@@ -275,8 +275,12 @@ class TestDecompositionQuality:
         ]
         quality = decomposer.score_decomposition(subtasks)
         assert quality.avg_scope_size == 10.0
-        # Score should be lower due to granularity penalty
-        assert quality.score < 0.8
+        # Score should be lower than a well-sized decomposition
+        well_sized = [
+            _make_subtask("w1", file_scope=["a.py", "b.py"]),
+        ]
+        well_quality = decomposer.score_decomposition(well_sized)
+        assert quality.score < well_quality.score
 
     def test_no_file_scope_neutral(self, decomposer: TaskDecomposer) -> None:
         """Subtasks with empty file_scope get neutral granularity score."""

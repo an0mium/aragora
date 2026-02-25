@@ -585,7 +585,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
       let errorMessage: string;
 
       if (err instanceof TypeError && err.message === 'Failed to fetch') {
-        errorMessage = 'Cannot reach API server. Check your internet connection or the backend may be offline.';
+        errorMessage = 'Cannot reach the server. Please check your connection and try again.';
         setApiStatus('offline');
       } else if (err instanceof Error && err.name === 'AbortError') {
         errorMessage = 'Request timed out after 30 seconds. The server may be overloaded.';
@@ -629,8 +629,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
             <span>API server offline</span>
           </div>
           <p className="text-text-muted text-xs mt-1">
-            The debate backend is currently unavailable. Try running locally:
-            <code className="ml-2 bg-bg px-1">python scripts/run_nomic_with_stream.py run</code>
+            Our servers are being updated. Please try again in a few minutes.
           </p>
         </div>
       )}
@@ -1017,7 +1016,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
         <div className="mt-4 text-center">
           {apiStatus === 'offline' ? (
             <p className="text-[10px] font-mono text-warning/50">
-              Server offline — start locally or wait for hosted API
+              Server temporarily unavailable — please try again shortly
             </p>
           ) : (
             <p className="text-[10px] font-mono text-text-muted/40 animate-pulse">

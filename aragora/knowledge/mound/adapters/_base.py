@@ -73,6 +73,10 @@ ADAPTER_CIRCUIT_CONFIGS: dict[str, AdapterCircuitBreakerConfig] = {
     "langextract": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=60.0),
     # Pipeline adapter
     "pipeline": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
+    # Enterprise data adapters - external API calls with potential latency
+    "email": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
+    "jira": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
+    "confluence": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
 }
 
 

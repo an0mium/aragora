@@ -15,6 +15,7 @@ from . import compliance
 from . import auth
 from . import memory
 from . import api_explorer
+from . import costs
 
 __all__ = [
     "health",
@@ -32,4 +33,5 @@ __all__ = [
     "auth",
     "memory",
     "api_explorer",
+    "costs",
 ]

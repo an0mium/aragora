@@ -395,6 +395,7 @@ class TestAutonomousOrchestrator:
         orchestrator = AutonomousOrchestrator(
             workflow_engine=mock_workflow_engine,
             task_decomposer=mock_task_decomposer,
+            branch_coordinator=None,
         )
 
         result = await orchestrator.execute_goal(
@@ -421,6 +422,7 @@ class TestAutonomousOrchestrator:
             workflow_engine=mock_workflow_engine,
             task_decomposer=mock_task_decomposer,
             max_parallel_tasks=1,
+            branch_coordinator=None,
         )
 
         result = await orchestrator.execute_goal(
@@ -440,6 +442,7 @@ class TestAutonomousOrchestrator:
         orchestrator = AutonomousOrchestrator(
             workflow_engine=mock_workflow_engine,
             task_decomposer=mock_task_decomposer,
+            branch_coordinator=None,
         )
 
         result = await orchestrator.execute_track(
@@ -465,6 +468,7 @@ class TestAutonomousOrchestrator:
             workflow_engine=mock_workflow_engine,
             task_decomposer=mock_task_decomposer,
             on_checkpoint=on_checkpoint,
+            branch_coordinator=None,
         )
 
         # Run synchronously for checkpoint test
@@ -875,6 +879,7 @@ class TestAutonomousOrchestratorExtended:
         orchestrator = AutonomousOrchestrator(
             workflow_engine=mock_workflow_engine,
             task_decomposer=mock_task_decomposer,
+            branch_coordinator=None,
         )
 
         result = await orchestrator.execute_goal(goal="Trivial task")
@@ -891,6 +896,7 @@ class TestAutonomousOrchestratorExtended:
         orchestrator = AutonomousOrchestrator(
             workflow_engine=mock_workflow_engine,
             task_decomposer=mock_task_decomposer,
+            branch_coordinator=None,
         )
 
         result = await orchestrator.execute_goal(goal="Will fail")
@@ -904,6 +910,7 @@ class TestAutonomousOrchestratorExtended:
         orchestrator = AutonomousOrchestrator(
             workflow_engine=mock_workflow_engine,
             task_decomposer=mock_task_decomposer,
+            branch_coordinator=None,
         )
 
         # Add a fake active assignment
@@ -965,6 +972,7 @@ class TestAutonomousOrchestratorExtended:
             workflow_engine=mock_workflow_engine,
             task_decomposer=mock_task_decomposer,
             use_debate_decomposition=True,
+            branch_coordinator=None,
         )
 
         await orchestrator.execute_goal(goal="Complex goal")
@@ -1260,6 +1268,7 @@ class TestAntiFragileReassignment:
             workflow_engine=engine,
             task_decomposer=decomposer,
             max_parallel_tasks=1,
+            branch_coordinator=None,
         )
 
         result = await orchestrator.execute_goal(goal="Test", max_cycles=2)
@@ -1351,6 +1360,7 @@ class TestMetricsIntegration:
             task_decomposer=mock_task_decomposer,
             enable_metrics=True,
             metrics_collector=mock_collector,
+            branch_coordinator=None,
         )
 
         result = await orchestrator.execute_goal(goal="Fix tests", max_cycles=2)
@@ -1377,6 +1387,7 @@ class TestMetricsIntegration:
             task_decomposer=mock_task_decomposer,
             enable_metrics=True,
             metrics_collector=mock_collector,
+            branch_coordinator=None,
         )
 
         result = await orchestrator.execute_goal(goal="Fix tests", max_cycles=2)
@@ -1410,7 +1421,9 @@ class TestPreflightIntegration:
             blocking_issues=["No API keys configured"],
         )
 
-        orchestrator = AutonomousOrchestrator(enable_preflight=True)
+        orchestrator = AutonomousOrchestrator(
+            enable_preflight=True, branch_coordinator=None,
+        )
 
         with patch(
             "aragora.nomic.preflight.PreflightHealthCheck.run",
@@ -1456,6 +1469,7 @@ class TestPreflightIntegration:
             workflow_engine=engine,
             task_decomposer=decomposer,
             enable_preflight=True,
+            branch_coordinator=None,
         )
 
         with patch(
@@ -1532,6 +1546,7 @@ class TestStuckDetectorIntegration:
             task_decomposer=decomposer,
             enable_stuck_detection=True,
             stuck_detector=mock_detector,
+            branch_coordinator=None,
         )
 
         result = await orchestrator.execute_goal(goal="Test", max_cycles=1)
@@ -1889,6 +1904,7 @@ class TestPipelineWiring:
         orchestrator = AutonomousOrchestrator(
             workflow_engine=mock_workflow_engine,
             task_decomposer=mock_task_decomposer,
+            branch_coordinator=None,
         )
         # Ensure bridge is present
         assert orchestrator._execution_bridge is not None
@@ -2025,6 +2041,7 @@ class TestPipelineWiring:
         orchestrator = AutonomousOrchestrator(
             workflow_engine=mock_workflow_engine,
             task_decomposer=mock_task_decomposer,
+            branch_coordinator=None,
         )
         mock_km = MagicMock()
         orchestrator._km_feedback_bridge = mock_km

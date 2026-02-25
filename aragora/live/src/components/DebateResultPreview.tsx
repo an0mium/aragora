@@ -200,61 +200,78 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
         </div>
       )}
 
-      {/* Gated Receipt */}
-      <div className="relative">
-        <div className="blur-sm pointer-events-none opacity-60">
-          <div className="border border-[var(--acid-green)]/30 p-4">
-            <h3 className="text-sm text-[var(--acid-green)] mb-3 font-bold font-mono">
-              Decision Receipt
-            </h3>
-            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-              <div>
-                <span className="text-[var(--text-muted)]">Receipt ID: </span>
-                <span className="text-[var(--acid-cyan)]">
-                  {result.receipt?.receipt_id || 'rcpt_...'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[var(--text-muted)]">Verdict: </span>
-                <span className="text-[var(--acid-green)]">
-                  {result.receipt?.verdict?.replace(/_/g, ' ') || 'consensus_reached'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[var(--text-muted)]">Hash: </span>
-                <span>sha256:a3b9c...</span>
-              </div>
-              <div>
-                <span className="text-[var(--text-muted)]">Timestamp: </span>
-                <span>{result.receipt?.timestamp || new Date().toISOString()}</span>
-              </div>
+      {/* Verdict — visible to everyone */}
+      {result.final_answer && (
+        <div className="border border-[var(--acid-green)]/30 p-4">
+          <h3 className="text-sm text-[var(--acid-green)] mb-3 font-bold font-mono">
+            Verdict
+          </h3>
+          <p className="text-sm text-[var(--text)] whitespace-pre-wrap leading-relaxed font-mono">
+            {result.final_answer}
+          </p>
+          {result.dissenting_views.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-[var(--border)]">
+              <h4 className="text-xs text-[var(--text-muted)] font-bold font-mono mb-2">
+                Dissenting Views
+              </h4>
+              {result.dissenting_views.map((view, i) => (
+                <p key={i} className="text-xs text-[var(--text-muted)] whitespace-pre-wrap leading-relaxed mb-1">
+                  {view}
+                </p>
+              ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Receipt — summary visible, full download gated behind signup */}
+      <div className="border border-[var(--acid-green)]/30 p-4">
+        <h3 className="text-sm text-[var(--acid-green)] mb-3 font-bold font-mono">
+          Decision Receipt
+        </h3>
+        <div className="grid grid-cols-2 gap-2 text-xs font-mono mb-4">
+          <div>
+            <span className="text-[var(--text-muted)]">Receipt ID: </span>
+            <span className="text-[var(--acid-cyan)]">
+              {result.receipt?.receipt_id || result.id}
+            </span>
+          </div>
+          <div>
+            <span className="text-[var(--text-muted)]">Verdict: </span>
+            <span className="text-[var(--acid-green)]">
+              {result.receipt?.verdict?.replace(/_/g, ' ') || (result.consensus_reached ? 'consensus reached' : 'no consensus')}
+            </span>
+          </div>
+          <div>
+            <span className="text-[var(--text-muted)]">Hash: </span>
+            <span className="text-[var(--text)]">
+              {result.receipt_hash ? result.receipt_hash.slice(0, 16) + '...' : 'pending'}
+            </span>
+          </div>
+          <div>
+            <span className="text-[var(--text-muted)]">Timestamp: </span>
+            <span>{result.receipt?.timestamp || new Date().toISOString()}</span>
           </div>
         </div>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="bg-[var(--surface)] border border-[var(--border)] p-6 text-center shadow-lg">
-            <p className="font-mono text-sm text-[var(--text)] mb-2">
-              Sign up to download the full decision receipt
-            </p>
-            <p className="font-mono text-xs text-[var(--text-muted)] mb-4">
-              Including evidence chains, dissenting views, and cryptographic audit trail
-            </p>
-            <div className="flex gap-3 justify-center">
-              <Link
-                href="/signup"
-                onClick={handleSignup}
-                className="font-mono text-sm px-4 py-2 bg-[var(--acid-green)] text-[var(--bg)] font-bold hover:opacity-90 transition-opacity"
-              >
-                Sign Up Free
-              </Link>
-              <Link
-                href="/auth/login"
-                onClick={handleLogin}
-                className="font-mono text-sm px-4 py-2 border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
-              >
-                Log In
-              </Link>
-            </div>
+        <div className="border-t border-[var(--border)] pt-3 text-center">
+          <p className="font-mono text-xs text-[var(--text-muted)] mb-3">
+            Sign up to download the full receipt with evidence chains and cryptographic audit trail
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Link
+              href="/signup"
+              onClick={handleSignup}
+              className="font-mono text-xs px-4 py-2 bg-[var(--acid-green)] text-[var(--bg)] font-bold hover:opacity-90 transition-opacity"
+            >
+              Sign Up Free
+            </Link>
+            <Link
+              href="/auth/login"
+              onClick={handleLogin}
+              className="font-mono text-xs px-4 py-2 border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
+            >
+              Log In
+            </Link>
           </div>
         </div>
       </div>

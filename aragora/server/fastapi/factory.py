@@ -302,6 +302,7 @@ def create_app(
     app.include_router(auth.router)
     app.include_router(memory.router)
     app.include_router(api_explorer.router)
+    app.include_router(costs.router)
 
     # Setup exception handlers
     setup_exception_handlers(app)
