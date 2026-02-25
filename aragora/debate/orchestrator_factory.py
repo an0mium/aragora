@@ -6,6 +6,7 @@ classmethod factories: from_config, from_configs, and create.
 
 from __future__ import annotations
 
+from dataclasses import fields as dataclass_fields
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -13,6 +14,15 @@ if TYPE_CHECKING:
     from aragora.core import Environment
     from aragora.debate.protocol import DebateProtocol
     from aragora.debate.orchestrator import Arena
+
+
+def _build_grouped_config(base_config: Any, grouped_cls: type[Any]) -> Any:
+    """Project ArenaConfig fields into a grouped config dataclass."""
+    grouped_kwargs: dict[str, Any] = {}
+    for grouped_field in dataclass_fields(grouped_cls):
+        if hasattr(base_config, grouped_field.name):
+            grouped_kwargs[grouped_field.name] = getattr(base_config, grouped_field.name)
+    return grouped_cls(**grouped_kwargs)
 
 
 def from_config(
@@ -34,13 +44,23 @@ def from_config(
     Returns:
         A fully initialized Arena instance.
     """
-    from aragora.debate.arena_config import ArenaConfig
+    from aragora.debate.arena_config import ArenaConfig, EvolutionConfig, KnowledgeConfig, MLConfig, MemoryConfig
     from aragora.debate.feature_validator import validate_and_warn
 
     config = config or ArenaConfig()
     validate_and_warn(config)
+    arena_kwargs = config.to_arena_kwargs()
+    # Use grouped configs so ArenaConfig-based construction does not route through
+    # deprecated individual kwargs for knowledge/ML/supermemory/rlm families.
+    arena_kwargs.setdefault("memory_config", _build_grouped_config(config, MemoryConfig))
+    arena_kwargs.setdefault("knowledge_config", _build_grouped_config(config, KnowledgeConfig))
+    arena_kwargs.setdefault("ml_config", _build_grouped_config(config, MLConfig))
+    arena_kwargs.setdefault("evolution_config", _build_grouped_config(config, EvolutionConfig))
     return cls(
-        environment=environment, agents=agents, protocol=protocol, **config.to_arena_kwargs()
+        environment=environment,
+        agents=agents,
+        protocol=protocol,
+        **arena_kwargs,
     )
 
 
@@ -119,7 +139,20 @@ def create(
     # Start from ArenaConfig kwargs (if provided) as the base layer
     base_kwargs: dict[str, Any] = {}
     if config is not None:
+        from aragora.debate.arena_config import (
+            EvolutionConfig,
+            KnowledgeConfig,
+            MLConfig,
+            MemoryConfig,
+        )
+
         base_kwargs = config.to_arena_kwargs()
+        # Inject grouped config objects so deprecated individual kwargs are not
+        # the only source of truth when using ArenaConfig as a base layer.
+        base_kwargs.setdefault("memory_config", _build_grouped_config(config, MemoryConfig))
+        base_kwargs.setdefault("knowledge_config", _build_grouped_config(config, KnowledgeConfig))
+        base_kwargs.setdefault("ml_config", _build_grouped_config(config, MLConfig))
+        base_kwargs.setdefault("evolution_config", _build_grouped_config(config, EvolutionConfig))
 
     # Typed config objects override the flat ArenaConfig values
     for key in (
@@ -128,6 +161,10 @@ def create(
         "memory_config",
         "streaming_config",
         "observability_config",
+        "knowledge_config",
+        "supermemory_config",
+        "evolution_config",
+        "ml_config",
     ):
         if key in kwargs:
             base_kwargs[key] = kwargs.pop(key)

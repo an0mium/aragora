@@ -870,22 +870,32 @@ class TestMLIntegration:
 
     def test_ml_delegation_weight_configurable(self, environment, mock_agents):
         """ML delegation weight is configurable."""
+        from aragora.debate.arena_config import MLConfig
+
+        ml_config = MLConfig(
+            enable_ml_delegation=True,
+            ml_delegation_weight=0.5,
+        )
         arena = Arena(
             environment,
             mock_agents,
-            enable_ml_delegation=True,
-            ml_delegation_weight=0.5,
+            ml_config=ml_config,
         )
 
         assert arena.ml_delegation_weight == 0.5
 
     def test_consensus_estimation_configurable(self, environment, mock_agents):
         """Consensus estimation is configurable."""
+        from aragora.debate.arena_config import MLConfig
+
+        ml_config = MLConfig(
+            enable_consensus_estimation=True,
+            consensus_early_termination_threshold=0.9,
+        )
         arena = Arena(
             environment,
             mock_agents,
-            enable_consensus_estimation=True,
-            consensus_early_termination_threshold=0.9,
+            ml_config=ml_config,
         )
 
         assert arena.enable_consensus_estimation is True
@@ -906,22 +916,28 @@ class TestCrossDebateMemory:
 
     def test_cross_debate_memory_can_be_disabled(self, environment, mock_agents):
         """Cross-debate memory can be disabled."""
+        from aragora.debate.arena_config import MemoryConfig
+
+        memory_config = MemoryConfig(enable_cross_debate_memory=False)
         arena = Arena(
             environment,
             mock_agents,
-            enable_cross_debate_memory=False,
+            memory_config=memory_config,
         )
 
         assert arena.enable_cross_debate_memory is False
 
     def test_cross_debate_memory_stores_reference(self, environment, mock_agents):
         """Cross-debate memory reference is stored."""
+        from aragora.debate.arena_config import MemoryConfig
+
         mock_memory = MagicMock()
+        memory_config = MemoryConfig(cross_debate_memory=mock_memory)
 
         arena = Arena(
             environment,
             mock_agents,
-            cross_debate_memory=mock_memory,
+            memory_config=memory_config,
         )
 
         assert arena.cross_debate_memory == mock_memory
@@ -1017,22 +1033,32 @@ class TestRevalidationScheduling:
 
     def test_revalidation_threshold_configurable(self, environment, mock_agents):
         """Revalidation threshold is configurable."""
+        from aragora.debate.arena_config import KnowledgeConfig
+
+        knowledge_config = KnowledgeConfig(
+            enable_auto_revalidation=True,
+            revalidation_staleness_threshold=0.9,
+        )
         arena = Arena(
             environment,
             mock_agents,
-            enable_auto_revalidation=True,
-            revalidation_staleness_threshold=0.9,
+            knowledge_config=knowledge_config,
         )
 
         assert arena.revalidation_staleness_threshold == 0.9
 
     def test_revalidation_interval_configurable(self, environment, mock_agents):
         """Revalidation interval is configurable."""
+        from aragora.debate.arena_config import KnowledgeConfig
+
+        knowledge_config = KnowledgeConfig(
+            enable_auto_revalidation=True,
+            revalidation_check_interval_seconds=7200,
+        )
         arena = Arena(
             environment,
             mock_agents,
-            enable_auto_revalidation=True,
-            revalidation_check_interval_seconds=7200,
+            knowledge_config=knowledge_config,
         )
 
         assert arena.revalidation_check_interval_seconds == 7200

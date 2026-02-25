@@ -1056,24 +1056,32 @@ class TestRLMLimiter:
 
     def test_rlm_limiter_can_be_disabled(self, environment, mock_agents, protocol):
         """RLM limiter can be disabled via config."""
+        from aragora.debate.arena_config import MemoryConfig
+
+        memory_config = MemoryConfig(use_rlm_limiter=False)
         arena = Arena(
             environment,
             mock_agents,
             protocol,
-            use_rlm_limiter=False,
+            memory_config=memory_config,
         )
 
         assert arena.use_rlm_limiter is False
 
     def test_rlm_compression_settings(self, environment, mock_agents, protocol):
         """RLM compression settings are configurable."""
+        from aragora.debate.arena_config import MemoryConfig
+
+        memory_config = MemoryConfig(
+            rlm_compression_threshold=5000,
+            rlm_max_recent_messages=10,
+            rlm_summary_level="PARAGRAPH",
+        )
         arena = Arena(
             environment,
             mock_agents,
             protocol,
-            rlm_compression_threshold=5000,
-            rlm_max_recent_messages=10,
-            rlm_summary_level="PARAGRAPH",
+            memory_config=memory_config,
         )
 
         assert arena.rlm_compression_threshold == 5000

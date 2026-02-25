@@ -722,7 +722,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     }
 
     local_vars = locals()
-    if memory_config is None:
+    if memory_config is None and supermemory_config is None:
         for name in _SUPERMEMORY_PARAMS:
             if local_vars.get(name) != _SM_DEFAULTS.get(name):
                 warnings.warn(
@@ -750,7 +750,8 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
                     stacklevel=3,
                 )
                 break
-    if knowledge_config is None:
+    # Knowledge params can come from MemoryConfig in the grouped-config path.
+    if knowledge_config is None and memory_config is None:
         for name in _KNOWLEDGE_PARAMS:
             if local_vars.get(name) != _KN_DEFAULTS.get(name):
                 warnings.warn(
@@ -760,7 +761,8 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
                     stacklevel=3,
                 )
                 break
-    if evolution_config is None:
+    # Evolution params can come from ObservabilityConfig in grouped config paths.
+    if evolution_config is None and observability_config is None:
         for name in _EVOLUTION_PARAMS:
             if local_vars.get(name) != _EV_DEFAULTS.get(name):
                 warnings.warn(
@@ -770,7 +772,8 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
                     stacklevel=3,
                 )
                 break
-    if ml_config is None:
+    # ML params can come from ObservabilityConfig in grouped config paths.
+    if ml_config is None and observability_config is None:
         for name in _ML_PARAMS:
             if local_vars.get(name) != _ML_DEFAULTS.get(name):
                 warnings.warn(
