@@ -1210,6 +1210,66 @@ class TestAutopilotWorktreesE2E:
 
 
 # ============================================================================
+# Metrics Summary Autopilot Consumer Tests
+# ============================================================================
+
+
+class TestMetricsSummaryAutopilot:
+    """Ensure autopilot telemetry is consumed in metrics summary output."""
+
+    @pytest.mark.asyncio
+    async def test_metrics_summary_includes_autopilot_counts(self, handler, mock_http_handler):
+        mock_store = MagicMock()
+        mock_store.list_runs.return_value = []
+        handler._store = mock_store
+
+        mock_proc = MagicMock(
+            returncode=0,
+            stdout='{"sessions":[{"active": true}, {"active": false}]}',
+            stderr="",
+        )
+        mock_service = MagicMock()
+        mock_service.run_autopilot_action.return_value = mock_proc
+
+        with patch("aragora.worktree.WorktreeLifecycleService", return_value=mock_service):
+            result = await handler.handle(
+                "/api/self-improve/metrics/summary",
+                {},
+                mock_http_handler(),
+            )
+
+        body = _parse_response(result)
+        assert result.status_code == 200
+        summary = body["data"]["autopilot_worktrees"]
+        assert summary["ok"] is True
+        assert summary["sessions_total"] == 2
+        assert summary["sessions_active"] == 1
+
+    @pytest.mark.asyncio
+    async def test_metrics_summary_autopilot_failure_is_non_fatal(self, handler, mock_http_handler):
+        mock_store = MagicMock()
+        mock_store.list_runs.return_value = []
+        handler._store = mock_store
+
+        mock_service = MagicMock()
+        mock_service.run_autopilot_action.side_effect = FileNotFoundError("missing script")
+
+        with patch("aragora.worktree.WorktreeLifecycleService", return_value=mock_service):
+            result = await handler.handle(
+                "/api/self-improve/metrics/summary",
+                {},
+                mock_http_handler(),
+            )
+
+        body = _parse_response(result)
+        assert result.status_code == 200
+        summary = body["data"]["autopilot_worktrees"]
+        assert summary["ok"] is False
+        assert summary["error"] == "autopilot_script_missing"
+        assert summary["sessions_total"] == 0
+
+
+# ============================================================================
 # Unhandled Path Tests
 # ============================================================================
 

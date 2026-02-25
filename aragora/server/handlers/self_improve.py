@@ -625,6 +625,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         # Sort activity by timestamp descending, take latest 10
         recent_activity.sort(key=lambda a: a.get("timestamp", ""), reverse=True)
         recent_activity = recent_activity[:10]
+        autopilot_summary = self._autopilot_metrics_summary()
 
         return json_response(
             {
@@ -640,6 +641,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
                     "completed_subtasks": completed_subtasks,
                     "total_goals_queued": total_goals_queued,
                     "recent_activity": recent_activity,
+                    "autopilot_worktrees": autopilot_summary,
                 }
             }
         )
@@ -1307,3 +1309,54 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
         status_code = 200 if proc.returncode == 0 else 503
         return json_response(payload, status_code)
+
+    def _autopilot_metrics_summary(self) -> dict[str, Any]:
+        """Collect autopilot worktree status summary for metrics consumers."""
+        summary: dict[str, Any] = {
+            "ok": False,
+            "managed_dir": ".worktrees/codex-auto",
+            "sessions_total": 0,
+            "sessions_active": 0,
+        }
+        try:
+            from aragora.worktree import AutopilotRequest, WorktreeLifecycleService
+        except ImportError:
+            summary["error"] = "autopilot_unavailable"
+            return summary
+
+        request = AutopilotRequest(
+            action="status",
+            managed_dir=summary["managed_dir"],
+            json_output=True,
+        )
+        service = WorktreeLifecycleService(repo_root=Path.cwd())
+
+        try:
+            proc = service.run_autopilot_action(request)
+        except FileNotFoundError:
+            summary["error"] = "autopilot_script_missing"
+            return summary
+        except (OSError, RuntimeError, ValueError):
+            summary["error"] = "autopilot_status_failed"
+            return summary
+
+        stdout_text = proc.stdout.strip()
+        parsed: dict[str, Any]
+        if not stdout_text:
+            parsed = {}
+        else:
+            try:
+                raw = json.loads(stdout_text)
+                parsed = raw if isinstance(raw, dict) else {"output": raw}
+            except json.JSONDecodeError:
+                parsed = {"output": stdout_text}
+
+        telemetry = self._build_autopilot_telemetry("status", parsed)
+        summary["ok"] = proc.returncode == 0
+        if "sessions_total" in telemetry:
+            summary["sessions_total"] = telemetry["sessions_total"]
+        if "sessions_active" in telemetry:
+            summary["sessions_active"] = telemetry["sessions_active"]
+        if proc.stderr.strip():
+            summary["stderr"] = proc.stderr.strip()
+        return summary
