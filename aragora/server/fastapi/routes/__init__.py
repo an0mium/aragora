@@ -12,6 +12,7 @@ from . import pipeline
 from . import knowledge
 from . import workflows
 from . import compliance
+from . import security
 from . import auth
 from . import memory
 from . import api_explorer
@@ -33,6 +34,7 @@ __all__ = [
     "knowledge",
     "workflows",
     "compliance",
+    "security",
     "auth",
     "memory",
     "api_explorer",

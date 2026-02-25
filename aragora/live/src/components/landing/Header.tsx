@@ -79,8 +79,14 @@ export function Header() {
             <ThemeToggle />
           </nav>
 
-          {/* Mobile - Theme toggle only (menu via hamburger) */}
+          {/* Mobile - Sign up + theme toggle */}
           <div className="flex md:hidden items-center gap-2">
+            <Link
+              href="/signup"
+              className="text-xs font-mono text-bg bg-acid-green px-2 py-1 font-bold hover:bg-acid-cyan transition-colors whitespace-nowrap"
+            >
+              SIGN UP
+            </Link>
             <BackendSelector compact />
             <ThemeToggle />
           </div>
