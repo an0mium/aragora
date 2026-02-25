@@ -236,7 +236,7 @@ export default function DeliberationsPage() {
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">
-            {'>'} ARAGORA // MULTI-AGENT ROBUST DECISIONMAKING CONTROL PLANE
+            {'>'} ARAGORA // MULTI-AGENT DEBATE PLATFORM
           </p>
         </footer>
       </main>

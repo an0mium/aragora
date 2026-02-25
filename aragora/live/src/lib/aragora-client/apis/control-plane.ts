@@ -288,7 +288,7 @@ export class ControlPlaneAPI extends BaseAPI {
   }
 
   // ===========================================================================
-  // Deliberations (Vetted Decisionmaking)
+  // Deliberations (AI Debate)
   // ===========================================================================
 
   /**

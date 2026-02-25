@@ -313,14 +313,14 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
     ],
   },
   {
-    name: 'Control Plane',
+    name: 'Platform',
     icon: '@',
     description: 'Agent registry, scheduling, and health monitoring',
     tools: [
       {
         name: 'register_agent',
-        description: 'Register an agent in the distributed control plane',
-        category: 'Control Plane',
+        description: 'Register an agent in the distributed platform',
+        category: 'Platform',
         parameters: [
           { name: 'agent_id', type: 'string', required: true, description: 'Unique agent identifier' },
           { name: 'capabilities', type: 'string[]', required: true, description: 'List of agent capabilities' },
@@ -328,14 +328,14 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
       },
       {
         name: 'get_control_plane_status',
-        description: 'Get overall control plane health and agent registry summary',
-        category: 'Control Plane',
+        description: 'Get overall platform health and agent registry summary',
+        category: 'Platform',
         parameters: [],
       },
       {
         name: 'submit_task',
         description: 'Submit a task to the priority-based scheduler',
-        category: 'Control Plane',
+        category: 'Platform',
         parameters: [
           { name: 'task_type', type: 'string', required: true, description: 'Type of task to schedule' },
           { name: 'payload', type: 'object', required: true, description: 'Task payload data' },
@@ -345,7 +345,7 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
       {
         name: 'trigger_health_check',
         description: 'Trigger a liveness probe across all registered agents',
-        category: 'Control Plane',
+        category: 'Platform',
         parameters: [],
       },
     ],

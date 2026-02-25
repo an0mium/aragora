@@ -74,7 +74,7 @@ const NAVIGATION_PAGES: SearchResult[] = [
 
   // -- Enterprise --
   { id: 'page-compliance', type: 'pages', title: 'Compliance', subtitle: 'Enterprise / Compliance dashboard', href: '/compliance', icon: '\u2713', keywords: ['compliance', 'soc2', 'gdpr'] },
-  { id: 'page-control-plane', type: 'pages', title: 'Control Plane', subtitle: 'Enterprise / Agent control plane', href: '/control-plane', icon: '\u25CE', keywords: ['control', 'plane', 'management'] },
+  { id: 'page-control-plane', type: 'pages', title: 'Dashboard', subtitle: 'Enterprise / Agent dashboard', href: '/control-plane', icon: '\u25CE', keywords: ['dashboard', 'platform', 'management'] },
   { id: 'page-receipts', type: 'pages', title: 'Receipts', subtitle: 'Enterprise / Decision receipts', href: '/receipts', icon: '$', keywords: ['receipts', 'audit', 'trail'] },
   { id: 'page-policy', type: 'pages', title: 'Policy', subtitle: 'Enterprise / Policy governance', href: '/policy', icon: '\u2696', keywords: ['policy', 'rules', 'governance'] },
   { id: 'page-privacy', type: 'pages', title: 'Privacy', subtitle: 'Enterprise / Privacy controls', href: '/privacy', icon: '\u229E', keywords: ['privacy', 'gdpr', 'data'] },

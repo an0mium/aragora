@@ -3,7 +3,7 @@
  *
  * Visual IF/THEN builder for decision routing rules.
  * Allows creating, editing, and testing rules that control
- * how vetted decisionmaking decisions are routed to various channels.
+ * how debate decisions are routed to various channels.
  */
 
 export {
