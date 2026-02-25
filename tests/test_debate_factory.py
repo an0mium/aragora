@@ -263,7 +263,7 @@ class TestDebateFactoryCreateAgents:
             assert result.success_count == 1
             assert result.failure_count == 1
             assert not result.has_minimum
-            assert ("openai-api", "API key missing") in result.failed
+            assert ("openai-api", "Agent creation failed for openai-api") in result.failed
 
     def test_create_agents_checks_api_key(self):
         """Validates API key for API-based agents."""

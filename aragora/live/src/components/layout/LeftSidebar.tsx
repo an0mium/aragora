@@ -232,6 +232,7 @@ const navSections: NavSection[] = [
       { label: 'Workflow Builder', href: '/workflows/builder', icon: '\u2692' },
       { label: 'Workflow Runtime', href: '/workflows/runtime', icon: '\u25B6' },
       { label: 'Self-Improve', href: '/self-improve', icon: '\u21BB', minMode: 'advanced' },
+      { label: 'Coordination', href: '/coordination', icon: '\u2693', minMode: 'advanced' },
       { label: 'Feedback Hub', href: '/feedback-hub', icon: '\u21C4', minMode: 'advanced' },
     ],
   },
