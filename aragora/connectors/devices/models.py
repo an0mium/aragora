@@ -45,7 +45,7 @@ class DeliveryStatus(Enum):
     DELIVERED = "delivered"
     FAILED = "failed"
     EXPIRED = "expired"
-    INVALID_TOKEN = "invalid_token"
+    INVALID_TOKEN = "invalid_token"  # noqa: S105 -- enum value
 
 
 @dataclass

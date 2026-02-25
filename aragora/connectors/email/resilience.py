@@ -324,7 +324,7 @@ class OAuthToken:
     access_token: str
     refresh_token: str
     expires_at: datetime
-    token_type: str = "Bearer"
+    token_type: str = "Bearer"  # noqa: S105 -- OAuth2 token type
     scope: str = ""
     provider: str = ""  # "gmail" or "outlook"
     tenant_id: str = ""
