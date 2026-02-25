@@ -179,12 +179,15 @@ class TestGoldenPathFlow:
         # import _run_inline_mock_debate`` at call time, so we patch at the
         # definition site. Similarly, _emit_trigger_event imports
         # ``dispatch_event`` from aragora.events.dispatcher.
-        with patch(
-            "aragora.server.handlers.playground._run_inline_mock_debate",
-            return_value=mock_inline_debate_result,
-        ), patch(
-            "aragora.events.dispatcher.dispatch_event",
-            side_effect=lambda *a, **kw: None,
+        with (
+            patch(
+                "aragora.server.handlers.playground._run_inline_mock_debate",
+                return_value=mock_inline_debate_result,
+            ),
+            patch(
+                "aragora.events.dispatcher.dispatch_event",
+                side_effect=lambda *a, **kw: None,
+            ),
         ):
             trigger_result = await trigger.trigger_debate(
                 email_id=email_id,
@@ -260,9 +263,7 @@ class TestGoldenPathFlow:
         )
 
         # Verify provenance chain connects stages
-        assert len(pipeline_result.provenance) > 0, (
-            "Provenance chain should have at least one link"
-        )
+        assert len(pipeline_result.provenance) > 0, "Provenance chain should have at least one link"
         provenance_stages = set()
         for link in pipeline_result.provenance:
             provenance_stages.add(link.source_stage.value)
@@ -289,8 +290,7 @@ class TestGoldenPathFlow:
 
         # Verify goals have SMART scores
         goals_with_smart = [
-            g for g in pipeline_result.goal_graph.goals
-            if "smart_scores" in g.metadata
+            g for g in pipeline_result.goal_graph.goals if "smart_scores" in g.metadata
         ]
         assert len(goals_with_smart) > 0, "At least one goal should have SMART scores"
 
@@ -365,9 +365,7 @@ class TestGoldenPathFlow:
             "Receipt should have at least 1 provenance record (verdict)"
         )
         # Last provenance record should be the verdict event
-        verdict_events = [
-            p for p in receipt.provenance_chain if p.event_type == "verdict"
-        ]
+        verdict_events = [p for p in receipt.provenance_chain if p.event_type == "verdict"]
         assert len(verdict_events) >= 1, "Receipt should contain a verdict provenance event"
 
         # Verify the receipt can be serialized to JSON
@@ -426,12 +424,15 @@ class TestGoldenPathFlow:
         email_id = parsed_email_from_slack["email_id"]
 
         # First trigger should succeed
-        with patch(
-            "aragora.server.handlers.playground._run_inline_mock_debate",
-            return_value=mock_inline_debate_result,
-        ), patch(
-            "aragora.events.dispatcher.dispatch_event",
-            side_effect=lambda *a, **kw: None,
+        with (
+            patch(
+                "aragora.server.handlers.playground._run_inline_mock_debate",
+                return_value=mock_inline_debate_result,
+            ),
+            patch(
+                "aragora.events.dispatcher.dispatch_event",
+                side_effect=lambda *a, **kw: None,
+            ),
         ):
             first = await trigger.trigger_debate(
                 email_id=email_id,
@@ -466,12 +467,15 @@ class TestGoldenPathFlow:
         assert should is True
 
         # Debate (mocked)
-        with patch(
-            "aragora.server.handlers.playground._run_inline_mock_debate",
-            return_value=mock_inline_debate_result,
-        ), patch(
-            "aragora.events.dispatcher.dispatch_event",
-            side_effect=lambda *a, **kw: None,
+        with (
+            patch(
+                "aragora.server.handlers.playground._run_inline_mock_debate",
+                return_value=mock_inline_debate_result,
+            ),
+            patch(
+                "aragora.events.dispatcher.dispatch_event",
+                side_effect=lambda *a, **kw: None,
+            ),
         ):
             result = await trigger.trigger_debate(
                 email_id=email_id,

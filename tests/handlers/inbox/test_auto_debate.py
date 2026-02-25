@@ -91,11 +91,14 @@ class TestTriggerDebate:
     async def test_trigger_records_cooldown(self):
         trigger = InboxDebateTrigger()
 
-        with patch(
-            "aragora.server.handlers.playground._run_inline_mock_debate",
-            return_value={"id": "debate-123", "topic": "test"},
-        ), patch(
-            "aragora.events.dispatcher.dispatch_event",
+        with (
+            patch(
+                "aragora.server.handlers.playground._run_inline_mock_debate",
+                return_value={"id": "debate-123", "topic": "test"},
+            ),
+            patch(
+                "aragora.events.dispatcher.dispatch_event",
+            ),
         ):
             result = await trigger.trigger_debate(
                 email_id="email-1",
@@ -112,12 +115,13 @@ class TestTriggerDebate:
     async def test_trigger_emits_event(self):
         trigger = InboxDebateTrigger()
 
-        with patch(
-            "aragora.server.handlers.playground._run_inline_mock_debate",
-            return_value={"id": "debate-456"},
-        ), patch(
-            "aragora.events.dispatcher.dispatch_event"
-        ) as mock_dispatch:
+        with (
+            patch(
+                "aragora.server.handlers.playground._run_inline_mock_debate",
+                return_value={"id": "debate-456"},
+            ),
+            patch("aragora.events.dispatcher.dispatch_event") as mock_dispatch,
+        ):
             trigger._emit_trigger_event("email-1", "debate-456", "Test Subject")
 
         mock_dispatch.assert_called_once()
@@ -201,6 +205,7 @@ class TestGetInboxDebateTrigger:
     def test_returns_same_instance(self):
         # Reset singleton
         import aragora.server.handlers.inbox.auto_debate as mod
+
         mod._trigger = None
 
         t1 = get_inbox_debate_trigger()

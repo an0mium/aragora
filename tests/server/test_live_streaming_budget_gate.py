@@ -214,9 +214,7 @@ class TestCheckLiveStreamingBudget:
         LiveStreamingBudgetGate._instance = gate
 
         handler = _FakeHandler()
-        mock_ctx = MagicMock(
-            authenticated=True, user_id="user_1", org_id="org_1", role="member"
-        )
+        mock_ctx = MagicMock(authenticated=True, user_id="user_1", org_id="org_1", role="member")
         with (
             patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
@@ -244,9 +242,7 @@ class TestCheckLiveStreamingBudget:
             gate.increment("org_1")
 
         handler = _FakeHandler()
-        mock_ctx = MagicMock(
-            authenticated=True, user_id="user_1", org_id="org_1", role="member"
-        )
+        mock_ctx = MagicMock(authenticated=True, user_id="user_1", org_id="org_1", role="member")
         with (
             patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
@@ -270,9 +266,7 @@ class TestCheckLiveStreamingBudget:
         LiveStreamingBudgetGate._instance = gate
 
         handler = _FakeHandler(path="/api/v1/playground/debate/live/cost-estimate")
-        mock_ctx = MagicMock(
-            authenticated=True, user_id="user_1", org_id="org_1", role="member"
-        )
+        mock_ctx = MagicMock(authenticated=True, user_id="user_1", org_id="org_1", role="member")
         with (
             patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
@@ -296,9 +290,7 @@ class TestCheckLiveStreamingBudget:
         LiveStreamingBudgetGate._instance = gate
 
         handler = _FakeHandler(path="/api/v1/playground/tts")
-        mock_ctx = MagicMock(
-            authenticated=True, user_id="user_1", org_id="org_1", role="member"
-        )
+        mock_ctx = MagicMock(authenticated=True, user_id="user_1", org_id="org_1", role="member")
         with (
             patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
@@ -325,9 +317,7 @@ class TestCheckLiveStreamingBudget:
             gate.increment("org_1")
 
         handler = _FakeHandler()
-        mock_ctx = MagicMock(
-            authenticated=True, user_id="user_1", org_id="org_1", role="member"
-        )
+        mock_ctx = MagicMock(authenticated=True, user_id="user_1", org_id="org_1", role="member")
         with (
             patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
@@ -349,9 +339,7 @@ class TestCheckLiveStreamingBudget:
         LiveStreamingBudgetGate._instance = gate
 
         handler = _FakeHandler()
-        mock_ctx = MagicMock(
-            authenticated=True, user_id="user_solo", org_id=None, role="member"
-        )
+        mock_ctx = MagicMock(authenticated=True, user_id="user_solo", org_id=None, role="member")
         with (
             patch("aragora.server.auth.auth_config", MagicMock(enabled=True)),
             patch(
