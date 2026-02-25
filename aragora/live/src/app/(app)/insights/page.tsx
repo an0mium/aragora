@@ -7,6 +7,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { DebateThisButton } from '@/components/DebateThisButton';
 
 const InsightsPanel = dynamic(
   () => import('@/components/InsightsPanel').then(m => ({ default: m.InsightsPanel })),
@@ -65,7 +66,15 @@ export default function InsightsPage() {
         {/* Content */}
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">Insights</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-mono text-acid-green mb-2">Insights</h1>
+              <DebateThisButton
+                question="What patterns and position flips are most significant in recent agent debates?"
+                source="insights"
+                context="Pattern analysis, position flips, and learning metrics from agent debates"
+                variant="icon"
+              />
+            </div>
             <p className="text-text-muted font-mono text-sm">
               Pattern analysis, position flips, and learning metrics from agent debates.
             </p>

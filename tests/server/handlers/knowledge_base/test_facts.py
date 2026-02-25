@@ -43,17 +43,27 @@ def _bypass_ttl_cache(**kwargs):
     return decorator
 
 
-# Patch decorators before importing the mixin
-patch("aragora.rbac.decorators.require_permission", _bypass_require_permission).start()
-patch(
+# Patch decorators before importing the mixin, then stop to avoid
+# leaking into other test modules.
+_p1 = patch("aragora.rbac.decorators.require_permission", _bypass_require_permission)
+_p2 = patch(
     "aragora.server.handlers.knowledge_base.facts.require_permission", _bypass_require_permission
-).start()
-patch("aragora.server.handlers.base.ttl_cache", _bypass_ttl_cache).start()
-patch("aragora.server.handlers.knowledge_base.facts.ttl_cache", _bypass_ttl_cache).start()
+)
+_p3 = patch("aragora.server.handlers.base.ttl_cache", _bypass_ttl_cache)
+_p4 = patch("aragora.server.handlers.knowledge_base.facts.ttl_cache", _bypass_ttl_cache)
+_p1.start()
+_p2.start()
+_p3.start()
+_p4.start()
 
 import pytest
 
-from aragora.server.handlers.knowledge_base.facts import FactsOperationsMixin
+from aragora.server.handlers.knowledge_base.facts import FactsOperationsMixin  # noqa: E402
+
+_p1.stop()
+_p2.stop()
+_p3.stop()
+_p4.stop()
 
 
 def parse_response(result):

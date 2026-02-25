@@ -6,6 +6,7 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { AgentLeaderboard, type AgentRankingEntry } from '@/components/analytics/AgentLeaderboard';
 import { AgentRecommender } from '@/components/AgentRecommender';
+import { TrustBadge } from '@/components/TrustBadge';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
 import { AGENT_DISPLAY_NAMES } from '@/config';
 
@@ -113,8 +114,10 @@ function AgentCards({ agents }: { agents: AgentRankingEntry[] }) {
           >
             <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="font-mono text-sm text-[var(--acid-cyan)]">
+                <div className="font-mono text-sm text-[var(--acid-cyan)] flex items-center gap-1.5">
                   {getDisplayName(agent.agent_name)}
+                  {/* TODO: Wire agent.calibration when API provides it */}
+                  <TrustBadge calibration={agent.calibration ?? null} size="md" />
                 </div>
                 <div className="text-[10px] font-mono text-[var(--text-muted)]">
                   {agent.agent_name}
@@ -316,8 +319,10 @@ export default function AgentsPage() {
             <div className="mt-6 p-4 bg-[var(--surface)] border border-[var(--acid-green)]/30">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="font-mono text-sm text-[var(--acid-green)]">
+                  <h3 className="font-mono text-sm text-[var(--acid-green)] flex items-center gap-2">
                     {'>'} {getDisplayName(selectedAgent.agent_name)}
+                    {/* TODO: Wire agent.calibration when API provides it */}
+                    <TrustBadge calibration={selectedAgent.calibration ?? null} size="md" />
                   </h3>
                   <span className="text-[10px] font-mono text-[var(--text-muted)]">
                     {selectedAgent.agent_name}

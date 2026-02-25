@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { API_BASE_URL } from '@/config';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { TrustBadge } from '@/components/TrustBadge';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { fetchWithRetry } from '@/utils/retry';
 
@@ -161,9 +162,11 @@ export default function SpectatePage() {
                           {debate.agents.map((agent) => (
                             <span
                               key={agent}
-                              className="px-2 py-0.5 text-xs font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/30"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/30"
                             >
                               {agent}
+                              {/* TODO: Wire agent.calibration when API provides it */}
+                              <TrustBadge calibration={null} size="sm" />
                             </span>
                           ))}
                         </div>

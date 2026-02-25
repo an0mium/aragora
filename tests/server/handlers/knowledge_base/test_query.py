@@ -40,15 +40,21 @@ def _bypass_require_permission(permission):
     return decorator
 
 
-# Patch the decorator module before importing the mixin
-patch("aragora.rbac.decorators.require_permission", _bypass_require_permission).start()
-patch(
+# Patch the decorator module before importing the mixin, then stop
+# the patches to avoid leaking into other test modules.
+_p1 = patch("aragora.rbac.decorators.require_permission", _bypass_require_permission)
+_p2 = patch(
     "aragora.server.handlers.knowledge_base.query.require_permission", _bypass_require_permission
-).start()
+)
+_p1.start()
+_p2.start()
 
-from aragora.server.handlers.knowledge_base.query import (
+from aragora.server.handlers.knowledge_base.query import (  # noqa: E402
     QueryOperationsMixin,
 )
+
+_p1.stop()
+_p2.stop()
 
 
 def parse_response(result) -> dict[str, Any]:

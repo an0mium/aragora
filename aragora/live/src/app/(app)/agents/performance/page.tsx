@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { TrustBadge } from '@/components/TrustBadge';
 import { useAgentPerformance, type AgentPerformanceEntry } from '@/hooks/useSystemIntelligence';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
 
@@ -442,7 +443,11 @@ export default function AgentPerformancePage() {
                           className="border-b border-[var(--border)]/50 hover:bg-[var(--acid-green)]/5 transition-colors"
                         >
                           <td className="px-4 py-3">
-                            <div className="font-mono text-xs text-[var(--acid-cyan)]">{agent.name}</div>
+                            <div className="font-mono text-xs text-[var(--acid-cyan)] flex items-center gap-1.5">
+                              {agent.name}
+                              {/* TODO: Wire agent.calibration when API provides CalibrationData */}
+                              <TrustBadge calibration={null} size="sm" />
+                            </div>
                             <div className="text-[10px] text-[var(--text-muted)]">{agent.id}</div>
                           </td>
                           <td className="px-4 py-3 font-mono text-purple-400 font-bold">

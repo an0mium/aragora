@@ -8,6 +8,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { DebateThisButton } from '@/components/DebateThisButton';
 
 const ImpasseDetectionPanel = dynamic(
   () => import('@/components/ImpasseDetectionPanel').then(m => ({ default: m.ImpasseDetectionPanel })),
@@ -116,6 +117,12 @@ export default function ImpassePage() {
               >
                 [ANALYZE]
               </button>
+              <DebateThisButton
+                question="How should we resolve this debate impasse?"
+                source="impasse"
+                context={activeDebateId ? `Impasse analysis for debate ${activeDebateId}` : 'Debate deadlock detection and resolution'}
+                variant="button"
+              />
             </div>
           </div>
 

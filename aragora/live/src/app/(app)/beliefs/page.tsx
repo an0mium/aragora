@@ -6,6 +6,7 @@ import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useBackend } from '@/components/BackendSelector';
 import { useAuth } from '@/context/AuthContext';
 import { logger } from '@/utils/logger';
+import { DebateThisButton } from '@/components/DebateThisButton';
 import {
   useBeliefNetwork,
   type BeliefNode,
@@ -78,12 +79,18 @@ function NodeCard({
         <p className="font-mono text-sm text-[var(--text)] line-clamp-2 flex-1">
           {node.statement}
         </p>
-        <div className="flex gap-1 shrink-0">
+        <div className="flex gap-1 shrink-0 items-center">
           {node.is_crux && (
             <span className="px-1.5 py-0.5 text-[10px] font-mono bg-red-500/20 text-red-400 border border-red-500/30 rounded">
               CRUX
             </span>
           )}
+          <DebateThisButton
+            question={node.statement}
+            source="beliefs"
+            context={`Belief claim by ${node.author} with centrality ${Math.round(node.centrality * 100)}%`}
+            variant="icon"
+          />
         </div>
       </div>
 

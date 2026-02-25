@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { DebateThisButton } from '@/components/DebateThisButton';
 
 const EvidenceVisualizerPanel = dynamic(
   () => import('@/components/EvidenceVisualizerPanel').then(m => ({ default: m.EvidenceVisualizerPanel })),
@@ -55,9 +56,17 @@ export default function EvidencePage() {
       <main className="min-h-screen bg-bg text-text relative z-10">
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
-              {'>'} EVIDENCE & DISSENT
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-mono text-acid-green mb-2">
+                {'>'} EVIDENCE & DISSENT
+              </h1>
+              <DebateThisButton
+                question="What dissenting evidence and contrarian perspectives deserve more attention?"
+                source="evidence"
+                context="Dissenting views, contrarian perspectives, risk warnings, and evidence trails from debates"
+                variant="icon"
+              />
+            </div>
             <p className="text-text-muted font-mono text-sm">
               Explore dissenting views, contrarian perspectives, risk warnings, and evidence trails from debates.
             </p>

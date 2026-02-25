@@ -7,6 +7,7 @@ import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { DebateThisButton } from '@/components/DebateThisButton';
 
 const CruxPanel = dynamic(
   () => import('@/components/CruxPanel').then(m => ({ default: m.CruxPanel })),
@@ -82,7 +83,13 @@ export default function CruxPage() {
             <h3 className="text-sm font-mono text-acid-purple mb-2">What is a Crux?</h3>
             <p className="text-xs font-mono text-text-muted mb-3">
               A <span className="text-acid-green">crux</span> is a claim that, if resolved, would significantly
-              change the outcome of a debate. Finding cruxes helps focus discussion on what matters most.
+              change the outcome of a debate. Finding cruxes helps focus discussion on what matters most.{' '}
+              <DebateThisButton
+                question="Which crux claims are most likely to shift the debate outcome if resolved?"
+                source="crux"
+                context="Crux analysis: load-bearing claims with centrality and entropy scores"
+                variant="inline"
+              />
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs font-mono text-text-muted">
               <div>
