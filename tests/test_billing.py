@@ -147,8 +147,8 @@ class TestOrganizationModel:
         org = Organization(tier=SubscriptionTier.PROFESSIONAL)
         limits = org.limits
 
-        assert limits.debates_per_month == 200
-        assert limits.users_per_org == 10
+        assert limits.debates_per_month == 1000
+        assert limits.users_per_org == 25
         assert limits.api_access is True
         assert limits.all_agents is True
 
@@ -580,8 +580,8 @@ class TestBillingHandler:
         # Check plan structure
         starter = next(p for p in data["plans"] if p["id"] == "starter")
         assert starter["name"] == "Starter"
-        assert starter["price_monthly_cents"] == 9900
-        assert starter["features"]["debates_per_month"] == 50
+        assert starter["price_monthly_cents"] == 2900
+        assert starter["features"]["debates_per_month"] == 100
 
 
 # =============================================================================
@@ -784,7 +784,7 @@ class TestBillingIntegration:
 
             # Check org limits
             org.debates_used_this_month = 5
-            assert org.debates_remaining == 45  # STARTER has 50
+            assert org.debates_remaining == 95  # STARTER has 100
 
 
 if __name__ == "__main__":

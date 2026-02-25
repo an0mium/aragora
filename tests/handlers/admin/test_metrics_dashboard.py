@@ -884,9 +884,8 @@ class TestGetRevenueStats:
                 "starter": 10,
                 "professional": 5,
                 "enterprise": 2,
-                "enterprise_plus": 1,
             },
-            "total_organizations": 68,
+            "total_organizations": 67,
         }
         h = TestableHandler(user_store=store)
         result = h._get_revenue_stats(http())
@@ -897,7 +896,6 @@ class TestGetRevenueStats:
             + 9900 * 10  # starter
             + 29900 * 5  # professional
             + 99900 * 2  # enterprise
-            + 500000 * 1  # enterprise_plus
         )
         assert rev["mrr_cents"] == expected_mrr
         assert rev["mrr_dollars"] == expected_mrr / 100
@@ -927,9 +925,8 @@ class TestGetRevenueStats:
                 "starter": 1,
                 "professional": 1,
                 "enterprise": 1,
-                "enterprise_plus": 1,
             },
-            "total_organizations": 5,
+            "total_organizations": 4,
         }
         h = TestableHandler(user_store=store)
         result = h._get_revenue_stats(http())
@@ -1383,13 +1380,13 @@ class TestEdgeCases:
         """Large org counts compute correctly."""
         store = MagicMock()
         store.get_admin_stats.return_value = {
-            "tier_distribution": {"enterprise_plus": 1000},
+            "tier_distribution": {"enterprise": 1000},
             "total_organizations": 1000,
         }
         h = TestableHandler(user_store=store)
         result = h._get_revenue_stats(http())
         data = _body(result)
-        assert data["revenue"]["mrr_cents"] == 1000 * 500000
+        assert data["revenue"]["mrr_cents"] == 1000 * 99900
 
     def test_revenue_free_key_literal_in_paying_orgs(self, http):
         """Only the exact string 'free' is excluded from paying_organizations."""

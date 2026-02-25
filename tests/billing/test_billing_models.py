@@ -1797,11 +1797,7 @@ class TestTierLimitsExtended:
             limits = TIER_LIMITS[tier]
             assert limits.dedicated_infrastructure is False
             assert limits.sla_guarantee is False
-            assert limits.custom_model_training is False
-            assert limits.private_model_deployment is False
             assert limits.compliance_certifications is False
-            assert limits.unlimited_api_calls is False
-            assert limits.token_based_billing is False
 
     def test_tier_pricing_monotonically_increasing(self):
         """Test that self-serve tier pricing increases with each level.

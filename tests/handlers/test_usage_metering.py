@@ -1057,7 +1057,7 @@ class TestConstructor:
 
     def test_routes_list(self):
         h = UsageMeteringHandler()
-        assert len(h.ROUTES) == 6
+        assert len(h.ROUTES) == 7
 
 
 # ===========================================================================

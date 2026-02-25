@@ -264,7 +264,7 @@ class TestOrganization:
         assert data["name"] == "Test Org"
         assert data["tier"] == "professional"
         assert data["debates_used_this_month"] == 50
-        assert data["debates_remaining"] == 150
+        assert data["debates_remaining"] == 950
         assert "limits" in data
 
     def test_organization_from_dict(self):
@@ -325,13 +325,12 @@ class TestSubscriptionTiers:
         assert isinstance(data["debates_per_month"], int)
 
     def test_tier_prices_increase(self):
-        """Higher tiers should cost more."""
+        """Self-serve tiers should cost more as capability increases."""
         free_price = TIER_LIMITS[SubscriptionTier.FREE].price_monthly_cents
         starter_price = TIER_LIMITS[SubscriptionTier.STARTER].price_monthly_cents
         pro_price = TIER_LIMITS[SubscriptionTier.PROFESSIONAL].price_monthly_cents
-        enterprise_price = TIER_LIMITS[SubscriptionTier.ENTERPRISE].price_monthly_cents
 
-        assert free_price < starter_price < pro_price < enterprise_price
+        assert free_price < starter_price < pro_price
 
     def test_tier_debate_limits_increase(self):
         """Higher tiers should have more debates."""
