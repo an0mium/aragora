@@ -257,15 +257,40 @@ class WebConnector(BaseConnector):
             loop = asyncio.get_running_loop()
             try:
                 def _run_ddgs_search() -> list[dict]:
-                    # duckduckgo_search emits a package-rename RuntimeWarning
-                    # in newer releases; suppress that noisy, non-actionable warning.
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings(
-                            "ignore",
-                            message=r"This package \(`duckduckgo_search`\) has been renamed to `ddgs`!.*",
-                            category=RuntimeWarning,
+                    # duckduckgo_search.DDGS.__init__ force-enables "always" warnings.
+                    # Keep that from overriding our targeted ignore for its own rename warning.
+                    rename_warning_pattern = r"This package .* has been renamed to `ddgs`!.*"
+                    original_simplefilter = warnings.simplefilter
+
+                    def _safe_simplefilter(
+                        action: str,
+                        category: type[Warning] = Warning,
+                        lineno: int = 0,
+                        append: bool = False,
+                    ):
+                        if action == "always":
+                            return original_simplefilter(
+                                action, category=category, lineno=lineno, append=True
+                            )
+                        return original_simplefilter(
+                            action, category=category, lineno=lineno, append=append
                         )
-                        return list(DDGS().text(query, region=region, max_results=limit))
+
+                    warnings.simplefilter = _safe_simplefilter
+                    try:
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings(
+                                "ignore",
+                                message=rename_warning_pattern,
+                                category=RuntimeWarning,
+                            )
+                            ddgs_client = DDGS()
+                        try:
+                            return list(ddgs_client.text(query, region=region, max_results=limit))
+                        except Exception as e:  # noqa: BLE001 - third-party client can raise varied errors
+                            raise RuntimeError(f"DDGS search failed: {e}") from e
+                    finally:
+                        warnings.simplefilter = original_simplefilter
 
                 results = await asyncio.wait_for(
                     loop.run_in_executor(None, _run_ddgs_search),
@@ -632,6 +657,10 @@ class WebConnector(BaseConnector):
 
         # All retries exhausted
         logger.warning("All %s fetch attempts failed for %s: %s", max_retries, url, last_error)
+        if isinstance(last_error, httpx.TimeoutException):
+            return self._create_error_evidence(
+                f"Failed after {max_retries} attempts: Timeout: {last_error}"
+            )
         return self._create_error_evidence(f"Failed after {max_retries} attempts: {last_error}")
 
     def _parse_html(self, html: str) -> tuple[str, str]:
