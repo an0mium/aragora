@@ -350,6 +350,8 @@ class CritiqueHandler(BaseHandler):
                 if self._agent_matches_domain(rep.agent_name, domain)
             ][:limit]
 
-            return json_response({"domain": domain, "reputations": filtered, "count": len(filtered)})
+            return json_response(
+                {"domain": domain, "reputations": filtered, "count": len(filtered)}
+            )
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             return error_response(_safe_error_message(e, "reputation_domain"), 500)
