@@ -20,6 +20,9 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from pathlib import Path
+import shutil
+import subprocess
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -140,6 +143,37 @@ def _parse_response(result) -> dict[str, Any]:
     if isinstance(body, bytes):
         body = body.decode("utf-8")
     return _json.loads(body) if body else {}
+
+
+def _run_git(repo: Path, *args: str) -> None:
+    proc = subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise AssertionError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
+
+
+def _init_autopilot_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "autopilot-repo"
+    repo.mkdir(parents=True, exist_ok=True)
+
+    _run_git(repo, "init")
+    _run_git(repo, "config", "user.email", "test@example.com")
+    _run_git(repo, "config", "user.name", "Autopilot Test")
+    (repo / "README.md").write_text("autopilot e2e\n", encoding="utf-8")
+    _run_git(repo, "add", "README.md")
+    _run_git(repo, "commit", "-m", "init")
+    _run_git(repo, "branch", "-M", "main")
+
+    src_script = Path(__file__).resolve().parents[2] / "scripts" / "codex_worktree_autopilot.py"
+    dst_script = repo / "scripts" / "codex_worktree_autopilot.py"
+    dst_script.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src_script, dst_script)
+    return repo
 
 
 # ============================================================================
@@ -1087,6 +1121,79 @@ class TestAutopilotWorktrees:
         assert result.status_code == 503
         assert body["ok"] is False
         assert body["stderr"] == "boom"
+
+
+class TestAutopilotWorktreesE2E:
+    """End-to-end autopilot API tests against a real temporary git repo."""
+
+    @pytest.mark.asyncio
+    async def test_ensure_reconcile_maintain_flow(self, handler, mock_http_handler, tmp_path, monkeypatch):
+        repo = _init_autopilot_repo(tmp_path)
+        monkeypatch.chdir(repo)
+
+        ensure_body = {
+            "managed_dir": ".worktrees/codex-auto",
+            "agent": "codex-e2e",
+            "session_id": "e2e-session",
+            "reconcile": True,
+            "strategy": "merge",
+        }
+        ensure_result = await handler.handle_post(
+            "/api/self-improve/worktrees/autopilot/ensure",
+            {},
+            mock_http_handler(method="POST", body=ensure_body),
+        )
+        ensure_payload = _parse_response(ensure_result)
+        assert ensure_result.status_code == 200
+        assert ensure_payload["ok"] is True
+        ensured_session = ensure_payload["result"]["session"]
+        ensured_path = Path(ensured_session["path"])
+        assert ensured_path.exists()
+        assert ensured_session["branch"].startswith("codex/")
+
+        reconcile_body = {
+            "managed_dir": ".worktrees/codex-auto",
+            "base_branch": "main",
+            "strategy": "merge",
+            "all": True,
+        }
+        reconcile_result = await handler.handle_post(
+            "/api/self-improve/worktrees/autopilot/reconcile",
+            {},
+            mock_http_handler(method="POST", body=reconcile_body),
+        )
+        reconcile_payload = _parse_response(reconcile_result)
+        assert reconcile_result.status_code == 200
+        assert reconcile_payload["ok"] is True
+        assert reconcile_payload["result"]["count"] >= 1
+
+        maintain_body = {
+            "managed_dir": ".worktrees/codex-auto",
+            "base_branch": "main",
+            "strategy": "merge",
+            "ttl_hours": 0,
+            "force_unmerged": True,
+            "delete_branches": False,
+        }
+        maintain_result = await handler.handle_post(
+            "/api/self-improve/worktrees/autopilot/maintain",
+            {},
+            mock_http_handler(method="POST", body=maintain_body),
+        )
+        maintain_payload = _parse_response(maintain_result)
+        assert maintain_result.status_code == 200
+        assert maintain_payload["ok"] is True
+        assert maintain_payload["result"]["cleanup"]["removed"] >= 1
+
+        status_result = await handler.handle(
+            "/api/self-improve/worktrees/autopilot/status",
+            {},
+            mock_http_handler(),
+        )
+        status_payload = _parse_response(status_result)
+        assert status_result.status_code == 200
+        assert status_payload["ok"] is True
+        assert isinstance(status_payload["result"]["sessions"], list)
 
 
 # ============================================================================

@@ -47,6 +47,8 @@ class WorktreeState:
     status: str = "active"  # active, stalled, abandoned, destroyed
     assigned_task: str | None = None
     agent_id: str | None = None
+    managed_dir: str | None = None
+    managed_session_id: str | None = None
     commit_count: int = 0
 
 
@@ -106,12 +108,25 @@ class WorktreeManager:
             check=check,
         )
 
+    @staticmethod
+    def _managed_session_slug(name: str) -> str:
+        """Build a safe session slug for managed autopilot session IDs."""
+        slug = "".join(ch if (ch.isalnum() or ch in "-_.") else "-" for ch in name.lower())
+        slug = slug.strip("-_.")
+        return slug or "session"
+
     async def create(
         self,
         name: str,
         track: str | None = None,
         base_branch: str | None = None,
         agent_id: str | None = None,
+        managed_dir: str | None = None,
+        managed_agent: str | None = None,
+        managed_session_id: str | None = None,
+        reconcile: bool = True,
+        strategy: str = "merge",
+        force_new: bool = False,
     ) -> WorktreeState:
         """Create a new isolated worktree.
 
@@ -120,6 +135,12 @@ class WorktreeManager:
             track: Development track (e.g. "sme", "security").
             base_branch: Branch to fork from (default: config.base_branch).
             agent_id: Optional identifier for the agent using this worktree.
+            managed_dir: Optional managed directory for autopilot-backed allocation.
+            managed_agent: Optional managed-session agent label.
+            managed_session_id: Optional managed session identifier.
+            reconcile: Reconcile reused managed sessions with upstream.
+            strategy: Integration strategy used by managed ensure.
+            force_new: Force creation of a new managed session.
 
         Returns:
             WorktreeState with path and metadata.
@@ -135,20 +156,37 @@ class WorktreeManager:
 
         base = base_branch or self.config.base_branch
         worktree_id = str(uuid4())[:8]
-        branch_name = f"{self.config.branch_prefix}/{name}-{worktree_id}"
-        dir_name = branch_name.replace("/", "-")
-        worktree_path = self._worktree_dir / dir_name
+        session_id: str | None = None
+        if managed_dir:
+            session_id = managed_session_id or (
+                f"{self._managed_session_slug(name)}-{str(uuid4())[:8]}"
+            )
+            session = self._lifecycle.ensure_managed_worktree(
+                managed_dir=managed_dir,
+                base_branch=base,
+                agent=managed_agent or agent_id or "coordination",
+                session_id=session_id,
+                force_new=force_new,
+                reconcile=reconcile,
+                strategy=strategy,
+            )
+            branch_name = session.branch
+            worktree_path = session.path
+        else:
+            branch_name = f"{self.config.branch_prefix}/{name}-{worktree_id}"
+            dir_name = branch_name.replace("/", "-")
+            worktree_path = self._worktree_dir / dir_name
 
-        self._worktree_dir.mkdir(parents=True, exist_ok=True)
+            self._worktree_dir.mkdir(parents=True, exist_ok=True)
 
-        result = self._lifecycle.create_worktree(
-            worktree_path=worktree_path,
-            ref=base,
-            branch=branch_name,
-            git_runner=self._run_git,
-        )
-        if not result.success:
-            raise RuntimeError(f"Failed to create worktree: {result.stderr.strip()}")
+            result = self._lifecycle.create_worktree(
+                worktree_path=worktree_path,
+                ref=base,
+                branch=branch_name,
+                git_runner=self._run_git,
+            )
+            if not result.success:
+                raise RuntimeError(f"Failed to create worktree: {result.stderr.strip()}")
 
         # Get the initial commit SHA
         sha_result = self._run_git("rev-parse", "HEAD", cwd=worktree_path, check=False)
@@ -162,15 +200,18 @@ class WorktreeManager:
             base_branch=base,
             last_commit_sha=initial_sha,
             agent_id=agent_id,
+            managed_dir=managed_dir,
+            managed_session_id=session_id,
         )
         self._worktrees[worktree_id] = state
 
         logger.info(
-            "worktree_created id=%s branch=%s path=%s track=%s",
+            "worktree_created id=%s branch=%s path=%s track=%s managed=%s",
             worktree_id,
             branch_name,
             worktree_path,
             track,
+            bool(managed_dir),
         )
         return state
 

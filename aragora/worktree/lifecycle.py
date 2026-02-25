@@ -23,6 +23,19 @@ class WorktreeOperationResult:
     stderr: str
 
 
+@dataclass(slots=True)
+class ManagedWorktreeSession:
+    """Resolved managed worktree session returned by autopilot ensure."""
+
+    session_id: str
+    agent: str
+    branch: str
+    path: Path
+    created: bool
+    reconcile_status: str | None
+    payload: dict[str, Any]
+
+
 class WorktreeLifecycleService:
     """Canonical service for worktree lifecycle and maintainer operations."""
 
@@ -135,6 +148,68 @@ class WorktreeLifecycleService:
             repo_root=self.repo_root,
             request=request,
             python_executable=self.python_executable,
+        )
+
+    @staticmethod
+    def _require_session_field(session: dict[str, Any], key: str) -> str:
+        value = session.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise RuntimeError(f"autopilot ensure missing session.{key}")
+        return value.strip()
+
+    def ensure_managed_worktree(
+        self,
+        *,
+        managed_dir: str = ".worktrees/codex-auto",
+        base_branch: str = "main",
+        agent: str = "codex",
+        session_id: str | None = None,
+        force_new: bool = False,
+        reconcile: bool = True,
+        strategy: str = "merge",
+    ) -> ManagedWorktreeSession:
+        """Ensure a managed worktree session exists and return its typed details."""
+        request = AutopilotRequest(
+            action="ensure",
+            managed_dir=managed_dir,
+            base_branch=base_branch,
+            agent=agent,
+            session_id=session_id,
+            force_new=force_new,
+            strategy=strategy,
+            reconcile=reconcile,
+            json_output=True,
+        )
+        proc = self.run_autopilot_action(request)
+        payload = self._parse_payload(proc.stdout)
+        if proc.returncode != 0:
+            details = proc.stderr.strip() or json.dumps(payload, sort_keys=True)
+            raise RuntimeError(f"autopilot ensure failed ({proc.returncode}): {details}")
+
+        raw_session = payload.get("session")
+        if not isinstance(raw_session, dict):
+            raise RuntimeError("autopilot ensure missing session payload")
+
+        resolved_path = Path(self._require_session_field(raw_session, "path")).resolve()
+        if not resolved_path.exists():
+            raise RuntimeError(f"autopilot ensure returned missing path: {resolved_path}")
+
+        resolved_agent = raw_session.get("agent")
+        if not isinstance(resolved_agent, str) or not resolved_agent.strip():
+            resolved_agent = agent
+
+        reconcile_status = raw_session.get("reconcile_status")
+        if reconcile_status is not None and not isinstance(reconcile_status, str):
+            reconcile_status = str(reconcile_status)
+
+        return ManagedWorktreeSession(
+            session_id=self._require_session_field(raw_session, "session_id"),
+            agent=resolved_agent.strip(),
+            branch=self._require_session_field(raw_session, "branch"),
+            path=resolved_path,
+            created=bool(payload.get("created", False)),
+            reconcile_status=reconcile_status,
+            payload=payload,
         )
 
     def maintain_managed_dirs(

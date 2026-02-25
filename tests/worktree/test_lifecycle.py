@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
 
 from aragora.worktree.lifecycle import WorktreeLifecycleService
 
@@ -106,3 +109,64 @@ def test_remove_worktree_force_uses_git_runner() -> None:
     assert result.success is True
     call = git_runner.call_args
     assert "--force" in call.args
+
+
+def test_ensure_managed_worktree_success(tmp_path: Path) -> None:
+    managed_path = tmp_path / ".worktrees" / "codex-auto" / "session-1"
+    managed_path.mkdir(parents=True)
+
+    payload = {
+        "ok": True,
+        "created": True,
+        "session": {
+            "session_id": "session-1",
+            "agent": "codex",
+            "branch": "codex/session-1",
+            "path": str(managed_path),
+            "reconcile_status": "up_to_date",
+        },
+    }
+
+    service = WorktreeLifecycleService(repo_root=tmp_path)
+    service.run_autopilot_action = MagicMock(
+        return_value=argparse.Namespace(returncode=0, stdout=json.dumps(payload), stderr="")
+    )
+
+    session = service.ensure_managed_worktree(
+        managed_dir=".worktrees/codex-auto",
+        base_branch="main",
+        agent="codex",
+        session_id="session-1",
+        reconcile=True,
+        strategy="merge",
+    )
+
+    assert session.session_id == "session-1"
+    assert session.branch == "codex/session-1"
+    assert session.path == managed_path.resolve()
+    assert session.created is True
+    assert session.reconcile_status == "up_to_date"
+    call = service.run_autopilot_action.call_args
+    assert call.args[0].action == "ensure"
+    assert call.args[0].managed_dir == ".worktrees/codex-auto"
+    assert call.args[0].json_output is True
+
+
+def test_ensure_managed_worktree_failure_raises(tmp_path: Path) -> None:
+    service = WorktreeLifecycleService(repo_root=tmp_path)
+    service.run_autopilot_action = MagicMock(
+        return_value=argparse.Namespace(returncode=2, stdout='{"ok": false}', stderr="boom")
+    )
+
+    with pytest.raises(RuntimeError, match="autopilot ensure failed"):
+        service.ensure_managed_worktree(managed_dir=".worktrees/codex-auto")
+
+
+def test_ensure_managed_worktree_missing_session_payload_raises(tmp_path: Path) -> None:
+    service = WorktreeLifecycleService(repo_root=tmp_path)
+    service.run_autopilot_action = MagicMock(
+        return_value=argparse.Namespace(returncode=0, stdout='{"ok": true}', stderr="")
+    )
+
+    with pytest.raises(RuntimeError, match="missing session payload"):
+        service.ensure_managed_worktree(managed_dir=".worktrees/codex-auto")

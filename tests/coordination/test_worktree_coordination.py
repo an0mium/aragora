@@ -23,6 +23,7 @@ from aragora.coordination.worktree_manager import (
     WorktreeManagerConfig,
     WorktreeState,
 )
+from aragora.worktree.lifecycle import ManagedWorktreeSession
 from aragora.coordination.task_dispatcher import (
     TaskDispatcher,
     DispatcherConfig,
@@ -104,6 +105,59 @@ class TestWorktreeManager:
         with patch.object(manager, "_run_git", return_value=fail_result):
             with pytest.raises(RuntimeError, match="Failed to create worktree"):
                 await manager.create("broken")
+
+    @pytest.mark.asyncio
+    async def test_create_worktree_managed_success(self):
+        manager = self._make_manager()
+        managed = ManagedWorktreeSession(
+            session_id="si-123",
+            agent="nomic-self-improve",
+            branch="codex/si-123",
+            path=Path("/tmp/managed-si-123"),
+            created=True,
+            reconcile_status="up_to_date",
+            payload={"ok": True},
+        )
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "abc123\n"
+
+        with (
+            patch.object(manager._lifecycle, "ensure_managed_worktree", return_value=managed) as mock_ensure,
+            patch.object(manager, "_run_git", return_value=mock_result),
+        ):
+            wt = await manager.create(
+                "managed-auth",
+                track="security",
+                agent_id="si-agent",
+                managed_dir=".worktrees/codex-auto",
+                managed_agent="nomic-self-improve",
+                managed_session_id="si-123",
+                reconcile=True,
+                strategy="merge",
+            )
+
+        assert wt.branch_name == "codex/si-123"
+        assert wt.path == Path("/tmp/managed-si-123")
+        assert wt.managed_dir == ".worktrees/codex-auto"
+        assert wt.managed_session_id == "si-123"
+        mock_ensure.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_create_worktree_managed_failure(self):
+        manager = self._make_manager()
+
+        with patch.object(
+            manager._lifecycle,
+            "ensure_managed_worktree",
+            side_effect=RuntimeError("autopilot ensure failed"),
+        ):
+            with pytest.raises(RuntimeError, match="autopilot ensure failed"):
+                await manager.create(
+                    "managed-broken",
+                    managed_dir=".worktrees/codex-auto",
+                )
 
     @pytest.mark.asyncio
     async def test_destroy_worktree(self):

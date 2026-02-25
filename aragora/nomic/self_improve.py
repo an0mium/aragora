@@ -44,6 +44,10 @@ class SelfImproveConfig:
     # Execution
     use_worktrees: bool = True  # Isolated worktrees per subtask
     max_parallel: int = 4  # Max parallel worktrees
+    coordination_managed_worktrees: bool = True  # Allocate via autopilot-managed sessions
+    coordination_managed_dir: str = ".worktrees/codex-auto"
+    coordination_managed_strategy: str = "merge"
+    coordination_managed_agent: str = "nomic-self-improve"
     budget_limit_usd: float = 10.0  # Total budget cap
     require_approval: bool = True  # Human approval at checkpoints
     autonomous: bool = False  # Skip approval gates for fully autonomous runs
@@ -1083,6 +1087,10 @@ class SelfImprovePipeline:
         )
 
         base_branch = getattr(self.config, "base_branch", "main")
+        managed_enabled = bool(getattr(self.config, "coordination_managed_worktrees", True))
+        managed_dir = str(getattr(self.config, "coordination_managed_dir", ".worktrees/codex-auto"))
+        managed_strategy = str(getattr(self.config, "coordination_managed_strategy", "merge"))
+        managed_agent = str(getattr(self.config, "coordination_managed_agent", "nomic-self-improve"))
         try:
             maint_preflight = wt_manager.maintain_managed_sessions(
                 base_branch=base_branch,
@@ -1151,25 +1159,61 @@ class SelfImprovePipeline:
                     continue
 
                 # Create a worktree for this task
+                create_name = f"si-{cycle_id[:8]}-{task.task_id}"
+                create_common_kwargs = {
+                    "name": create_name,
+                    "track": task.track,
+                    "agent_id": f"self-improve-{cycle_id}",
+                }
                 try:
-                    wt_state = await wt_manager.create(
-                        name=f"si-{cycle_id[:8]}-{task.task_id}",
-                        track=task.track,
-                        agent_id=f"self-improve-{cycle_id}",
-                    )
+                    if managed_enabled:
+                        wt_state = await wt_manager.create(
+                            **create_common_kwargs,
+                            managed_dir=managed_dir,
+                            managed_agent=managed_agent,
+                            managed_session_id=create_name,
+                            reconcile=True,
+                            strategy=managed_strategy,
+                            force_new=False,
+                        )
+                    else:
+                        wt_state = await wt_manager.create(**create_common_kwargs)
                 except RuntimeError as exc:
-                    logger.warning("worktree_create_failed task=%s: %s", task.task_id, exc)
-                    dispatcher.fail(task.task_id, str(exc))
-                    results.append(
-                        {
-                            "success": False,
-                            "subtask": task.title[:100],
-                            "files_changed": [],
-                            "tests_passed": 0,
-                            "tests_failed": 0,
-                        }
-                    )
-                    continue
+                    if managed_enabled:
+                        logger.warning(
+                            "managed_worktree_allocation_failed task=%s dir=%s: %s; falling back",
+                            task.task_id,
+                            managed_dir,
+                            exc,
+                        )
+                        try:
+                            wt_state = await wt_manager.create(**create_common_kwargs)
+                        except RuntimeError as fallback_exc:
+                            logger.warning("worktree_create_failed task=%s: %s", task.task_id, fallback_exc)
+                            dispatcher.fail(task.task_id, str(fallback_exc))
+                            results.append(
+                                {
+                                    "success": False,
+                                    "subtask": task.title[:100],
+                                    "files_changed": [],
+                                    "tests_passed": 0,
+                                    "tests_failed": 0,
+                                }
+                            )
+                            continue
+                    else:
+                        logger.warning("worktree_create_failed task=%s: %s", task.task_id, exc)
+                        dispatcher.fail(task.task_id, str(exc))
+                        results.append(
+                            {
+                                "success": False,
+                                "subtask": task.title[:100],
+                                "files_changed": [],
+                                "tests_passed": 0,
+                                "tests_failed": 0,
+                            }
+                        )
+                        continue
 
                 # Assign and start the task
                 dispatcher.assign(task.task_id, wt_state.worktree_id)
