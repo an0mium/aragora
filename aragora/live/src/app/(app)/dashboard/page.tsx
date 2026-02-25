@@ -149,11 +149,11 @@ function SystemStatusPanel({ refreshInterval = 30000 }: { refreshInterval?: numb
                     : status === 'degraded'
                     ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                     : status === 'unknown'
-                    ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                    ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30 animate-pulse'
                     : 'bg-red-500/20 text-red-400 border border-red-500/30'
                 }`}
               >
-                {status}
+                {status === 'unknown' ? 'checking' : status}
               </span>
             </div>
           );
@@ -335,19 +335,12 @@ export default function DashboardPage() {
                 <h3 className="text-sm font-mono text-[var(--acid-green)]">
                   {'>'} RECENT DEBATES
                 </h3>
-                <div className="flex items-center gap-2">
-                  {dataSource !== 'none' && (
-                    <span className="text-[10px] font-mono text-[var(--text-muted)]" title={dataSource === 'backend' ? 'Fetched from API' : 'Fetched from Supabase'}>
-                      [{dataSource === 'backend' ? 'API' : 'DB'}]
-                    </span>
-                  )}
-                  <Link
-                    href="/debates"
-                    className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
-                  >
-                    VIEW ALL
-                  </Link>
-                </div>
+                <Link
+                  href="/debates"
+                  className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                >
+                  VIEW ALL
+                </Link>
               </div>
 
               {loadingDebates ? (
@@ -427,20 +420,13 @@ export default function DashboardPage() {
             <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
               {'>'} QUICK ACCESS
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
-                { href: '/arena', label: 'Arena', icon: '', desc: 'Start debate' },
-                { href: '/debates', label: 'Archive', icon: '', desc: 'Past debates' },
-                { href: '/debates/provenance', label: 'Provenance', icon: '', desc: 'Audit trails' },
-                { href: '/agents', label: 'Agents', icon: '', desc: 'Team selection' },
-                { href: '/knowledge', label: 'Knowledge', icon: '', desc: 'Org data' },
-                { href: '/control-plane', label: 'Control', icon: '', desc: 'Orchestration' },
-                { href: '/integrations/chat', label: 'Channels', icon: '', desc: 'Slack/Teams' },
-                { href: '/leaderboard', label: 'Rankings', icon: '', desc: 'Agent ELO' },
-                { href: '/audit', label: 'Audit', icon: '', desc: 'Compliance' },
-                { href: '/connectors', label: 'Connectors', icon: '', desc: 'Data sources' },
-                { href: '/pulse', label: 'Pulse', icon: '', desc: 'Trending' },
-                { href: '/intelligence', label: 'Intelligence', icon: '', desc: 'Decision AI' },
+                { href: '/arena', label: 'New Debate', icon: '+', desc: 'Start a decision' },
+                { href: '/debates', label: 'Debates', icon: '', desc: 'Past decisions' },
+                { href: '/oracle', label: 'Oracle', icon: '', desc: 'Live streaming' },
+                { href: '/receipts', label: 'Receipts', icon: '', desc: 'Audit trails' },
+                { href: '/leaderboard', label: 'Rankings', icon: '', desc: 'Agent performance' },
                 { href: '/settings', label: 'Settings', icon: '', desc: 'Configure' },
               ].map((item) => (
                 <Link
@@ -462,17 +448,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
-          <div className="text-[var(--acid-green)]/50 mb-2">{'═'.repeat(40)}</div>
+        <footer className="text-center text-xs font-mono py-6 border-t border-[var(--border)] mt-8">
           <p className="text-[var(--text-muted)]">
-            {'>'} ARAGORA CONTROL PLANE // MULTI-AGENT DELIBERATION
+            42 AI agents debating your decisions
           </p>
-          <p className="text-[var(--acid-cyan)] mt-2">
-            <Link href="/" className="hover:text-[var(--acid-green)] transition-colors">
-              [ RETURN TO HOME ]
-            </Link>
-          </p>
-          <div className="text-[var(--acid-green)]/50 mt-4">{'═'.repeat(40)}</div>
         </footer>
       </main>
     </>

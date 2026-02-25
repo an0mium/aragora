@@ -165,7 +165,7 @@ class ConfidenceEstimator:
             logger.warning("Failed to get confidence from %s: %s", agent.name, e)
             return ConfidenceScore(agent.name, 0.5, "Default confidence")
 
-    def _store_confidence(self, agent_name: str, confidence: ConfidenceScore):
+    def _store_confidence(self, agent_name: str, confidence: ConfidenceScore) -> None:
         """Store confidence for calibration tracking."""
         if agent_name not in self.agent_confidences:
             self.agent_confidences[agent_name] = []
@@ -196,7 +196,7 @@ class ConfidenceEstimator:
         calibration_quality = 1 - (brier_score * 4)  # Scale so 0->1, 0.25->0, 1->-3-> -1->0
         return max(0, min(1, calibration_quality))
 
-    def record_outcome(self, agent_name: str, confidence: float, was_correct: bool):
+    def record_outcome(self, agent_name: str, confidence: float, was_correct: bool) -> None:
         """Record prediction outcome for calibration."""
         if agent_name not in self.calibration_history:
             self.calibration_history[agent_name] = []

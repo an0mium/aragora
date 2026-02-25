@@ -57,6 +57,8 @@ jest.mock('@/store/controlPlaneStore', () => ({
       setTasksError: mockSetTasksError,
       setTaskFilters: mockSetTaskFilters,
       setSearchQuery: mockSetSearchQuery,
+      setIsConnected: jest.fn(),
+      setConnectionStatus: jest.fn(),
     };
     return selector(state);
   }),

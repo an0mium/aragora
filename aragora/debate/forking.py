@@ -18,6 +18,7 @@ import uuid
 # dataclass fields are all immutable (str, datetime, int)
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
@@ -166,7 +167,7 @@ class ForkDetector:
             disagreement_score=top_disagreement["score"],
         )
 
-    def _detect_disagreements(self, latest_by_agent: dict[str, Message]) -> list[dict]:
+    def _detect_disagreements(self, latest_by_agent: dict[str, Message]) -> list[dict[str, Any]]:
         """Detect fundamental disagreements between agents."""
         disagreements = []
 

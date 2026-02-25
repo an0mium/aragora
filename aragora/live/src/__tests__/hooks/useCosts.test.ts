@@ -48,6 +48,13 @@ const mockUseSWRFetch = useSWRFetch as jest.Mock;
 describe('useCostSummary', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns null summary when no data', () => {
@@ -96,6 +103,13 @@ describe('useCostSummary', () => {
 describe('useCostsBreakdown', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns null breakdown when no data', () => {
@@ -115,6 +129,13 @@ describe('useCostsBreakdown', () => {
 describe('useCostTimeline', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns null timeline when no data', () => {
@@ -134,6 +155,13 @@ describe('useCostTimeline', () => {
 describe('useCostAlerts', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns empty alerts array when no data', () => {
@@ -175,6 +203,13 @@ describe('useCostAlerts', () => {
 describe('useCostRecommendations', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns empty recommendations when no data', () => {
@@ -194,6 +229,13 @@ describe('useCostRecommendations', () => {
 describe('useCostEfficiency', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns null efficiency when no data', () => {
@@ -213,6 +255,13 @@ describe('useCostEfficiency', () => {
 describe('useCostForecast', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns null forecast when no data', () => {
@@ -232,6 +281,13 @@ describe('useCostForecast', () => {
 describe('useSpendTrend', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns null trend when no data', () => {
@@ -251,6 +307,13 @@ describe('useSpendTrend', () => {
 describe('useAgentCostBreakdown', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns null agent breakdown when no data', () => {
@@ -270,6 +333,13 @@ describe('useAgentCostBreakdown', () => {
 describe('useModelCostBreakdown', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns null model breakdown when no data', () => {
@@ -281,6 +351,13 @@ describe('useModelCostBreakdown', () => {
 describe('useDebateCostBreakdown', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns null debate breakdown when no data', () => {
@@ -300,6 +377,13 @@ describe('useDebateCostBreakdown', () => {
 describe('useBudgetUtilization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSWRFetch.mockReturnValue({
+      data: null,
+      error: null,
+      isLoading: false,
+      isValidating: false,
+      mutate: mockMutate,
+    });
   });
 
   it('returns null utilization when no data', () => {

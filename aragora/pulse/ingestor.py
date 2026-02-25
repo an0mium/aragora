@@ -80,7 +80,7 @@ class PulseIngestor(ABC):
         self.cache_ttl = 300  # 5 minutes
         self.circuit_breaker = CircuitBreaker()
 
-    async def _rate_limit(self):
+    async def _rate_limit(self) -> None:
         """Enforce rate limiting."""
         now = time.time()
         elapsed = now - self.last_request_time
@@ -88,7 +88,7 @@ class PulseIngestor(ABC):
             await asyncio.sleep(self.rate_limit_delay - elapsed)
         self.last_request_time = now
 
-    async def _retry_with_backoff(self, coro_factory, fallback_fn=None):
+    async def _retry_with_backoff(self, coro_factory: Any, fallback_fn: Any = None) -> Any:
         """Execute a coroutine with exponential backoff retry.
 
         Args:
@@ -1216,15 +1216,15 @@ class PulseManager:
         self._outcomes: list[TrendingTopicOutcome] = []
         self._max_outcomes: int = 1000  # Rolling window
 
-    def add_ingestor(self, name: str, ingestor: PulseIngestor):
+    def add_ingestor(self, name: str, ingestor: PulseIngestor) -> None:
         """Add an ingestor."""
         self.ingestors[name] = ingestor
 
     async def get_trending_topics(
         self,
-        platforms: list[str] = None,
+        platforms: list[str] | None = None,
         limit_per_platform: int = 5,
-        filters: dict[str, Any] = None,
+        filters: dict[str, Any] | None = None,
     ) -> list[TrendingTopic]:
         """Get trending topics from specified platforms."""
         if platforms is None:

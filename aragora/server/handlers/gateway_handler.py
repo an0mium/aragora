@@ -137,7 +137,7 @@ class GatewayHandler(BaseHandler):
         self._agent_router: AgentRouter | None = None
         self._gateway_stores = None
 
-    def _get_gateway_stores(self):
+    def _get_gateway_stores(self) -> Any:
         if not GATEWAY_AVAILABLE or get_canonical_gateway_stores is None:
             return None
         if self._gateway_stores is None:
@@ -168,7 +168,7 @@ class GatewayHandler(BaseHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    def _get_auth_context(self, handler) -> AuthorizationContext | None:
+    def _get_auth_context(self, handler: Any) -> AuthorizationContext | None:
         """Build AuthorizationContext from request."""
         if not RBAC_AVAILABLE or AuthorizationContext is None:
             return None
@@ -188,7 +188,7 @@ class GatewayHandler(BaseHandler):
             org_id=auth_ctx.org_id,
         )
 
-    def _check_rbac_permission(self, handler, permission_key: str) -> HandlerResult | None:
+    def _check_rbac_permission(self, handler: Any, permission_key: str) -> HandlerResult | None:
         """Check RBAC permission. Returns None if allowed, error response if denied."""
         if not RBAC_AVAILABLE:
             # SECURITY: Fail closed in production when RBAC module is unavailable
@@ -510,7 +510,7 @@ class GatewayHandler(BaseHandler):
 
     @rate_limit(requests_per_minute=60, limiter_name="gateway_list_rules")
     @handle_errors("list rules")
-    def _handle_list_rules(self, query_params: dict, handler: Any) -> HandlerResult:
+    def _handle_list_rules(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """Handle GET /api/v1/gateway/routing/rules."""
         # RBAC check
         if error := self._check_rbac_permission(handler, "gateway:routing:read"):
