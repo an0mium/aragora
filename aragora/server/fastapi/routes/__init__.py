@@ -23,6 +23,9 @@ from . import inbox
 from . import canvas_pipeline
 from . import orchestration
 from . import marketplace
+from . import analytics
+from . import admin
+from . import knowledge_base
 
 __all__ = [
     "health",
@@ -48,4 +51,7 @@ __all__ = [
     "canvas_pipeline",
     "orchestration",
     "marketplace",
+    "analytics",
+    "admin",
+    "knowledge_base",
 ]
