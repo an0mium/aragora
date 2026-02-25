@@ -594,8 +594,12 @@ class AiohttpUnifiedServer(  # type: ignore[override]
             try:
                 import asyncio as _aio
 
-                loop = _aio.get_event_loop()
-                if loop.is_running():
+                try:
+                    loop = _aio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+
+                if loop is not None and loop.is_running():
                     loop.call_soon_threadsafe(
                         _aio.ensure_future, self._debate_stream_server.stop_tts_bridge()
                     )

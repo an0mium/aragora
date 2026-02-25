@@ -1239,7 +1239,7 @@ async def _handle_debate(
         )
 
         # Run debate in background thread
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         debate_future = loop.run_in_executor(
             None,
             execute_debate_thread,

@@ -38,13 +38,24 @@ export const metadata: Metadata = {
     title: 'Aragora',
   },
   icons: {
-    icon: '/icon.png',
-    apple: '/apple-icon.png',
+    icon: [
+      { url: '/favicon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-16.png', sizes: '16x16', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/icons/icon-152x152.png',
   },
   openGraph: {
     title: 'ARAGORA // LIVE',
     description: 'Control plane for multi-agent vetted decisionmaking. Ingest any source, deliver decisions anywhere.',
     type: 'website',
+    siteName: 'Aragora',
+    images: [{ url: '/aragora-logo.png', width: 512, height: 512, alt: 'Aragora' }],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'ARAGORA // LIVE',
+    description: 'Control plane for multi-agent vetted decisionmaking. Ingest any source, deliver decisions anywhere.',
     images: ['/aragora-logo.png'],
   },
 };

@@ -179,7 +179,9 @@ export default function Home() {
     return () => controller.abort();
   }, [backendConfig.api, isAuthenticated]);
 
-  const { events, connected, nomicState: wsNomicState, activeLoops, selectedLoopId, selectLoop, sendMessage, onAck, onError } = useNomicStream(wsUrl);
+  // Only open WebSocket when authenticated — unauthenticated users see the landing page
+  // and don't need the nomic stream, saving a connection + bundle evaluation.
+  const { events, connected, nomicState: wsNomicState, activeLoops, selectedLoopId, selectLoop, sendMessage, onAck, onError } = useNomicStream(isAuthenticated ? wsUrl : '');
 
   // Handler to navigate to landing page
   const _handleGoToLanding = useCallback(() => {

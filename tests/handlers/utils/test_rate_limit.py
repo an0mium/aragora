@@ -1164,10 +1164,13 @@ class TestAuthRateLimitDecorator:
             return "async_logged_in"
 
         h = FakeHandler(client_address=("10.0.0.1", 80))
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(login(h))
-        loop.run_until_complete(login(h))
-        result = loop.run_until_complete(login(h))
+
+        async def run_all():
+            await login(h)
+            await login(h)
+            return await login(h)
+
+        result = asyncio.run(run_all())
         assert hasattr(result, "status_code")
         assert result.status_code == 429
 

@@ -373,8 +373,12 @@ class ReliableConnection:
         """
         if len(self._buffer) >= self._buffer_size:
             self._messages_dropped += 1
-            loop = asyncio.get_event_loop()
-            loop.create_task(self._fire_hook(self._on_message_dropped, message))
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop is not None:
+                loop.create_task(self._fire_hook(self._on_message_dropped, message))
             return False
         self._buffer.append(message)
         self._total_messages_buffered += 1
@@ -778,7 +782,7 @@ class ReliableKafkaConsumer(ReliableConnection):
         try:
             # Listing topics is a lightweight broker round-trip
             await asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(
+                asyncio.get_running_loop().run_in_executor(
                     None, lambda: self._consumer._client.cluster.topics()
                 ),
                 timeout=10.0,

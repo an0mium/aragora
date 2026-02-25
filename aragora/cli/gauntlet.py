@@ -379,6 +379,8 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
         enable_deep_audit=not args.no_audit,
         enable_verification=args.verify,
         persona=persona,
+        probe_types=base_config.probe_types,
+        attack_types=base_config.attack_types,
     )
 
     print(f"Profile: {args.profile}")

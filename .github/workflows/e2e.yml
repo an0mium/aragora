@@ -16,8 +16,10 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: e2e-${{ github.ref }}
-  cancel-in-progress: true
+  # Use run_id for push events so rapid pushes don't cancel running E2E suites.
+  # PRs still share a group per branch (latest PR push cancels stale ones).
+  group: e2e-${{ github.event_name == 'push' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   NODE_VERSION: '20'

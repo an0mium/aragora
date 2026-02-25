@@ -442,9 +442,13 @@ class CoordinationHandler(BaseHandler):
         import asyncio
 
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If already in an async context, create a task
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        try:
+            if loop is not None and loop.is_running():
+                # If already in an async context, run in a thread pool
                 import concurrent.futures
 
                 with concurrent.futures.ThreadPoolExecutor() as pool:
@@ -452,7 +456,7 @@ class CoordinationHandler(BaseHandler):
                         timeout=request.timeout_seconds + 5
                     )
             else:
-                result = loop.run_until_complete(self._coordinator.execute(request))
+                result = asyncio.run(self._coordinator.execute(request))
         except RuntimeError:
             result = asyncio.run(self._coordinator.execute(request))
 
