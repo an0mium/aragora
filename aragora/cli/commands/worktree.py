@@ -106,6 +106,12 @@ Workflow:
         default=".worktrees/codex-auto",
         help="Managed worktree directory (relative to repo)",
     )
+    auto_p.add_argument(
+        "--base",
+        dest="auto_base",
+        default=None,
+        help="Base branch override for autopilot actions",
+    )
     auto_p.add_argument("--agent", default="codex", help="Agent name for ensure")
     auto_p.add_argument("--session-id", default=None, help="Optional session id for ensure")
     auto_p.add_argument("--force-new", action="store_true", help="Force new session on ensure")
@@ -156,6 +162,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
     base_branch = args.base
 
     if action == "autopilot":
+        base_branch = getattr(args, "auto_base", None) or base_branch
         _cmd_worktree_autopilot(args, repo_path=repo_root, base_branch=base_branch)
         return
 

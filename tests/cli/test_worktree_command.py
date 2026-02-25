@@ -24,6 +24,7 @@ def _autopilot_args(**overrides: object) -> argparse.Namespace:
     base = {
         "managed_dir": ".worktrees/codex-auto",
         "auto_action": "status",
+        "auto_base": None,
         "agent": "codex",
         "session_id": None,
         "force_new": False,
@@ -84,17 +85,47 @@ class TestWorktreeParser:
         assert args.print_path is True
         assert args.json is True
 
+    def test_autopilot_base_override_parse(self):
+        args = _parser().parse_args(
+            [
+                "worktree",
+                "autopilot",
+                "status",
+                "--base",
+                "release",
+            ]
+        )
+        assert args.base == "main"
+        assert args.auto_base == "release"
+
 
 class TestWorktreeDispatch:
     @patch("aragora.cli.commands.worktree._cmd_worktree_autopilot")
     def test_dispatches_autopilot_before_branch_coordinator_import(self, mock_autopilot):
-        args = argparse.Namespace(wt_action="autopilot", repo="/tmp/repo", base="main")
+        args = argparse.Namespace(
+            wt_action="autopilot",
+            repo="/tmp/repo",
+            base="main",
+            auto_base=None,
+        )
         cmd_worktree(args)
         mock_autopilot.assert_called_once()
 
         call = mock_autopilot.call_args
         assert call.kwargs["repo_path"] == Path("/tmp/repo").resolve()
         assert call.kwargs["base_branch"] == "main"
+
+    @patch("aragora.cli.commands.worktree._cmd_worktree_autopilot")
+    def test_dispatches_autopilot_with_auto_base_override(self, mock_autopilot):
+        args = argparse.Namespace(
+            wt_action="autopilot",
+            repo="/tmp/repo",
+            base="main",
+            auto_base="release",
+        )
+        cmd_worktree(args)
+        call = mock_autopilot.call_args
+        assert call.kwargs["base_branch"] == "release"
 
 
 class TestWorktreeAutopilot:
