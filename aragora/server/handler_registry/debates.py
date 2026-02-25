@@ -141,8 +141,7 @@ DEBATE_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_gauntlet_templates_list_handler", GauntletTemplatesListHandler),
     ("_gauntlet_receipt_export_handler", GauntletReceiptExportHandler),
     ("_gauntlet_heatmap_export_handler", GauntletHeatmapExportHandler),
-    # Gauntlet secure handler
-    ("_gauntlet_secure_handler", GauntletSecureHandler),
+    # NOTE: GauntletSecureHandler is an ABC -- only concrete subclasses above are registered
     # Security debate
     ("_security_debate_handler", SecurityDebateHandler),
     # Template discovery
