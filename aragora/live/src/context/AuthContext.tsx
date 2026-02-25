@@ -308,6 +308,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             isAuthenticated: false,
             isLoadingOrganizations: false,
           });
+          window.dispatchEvent(new CustomEvent('auth:session-expired', {
+            detail: { reason: 'token_expired' },
+          }));
         }
         return;
       }
@@ -372,6 +375,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           logger.warn('[AuthContext] Stored session invalid, clearing auth');
           clearAuth();
+          window.dispatchEvent(new CustomEvent('auth:session-expired', {
+            detail: { reason: 'validation_failed' },
+          }));
           if (active) {
             setState({
               user: null,
@@ -547,6 +553,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             isAuthenticated: false,
             isLoadingOrganizations: false,
           });
+          window.dispatchEvent(new CustomEvent('auth:session-expired', {
+            detail: { reason: 'refresh_rejected' },
+          }));
         } else {
           logger.warn(`[AuthContext] Token refresh failed with ${response.status}, keeping session`);
         }
