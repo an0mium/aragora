@@ -33,10 +33,10 @@ class TestHighSurpriseAction:
                     "content_preview": "test content",
                 }
             )
-        mock_detector.report_anomaly.assert_called_once()
-        call_kwargs = mock_detector.report_anomaly.call_args
-        assert call_kwargs.kwargs["source"] == "memory"
-        assert call_kwargs.kwargs["severity"] == "medium"
+        mock_detector._emit_anomaly_event.assert_called_once()
+        anomaly_result = mock_detector._emit_anomaly_event.call_args[0][0]
+        assert anomaly_result.details["source"] == "memory"
+        assert anomaly_result.severity.value == "medium"
 
     @pytest.mark.asyncio
     async def test_high_severity_above_09(self):
@@ -46,8 +46,8 @@ class TestHighSurpriseAction:
             return_value=mock_detector,
         ):
             await _log_high_surprise({"item_id": "km_1", "surprise": 0.95})
-        call_kwargs = mock_detector.report_anomaly.call_args
-        assert call_kwargs.kwargs["severity"] == "high"
+        anomaly_result = mock_detector._emit_anomaly_event.call_args[0][0]
+        assert anomaly_result.severity.value == "high"
 
     @pytest.mark.asyncio
     async def test_dispatches_event(self):
@@ -92,9 +92,16 @@ class TestRevalidationAction:
     async def test_applies_confidence_decay(self):
         mock_manager = MagicMock()
         mock_manager.apply_decay = AsyncMock()
-        with patch(
-            "aragora.knowledge.mound.ops.confidence_decay.get_decay_manager",
-            return_value=mock_manager,
+        mock_mound = MagicMock()
+        with (
+            patch(
+                "aragora.knowledge.mound.ops.confidence_decay.get_decay_manager",
+                return_value=mock_manager,
+            ),
+            patch(
+                "aragora.knowledge.mound.get_knowledge_mound",
+                return_value=mock_mound,
+            ),
         ):
             await _mark_for_revalidation(
                 {
@@ -104,9 +111,9 @@ class TestRevalidationAction:
                 }
             )
         mock_manager.apply_decay.assert_called_once_with(
-            item_id="km_2",
-            reason="stale_trigger",
-            decay_factor=0.1,
+            mock_mound,
+            "default",
+            force=True,
         )
 
     @pytest.mark.asyncio
@@ -262,7 +269,7 @@ class TestTriggerEngineIntegration:
             )
 
         assert "high_surprise_investigate" in triggered
-        mock_detector.report_anomaly.assert_called_once()
+        mock_detector._emit_anomaly_event.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_contradiction_fires_full_action(self):
