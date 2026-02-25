@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { fetchApi } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 
 interface Settlement {
   id: string;
@@ -35,16 +35,13 @@ export default function SettlementsPage() {
     setError(null);
     try {
       if (tab === 'pending') {
-        const res = await fetchApi('/api/v1/settlements');
-        const data = await res.json();
+        const data = await apiFetch<{ data?: { settlements?: Settlement[] }; settlements?: Settlement[] }>('/api/v1/settlements');
         setSettlements(data.data?.settlements || data.settlements || []);
       } else if (tab === 'history') {
-        const res = await fetchApi('/api/v1/settlements/history');
-        const data = await res.json();
+        const data = await apiFetch<{ data?: { settlements?: Settlement[] }; settlements?: Settlement[] }>('/api/v1/settlements/history');
         setSettlements(data.data?.settlements || data.settlements || []);
       } else if (tab === 'stats') {
-        const res = await fetchApi('/api/v1/settlements/summary');
-        const data = await res.json();
+        const data = await apiFetch<{ data?: SettlementSummary } & SettlementSummary>('/api/v1/settlements/summary');
         setSummary(data.data || data);
       }
     } catch (err) {

@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-typer = pytest.importorskip("typer", reason="typer not installed")
+import typer  # noqa: F811
 from typer.testing import CliRunner
 
 from aragora.cli.training import app

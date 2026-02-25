@@ -11,10 +11,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Skip all tests if typer is not available
-pytest.importorskip("typer")
+import typer  # noqa: F401
 
-from typer.testing import CliRunner  # noqa: E402
+from typer.testing import CliRunner
 
 from aragora.cli.training import app  # noqa: E402
 
