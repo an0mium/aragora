@@ -21,6 +21,8 @@ from . import tasks
 from . import notifications
 from . import inbox
 from . import canvas_pipeline
+from . import orchestration
+from . import marketplace
 
 __all__ = [
     "health",
@@ -44,4 +46,6 @@ __all__ = [
     "notifications",
     "inbox",
     "canvas_pipeline",
+    "orchestration",
+    "marketplace",
 ]

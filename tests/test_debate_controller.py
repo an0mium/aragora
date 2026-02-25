@@ -76,6 +76,7 @@ class TestDebateRequest:
         assert request.metadata["mode"] == "epistemic_hygiene"
         assert request.metadata["epistemic_hygiene"] is True
         assert request.metadata["settlement"]["status"] == "needs_definition"
+        assert request.metadata["settlement"]["resolver_type"] == "human"
         assert "Epistemic hygiene protocol" in (request.context or "")
         assert "User requested risk-aware analysis." in (request.context or "")
 
@@ -113,12 +114,14 @@ class TestDebateRequest:
                     "falsifier": "CPU p95 worsens by >10%",
                     "metric": "cpu_p95_ms",
                     "review_horizon_days": 14,
+                    "resolver_type": "deterministic",
                 }
             },
         }
         request = DebateRequest.from_dict(data)
         assert request.metadata["settlement"]["claim"] == "Should we approve migration?"
         assert request.metadata["settlement"]["review_horizon_days"] == 14
+        assert request.metadata["settlement"]["resolver_type"] == "deterministic"
 
     def test_from_dict_epistemic_hygiene_production_rejects_placeholder_settlement(
         self, monkeypatch
@@ -133,6 +136,27 @@ class TestDebateRequest:
                     "falsifier": "Define an objective falsifier for the primary claim.",
                     "metric": "Define a measurable metric for decision settlement.",
                     "review_horizon_days": 14,
+                    "resolver_type": "human",
+                }
+            },
+        }
+        with pytest.raises(ValueError, match="requires settlement fields in production"):
+            DebateRequest.from_dict(data)
+
+    def test_from_dict_epistemic_hygiene_production_rejects_invalid_resolver_type(
+        self, monkeypatch
+    ):
+        """Production requests must declare a supported settlement resolver_type."""
+        monkeypatch.setenv("ARAGORA_ENV", "production")
+        data = {
+            "question": "Should we approve migration?",
+            "mode": "epistemic_hygiene",
+            "metadata": {
+                "settlement": {
+                    "falsifier": "CPU p95 worsens by >10%",
+                    "metric": "cpu_p95_ms",
+                    "review_horizon_days": 14,
+                    "resolver_type": "tribunal",
                 }
             },
         }
@@ -553,6 +577,7 @@ class TestDebateControllerRunDebate:
         )
         assert result_payload["settlement"]["review_horizon_days"] == 30
         assert result_payload["settlement"]["claim"] == "Test?"
+        assert result_payload["settlement"]["resolver_type"] == "human"
 
     @patch("aragora.server.debate_controller.update_debate_status")
     def test_run_debate_hygiene_mode_without_settlement_uses_scaffold(self, mock_update):
@@ -582,6 +607,7 @@ class TestDebateControllerRunDebate:
         assert settlement["metric"] == "Define a measurable metric for decision settlement."
         assert settlement["review_horizon_days"] == 30
         assert settlement["claim"] == "Should we ship this release?"
+        assert settlement["resolver_type"] == "human"
 
     @patch("aragora.storage.receipt_store.get_receipt_store")
     @patch("aragora.server.debate_controller.update_debate_status")
@@ -619,6 +645,7 @@ class TestDebateControllerRunDebate:
         assert saved["settlement"]["falsifier"] == "p95 latency degrades >15%"
         assert saved["settlement"]["metric"] == "p95_latency_ms"
         assert saved["settlement"]["review_horizon_days"] == 21
+        assert saved["settlement"]["resolver_type"] == "human"
 
     @patch("aragora.storage.receipt_store.get_receipt_store")
     @patch("aragora.server.debate_controller.update_debate_status")
@@ -652,6 +679,7 @@ class TestDebateControllerRunDebate:
         assert settlement["falsifier"] == "Define an objective falsifier for the primary claim."
         assert settlement["metric"] == "Define a measurable metric for decision settlement."
         assert settlement["review_horizon_days"] == 30
+        assert settlement["resolver_type"] == "human"
 
     @patch("aragora.server.debate_controller.update_debate_status")
     def test_run_debate_handles_validation_error(self, mock_update):

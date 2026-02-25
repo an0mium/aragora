@@ -64,10 +64,17 @@ _EPISTEMIC_HYGIENE_PROMPT = (
     "4) End with a concrete falsifier and measurable settlement metric."
 )
 _PRODUCTION_LIKE_ENVS = {"production", "prod", "live", "staging", "stage"}
-_REQUIRED_PRODUCTION_SETTLEMENT_FIELDS = ("falsifier", "metric", "review_horizon_days")
+_REQUIRED_PRODUCTION_SETTLEMENT_FIELDS = (
+    "falsifier",
+    "metric",
+    "review_horizon_days",
+    "resolver_type",
+)
 _DEFAULT_SETTLEMENT_FALSIFIER = "Define an objective falsifier for the primary claim."
 _DEFAULT_SETTLEMENT_METRIC = "Define a measurable metric for decision settlement."
 _DEFAULT_SETTLEMENT_CLAIM = "Define the primary claim under debate."
+_DEFAULT_SETTLEMENT_RESOLVER_TYPE = "human"
+_ALLOWED_SETTLEMENT_RESOLVER_TYPES = {"human", "deterministic", "oracle"}
 
 if TYPE_CHECKING:
     from aragora.server.stream import SyncEventEmitter
@@ -203,6 +210,20 @@ def _coerce_positive_int(value: Any, *, default: int) -> int:
     return parsed if parsed > 0 else default
 
 
+def _normalize_resolver_type(value: Any, *, default: str = _DEFAULT_SETTLEMENT_RESOLVER_TYPE) -> str:
+    """Normalize resolver types into stable canonical values."""
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return default
+    if raw in {"deterministic", "ci", "test", "tests", "auto"}:
+        return "deterministic"
+    if raw in {"oracle", "onchain", "blockchain", "feed"}:
+        return "oracle"
+    if raw in {"human", "manual", "reviewer", "analyst"}:
+        return "human"
+    return raw
+
+
 def _normalize_settlement_metadata(
     settlement: Any,
     *,
@@ -211,18 +232,17 @@ def _normalize_settlement_metadata(
     """Normalize settlement metadata into a stable shape."""
     raw = settlement if isinstance(settlement, dict) else {}
     claim = str(raw.get("claim") or claim_fallback or _DEFAULT_SETTLEMENT_CLAIM).strip()
-    resolver_hint = str(
-        raw.get("resolver_type") or raw.get("resolution_tier") or raw.get("verification_mode") or ""
-    ).strip()
+    resolver_hint = _normalize_resolver_type(
+        raw.get("resolver_type") or raw.get("resolution_tier") or raw.get("verification_mode")
+    )
     normalized: dict[str, Any] = {
         "status": str(raw.get("status") or "needs_definition").strip() or "needs_definition",
         "falsifier": (str(raw.get("falsifier") or _DEFAULT_SETTLEMENT_FALSIFIER).strip()),
         "metric": str(raw.get("metric") or _DEFAULT_SETTLEMENT_METRIC).strip(),
         "review_horizon_days": _coerce_positive_int(raw.get("review_horizon_days"), default=30),
         "claim": claim,
+        "resolver_type": resolver_hint,
     }
-    if resolver_hint:
-        normalized["resolver_type"] = resolver_hint
     return normalized
 
 
@@ -250,6 +270,17 @@ def _validate_production_settlement_metadata(metadata: dict[str, Any]) -> None:
             missing.append("review_horizon_days")
     except (ValueError, TypeError):
         missing.append("review_horizon_days")
+    resolver_hint = settlement.get("resolver_type")
+    if resolver_hint is None:
+        resolver_hint = settlement.get("resolution_tier")
+    if resolver_hint is None:
+        resolver_hint = settlement.get("verification_mode")
+    normalized_resolver = _normalize_resolver_type(
+        resolver_hint,
+        default="",
+    )
+    if normalized_resolver not in _ALLOWED_SETTLEMENT_RESOLVER_TYPES:
+        missing.append("resolver_type")
 
     if missing:
         fields = ", ".join(_REQUIRED_PRODUCTION_SETTLEMENT_FIELDS)
@@ -1423,20 +1454,15 @@ class DebateController:
     @staticmethod
     def _select_resolution_tier(claim_settlement: dict[str, Any]) -> tuple[str, str, bool]:
         """Map settlement metadata to deterministic/oracle/human resolution tiers."""
-        tier_hint = (
-            str(
-                claim_settlement.get("resolver_type")
-                or claim_settlement.get("resolution_tier")
-                or claim_settlement.get("verification_mode")
-                or ""
-            )
-            .strip()
-            .lower()
+        tier_hint = _normalize_resolver_type(
+            claim_settlement.get("resolver_type")
+            or claim_settlement.get("resolution_tier")
+            or claim_settlement.get("verification_mode")
         )
 
-        if tier_hint in {"deterministic", "ci", "test", "tests", "auto"}:
+        if tier_hint == "deterministic":
             return ("deterministic", "pending_deterministic", True)
-        if tier_hint in {"oracle", "onchain", "blockchain", "feed"}:
+        if tier_hint == "oracle":
             return ("oracle", "pending_oracle", True)
         return ("human", "open", False)
 
