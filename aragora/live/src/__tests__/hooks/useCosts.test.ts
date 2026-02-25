@@ -45,18 +45,19 @@ import { useSWRFetch, invalidateCache } from '@/hooks/useSWRFetch';
 
 const mockUseSWRFetch = useSWRFetch as jest.Mock;
 
-describe('useCostSummary', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockUseSWRFetch.mockReset();
+  mockUseSWRFetch.mockImplementation(() => ({
+    data: null,
+    error: null,
+    isLoading: false,
+    isValidating: false,
+    mutate: mockMutate,
+  }));
+});
 
+describe('useCostSummary', () => {
   it('returns null summary when no data', () => {
     const { result } = renderHook(() => useCostSummary());
     expect(result.current.summary).toBeNull();
@@ -101,17 +102,6 @@ describe('useCostSummary', () => {
 });
 
 describe('useCostsBreakdown', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns null breakdown when no data', () => {
     const { result } = renderHook(() => useCostsBreakdown());
     expect(result.current.breakdown).toBeNull();
@@ -127,17 +117,6 @@ describe('useCostsBreakdown', () => {
 });
 
 describe('useCostTimeline', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns null timeline when no data', () => {
     const { result } = renderHook(() => useCostTimeline());
     expect(result.current.timeline).toBeNull();
@@ -153,17 +132,6 @@ describe('useCostTimeline', () => {
 });
 
 describe('useCostAlerts', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns empty alerts array when no data', () => {
     const { result } = renderHook(() => useCostAlerts());
     expect(result.current.alerts).toEqual([]);
@@ -201,17 +169,6 @@ describe('useCostAlerts', () => {
 });
 
 describe('useCostRecommendations', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns empty recommendations when no data', () => {
     const { result } = renderHook(() => useCostRecommendations());
     expect(result.current.recommendations).toEqual([]);
@@ -227,17 +184,6 @@ describe('useCostRecommendations', () => {
 });
 
 describe('useCostEfficiency', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns null efficiency when no data', () => {
     const { result } = renderHook(() => useCostEfficiency());
     expect(result.current.efficiency).toBeNull();
@@ -253,17 +199,6 @@ describe('useCostEfficiency', () => {
 });
 
 describe('useCostForecast', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns null forecast when no data', () => {
     const { result } = renderHook(() => useCostForecast());
     expect(result.current.forecast).toBeNull();
@@ -279,17 +214,6 @@ describe('useCostForecast', () => {
 });
 
 describe('useSpendTrend', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns null trend when no data', () => {
     const { result } = renderHook(() => useSpendTrend());
     expect(result.current.trend).toBeNull();
@@ -305,17 +229,6 @@ describe('useSpendTrend', () => {
 });
 
 describe('useAgentCostBreakdown', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns null agent breakdown when no data', () => {
     const { result } = renderHook(() => useAgentCostBreakdown());
     expect(result.current.agentBreakdown).toBeNull();
@@ -331,17 +244,6 @@ describe('useAgentCostBreakdown', () => {
 });
 
 describe('useModelCostBreakdown', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns null model breakdown when no data', () => {
     const { result } = renderHook(() => useModelCostBreakdown());
     expect(result.current.modelBreakdown).toBeNull();
@@ -349,17 +251,6 @@ describe('useModelCostBreakdown', () => {
 });
 
 describe('useDebateCostBreakdown', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns null debate breakdown when no data', () => {
     const { result } = renderHook(() => useDebateCostBreakdown());
     expect(result.current.debateBreakdown).toBeNull();
@@ -375,17 +266,6 @@ describe('useDebateCostBreakdown', () => {
 });
 
 describe('useBudgetUtilization', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      isValidating: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns null utilization when no data', () => {
     const { result } = renderHook(() => useBudgetUtilization());
     expect(result.current.utilization).toBeNull();
@@ -401,16 +281,6 @@ describe('useBudgetUtilization', () => {
 });
 
 describe('useCosts (unified)', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSWRFetch.mockReturnValue({
-      data: null,
-      error: null,
-      isLoading: false,
-      mutate: mockMutate,
-    });
-  });
-
   it('returns null costData when no summary', () => {
     const { result } = renderHook(() => useCosts());
     expect(result.current.costData).toBeNull();

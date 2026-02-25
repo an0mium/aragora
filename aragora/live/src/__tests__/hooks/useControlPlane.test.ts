@@ -2,7 +2,7 @@
  * Tests for useControlPlane hook
  */
 
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { useControlPlane } from '@/hooks/useControlPlane';
 
 // Mock the store selectors
@@ -28,6 +28,12 @@ const mockSetHealthLoading = jest.fn();
 const mockSetStatsLoading = jest.fn();
 const mockSetAgentsError = jest.fn();
 const mockSetTasksError = jest.fn();
+const mockUpdateAgent = jest.fn();
+const mockUpdateTask = jest.fn();
+const mockSetIsConnected = jest.fn();
+const mockSetLastUpdate = jest.fn();
+const mockSetSelectedAgentId = jest.fn();
+const mockSetSelectedTaskId = jest.fn();
 
 jest.mock('@/store/controlPlaneStore', () => ({
   useControlPlaneStore: jest.fn((selector) => {
@@ -55,6 +61,12 @@ jest.mock('@/store/controlPlaneStore', () => ({
       setStatsLoading: mockSetStatsLoading,
       setAgentsError: mockSetAgentsError,
       setTasksError: mockSetTasksError,
+      updateAgent: mockUpdateAgent,
+      updateTask: mockUpdateTask,
+      setIsConnected: mockSetIsConnected,
+      setLastUpdate: mockSetLastUpdate,
+      setSelectedAgentId: mockSetSelectedAgentId,
+      setSelectedTaskId: mockSetSelectedTaskId,
       setTaskFilters: mockSetTaskFilters,
       setSearchQuery: mockSetSearchQuery,
       setIsConnected: jest.fn(),
@@ -103,6 +115,8 @@ jest.mock('@/hooks/useAragoraClient', () => ({
 jest.mock('@/hooks/useControlPlaneWebSocket', () => ({
   useControlPlaneWebSocket: jest.fn(() => ({
     isConnected: true,
+    agents: new Map(),
+    tasks: new Map(),
     lastMessage: null,
   })),
 }));
