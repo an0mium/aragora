@@ -453,7 +453,8 @@ export class AuditAPI {
   ): Promise<ResourceHistory> {
     return this.client.request<ResourceHistory>(
       'GET',
-      `/api/audit/resources/${encodeURIComponent(resourceType)}/${encodeURIComponent(resourceId)}/history`
+      `/api/v1/audit/resource/${encodeURIComponent(resourceId)}/history`,
+      { params: { resource_type: resourceType } }
     );
   }
 
@@ -494,7 +495,7 @@ export class AuditAPI {
 
     return this.client.request<{ url: string; expires_at: string }>(
       'POST',
-      '/api/audit/export',
+      '/api/v1/audit/entries',
       { body }
     );
   }
@@ -957,7 +958,7 @@ export class AuditAPI {
 
     return this.client.request<{ findings: AuditFinding[]; total: number }>(
       'GET',
-      '/api/audit/findings',
+      '/api/v1/audit/findings/my-assignments',
       { params }
     );
   }
