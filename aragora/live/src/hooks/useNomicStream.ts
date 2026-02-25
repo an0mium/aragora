@@ -57,6 +57,9 @@ export function useNomicStream(wsUrl: string = DEFAULT_WS_URL) {
   const updateStateFromEventRef = useRef<(event: StreamEvent) => void>(() => {});
 
   const connect = useCallback(() => {
+    // Skip connection when no URL provided (e.g. unauthenticated users)
+    if (!wsUrl) return;
+
     try {
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
