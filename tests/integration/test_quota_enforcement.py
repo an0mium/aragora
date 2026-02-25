@@ -281,9 +281,9 @@ class TestQuotaEnforcementEndToEnd:
 
         org = user_store.get_organization_by_id(org_id)
         assert org.debates_used_this_month == 100
-        # Pro tier has 200 limit
+        # Pro tier has 1000 limit
         assert org.is_at_limit is False
-        assert org.debates_remaining == 100  # 200 - 100
+        assert org.debates_remaining == 900  # 1000 - 100
 
     def test_quota_response_format(self, user_store, free_org):
         """Quota exceeded response should include upgrade info."""
