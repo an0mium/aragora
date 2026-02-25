@@ -368,7 +368,7 @@ class TestRunOrchestration:
 
     @pytest.mark.asyncio
     async def test_fallback_when_orchestrator_unavailable(
-        self, pipeline, config, sample_goal_graph
+        self, pipeline, config, sample_goal_graph, monkeypatch
     ):
         """Falls back gracefully when execution engine unavailable.
 
@@ -376,6 +376,16 @@ class TestRunOrchestration:
         goals and attempts execution. Tasks complete with planned/failed
         status when DebugLoop is unavailable or path validation fails.
         """
+        # Mock _execute_task to return "planned" status (simulates no execution backend)
+        async def _mock_execute(task, cfg):
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "planned",
+                "output": {"reason": "execution_engine_unavailable"},
+            }
+
+        monkeypatch.setattr(pipeline, "_execute_task", _mock_execute)
         sr = await pipeline._run_orchestration("pipe-1", {"steps": []}, sample_goal_graph, config)
 
         assert sr.status == "completed"
@@ -400,11 +410,21 @@ class TestRunOrchestration:
         assert sr.status == "completed"
 
     @pytest.mark.asyncio
-    async def test_emits_stage_events(self, pipeline, events, sample_goal_graph):
+    async def test_emits_stage_events(self, pipeline, events, sample_goal_graph, monkeypatch):
         """Emits stage_started and stage_completed events."""
         captured, callback = events
         cfg = PipelineConfig(event_callback=callback)
 
+        # Mock _execute_task to avoid calling real backends
+        async def _mock_execute(task, cfg):
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "planned",
+                "output": {},
+            }
+
+        monkeypatch.setattr(pipeline, "_execute_task", _mock_execute)
         sr = await pipeline._run_orchestration("pipe-1", {"steps": []}, sample_goal_graph, cfg)
 
         event_types = [e[0] for e in captured]
