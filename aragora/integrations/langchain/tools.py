@@ -182,7 +182,7 @@ class AragoraDebateTool(BaseTool):
         task: str,
         agents: list[str] | None = None,
         max_rounds: int | None = None,
-        run_manager: CallbackManagerForToolRun | None = None,
+        run_manager: CallbackManagerForToolRun | None = None,  # type: ignore[valid-type]
     ) -> str:
         """Run the debate synchronously."""
 
@@ -193,7 +193,7 @@ class AragoraDebateTool(BaseTool):
         task: str,
         agents: list[str] | None = None,
         max_rounds: int | None = None,
-        run_manager: AsyncCallbackManagerForToolRun | None = None,
+        run_manager: AsyncCallbackManagerForToolRun | None = None,  # type: ignore[valid-type]
     ) -> str:
         """Run the debate asynchronously."""
         import httpx
@@ -290,7 +290,7 @@ class AragoraKnowledgeTool(BaseTool):
         self,
         query: str,
         limit: int | None = 5,
-        run_manager: CallbackManagerForToolRun | None = None,
+        run_manager: CallbackManagerForToolRun | None = None,  # type: ignore[valid-type]
     ) -> str:
         """Run the query synchronously."""
 
@@ -300,7 +300,7 @@ class AragoraKnowledgeTool(BaseTool):
         self,
         query: str,
         limit: int | None = 5,
-        run_manager: AsyncCallbackManagerForToolRun | None = None,
+        run_manager: AsyncCallbackManagerForToolRun | None = None,  # type: ignore[valid-type]
     ) -> str:
         """Run the query asynchronously."""
         import httpx
@@ -391,7 +391,7 @@ class AragoraDecisionTool(BaseTool):
         self,
         question: str,
         options: list[str] | None = None,
-        run_manager: CallbackManagerForToolRun | None = None,
+        run_manager: CallbackManagerForToolRun | None = None,  # type: ignore[valid-type]
     ) -> str:
         """Run the decision synchronously."""
 
@@ -401,7 +401,7 @@ class AragoraDecisionTool(BaseTool):
         self,
         question: str,
         options: list[str] | None = None,
-        run_manager: AsyncCallbackManagerForToolRun | None = None,
+        run_manager: AsyncCallbackManagerForToolRun | None = None,  # type: ignore[valid-type]
     ) -> str:
         """Run the decision asynchronously."""
         import httpx

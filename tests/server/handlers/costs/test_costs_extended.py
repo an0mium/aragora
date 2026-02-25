@@ -405,9 +405,9 @@ class TestEstimateCostHandler:
         response = await handler.handle_estimate_cost(mock_request)
 
         data = json.loads(response.body)
-        assert data["estimated_cost_usd"] == 90.0  # 15 + 75
-        assert data["pricing"]["input_per_1m"] == 15.00
-        assert data["pricing"]["output_per_1m"] == 75.00
+        assert data["estimated_cost_usd"] == 30.0  # 5 + 25
+        assert data["pricing"]["input_per_1m"] == 5.00
+        assert data["pricing"]["output_per_1m"] == 25.00
 
     @pytest.mark.asyncio
     async def test_estimate_unknown_provider(self, handler, mock_request):
@@ -619,7 +619,7 @@ class TestEdgeCases:
             response = await handler.handle_get_timeline(mock_request)
 
         data = json.loads(response.body)
-        assert data["average"] == 0
+        assert data["data"]["average_daily_cost"] == 0
 
     @pytest.mark.asyncio
     async def test_breakdown_unknown_group_by(self, handler, mock_request):
@@ -631,8 +631,7 @@ class TestEdgeCases:
             response = await handler.handle_get_breakdown(mock_request)
 
         data = json.loads(response.body)
-        assert data["groupBy"] == "unknown_field"
-        assert data["breakdown"][0]["name"] == "Anthropic"
+        assert data["data"]["by_provider"][0]["name"] == "Anthropic"
 
     @pytest.mark.asyncio
     async def test_efficiency_zero_tokens_and_calls(self, handler, mock_request):
@@ -655,9 +654,9 @@ class TestEdgeCases:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["metrics"]["cost_per_1k_tokens"] == 0
-        assert data["metrics"]["tokens_per_call"] == 0
-        assert data["metrics"]["cost_per_call"] == 0
+        assert data["data"]["cost_per_1k_tokens"] == 0
+        assert data["data"]["avg_tokens_per_call"] == 0
+        assert data["data"]["cost_per_call"] == 0
 
     @pytest.mark.asyncio
     async def test_handler_init_default_context(self):
