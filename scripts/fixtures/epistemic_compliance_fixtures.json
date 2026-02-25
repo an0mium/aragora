@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "id": "strict_full_1",
+      "model": "strict_model",
+      "text": "Alternative: event-driven architecture | Rejected because: operational overhead for this scope.\nClaim: queueing lowers p95 latency. Falsified if p95 latency increases after rollout.\nClaim: queueing lowers p95 latency | Confidence: 0.84\nUnknown: weekend traffic burst profile."
+    },
+    {
+      "id": "strict_full_2",
+      "model": "strict_model",
+      "text": "Alternative: keep existing scheduler | Rejected because: cannot meet throughput target.\nClaim: sharding improves throughput. Falsified if throughput does not improve at equivalent load.\nClaim: sharding improves throughput | Confidence: 0.88\nUnknown: exact peak concurrency of new customers."
+    },
+    {
+      "id": "balanced_partial_1",
+      "model": "balanced_model",
+      "text": "Alternative: keep monolith | Rejected because: deploy coupling remains high.\nClaim: service split will reduce deploy risk | Confidence: 0.76\nUnknown: migration timeline risk."
+    },
+    {
+      "id": "balanced_full_2",
+      "model": "balanced_model",
+      "text": "Alternative: big-bang rewrite | Rejected because: delivery risk is too high.\nClaim: staged migration reduces outage risk. Falsified if incident rate rises over baseline.\nClaim: staged migration reduces outage risk | Confidence: 0.81\nUnknown: team capacity during quarter-end."
+    },
+    {
+      "id": "header_shell",
+      "model": "adversarial_model",
+      "text": "ALTERNATIVES CONSIDERED\nFALSIFIABILITY\nCONFIDENCE LEVELS\nEXPLICIT UNKNOWNS"
+    },
+    {
+      "id": "hype_no_falsifier",
+      "model": "adversarial_model",
+      "text": "This is the operating framework for everything and clearly superior.\nConfidence: 0.99"
+    },
+    {
+      "id": "adversarial_assertion_only",
+      "model": "adversarial_model",
+      "text": "We should proceed now because the concept is compelling."
+    }
+  ]
+}
+

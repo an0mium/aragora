@@ -439,6 +439,28 @@ jobs:
         run: bash scripts/run_epistemic_settlement_gate.sh
         env:
           PYTHONPATH: .
+          EPISTEMIC_GATE_ARTIFACT_DIR: /tmp/epistemic-gate-artifacts
+
+      - name: Append epistemic compliance summary
+        if: always()
+        run: |
+          if [ -f /tmp/epistemic-gate-artifacts/epistemic-compliance-summary.md ]; then
+            echo "## Epistemic Compliance Report" >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/epistemic-gate-artifacts/epistemic-compliance-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Epistemic Compliance Report" >> "$GITHUB_STEP_SUMMARY"
+            echo "Artifact not found." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload epistemic gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: epistemic-settlement-gate
+          path: |
+            /tmp/epistemic-gate-artifacts/epistemic-compliance-summary.json
+            /tmp/epistemic-gate-artifacts/epistemic-compliance-summary.md
+          retention-days: 14
 
   # Integration smoke lane for high-risk paths (PR only)
   integration-minimal:
