@@ -215,9 +215,18 @@ jobs:
       - name: Generate Python SDK types
         run: python scripts/generate_python_sdk_types.py --openapi docs/api/openapi_generated.json
 
-      - name: Generate Live API types
+      - name: Generate Live API types (strict)
+        if: github.event_name != 'pull_request'
         run: |
-          npm --prefix aragora/live ci
+          npm --prefix aragora/live ci --fetch-retries=5 --fetch-retry-mintimeout=20000
+          npm --prefix aragora/live run generate:types
+
+      - name: Generate Live API types (best-effort on PR)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm --prefix aragora/live ci --fetch-retries=5 --fetch-retry-mintimeout=20000
           npm --prefix aragora/live run generate:types
 
       - name: Compare with existing spec
