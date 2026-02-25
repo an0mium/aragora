@@ -404,6 +404,7 @@ class AgentsHandler(  # type: ignore[misc]
             List of agent names or agent objects with stats
         """
         elo = self.get_elo_system()
+        calibration_tracker = self.get_calibration_tracker() if include_stats else None
         agents = []
 
         # Get agents from ELO system if available
@@ -412,18 +413,19 @@ class AgentsHandler(  # type: ignore[misc]
                 # Get all agents from leaderboard (large limit to get all)
                 rankings = elo.get_leaderboard(limit=500)
                 for agent in rankings:
-                    agent_dict = agent_to_dict(agent)
+                    agent_dict = agent_to_dict(agent, calibration_tracker=calibration_tracker)
                     name = agent_dict.get("name", "")
                     if include_stats:
-                        agents.append(
-                            {
-                                "name": name,
-                                "elo": agent_dict.get("elo", 1500),
-                                "matches": agent_dict.get("matches", 0),
-                                "wins": agent_dict.get("wins", 0),
-                                "losses": agent_dict.get("losses", 0),
-                            }
-                        )
+                        entry: dict[str, Any] = {
+                            "name": name,
+                            "elo": agent_dict.get("elo", 1500),
+                            "matches": agent_dict.get("matches", 0),
+                            "wins": agent_dict.get("wins", 0),
+                            "losses": agent_dict.get("losses", 0),
+                        }
+                        if "calibration" in agent_dict:
+                            entry["calibration"] = agent_dict["calibration"]
+                        agents.append(entry)
                     else:
                         agents.append({"name": name})
             except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:

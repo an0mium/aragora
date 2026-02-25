@@ -449,15 +449,15 @@ class TestGetParam:
 class TestHandleGoogleAuthStart:
     """Tests for _handle_google_auth_start()."""
 
-    def test_returns_503_when_not_configured(self, monkeypatch):
+    def test_returns_503_when_not_configured(self):
         """Should return 503 when Google OAuth not configured."""
-        from aragora.server.handlers import oauth
+        from aragora.server.handlers import _oauth_impl
 
         handler = create_oauth_handler()
         mock_http = MockHandler()
 
-        monkeypatch.setattr(oauth, "_get_google_client_id", lambda: "")
-        result = handler._handle_google_auth_start(mock_http, {})
+        with patch.object(_oauth_impl, "_get_google_client_id", return_value=""):
+            result = handler._handle_google_auth_start(mock_http, {})
 
         assert get_status(result) == 503
         assert "not configured" in get_body(result)["error"]

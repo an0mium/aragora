@@ -895,6 +895,13 @@ class BaseHandler:
         """Get critique store instance."""
         return self.ctx.get("critique_store")
 
+    def get_calibration_tracker(self) -> CalibrationTracker | None:
+        """Get calibration tracker instance."""
+        if hasattr(self.__class__, "calibration_tracker") and self.__class__.calibration_tracker is not None:
+            ct: CalibrationTracker | None = self.__class__.calibration_tracker
+            return ct
+        return self.ctx.get("calibration_tracker")
+
     def get_nomic_dir(self) -> Path | None:
         """Get nomic directory path."""
         return self.ctx.get("nomic_dir")

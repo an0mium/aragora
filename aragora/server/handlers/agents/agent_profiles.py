@@ -25,6 +25,7 @@ from ..base import (
 from ..openapi_decorator import api_endpoint
 
 if TYPE_CHECKING:
+    from aragora.debate.calibration import CalibrationTracker
     from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,7 @@ class AgentProfilesMixin:
 
     Expects the composing class to provide:
     - get_elo_system() -> EloSystem | None
+    - get_calibration_tracker() -> CalibrationTracker | None
     - get_nomic_dir() -> Path | None
 
     These are provided by BaseHandler.
@@ -43,6 +45,7 @@ class AgentProfilesMixin:
     if TYPE_CHECKING:
 
         def get_elo_system(self) -> EloSystem | None: ...
+        def get_calibration_tracker(self) -> CalibrationTracker | None: ...
         def get_nomic_dir(self) -> Path | None: ...
 
     @api_endpoint(
@@ -64,16 +67,23 @@ class AgentProfilesMixin:
         if hasattr(elo, "get_agent_stats"):
             stats = elo.get_agent_stats(agent) or {}
 
-        return json_response(
-            {
-                "name": agent,
-                "rating": rating,
-                "rank": stats.get("rank"),
-                "wins": stats.get("wins", 0),
-                "losses": stats.get("losses", 0),
-                "win_rate": stats.get("win_rate", 0.0),
-            }
-        )
+        result: dict[str, Any] = {
+            "name": agent,
+            "rating": rating,
+            "rank": stats.get("rank"),
+            "wins": stats.get("wins", 0),
+            "losses": stats.get("losses", 0),
+            "win_rate": stats.get("win_rate", 0.0),
+        }
+
+        # Enrich with calibration data if tracker is available
+        calibration_tracker = self.get_calibration_tracker()
+        if calibration_tracker is not None:
+            from aragora.server.handlers.base import _enrich_with_calibration
+
+            result = _enrich_with_calibration(result, agent, calibration_tracker)
+
+        return json_response(result)
 
     @api_endpoint(
         method="GET",
@@ -102,6 +112,31 @@ class AgentProfilesMixin:
     @handle_errors("agent calibration")
     def _get_calibration(self, agent: str, domain: str | None) -> HandlerResult:
         """Get agent calibration scores."""
+        # Try dedicated CalibrationTracker first for full data
+        calibration_tracker = self.get_calibration_tracker()
+        if calibration_tracker is not None:
+            try:
+                summary = calibration_tracker.get_calibration_summary(agent, domain=domain)
+                if summary and summary.total_predictions > 0:
+                    from aragora.server.handlers.base import _compute_trust_tier
+
+                    return json_response(
+                        {
+                            "agent": agent,
+                            "brier_score": round(summary.brier_score, 4),
+                            "ece": round(summary.ece, 4),
+                            "trust_tier": _compute_trust_tier(
+                                summary.brier_score, summary.total_predictions
+                            ),
+                            "prediction_count": summary.total_predictions,
+                            "total_correct": summary.total_correct,
+                            "domain": domain,
+                        }
+                    )
+            except (AttributeError, TypeError, ValueError, OSError):
+                pass
+
+        # Fallback to ELO system calibration
         elo = self.get_elo_system()
         if not elo:
             return error_response("ELO system not available", 503)

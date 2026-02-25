@@ -445,8 +445,7 @@ export default function AgentPerformancePage() {
                           <td className="px-4 py-3">
                             <div className="font-mono text-xs text-[var(--acid-cyan)] flex items-center gap-1.5">
                               {agent.name}
-                              {/* TODO: Wire agent.calibration when API provides CalibrationData */}
-                              <TrustBadge calibration={null} size="sm" />
+                              <TrustBadge calibration={agent.calibrationData ?? null} size="sm" />
                             </div>
                             <div className="text-[10px] text-[var(--text-muted)]">{agent.id}</div>
                           </td>

@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import { useSWRFetch } from './useSWRFetch';
 import { useApi } from './useApi';
+import type { CalibrationData } from '@/components/TrustBadge';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,6 +41,7 @@ export interface AgentPerformanceEntry {
   elo: number;
   eloHistory: AgentEloHistoryPoint[];
   calibration: number;
+  calibrationData?: CalibrationData | null;
   winRate: number;
   domains: string[];
 }

@@ -40,6 +40,7 @@ EXEMPT_HANDLERS = frozenset(
         "OpenAPIHandler",
         "DocsHandler",
         "SwaggerHandler",
+        "ApiDocsHandler",
         # Auth flow handlers - handle their own auth logic
         "LoginHandler",
         "LogoutHandler",
@@ -158,6 +159,8 @@ EXEMPT_HANDLERS = frozenset(
         "PlaybookHandler",
         # Decision outcomes (uses internal validation, future RBAC)
         "OutcomeHandler",
+        # Knowledge velocity (read-only metrics, future RBAC)
+        "KnowledgeVelocityHandler",
     }
 )
 

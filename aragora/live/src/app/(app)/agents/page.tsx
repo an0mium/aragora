@@ -116,7 +116,6 @@ function AgentCards({ agents }: { agents: AgentRankingEntry[] }) {
               <div>
                 <div className="font-mono text-sm text-[var(--acid-cyan)] flex items-center gap-1.5">
                   {getDisplayName(agent.agent_name)}
-                  {/* TODO: Wire agent.calibration when API provides it */}
                   <TrustBadge calibration={agent.calibration ?? null} size="md" />
                 </div>
                 <div className="text-[10px] font-mono text-[var(--text-muted)]">
@@ -321,7 +320,6 @@ export default function AgentsPage() {
                 <div>
                   <h3 className="font-mono text-sm text-[var(--acid-green)] flex items-center gap-2">
                     {'>'} {getDisplayName(selectedAgent.agent_name)}
-                    {/* TODO: Wire agent.calibration when API provides it */}
                     <TrustBadge calibration={selectedAgent.calibration ?? null} size="md" />
                   </h3>
                   <span className="text-[10px] font-mono text-[var(--text-muted)]">

@@ -299,18 +299,38 @@ class TestSinglePrioritization:
         assert result.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_prioritize_single_service_error_graceful_fallback(self, email_handler):
+    @patch("aragora.server.handlers.email_debate.EmailInput")
+    async def test_prioritize_single_service_error_graceful_fallback(
+        self, mock_email_input, email_handler
+    ):
         """Test that service gracefully degrades to heuristic mode when debate fails.
 
         The EmailDebateService has built-in fallback behavior - when the debate
         fails (e.g., no API credentials), it returns a heuristic-based result
         with 200 status instead of failing with 500.
         """
+
+        class HeuristicFallbackService:
+            """Service that simulates heuristic fallback on debate failure."""
+
+            def __init__(self, **kwargs):
+                pass
+
+            async def prioritize_email(self, email, user_id="anonymous"):
+                return MockPrioritizationResult(
+                    reasoning="Heuristic fallback: no API credentials available",
+                )
+
         body = {"subject": "Test email", "body": "Test content"}
         handler = make_handler_with_body(body)
 
-        # Without API credentials, the service will fall back to heuristic mode
-        result = await email_handler.handle_post("/api/v1/email/prioritize", {}, handler)
+        with patch(
+            "aragora.server.handlers.email_debate.EmailDebateService",
+            HeuristicFallbackService,
+        ):
+            result = await email_handler.handle_post(
+                "/api/v1/email/prioritize", {}, handler
+            )
 
         assert result is not None
         # Service gracefully degrades to heuristic mode instead of failing

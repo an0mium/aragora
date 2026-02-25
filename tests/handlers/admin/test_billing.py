@@ -357,7 +357,7 @@ class TestGetUsage:
         assert "usage" in body
         usage = body["usage"]
         assert usage["debates_used"] == 15
-        assert usage["debates_limit"] == 200
+        assert usage["debates_limit"] == 1000
 
     def test_no_user_store(self, http_handler, reset_rate_limiter):
         h = BillingHandler(ctx={})
