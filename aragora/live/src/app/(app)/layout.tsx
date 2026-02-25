@@ -1,9 +1,7 @@
 import AppLayoutClient from './AppLayoutClient';
 
-// Skip static prerendering for all (app) pages.
-// These pages depend on client-side auth, backend config, and browser APIs
-// that are unavailable during build-time static generation.
-export const dynamic = 'force-dynamic';
+// All (app) pages are 'use client' and render entirely in the browser.
+// No server-side dynamic rendering needed — static shells are fine.
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return <AppLayoutClient>{children}</AppLayoutClient>;
