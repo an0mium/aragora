@@ -197,27 +197,27 @@ class TestCanHandle:
     def test_prometheus_metrics(self, handler):
         assert handler.can_handle("/metrics") is True
 
-    def test_versioned_monitoring_alerts_stripped(self, handler):
-        """Versioned monitoring routes strip to /api/monitoring/* which is NOT in ROUTES."""
-        assert handler.can_handle("/api/v1/monitoring/alerts") is False
+    def test_versioned_monitoring_alerts(self, handler):
+        """Versioned monitoring routes are handled after version prefix stripping."""
+        assert handler.can_handle("/api/v1/monitoring/alerts") is True
 
-    def test_versioned_monitoring_dashboards_stripped(self, handler):
-        assert handler.can_handle("/api/v1/monitoring/dashboards") is False
+    def test_versioned_monitoring_dashboards(self, handler):
+        assert handler.can_handle("/api/v1/monitoring/dashboards") is True
 
-    def test_versioned_monitoring_health_stripped(self, handler):
-        assert handler.can_handle("/api/v1/monitoring/health") is False
+    def test_versioned_monitoring_health(self, handler):
+        assert handler.can_handle("/api/v1/monitoring/health") is True
 
-    def test_versioned_monitoring_logs_stripped(self, handler):
-        assert handler.can_handle("/api/v1/monitoring/logs") is False
+    def test_versioned_monitoring_logs(self, handler):
+        assert handler.can_handle("/api/v1/monitoring/logs") is True
 
-    def test_versioned_monitoring_metrics_stripped(self, handler):
-        assert handler.can_handle("/api/v1/monitoring/metrics") is False
+    def test_versioned_monitoring_metrics(self, handler):
+        assert handler.can_handle("/api/v1/monitoring/metrics") is True
 
-    def test_versioned_monitoring_slos_stripped(self, handler):
-        assert handler.can_handle("/api/v1/monitoring/slos") is False
+    def test_versioned_monitoring_slos(self, handler):
+        assert handler.can_handle("/api/v1/monitoring/slos") is True
 
-    def test_versioned_monitoring_traces_stripped(self, handler):
-        assert handler.can_handle("/api/v1/monitoring/traces") is False
+    def test_versioned_monitoring_traces(self, handler):
+        assert handler.can_handle("/api/v1/monitoring/traces") is True
 
     def test_unhandled_path(self, handler):
         assert handler.can_handle("/api/unknown") is False
