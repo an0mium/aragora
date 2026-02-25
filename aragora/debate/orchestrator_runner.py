@@ -8,6 +8,7 @@ metrics recording, completion handling, and resource cleanup.
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -880,6 +881,7 @@ async def handle_debate_completion(
                     logger.debug("DLQ enqueue failed: %s", dlq_err)
 
         _km_task = asyncio.create_task(_km_ingest_background())
+        setattr(ctx, "_km_ingest_task", _km_task)
         _km_task.add_done_callback(
             lambda t: logger.warning("[km-ingest] Background ingestion error: %s", t.exception())
             if not t.cancelled() and t.exception()
@@ -1114,6 +1116,19 @@ async def cleanup_debate_resources(
         The finalized DebateResult
     """
     ctx = state.ctx
+
+    # In pytest runs, ensure background KM ingest doesn't outlive the test event
+    # loop and emit "Task was destroyed but it is pending!" warnings.
+    km_task = getattr(ctx, "_km_ingest_task", None)
+    if km_task is not None and os.environ.get("PYTEST_CURRENT_TEST"):
+        try:
+            await asyncio.wait_for(asyncio.shield(km_task), timeout=0.75)
+        except asyncio.TimeoutError:
+            km_task.cancel()
+            try:
+                await km_task
+            except (asyncio.CancelledError, RuntimeError):
+                pass
 
     # Clean up checkpoints after successful completion
     if state.debate_status == "completed" and getattr(

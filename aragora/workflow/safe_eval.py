@@ -156,17 +156,17 @@ class _SafeEvaluator(ast.NodeVisitor):
         """Handle literal constants (numbers, strings, etc.)."""
         return node.value
 
-    def visit_Num(self, node: ast.Num) -> Any:
-        """Handle numeric literals (Python 3.7 compatibility)."""
-        return node.n
+    def visit_Num(self, node: Any) -> Any:
+        """Handle legacy numeric literal nodes."""
+        return getattr(node, "n", getattr(node, "value", None))
 
-    def visit_Str(self, node: ast.Str) -> Any:
-        """Handle string literals (Python 3.7 compatibility)."""
-        return node.s
+    def visit_Str(self, node: Any) -> Any:
+        """Handle legacy string literal nodes."""
+        return getattr(node, "s", getattr(node, "value", None))
 
-    def visit_NameConstant(self, node: ast.NameConstant) -> Any:
-        """Handle True, False, None (Python 3.7 compatibility)."""
-        return node.value
+    def visit_NameConstant(self, node: Any) -> Any:
+        """Handle legacy True/False/None nodes."""
+        return getattr(node, "value", None)
 
     def visit_Name(self, node: ast.Name) -> Any:
         """Handle variable names."""

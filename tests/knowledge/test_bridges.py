@@ -396,6 +396,24 @@ class TestKnowledgeBridgeHub:
         # All nodes in same mound
         assert len(mock_mound.nodes) == 2
 
+    @pytest.mark.asyncio
+    async def test_synthesize_for_debate_awaits_async_adapter_search(self, hub):
+        """Async adapter search methods are awaited during synthesis."""
+        adapter = MagicMock()
+        adapter.search_by_topic = AsyncMock(
+            return_value=[{"content": "Async consensus signal", "confidence": 0.9}]
+        )
+
+        def get_adapter(name: str):
+            return adapter if name == "consensus" else None
+
+        with patch.object(hub, "_get_adapter", side_effect=get_adapter):
+            context = await hub.synthesize_for_debate("rate limiting", max_items=3)
+
+        adapter.search_by_topic.assert_awaited_once()
+        assert "Past Consensus Decisions" in context
+        assert "Async consensus signal" in context
+
 
 # =============================================================================
 # Integration Tests

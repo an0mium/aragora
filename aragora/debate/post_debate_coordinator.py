@@ -632,18 +632,15 @@ class PostDebateCoordinator:
         try:
             from aragora.gauntlet.runner import GauntletRunner
 
-            import asyncio
-
             runner = GauntletRunner()
             input_content = str(
                 getattr(debate_result, "final_answer", getattr(debate_result, "consensus", ""))
             )
-            coro = runner.run(input_content=input_content, context=task)
-            try:
-                loop = asyncio.get_running_loop()
-                verdict = loop.run_until_complete(coro)
-            except RuntimeError:
-                verdict = asyncio.run(coro)
+            verdict = self._run_async_callable(
+                runner.run,
+                input_content=input_content,
+                context=task,
+            )
 
             logger.info(
                 "Gauntlet validation completed for %s: %s",

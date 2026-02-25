@@ -21,6 +21,7 @@ import hashlib
 import json
 import logging
 import re
+import warnings
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -255,10 +256,19 @@ class WebConnector(BaseConnector):
             # This is a Python limitation - thread pool tasks can't be interrupted.
             loop = asyncio.get_running_loop()
             try:
+                def _run_ddgs_search() -> list[dict]:
+                    # duckduckgo_search emits a package-rename RuntimeWarning
+                    # in newer releases; suppress that noisy, non-actionable warning.
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore",
+                            message=r"This package \(`duckduckgo_search`\) has been renamed to `ddgs`!.*",
+                            category=RuntimeWarning,
+                        )
+                        return list(DDGS().text(query, region=region, max_results=limit))
+
                 results = await asyncio.wait_for(
-                    loop.run_in_executor(
-                        None, lambda: list(DDGS().text(query, region=region, max_results=limit))
-                    ),
+                    loop.run_in_executor(None, _run_ddgs_search),
                     timeout=DB_TIMEOUT_SECONDS,  # 30 second timeout for DDGS
                 )
             except asyncio.TimeoutError:

@@ -28,6 +28,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import inspect
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -740,8 +741,11 @@ class KnowledgeBridgeHub:
                 if search_fn is None:
                     continue
 
-                # Most adapters accept (topic, limit) or (query, limit)
+                # Most adapters accept (topic, limit) or (query, limit).
+                # Some adapters expose async search methods; await when needed.
                 results = search_fn(topic, limit=min(3, items_remaining))
+                if inspect.isawaitable(results):
+                    results = await results
                 if not results:
                     continue
 
