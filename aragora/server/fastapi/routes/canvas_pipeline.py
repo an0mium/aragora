@@ -1332,12 +1332,12 @@ async def approve_agent(
     auth: AuthorizationContext = Depends(require_permission("pipeline:approve")),
 ) -> AgentActionResponse:
     """Approve an agent assignment for a pipeline."""
-    _get_result_or_404(pipeline_id)
+    data = _get_result_or_404(pipeline_id)
 
     try:
         from aragora.pipeline.dag_operations import DAGOperationsCoordinator
 
-        coordinator = DAGOperationsCoordinator()
+        coordinator = DAGOperationsCoordinator(graph=data)
         coordinator.approve_agent(pipeline_id, agent_id)
 
         return AgentActionResponse(
@@ -1347,7 +1347,7 @@ async def approve_agent(
             success=True,
             message=f"Agent {agent_id} approved",
         )
-    except (ImportError, AttributeError) as e:
+    except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
         logger.debug("Agent approval delegation unavailable: %s", e)
         return AgentActionResponse(
             pipeline_id=pipeline_id,
@@ -1368,12 +1368,12 @@ async def reject_agent(
     auth: AuthorizationContext = Depends(require_permission("pipeline:approve")),
 ) -> AgentActionResponse:
     """Reject an agent assignment for a pipeline."""
-    _get_result_or_404(pipeline_id)
+    data = _get_result_or_404(pipeline_id)
 
     try:
         from aragora.pipeline.dag_operations import DAGOperationsCoordinator
 
-        coordinator = DAGOperationsCoordinator()
+        coordinator = DAGOperationsCoordinator(graph=data)
         coordinator.reject_agent(pipeline_id, agent_id)
 
         return AgentActionResponse(
@@ -1383,7 +1383,7 @@ async def reject_agent(
             success=True,
             message=f"Agent {agent_id} rejected",
         )
-    except (ImportError, AttributeError) as e:
+    except (ImportError, AttributeError, TypeError, ValueError, RuntimeError) as e:
         logger.debug("Agent rejection delegation unavailable: %s", e)
         return AgentActionResponse(
             pipeline_id=pipeline_id,
