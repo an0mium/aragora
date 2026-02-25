@@ -8,6 +8,8 @@ minimal stub entries for any missing paths/methods.
 Usage:
     python scripts/batch_add_openapi_stubs.py            # Dry run (report only)
     python scripts/batch_add_openapi_stubs.py --apply     # Write changes to openapi.json
+    python scripts/batch_add_openapi_stubs.py --apply --sync-generated
+        # Also update openapi_generated.json (optional, high-churn)
 """
 
 from __future__ import annotations
