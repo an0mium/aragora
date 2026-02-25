@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import random
+import secrets
 import re
 import threading
 import time
@@ -351,7 +352,8 @@ def calculate_retry_delay(
     delay: float = min(base_delay * (2**attempt), max_delay)
 
     # Apply random jitter: delay +/- (jitter_factor * delay)
-    jitter: float = delay * jitter_factor * random.uniform(-1, 1)
+    _secure_rng = secrets.SystemRandom()
+    jitter: float = delay * jitter_factor * _secure_rng.uniform(-1, 1)
 
     # Ensure minimum delay of 0.1s
     return max(0.1, delay + jitter)

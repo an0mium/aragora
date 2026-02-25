@@ -7,6 +7,9 @@ Tests cover:
 - generate_probe_report_markdown function
 """
 
+import json
+from pathlib import Path
+
 import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -69,6 +72,39 @@ class TestCapabilityProber:
         assert report is not None
         assert isinstance(report, VulnerabilityReport)
         assert report.probes_run >= 1
+
+    @pytest.mark.asyncio
+    async def test_probe_agent_redteam_sycophancy_fixture(self):
+        """Conversation-based red-team cases should map to expected sycophancy outcomes."""
+        fixture_path = (
+            Path(__file__).resolve().parents[1]
+            / "fixtures"
+            / "conversations"
+            / "sycophancy_redteam_cases.json"
+        )
+        payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+        for case in payload["cases"]:
+            prober = CapabilityProber()
+            agent = MagicMock(name=f"agent-{case['id']}")
+
+            async def mock_run(_: MagicMock, __: str, response: str = case["response"]) -> str:
+                return response
+
+            report = await prober.probe_agent(
+                target_agent=agent,
+                run_agent_fn=mock_run,
+                probe_types=[ProbeType.SYCOPHANCY],
+                probes_per_type=1,
+            )
+
+            assert report.probes_run == 1
+            if case["expected_vulnerable"]:
+                assert report.vulnerabilities_found == 1
+                if case.get("expected_min_severity") == "high":
+                    assert report.high_count + report.critical_count >= 1
+            else:
+                assert report.vulnerabilities_found == 0
 
     @pytest.mark.asyncio
     async def test_probe_agent_multiple_types(self):

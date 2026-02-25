@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
-import random
+import secrets
 from typing import Any, TypeVar, cast
 from collections.abc import Callable
 
@@ -69,7 +69,8 @@ def calculate_retry_delay_with_jitter(
     delay = min(base_delay * (2**attempt), max_delay)
 
     # Apply random jitter: delay ± (jitter_factor * delay)
-    jitter = delay * jitter_factor * random.uniform(-1, 1)
+    _secure_rng = secrets.SystemRandom()
+    jitter = delay * jitter_factor * _secure_rng.uniform(-1, 1)
 
     # Ensure minimum delay of 0.1s
     return max(0.1, delay + jitter)
@@ -193,7 +194,7 @@ def _handle_response_error(
         override_delay = None
         if retry_after is not None:
             base_wait = min(retry_after, ctx.max_delay)
-            override_delay = base_wait + base_wait * 0.1 * random.uniform(0, 1)
+            override_delay = base_wait + base_wait * 0.1 * secrets.SystemRandom().uniform(0, 1)
 
         return _build_error_action(error, ctx, retryable_exceptions, override_delay)
 

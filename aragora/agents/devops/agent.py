@@ -18,6 +18,7 @@ import logging
 import os
 import shlex
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -296,12 +297,15 @@ class DevOpsAgent:
         if not ok:
             return {"pr": pr_number, "success": False, "error": diff}
 
-        # Write diff to temp file
+        # Write diff to secure temp file
         if diff and diff != "[dry run]":
-            diff_path = f"/tmp/aragora_pr_{pr_number}.diff"
             try:
-                with open(diff_path, "w") as f:
-                    f.write(diff)
+                tmp = tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".diff", prefix=f"aragora_pr_{pr_number}_", delete=False
+                )
+                diff_path = tmp.name
+                tmp.write(diff)
+                tmp.close()
             except OSError as e:
                 logger.error("Failed to write diff for PR %s: %s", pr_number, e)
                 return {"pr": pr_number, "success": False, "error": "Failed to write diff file"}
