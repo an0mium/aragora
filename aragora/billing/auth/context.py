@@ -28,7 +28,7 @@ class UserAuthContext:
     email: str | None = None
     org_id: str | None = None
     role: str = "member"
-    token_type: str = "none"  # none, access, api_key
+    token_type: str = "none"  # noqa: S105 -- field default (none, access, api_key)
     client_ip: str | None = None
     error_reason: str | None = None  # Set when auth fails with a specific reason
 
@@ -121,7 +121,7 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
             context.email = payload.email
             context.org_id = payload.org_id
             context.role = payload.role
-            context.token_type = "access"
+            context.token_type = "access"  # noqa: S105 -- token category label
         else:
             logger.warning(
                 "[AUTH_DEBUG] JWT validation FAILED - validate_access_token returned None"
@@ -175,7 +175,7 @@ def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -
             context.email = user.email
             context.org_id = user.org_id
             context.role = user.role
-            context.token_type = "api_key"
+            context.token_type = "api_key"  # noqa: S105 -- token category label
             logger.debug("api_key_validated user_id=%s", user.id)
             return context
 
