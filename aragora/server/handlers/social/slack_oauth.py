@@ -1210,12 +1210,12 @@ class SlackOAuthHandler(SecureHandler):
 
             for ws in workspaces:
                 # Determine token health
-                token_status = "valid"
+                token_status = "valid"  # noqa: S105 -- status label
                 if ws.token_expires_at:
                     if ws.token_expires_at < current_time:
-                        token_status = "expired"
+                        token_status = "expired"  # noqa: S105 -- status label
                     elif ws.token_expires_at < current_time + 3600:
-                        token_status = "expiring_soon"
+                        token_status = "expiring_soon"  # noqa: S105 -- status label
 
                 workspace_list.append(
                     {
