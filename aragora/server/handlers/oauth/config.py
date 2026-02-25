@@ -329,21 +329,21 @@ def get_oauth_config_status() -> dict[str, Any]:
 
 # Google OAuth endpoints
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"  # noqa: S105 -- OAuth endpoint URL
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
 # GitHub OAuth endpoints
 GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
-GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
+GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"  # noqa: S105 -- OAuth endpoint URL
 GITHUB_USERINFO_URL = "https://api.github.com/user"
 GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
 
 # Microsoft OAuth endpoints (Azure AD v2.0)
 MICROSOFT_AUTH_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
-MICROSOFT_TOKEN_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+MICROSOFT_TOKEN_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"  # noqa: S105 -- OAuth endpoint URL
 MICROSOFT_USERINFO_URL = "https://graph.microsoft.com/v1.0/me"
 
 # Apple OAuth endpoints
 APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
-APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token"
+APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token"  # noqa: S105 -- OAuth endpoint URL
 APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"

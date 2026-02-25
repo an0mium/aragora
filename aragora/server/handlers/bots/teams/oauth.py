@@ -23,7 +23,7 @@ TEAMS_TENANT_ID = os.environ.get("TEAMS_TENANT_ID")
 
 # Azure AD OAuth endpoints
 AZURE_AD_AUTHORITY = "https://login.microsoftonline.com"
-BOT_FRAMEWORK_TOKEN_ENDPOINT = "https://login.botframework.com/v1/.well-known/openidconfiguration"
+BOT_FRAMEWORK_TOKEN_ENDPOINT = "https://login.botframework.com/v1/.well-known/openidconfiguration"  # noqa: S105 -- OAuth endpoint URL
 
 
 class TeamsOAuth:

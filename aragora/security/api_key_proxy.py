@@ -240,6 +240,32 @@ class ProxyConfig:
             active_hours=(0, 23),
             budget_limit_credits=None,
         )
+        config.services["xai"] = ServiceKeyConfig(
+            service_name="xai",
+            secret_manager_key="XAI_API_KEY",  # noqa: S106
+            secret_id="aragora/production",  # noqa: S106
+            standalone_secret_id="aragora/api/xai",  # noqa: S106
+            rotation_strategy=RotationStrategy.JITTERED,
+            rotation_interval_hours=8.0,
+            rotation_jitter_hours=2.0,
+            max_calls_per_minute=30,
+            max_calls_per_hour=500,
+            active_hours=(0, 23),
+            budget_limit_credits=None,
+        )
+        config.services["deepseek"] = ServiceKeyConfig(
+            service_name="deepseek",
+            secret_manager_key="DEEPSEEK_API_KEY",  # noqa: S106
+            secret_id="aragora/production",  # noqa: S106
+            standalone_secret_id="aragora/api/deepseek",  # noqa: S106
+            rotation_strategy=RotationStrategy.JITTERED,
+            rotation_interval_hours=8.0,
+            rotation_jitter_hours=2.0,
+            max_calls_per_minute=30,
+            max_calls_per_hour=500,
+            active_hours=(0, 23),
+            budget_limit_credits=None,
+        )
         return config
 
 
