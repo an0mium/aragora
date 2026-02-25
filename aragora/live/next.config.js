@@ -15,11 +15,13 @@ const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString()
 const nextConfig = {
   // Use 'standalone' for Docker, 'export' for static hosting
   output: requestedOutput || 'standalone',
-  // Production builds use --webpack (see package.json) because Turbopack has a
-  // build-ID race condition in Next.js 16.1.x: the "finalizing page optimization"
-  // step reads _ssgManifest.js under one build ID while Turbopack wrote it under
-  // another, causing ENOENT.  Turbopack remains the default for `next dev`.
-  // The "clean" npm script also does rm -rf .next before every build.
+  // Fixed build ID eliminates the Next.js 16.1.x race condition where the
+  // "finalizing page optimization" step reads _ssgManifest.js under one build ID
+  // while it was written under another, causing ENOENT.  A deterministic ID based
+  // on the git SHA ensures a single, consistent directory name throughout the build.
+  generateBuildId: async () => {
+    return buildSha.slice(0, 12) || 'build';
+  },
   trailingSlash: true,
   images: {
     unoptimized: true,
