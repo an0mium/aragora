@@ -15,6 +15,7 @@ import logging
 import os
 import shutil
 import subprocess
+import tempfile
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
@@ -87,7 +88,7 @@ class SandboxConfig:
     mode: ExecutionMode = ExecutionMode.SUBPROCESS
     policy: ToolPolicy | None = None
     docker_image: str = "python:3.11-slim"
-    workspace_base: str = "/tmp/sandbox"
+    workspace_base: str = field(default_factory=lambda: os.path.join(tempfile.gettempdir(), "sandbox"))
     cleanup_on_complete: bool = True
     capture_output: bool = True
     network_enabled: bool = False
