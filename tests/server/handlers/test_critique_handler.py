@@ -9,6 +9,8 @@ Tests the critique pattern and reputation API endpoints including:
 - Input validation
 """
 
+import json
+
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -302,7 +304,82 @@ class TestReputationEndpoints:
 
         assert result is not None
         assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] == 1
+        assert body["history"][0]["agent"] == "claude_security"
+        assert body["history"][0]["event"] == "snapshot"
         mock_store.get_all_reputations.assert_called_once()
+
+    def test_reputation_history_rejects_invalid_start_date(self, tmp_path):
+        """Should reject malformed start_date."""
+        handler = CritiqueHandler({"nomic_dir": tmp_path})
+        mock_handler = MagicMock()
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        result = handler.handle(
+            "/api/v1/reputation/history",
+            {"start_date": "not-a-date"},
+            mock_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 400
+
+    @patch("aragora.server.handlers.critique.CRITIQUE_STORE_AVAILABLE", True)
+    @patch("aragora.server.handlers.critique.get_critique_store")
+    def test_reputation_history_filters_agent_and_date(self, mock_get_store, tmp_path):
+        """Should filter history by agent + date window."""
+        mock_store = MagicMock()
+        mock_store.get_all_reputations.return_value = [
+            MockReputation(
+                agent_name="claude_security",
+                reputation_score=0.92,
+                vote_weight=1.2,
+                proposal_acceptance_rate=0.75,
+                critique_value=0.88,
+                debates_participated=150,
+                updated_at="2026-02-25T10:00:00+00:00",
+            ),
+            MockReputation(
+                agent_name="claude_security",
+                reputation_score=0.80,
+                vote_weight=1.0,
+                proposal_acceptance_rate=0.60,
+                critique_value=0.70,
+                debates_participated=80,
+                updated_at="2026-02-20T10:00:00+00:00",
+            ),
+            MockReputation(
+                agent_name="codex_perf",
+                reputation_score=0.85,
+                vote_weight=1.1,
+                proposal_acceptance_rate=0.68,
+                critique_value=0.80,
+                debates_participated=120,
+                updated_at="2026-02-25T10:00:00+00:00",
+            ),
+        ]
+        mock_get_store.return_value = mock_store
+
+        handler = CritiqueHandler({"nomic_dir": tmp_path})
+        mock_handler = MagicMock()
+        mock_handler.client_address = ("127.0.0.1", 12345)
+
+        result = handler.handle(
+            "/api/v1/reputation/history",
+            {
+                "agent": "claude_security",
+                "start_date": "2026-02-24T00:00:00+00:00",
+            },
+            mock_handler,
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["count"] == 1
+        assert body["history"][0]["agent"] == "claude_security"
+        assert body["history"][0]["timestamp"] == "2026-02-25T10:00:00+00:00"
 
     def test_reputation_domain_requires_param(self, tmp_path):
         """Should validate required domain query param."""
@@ -352,6 +429,10 @@ class TestReputationEndpoints:
 
         assert result is not None
         assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["domain"] == "security"
+        assert body["count"] == 1
+        assert body["reputations"][0]["agent"] == "security_claude"
         mock_store.get_all_reputations.assert_called_once()
 
 
