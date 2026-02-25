@@ -12,11 +12,11 @@ Response envelope: {"data": ...} for frontend hook compatibility
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Request
 
 logger = logging.getLogger(__name__)
 
@@ -181,18 +181,17 @@ async def get_encryption_status(request: Request) -> dict[str, Any]:
     certificate_expiry: str | None = None
     min_tls_version = "1.2"
 
-    import os
-
     # Check for TLS certificate path
     cert_path = os.environ.get("ARAGORA_TLS_CERT_PATH", "")
     if cert_path:
         try:
             import ssl
 
-            ctx = ssl.create_default_context()
-            ctx.load_cert_chain(cert_path)
+            tls_ctx = ssl.create_default_context()
+            tls_ctx.load_cert_chain(cert_path)
             in_transit_status = "active"
-        except (OSError, ssl.SSLError, ValueError):
+        except (ImportError, OSError, ValueError) as exc:
+            logger.debug("TLS cert check failed: %s", exc)
             in_transit_status = "degraded"
     # Even without a cert file, the server typically terminates TLS
     # at the load balancer/reverse proxy level, so report active.

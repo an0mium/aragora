@@ -19,11 +19,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.core import DebateResult, Environment, TaskComplexity
-from aragora.debate.orchestrator_runner import (
-    _DebateExecutionState,
-    cleanup_debate_resources,
-)
+from aragora.debate.orchestrator_runner import cleanup_debate_resources
+
+# Patch targets: lazy imports inside cleanup_debate_resources resolve from
+# the source module, so we patch the source.
+_ROUTE_RESULT = "aragora.server.result_router.route_result"
+_REGISTER_ORIGIN = "aragora.server.debate_origin.register_debate_origin"
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +115,7 @@ class TestResultRoutingEnabled:
         state = _make_state()
 
         with patch(
-            "aragora.debate.orchestrator_runner.route_result",
+            _ROUTE_RESULT,
             new_callable=AsyncMock,
             return_value=True,
         ) as mock_route:
@@ -131,7 +132,7 @@ class TestResultRoutingEnabled:
         state = _make_state()
 
         with patch(
-            "aragora.debate.orchestrator_runner.route_result",
+            _ROUTE_RESULT,
             new_callable=AsyncMock,
         ) as mock_route:
             await cleanup_debate_resources(arena, state)
@@ -145,7 +146,7 @@ class TestResultRoutingEnabled:
         state.ctx.finalize_result.return_value = None
 
         with patch(
-            "aragora.debate.orchestrator_runner.route_result",
+            _ROUTE_RESULT,
             new_callable=AsyncMock,
         ) as mock_route:
             await cleanup_debate_resources(arena, state)
@@ -162,13 +163,14 @@ class TestResultRoutingErrorResilience:
 
     @pytest.mark.asyncio
     async def test_import_error_does_not_propagate(self):
-        """ImportError from route_result does not crash cleanup."""
+        """ImportError from route_result import does not crash cleanup."""
         arena = _make_arena(enable_result_routing=True)
         state = _make_state()
 
-        with patch(
-            "aragora.debate.orchestrator_runner.route_result",
-            side_effect=ImportError("no module"),
+        # Simulate ImportError by making the import fail
+        with patch.dict(
+            "sys.modules",
+            {"aragora.server.result_router": None},
         ):
             # Should not raise
             result = await cleanup_debate_resources(arena, state)
@@ -181,7 +183,7 @@ class TestResultRoutingErrorResilience:
         state = _make_state()
 
         with patch(
-            "aragora.debate.orchestrator_runner.route_result",
+            _ROUTE_RESULT,
             new_callable=AsyncMock,
             side_effect=RuntimeError("connection refused"),
         ):
@@ -195,7 +197,7 @@ class TestResultRoutingErrorResilience:
         state = _make_state()
 
         with patch(
-            "aragora.debate.orchestrator_runner.route_result",
+            _ROUTE_RESULT,
             new_callable=AsyncMock,
             side_effect=OSError("network unreachable"),
         ):
@@ -209,7 +211,7 @@ class TestResultRoutingErrorResilience:
         state = _make_state()
 
         with patch(
-            "aragora.debate.orchestrator_runner.route_result",
+            _ROUTE_RESULT,
             new_callable=AsyncMock,
             side_effect=TypeError("bad arg"),
         ):
@@ -223,7 +225,7 @@ class TestResultRoutingErrorResilience:
         state = _make_state()
 
         with patch(
-            "aragora.debate.orchestrator_runner.route_result",
+            _ROUTE_RESULT,
             new_callable=AsyncMock,
             side_effect=ValueError("invalid debate_id"),
         ):
@@ -256,12 +258,12 @@ class TestInlineOriginMetadata:
 
         with (
             patch(
-                "aragora.debate.orchestrator_runner.route_result",
+                _ROUTE_RESULT,
                 new_callable=AsyncMock,
                 return_value=True,
             ) as mock_route,
             patch(
-                "aragora.server.debate_origin.register_debate_origin",
+                _REGISTER_ORIGIN,
             ) as mock_register,
         ):
             await cleanup_debate_resources(arena, state)
@@ -276,8 +278,8 @@ class TestInlineOriginMetadata:
             )
 
     @pytest.mark.asyncio
-    async def test_env_metadata_without_platform_does_not_trigger(self):
-        """debate_origin without platform key does not enable routing."""
+    async def test_env_metadata_without_platform_does_not_register(self):
+        """debate_origin without platform key enables routing but skips registration."""
         arena = _make_arena(
             enable_result_routing=False,
             env_metadata={
@@ -289,13 +291,21 @@ class TestInlineOriginMetadata:
         )
         state = _make_state()
 
-        with patch(
-            "aragora.debate.orchestrator_runner.route_result",
-            new_callable=AsyncMock,
-        ) as mock_route:
+        with (
+            patch(
+                _ROUTE_RESULT,
+                new_callable=AsyncMock,
+                return_value=False,
+            ) as mock_route,
+            patch(
+                _REGISTER_ORIGIN,
+            ) as mock_register,
+        ):
             await cleanup_debate_resources(arena, state)
-            # Should route (debate_origin is truthy), but won't register
+            # Routing is attempted (debate_origin is truthy)
             mock_route.assert_awaited_once()
+            # But origin was NOT registered (no platform)
+            mock_register.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_origin_registration_failure_does_not_block_routing(self):
@@ -314,12 +324,12 @@ class TestInlineOriginMetadata:
 
         with (
             patch(
-                "aragora.debate.orchestrator_runner.route_result",
+                _ROUTE_RESULT,
                 new_callable=AsyncMock,
                 return_value=False,
             ) as mock_route,
             patch(
-                "aragora.server.debate_origin.register_debate_origin",
+                _REGISTER_ORIGIN,
                 side_effect=RuntimeError("store unavailable"),
             ),
         ):
@@ -359,12 +369,12 @@ class TestOriginTypeDispatch:
 
         with (
             patch(
-                "aragora.debate.orchestrator_runner.route_result",
+                _ROUTE_RESULT,
                 new_callable=AsyncMock,
                 return_value=True,
             ) as mock_route,
             patch(
-                "aragora.server.debate_origin.register_debate_origin",
+                _REGISTER_ORIGIN,
             ) as mock_register,
         ):
             await cleanup_debate_resources(arena, state)
@@ -440,7 +450,7 @@ class TestResultSerialization:
         state = _make_state(result=mock_result)
 
         with patch(
-            "aragora.debate.orchestrator_runner.route_result",
+            _ROUTE_RESULT,
             new_callable=AsyncMock,
             return_value=True,
         ) as mock_route:
@@ -464,7 +474,7 @@ class TestResultSerialization:
         state = _make_state(result=mock_result)
 
         with patch(
-            "aragora.debate.orchestrator_runner.route_result",
+            _ROUTE_RESULT,
             new_callable=AsyncMock,
             return_value=True,
         ) as mock_route:
@@ -494,7 +504,7 @@ class TestRouteResultReturnValue:
 
         with (
             patch(
-                "aragora.debate.orchestrator_runner.route_result",
+                _ROUTE_RESULT,
                 new_callable=AsyncMock,
                 return_value=True,
             ),
@@ -518,7 +528,7 @@ class TestRouteResultReturnValue:
 
         with (
             patch(
-                "aragora.debate.orchestrator_runner.route_result",
+                _ROUTE_RESULT,
                 new_callable=AsyncMock,
                 return_value=False,
             ),

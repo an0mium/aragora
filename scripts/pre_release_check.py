@@ -157,69 +157,85 @@ def gate_secrets_scan() -> bool:
     """Scan source code for hardcoded secret patterns."""
     findings: list[tuple[str, str, int, str]] = []
 
-    # Scan aragora/ directory (main source)
-    source_dirs = [PROJECT_ROOT / "aragora", PROJECT_ROOT / "scripts"]
+    # Prefer scanning tracked files for determinism and speed.
+    tracked_paths: list[Path] = []
+    code, output = _run_cmd(
+        ["git", "ls-files", "aragora", "scripts"],
+        cwd=str(PROJECT_ROOT),
+        timeout=30,
+    )
+    if code == 0 and output:
+        for rel in output.splitlines():
+            rel = rel.strip()
+            if not rel:
+                continue
+            candidate = PROJECT_ROOT / rel
+            if candidate.is_file():
+                tracked_paths.append(candidate)
+    else:
+        # Fallback for environments without git metadata available.
+        source_dirs = [PROJECT_ROOT / "aragora", PROJECT_ROOT / "scripts"]
+        for source_dir in source_dirs:
+            if not source_dir.exists():
+                continue
+            for root, dirs, files in os.walk(source_dir, topdown=True):
+                root_path = Path(root)
+                dirs[:] = [d for d in dirs if not _is_excluded_path(root_path / d)]
+                for filename in files:
+                    candidate = root_path / filename
+                    if candidate.is_file():
+                        tracked_paths.append(candidate)
 
-    for source_dir in source_dirs:
-        if not source_dir.exists():
+    for filepath in tracked_paths:
+        if not _should_scan_file(filepath):
             continue
-        # Use os.walk (instead of rglob) so transient file-system races in build
-        # artifacts (for example live/.next) don't abort the gate.
-        for root, dirs, files in os.walk(source_dir, topdown=True):
-            root_path = Path(root)
-            # Prune excluded subtrees for performance and determinism.
-            dirs[:] = [dirname for dirname in dirs if not _is_excluded_path(root_path / dirname)]
-            for filename in files:
-                filepath = root_path / filename
-                if not _should_scan_file(filepath):
+
+        try:
+            content = filepath.read_text(errors="replace")
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        for pattern_name, regex, description in SECRET_PATTERNS:
+            for line_num, line in enumerate(content.splitlines(), 1):
+                # Skip comment lines and docstrings
+                stripped = line.strip()
+                if stripped.startswith("#") or stripped.startswith("//"):
+                    continue
+                # Skip regex pattern definitions (e.g. secret scanners)
+                if "re.compile" in line or 'r"' in stripped[:15] or "r'" in stripped[:15]:
+                    continue
+                # Skip lines that look like test fixtures, examples, or env lookups
+                if any(
+                    marker in line.lower()
+                    for marker in [
+                        "example",
+                        "placeholder",
+                        "dummy",
+                        "test",
+                        "mock",
+                        "fake",
+                        "sample",
+                        "xxx",
+                        "changeme",
+                        "your_",
+                        "your-",
+                        "<your",
+                        "todo",
+                        "fixme",
+                        "os.environ",
+                        "os.getenv",
+                        "getenv",
+                        "get_secret",
+                        "env.get",
+                        "nosec",
+                        "noqa",
+                    ]
+                ):
                     continue
 
-                try:
-                    content = filepath.read_text(errors="replace")
-                except (OSError, UnicodeDecodeError):
-                    continue
-
-                for pattern_name, regex, description in SECRET_PATTERNS:
-                    for line_num, line in enumerate(content.splitlines(), 1):
-                        # Skip comment lines and docstrings
-                        stripped = line.strip()
-                        if stripped.startswith("#") or stripped.startswith("//"):
-                            continue
-                        # Skip regex pattern definitions (e.g. secret scanners)
-                        if "re.compile" in line or 'r"' in stripped[:15] or "r'" in stripped[:15]:
-                            continue
-                        # Skip lines that look like test fixtures, examples, or env lookups
-                        if any(
-                            marker in line.lower()
-                            for marker in [
-                                "example",
-                                "placeholder",
-                                "dummy",
-                                "test",
-                                "mock",
-                                "fake",
-                                "sample",
-                                "xxx",
-                                "changeme",
-                                "your_",
-                                "your-",
-                                "<your",
-                                "todo",
-                                "fixme",
-                                "os.environ",
-                                "os.getenv",
-                                "getenv",
-                                "get_secret",
-                                "env.get",
-                                "nosec",
-                                "noqa",
-                            ]
-                        ):
-                            continue
-
-                        if re.search(regex, line):
-                            rel_path = str(filepath.relative_to(PROJECT_ROOT))
-                            findings.append((pattern_name, rel_path, line_num, description))
+                if re.search(regex, line):
+                    rel_path = str(filepath.relative_to(PROJECT_ROOT))
+                    findings.append((pattern_name, rel_path, line_num, description))
 
     if findings:
         detail_lines = []
