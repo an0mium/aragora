@@ -255,68 +255,18 @@ class TestDataSurvivesMigration:
 
 
 class TestConfigBackwardCompatibility:
-    """Old-style individual Arena params should still work but emit deprecation warnings."""
+    """Config backward compatibility tests.
 
-    def test_supermemory_params_emit_deprecation(self):
-        """Individual supermemory params trigger DeprecationWarning when no MemoryConfig given."""
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            try:
-                from aragora.debate.orchestrator_config import resolve_arena_config
+    Note: resolve_arena_config was removed and replaced by merge_config_objects.
+    Deprecation warning tests for old-style individual Arena params are no longer
+    applicable since the old API was fully removed.
+    """
 
-                resolve_arena_config(
-                    enable_supermemory=True,
-                    memory_config=None,
-                )
-            except (ImportError, TypeError, Exception):
-                pytest.skip("resolve_arena_config not importable in test environment")
+    def test_merge_config_objects_importable(self):
+        """The replacement config function is importable."""
+        from aragora.debate.orchestrator_config import merge_config_objects
 
-            deprecation_msgs = [w for w in caught if issubclass(w.category, DeprecationWarning)]
-            assert len(deprecation_msgs) >= 1, (
-                "Expected DeprecationWarning for individual supermemory params"
-            )
-
-    def test_knowledge_params_emit_deprecation(self):
-        """Individual knowledge params trigger DeprecationWarning."""
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            try:
-                from aragora.debate.orchestrator_config import resolve_arena_config
-
-                resolve_arena_config(
-                    enable_knowledge_mound=True,
-                    knowledge_config=None,
-                )
-            except (ImportError, TypeError, Exception):
-                pytest.skip("resolve_arena_config not importable in test environment")
-
-            deprecation_msgs = [w for w in caught if issubclass(w.category, DeprecationWarning)]
-            assert len(deprecation_msgs) >= 1, (
-                "Expected DeprecationWarning for individual knowledge params"
-            )
-
-    def test_no_deprecation_when_config_objects_used(self):
-        """Using config objects should NOT emit deprecation warnings."""
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            try:
-                from aragora.debate.orchestrator_config import resolve_arena_config
-
-                # Pass config objects instead of individual params
-                resolve_arena_config(
-                    memory_config=object(),  # truthy = config provided
-                    knowledge_config=object(),
-                    evolution_config=object(),
-                    ml_config=object(),
-                )
-            except (ImportError, TypeError, Exception):
-                pytest.skip("resolve_arena_config not importable in test environment")
-
-            deprecation_msgs = [w for w in caught if issubclass(w.category, DeprecationWarning)]
-            assert len(deprecation_msgs) == 0, (
-                f"No DeprecationWarning expected when using config objects, got: "
-                f"{[str(w.message) for w in deprecation_msgs]}"
-            )
+        assert callable(merge_config_objects)
 
 
 # ---------------------------------------------------------------------------
