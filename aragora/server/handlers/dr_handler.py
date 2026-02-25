@@ -19,6 +19,8 @@ These endpoints support enterprise disaster recovery requirements.
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
@@ -272,7 +274,7 @@ class DRHandler(BaseHandler):
         """
         backup_id = body.get("backup_id")
         drill_type = body.get("drill_type", "restore_test")
-        target_path = body.get("target_path", "/tmp/dr_drill_test.db")
+        target_path = body.get("target_path", os.path.join(tempfile.gettempdir(), "dr_drill_test.db"))
 
         manager = self._get_backup_manager()
         start_time = datetime.now(timezone.utc)
