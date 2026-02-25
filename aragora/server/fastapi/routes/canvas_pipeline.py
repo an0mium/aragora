@@ -792,7 +792,9 @@ async def execute_pipeline(
             from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 
             orchestrator = HardenedOrchestrator()
-            execute_fn = getattr(orchestrator, "execute", getattr(orchestrator, "execute_goal", None))
+            execute_fn = getattr(
+                orchestrator, "execute", getattr(orchestrator, "execute_goal", None)
+            )
             if execute_fn is None:
                 raise AttributeError("HardenedOrchestrator has no execute method")
             exec_result = await execute_fn(data)
@@ -903,11 +905,19 @@ async def list_templates() -> PipelineTemplatesResponse:
         templates_raw = _list_templates()
         templates = [
             PipelineTemplateItem(
-                id=getattr(t, "name", "") if not isinstance(t, dict) else t.get("id", t.get("name", "")),
-                name=getattr(t, "display_name", getattr(t, "name", "")) if not isinstance(t, dict) else t.get("name", ""),
-                description=getattr(t, "description", "") if not isinstance(t, dict) else t.get("description", ""),
+                id=getattr(t, "name", "")
+                if not isinstance(t, dict)
+                else t.get("id", t.get("name", "")),
+                name=getattr(t, "display_name", getattr(t, "name", ""))
+                if not isinstance(t, dict)
+                else t.get("name", ""),
+                description=getattr(t, "description", "")
+                if not isinstance(t, dict)
+                else t.get("description", ""),
                 stages=getattr(t, "tags", []) if not isinstance(t, dict) else t.get("stages", []),
-                category=getattr(t, "category", "general") if not isinstance(t, dict) else t.get("category", "general"),
+                category=getattr(t, "category", "general")
+                if not isinstance(t, dict)
+                else t.get("category", "general"),
             )
             for t in templates_raw
         ]
@@ -1052,7 +1062,9 @@ async def get_pipeline_receipt(pipeline_id: str) -> PipelineReceiptResponse:
     try:
         from aragora.pipeline.receipt_generator import generate_pipeline_receipt
 
-        data_dict = data.to_dict() if hasattr(data, "to_dict") else (data if isinstance(data, dict) else {})
+        data_dict = (
+            data.to_dict() if hasattr(data, "to_dict") else (data if isinstance(data, dict) else {})
+        )
         receipt = await generate_pipeline_receipt(pipeline_id, data_dict)
         receipt_dict = receipt.to_dict() if hasattr(receipt, "to_dict") else receipt
         return PipelineReceiptResponse(
@@ -1134,7 +1146,9 @@ async def convert_debate(
         elif body.debate_id:
             convert_fn = getattr(pipeline, "debate_id_to_ideas_canvas", None)
             if convert_fn is None:
-                raise AttributeError("IdeaToExecutionPipeline has no debate_id_to_ideas_canvas method")
+                raise AttributeError(
+                    "IdeaToExecutionPipeline has no debate_id_to_ideas_canvas method"
+                )
             canvas = convert_fn(body.debate_id)
         else:
             raise HTTPException(status_code=400, detail="Provide debate_id or debate_data")
@@ -1163,12 +1177,16 @@ async def convert_workflow(
         if body.workflow_data:
             convert_fn = getattr(pipeline, "workflow_to_actions_canvas", None)
             if convert_fn is None:
-                raise AttributeError("IdeaToExecutionPipeline has no workflow_to_actions_canvas method")
+                raise AttributeError(
+                    "IdeaToExecutionPipeline has no workflow_to_actions_canvas method"
+                )
             canvas = convert_fn(body.workflow_data)
         elif body.workflow_id:
             convert_fn = getattr(pipeline, "workflow_id_to_actions_canvas", None)
             if convert_fn is None:
-                raise AttributeError("IdeaToExecutionPipeline has no workflow_id_to_actions_canvas method")
+                raise AttributeError(
+                    "IdeaToExecutionPipeline has no workflow_id_to_actions_canvas method"
+                )
             canvas = convert_fn(body.workflow_id)
         else:
             raise HTTPException(status_code=400, detail="Provide workflow_id or workflow_data")

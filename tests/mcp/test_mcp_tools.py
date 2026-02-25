@@ -799,7 +799,11 @@ class TestControlPlaneTools:
         from aragora.mcp.tools_module.control_plane import list_registered_agents_tool
 
         # Mock coordinator to avoid blocking ControlPlaneCoordinator.create()
-        with patch("aragora.mcp.tools_module.control_plane._get_coordinator", new_callable=AsyncMock, return_value=None):
+        with patch(
+            "aragora.mcp.tools_module.control_plane._get_coordinator",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
             result = await list_registered_agents_tool()
 
         assert isinstance(result, dict)

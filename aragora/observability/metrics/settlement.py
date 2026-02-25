@@ -173,9 +173,7 @@ def record_settlement_transition(from_status: str, to_status: str) -> None:
         to_status: New status.
     """
     _ensure_init()
-    SETTLEMENT_STATUS_TRANSITIONS.labels(
-        from_status=from_status, to_status=to_status
-    ).inc()
+    SETTLEMENT_STATUS_TRANSITIONS.labels(from_status=from_status, to_status=to_status).inc()
 
 
 def record_settlement_confidence(confidence: float) -> None:

@@ -895,9 +895,7 @@ async def handle_debate_completion(
 
             tracker = EpistemicSettlementTracker()
             settlement = tracker.capture_settlement(ctx.result)
-            logger.debug(
-                "Settlement captured for debate %s", state.debate_id
-            )
+            logger.debug("Settlement captured for debate %s", state.debate_id)
             # Record settlement metrics
             try:
                 from aragora.observability.metrics.settlement import (
@@ -907,18 +905,12 @@ async def handle_debate_completion(
                 )
 
                 record_settlement_captured(
-                    status=getattr(settlement, "status", "settled")
-                    if settlement
-                    else "settled"
+                    status=getattr(settlement, "status", "settled") if settlement else "settled"
                 )
                 confidence = getattr(ctx.result, "confidence", 0.0)
                 if confidence:
                     record_settlement_confidence(confidence)
-                falsifier_count = (
-                    len(getattr(settlement, "falsifiers", []))
-                    if settlement
-                    else 0
-                )
+                falsifier_count = len(getattr(settlement, "falsifiers", [])) if settlement else 0
                 record_settlement_falsifiers(falsifier_count)
             except (ImportError, RuntimeError, ValueError, TypeError, AttributeError):
                 pass
