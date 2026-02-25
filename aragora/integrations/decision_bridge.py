@@ -140,7 +140,10 @@ class DecisionBridge:
 
     async def _create_linear_issues(self, plan: Any) -> list[dict[str, Any]]:
         """Create Linear issues from DecisionPlan tasks."""
-        from aragora.connectors.enterprise.collaboration.linear import LinearConnector, LinearCredentials
+        from aragora.connectors.enterprise.collaboration.linear import (
+            LinearConnector,
+            LinearCredentials,
+        )
 
         connector = LinearConnector(credentials=LinearCredentials(api_key=""))
         created: list[dict[str, Any]] = []

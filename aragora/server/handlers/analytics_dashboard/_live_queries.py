@@ -46,6 +46,7 @@ def _query_debate_analytics() -> dict[str, Any] | None:
         cost_breakdown = asyncio.run(analytics.get_cost_breakdown(days_back=30))
         try:
             from aragora.analytics.debate_analytics import DebateMetricType
+
             debate_metric: Any = DebateMetricType.DEBATE_COUNT
         except ImportError:
             debate_metric = "debate_count"
