@@ -45,6 +45,7 @@
     "/api/gateway/openclaw/sessions",
     "/api/inbox/mentions/{param}/acknowledge",
     "/api/inbox/messages/send",
+    "/api/inbox/messages/{param}/debate",
     "/api/knowledge/facts/batch",
     "/api/knowledge/facts/batch/delete",
     "/api/knowledge/facts/merge",
