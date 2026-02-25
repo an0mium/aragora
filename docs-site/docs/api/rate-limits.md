@@ -17,8 +17,7 @@ Rate limits are based on your subscription tier:
 | Tier | Requests/Minute | Burst Size | Notes |
 |------|-----------------|------------|-------|
 | **Free** | 10 | 60 | Unauthenticated or free tier |
-| **Starter** | 50 | 100 | Basic paid plan |
-| **Professional** | 200 | 400 | Standard paid plan |
+| **Pro** | 200 | 400 | $49/seat/month |
 | **Enterprise** | 1000 | 2000 | Custom limits available |
 
 ### What is "Burst Size"?
