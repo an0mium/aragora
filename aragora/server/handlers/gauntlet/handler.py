@@ -50,6 +50,7 @@ class GauntletHandler(
         "/api/gauntlet/run",
         "/api/gauntlet/personas",
         "/api/gauntlet/results",
+        "/api/gauntlet/receipts",
         "/api/gauntlet/*/receipt/verify",
         "/api/gauntlet/*/receipt",
         "/api/gauntlet/*/heatmap",
@@ -89,6 +90,7 @@ class GauntletHandler(
             ("/api/gauntlet/run", "POST"): "_start_gauntlet",
             ("/api/gauntlet/personas", "GET"): "_list_personas",
             ("/api/gauntlet/results", "GET"): "_list_results",
+            ("/api/gauntlet/receipts", "GET"): "_list_receipts",
         }
 
     def _extract_and_validate_id(
@@ -213,6 +215,8 @@ class GauntletHandler(
             return True
         if normalized == "/api/gauntlet/results" and method == "GET":
             return True
+        if normalized == "/api/gauntlet/receipts" and method == "GET":
+            return True
         if normalized.startswith("/api/gauntlet/") and method == "GET":
             return True
         if normalized.startswith("/api/gauntlet/") and method == "DELETE":
@@ -286,7 +290,7 @@ class GauntletHandler(
             handler_method = getattr(self, handler_name)
             if handler_name == "_start_gauntlet":
                 result = await handler_method(handler)
-            elif handler_name == "_list_results":
+            elif handler_name in ("_list_results", "_list_receipts"):
                 result = handler_method(query_params)
             else:
                 result = handler_method()

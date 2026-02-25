@@ -207,7 +207,7 @@ async def search_memories(
         tiers_list: list[Any] = []
         tiers_searched: list[str] = []
 
-        memory_tier_cls: Any | None = None
+        memory_tier_cls: Any = None
         try:
             from aragora.memory.continuum import MemoryTier as _MemoryTier
 
@@ -360,7 +360,7 @@ async def recall_memories(
         tiers_list: list[Any] = []
         tiers_searched: list[str] = []
 
-        memory_tier_cls: Any | None = None
+        memory_tier_cls: Any = None
         try:
             from aragora.memory.continuum import MemoryTier as _MemoryTier
 

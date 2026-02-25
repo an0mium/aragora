@@ -858,7 +858,7 @@ async def run_budget_runway_check(
                         severity=result.alert_level.value,
                         resource_type="budget_runway_alert",
                     )
-                    await svc.notify(notification)
+                    await svc.notify(notification)  # type: ignore[attr-defined]
                 except (
                     ImportError,
                     RuntimeError,

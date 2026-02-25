@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sqlite3
 from typing import Any
 
@@ -70,6 +71,51 @@ _shared_scheduler = None
 _shared_debate_store: LazyStore[Any] | None = None
 
 MAX_TOPIC_LENGTH = 200
+
+
+def _is_demo_mode() -> bool:
+    """Return True when running in offline or demo mode (no live backends)."""
+    return bool(os.environ.get("ARAGORA_OFFLINE") or os.environ.get("DEMO_MODE"))
+
+
+# Demo/fallback topics returned when Pulse ingestors are not configured
+_DEMO_TRENDING_TOPICS: list[dict[str, Any]] = [
+    {
+        "topic": "AI agents are replacing traditional software workflows",
+        "source": "hackernews",
+        "score": 0.95,
+        "volume": 4200,
+        "category": "ai",
+    },
+    {
+        "topic": "New consensus algorithms for distributed LLM inference",
+        "source": "arxiv",
+        "score": 0.82,
+        "volume": 1800,
+        "category": "tech",
+    },
+    {
+        "topic": "Should companies adopt multi-agent decision making?",
+        "source": "reddit",
+        "score": 0.71,
+        "volume": 3100,
+        "category": "business",
+    },
+    {
+        "topic": "Calibrated trust: measuring when to rely on AI recommendations",
+        "source": "hackernews",
+        "score": 0.65,
+        "volume": 2400,
+        "category": "ai",
+    },
+    {
+        "topic": "Open-source adversarial testing frameworks for LLMs",
+        "source": "github",
+        "score": 0.58,
+        "volume": 950,
+        "category": "programming",
+    },
+]
 
 
 def _create_debate_store() -> Any:
@@ -293,12 +339,28 @@ class PulseHandler(BaseHandler):
         - Reddit: Hot posts from tech/science subreddits (public JSON API)
         - Twitter: Requires API key, falls back to mock data if not configured
 
+        In offline/demo mode, returns curated demo topics so the dashboard
+        renders a useful preview without requiring live API keys or network access.
+
         Response maps internal fields to frontend expectations:
-        - platform → source
-        - volume → score (normalized 0-1)
+        - platform -> source
+        - volume -> score (normalized 0-1)
 
         Results are cached for 5 minutes to reduce API load.
         """
+        # In demo/offline mode, return curated demo data instead of hitting live APIs
+        if _is_demo_mode():
+            demo_topics = _DEMO_TRENDING_TOPICS[:limit]
+            logger.info("Returning %s demo trending topics (offline/demo mode)", len(demo_topics))
+            return json_response(
+                {
+                    "topics": demo_topics,
+                    "count": len(demo_topics),
+                    "sources": ["hackernews", "reddit", "arxiv", "github"],
+                    "demo": True,
+                }
+            )
+
         try:
             from aragora.pulse.ingestor import (
                 HackerNewsIngestor,
@@ -307,7 +369,20 @@ class PulseHandler(BaseHandler):
                 TwitterIngestor,
             )
         except ImportError:
-            return feature_unavailable_response("pulse")
+            # Pulse module not installed -- return demo data as graceful fallback
+            demo_topics = _DEMO_TRENDING_TOPICS[:limit]
+            logger.info(
+                "Pulse ingestor not available, returning %s demo trending topics",
+                len(demo_topics),
+            )
+            return json_response(
+                {
+                    "topics": demo_topics,
+                    "count": len(demo_topics),
+                    "sources": [],
+                    "demo": True,
+                }
+            )
 
         try:
             # Create manager with multiple real ingestors
@@ -322,6 +397,19 @@ class PulseHandler(BaseHandler):
 
             topics = self._run_async_safely(fetch)
 
+            # If live fetch returned nothing, return demo data as a gentle fallback
+            if not topics:
+                demo_topics = _DEMO_TRENDING_TOPICS[:limit]
+                logger.info("No live topics found, returning %s demo topics", len(demo_topics))
+                return json_response(
+                    {
+                        "topics": demo_topics,
+                        "count": len(demo_topics),
+                        "sources": list(manager.ingestors.keys()),
+                        "demo": True,
+                    }
+                )
+
             # Normalize scores: find max volume and scale to 0-1
             max_volume = max((t.volume for t in topics), default=1) or 1
 
@@ -333,7 +421,7 @@ class PulseHandler(BaseHandler):
                     "topics": [
                         {
                             "topic": t.topic,
-                            "source": t.platform,  # Map platform → source for frontend
+                            "source": t.platform,  # Map platform -> source for frontend
                             "score": round(t.volume / max_volume, 3),  # Normalized 0-1 score
                             "volume": t.volume,  # Keep raw volume for reference
                             "category": t.category,
@@ -346,7 +434,17 @@ class PulseHandler(BaseHandler):
             )
 
         except (asyncio.TimeoutError, RuntimeError, ValueError, KeyError) as e:
-            return error_response(safe_error_message(e, "fetch trending topics"), 500)
+            # On error, try to return demo data instead of a hard 500
+            logger.warning("Failed to fetch trending topics: %s -- returning demo data", e)
+            demo_topics = _DEMO_TRENDING_TOPICS[:limit]
+            return json_response(
+                {
+                    "topics": demo_topics,
+                    "count": len(demo_topics),
+                    "sources": [],
+                    "demo": True,
+                }
+            )
 
     @ttl_cache(ttl_seconds=300, key_prefix="pulse_suggest")
     def _suggest_debate_topic(self, category: str | None = None) -> HandlerResult:

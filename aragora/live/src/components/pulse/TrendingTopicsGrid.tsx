@@ -139,11 +139,32 @@ export function TrendingTopicsGrid({
     [onStartDebate]
   );
 
+  // Empty state: no topics and no error (pulse data simply not available yet)
+  if (!loading && !error && topics.length === 0) {
+    return (
+      <div className="bg-surface border border-border rounded-lg p-8 text-center">
+        <div className="text-3xl mb-3 opacity-60">📡</div>
+        <p className="text-text-muted font-mono text-sm mb-1">No topics trending yet</p>
+        <p className="text-text-muted/60 text-xs mb-4">
+          Trending topics will appear here once the Pulse ingestors collect data from HackerNews, Reddit, and other sources.
+        </p>
+        <button
+          onClick={fetchTrending}
+          className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green text-sm font-mono rounded hover:bg-acid-green/30"
+        >
+          Check Again
+        </button>
+      </div>
+    );
+  }
+
+  // Error state with retry
   if (error && topics.length === 0) {
     return (
       <div className="bg-surface border border-border rounded-lg p-8 text-center">
-        <div className="text-4xl mb-4">⚠️</div>
-        <p className="text-text-muted mb-4">{error}</p>
+        <div className="text-3xl mb-3 opacity-60">📡</div>
+        <p className="text-text-muted font-mono text-sm mb-1">Unable to load trending topics</p>
+        <p className="text-text-muted/60 text-xs mb-4">{error}</p>
         <button
           onClick={fetchTrending}
           className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green text-sm font-mono rounded hover:bg-acid-green/30"

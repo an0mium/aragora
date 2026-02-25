@@ -1044,6 +1044,52 @@ class TestCleanupWorktrees:
 
 
 # ============================================================================
+# Autopilot Worktree Endpoint Tests
+# ============================================================================
+
+
+class TestAutopilotWorktrees:
+    """Tests for autopilot-backed worktree endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_status_success(self, handler, mock_http_handler):
+        mock_proc = MagicMock(returncode=0, stdout='{"sessions": []}', stderr="")
+        mock_service = MagicMock()
+        mock_service.run_autopilot_action.return_value = mock_proc
+
+        with patch("aragora.worktree.WorktreeLifecycleService", return_value=mock_service):
+            result = await handler.handle(
+                "/api/self-improve/worktrees/autopilot/status",
+                {},
+                mock_http_handler(),
+            )
+
+        body = _parse_response(result)
+        assert result.status_code == 200
+        assert body["action"] == "status"
+        assert body["ok"] is True
+
+    @pytest.mark.asyncio
+    async def test_maintain_failure(self, handler, mock_http_handler):
+        http = mock_http_handler(method="POST", body={"managed_dir": ".worktrees/codex-auto"})
+        mock_proc = MagicMock(returncode=2, stdout='{"ok": false}', stderr="boom")
+        mock_service = MagicMock()
+        mock_service.run_autopilot_action.return_value = mock_proc
+
+        with patch("aragora.worktree.WorktreeLifecycleService", return_value=mock_service):
+            result = await handler.handle_post(
+                "/api/self-improve/worktrees/autopilot/maintain",
+                {},
+                http,
+            )
+
+        body = _parse_response(result)
+        assert result.status_code == 503
+        assert body["ok"] is False
+        assert body["stderr"] == "boom"
+
+
+# ============================================================================
 # Unhandled Path Tests
 # ============================================================================
 

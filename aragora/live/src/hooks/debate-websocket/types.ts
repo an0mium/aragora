@@ -47,6 +47,7 @@ export interface StreamingMessage {
   reasoning: ReasoningStep[];
   evidence: EvidenceSource[];
   confidence: number | null;
+  reasoningPhase: string;  // Current reasoning phase (e.g. "ANALYZING", "FORMING ARGUMENT")
 }
 
 export type DebateConnectionStatus = 'idle' | 'connecting' | 'streaming' | 'polling' | 'complete' | 'error';

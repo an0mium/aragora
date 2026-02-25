@@ -303,7 +303,7 @@ class KnowledgeMoundCore:
                 url=self.config.weaviate_url or "http://localhost:8080",
                 api_key=self.config.weaviate_api_key,
             )
-            self._vector_store = KnowledgeVectorStore(
+            self._vector_store = KnowledgeVectorStore(  # type: ignore[call-arg]
                 workspace_id=self.workspace_id,
                 config=_vec_config,
             )

@@ -209,17 +209,28 @@ jobs:
           # Verify critical routes, including Oracle, render correctly
           bash scripts/verify_frontend_routes.sh "https://aragora.pages.dev"
 
-          # Verify content hash is retrievable
-          DEPLOYED_HASH=$(curl -sf "https://aragora.pages.dev/.content-hash" 2>/dev/null | tr -d '[:space:]' || echo "")
+          # Verify content hash matches build output
           EXPECTED_HASH="${{ steps.content-hash.outputs.content_hash }}"
-          if [ -n "$DEPLOYED_HASH" ] && [ "$DEPLOYED_HASH" != "$EXPECTED_HASH" ]; then
+          DEPLOYED_HASH=""
+          for attempt in 1 2 3; do
+            DEPLOYED_HASH=$(curl -sf "https://aragora.pages.dev/.content-hash" 2>/dev/null | tr -d '[:space:]' || echo "")
+            if [ -n "$DEPLOYED_HASH" ]; then
+              break
+            fi
+            echo "Content hash not yet available, retry $attempt/3..."
+            sleep 10
+          done
+
+          if [ -z "$DEPLOYED_HASH" ]; then
+            echo "::error::Could not retrieve content hash from deployed site after 3 attempts"
+            exit 1
+          fi
+
+          if [ "$DEPLOYED_HASH" != "$EXPECTED_HASH" ]; then
             echo "::error::Content hash mismatch! Expected $EXPECTED_HASH, got $DEPLOYED_HASH"
             exit 1
-          elif [ -n "$DEPLOYED_HASH" ]; then
-            echo "Content hash verified: $DEPLOYED_HASH"
-          else
-            echo "::warning::Could not retrieve content hash from deployed site (file may be excluded by routing rules)"
           fi
+          echo "Content hash verified: $DEPLOYED_HASH"
 
           echo "Demo page should be accessible at:"
           echo "  https://aragora.pages.dev/demo/"

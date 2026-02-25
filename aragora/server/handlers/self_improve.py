@@ -12,6 +12,11 @@ Endpoints:
 - POST /api/self-improve/coordinate  - Start a hierarchical coordination cycle
 - GET  /api/self-improve/worktrees   - List active worktrees
 - POST /api/self-improve/worktrees/cleanup - Clean up all worktrees
+- GET  /api/self-improve/worktrees/autopilot/status - Managed autopilot session status
+- POST /api/self-improve/worktrees/autopilot/ensure - Ensure managed autopilot worktree
+- POST /api/self-improve/worktrees/autopilot/reconcile - Reconcile managed autopilot sessions
+- POST /api/self-improve/worktrees/autopilot/cleanup - Cleanup managed autopilot sessions
+- POST /api/self-improve/worktrees/autopilot/maintain - Run autopilot maintain lifecycle
 
 These endpoints expose the SelfImprovePipeline and HierarchicalCoordinator
 through a REST API, enabling web UI, API clients, and chat integrations
@@ -21,8 +26,10 @@ to trigger and monitor autonomous improvement runs.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aragora.server.versioning.compat import strip_version_prefix
@@ -82,6 +89,11 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         "/api/self-improve/coordinate",
         "/api/self-improve/worktrees",
         "/api/self-improve/worktrees/cleanup",
+        "/api/self-improve/worktrees/autopilot/status",
+        "/api/self-improve/worktrees/autopilot/ensure",
+        "/api/self-improve/worktrees/autopilot/reconcile",
+        "/api/self-improve/worktrees/autopilot/cleanup",
+        "/api/self-improve/worktrees/autopilot/maintain",
         "/api/self-improve/feedback",
         "/api/self-improve/feedback-summary",
         "/api/self-improve/regression-history",
@@ -147,6 +159,9 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         if path == "/api/self-improve/worktrees":
             return self._list_worktrees()
 
+        if path == "/api/self-improve/worktrees/autopilot/status":
+            return self._autopilot_action("status", {})
+
         if path == "/api/self-improve/goals":
             return self._get_goal_queue(query_params)
 
@@ -179,6 +194,22 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
 
         if path == "/api/self-improve/worktrees/cleanup":
             return self._cleanup_worktrees()
+
+        if path == "/api/self-improve/worktrees/autopilot/ensure":
+            body = self.read_json_body(handler) or {}
+            return self._autopilot_action("ensure", body)
+
+        if path == "/api/self-improve/worktrees/autopilot/reconcile":
+            body = self.read_json_body(handler) or {}
+            return self._autopilot_action("reconcile", body)
+
+        if path == "/api/self-improve/worktrees/autopilot/cleanup":
+            body = self.read_json_body(handler) or {}
+            return self._autopilot_action("cleanup", body)
+
+        if path == "/api/self-improve/worktrees/autopilot/maintain":
+            body = self.read_json_body(handler) or {}
+            return self._autopilot_action("maintain", body)
 
         # POST /api/self-improve/runs/:id/cancel
         if path.endswith("/cancel"):
@@ -1129,3 +1160,88 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         except (ImportError, OSError, ValueError):
             logger.warning("Worktree cleanup failed")
             return error_response("Worktree cleanup failed", 503)
+
+    @staticmethod
+    def _body_bool(body: dict[str, Any], key: str, default: bool = False) -> bool:
+        raw = body.get(key, default)
+        if isinstance(raw, bool):
+            return raw
+        if isinstance(raw, str):
+            return raw.strip().lower() in {"1", "true", "yes", "on"}
+        return bool(raw)
+
+    @staticmethod
+    def _body_int(body: dict[str, Any], key: str, default: int) -> int:
+        raw = body.get(key, default)
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return default
+
+    def _autopilot_action(self, action: str, body: dict[str, Any]) -> HandlerResult:
+        """Execute a managed worktree autopilot action and return structured response."""
+        try:
+            from aragora.worktree import AutopilotRequest, WorktreeLifecycleService
+        except ImportError:
+            logger.warning("Worktree autopilot unavailable")
+            return error_response("Worktree autopilot unavailable", 503)
+
+        managed_dir = str(body.get("managed_dir", ".worktrees/codex-auto"))
+        base_branch = str(body.get("base_branch", body.get("base", "main")))
+        strategy = str(body.get("strategy", "merge"))
+
+        delete_branches: bool | None = None
+        if "delete_branches" in body:
+            delete_branches = self._body_bool(body, "delete_branches")
+
+        request = AutopilotRequest(
+            action=action,
+            managed_dir=managed_dir,
+            base_branch=base_branch,
+            agent=str(body.get("agent", "codex")),
+            session_id=body.get("session_id"),
+            force_new=self._body_bool(body, "force_new", False),
+            strategy=strategy,
+            reconcile=self._body_bool(body, "reconcile", False),
+            reconcile_all=self._body_bool(body, "all", action == "reconcile"),
+            path=body.get("path"),
+            ttl_hours=self._body_int(body, "ttl_hours", 24),
+            force_unmerged=self._body_bool(body, "force_unmerged", False),
+            delete_branches=delete_branches,
+            json_output=True,
+            print_path=self._body_bool(body, "print_path", False),
+        )
+
+        service = WorktreeLifecycleService(repo_root=Path.cwd())
+        try:
+            proc = service.run_autopilot_action(request)
+        except FileNotFoundError:
+            logger.warning("Worktree autopilot script missing")
+            return error_response("Worktree autopilot script missing", 503)
+        except (OSError, RuntimeError, ValueError) as exc:
+            logger.warning("Worktree autopilot %s failed: %s", action, type(exc).__name__)
+            return error_response(f"Worktree autopilot {action} failed", 503)
+
+        stdout_text = proc.stdout.strip()
+        if not stdout_text:
+            parsed: dict[str, Any] = {}
+        else:
+            try:
+                raw = json.loads(stdout_text)
+                parsed = raw if isinstance(raw, dict) else {"output": raw}
+            except json.JSONDecodeError:
+                parsed = {"output": stdout_text}
+
+        payload: dict[str, Any] = {
+            "action": action,
+            "managed_dir": managed_dir,
+            "base_branch": base_branch,
+            "exit_code": proc.returncode,
+            "ok": proc.returncode == 0,
+            "result": parsed,
+        }
+        if proc.stderr.strip():
+            payload["stderr"] = proc.stderr.strip()
+
+        status_code = 200 if proc.returncode == 0 else 503
+        return json_response(payload, status_code)

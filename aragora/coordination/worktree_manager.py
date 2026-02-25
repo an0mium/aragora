@@ -24,7 +24,10 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
+
+from aragora.worktree.lifecycle import WorktreeLifecycleService
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +78,7 @@ class WorktreeManager:
         self.config = config or WorktreeManagerConfig()
         self._worktree_dir = self.config.worktree_dir or self.repo_path.parent / "aragora-worktrees"
         self._worktrees: dict[str, WorktreeState] = {}
+        self._lifecycle = WorktreeLifecycleService(repo_root=self.repo_path)
 
     @property
     def worktrees(self) -> dict[str, WorktreeState]:
@@ -137,16 +141,13 @@ class WorktreeManager:
 
         self._worktree_dir.mkdir(parents=True, exist_ok=True)
 
-        result = self._run_git(
-            "worktree",
-            "add",
-            "-b",
-            branch_name,
-            str(worktree_path),
-            base,
-            check=False,
+        result = self._lifecycle.create_worktree(
+            worktree_path=worktree_path,
+            ref=base,
+            branch=branch_name,
+            git_runner=self._run_git,
         )
-        if result.returncode != 0:
+        if not result.success:
             raise RuntimeError(f"Failed to create worktree: {result.stderr.strip()}")
 
         # Get the initial commit SHA
@@ -188,13 +189,12 @@ class WorktreeManager:
             logger.warning("worktree_not_found id=%s", worktree_id)
             return False
 
-        # Remove worktree via git
-        args = ["worktree", "remove", str(state.path)]
-        if force:
-            args.append("--force")
-
-        result = self._run_git(*args, check=False)
-        if result.returncode != 0:
+        op_result = self._lifecycle.remove_worktree(
+            worktree_path=state.path,
+            force=force,
+            git_runner=self._run_git,
+        )
+        if not op_result.success:
             if force and state.path.exists():
                 # Fallback: manual removal
                 shutil.rmtree(state.path, ignore_errors=True)
@@ -203,7 +203,7 @@ class WorktreeManager:
                 logger.warning(
                     "worktree_remove_failed id=%s err=%s",
                     worktree_id,
-                    result.stderr.strip(),
+                    op_result.stderr.strip(),
                 )
                 return False
 
@@ -316,6 +316,28 @@ class WorktreeManager:
         if result.returncode != 0:
             return []
         return [f.strip() for f in result.stdout.split("\n") if f.strip()]
+
+    def maintain_managed_sessions(
+        self,
+        *,
+        base_branch: str | None = None,
+        ttl_hours: int = 24,
+        strategy: str = "merge",
+        managed_dirs: list[str] | None = None,
+        include_active: bool = False,
+        reconcile_only: bool = True,
+        delete_branches: bool = False,
+    ) -> dict[str, Any]:
+        """Run managed codex-auto lifecycle maintenance with shared service."""
+        return self._lifecycle.maintain_managed_dirs(
+            base_branch=base_branch or self.config.base_branch,
+            ttl_hours=ttl_hours,
+            strategy=strategy,
+            managed_dirs=managed_dirs,
+            include_active=include_active,
+            reconcile_only=reconcile_only,
+            delete_branches=delete_branches,
+        )
 
     def summary(self) -> dict[str, int]:
         """Return a summary of worktree statuses."""

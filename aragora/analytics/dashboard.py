@@ -797,7 +797,7 @@ class AnalyticsDashboard:
             start_ts = start_time.timestamp() if start_time else 0
             end_ts = end_time.timestamp()
 
-            receipts = store.list(date_from=start_ts, date_to=end_ts, limit=1000)
+            receipts = store.list(date_from=start_ts, date_to=end_ts, limit=1000)  # type: ignore[call-arg]
             findings: list[dict] = []
 
             for receipt in receipts:

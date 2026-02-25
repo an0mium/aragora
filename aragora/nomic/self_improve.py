@@ -1082,6 +1082,26 @@ class SelfImprovePipeline:
             config=ReconcilerConfig(),
         )
 
+        base_branch = getattr(self.config, "base_branch", "main")
+        try:
+            maint_preflight = wt_manager.maintain_managed_sessions(
+                base_branch=base_branch,
+                strategy="merge",
+                ttl_hours=24,
+                include_active=False,
+                reconcile_only=True,
+                delete_branches=False,
+            )
+            logger.info(
+                "coordination_worktree_preflight managed_total=%d processed=%d skipped_active=%d failures=%d",
+                maint_preflight.get("directories_total", 0),
+                maint_preflight.get("processed", 0),
+                maint_preflight.get("skipped_active", 0),
+                maint_preflight.get("failures", 0),
+            )
+        except (RuntimeError, OSError, ValueError) as exc:
+            logger.debug("coordination_worktree_preflight_skipped: %s", exc)
+
         # Submit all subtasks to the dispatcher
         task_id_map: dict[str, Any] = {}  # dispatcher task_id -> original subtask
         for i, subtask in enumerate(subtasks):
@@ -1202,6 +1222,25 @@ class SelfImprovePipeline:
                     await wt_manager.destroy(wt_state.worktree_id)
                 except (RuntimeError, OSError) as exc:
                     logger.debug("worktree_cleanup_failed: %s", exc)
+
+            try:
+                maint_post = wt_manager.maintain_managed_sessions(
+                    base_branch=base_branch,
+                    strategy="merge",
+                    ttl_hours=24,
+                    include_active=False,
+                    reconcile_only=False,
+                    delete_branches=False,
+                )
+                logger.info(
+                    "coordination_worktree_postflight managed_total=%d processed=%d skipped_active=%d failures=%d",
+                    maint_post.get("directories_total", 0),
+                    maint_post.get("processed", 0),
+                    maint_post.get("skipped_active", 0),
+                    maint_post.get("failures", 0),
+                )
+            except (RuntimeError, OSError, ValueError) as exc:
+                logger.debug("coordination_worktree_postflight_skipped: %s", exc)
 
         logger.info(
             "coordination_execution_complete cycle=%s tasks=%d/%d branches_merged=%d",

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from aragora.nomic.stores.paths import resolve_store_dir
+from aragora.worktree.lifecycle import WorktreeLifecycleService
 from .models import Hook, HookType
 
 logger = logging.getLogger(__name__)
@@ -428,16 +429,14 @@ class HookRunner:
             if worktree.exists():
                 return {"success": False, "error": "Worktree path already exists"}
 
-            # Create worktree
+            lifecycle = WorktreeLifecycleService(repo_root=repo)
             result = await asyncio.to_thread(
-                subprocess.run,
-                ["git", "worktree", "add", str(worktree), branch],
-                capture_output=True,
-                text=True,
-                cwd=repo,
+                lifecycle.create_worktree,
+                worktree_path=worktree,
+                ref=branch,
             )
 
-            if result.returncode != 0:
+            if not result.success:
                 return {
                     "success": False,
                     "error": result.stderr or "Failed to create worktree",
@@ -462,15 +461,13 @@ class HookRunner:
             if not worktree.exists():
                 return {"success": False, "error": "Worktree does not exist"}
 
-            # Remove worktree
+            lifecycle = WorktreeLifecycleService(repo_root=Path.cwd())
             result = await asyncio.to_thread(
-                subprocess.run,
-                ["git", "worktree", "remove", str(worktree)],
-                capture_output=True,
-                text=True,
+                lifecycle.remove_worktree,
+                worktree_path=worktree,
             )
 
-            if result.returncode != 0:
+            if not result.success:
                 return {
                     "success": False,
                     "error": result.stderr or "Failed to remove worktree",

@@ -247,14 +247,16 @@ export function LiveDebateView({
         }
       }
     }
-    // Overlay with streaming message confidence
+    // Overlay with streaming message confidence and reasoning phase
     for (const [, streamMsg] of streamingMessages) {
       if (!summary[streamMsg.agent]) summary[streamMsg.agent] = defaultEntry();
       if (streamMsg.confidence !== null && streamMsg.confidence !== undefined) {
         summary[streamMsg.agent].confidence = streamMsg.confidence;
       }
-      // Mark actively streaming agents with a phase indicator
-      if (!summary[streamMsg.agent].phase) {
+      // Use explicit reasoning phase from streaming data if available, else default to RESPONDING
+      if (streamMsg.reasoningPhase) {
+        summary[streamMsg.agent].phase = streamMsg.reasoningPhase;
+      } else if (!summary[streamMsg.agent].phase) {
         summary[streamMsg.agent].phase = 'RESPONDING';
       }
     }

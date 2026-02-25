@@ -349,6 +349,30 @@ class SecurityHandler(SecureHandler):
                 checks["round_trip"] = False
                 issues.append(f"Encrypt/decrypt error: {e}")
 
+            # Check 5: Key rotation scheduler status
+            try:
+                from aragora.security.key_rotation import get_key_rotation_scheduler
+
+                scheduler = get_key_rotation_scheduler()
+                if scheduler is not None:
+                    stats = scheduler.get_stats()
+                    checks["key_rotation_scheduler"] = {
+                        "status": stats.status.value,
+                        "total_rotations": stats.total_rotations,
+                        "successful_rotations": stats.successful_rotations,
+                        "failed_rotations": stats.failed_rotations,
+                        "last_rotation_at": stats.last_rotation_at.isoformat() if stats.last_rotation_at else None,
+                        "next_check_at": stats.next_check_at.isoformat() if stats.next_check_at else None,
+                        "keys_tracked": stats.keys_tracked,
+                        "keys_expiring_soon": stats.keys_expiring_soon,
+                    }
+                    if stats.failed_rotations > 0 and stats.last_rotation_status == "failed":
+                        warnings.append("Last key rotation failed")
+                else:
+                    checks["key_rotation_scheduler"] = {"status": "not_configured"}
+            except ImportError:
+                checks["key_rotation_scheduler"] = {"status": "not_available"}
+
             # Determine overall status
             if issues:
                 status = "unhealthy"

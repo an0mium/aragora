@@ -337,6 +337,12 @@ class TestCanHandle:
     def test_handles_worktrees_cleanup(self, handler):
         assert handler.can_handle("/api/self-improve/worktrees/cleanup") is True
 
+    def test_handles_worktrees_autopilot_status(self, handler):
+        assert handler.can_handle("/api/self-improve/worktrees/autopilot/status") is True
+
+    def test_handles_worktrees_autopilot_ensure(self, handler):
+        assert handler.can_handle("/api/self-improve/worktrees/autopilot/ensure") is True
+
     def test_handles_versioned_path(self, handler):
         assert handler.can_handle("/api/v1/self-improve/status") is True
 
@@ -1686,6 +1692,60 @@ class TestWorktrees:
         assert body["worktrees"][1]["assignment_id"] == "a2"
         assert body["worktrees"][0]["worktree_path"] == "/tmp/wt1"
 
+    @pytest.mark.asyncio
+    async def test_autopilot_status(self, handler, http_handler):
+        mock_proc = MagicMock(returncode=0, stdout='{"sessions": []}', stderr="")
+        mock_service = MagicMock()
+        mock_service.run_autopilot_action.return_value = mock_proc
+
+        with patch("aragora.worktree.WorktreeLifecycleService", return_value=mock_service):
+            result = await handler.handle(
+                "/api/self-improve/worktrees/autopilot/status", {}, http_handler
+            )
+
+        body = _body(result)
+        assert body["action"] == "status"
+        assert body["ok"] is True
+        assert body["result"]["sessions"] == []
+
+    @pytest.mark.asyncio
+    async def test_autopilot_ensure(self, handler):
+        mock_proc = MagicMock(
+            returncode=0,
+            stdout='{"ok": true, "session": {"branch": "codex/test"}}',
+            stderr="",
+        )
+        mock_service = MagicMock()
+        mock_service.run_autopilot_action.return_value = mock_proc
+
+        with patch("aragora.worktree.WorktreeLifecycleService", return_value=mock_service):
+            http = MockHTTPHandler(body={"agent": "codex-ci", "managed_dir": ".worktrees/codex-auto"})
+            result = await handler.handle_post("/api/self-improve/worktrees/autopilot/ensure", {}, http)
+
+        body = _body(result)
+        assert body["action"] == "ensure"
+        assert body["ok"] is True
+        assert body["result"]["session"]["branch"] == "codex/test"
+
+    @pytest.mark.asyncio
+    async def test_autopilot_failure_returns_503(self, handler):
+        mock_proc = MagicMock(returncode=2, stdout='{"ok": false}', stderr="merge conflict")
+        mock_service = MagicMock()
+        mock_service.run_autopilot_action.return_value = mock_proc
+
+        with patch("aragora.worktree.WorktreeLifecycleService", return_value=mock_service):
+            http = MockHTTPHandler(body={"managed_dir": ".worktrees/codex-auto"}, method="POST")
+            result = await handler.handle_post(
+                "/api/self-improve/worktrees/autopilot/reconcile",
+                {},
+                http,
+            )
+
+        assert _status(result) == 503
+        body = _body(result)
+        assert body["ok"] is False
+        assert "stderr" in body
+
 
 # ===========================================================================
 # handle returns None for unrecognized paths
@@ -1789,6 +1849,11 @@ class TestRoutes:
             "/api/self-improve/coordinate",
             "/api/self-improve/worktrees",
             "/api/self-improve/worktrees/cleanup",
+            "/api/self-improve/worktrees/autopilot/status",
+            "/api/self-improve/worktrees/autopilot/ensure",
+            "/api/self-improve/worktrees/autopilot/reconcile",
+            "/api/self-improve/worktrees/autopilot/cleanup",
+            "/api/self-improve/worktrees/autopilot/maintain",
         ]
         for route in expected:
             assert route in handler.ROUTES
@@ -1797,7 +1862,7 @@ class TestRoutes:
         assert handler.RESOURCE_TYPE == "self_improve"
 
     def test_routes_count(self, handler):
-        assert len(handler.ROUTES) >= 15
+        assert len(handler.ROUTES) >= 20
 
 
 # ===========================================================================

@@ -20,7 +20,7 @@ from typing import Any
 
 from aragora.rbac.decorators import require_permission
 
-from ..base import HandlerResult, error_response, get_string_param, json_response
+from ..base import HandlerResult, error_response, get_int_param, get_string_param, json_response
 from ..openapi_decorator import api_endpoint
 from .storage import get_gauntlet_runs
 
@@ -37,6 +37,104 @@ logger = logging.getLogger(__name__)
 
 class GauntletReceiptsMixin:
     """Mixin providing gauntlet receipt methods."""
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/gauntlet/receipts",
+        summary="List recent decision receipts",
+        description="List recent decision receipts with optional limit filtering.",
+        tags=["Gauntlet", "Receipts"],
+        operation_id="list_gauntlet_receipts",
+        parameters=[
+            {
+                "name": "limit",
+                "in": "query",
+                "schema": {"type": "integer", "default": 10, "maximum": 100},
+            },
+            {
+                "name": "verdict",
+                "in": "query",
+                "schema": {"type": "string"},
+            },
+        ],
+        responses={
+            "200": {"description": "List of recent decision receipts"},
+            "401": {"description": "Authentication required"},
+            "500": {"description": "Storage error"},
+        },
+    )
+    @require_permission("gauntlet:read")
+    def _list_receipts(self, query_params: dict) -> HandlerResult:
+        """List recent decision receipts.
+
+        Returns receipts in the format expected by the frontend dashboard:
+        { receipts: [{ id, receipt_id, verdict, created_at, artifact_hash, findings_count, ... }] }
+        """
+        try:
+            from aragora.storage.receipt_store import get_receipt_store
+
+            store = get_receipt_store()
+
+            limit = get_int_param(query_params, "limit", 10)
+            limit = min(max(limit, 1), 100)
+            verdict = get_string_param(query_params, "verdict", None)
+
+            stored_receipts = store.list(
+                limit=limit,
+                verdict=verdict,
+            )
+
+            receipts = []
+            for sr in stored_receipts:
+                # Map StoredReceipt to the frontend ReceiptSummary shape
+                data = sr.data or {}
+                findings_count = data.get("vulnerabilities_found", 0)
+                if not findings_count:
+                    risk_summary = data.get("risk_summary", {})
+                    if isinstance(risk_summary, dict):
+                        findings_count = risk_summary.get("total", 0)
+
+                # Build artifact_hash from checksum or data
+                artifact_hash = sr.checksum or data.get("artifact_hash", "")
+
+                # Format created_at as ISO string
+                created_at_iso = ""
+                if sr.created_at:
+                    try:
+                        created_at_iso = datetime.fromtimestamp(
+                            sr.created_at
+                        ).isoformat()
+                    except (OSError, ValueError, OverflowError):
+                        created_at_iso = ""
+
+                receipts.append(
+                    {
+                        "id": sr.receipt_id,
+                        "receipt_id": sr.receipt_id,
+                        "run_id": sr.gauntlet_id,
+                        "verdict": sr.verdict or "WARN",
+                        "created_at": created_at_iso,
+                        "artifact_hash": artifact_hash,
+                        "findings_count": findings_count,
+                        "input_summary": data.get("input_summary", ""),
+                        "confidence": sr.confidence,
+                        "metadata": {
+                            "risk_level": sr.risk_level,
+                            "risk_score": sr.risk_score,
+                            "debate_id": sr.debate_id,
+                            "is_signed": sr.signature is not None,
+                        },
+                    }
+                )
+
+            return json_response({"receipts": receipts})
+
+        except ImportError:
+            logger.debug("Receipt store not available")
+            return json_response({"receipts": []})
+        except (OSError, RuntimeError, ValueError, TypeError) as e:
+            logger.error("Failed to list receipts: %s", e)
+            return json_response({"receipts": []})
 
     @api_endpoint(
         method="GET",

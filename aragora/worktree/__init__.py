@@ -8,6 +8,10 @@ from aragora.worktree.autopilot import (
     resolve_repo_root,
     run_autopilot,
 )
+from aragora.worktree.lifecycle import (
+    WorktreeLifecycleService,
+    WorktreeOperationResult,
+)
 
 __all__ = [
     "AUTOPILOT_ACTIONS",
@@ -16,4 +20,6 @@ __all__ = [
     "build_autopilot_command",
     "resolve_repo_root",
     "run_autopilot",
+    "WorktreeLifecycleService",
+    "WorktreeOperationResult",
 ]

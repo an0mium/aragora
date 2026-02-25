@@ -71,6 +71,7 @@ export type StreamEventType =
   | 'token_end'
   // Reasoning visibility events (real-time agent reasoning)
   | 'agent_thinking'
+  | 'agent_reasoning'
   | 'agent_evidence'
   | 'agent_confidence'
   // Mood/sentiment events (Real-Time Debate Drama)
@@ -251,6 +252,13 @@ export interface AgentEvidenceData {
   query?: string;
 }
 
+export interface AgentReasoningData {
+  agent: string;
+  phase?: string;
+  reasoning_phase?: string;
+  thinking?: string;
+}
+
 export interface AgentConfidenceData {
   agent: string;
   confidence: number;
@@ -398,6 +406,7 @@ export type TypedStreamEvent =
   | (StreamEventBase & { type: 'agent_preview'; data: AgentPreviewData })
   | (StreamEventBase & { type: 'context_preview'; data: ContextPreviewData })
   | (StreamEventBase & { type: 'agent_thinking'; data: AgentThinkingData })
+  | (StreamEventBase & { type: 'agent_reasoning'; data: AgentReasoningData })
   | (StreamEventBase & { type: 'agent_evidence'; data: AgentEvidenceData })
   | (StreamEventBase & { type: 'agent_confidence'; data: AgentConfidenceData });
 

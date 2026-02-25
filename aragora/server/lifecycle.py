@@ -38,7 +38,7 @@ try:
         )
     except ValueError:
         existing_threads_gauge = REGISTRY._names_to_collectors.get("aragora_registered_threads")
-        REGISTERED_THREADS_GAUGE = (
+        REGISTERED_THREADS_GAUGE = (  # type: ignore[assignment]
             existing_threads_gauge if isinstance(existing_threads_gauge, Gauge) else None
         )
 
@@ -52,7 +52,7 @@ try:
         existing_shutdown_histogram = REGISTRY._names_to_collectors.get(
             "aragora_shutdown_duration_seconds"
         )
-        SHUTDOWN_DURATION_HISTOGRAM = (
+        SHUTDOWN_DURATION_HISTOGRAM = (  # type: ignore[assignment]
             existing_shutdown_histogram
             if isinstance(existing_shutdown_histogram, Histogram)
             else None

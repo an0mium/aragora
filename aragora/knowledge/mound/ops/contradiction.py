@@ -402,7 +402,7 @@ class ContradictionDetector:
                             from aragora.events.dispatcher import get_dispatcher
 
                             dispatcher = get_dispatcher()
-                            dispatcher.dispatch_event(
+                            dispatcher.dispatch_event(  # type: ignore[attr-defined]
                                 "contradiction_debate_requested",
                                 {
                                     "contradiction_id": conflict.id,

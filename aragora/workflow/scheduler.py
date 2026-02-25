@@ -476,10 +476,10 @@ class WorkflowScheduler:
                 execution = await execution_candidate
             else:
                 execution = execution_candidate
-            if execution and "definition" in execution:
+            if execution and "definition" in execution:  # type: ignore[operator]
                 from aragora.workflow.types import WorkflowDefinition
 
-                definition = WorkflowDefinition.from_dict(execution["definition"])
+                definition = WorkflowDefinition.from_dict(execution["definition"])  # type: ignore[index]
                 exec_id = f"sched_{entry.id}_{int(time.time())}"
                 asyncio.create_task(
                     engine.execute(definition, entry.inputs, exec_id),

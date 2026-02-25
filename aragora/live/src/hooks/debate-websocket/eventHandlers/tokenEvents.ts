@@ -37,6 +37,7 @@ export function handleTokenStartEvent(data: ParsedEventData, ctx: EventHandlerCo
       reasoning: [],
       evidence: [],
       confidence: null,
+      reasoningPhase: '',
     });
     return updated;
   });
@@ -115,6 +116,7 @@ export function handleTokenDeltaEvent(data: ParsedEventData, ctx: EventHandlerCo
         reasoning: [],
         evidence: [],
         confidence: null,
+        reasoningPhase: '',
       });
     }
 
@@ -160,6 +162,17 @@ export function handleTokenEndEvent(data: ParsedEventData, ctx: EventHandlerCont
           content: finalContent,
           timestamp: Date.now() / 1000,
         };
+
+        // Propagate accumulated reasoning metadata from streaming state
+        if (existing.confidence !== null && existing.confidence !== undefined) {
+          msg.confidence_score = existing.confidence;
+        }
+        if (existing.reasoningPhase) {
+          msg.reasoning_phase = existing.reasoningPhase;
+        }
+        if (existing.reasoning.length > 0) {
+          msg.thinking = existing.reasoning.map(r => r.thinking).join(' ');
+        }
 
         // Use addMessageIfNew which handles deduplication
         ctx.addMessageIfNew(msg);
@@ -269,6 +282,40 @@ export function handleAgentConfidenceEvent(data: ParsedEventData, ctx: EventHand
 }
 
 /**
+ * Handle agent_reasoning event - update reasoning phase on streaming message
+ */
+export function handleAgentReasoningEvent(data: ParsedEventData, ctx: EventHandlerContext): void {
+  const eventData = data.data;
+  const agent = (data.agent as string) || (eventData?.agent as string);
+  const phase = (eventData?.phase as string) || (eventData?.reasoning_phase as string) || '';
+
+  if (!agent) return;
+
+  if (phase) {
+    ctx.setStreamingMessages(prev => {
+      const updated = new Map(prev);
+      for (const [key, msg] of updated.entries()) {
+        if (msg.agent === agent && !msg.isComplete) {
+          updated.set(key, {
+            ...msg,
+            reasoningPhase: phase,
+          });
+          break;
+        }
+      }
+      return updated;
+    });
+  }
+
+  ctx.addStreamEvent({
+    type: 'agent_reasoning',
+    data: eventData as Record<string, unknown>,
+    agent,
+    timestamp: data.timestamp || Date.now() / 1000,
+  });
+}
+
+/**
  * Registry of token event handlers
  */
 export const tokenHandlers = {
@@ -276,6 +323,7 @@ export const tokenHandlers = {
   token_delta: handleTokenDeltaEvent,
   token_end: handleTokenEndEvent,
   agent_thinking: handleAgentThinkingEvent,
+  agent_reasoning: handleAgentReasoningEvent,
   agent_evidence: handleAgentEvidenceEvent,
   agent_confidence: handleAgentConfidenceEvent,
 };
