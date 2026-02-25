@@ -171,8 +171,7 @@ def test_python_sdk_endpoints_in_openapi(
 ) -> None:
     """Every endpoint referenced by a Python SDK namespace must exist in OpenAPI."""
     ns_file = _repo_root() / "sdk/python/aragora_sdk/namespaces" / f"{namespace}.py"
-    if not ns_file.exists():
-        pytest.skip(f"Namespace file not found: {namespace}.py")
+    assert ns_file.exists(), f"Namespace file not found: {namespace}.py (discovered by glob)"
     content = ns_file.read_text()
     sdk_eps = _extract_py_endpoints(content)
     if not sdk_eps:
@@ -191,8 +190,7 @@ def test_typescript_sdk_endpoints_in_openapi(
 ) -> None:
     """Every endpoint referenced by a TypeScript SDK namespace must exist in OpenAPI."""
     ns_file = _repo_root() / "sdk/typescript/src/namespaces" / f"{namespace}.ts"
-    if not ns_file.exists():
-        pytest.skip(f"Namespace file not found: {namespace}.ts")
+    assert ns_file.exists(), f"Namespace file not found: {namespace}.ts (discovered by glob)"
     content = ns_file.read_text()
     sdk_eps = _extract_ts_endpoints(content)
     if not sdk_eps:
