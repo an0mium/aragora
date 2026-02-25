@@ -466,23 +466,39 @@ class PlanExecutor:
 
         # Create convoy linking all pipeline artifacts for auditing (best-effort)
         try:
-            from aragora.workspace.convoy import Convoy
+            from aragora.workspace.convoy import ConvoyTracker
 
             import uuid as _uuid
 
-            convoy = Convoy(
-                convoy_id=f"convoy-{_uuid.uuid4().hex[:12]}",
+            convoy_id = f"convoy-{_uuid.uuid4().hex[:12]}"
+
+            # Collect pipeline artifact IDs as bead references
+            bead_ids: list[str] = [f"plan:{plan.id}"]
+            if plan.debate_id:
+                bead_ids.append(f"debate:{plan.debate_id}")
+            if outcome.receipt_id:
+                bead_ids.append(f"receipt:{outcome.receipt_id}")
+
+            tracker = ConvoyTracker()
+            convoy = await tracker.create_convoy(
                 workspace_id=plan.debate_id or "default",
                 rig_id=plan.id,
-                name=f"Pipeline: {plan.task}",
-                bead_ids=[],
+                name=f"Pipeline: {plan.task[:100]}",
+                bead_ids=bead_ids,
+                convoy_id=convoy_id,
                 metadata={
                     "plan_id": plan.id,
                     "debate_id": plan.debate_id or "",
                     "status": "completed" if outcome.success else "failed",
                 },
             )
-            outcome.convoy_id = getattr(convoy, "id", None)
+            outcome.convoy_id = convoy.convoy_id
+            logger.info(
+                "Created convoy %s for plan %s with %d beads",
+                convoy.convoy_id,
+                plan.id,
+                len(bead_ids),
+            )
         except (ImportError, AttributeError, TypeError, RuntimeError, OSError, ValueError) as e:
             logger.debug("Convoy creation failed (non-critical): %s", e)
 
