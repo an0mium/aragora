@@ -74,8 +74,8 @@ const FEATURES = [
     icon: '%',
   },
   {
-    title: 'GAUNTLET MODE',
-    desc: 'Adversarial stress-testing for critical decisions. Red-team your architecture, strategy, or security posture with attack/defend cycles.',
+    title: 'STRESS TEST MODE',
+    desc: 'Adversarial red-teaming for critical decisions. AI agents systematically attack your strategy, architecture, or security posture to find weaknesses.',
     accent: 'acid-cyan',
     icon: '!',
   },
@@ -89,10 +89,9 @@ const STATS = [
 ];
 
 const FOOTER_LINKS = [
-  { href: 'https://github.com/an0mium/aragora', label: 'GitHub' },
-  { href: '/about', label: 'Docs' },
-  { href: 'https://api.aragora.ai/docs', label: 'API Reference' },
-  { href: 'https://status.aragora.ai', label: 'Status' },
+  { href: '/about', label: 'About' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: 'mailto:support@aragora.ai', label: 'Support' },
 ];
 
 export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
