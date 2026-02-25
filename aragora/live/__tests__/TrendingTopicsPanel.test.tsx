@@ -172,7 +172,7 @@ describe('TrendingTopicsPanel', () => {
       fireEvent.click(screen.getByRole('button'));
 
       await waitFor(() => {
-        expect(screen.getByText('No trending topics detected')).toBeInTheDocument();
+        expect(screen.getByText('No topics trending yet')).toBeInTheDocument();
       });
     });
   });

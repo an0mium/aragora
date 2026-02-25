@@ -342,7 +342,7 @@ describe('DebateInput', () => {
 
       await waitFor(() => {
         expect(onError).toHaveBeenCalledWith(
-          expect.stringContaining('Cannot reach API server')
+          expect.stringContaining('Cannot reach the server')
         );
       });
     });
