@@ -2,14 +2,14 @@
 
 **Control Plane for Multi-Agent Vetted Decisionmaking Across Org Knowledge and Channels**
 
-*Version 2.0 | January 2026*  
-*Status: Internal positioning draft; numbers are targets unless noted.*
+*Version 2.8.0 | February 2026*
+*Status: Internal positioning document; numbers verified against codebase.*
 
 ---
 
 ## Executive Summary
 
-Aragora is the control plane for multi-agent vetted decisionmaking—orchestrating 42+ agent types to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice). Unlike chatbots and single-model wrappers, Aragora builds institutional memory with full audit trails.
+Aragora is the control plane for multi-agent vetted decisionmaking—orchestrating 43 agent types to debate your organization's knowledge (documents, databases, APIs) and deliver defensible decisions to any channel (Slack, Teams, Discord, voice). Unlike chatbots and single-model wrappers, Aragora builds institutional memory with full audit trails.
 
 **Key Value:** Replace expensive human expert review ($15K-$100K per decision) with orchestrated multi-agent vetted decisionmaking that runs in 15-45 minutes, produces compliance-ready Decision Receipts, and builds organizational knowledge over time.
 
@@ -29,7 +29,7 @@ Aragora is the control plane for multi-agent vetted decisionmaking—orchestrati
 
 - **Not a chatbot** - Structured vetted decisionmaking protocol with phases, roles, and evidence chains
 - **Not a copilot** - Institutional learning that ACCUMULATES organizational knowledge
-- **Not single-model** - Heterogeneous 42+ agent-type ensemble that argues toward truth
+- **Not single-model** - Heterogeneous 43 agent-type ensemble that argues toward truth
 - **Not stateless** - Remembers outcomes, builds knowledge graphs, improves itself
 - **Not text-only** - Multimodal ingestion (PDF, Office, HTML, JSON, CSV, audio, images) + multi-channel bidirectional output
 
@@ -134,9 +134,9 @@ Aragora is the control plane for multi-agent vetted decisionmaking—orchestrati
 
 ### 5. Multi-Provider Integration
 
-**Supported Providers (14+):**
+**Supported Providers (6+, 43 agent types):**
 - **Direct APIs:** Anthropic, OpenAI, Google Gemini, Mistral, xAI Grok
-- **OpenRouter:** DeepSeek, Qwen, Yi, Llama, Kimi
+- **OpenRouter:** DeepSeek, Qwen, Yi, Llama, Kimi (auto-fallback on 429)
 - **Local:** Ollama, LM Studio
 
 **Why It Matters:** Heterogeneous models catch more errors than homogeneous ones. Different training data = different blind spots.
@@ -160,14 +160,15 @@ Aragora is the control plane for multi-agent vetted decisionmaking—orchestrati
 
 | Tier | Price | Debates/Month | Features |
 |------|-------|---------------|----------|
-| **Free** | $0/forever | 10 | CLI, 2 models |
-| **Starter** | $49/mo | 100 | API, 4 models, basic personas |
-| **Professional** | $199/mo | 500 | All models, Gauntlet, DecisionReceipts |
-| **Enterprise** | Custom | Unlimited | On-premise, SSO, priority support |
+| **Free** | $0/forever | 10 | 3 agents, demo mode, Markdown receipts |
+| **Pro** | $49/seat/mo | Unlimited | 10 agents, all formats, CI/CD, channels, memory, workflows |
+| **Enterprise** | Custom | Unlimited | SSO/MFA/SCIM, RBAC (390+), multi-tenancy, encryption, self-hosted |
 
-**Unit Economics (targets):**
-- Per-debate costs vary by model mix and rounds
-- Target gross margin: 70%+
+**Unit Economics (BYOK model):**
+- Customers bring their own LLM API keys (Aragora bears no inference cost)
+- Per-debate cost: $0.05-$0.30 (borne by customer)
+- Infrastructure: ~$5/customer/month
+- Target gross margin: 85%+
 
 ---
 
@@ -300,4 +301,4 @@ print(result.decision_receipt)
 
 ---
 
-*Document Version: 1.0 | Last Updated: January 2026*
+*Document Version: 2.0 | Last Updated: February 25, 2026*

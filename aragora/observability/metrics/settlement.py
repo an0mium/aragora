@@ -30,6 +30,7 @@ INTERVENTION_TOTAL: Any = None
 INTERVENTION_PAUSE_DURATION: Any = None
 
 _initialized = False
+_CALIBRATION_OUTCOME_COUNTS: dict[str, int] = {}
 
 
 def init_settlement_metrics() -> None:
@@ -134,6 +135,40 @@ def _init_noop_metrics() -> None:
     INTERVENTION_PAUSE_DURATION = noop
 
 
+def reset_settlement_metric_state() -> None:
+    """Reset module-level counters and init state for tests."""
+    global _initialized
+    global _CALIBRATION_OUTCOME_COUNTS
+    _initialized = False
+    _CALIBRATION_OUTCOME_COUNTS = {}
+
+
+def get_calibration_outcomes_summary() -> dict[str, Any]:
+    """Return normalized calibration outcome counters for dashboards.
+
+    Buckets:
+    - correct: explicit correct outcomes
+    - incorrect: explicit incorrect outcomes
+    - skipped: outcomes prefixed with "skipped"
+    - deferred: outcomes prefixed with "pending" or explicit deferred labels
+    """
+    raw = dict(_CALIBRATION_OUTCOME_COUNTS)
+    correct = int(raw.get("correct", 0))
+    incorrect = int(raw.get("incorrect", 0))
+    skipped = sum(v for k, v in raw.items() if k.startswith("skipped"))
+    deferred = sum(v for k, v in raw.items() if k.startswith("pending") or k == "deferred")
+    total = sum(int(v) for v in raw.values())
+    return {
+        "correct": correct,
+        "incorrect": incorrect,
+        "skipped": skipped,
+        "deferred": deferred,
+        "total": total,
+        "raw": raw,
+        "available": True,
+    }
+
+
 def _ensure_init() -> None:
     """Ensure metrics are initialized."""
     if not _initialized:
@@ -219,7 +254,11 @@ def record_calibration_outcome(outcome: str) -> None:
         outcome: Outcome type (correct, incorrect, partial).
     """
     _ensure_init()
-    CALIBRATION_OUTCOMES_TOTAL.labels(outcome=outcome).inc()
+    outcome_label = str(outcome).strip().lower() or "unknown"
+    _CALIBRATION_OUTCOME_COUNTS[outcome_label] = (
+        _CALIBRATION_OUTCOME_COUNTS.get(outcome_label, 0) + 1
+    )
+    CALIBRATION_OUTCOMES_TOTAL.labels(outcome=outcome_label).inc()
 
 
 # =============================================================================
@@ -271,6 +310,8 @@ __all__ = [
     # Calibration Recording
     "record_calibration_brier",
     "record_calibration_outcome",
+    "get_calibration_outcomes_summary",
+    "reset_settlement_metric_state",
     # Intervention Recording
     "record_intervention",
     "record_intervention_pause_duration",

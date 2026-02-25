@@ -963,27 +963,61 @@ class TestSettlementReviewMetrics:
             "aragora.scheduler.settlement_review.get_settlement_review_scheduler",
             return_value=mock_scheduler,
         ):
-            result = handler._collect_settlement_review()
-            assert result["available"] is True
-            assert result["running"] is True
-            assert result["interval_hours"] == 24
-            assert result["stats"]["total_runs"] == 3
+            with patch(
+                "aragora.observability.metrics.settlement.get_calibration_outcomes_summary",
+                return_value={
+                    "correct": 4,
+                    "incorrect": 2,
+                    "skipped": 1,
+                    "deferred": 3,
+                    "total": 10,
+                    "raw": {"correct": 4},
+                    "available": True,
+                },
+            ):
+                result = handler._collect_settlement_review()
+                assert result["available"] is True
+                assert result["running"] is True
+                assert result["interval_hours"] == 24
+                assert result["stats"]["total_runs"] == 3
+                assert result["calibration_outcomes"]["correct"] == 4
+                assert result["calibration_outcomes"]["deferred"] == 3
 
     def test_when_scheduler_not_initialized(self, handler):
         with patch(
             "aragora.scheduler.settlement_review.get_settlement_review_scheduler",
             return_value=None,
         ):
-            result = handler._collect_settlement_review()
-            assert result["available"] is False
-            assert result["running"] is False
-            assert result["stats"] is None
+            with patch(
+                "aragora.observability.metrics.settlement.get_calibration_outcomes_summary",
+                return_value={
+                    "correct": 1,
+                    "incorrect": 0,
+                    "skipped": 0,
+                    "deferred": 0,
+                    "total": 1,
+                    "raw": {"correct": 1},
+                    "available": True,
+                },
+            ):
+                result = handler._collect_settlement_review()
+                assert result["available"] is False
+                assert result["running"] is False
+                assert result["stats"] is None
+                assert result["calibration_outcomes"]["correct"] == 1
 
     def test_fallback_when_import_fails(self, handler):
-        with patch.dict("sys.modules", {"aragora.scheduler.settlement_review": None}):
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.scheduler.settlement_review": None,
+                "aragora.observability.metrics.settlement": None,
+            },
+        ):
             result = handler._collect_settlement_review()
             assert result["available"] is False
             assert result["running"] is False
+            assert result["calibration_outcomes"]["available"] is False
 
 
 # ===========================================================================

@@ -20,6 +20,14 @@ pytest \
   --tb=short \
   -q
 
+# Explicit resolver-path forcing-function gate.
+pytest \
+  tests/schedulers/test_settlement_review.py::TestSettlementReviewScheduler::test_end_to_end_settlement_resolver_paths_record_calibration \
+  -m "not slow and not load and not e2e and not integration and not integration_minimal and not benchmark and not performance" \
+  --timeout=120 \
+  --tb=short \
+  -q
+
 ARTIFACT_DIR="${EPISTEMIC_GATE_ARTIFACT_DIR:-/tmp/epistemic-gate-artifacts}"
 mkdir -p "${ARTIFACT_DIR}"
 

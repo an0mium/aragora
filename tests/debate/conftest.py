@@ -60,6 +60,10 @@ def _isolate_debate_databases(tmp_path, monkeypatch):
     monkeypatch.setenv("ARAGORA_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("ARAGORA_CONVERGENCE_BACKEND", "jaccard")
     monkeypatch.setenv("ARAGORA_SIMILARITY_BACKEND", "jaccard")
+    # Prevent background LLM classification from making real API calls
+    # (QuestionClassifier.classify() creates an AsyncAnthropic client that
+    # opens TCP connections which keep the event loop alive).
+    monkeypatch.setenv("ARAGORA_OFFLINE", "1")
 
 
 @pytest.fixture(autouse=True)
@@ -142,6 +146,10 @@ def _disable_post_debate_external_calls(monkeypatch):
             auto_push_calibration=False,
             auto_queue_improvement=False,
             auto_outcome_feedback=False,
+            auto_persist_receipt=False,
+            auto_trigger_canvas=False,
+            auto_execution_bridge=False,
+            auto_llm_judge=False,
         )
         monkeypatch.setattr(pdc_mod, "DEFAULT_POST_DEBATE_CONFIG", patched)
     except ImportError:

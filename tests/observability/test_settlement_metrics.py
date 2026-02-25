@@ -13,7 +13,7 @@ from aragora.observability.metrics import settlement as mod
 @pytest.fixture(autouse=True)
 def _reset_metrics():
     """Reset settlement metrics module state between tests."""
-    mod._initialized = False
+    mod.reset_settlement_metric_state()
     mod.SETTLEMENT_CAPTURED_TOTAL = None
     mod.SETTLEMENT_REVIEW_DUE_TOTAL = None
     mod.SETTLEMENT_STATUS_TRANSITIONS = None
@@ -116,6 +116,25 @@ class TestCalibrationRecording:
             mod.init_settlement_metrics()
         mod.record_calibration_outcome("correct")
         mod.record_calibration_outcome("incorrect")
+
+    def test_calibration_outcomes_summary_buckets(self):
+        """Summary rolls raw outcomes into correct/incorrect/skipped/deferred buckets."""
+        with patch.object(mod, "get_metrics_enabled", return_value=False):
+            mod.init_settlement_metrics()
+        mod.record_calibration_outcome("correct")
+        mod.record_calibration_outcome("incorrect")
+        mod.record_calibration_outcome("skipped_non_epistemic_mode")
+        mod.record_calibration_outcome("pending_resolver_verification")
+        mod.record_calibration_outcome("pending_resolver_verification")
+
+        summary = mod.get_calibration_outcomes_summary()
+        assert summary["available"] is True
+        assert summary["correct"] == 1
+        assert summary["incorrect"] == 1
+        assert summary["skipped"] == 1
+        assert summary["deferred"] == 2
+        assert summary["total"] == 5
+        assert summary["raw"]["pending_resolver_verification"] == 2
 
 
 class TestInterventionRecording:

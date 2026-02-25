@@ -15,7 +15,7 @@ The SME (Small/Medium Enterprise) Starter Pack provides a streamlined onboarding
 - **Company Size:** 5-50 employees
 - **Decision Types:** Team decisions, project planning, vendor selection, policy changes
 - **Technical Level:** Low to moderate (no engineering required)
-- **Budget:** $99-499/month
+- **Budget:** $49-500/month (Pro tier: $49/seat/month)
 
 ## Success Metrics
 
@@ -152,7 +152,7 @@ Real-time visibility into:
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │              Core Aragora Engine                      │   │
 │  │  • Debate Orchestration (Arena)                      │   │
-│  │  • Agent Pool (42+ agent types)                      │   │
+│  │  • Agent Pool (43 agent types)                       │   │
 │  │  • Receipt Generation (Gauntlet)                     │   │
 │  └─────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘

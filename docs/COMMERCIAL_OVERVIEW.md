@@ -16,7 +16,7 @@ Aragora treats each model as an **unreliable witness** and uses structured debat
 
 ### What Aragora Is
 
-- A multi-agent debate engine that runs 30+ agent types across 6+ LLM providers
+- A multi-agent debate engine that runs 43 agent types across 6+ LLM providers
 - A decision audit system that produces cryptographic receipts for every decision
 - An adversarial stress-testing tool (Gauntlet mode) for specs, policies, and architectures
 - An AI code review system with multi-model consensus
@@ -92,7 +92,7 @@ For small teams that need decision rigor and audit trails.
 | CI/CD integration | GitHub Actions, GitLab CI |
 | Channel delivery | Slack, Teams, Discord, email |
 | 4-tier Continuum Memory | Fast / medium / slow / glacial |
-| Knowledge Mound | 33 adapters |
+| Knowledge Mound | 34 adapters |
 | ELO rankings + Brier calibration | Per-agent, per-domain tracking |
 | Workflow engine | 50+ templates across 6 categories |
 | Vertical weight profiles | Healthcare, financial, legal |
@@ -150,12 +150,12 @@ For organizations with compliance, security, and governance requirements.
 | Anti-fragile agent reassignment | -- | Yes | Yes |
 | **Memory & Knowledge** | | | |
 | 4-tier Continuum Memory | -- | Yes | Yes |
-| Knowledge Mound (33 adapters) | -- | Yes | Yes |
+| Knowledge Mound (34 adapters) | -- | Yes | Yes |
 | Cross-debate institutional memory | -- | Yes | Yes |
 | **Integrations** | | | |
 | REST API + WebSocket | Limited | Full | Full |
-| Python SDK (155 namespaces) | Yes | Yes | Yes |
-| TypeScript SDK (155 namespaces) | Yes | Yes | Yes |
+| Python SDK (184 namespaces) | Yes | Yes | Yes |
+| TypeScript SDK (183 namespaces) | Yes | Yes | Yes |
 | Slack / Teams / Discord | -- | Yes | Yes |
 | Telegram / WhatsApp / email / voice | -- | Yes | Yes |
 | CI/CD (GitHub Actions, GitLab) | -- | Yes | Yes |
@@ -268,8 +268,8 @@ LangChain, CrewAI, AutoGen integration examples included in the repository. Open
 
 | SDK | Package | Namespaces | Install |
 |---|---|---|---|
-| Python | `aragora-sdk` | 155 | `pip install aragora-sdk` |
-| TypeScript | `@aragora/sdk` | 155 | `npm install @aragora/sdk` |
+| Python | `aragora-sdk` | 184 | `pip install aragora-sdk` |
+| TypeScript | `@aragora/sdk` | 183 | `npm install @aragora/sdk` |
 
 Both SDKs provide typed clients for all 3,000+ API operations with full IntelliSense / type-ahead support. 99.3% feature parity between Python and TypeScript.
 
@@ -279,21 +279,22 @@ Both SDKs provide typed clients for all 3,000+ API operations with full IntelliS
 
 | Metric | Value |
 |---|---|
-| Python modules | 3,000+ |
-| Lines of code | 1.49M |
-| Tests | 132,000+ |
-| Test files | 3,000+ |
+| Python modules | 3,200+ |
+| Lines of code | 1,490,000 |
+| Tests | 208,000+ |
+| Test files | 4,300+ |
 | API operations | 2,000+ across 1,800+ paths |
 | WebSocket event types | 190+ |
-| SDK namespaces | 155 per language (Python + TypeScript) |
-| Knowledge Mound adapters | 33 |
+| SDK namespaces | 184 Python / 183 TypeScript (99.3% parity) |
+| Knowledge Mound adapters | 34 |
 | RBAC permissions | 390+ |
-| Agent types | 42+ |
+| Agent types | 43 |
 | LLM providers | 6+ (Anthropic, OpenAI, Google, xAI, Mistral, OpenRouter) |
 | Workflow templates | 50+ across 6 categories |
 | Debate modules | 210+ |
-| Current version | v2.6.3 |
-| GA readiness | 98% (pending external penetration test) |
+| Handler modules | 580+ |
+| Current version | v2.8.0 |
+| GA readiness | 98% |
 
 ---
 

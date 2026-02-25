@@ -47,7 +47,7 @@ Primary evidence:
 ### 2) Agent fabric
 
 - Registry-backed agent creation and validation
-- 42+ agent types across CLI/API/local/OpenRouter/external frameworks
+- 43 agent types across CLI/API/local/OpenRouter/external frameworks
 - Persona and calibration plumbing
 
 Primary evidence:

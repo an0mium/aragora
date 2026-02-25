@@ -100,6 +100,12 @@ from .settlement_review import (
     SettlementReviewStats,
     get_settlement_review_scheduler,
 )
+from .settlement_resolvers import (
+    BaseSettlementResolver,
+    ResolverDecision,
+    SettlementResolverRegistry,
+    get_settlement_resolver_registry,
+)
 
 __all__ = [
     # Audit scheduler
@@ -150,4 +156,8 @@ __all__ = [
     "SettlementReviewStats",
     "SettlementReviewScheduler",
     "get_settlement_review_scheduler",
+    "ResolverDecision",
+    "BaseSettlementResolver",
+    "SettlementResolverRegistry",
+    "get_settlement_resolver_registry",
 ]
