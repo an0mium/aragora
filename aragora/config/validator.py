@@ -108,7 +108,6 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
     cluster_nodes = os.environ.get("ARAGORA_REDIS_CLUSTER_NODES", "").strip()
     cluster_configured = redis_mode == "cluster" and bool(cluster_nodes)
     redis_configured = bool(redis_url or sentinel_configured or cluster_configured)
-
     if state_backend == "redis" and not redis_configured:
         errors.append(
             "ARAGORA_STATE_BACKEND=redis but no Redis connection is configured "
