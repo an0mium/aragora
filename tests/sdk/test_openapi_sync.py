@@ -55,6 +55,7 @@ def _normalize(path: str) -> str:
     path = path.split("?", 1)[0]
     path = re.sub(r"\$\{[^}]+\}", "{param}", path)
     path = re.sub(r"\{[^}]+\}", "{param}", path)
+    path = re.sub(r":[A-Za-z_][A-Za-z0-9_]*", "{param}", path)
     path = re.sub(r"^/api/v\d+/", "/api/", path)
     if path != "/" and path.endswith("/"):
         path = path[:-1]
