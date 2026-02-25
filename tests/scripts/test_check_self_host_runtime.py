@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
+
 def _load_script_module() -> ModuleType:
     script_path = Path(__file__).resolve().parents[2] / "scripts" / "check_self_host_runtime.py"
     spec = importlib.util.spec_from_file_location("check_self_host_runtime", script_path)
