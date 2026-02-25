@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, ReactNode } from 'react';
 import { useToast, type ToastType } from '@/hooks/useToast';
 import { ToastContainer } from '@/components/ToastContainer';
 
@@ -15,6 +15,15 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const { toasts, showToast, showError, showSuccess, removeToast, clearToasts } = useToast();
+
+  // Bridge: listen for auth session expiry events from AuthContext (which sits above us in the tree)
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      showError('Your session has expired. Please sign in again.', 8000);
+    };
+    window.addEventListener('auth:session-expired', handleSessionExpired);
+    return () => window.removeEventListener('auth:session-expired', handleSessionExpired);
+  }, [showError]);
 
   const value = useMemo<ToastContextType>(() => ({
     showToast, showError, showSuccess, clearToasts,

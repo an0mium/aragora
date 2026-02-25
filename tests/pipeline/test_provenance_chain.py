@@ -265,6 +265,16 @@ class TestReceiptProvenance:
     @pytest.mark.asyncio
     async def test_receipt_includes_provenance_count(self):
         pipeline = IdeaToExecutionPipeline()
+
+        async def _mock_execute(task, _cfg):
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
+
+        pipeline._execute_task = _mock_execute
         cfg = PipelineConfig(enable_receipts=True, dry_run=False)
         result = await pipeline.run(
             "Build a rate limiter and add caching",
@@ -277,6 +287,16 @@ class TestReceiptProvenance:
     @pytest.mark.asyncio
     async def test_receipt_has_pipeline_id(self):
         pipeline = IdeaToExecutionPipeline()
+
+        async def _mock_execute(task, _cfg):
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
+
+        pipeline._execute_task = _mock_execute
         cfg = PipelineConfig(enable_receipts=True, dry_run=False)
         result = await pipeline.run("Test input", config=cfg, pipeline_id="pipe-receipt-test")
         if result.receipt:
