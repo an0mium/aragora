@@ -2075,9 +2075,12 @@ class IdeaToExecutionPipeline:
                 from aragora.debate import DebateProtocol
                 from aragora.core_types import Environment
 
+                from aragora.agents.cli_agents import get_default_agents
+
                 env = Environment(task=instruction)
                 protocol = DebateProtocol(rounds=2)
-                arena = Arena(env, [], protocol)
+                agents = get_default_agents()[:3]
+                arena = Arena(env, agents, protocol)
                 debate_result = await arena.run()
                 arena_rationale = getattr(debate_result, "summary", str(debate_result))
                 return {
