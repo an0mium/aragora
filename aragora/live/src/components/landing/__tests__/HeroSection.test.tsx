@@ -27,14 +27,14 @@ describe('HeroSection', () => {
       render(<HeroSection {...defaultProps} />);
 
       expect(
-        screen.getByRole('heading', { name: /control plane for multi-agent decisionmaking/i })
+        screen.getByRole('heading', { name: /what decision should ai debate for you/i })
       ).toBeInTheDocument();
     });
 
     it('renders the subheading', () => {
       render(<HeroSection {...defaultProps} />);
 
-      expect(screen.getByText(/Stop trusting one AI/i)).toBeInTheDocument();
+      expect(screen.getByText(/Multiple AI models will argue every angle/i)).toBeInTheDocument();
     });
 
     it('renders the DebateInput component', () => {

@@ -92,19 +92,17 @@ class TestTriggerDebate:
         trigger = InboxDebateTrigger()
 
         with patch(
-            "aragora.server.handlers.inbox.auto_debate._run_inline_mock_debate",
+            "aragora.server.handlers.playground._run_inline_mock_debate",
             return_value={"id": "debate-123", "topic": "test"},
-        ) as mock_debate, patch(
-            "aragora.server.handlers.inbox.auto_debate.dispatch_event"
+        ), patch(
+            "aragora.events.dispatcher.dispatch_event",
         ):
-            # Patch the import path used in trigger_debate
-            with patch.dict("sys.modules", {"aragora_debate": None, "aragora_debate.styled_mock": None}):
-                result = await trigger.trigger_debate(
-                    email_id="email-1",
-                    subject="Urgent: Budget approval needed",
-                    body_preview="We need to approve the Q3 budget...",
-                    sender="cfo@company.com",
-                )
+            result = await trigger.trigger_debate(
+                email_id="email-1",
+                subject="Urgent: Budget approval needed",
+                body_preview="We need to approve the Q3 budget...",
+                sender="cfo@company.com",
+            )
 
         assert result.triggered is True
         assert "email-1" in trigger._cooldowns
@@ -129,22 +127,18 @@ class TestTriggerDebate:
         assert call_args[0][1]["debate_id"] == "debate-456"
 
     @pytest.mark.asyncio
-    async def test_trigger_handles_import_error(self):
-        trigger = InboxDebateTrigger()
-
-        with patch(
-            "aragora.server.handlers.inbox.auto_debate.InboxDebateTrigger.trigger_debate",
-            side_effect=ImportError("No debate module"),
-        ):
-            # Direct call should handle gracefully
-            result = await InboxDebateTrigger().trigger_debate(
-                email_id="email-1",
-                subject="Test",
-                body_preview="",
-                sender="test@test.com",
-            )
-
+    async def test_trigger_result_structure(self):
+        """Verify DebateTriggerResult has expected fields."""
+        result = DebateTriggerResult(
+            triggered=False,
+            debate_id=None,
+            reason="test reason",
+            email_id="email-1",
+        )
         assert result.triggered is False
+        assert result.debate_id is None
+        assert result.reason == "test reason"
+        assert result.email_id == "email-1"
 
 
 class TestProcessReprioritizationDebates:

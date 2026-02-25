@@ -939,10 +939,8 @@ def get_default_fallback_enabled() -> bool:
         logger.warning("Unexpected error loading fallback settings, defaulting to disabled: %s", e)
     try:
         from aragora.config.secrets import get_secret
-        from aragora.config.secrets import SecretsConfig
 
         explicit_flag = get_secret("ARAGORA_OPENROUTER_FALLBACK_ENABLED")
-        secrets_config = SecretsConfig.from_env()
     except (ImportError, KeyError, OSError, ValueError) as e:
         # ImportError: secrets module not available
         # KeyError: secret not found
@@ -950,7 +948,6 @@ def get_default_fallback_enabled() -> bool:
         # ValueError: invalid secret value
         logger.debug("Could not load secrets config for fallback settings: %s", e)
         explicit_flag = None
-        secrets_config = None
     if explicit_flag is None:
         explicit_flag = os.environ.get("ARAGORA_OPENROUTER_FALLBACK_ENABLED")
     if isinstance(explicit_flag, str):

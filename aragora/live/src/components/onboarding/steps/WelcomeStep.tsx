@@ -16,7 +16,7 @@ export function WelcomeStep({ onNext, onSkip }: WelcomeStepProps) {
           Welcome to Aragora
         </h2>
         <p className="font-mono text-text-muted text-sm">
-          The control plane for multi-agent vetted decisionmaking
+          AI models that debate your decisions
         </p>
       </div>
 

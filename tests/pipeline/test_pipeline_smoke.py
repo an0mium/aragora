@@ -503,6 +503,17 @@ class TestAsyncPipelineSmoke:
     @pytest.mark.asyncio
     async def test_async_run_with_receipt_generation(self, pipeline):
         """When dry_run=False and orchestration is skipped, receipt logic still works."""
+
+        async def _mock_execute(task, _cfg):
+            return {
+                "task_id": task["id"],
+                "name": task["name"],
+                "status": "completed",
+                "output": {},
+            }
+
+        pipeline._execute_task = _mock_execute
+
         config = PipelineConfig(
             dry_run=False,
             enable_receipts=True,

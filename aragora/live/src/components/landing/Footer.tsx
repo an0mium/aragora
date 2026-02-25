@@ -19,10 +19,9 @@ const USE_CASES = [
 ];
 
 const FOOTER_LINKS = [
-  { href: 'https://live.aragora.ai', label: 'Live Dashboard' },
-  { href: 'https://status.aragora.ai', label: 'Status' },
-  { href: 'https://github.com/an0mium/aragora', label: 'GitHub' },
-  { href: '/about', label: 'Docs' },
+  { href: '/playground', label: 'Try a Debate' },
+  { href: '/oracle', label: 'Oracle' },
+  { href: '/about', label: 'About' },
   { href: '/security', label: 'Security' },
   { href: '/privacy', label: 'Privacy' },
 ];
@@ -51,10 +50,10 @@ export function Footer() {
       {/* Main Footer */}
       <div className="text-acid-green/50 mb-4">{'═'.repeat(50)}</div>
       <p className="text-acid-green font-bold mb-1">
-        {'>'} ARAGORA // CONTROL PLANE FOR MULTI-AGENT ROBUST DECISIONMAKING
+        {'>'} ARAGORA // AI MODELS THAT DEBATE YOUR DECISIONS
       </p>
       <p className="text-text-muted/70 text-[11px] italic max-w-md mx-auto mb-4">
-        &quot;Orchestrating AI vetted decisionmaking across org knowledge and channels.&quot;
+        &quot;Multiple AI perspectives. One clear verdict. Full audit trail.&quot;
       </p>
       <div className="flex justify-center gap-4 text-text-muted/50 mb-4">
         {FOOTER_LINKS.map((link, idx) => (

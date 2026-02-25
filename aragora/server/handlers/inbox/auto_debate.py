@@ -20,7 +20,6 @@ Flow:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import time
@@ -124,31 +123,19 @@ class InboxDebateTrigger:
         subject and body preview.
         """
         topic = f"Analyze and advise on this critical email from {sender}: {subject}"
-        context = body_preview[:500] if body_preview else ""
 
         try:
-            # Try the full debate package first, fall back to inline mock
-            result: dict[str, Any] | None = None
-            try:
-                from aragora_debate.styled_mock import StyledMockAgent
-                from aragora_debate.arena import Arena as DebateArena
-                from aragora_debate.types import DebateConfig
+            # Use the inline mock debate from the playground handler.
+            # This provides a fast, lightweight analysis without needing
+            # the full debate orchestrator or external API calls.
+            from aragora.server.handlers.playground import _run_inline_mock_debate
 
-                agent_names = ["analyst", "critic", "synthesizer"][:agents]
-                debate_agents = [StyledMockAgent(n) for n in agent_names]
-                config = DebateConfig(topic=topic, rounds=rounds)
-                arena = DebateArena(config=config, agents=debate_agents)
-                result = arena.run()
-            except ImportError:
-                # Fall back to inline mock debate
-                from aragora.server.handlers.playground import _run_inline_mock_debate
-
-                result = _run_inline_mock_debate(
-                    topic=topic,
-                    rounds=rounds,
-                    agent_count=agents,
-                    question=topic,
-                )
+            result = _run_inline_mock_debate(
+                topic=topic,
+                rounds=rounds,
+                agent_count=agents,
+                question=topic,
+            )
 
             debate_id = result.get("id") if result else None
 
