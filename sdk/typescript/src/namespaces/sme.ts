@@ -462,9 +462,11 @@ export class SMEAPI {
    * @route GET /api/v1/sme/workflows/{workflow_id}
    */
   async getWorkflow(workflowId: string): Promise<Record<string, unknown>> {
-    return this.invoke<Record<string, unknown>>(
-      'getSMEWorkflow',
-      [workflowId],
+    const legacy = (this.client as CompatClient).getSMEWorkflow;
+    if (typeof legacy === 'function') {
+      return (legacy as LegacyMethod).apply(this.client, [workflowId]) as Promise<Record<string, unknown>>;
+    }
+    return this.request<Record<string, unknown>>(
       'GET',
       `/api/v1/sme/workflows/${encodeURIComponent(workflowId)}`
     );
