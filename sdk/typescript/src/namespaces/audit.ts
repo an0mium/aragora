@@ -978,7 +978,7 @@ export class AuditAPI {
   async getFinding(findingId: string): Promise<AuditFinding> {
     return this.client.request<AuditFinding>(
       'GET',
-      `/api/audit/findings/${encodeURIComponent(findingId)}`
+      `/api/v1/audit/findings/${encodeURIComponent(findingId)}/status`
     );
   }
 
