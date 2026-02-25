@@ -62,7 +62,7 @@ services:
       - aragora_data:/app/data
 
   db:
-    image: postgres:16-alpine
+    image: postgres:16.2-alpine
     environment:
       POSTGRES_DB: aragora
       POSTGRES_USER: aragora
@@ -78,7 +78,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data

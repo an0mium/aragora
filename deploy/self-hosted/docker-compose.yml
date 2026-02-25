@@ -17,7 +17,7 @@ services:
   # =============================================================================
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.2-alpine
     container_name: aragora-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-aragora}
@@ -47,7 +47,7 @@ services:
           memory: 256M
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-redis
     command: >
       redis-server
@@ -88,7 +88,7 @@ services:
   # startup, so runtime state (leader election, rewrite) never conflicts.
 
   sentinel1:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-sentinel1
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-aragora_redis_default}
@@ -124,7 +124,7 @@ services:
           memory: 32M
 
   sentinel2:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-sentinel2
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-aragora_redis_default}
@@ -160,7 +160,7 @@ services:
           memory: 32M
 
   sentinel3:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-sentinel3
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-aragora_redis_default}
@@ -348,7 +348,7 @@ services:
   # =============================================================================
 
   prometheus:
-    image: prom/prometheus:v2.48.0
+    image: prom/prometheus:v2.48.1
     container_name: aragora-prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -376,7 +376,7 @@ services:
           memory: 1G
 
   grafana:
-    image: grafana/grafana:10.2.0
+    image: grafana/grafana:10.2.3
     container_name: aragora-grafana
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
@@ -412,7 +412,7 @@ services:
   # =============================================================================
 
   backup:
-    image: postgres:16-alpine
+    image: postgres:16.2-alpine
     container_name: aragora-backup
     entrypoint: /bin/sh
     command: >

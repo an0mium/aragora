@@ -11,7 +11,7 @@
 
 services:
   aragora-gateway:
-    image: aragora/gateway:latest
+    image: aragora/gateway:2.1.10
     build:
       context: ../..
       dockerfile: Dockerfile
@@ -45,7 +45,7 @@ services:
           memory: 512M
 
   openclaw:
-    image: openclawai/openclaw:latest
+    image: openclawai/openclaw:0.1.0
     environment:
       DISPLAY: ":99"
       OPENCLAW_BIND: "0.0.0.0"

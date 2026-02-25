@@ -3,7 +3,7 @@
 
 services:
   backend:
-    image: ${ARAGORA_BACKEND_IMAGE:-ghcr.io/an0mium/aragora/backend:latest}
+    image: ${ARAGORA_BACKEND_IMAGE:-ghcr.io/an0mium/aragora/backend:2.1.10}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.backend
@@ -43,7 +43,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${ARAGORA_FRONTEND_IMAGE:-ghcr.io/an0mium/aragora/frontend:latest}
+    image: ${ARAGORA_FRONTEND_IMAGE:-ghcr.io/an0mium/aragora/frontend:2.1.10}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.frontend
@@ -67,7 +67,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     ports:
       - "6379:6379"
     volumes:
@@ -82,7 +82,7 @@ services:
 
   # Optional: PostgreSQL for production-grade persistence
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15.6-alpine
     ports:
       - "5432:5432"
     environment:
@@ -102,7 +102,7 @@ services:
 
   # Optional: Prometheus for metrics
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.51.0
     ports:
       - "9090:9090"
     volumes:
@@ -117,7 +117,7 @@ services:
 
   # Optional: Grafana for dashboards
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:10.4.0
     ports:
       - "3001:3000"
     environment:
@@ -136,7 +136,7 @@ services:
 
   # Optional: Jaeger for distributed tracing
   jaeger:
-    image: jaegertracing/all-in-one:1.52
+    image: jaegertracing/all-in-one:1.52.0
     ports:
       - "16686:16686"   # Jaeger UI
       - "4317:4317"     # OTLP gRPC receiver

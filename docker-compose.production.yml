@@ -25,7 +25,7 @@ services:
   # ============================================================================
 
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.0.4
     container_name: aragora-traefik
     command:
       # API Dashboard (secured behind auth)
@@ -187,7 +187,7 @@ services:
   # ============================================================================
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.2-alpine
     container_name: aragora-postgres
     environment:
       POSTGRES_USER: aragora
@@ -222,7 +222,7 @@ services:
   # Set ARAGORA_REDIS_MODE=sentinel in .env.production to enable
 
   redis-master:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-redis-master
     command: redis-server /etc/redis/redis.conf
     volumes:
@@ -243,7 +243,7 @@ services:
           memory: 1G
 
   redis-replica-1:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-redis-replica-1
     command: redis-server /etc/redis/redis.conf
     depends_on:
@@ -267,7 +267,7 @@ services:
           memory: 512M
 
   redis-replica-2:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-redis-replica-2
     command: redis-server /etc/redis/redis.conf
     depends_on:
@@ -291,7 +291,7 @@ services:
           memory: 512M
 
   sentinel-1:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-sentinel-1
     command: redis-sentinel /etc/redis/sentinel.conf
     depends_on:
@@ -319,7 +319,7 @@ services:
           memory: 128M
 
   sentinel-2:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-sentinel-2
     command: redis-sentinel /etc/redis/sentinel.conf
     depends_on:
@@ -347,7 +347,7 @@ services:
           memory: 128M
 
   sentinel-3:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-sentinel-3
     command: redis-sentinel /etc/redis/sentinel.conf
     depends_on:
@@ -377,7 +377,7 @@ services:
   # Legacy single-node Redis (for non-HA deployments)
   # Use this by setting ARAGORA_REDIS_MODE=standalone
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-redis
     command: >
       redis-server
@@ -549,7 +549,7 @@ services:
   # ============================================================================
 
   backup:
-    image: postgres:16-alpine
+    image: postgres:16.2-alpine
     container_name: aragora-backup
     depends_on:
       postgres:

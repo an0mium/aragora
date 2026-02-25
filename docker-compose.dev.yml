@@ -124,7 +124,7 @@ services:
   # Frontend Dev Server
   # ==========================================================================
   frontend-dev:
-    image: node:18-alpine
+    image: node:18.19-alpine
     container_name: aragora-frontend-dev
     working_dir: /app
     ports:
@@ -149,7 +149,7 @@ services:
   # Redis
   # ==========================================================================
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-redis-dev
     ports:
       - "6379:6379"
@@ -169,7 +169,7 @@ services:
   # PostgreSQL (optional - for production-like testing)
   # ==========================================================================
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.2-alpine
     container_name: aragora-postgres-dev
     ports:
       - "5432:5432"

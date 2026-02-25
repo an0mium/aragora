@@ -13,7 +13,7 @@ version: '3.8'
 
 services:
   prometheus:
-    image: prom/prometheus:v2.47.0
+    image: prom/prometheus:v2.47.2
     container_name: aragora-prometheus
     ports:
       - "9090:9090"
@@ -32,7 +32,7 @@ services:
       - observability
 
   grafana:
-    image: grafana/grafana:10.0.0
+    image: grafana/grafana:10.0.10
     container_name: aragora-grafana
     ports:
       - "3000:3000"
@@ -90,7 +90,7 @@ services:
 
   # Jaeger for distributed tracing
   jaeger:
-    image: jaegertracing/all-in-one:1.51
+    image: jaegertracing/all-in-one:1.51.0
     container_name: aragora-jaeger
     ports:
       - "16686:16686"   # Jaeger UI

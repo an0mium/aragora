@@ -290,4 +290,51 @@ export class SelfImproveAPI {
       json: query ?? {},
     });
   }
+
+  // =========================================================================
+  // Autopilot Worktree Management
+  // =========================================================================
+
+  /**
+   * Get managed autopilot session status.
+   */
+  async getAutopilotStatus(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/self-improve/worktrees/autopilot/status');
+  }
+
+  /**
+   * Ensure a managed autopilot worktree exists.
+   */
+  async ensureAutopilotWorktree(data?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/self-improve/worktrees/autopilot/ensure', {
+      json: data ?? {},
+    });
+  }
+
+  /**
+   * Reconcile managed autopilot sessions.
+   */
+  async reconcileAutopilot(data?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/self-improve/worktrees/autopilot/reconcile', {
+      json: data ?? {},
+    });
+  }
+
+  /**
+   * Cleanup managed autopilot sessions.
+   */
+  async cleanupAutopilot(data?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/self-improve/worktrees/autopilot/cleanup', {
+      json: data ?? {},
+    });
+  }
+
+  /**
+   * Run autopilot maintain lifecycle.
+   */
+  async maintainAutopilot(data?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/self-improve/worktrees/autopilot/maintain', {
+      json: data ?? {},
+    });
+  }
 }

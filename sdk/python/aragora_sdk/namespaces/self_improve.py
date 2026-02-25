@@ -300,6 +300,80 @@ class SelfImproveAPI:
             "POST", "/api/v1/self-improve/regression-history", json=query or {}
         )
 
+    # ===========================================================================
+    # Autopilot Worktree Management
+    # ===========================================================================
+
+    def get_autopilot_status(self) -> dict[str, Any]:
+        """Get managed autopilot session status.
+
+        GET /api/self-improve/worktrees/autopilot/status
+
+        Returns:
+            Dict with autopilot session status and active worktree details.
+        """
+        return self._client.request("GET", "/api/v1/self-improve/worktrees/autopilot/status")
+
+    def ensure_autopilot_worktree(self, data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Ensure a managed autopilot worktree exists.
+
+        POST /api/self-improve/worktrees/autopilot/ensure
+
+        Args:
+            data: Optional configuration for the autopilot worktree.
+
+        Returns:
+            Dict with worktree path and session details.
+        """
+        return self._client.request(
+            "POST", "/api/v1/self-improve/worktrees/autopilot/ensure", json=data or {}
+        )
+
+    def reconcile_autopilot(self, data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Reconcile managed autopilot sessions.
+
+        POST /api/self-improve/worktrees/autopilot/reconcile
+
+        Args:
+            data: Optional reconciliation parameters.
+
+        Returns:
+            Dict with reconciliation results.
+        """
+        return self._client.request(
+            "POST", "/api/v1/self-improve/worktrees/autopilot/reconcile", json=data or {}
+        )
+
+    def cleanup_autopilot(self, data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Cleanup managed autopilot sessions.
+
+        POST /api/self-improve/worktrees/autopilot/cleanup
+
+        Args:
+            data: Optional cleanup parameters.
+
+        Returns:
+            Dict with cleanup results and removed count.
+        """
+        return self._client.request(
+            "POST", "/api/v1/self-improve/worktrees/autopilot/cleanup", json=data or {}
+        )
+
+    def maintain_autopilot(self, data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Run autopilot maintain lifecycle.
+
+        POST /api/self-improve/worktrees/autopilot/maintain
+
+        Args:
+            data: Optional maintenance parameters.
+
+        Returns:
+            Dict with maintenance results.
+        """
+        return self._client.request(
+            "POST", "/api/v1/self-improve/worktrees/autopilot/maintain", json=data or {}
+        )
+
 
 class AsyncSelfImproveAPI:
     """Asynchronous self-improvement API."""
@@ -454,4 +528,38 @@ class AsyncSelfImproveAPI:
         """Get self-improvement regression history. POST /api/self-improve/regression-history"""
         return await self._client.request(
             "POST", "/api/v1/self-improve/regression-history", json=query or {}
+        )
+
+    # ===========================================================================
+    # Autopilot Worktree Management
+    # ===========================================================================
+
+    async def get_autopilot_status(self) -> dict[str, Any]:
+        """Get managed autopilot session status. GET /api/self-improve/worktrees/autopilot/status"""
+        return await self._client.request(
+            "GET", "/api/v1/self-improve/worktrees/autopilot/status"
+        )
+
+    async def ensure_autopilot_worktree(self, data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Ensure a managed autopilot worktree exists. POST /api/self-improve/worktrees/autopilot/ensure"""
+        return await self._client.request(
+            "POST", "/api/v1/self-improve/worktrees/autopilot/ensure", json=data or {}
+        )
+
+    async def reconcile_autopilot(self, data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Reconcile managed autopilot sessions. POST /api/self-improve/worktrees/autopilot/reconcile"""
+        return await self._client.request(
+            "POST", "/api/v1/self-improve/worktrees/autopilot/reconcile", json=data or {}
+        )
+
+    async def cleanup_autopilot(self, data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Cleanup managed autopilot sessions. POST /api/self-improve/worktrees/autopilot/cleanup"""
+        return await self._client.request(
+            "POST", "/api/v1/self-improve/worktrees/autopilot/cleanup", json=data or {}
+        )
+
+    async def maintain_autopilot(self, data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Run autopilot maintain lifecycle. POST /api/self-improve/worktrees/autopilot/maintain"""
+        return await self._client.request(
+            "POST", "/api/v1/self-improve/worktrees/autopilot/maintain", json=data or {}
         )

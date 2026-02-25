@@ -71,7 +71,7 @@ services:
 
   # Network proxy sidecar — restricts outbound traffic to policy-allowed hosts
   network-proxy:
-    image: alpine/socat:latest
+    image: alpine/socat:1.8.0.0
     container_name: aragora-pr-reviewer-proxy
     networks:
       - reviewer-net

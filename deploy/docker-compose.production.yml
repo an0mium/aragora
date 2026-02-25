@@ -32,7 +32,7 @@ services:
   # ===========================================================================
 
   nginx:
-    image: nginx:1.25-alpine
+    image: nginx:1.25.4-alpine
     container_name: aragora-nginx
     ports:
       - "80:80"
@@ -73,7 +73,7 @@ services:
   # ===========================================================================
 
   aragora:
-    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:latest}
+    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:2.1.10}
     build:
       context: ..
       dockerfile: deploy/Dockerfile
@@ -167,7 +167,7 @@ services:
   # ===========================================================================
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.2-alpine
     container_name: aragora-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-aragora}
@@ -205,7 +205,7 @@ services:
   # ===========================================================================
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-redis
     command: >
       redis-server
@@ -246,7 +246,7 @@ services:
   # ===========================================================================
 
   debate-worker:
-    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:latest}
+    image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:2.1.10}
     build:
       context: ..
       dockerfile: deploy/Dockerfile
@@ -422,7 +422,7 @@ services:
   # ===========================================================================
 
   backup:
-    image: postgres:16-alpine
+    image: postgres:16.2-alpine
     container_name: aragora-backup
     entrypoint: /bin/sh
     command: >

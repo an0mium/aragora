@@ -74,7 +74,7 @@ services:
   # ============================================================================
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.2-alpine
     container_name: aragora-sme-postgres
     environment:
       POSTGRES_USER: aragora
@@ -91,7 +91,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: aragora-sme-redis
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy volatile-lru
     volumes:
@@ -108,7 +108,7 @@ services:
   # ============================================================================
 
   backup:
-    image: postgres:16-alpine
+    image: postgres:16.2-alpine
     container_name: aragora-sme-backup
     depends_on:
       postgres:
