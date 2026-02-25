@@ -340,7 +340,7 @@ class AgentEvolutionDashboardHandler(SecureHandler):
 
         return None
 
-    @handle_errors
+    @handle_errors("agent-evolution-timeline")
     def _handle_timeline(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/agent-evolution/timeline"""
         limit = min(int(query_params.get("limit", 20)), 100)
@@ -355,7 +355,7 @@ class AgentEvolutionDashboardHandler(SecureHandler):
 
         return json_response({"data": data})
 
-    @handle_errors
+    @handle_errors("agent-evolution-elo-trends")
     def _handle_elo_trends(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/agent-evolution/elo-trends"""
         period = query_params.get("period", "7d")
@@ -370,7 +370,7 @@ class AgentEvolutionDashboardHandler(SecureHandler):
 
         return json_response({"data": data})
 
-    @handle_errors
+    @handle_errors("agent-evolution-pending")
     def _handle_pending(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/agent-evolution/pending"""
         try:
@@ -381,7 +381,7 @@ class AgentEvolutionDashboardHandler(SecureHandler):
 
         return json_response({"data": data})
 
-    @handle_errors
+    @handle_errors("agent-evolution-approve")
     @require_permission("evolution:write")
     def _handle_approve(self, suffix: str, handler: Any) -> HandlerResult:
         """POST /api/v1/agent-evolution/pending/{id}/approve"""
@@ -404,7 +404,7 @@ class AgentEvolutionDashboardHandler(SecureHandler):
             }
         )
 
-    @handle_errors
+    @handle_errors("agent-evolution-reject")
     @require_permission("evolution:write")
     def _handle_reject(self, suffix: str, handler: Any) -> HandlerResult:
         """POST /api/v1/agent-evolution/pending/{id}/reject"""
@@ -481,22 +481,22 @@ class AgentEvolutionDashboardHandler(SecureHandler):
 
     def _fetch_real_elo_trends(self, period: str) -> dict:
         """Attempt to fetch real ELO trend data from the ranking system."""
-        from aragora.ranking.elo import EloStore
+        from aragora.ranking.elo import get_elo_store
 
-        store = EloStore()
-        rankings = store.get_rankings()
+        store = get_elo_store()
+        rankings = store.get_all_ratings()
 
         agents = []
-        for agent_name, rating in rankings.items():
+        for agent_rating in rankings:
             agents.append(
                 {
-                    "agent_name": agent_name,
+                    "agent_name": agent_rating.agent_name,
                     "provider": "unknown",
-                    "current_elo": rating,
+                    "current_elo": agent_rating.elo,
                     "trend": [],
-                    "peak_elo": rating,
-                    "lowest_elo": rating,
-                    "total_debates": 0,
+                    "peak_elo": agent_rating.elo,
+                    "lowest_elo": agent_rating.elo,
+                    "total_debates": agent_rating.debates_count,
                 }
             )
 

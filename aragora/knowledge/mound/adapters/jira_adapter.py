@@ -384,7 +384,7 @@ class JiraAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, KnowledgeM
     def get_stats(self) -> dict[str, Any]:
         """Get statistics about stored ticket records."""
         all_records = list(self._synced_tickets.values())
-        statuses = {}
+        statuses: dict[str, int] = {}
         for r in all_records:
             statuses[r.status] = statuses.get(r.status, 0) + 1
         return {

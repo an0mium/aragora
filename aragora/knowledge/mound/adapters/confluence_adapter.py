@@ -358,7 +358,7 @@ class ConfluenceAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Know
     def get_stats(self) -> dict[str, Any]:
         """Get statistics about stored page records."""
         all_records = list(self._synced_pages.values())
-        spaces = {}
+        spaces: dict[str, int] = {}
         for r in all_records:
             spaces[r.space_key] = spaces.get(r.space_key, 0) + 1
         return {
