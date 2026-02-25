@@ -271,10 +271,12 @@ class WebConnector(BaseConnector):
                     ):
                         if action == "always":
                             return original_simplefilter(
-                                action, category=category, lineno=lineno, append=True
+                                action,  # type: ignore[arg-type]
+                                category=category, lineno=lineno, append=True,
                             )
                         return original_simplefilter(
-                            action, category=category, lineno=lineno, append=append
+                            action,  # type: ignore[arg-type]
+                            category=category, lineno=lineno, append=append,
                         )
 
                     warnings.simplefilter = _safe_simplefilter  # type: ignore[assignment]

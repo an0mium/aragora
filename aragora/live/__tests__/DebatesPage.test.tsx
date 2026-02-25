@@ -420,4 +420,158 @@ describe('DebatesPage', () => {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Status badges
+  // ---------------------------------------------------------------------------
+
+  describe('status badges', () => {
+    it('shows COMPLETED for debates with winning proposal', async () => {
+      mockBackendDebates([
+        sampleDebate({ winning_proposal: 'Use TypeScript', consensus_reached: true }),
+      ]);
+
+      await act(async () => {
+        render(<DebatesPage />);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('COMPLETED')).toBeInTheDocument();
+      });
+    });
+
+    it('shows CONSENSUS for consensus debates without winning proposal', async () => {
+      mockBackendDebates([
+        sampleDebate({ winning_proposal: null, consensus_reached: true }),
+      ]);
+
+      await act(async () => {
+        render(<DebatesPage />);
+      });
+
+      await waitFor(() => {
+        // CONSENSUS appears as both filter button and status badge
+        const elements = screen.getAllByText('CONSENSUS');
+        // At least one should be a span (the status badge), not just a button
+        expect(elements.some(el => el.tagName === 'SPAN')).toBe(true);
+      });
+    });
+
+    it('shows NO CONSENSUS for non-consensus debates', async () => {
+      mockBackendDebates([
+        sampleDebate({ consensus_reached: false }),
+      ]);
+
+      await act(async () => {
+        render(<DebatesPage />);
+      });
+
+      await waitFor(() => {
+        // "NO CONSENSUS" appears as both filter button and status badge
+        const elements = screen.getAllByText('NO CONSENSUS');
+        expect(elements.some(el => el.tagName === 'SPAN')).toBe(true);
+      });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Receipt indicator
+  // ---------------------------------------------------------------------------
+
+  it('shows receipt indicator [RCV] when vote_tally present', async () => {
+    mockBackendDebates([
+      sampleDebate({ vote_tally: { 'claude': 3, 'gpt-4': 2 } }),
+    ]);
+
+    await act(async () => {
+      render(<DebatesPage />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('[RCV]')).toBeInTheDocument();
+    });
+  });
+
+  it('does not show receipt indicator when vote_tally is null', async () => {
+    mockBackendDebates([
+      sampleDebate({ vote_tally: null }),
+    ]);
+
+    await act(async () => {
+      render(<DebatesPage />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Should we use TypeScript?')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('[RCV]')).not.toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // SHARE button
+  // ---------------------------------------------------------------------------
+
+  it('renders SHARE button for each debate', async () => {
+    mockBackendDebates([sampleDebate()]);
+
+    await act(async () => {
+      render(<DebatesPage />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('SHARE')).toBeInTheDocument();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // End of archive
+  // ---------------------------------------------------------------------------
+
+  it('shows end of archive message when all loaded', async () => {
+    mockBackendDebates([sampleDebate()], { has_more: false });
+
+    await act(async () => {
+      render(<DebatesPage />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/END OF ARCHIVE/)).toBeInTheDocument();
+      expect(screen.getByText(/1 total debates/)).toBeInTheDocument();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Footer
+  // ---------------------------------------------------------------------------
+
+  it('renders footer with debate count', async () => {
+    mockBackendDebates([
+      sampleDebate({ id: 'd1' }),
+      sampleDebate({ id: 'd2' }),
+    ], { has_more: false });
+
+    await act(async () => {
+      render(<DebatesPage />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/AGORA DEBATE ARCHIVE/)).toBeInTheDocument();
+      expect(screen.getByText(/2 DEBATES/)).toBeInTheDocument();
+    });
+  });
+
+  it('renders RETURN TO LIVE link in footer', async () => {
+    mockBackendDebates([sampleDebate()]);
+
+    await act(async () => {
+      render(<DebatesPage />);
+    });
+
+    await waitFor(() => {
+      const returnLink = screen.getByText('[ RETURN TO LIVE ]');
+      expect(returnLink).toBeInTheDocument();
+      expect(returnLink.closest('a')?.getAttribute('href')).toBe('/');
+    });
+  });
 });
