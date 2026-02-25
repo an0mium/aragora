@@ -9,7 +9,7 @@ on:
       - 'scripts/**'
       - 'AGENTS.md'
       - 'pyproject.toml'
-      - '.github/workflows/lint.yml'
+      - '.github/workflows/**'
       - 'deploy/**'
       - 'aragora-operator/**'
   pull_request:
@@ -20,6 +20,7 @@ on:
       - 'scripts/**'
       - 'AGENTS.md'
       - 'pyproject.toml'
+      - '.github/workflows/**'
       - 'deploy/**'
       - 'aragora-operator/**'
   workflow_dispatch:
