@@ -1102,6 +1102,8 @@ class TestAutopilotWorktrees:
         assert result.status_code == 200
         assert body["action"] == "status"
         assert body["ok"] is True
+        assert body["telemetry"]["sessions_total"] == 0
+        assert body["telemetry"]["sessions_active"] == 0
 
     @pytest.mark.asyncio
     async def test_maintain_failure(self, handler, mock_http_handler):
@@ -1121,6 +1123,7 @@ class TestAutopilotWorktrees:
         assert result.status_code == 503
         assert body["ok"] is False
         assert body["stderr"] == "boom"
+        assert body["telemetry"]["action"] == "maintain"
 
 
 class TestAutopilotWorktreesE2E:
@@ -1152,6 +1155,8 @@ class TestAutopilotWorktreesE2E:
         ensured_path = Path(ensured_session["path"])
         assert ensured_path.exists()
         assert ensured_session["branch"].startswith("codex/")
+        assert ensure_payload["telemetry"]["allocation"]["session_id"] == "e2e-session"
+        assert ensure_payload["telemetry"]["allocation"]["branch"] == ensured_session["branch"]
 
         reconcile_body = {
             "managed_dir": ".worktrees/codex-auto",
@@ -1168,6 +1173,8 @@ class TestAutopilotWorktreesE2E:
         assert reconcile_result.status_code == 200
         assert reconcile_payload["ok"] is True
         assert reconcile_payload["result"]["count"] >= 1
+        assert reconcile_payload["telemetry"]["sessions_total"] >= 1
+        assert reconcile_payload["telemetry"]["sessions_failed"] == 0
 
         maintain_body = {
             "managed_dir": ".worktrees/codex-auto",
@@ -1186,6 +1193,7 @@ class TestAutopilotWorktreesE2E:
         assert maintain_result.status_code == 200
         assert maintain_payload["ok"] is True
         assert maintain_payload["result"]["cleanup"]["removed"] >= 1
+        assert maintain_payload["telemetry"]["cleanup_removed"] >= 1
 
         status_result = await handler.handle(
             "/api/self-improve/worktrees/autopilot/status",
@@ -1196,6 +1204,9 @@ class TestAutopilotWorktreesE2E:
         assert status_result.status_code == 200
         assert status_payload["ok"] is True
         assert isinstance(status_payload["result"]["sessions"], list)
+        assert status_payload["telemetry"]["sessions_total"] == len(
+            status_payload["result"]["sessions"]
+        )
 
 
 # ============================================================================

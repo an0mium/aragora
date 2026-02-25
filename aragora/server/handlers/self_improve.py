@@ -1178,6 +1178,67 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
         except (TypeError, ValueError):
             return default
 
+    @staticmethod
+    def _build_autopilot_telemetry(action: str, parsed: dict[str, Any]) -> dict[str, Any]:
+        """Build lightweight allocation/health telemetry from autopilot payloads."""
+        telemetry: dict[str, Any] = {"action": action}
+
+        if action == "ensure":
+            session = parsed.get("session")
+            if isinstance(session, dict):
+                telemetry["allocation"] = {
+                    "created": bool(parsed.get("created", False)),
+                    "session_id": session.get("session_id"),
+                    "agent": session.get("agent"),
+                    "branch": session.get("branch"),
+                    "path": session.get("path"),
+                    "reconcile_status": session.get("reconcile_status"),
+                }
+
+        elif action == "status":
+            sessions = parsed.get("sessions")
+            if isinstance(sessions, list):
+                active = 0
+                for row in sessions:
+                    if isinstance(row, dict) and bool(row.get("active")):
+                        active += 1
+                telemetry["sessions_total"] = len(sessions)
+                telemetry["sessions_active"] = active
+
+        elif action == "reconcile":
+            results = parsed.get("results")
+            if isinstance(results, list):
+                failed = 0
+                for row in results:
+                    if isinstance(row, dict) and not bool(row.get("ok", False)):
+                        failed += 1
+                telemetry["sessions_total"] = len(results)
+                telemetry["sessions_failed"] = failed
+            if isinstance(parsed.get("count"), int):
+                telemetry["count"] = parsed["count"]
+
+        elif action == "cleanup":
+            for key in ("removed", "kept", "skipped_unmerged"):
+                value = parsed.get(key)
+                if isinstance(value, int):
+                    telemetry[key] = value
+
+        elif action == "maintain":
+            reconcile = parsed.get("reconcile")
+            cleanup = parsed.get("cleanup")
+            if isinstance(reconcile, dict):
+                telemetry["reconcile_ok"] = bool(reconcile.get("ok", False))
+                if isinstance(reconcile.get("count"), int):
+                    telemetry["reconcile_count"] = reconcile["count"]
+            if isinstance(cleanup, dict):
+                telemetry["cleanup_ok"] = bool(cleanup.get("ok", False))
+                if isinstance(cleanup.get("removed"), int):
+                    telemetry["cleanup_removed"] = cleanup["removed"]
+                if isinstance(cleanup.get("skipped_unmerged"), int):
+                    telemetry["cleanup_skipped_unmerged"] = cleanup["skipped_unmerged"]
+
+        return telemetry
+
     def _autopilot_action(self, action: str, body: dict[str, Any]) -> HandlerResult:
         """Execute a managed worktree autopilot action and return structured response."""
         try:
@@ -1239,6 +1300,7 @@ class SelfImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[mi
             "exit_code": proc.returncode,
             "ok": proc.returncode == 0,
             "result": parsed,
+            "telemetry": self._build_autopilot_telemetry(action, parsed),
         }
         if proc.stderr.strip():
             payload["stderr"] = proc.stderr.strip()
