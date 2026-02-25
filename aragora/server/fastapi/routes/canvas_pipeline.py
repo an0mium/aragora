@@ -458,9 +458,7 @@ async def create_from_debate(
 
         pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
         agent = _get_ai_agent() if body.use_ai else None
-        pipeline = IdeaToExecutionPipeline(
-            agent=agent, use_universal=body.use_universal
-        )
+        pipeline = IdeaToExecutionPipeline(agent=agent, use_universal=body.use_universal)
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
         result = pipeline.from_debate(
@@ -492,9 +490,7 @@ async def create_from_ideas(
 
         pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
         agent = _get_ai_agent() if body.use_ai else None
-        pipeline = IdeaToExecutionPipeline(
-            agent=agent, use_universal=body.use_universal
-        )
+        pipeline = IdeaToExecutionPipeline(agent=agent, use_universal=body.use_universal)
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
         result = pipeline.from_ideas(
@@ -526,9 +522,7 @@ async def create_from_braindump(
 
         pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
         agent = _get_ai_agent() if body.use_ai else None
-        pipeline = IdeaToExecutionPipeline(
-            agent=agent, use_universal=body.use_universal
-        )
+        pipeline = IdeaToExecutionPipeline(agent=agent, use_universal=body.use_universal)
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
         result = pipeline.from_braindump(
@@ -700,9 +694,7 @@ async def run_pipeline(
 
         pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
         agent = _get_ai_agent() if body.use_ai else None
-        pipeline = IdeaToExecutionPipeline(
-            agent=agent, use_universal=body.use_universal
-        )
+        pipeline = IdeaToExecutionPipeline(agent=agent, use_universal=body.use_universal)
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
         if body.text:
@@ -740,9 +732,7 @@ async def auto_run_pipeline(
 
         pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
         agent = _get_ai_agent() if body.use_ai else None
-        pipeline = IdeaToExecutionPipeline(
-            agent=agent, use_universal=body.use_universal
-        )
+        pipeline = IdeaToExecutionPipeline(agent=agent, use_universal=body.use_universal)
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
 
         if body.text:
@@ -1108,9 +1098,7 @@ async def convert_debate(
         elif body.debate_id:
             canvas = pipeline.debate_id_to_ideas_canvas(body.debate_id)
         else:
-            raise HTTPException(
-                status_code=400, detail="Provide debate_id or debate_data"
-            )
+            raise HTTPException(status_code=400, detail="Provide debate_id or debate_data")
 
         canvas_dict = canvas.to_dict() if hasattr(canvas, "to_dict") else canvas
         return {"canvas": canvas_dict}
@@ -1138,9 +1126,7 @@ async def convert_workflow(
         elif body.workflow_id:
             canvas = pipeline.workflow_id_to_actions_canvas(body.workflow_id)
         else:
-            raise HTTPException(
-                status_code=400, detail="Provide workflow_id or workflow_data"
-            )
+            raise HTTPException(status_code=400, detail="Provide workflow_id or workflow_data")
 
         canvas_dict = canvas.to_dict() if hasattr(canvas, "to_dict") else canvas
         return {"canvas": canvas_dict}
@@ -1152,7 +1138,9 @@ async def convert_workflow(
         raise HTTPException(status_code=500, detail="Workflow conversion failed")
 
 
-@router.post("/debates/{debate_id}/to-pipeline", response_model=PipelineCreateResponse, status_code=201)
+@router.post(
+    "/debates/{debate_id}/to-pipeline", response_model=PipelineCreateResponse, status_code=201
+)
 async def debate_to_pipeline(
     debate_id: str,
     body: DebateToPipelineRequest,

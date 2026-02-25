@@ -51,6 +51,7 @@ from aragora.gateway.enterprise.audit_interceptor import (
 )
 
 import aragora.gateway.enterprise.audit_interceptor as _mod
+
 # Import the actual submodule where _INTERCEPTOR_SIGNING_KEY lives.
 # The package __init__.py re-exports functions but NOT the private globals,
 # so setting _mod._INTERCEPTOR_SIGNING_KEY creates a new attribute on the

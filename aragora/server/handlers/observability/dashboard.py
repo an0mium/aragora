@@ -58,12 +58,8 @@ def _as_int(value: Any) -> int | None:
         return None
 
 
-_ALERT_SETTLEMENT_SUCCESS_RATE_MIN = _env_float(
-    "ARAGORA_ALERT_SETTLEMENT_SUCCESS_RATE_MIN", 0.95
-)
-_ALERT_SETTLEMENT_UNRESOLVED_DUE_MAX = _env_int(
-    "ARAGORA_ALERT_SETTLEMENT_UNRESOLVED_DUE_MAX", 10
-)
+_ALERT_SETTLEMENT_SUCCESS_RATE_MIN = _env_float("ARAGORA_ALERT_SETTLEMENT_SUCCESS_RATE_MIN", 0.95)
+_ALERT_SETTLEMENT_UNRESOLVED_DUE_MAX = _env_int("ARAGORA_ALERT_SETTLEMENT_UNRESOLVED_DUE_MAX", 10)
 _ALERT_ORACLE_STALLS_TOTAL_MAX = _env_int("ARAGORA_ALERT_ORACLE_STALLS_TOTAL_MAX", 5)
 _ALERT_ORACLE_TTFT_AVG_MS_MAX = _env_float("ARAGORA_ALERT_ORACLE_TTFT_AVG_MS_MAX", 2000.0)
 _ALERT_ORACLE_TTFT_MIN_SAMPLES = _env_int("ARAGORA_ALERT_ORACLE_TTFT_MIN_SAMPLES", 5)
@@ -387,10 +383,7 @@ class ObservabilityDashboardHandler(SecureEndpointMixin, SecureHandler):  # type
             stats = settlement_review.get("stats")
             if isinstance(stats, dict):
                 success_rate = _as_float(stats.get("success_rate"))
-                if (
-                    success_rate is not None
-                    and success_rate < _ALERT_SETTLEMENT_SUCCESS_RATE_MIN
-                ):
+                if success_rate is not None and success_rate < _ALERT_SETTLEMENT_SUCCESS_RATE_MIN:
                     alerts.append(
                         {
                             "id": "settlement_review.success_rate.low",

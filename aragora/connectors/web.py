@@ -256,6 +256,7 @@ class WebConnector(BaseConnector):
             # This is a Python limitation - thread pool tasks can't be interrupted.
             loop = asyncio.get_running_loop()
             try:
+
                 def _run_ddgs_search() -> list[dict]:
                     # duckduckgo_search.DDGS.__init__ force-enables "always" warnings.
                     # Keep that from overriding our targeted ignore for its own rename warning.

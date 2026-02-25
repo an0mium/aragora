@@ -42,7 +42,9 @@ class _InMemoryReceiptStore:
         debate_id = str(data.get("debate_id") or "") or None
         timestamp_raw = data.get("timestamp")
         if isinstance(timestamp_raw, str):
-            normalized = timestamp_raw[:-1] + "+00:00" if timestamp_raw.endswith("Z") else timestamp_raw
+            normalized = (
+                timestamp_raw[:-1] + "+00:00" if timestamp_raw.endswith("Z") else timestamp_raw
+            )
             try:
                 created_at = datetime.fromisoformat(normalized).timestamp()
             except ValueError:

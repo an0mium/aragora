@@ -390,9 +390,7 @@ class TestOriginTypeDispatch:
             assert reg_kwargs.kwargs["platform"] == platform
             assert reg_kwargs.kwargs["channel_id"] == f"{platform}-channel-1"
             assert reg_kwargs.kwargs["user_id"] == f"{platform}-user-1"
-            assert reg_kwargs.kwargs["metadata"] == {
-                "webhook_url": "https://example.com/hook"
-            }
+            assert reg_kwargs.kwargs["metadata"] == {"webhook_url": "https://example.com/hook"}
 
 
 # ---------------------------------------------------------------------------
@@ -514,10 +512,7 @@ class TestRouteResultReturnValue:
         ):
             await cleanup_debate_resources(arena, state)
             # Check that info-level log was called for successful routing
-            info_calls = [
-                c for c in mock_logger.info.call_args_list
-                if "result_routing" in str(c)
-            ]
+            info_calls = [c for c in mock_logger.info.call_args_list if "result_routing" in str(c)]
             assert len(info_calls) >= 1
 
     @pytest.mark.asyncio
@@ -538,7 +533,6 @@ class TestRouteResultReturnValue:
         ):
             await cleanup_debate_resources(arena, state)
             debug_calls = [
-                c for c in mock_logger.debug.call_args_list
-                if "result_routing" in str(c)
+                c for c in mock_logger.debug.call_args_list if "result_routing" in str(c)
             ]
             assert len(debug_calls) >= 1

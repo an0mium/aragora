@@ -40,6 +40,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Detect OpenAPI-relevant changes
         id: filter
@@ -50,8 +52,12 @@ jobs:
             exit 0
           fi
 
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-          CHANGED="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
+          git fetch --no-tags --prune origin "${{ github.base_ref }}"
+          if ! CHANGED="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" 2>/tmp/openapi_diff_err.log)"; then
+            echo "::warning::Three-dot diff failed; falling back to two-dot diff."
+            sed 's/^/::warning::/g' /tmp/openapi_diff_err.log || true
+            CHANGED="$(git diff --name-only "origin/${{ github.base_ref }}..HEAD")"
+          fi
 
           if printf '%s\n' "$CHANGED" | grep -Eq '^(aragora/server/handlers/.*|aragora/server/openapi/.*|aragora/server/openapi_impl.py|scripts/export_openapi.py|scripts/generate_openapi.py|scripts/verify_sdk_contracts.py|scripts/validate_openapi_routes.py|scripts/check_sdk_namespace_parity.py|scripts/contract_drift_report.py|scripts/generate_contract_drift_backlog.py|scripts/baselines/verify_sdk_contracts.json|scripts/baselines/validate_openapi_routes.json|scripts/baselines/check_sdk_namespace_parity.json|scripts/baselines/internal_route_prefixes.json|sdk/python/aragora/namespaces/.*|sdk/typescript/src/namespaces/.*|docs/api/openapi.*\\.json|docs/api/openapi.*\\.yaml|\\.github/workflows/openapi.yml)$'; then
             echo "run_openapi=true" >> "$GITHUB_OUTPUT"

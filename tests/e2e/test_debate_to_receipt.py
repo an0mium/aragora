@@ -1247,9 +1247,7 @@ class TestDebateControllerFlow:
         assert controller.emitter is emitter
         assert controller.storage is mock_storage
 
-    def test_start_debate_emits_debate_start_event(
-        self, mock_factory, emitter, mock_storage
-    ):
+    def test_start_debate_emits_debate_start_event(self, mock_factory, emitter, mock_storage):
         """Test that start_debate emits DEBATE_START immediately."""
         from aragora.server.debate_controller import DebateController, DebateRequest
 
@@ -1290,9 +1288,7 @@ class TestDebateControllerFlow:
         start_event = next(e for e in events if e.type == StreamEventType.DEBATE_START)
         assert start_event.data["task"] == "Test question for event emission"
 
-    def test_start_debate_emits_phase_progress(
-        self, mock_factory, emitter, mock_storage
-    ):
+    def test_start_debate_emits_phase_progress(self, mock_factory, emitter, mock_storage):
         """Test that start_debate emits PHASE_PROGRESS after DEBATE_START."""
         from aragora.server.debate_controller import DebateController, DebateRequest
 
@@ -1320,9 +1316,7 @@ class TestDebateControllerFlow:
 
         assert StreamEventType.PHASE_PROGRESS in event_types
 
-        progress_event = next(
-            e for e in events if e.type == StreamEventType.PHASE_PROGRESS
-        )
+        progress_event = next(e for e in events if e.type == StreamEventType.PHASE_PROGRESS)
         assert progress_event.data["phase"] == "research"
         assert progress_event.data["status"] == "starting"
 
@@ -1382,15 +1376,9 @@ class TestDebateControllerFlow:
 
     def test_emitter_per_agent_sequence(self, emitter):
         """Test that SyncEventEmitter tracks per-agent sequences."""
-        emitter.emit(StreamEvent(
-            type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent-a"
-        ))
-        emitter.emit(StreamEvent(
-            type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent-b"
-        ))
-        emitter.emit(StreamEvent(
-            type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent-a"
-        ))
+        emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent-a"))
+        emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent-b"))
+        emitter.emit(StreamEvent(type=StreamEventType.AGENT_MESSAGE, data={}, agent="agent-a"))
 
         drained = self._drain_events(emitter)
 

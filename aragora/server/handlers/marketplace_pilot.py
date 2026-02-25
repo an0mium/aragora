@@ -257,9 +257,9 @@ class MarketplacePilotHandler(BaseHandler):
         result = svc.install_listing(item_id, user_id=str(user_id))
 
         if not result.success:
-            all_errors = (result.catalog_result.errors if hasattr(result, "catalog_result") else []) + (
-                result.errors if hasattr(result, "errors") else []
-            )
+            all_errors = (
+                result.catalog_result.errors if hasattr(result, "catalog_result") else []
+            ) + (result.errors if hasattr(result, "errors") else [])
             return error_response(
                 all_errors[0] if all_errors else "Installation failed",
                 404,
