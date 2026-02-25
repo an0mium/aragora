@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
-import { useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 import { useToastContext } from '@/context/ToastContext';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
@@ -766,7 +765,6 @@ function SyncStatusPanel({ syncStatus }: { syncStatus: PolicySyncStatus | null }
 // ============================================================================
 
 export default function PolicyPage() {
-  useBackend();
   const { showToast } = useToastContext();
 
   // Wire up the usePolicies hook for all CRUD operations
