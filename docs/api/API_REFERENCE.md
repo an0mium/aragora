@@ -3,7 +3,7 @@
 > **Last Updated:** 2026-02-23 (v2.8.0 alignment with repo versions)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
-for multi-agent vetted decisionmaking across organizational knowledge and channels.
+for multi-agent AI debate across organizational knowledge and channels.
 
 ## SDK Coverage
 
@@ -148,7 +148,7 @@ Responses are cached in-memory for 30 seconds by default.
 
 ## Deliberations API
 
-Active vetted decisionmaking sessions and stats.
+Active AI debate sessions and stats.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -896,9 +896,9 @@ User feedback and NPS collection under `/api/v1/feedback`.
 
 | Endpoint | Description | Status |
 |----------|-------------|--------|
-| `POST /api/control-plane/deliberations` | Run or queue a vetted decisionmaking session | NEW |
-| `GET /api/control-plane/deliberations/:id` | Get vetted decisionmaking result | NEW |
-| `GET /api/control-plane/deliberations/:id/status` | Get vetted decisionmaking status | NEW |
+| `POST /api/control-plane/deliberations` | Run or queue a AI debate session | NEW |
+| `GET /api/control-plane/deliberations/:id` | Get AI debate result | NEW |
+| `GET /api/control-plane/deliberations/:id/status` | Get AI debate status | NEW |
 | `POST /api/v1/decisions` | Create a decision request | NEW |
 | `GET /api/v1/decisions/:id` | Get decision result | NEW |
 | `GET /api/v1/decisions/:id/status` | Get decision status | NEW |

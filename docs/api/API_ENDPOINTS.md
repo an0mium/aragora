@@ -1057,11 +1057,11 @@ GET /api/v1/decisions/*
 
 ## Deliberations
 
-Handler for vetted decisionmaking dashboard endpoints.
+Handler for AI debate dashboard endpoints.
 
 ### `GET` `/api/v1/deliberations/active`
 
-Fetch active vetted decisionmaking sessions from the debate store
+Fetch active AI debate sessions from the debate store
 
 ### `GET` `/api/v1/deliberations/stats`
 
@@ -1191,7 +1191,7 @@ Validate DR configuration
 
 ## EmailDebate
 
-Handler for email vetted decisionmaking API endpoints.
+Handler for email AI debate API endpoints.
 
 ### `GET` `/api/v1/email/prioritize`
 

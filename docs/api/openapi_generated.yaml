@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Aragora API
-  description: Control plane for multi-agent vetted decisionmaking across org knowledge and channels. Orchestrate 15+ AI models
+  description: Control plane for multi-agent AI debate across org knowledge and channels. Orchestrate 15+ AI models
     to debate your organization's knowledge and deliver defensible decisions with full audit trails.
   version: 1.0.0
   contact:
@@ -8396,8 +8396,8 @@ paths:
     post:
       tags:
       - Control Plane
-      summary: Run vetted decisionmaking session
-      description: Run or queue a vetted decisionmaking session (async when async=true).
+      summary: Run AI debate session
+      description: Run or queue a AI debate session (async when async=true).
       security:
       - bearerAuth: []
       requestBody:
@@ -8521,8 +8521,8 @@ paths:
     get:
       tags:
       - Control Plane
-      summary: Get vetted decisionmaking result
-      description: Fetch a stored vetted decisionmaking record by request ID.
+      summary: Get AI debate result
+      description: Fetch a stored AI debate record by request ID.
       security:
       - bearerAuth: []
       parameters:
@@ -8627,8 +8627,8 @@ paths:
     get:
       tags:
       - Control Plane
-      summary: Get vetted decisionmaking status
-      description: Check vetted decisionmaking status for polling.
+      summary: Get AI debate status
+      description: Check AI debate status for polling.
       security:
       - bearerAuth: []
       parameters:
@@ -50599,9 +50599,9 @@ paths:
     post:
       tags:
       - Control Plane
-      summary: Run vetted decisionmaking session
+      summary: Run AI debate session
       operationId: createControlPlaneDeliberations
-      description: Run or queue a vetted decisionmaking session (async when async=true).
+      description: Run or queue a AI debate session (async when async=true).
       security:
       - bearerAuth: []
       requestBody:
@@ -50752,9 +50752,9 @@ paths:
     get:
       tags:
       - Control Plane
-      summary: Get vetted decisionmaking result
+      summary: Get AI debate result
       operationId: getControlPlaneDeliberation
-      description: Fetch a stored vetted decisionmaking record by request ID.
+      description: Fetch a stored AI debate record by request ID.
       security:
       - bearerAuth: []
       parameters:
@@ -50858,9 +50858,9 @@ paths:
     get:
       tags:
       - Control Plane
-      summary: Get vetted decisionmaking status
+      summary: Get AI debate status
       operationId: getControlPlaneDeliberationsStatu
-      description: Check vetted decisionmaking status for polling.
+      description: Check AI debate status for polling.
       security:
       - bearerAuth: []
       parameters:

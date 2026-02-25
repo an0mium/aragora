@@ -132,13 +132,13 @@ async def control_plane_example():
 asyncio.run(control_plane_example())
 ```
 
-### Control Plane Vetted Decisionmaking
+### Control Plane AI Debate
 
 ```python
 async def control_plane_decisionmaking():
-    """Run a vetted decisionmaking session via the control plane (sync or async)."""
+    """Run a AI debate session via the control plane (sync or async)."""
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
-        # Submit a vetted decisionmaking session (async)
+        # Submit a AI debate session (async)
         response = await client.post("/api/control-plane/deliberations", json={
             "content": "Evaluate the rollout risk for this migration plan",
             "decision_type": "debate",
