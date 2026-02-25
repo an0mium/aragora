@@ -1367,12 +1367,14 @@ class TestEdgeCases:
         assert my_handler(self_mock, h) == "ok"
 
     def test_normalize_ip_ipv4_mapped_ipv6(self):
+        import ipaddress
+
         from aragora.server.handlers.utils.rate_limit import _normalize_ip
 
         # IPv4-mapped IPv6 addresses get normalized by Python's ipaddress module
         result = _normalize_ip("::ffff:192.168.1.1")
-        # Python normalizes to hex form: ::ffff:c0a8:101
-        assert result == "::ffff:c0a8:101"
+        # Accept semantically equivalent textual forms across runtimes/plugins.
+        assert ipaddress.ip_address(result) == ipaddress.ip_address("::ffff:192.168.1.1")
 
     def test_get_client_ip_no_headers_attr(self):
         """Handler without headers attribute."""
