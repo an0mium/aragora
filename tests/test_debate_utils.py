@@ -421,9 +421,9 @@ class TestWrapAgentForStreaming:
         calls = emitter.emit.call_args_list
         assert len(calls) >= 3  # START + DELTAs + END
 
-        # First should be TOKEN_START
+        # First event is agent_thinking (pre-generation), then token stream
         first_event = calls[0][0][0]
-        assert first_event.type.value == "token_start"
+        assert first_event.type.value in ("token_start", "agent_thinking")
 
         # Last should be TOKEN_END
         last_event = calls[-1][0][0]
