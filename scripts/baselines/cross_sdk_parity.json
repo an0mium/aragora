@@ -9,6 +9,8 @@
     "/api/backups/schedules/{param}",
     "/api/backups/{param}/restore",
     "/api/bindings/{param}/{param}/{param}",
+    "/api/debates/{param}/agent-statistics",
+    "/api/debates/{param}/make-permanent",
     "/api/decisions/{param}/cancel",
     "/api/decisions/{param}/retry",
     "/api/flips/{param}",
