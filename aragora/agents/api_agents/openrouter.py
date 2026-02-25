@@ -414,14 +414,24 @@ class OpenRouterAgent(APIAgent):
             agent_name=self.name,
         )
 
+    @handle_stream_errors()
     async def generate_stream(
         self, prompt: str, context: list[Message] | None = None
     ) -> AsyncGenerator[str, None]:
-        """Stream tokens from OpenRouter API with rate limiting and retry.
+        """Stream tokens from OpenRouter API with rate limiting, retry, and circuit breaker.
 
         Yields chunks of text as they arrive from the API using SSE.
         Implements retry logic with exponential backoff for 429 rate limit errors.
+        Circuit breaker prevents cascading failures when the API is consistently down.
+        The @handle_stream_errors decorator wraps streaming iteration errors.
         """
+        # Check circuit breaker before streaming (fail fast)
+        if self._circuit_breaker is not None and not self._circuit_breaker.can_proceed():
+            raise AgentCircuitOpenError(
+                f"Circuit breaker open for {self.name} streaming - too many recent failures",
+                agent_name=self.name,
+            )
+
         max_retries = 3
         base_delay = 2.0
 

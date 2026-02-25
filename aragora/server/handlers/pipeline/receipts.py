@@ -119,14 +119,22 @@ class ReceiptExplorerHandler(BaseHandler):
         if status:
             receipts = [r for r in receipts if r.get("execution", {}).get("status") == status]
 
-        # Also query KM for historical receipts
+        # Merge KM-stored historical receipts into listing
         try:
-            from aragora.knowledge.mound.adapters.pipeline_adapter import get_pipeline_adapter
+            from aragora.knowledge.mound.adapters.receipt_adapter import ReceiptAdapter
 
-            get_pipeline_adapter()  # verify KM availability
-            logger.debug("Receipt explorer: KM adapter available for extended search")
-        except (ImportError, RuntimeError):
-            pass
+            adapter = ReceiptAdapter()
+            km_receipts = adapter.list_receipts(limit=limit)
+            if km_receipts:
+                # Deduplicate by receipt_id (in-memory takes precedence)
+                existing_ids = {r.get("receipt_id") for r in receipts}
+                for km_receipt in km_receipts:
+                    rid = km_receipt.get("receipt_id")
+                    if rid and rid not in existing_ids:
+                        receipts.append(km_receipt)
+                        existing_ids.add(rid)
+        except (ImportError, RuntimeError, AttributeError, TypeError) as e:
+            logger.debug("KM receipt lookup skipped: %s", type(e).__name__)
 
         receipts = receipts[:limit]
         return json_response(

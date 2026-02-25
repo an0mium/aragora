@@ -507,7 +507,18 @@ class UniversalGraphHandler(BaseHandler):
         try:
             from aragora.pipeline.dag_operations import DAGOperationsCoordinator
 
-            coord = DAGOperationsCoordinator(graph, store=store)
+            # Optionally inject federation coordinator for cross-workspace execution
+            federation_coordinator = None
+            try:
+                from aragora.coordination.cross_workspace import get_coordinator
+
+                federation_coordinator = get_coordinator()
+            except (ImportError, RuntimeError):
+                pass
+
+            coord = DAGOperationsCoordinator(
+                graph, store=store, federation_coordinator=federation_coordinator
+            )
             # For debate-based execution, use agents from body or defaults
             agents = body.get("agents")
             rounds = body.get("rounds", 3)
