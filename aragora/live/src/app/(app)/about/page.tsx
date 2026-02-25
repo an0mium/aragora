@@ -223,28 +223,25 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* CLI Examples */}
+        {/* Quick Start */}
         <section className="py-16 px-4">
           <div className="container mx-auto max-w-4xl">
             <h2 className="text-2xl font-mono text-acid-green mb-8 text-center">Quick Start</h2>
-            <div className="bg-bg border border-acid-green/30 p-4 font-mono text-sm overflow-x-auto">
-              <pre className="text-text-muted">
-{`$ pip install aragora
-
-$ aragora ask "Design a rate limiter for 1M req/sec"
-[Round 1] claude_proposer: Token bucket with Redis cluster...
-[Round 1] gemini_critic: Race condition in distributed counter
-[Round 1] gpt_critic: Missing backpressure mechanism
-[Round 2] claude_proposer: Revised with CAS operations...
-[Round 2] gemini_critic: Addresses race condition ✓
-[Round 2] gpt_critic: Added circuit breaker ✓
-Consensus reached (confidence: 87%)
-
-$ aragora nomic --cycles 3  # Run self-improvement loop
-[Cycle 1] Debating improvements...
-[Cycle 1] Implementing: "Add caching to debate storage"
-[Cycle 1] Verified ✓ Committed`}
-              </pre>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                { step: '1', title: 'Ask a Question', desc: 'Type any decision or question into the Oracle. "Should we migrate to microservices?" works great.', href: '/oracle', cta: 'Try the Oracle' },
+                { step: '2', title: 'Watch AI Models Debate', desc: 'Claude, GPT, Gemini and others argue every angle — proposing, critiquing, and revising in real time.', href: '/demo', cta: 'Watch a Demo' },
+                { step: '3', title: 'Get Your Verdict', desc: 'Receive a consensus verdict with confidence scores, minority opinions, and a full audit trail.', href: '/arena', cta: 'Start a Debate' },
+              ].map((item) => (
+                <div key={item.step} className="border border-acid-green/20 p-6 bg-bg/50 text-center">
+                  <div className="text-3xl font-mono text-acid-green mb-3">{item.step}</div>
+                  <h3 className="text-acid-cyan font-mono text-sm mb-2">{item.title}</h3>
+                  <p className="text-text-muted text-xs font-mono mb-4">{item.desc}</p>
+                  <Link href={item.href} className="text-xs font-mono text-acid-green hover:text-acid-cyan transition-colors">
+                    {item.cta} &rarr;
+                  </Link>
+                </div>
+              ))}
             </div>
           </div>
         </section>

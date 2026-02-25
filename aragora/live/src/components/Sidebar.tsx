@@ -78,9 +78,9 @@ const browseItems: NavItem[] = [
   { label: 'Knowledge', href: '/knowledge', icon: '?' },
   { label: 'Leaderboard', href: '/leaderboard', icon: '^', minMode: 'standard' },
   { label: 'Agents', href: '/agents', icon: '&', minMode: 'standard' },
-  { label: 'Agent Performance', href: '/agents/performance', icon: '\u2197', minMode: 'advanced' },
+  { label: 'Performance', href: '/agents/performance', icon: '\u2197', minMode: 'advanced' },
   { label: 'Marketplace', href: '/marketplace', icon: '$', minMode: 'standard' },
-  { label: 'Costs', href: '/usage', icon: '%', minMode: 'standard' },
+  { label: 'Usage & Costs', href: '/usage', icon: '%', minMode: 'standard' },
   { label: 'Gallery', href: '/gallery', icon: '*' },
   { label: 'Features', href: '/features', icon: '\u2756' },
   { label: 'About', href: '/about', icon: 'i' },
@@ -122,7 +122,6 @@ const analyticsItems: NavItem[] = [
   { label: 'Outcome Dashboard', href: '/outcome-dashboard', icon: '\u2611', minMode: 'standard' },
   { label: 'ELO Analytics', href: '/elo-analytics', icon: '\u2295', minMode: 'standard' },
   { label: 'Agent Evolution', href: '/agent-evolution', icon: '\u267E', minMode: 'advanced' },
-  { label: 'Agent Performance', href: '/agent-performance', icon: '\u2261', minMode: 'standard' },
   { label: 'Calibration', href: '/calibration', icon: '\u2316', minMode: 'advanced' },
   { label: 'Evaluation', href: '/evaluation', icon: '\u2606', minMode: 'advanced' },
   { label: 'Uncertainty', href: '/uncertainty', icon: '\u00B1', minMode: 'advanced' },
@@ -133,10 +132,8 @@ const analyticsItems: NavItem[] = [
   { label: 'Argument Analysis', href: '/argument-analysis', icon: '\u2726', minMode: 'standard' },
   { label: 'Consensus', href: '/consensus', icon: '\u2299', minMode: 'standard' },
   { label: 'Differentiation', href: '/differentiation', icon: '\u25C7', minMode: 'standard' },
-  { label: 'Spend Analytics', href: '/analytics/spend', icon: '\u00A4', minMode: 'standard' },
-  { label: 'Spend', href: '/spend', icon: '$', minMode: 'standard' },
-  { label: 'Decision Outcomes', href: '/analytics/decisions', icon: '\u2713', minMode: 'standard' },
-  { label: 'Usage', href: '/usage', icon: '%', minMode: 'standard' },
+  { label: 'Spend', href: '/analytics/spend', icon: '\u00A4', minMode: 'standard' },
+  { label: 'Decisions', href: '/analytics/decisions', icon: '\u2713', minMode: 'standard' },
 ];
 
 /* === ENTERPRISE SECTION === Progressive disclosure group */
@@ -219,7 +216,6 @@ const orchestrationItems: NavItem[] = [
   { label: 'Automation', href: '/nomic-control', icon: '\u221E', minMode: 'advanced' },
   { label: 'Auto-Improve', href: '/self-improve', icon: '\u21BB', minMode: 'advanced' },
   { label: 'Verification', href: '/verification', icon: '\u2713', minMode: 'advanced' },
-  { label: 'Verify', href: '/verify', icon: '\u2714', minMode: 'advanced' },
   { label: 'Coordination', href: '/coordination', icon: '\u2693', minMode: 'advanced' },
   { label: 'Feedback Hub', href: '/feedback-hub', icon: '\u21C4', minMode: 'advanced' },
 ];
