@@ -625,20 +625,21 @@ async def init_api_key_proxy() -> bool:
         proxy = get_api_key_proxy()
 
         # Import rotation handlers to trigger auto-registration
-        try:
-            import aragora.security.elevenlabs_rotator  # noqa: F401
-        except ImportError:
-            logger.debug("ElevenLabs rotator not available")
-
-        try:
-            import aragora.security.gemini_rotator  # noqa: F401
-        except ImportError:
-            logger.debug("Gemini rotator not available")
-
-        try:
-            import aragora.security.fal_rotator  # noqa: F401
-        except ImportError:
-            logger.debug("fal.ai rotator not available")
+        rotator_modules = [
+            ("aragora.security.elevenlabs_rotator", "ElevenLabs"),
+            ("aragora.security.gemini_rotator", "Gemini"),
+            ("aragora.security.fal_rotator", "fal.ai"),
+            ("aragora.security.mistral_rotator", "Mistral"),
+            ("aragora.security.openrouter_rotator", "OpenRouter"),
+            ("aragora.security.xai_rotator", "xAI"),
+            ("aragora.security.deepseek_rotator", "DeepSeek"),
+            ("aragora.security.stripe_rotator", "Stripe"),
+        ]
+        for module_path, name in rotator_modules:
+            try:
+                __import__(module_path)
+            except ImportError:
+                logger.debug("%s rotator not available", name)
 
         # Start the proxy (begins rotation scheduler)
         await proxy.start()
