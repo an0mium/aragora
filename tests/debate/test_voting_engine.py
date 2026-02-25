@@ -620,7 +620,14 @@ class TestNLIContradictionDetection:
     @pytest.fixture
     def nli_backend(self):
         """Create a SentenceTransformerBackend with NLI enabled."""
+        import sentence_transformers as st
+
         from aragora.debate.similarity.backends import SentenceTransformerBackend
+
+        # Global test harness may preload a fake sentence_transformers module to
+        # avoid heavy imports/network model downloads.
+        if getattr(st, "__version__", "") == "0.0.0-test-fake":
+            pytest.skip("Real NLI model unavailable: sentence_transformers is test-fake")
 
         # Clear ALL class-level caches including model caches
         # This ensures we get fresh real models, not cached mocks

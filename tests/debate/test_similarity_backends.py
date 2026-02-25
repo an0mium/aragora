@@ -196,6 +196,8 @@ class TestJaccardBackend:
     """Tests for Jaccard similarity backend."""
 
     def setup_method(self) -> None:
+        # Reset tunables so prior tests cannot leak cache-size state.
+        JaccardBackend._cache_max_size = 256
         JaccardBackend.clear_cache()
 
     def test_identical_texts(self) -> None:
@@ -293,6 +295,8 @@ class TestTFIDFBackend:
     """Tests for TF-IDF similarity backend."""
 
     def setup_method(self) -> None:
+        # Reset tunables so prior tests cannot leak cache-size state.
+        TFIDFBackend._cache_max_size = 256
         TFIDFBackend.clear_cache()
 
     def test_init(self) -> None:
@@ -365,6 +369,8 @@ class TestSentenceTransformerBackend:
     """Tests for SentenceTransformerBackend with mocked models."""
 
     def setup_method(self) -> None:
+        # Reset tunables so prior tests cannot leak cache-size state.
+        SentenceTransformerBackend._cache_max_size = 256
         SentenceTransformerBackend.clear_cache()
         # Reset class-level model caches
         SentenceTransformerBackend._model_cache = None

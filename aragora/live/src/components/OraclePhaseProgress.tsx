@@ -28,9 +28,9 @@ interface PhaseInfo {
 }
 
 const PHASES: PhaseInfo[] = [
-  { key: 'reflex',    label: 'REFLEX',    desc: 'Initial sensing',     icon: '\u26A1' },
-  { key: 'deep',      label: 'DEEP',      desc: 'Deep channeling',     icon: '\u{1F9E0}' },
-  { key: 'tentacles', label: 'TENTACLES', desc: 'Multi-agent debate',  icon: '\u{1F419}' },
+  { key: 'reflex',    label: 'REFLEX',    desc: 'Quick response',       icon: '\u26A1' },
+  { key: 'deep',      label: 'DEEP',      desc: 'Detailed analysis',    icon: '\u{1F9E0}' },
+  { key: 'tentacles', label: 'DEBATE', desc: 'Multi-agent debate',  icon: '\u{1F419}' },
   { key: 'synthesis', label: 'SYNTHESIS', desc: 'Convergence',         icon: '\u{1F52E}' },
 ];
 
