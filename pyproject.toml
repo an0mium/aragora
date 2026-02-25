@@ -464,8 +464,9 @@ filterwarnings = [
     # fixed in pyiceberg 0.11.0 — remove this filter after upgrading)
     "ignore::pydantic.warnings.PydanticDeprecatedSince212:pyiceberg",
     # Suppress pyiceberg parser deprecation warnings from upstream pyparsing API renames.
+    # Use DeprecationWarning to avoid importing optional pyparsing at pytest-config parse time.
     # Remove after pyiceberg updates parser calls (enablePackrat/escChar/unquoteResults).
-    "ignore::pyparsing.exceptions.PyparsingDeprecationWarning:pyiceberg.expressions.parser",
+    "ignore::DeprecationWarning:pyiceberg.expressions.parser",
 ]
 markers = [
     "unit: marks tests as fast unit tests (run with '-m unit')",
