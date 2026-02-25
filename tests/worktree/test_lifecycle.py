@@ -77,9 +77,7 @@ def test_maintain_managed_dirs_tracks_failures(tmp_path: Path) -> None:
 
 def test_create_worktree_uses_git_runner() -> None:
     service = WorktreeLifecycleService(repo_root=Path("/tmp/repo"))
-    git_runner = MagicMock(
-        return_value=argparse.Namespace(returncode=0, stdout="ok", stderr="")
-    )
+    git_runner = MagicMock(return_value=argparse.Namespace(returncode=0, stdout="ok", stderr=""))
 
     result = service.create_worktree(
         worktree_path=Path("/tmp/repo/.worktrees/dev-test"),
@@ -97,9 +95,7 @@ def test_create_worktree_uses_git_runner() -> None:
 
 def test_remove_worktree_force_uses_git_runner() -> None:
     service = WorktreeLifecycleService(repo_root=Path("/tmp/repo"))
-    git_runner = MagicMock(
-        return_value=argparse.Namespace(returncode=0, stdout="", stderr="")
-    )
+    git_runner = MagicMock(return_value=argparse.Namespace(returncode=0, stdout="", stderr=""))
 
     result = service.remove_worktree(
         worktree_path=Path("/tmp/repo/.worktrees/dev-test"),

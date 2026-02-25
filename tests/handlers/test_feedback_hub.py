@@ -374,7 +374,9 @@ class TestEdgeCases:
         mock_hub.history.assert_called_once_with(limit=0)
 
     @patch("aragora.nomic.feedback_hub.get_feedback_hub")
-    def test_history_non_numeric_limit_causes_error(self, mock_get_hub, handler, http_get, mock_hub):
+    def test_history_non_numeric_limit_causes_error(
+        self, mock_get_hub, handler, http_get, mock_hub
+    ):
         """Non-numeric limit should cause a ValueError caught by handle_errors."""
         mock_get_hub.return_value = mock_hub
         result = handler.handle_get("/api/v1/feedback-hub/history", {"limit": "abc"}, http_get)

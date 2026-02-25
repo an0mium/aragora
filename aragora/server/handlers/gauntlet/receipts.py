@@ -101,9 +101,7 @@ class GauntletReceiptsMixin:
                 created_at_iso = ""
                 if sr.created_at:
                     try:
-                        created_at_iso = datetime.fromtimestamp(
-                            sr.created_at
-                        ).isoformat()
+                        created_at_iso = datetime.fromtimestamp(sr.created_at).isoformat()
                     except (OSError, ValueError, OverflowError):
                         created_at_iso = ""
 

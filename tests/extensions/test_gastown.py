@@ -436,7 +436,9 @@ class TestHookRunner:
             stderr="",
         )
 
-        with patch("aragora.extensions.gastown.hooks.WorktreeLifecycleService", return_value=mock_service):
+        with patch(
+            "aragora.extensions.gastown.hooks.WorktreeLifecycleService", return_value=mock_service
+        ):
             result = await runner.create_worktree(
                 repo_path=str(repo),
                 worktree_path=str(worktree),
@@ -460,7 +462,9 @@ class TestHookRunner:
             stderr="",
         )
 
-        with patch("aragora.extensions.gastown.hooks.WorktreeLifecycleService", return_value=mock_service):
+        with patch(
+            "aragora.extensions.gastown.hooks.WorktreeLifecycleService", return_value=mock_service
+        ):
             result = await runner.remove_worktree(str(worktree))
 
         assert result["success"] is True

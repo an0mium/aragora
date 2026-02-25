@@ -157,7 +157,9 @@ class TestWorktreeManager:
             "results": [],
         }
 
-        with patch.object(manager._lifecycle, "maintain_managed_dirs", return_value=expected) as mock:
+        with patch.object(
+            manager._lifecycle, "maintain_managed_dirs", return_value=expected
+        ) as mock:
             result = manager.maintain_managed_sessions(
                 base_branch="main",
                 managed_dirs=[".worktrees/codex-auto"],

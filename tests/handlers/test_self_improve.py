@@ -1719,8 +1719,12 @@ class TestWorktrees:
         mock_service.run_autopilot_action.return_value = mock_proc
 
         with patch("aragora.worktree.WorktreeLifecycleService", return_value=mock_service):
-            http = MockHTTPHandler(body={"agent": "codex-ci", "managed_dir": ".worktrees/codex-auto"})
-            result = await handler.handle_post("/api/self-improve/worktrees/autopilot/ensure", {}, http)
+            http = MockHTTPHandler(
+                body={"agent": "codex-ci", "managed_dir": ".worktrees/codex-auto"}
+            )
+            result = await handler.handle_post(
+                "/api/self-improve/worktrees/autopilot/ensure", {}, http
+            )
 
         body = _body(result)
         assert body["action"] == "ensure"

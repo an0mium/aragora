@@ -361,8 +361,12 @@ class SecurityHandler(SecureHandler):
                         "total_rotations": stats.total_rotations,
                         "successful_rotations": stats.successful_rotations,
                         "failed_rotations": stats.failed_rotations,
-                        "last_rotation_at": stats.last_rotation_at.isoformat() if stats.last_rotation_at else None,
-                        "next_check_at": stats.next_check_at.isoformat() if stats.next_check_at else None,
+                        "last_rotation_at": stats.last_rotation_at.isoformat()
+                        if stats.last_rotation_at
+                        else None,
+                        "next_check_at": stats.next_check_at.isoformat()
+                        if stats.next_check_at
+                        else None,
                         "keys_tracked": stats.keys_tracked,
                         "keys_expiring_soon": stats.keys_expiring_soon,
                     }

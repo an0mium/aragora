@@ -207,7 +207,8 @@ class HarnessesHandler(BaseHandler):
         initialized = False
         try:
             initialized = self._run_async_callable(  # type: ignore[attr-defined]
-                instance.initialize)
+                instance.initialize
+            )
         except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.warning("Failed to initialize harness '%s': %s", name, e)
 
