@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -124,8 +123,6 @@ async def get_encryption_status(request: Request) -> dict[str, Any]:
 
     Response wrapped in ``{"data": ...}`` for frontend compatibility.
     """
-    now = datetime.now(timezone.utc)
-
     # ----- At-rest encryption -----
     at_rest_algorithm = "AES-256-GCM"
     at_rest_status: str = "inactive"
