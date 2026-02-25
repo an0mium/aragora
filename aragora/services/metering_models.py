@@ -34,7 +34,7 @@ class MeteringPeriod(Enum):
 class UsageType(Enum):
     """Types of metered usage events."""
 
-    TOKEN = "token"
+    TOKEN = "token"  # noqa: S105 -- enum value
     DEBATE = "debate"
     API_CALL = "api_call"
     STORAGE = "storage"
