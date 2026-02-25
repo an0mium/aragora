@@ -30,6 +30,8 @@
     "/api/github/reviews/{param}/submit",
     "/api/onboarding/complete",
     "/api/onboarding/status",
+    "/api/quotas/usage",
+    "/api/quotas/{param}",
     "/api/rankings/{param}",
     "/api/reconciliation",
     "/api/search/facets",
@@ -42,6 +44,8 @@
     "/api/shared-inbox/{param}/messages",
     "/api/shared-inbox/{param}/messages/{param}/assign",
     "/api/status/maintenance",
+    "/api/teams/debates",
+    "/api/teams/tenants",
     "/api/youtube/auth/status"
   ]
 }

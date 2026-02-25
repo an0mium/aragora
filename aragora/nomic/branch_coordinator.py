@@ -515,8 +515,18 @@ class BranchCoordinator:
                 error=f"Branch {source} does not exist",
             )
 
-        # Checkout target branch
-        self._run_git("checkout", target)
+        # Checkout target branch. In multi-worktree setups this can fail when
+        # the target branch is already checked out elsewhere; report cleanly
+        # instead of raising so orchestration can continue.
+        checkout_result = self._run_git("checkout", target, check=False)
+        if checkout_result.returncode != 0:
+            checkout_error = (checkout_result.stderr or checkout_result.stdout).strip()
+            return MergeResult(
+                source_branch=source,
+                target_branch=target,
+                success=False,
+                error=f"Failed to checkout target branch {target}: {checkout_error}",
+            )
         self._run_git("pull", "--rebase", "origin", target, check=False)
 
         if dry_run:
@@ -946,7 +956,7 @@ class BranchCoordinator:
                 source_branch=source,
                 target_branch=target,
                 success=False,
-                error="Dry-run merge failed: conflicts detected",
+                error=dry_result.error or "Dry-run merge failed: conflicts detected",
                 conflicts=dry_result.conflicts,
             )
 
@@ -983,7 +993,15 @@ class BranchCoordinator:
                 )
 
         # Step 3: Actual merge (--no-ff)
-        self._run_git("checkout", target)
+        checkout_result = self._run_git("checkout", target, check=False)
+        if checkout_result.returncode != 0:
+            checkout_error = (checkout_result.stderr or checkout_result.stdout).strip()
+            return MergeResult(
+                source_branch=source,
+                target_branch=target,
+                success=False,
+                error=f"Failed to checkout target branch {target}: {checkout_error}",
+            )
         self._run_git("pull", "--rebase", "origin", target, check=False)
 
         merge_proc = self._run_git(

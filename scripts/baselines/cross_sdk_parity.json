@@ -295,6 +295,8 @@
     "/api/learning/sessions/{param}/stop",
     "/api/memory/{param}",
     "/api/nomic/proposals/{param}",
+    "/api/onboarding/complete",
+    "/api/onboarding/status",
     "/api/policies/violations/{param}/resolve",
     "/api/policies/{param}/disable",
     "/api/policies/{param}/enable",
