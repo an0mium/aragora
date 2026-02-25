@@ -20,6 +20,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import sqlite3
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -43,7 +44,14 @@ class InstallBridgeResult:
 
     @property
     def success(self) -> bool:
-        return self.catalog_result.success and not self.errors
+        """True if the catalog-level install succeeded.
+
+        Bridge errors (e.g. registry unavailable) are non-fatal and recorded
+        in :attr:`errors` but do **not** prevent the install from being
+        considered successful.  Pre-install validation failures set
+        ``catalog_result.success`` to False.
+        """
+        return self.catalog_result.success
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -338,7 +346,7 @@ class MarketplaceInstaller:
                 listing_id,
             )
 
-        except (ImportError, ValueError, TypeError, RuntimeError) as exc:
+        except (ImportError, ValueError, TypeError, RuntimeError, sqlite3.Error) as exc:
             msg = f"Failed to bridge template {item.id}: {exc}"
             logger.warning(msg)
             result.errors.append(msg)
@@ -369,6 +377,6 @@ class MarketplaceInstaller:
                     )
 
             return removed
-        except (ImportError, ValueError, RuntimeError) as exc:
+        except (ImportError, ValueError, RuntimeError, sqlite3.Error) as exc:
             logger.warning("Failed to unbridge template %s: %s", item.id, exc)
             return False

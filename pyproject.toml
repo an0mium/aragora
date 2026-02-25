@@ -460,6 +460,9 @@ filterwarnings = [
     "ignore:cannot collect test class.*:pytest.PytestCollectionWarning",
     # Ignore unawaited coroutine warnings from AsyncMock cleanup during tests
     "ignore:coroutine .* was never awaited:RuntimeWarning",
+    # Suppress pyiceberg Pydantic V2.12 deprecation warnings (transitive dep via storage3;
+    # fixed in pyiceberg 0.11.0 — remove this filter after upgrading)
+    "ignore::pydantic.warnings.PydanticDeprecatedSince212:pyiceberg",
 ]
 markers = [
     "unit: marks tests as fast unit tests (run with '-m unit')",

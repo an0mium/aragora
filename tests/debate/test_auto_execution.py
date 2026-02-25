@@ -478,6 +478,7 @@ class TestCleanupDebateResourcesIntegration:
 
         arena = MagicMock()
         arena.enable_auto_execution = True
+        arena.enable_result_routing = False
         arena.auto_execution_mode = "workflow"
         arena.auto_approval_mode = "risk_based"
         arena.auto_max_risk = "low"
@@ -512,6 +513,7 @@ class TestCleanupDebateResourcesIntegration:
 
         arena = MagicMock()
         arena.enable_auto_execution = False
+        arena.enable_result_routing = False
         arena.protocol = MagicMock(
             checkpoint_cleanup_on_success=False,
             enable_translation=False,
@@ -538,6 +540,7 @@ class TestCleanupDebateResourcesIntegration:
 
         arena = MagicMock()
         arena.enable_auto_execution = True
+        arena.enable_result_routing = False
         arena.protocol = MagicMock(
             checkpoint_cleanup_on_success=False,
             enable_translation=False,

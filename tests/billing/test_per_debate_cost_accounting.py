@@ -651,6 +651,7 @@ class TestDebateCostInfrastructureWiring:
         arena._cleanup_convergence_cache = MagicMock()
         arena._teardown_agent_channels = AsyncMock()
         arena.enable_auto_execution = False
+        arena.enable_result_routing = False
 
         ctx = MagicMock()
         ctx.result = MagicMock()

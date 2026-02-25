@@ -84,11 +84,12 @@ export function TopBar() {
             </span>
             <button
               onClick={() => logout?.()}
-              className="p-2 hover:bg-[var(--surface-elevated)] rounded transition-colors"
+              className="flex items-center gap-1.5 px-2 py-1 hover:bg-[var(--surface-elevated)] rounded transition-colors text-[var(--text-muted)] hover:text-[var(--acid-green)]"
               aria-label="Logout"
               title="Logout"
             >
-              <span className="text-[var(--acid-green)] font-mono">●</span>
+              <span className="text-[var(--acid-green)] font-mono text-xs">●</span>
+              <span className="hidden sm:inline font-mono text-xs">Logout</span>
             </button>
           </div>
         ) : (

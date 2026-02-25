@@ -153,6 +153,7 @@ def mock_arena(
     arena.prompt_builder = None
     arena.use_performance_selection = False
     arena.enable_auto_execution = False
+    arena.enable_result_routing = False
     arena.phase_executor = mock_phase_executor
     arena.extensions = mock_extensions
 

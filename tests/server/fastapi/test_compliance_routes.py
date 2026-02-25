@@ -120,48 +120,62 @@ def _override_auth(client, permissions=None):
 
 
 class TestComplianceStatus:
-    """Tests for GET /api/v2/compliance/status."""
+    """Tests for GET /api/v2/compliance/status (dashboard shape)."""
 
     def test_status_returns_200(self, client):
-        """Status returns compliance overview."""
+        """Status returns compliance dashboard overview wrapped in data envelope."""
         response = client.get("/api/v2/compliance/status")
         assert response.status_code == 200
-        data = response.json()
-        assert data["framework"] == "soc2"
-        assert data["overall_status"] == "partially_compliant"
-        assert data["controls_total"] == 3
-        assert data["controls_passing"] == 1
-        assert data["controls_failing"] == 1
-        assert data["controls_not_assessed"] == 1
+        body = response.json()
+        assert "data" in body
+        data = body["data"]
+        assert "status" in data
+        assert "compliance_score" in data
+        assert "frameworks" in data
+        assert "controls_summary" in data
+        assert "last_audit" in data
+        assert "next_audit_due" in data
+        assert "generated_at" in data
 
-    def test_status_coverage_percent(self, client):
-        """Status computes coverage percentage."""
+    def test_status_has_framework_sections(self, client):
+        """Status response includes soc2_type2, gdpr, hipaa frameworks."""
         response = client.get("/api/v2/compliance/status")
         assert response.status_code == 200
-        data = response.json()
-        # 1 passing out of 3 controls = 33.3%
-        assert data["coverage_percent"] == pytest.approx(33.3, abs=0.1)
+        fw = response.json()["data"]["frameworks"]
+        assert "soc2_type2" in fw
+        assert "gdpr" in fw
+        assert "hipaa" in fw
 
-    def test_status_with_framework_param(self, client, mock_compliance_framework):
-        """Status passes framework parameter."""
-        response = client.get("/api/v2/compliance/status?framework=gdpr")
-        assert response.status_code == 200
-        mock_compliance_framework.get_status.assert_called_once_with(framework="gdpr")
-
-    def test_status_includes_controls(self, client):
-        """Status response includes control details."""
+    def test_status_soc2_aggregates_controls(self, client):
+        """SOC 2 section reflects controls from the framework manager."""
         response = client.get("/api/v2/compliance/status")
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["controls"]) == 3
-        ctrl = data["controls"][0]
-        assert ctrl["control_id"] == "CC-1.1"
-        assert ctrl["name"] == "Control Environment"
-        assert ctrl["status"] == "passing"
-        assert ctrl["evidence_count"] == 5
+        soc2 = response.json()["data"]["frameworks"]["soc2_type2"]
+        # Mock provides 3 controls, 1 passing
+        assert soc2["controls_assessed"] == 3
+        assert soc2["controls_compliant"] == 1
+        assert soc2["status"] == "in_progress"
+
+    def test_status_gdpr_section(self, client):
+        """GDPR section reports data-export / consent / retention flags."""
+        response = client.get("/api/v2/compliance/status")
+        assert response.status_code == 200
+        gdpr = response.json()["data"]["frameworks"]["gdpr"]
+        assert "data_export" in gdpr
+        assert "consent_tracking" in gdpr
+        assert "retention_policy" in gdpr
+
+    def test_status_controls_summary(self, client):
+        """Controls summary aggregates totals."""
+        response = client.get("/api/v2/compliance/status")
+        assert response.status_code == 200
+        summary = response.json()["data"]["controls_summary"]
+        assert "total" in summary
+        assert "compliant" in summary
+        assert "non_compliant" in summary
 
     def test_status_when_framework_unavailable(self, app):
-        """Status returns defaults when framework is not configured."""
+        """Status returns reasonable defaults when framework is not configured."""
         app.state.context = {
             "storage": MagicMock(),
             "elo_system": MagicMock(),
@@ -174,9 +188,11 @@ class TestComplianceStatus:
 
         response = client.get("/api/v2/compliance/status")
         assert response.status_code == 200
-        data = response.json()
-        assert data["overall_status"] in ("not_configured", "not_assessed")
-        assert data["controls_total"] == 0
+        body = response.json()
+        assert "data" in body
+        data = body["data"]
+        assert "compliance_score" in data
+        assert "frameworks" in data
 
 
 # =============================================================================

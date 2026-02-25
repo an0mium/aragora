@@ -252,7 +252,7 @@ function ConvergenceMap({ tentacles }: { tentacles: Map<string, { text: string; 
           <div>
             <span className="text-[var(--acid-green)] font-bold">CONVERGENT: </span>
             <span className="text-[var(--text-muted)]">
-              {entries.length >= 3 ? `${Math.ceil(entries.length * 0.6)}+ tentacles` : 'All tentacles'} emphasize: {convergent.join(', ')}
+              {entries.length >= 3 ? `${Math.ceil(entries.length * 0.6)}+ agents` : 'All agents'} emphasize: {convergent.join(', ')}
             </span>
           </div>
         )}
@@ -1565,7 +1565,7 @@ export default function Oracle() {
             </button>
           </div>
           <span className="text-[9px] text-[var(--text-muted)] tracking-wider">
-            {useDebateStreaming ? 'Full multi-agent debate with structured events' : 'Direct LLM streaming with tentacles'}
+            {useDebateStreaming ? 'Full multi-agent debate with structured events' : 'Direct LLM streaming with multi-agent analysis'}
           </span>
         </div>
 
@@ -1883,15 +1883,15 @@ export default function Oracle() {
               <div className="prophecy-reveal">
                 <div className="text-xs mb-1">
                   <span className="text-[var(--acid-cyan)]" style={{ filter: 'drop-shadow(0 0 5px var(--acid-cyan))' }}>
-                    TENTACLES
+                    DEBATE
                   </span>
-                  <span className="text-[var(--text-muted)]"> &middot; awakening...</span>
+                  <span className="text-[var(--text-muted)]"> &middot; assembling...</span>
                 </div>
                 <div className="border-l-2 border-[var(--acid-cyan)] pl-4">
                   <div className="flex items-center gap-2 text-sm text-[var(--acid-cyan)]">
                     <span className="inline-block w-2 h-2 rounded-full bg-[var(--acid-cyan)] animate-pulse" />
                     <span className="opacity-60">
-                      Live agents are debating in the void. Each tentacle will argue its position...
+                      Live agents are debating your question. Each will argue its position...
                     </span>
                   </div>
                 </div>
