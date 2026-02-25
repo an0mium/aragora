@@ -1416,12 +1416,16 @@ class DebateController:
     @staticmethod
     def _select_resolution_tier(claim_settlement: dict[str, Any]) -> tuple[str, str, bool]:
         """Map settlement metadata to deterministic/oracle/human resolution tiers."""
-        tier_hint = str(
-            claim_settlement.get("resolver_type")
-            or claim_settlement.get("resolution_tier")
-            or claim_settlement.get("verification_mode")
-            or ""
-        ).strip().lower()
+        tier_hint = (
+            str(
+                claim_settlement.get("resolver_type")
+                or claim_settlement.get("resolution_tier")
+                or claim_settlement.get("verification_mode")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
 
         if tier_hint in {"deterministic", "ci", "test", "tests", "auto"}:
             return ("deterministic", "pending_deterministic", True)

@@ -444,7 +444,9 @@ class TestInitSettlementReviewScheduler:
         mock_scheduler = MagicMock()
         mock_scheduler.is_running = False
         mock_scheduler.start = AsyncMock()
-        mock_scheduler_module.get_settlement_review_scheduler = MagicMock(return_value=mock_scheduler)
+        mock_scheduler_module.get_settlement_review_scheduler = MagicMock(
+            return_value=mock_scheduler
+        )
 
         with patch.dict(
             "sys.modules",

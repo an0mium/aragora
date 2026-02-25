@@ -21,9 +21,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_REVIEW_INTERVAL_HOURS = int(os.environ.get("ARAGORA_SETTLEMENT_REVIEW_INTERVAL_HOURS", "24"))
+DEFAULT_REVIEW_INTERVAL_HOURS = int(
+    os.environ.get("ARAGORA_SETTLEMENT_REVIEW_INTERVAL_HOURS", "24")
+)
 DEFAULT_MAX_RECEIPTS_PER_RUN = int(os.environ.get("ARAGORA_SETTLEMENT_REVIEW_MAX_RECEIPTS", "500"))
-DEFAULT_STARTUP_DELAY_SECONDS = int(os.environ.get("ARAGORA_SETTLEMENT_REVIEW_STARTUP_DELAY_SECONDS", "60"))
+DEFAULT_STARTUP_DELAY_SECONDS = int(
+    os.environ.get("ARAGORA_SETTLEMENT_REVIEW_STARTUP_DELAY_SECONDS", "60")
+)
 
 _TERMINAL_SETTLEMENT_STATUSES = {"settled_true", "settled_false", "settled_inconclusive"}
 _OUTCOME_TRUE_STRINGS = {"true", "correct", "confirmed", "success", "succeeded", "pass", "yes"}
@@ -338,7 +342,9 @@ class SettlementReviewScheduler:
                     unresolved_due += 1
                     if not _is_terminal_status(prior_status):
                         settlement["status"] = "pending_outcome"
-                    horizon_days = _coerce_positive_int(settlement.get("review_horizon_days"), default=30)
+                    horizon_days = _coerce_positive_int(
+                        settlement.get("review_horizon_days"), default=30
+                    )
                     settlement["next_review_at"] = (now + timedelta(days=horizon_days)).isoformat()
                 else:
                     settlement["status"] = "settled_true" if outcome else "settled_false"

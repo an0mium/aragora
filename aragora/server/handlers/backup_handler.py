@@ -63,7 +63,11 @@ _ALLOWED_BACKUP_SOURCE_DIRS: list[Path] = [
 # SECURITY: Allowed base directories for restore target paths.
 # Restores can only target paths within these directories.
 _ALLOWED_RESTORE_DIRS: list[Path] = [
-    Path(os.environ.get("ARAGORA_RESTORE_DIR", os.path.join(tempfile.gettempdir(), "aragora_restore"))).resolve(),
+    Path(
+        os.environ.get(
+            "ARAGORA_RESTORE_DIR", os.path.join(tempfile.gettempdir(), "aragora_restore")
+        )
+    ).resolve(),
     Path("/var/aragora/restore"),
 ]
 

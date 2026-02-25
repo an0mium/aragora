@@ -608,9 +608,7 @@ async def init_api_key_proxy() -> bool:
     enabled = os.environ.get("ARAGORA_API_KEY_PROXY_ENABLED", default_enabled).lower() == "true"
 
     if not enabled:
-        logger.debug(
-            "API key proxy disabled (set ARAGORA_API_KEY_PROXY_ENABLED=true to enable)"
-        )
+        logger.debug("API key proxy disabled (set ARAGORA_API_KEY_PROXY_ENABLED=true to enable)")
         return False
 
     try:

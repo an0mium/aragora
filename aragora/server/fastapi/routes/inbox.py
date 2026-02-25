@@ -26,16 +26,22 @@ router = APIRouter(prefix="/api/v2", tags=["Inbox"])
 # ---------------------------------------------------------------------------
 
 ALLOWED_ACTIONS: frozenset[str] = frozenset(
-    {"archive", "snooze", "reply", "forward", "spam", "mark_important", "mark_vip", "block", "delete"}
+    {
+        "archive",
+        "snooze",
+        "reply",
+        "forward",
+        "spam",
+        "mark_important",
+        "mark_vip",
+        "block",
+        "delete",
+    }
 )
 
-ALLOWED_BULK_FILTERS: frozenset[str] = frozenset(
-    {"low", "deferred", "spam", "read", "all"}
-)
+ALLOWED_BULK_FILTERS: frozenset[str] = frozenset({"low", "deferred", "spam", "read", "all"})
 
-ALLOWED_PRIORITY_FILTERS: frozenset[str] = frozenset(
-    {"critical", "high", "medium", "low", "defer"}
-)
+ALLOWED_PRIORITY_FILTERS: frozenset[str] = frozenset({"critical", "high", "medium", "low", "defer"})
 
 ALLOWED_FORCE_TIERS: frozenset[str] = frozenset(
     {"tier_1_rules", "tier_2_lightweight", "tier_3_debate"}

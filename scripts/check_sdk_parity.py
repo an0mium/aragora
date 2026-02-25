@@ -97,8 +97,15 @@ def _collect_routes_from_handler_class(handler_cls: type[Any]) -> list[str]:
         if normalized:
             collected.add(normalized)
 
-    for attr in ("ROUTES", "DYNAMIC_ROUTES", "_DYNAMIC_ROUTES", "ROUTE_MAP", "_ROUTE_MAP",
-                  "PREFIX_ROUTES", "_PREFIX_ROUTES"):
+    for attr in (
+        "ROUTES",
+        "DYNAMIC_ROUTES",
+        "_DYNAMIC_ROUTES",
+        "ROUTE_MAP",
+        "_ROUTE_MAP",
+        "PREFIX_ROUTES",
+        "_PREFIX_ROUTES",
+    ):
         value = getattr(handler_cls, attr, None)
         if value is None:
             continue

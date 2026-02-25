@@ -69,7 +69,9 @@ class WorkspaceConfig:
     network_enabled: bool = True
     mount_secrets: bool = False  # Never mount secrets directly
     cleanup_on_exit: bool = True
-    base_path: str = field(default_factory=lambda: os.path.join(tempfile.gettempdir(), "aragora-workspaces"))  # noqa: S108
+    base_path: str = field(
+        default_factory=lambda: os.path.join(tempfile.gettempdir(), "aragora-workspaces")
+    )  # noqa: S108
 
 
 @dataclass

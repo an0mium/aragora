@@ -272,7 +272,9 @@ class SlackPreserver:
         if remaining_allowed:
             # Add some random slack points
             for i in range(1, len(stones) - 1):
-                if random.random() < 0.1:  # 10% chance per position  # noqa: S311 -- non-security random selection
+                if (
+                    random.random() < 0.1
+                ):  # 10% chance per position  # noqa: S311 -- non-security random selection
                     slack_type = random.choice(remaining_allowed)  # noqa: S311 -- non-security random selection
                     points.append((i, slack_type))
 

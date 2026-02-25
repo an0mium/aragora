@@ -294,14 +294,10 @@ async def get_queue(limit: int = Query(default=50, ge=1, le=1000)):
                 "status": task.status.value,
                 "progress": progress,
                 "started_at": (
-                    datetime.fromtimestamp(task.started_at).isoformat()
-                    if task.started_at
-                    else None
+                    datetime.fromtimestamp(task.started_at).isoformat() if task.started_at else None
                 ),
                 "created_at": (
-                    datetime.fromtimestamp(task.created_at).isoformat()
-                    if task.created_at
-                    else None
+                    datetime.fromtimestamp(task.created_at).isoformat() if task.created_at else None
                 ),
                 "document_count": task.payload.get("document_count", 0),
                 "agents_assigned": [task.assigned_agent] if task.assigned_agent else [],
@@ -313,7 +309,15 @@ async def get_queue(limit: int = Query(default=50, ge=1, le=1000)):
         return {"data": {"jobs": jobs, "total": len(jobs)}}
     except HTTPException:
         raise
-    except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ImportError,
+    ) as e:
         logger.error("Error getting queue: %s", e)
         raise HTTPException(status_code=500, detail="Failed to get queue")
 
@@ -427,14 +431,10 @@ async def get_task_history(
                 "retries": task.retries,
                 "duration_ms": duration_ms,
                 "created_at": (
-                    datetime.fromtimestamp(task.created_at).isoformat()
-                    if task.created_at
-                    else None
+                    datetime.fromtimestamp(task.created_at).isoformat() if task.created_at else None
                 ),
                 "started_at": (
-                    datetime.fromtimestamp(task.started_at).isoformat()
-                    if task.started_at
-                    else None
+                    datetime.fromtimestamp(task.started_at).isoformat() if task.started_at else None
                 ),
                 "completed_at": (
                     datetime.fromtimestamp(task.completed_at).isoformat()
@@ -461,7 +461,15 @@ async def get_task_history(
         }
     except HTTPException:
         raise
-    except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError, ImportError) as e:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ImportError,
+    ) as e:
         logger.error("Error getting task history: %s", e)
         raise HTTPException(status_code=500, detail="Failed to get task history")
 
@@ -573,6 +581,14 @@ async def submit_deliberation(body: SubmitDeliberationRequest):
             raise HTTPException(status_code=408, detail="Deliberation timed out")
     except HTTPException:
         raise
-    except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError, ImportError) as e:
+    except (
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ImportError,
+    ) as e:
         logger.error("Deliberation failed: %s", e)
         raise HTTPException(status_code=500, detail="Deliberation failed")

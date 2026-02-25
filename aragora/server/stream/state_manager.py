@@ -338,7 +338,6 @@ def get_stream_state_manager() -> DebateStateManager:
     return _state_manager
 
 
-
 # =============================================================================
 # Periodic Cleanup Background Task
 # =============================================================================

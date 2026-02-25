@@ -39,7 +39,7 @@ export default function TryPage() {
     abortRef.current = new AbortController();
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/playground/debate/live`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/playground/debate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: question.trim(), source: 'landing' }),

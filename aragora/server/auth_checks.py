@@ -62,19 +62,20 @@ class AuthChecksMixin:
             # OAuth
             "/api/auth/oauth/providers",  # Login page needs to show available providers
             "/api/v1/auth/oauth/providers",  # v1 route
-            # API documentation (public)
-            "/api/openapi",
-            "/api/openapi.json",
-            "/api/openapi.yaml",
-            "/api/postman.json",
-            "/api/docs",
-            "/api/docs/",
-            "/api/redoc",
-            "/api/redoc/",
-            "/api/v1/openapi",
-            "/api/v1/openapi.json",
-            "/api/v1/docs",
-            "/api/v1/docs/",
+            # API documentation — require auth to prevent attack surface mapping
+            # Authenticated users can still access docs via /api/docs
+            # "/api/openapi",  # LOCKED: full spec exposes 2,562 paths
+            # "/api/openapi.json",
+            # "/api/openapi.yaml",
+            # "/api/postman.json",
+            # "/api/docs",
+            # "/api/docs/",
+            # "/api/redoc",
+            # "/api/redoc/",
+            # "/api/v1/openapi",
+            # "/api/v1/openapi.json",
+            # "/api/v1/docs",
+            # "/api/v1/docs/",
             # Read-only public endpoints
             "/api/insights/recent",
             "/api/flips/recent",
@@ -95,8 +96,9 @@ class AuthChecksMixin:
             "/api/v1/agents",
             # Public dashboard base paths (without trailing slash)
             # These match exact requests like /api/features that don't have a subpath
-            "/api/features",
-            "/api/v1/features",
+            # LOCKED: reveals which security features are disabled
+            # "/api/features",
+            # "/api/v1/features",
             "/api/analytics",
             "/api/v1/analytics",
             "/api/replays",
@@ -109,8 +111,9 @@ class AuthChecksMixin:
             "/api/v1/verticals",
             "/api/evolution",
             "/api/v1/evolution",
-            "/api/debates",
-            "/api/v1/debates",
+            # LOCKED: returns full debate data without auth
+            # "/api/debates",
+            # "/api/v1/debates",
             "/api/moments",
             "/api/v1/moments",
             "/api/breakpoints",
@@ -126,15 +129,17 @@ class AuthChecksMixin:
             # Metrics (public dashboard monitoring)
             "/api/metrics",
             "/api/v1/metrics",
-            # Nomic state (public dashboard data)
-            "/api/nomic/state",
-            "/api/v1/nomic/state",
-            # Playground - public demo endpoints (rate-limited by IP)
+            # LOCKED: leaks server filesystem path /home/ec2-user/aragora/
+            # "/api/nomic/state",
+            # "/api/v1/nomic/state",
+            # Playground - only mock debate is free (no API credits used)
             "/api/v1/playground/debate",
-            "/api/v1/playground/debate/live",
-            "/api/v1/playground/debate/live/cost-estimate",
+            # LOCKED: live debates burn real OpenRouter credits (~$0.03/request)
+            # "/api/v1/playground/debate/live",
+            # "/api/v1/playground/debate/live/cost-estimate",
             "/api/v1/playground/status",
-            "/api/v1/playground/tts",
+            # LOCKED: TTS burns ElevenLabs credits
+            # "/api/v1/playground/tts",
             # OAuth callbacks from external providers (redirects carry no auth headers)
             "/api/integrations/slack/callback",
             "/api/integrations/teams/callback",
@@ -187,20 +192,24 @@ class AuthChecksMixin:
         "/api/v1/belief-network/",  # Public belief network summaries (v1)
         "/api/verticals/",  # Public verticals list
         "/api/v1/verticals/",  # Public verticals list (v1)
-        "/api/features/",  # Public feature config
-        "/api/v1/features/",  # Public feature config (v1)
+        # LOCKED: reveals security feature status
+        # "/api/features/",
+        # "/api/v1/features/",
         "/api/gauntlet/personas",  # Public gauntlet personas list
         "/api/v1/gauntlet/personas",  # Public gauntlet personas list (v1)
-        "/api/debates/",  # Public debate browsing
-        "/api/v1/debates/",  # Public debate browsing (v1)
-        "/api/metrics/",  # Public metrics dashboards
-        "/api/v1/metrics/",  # Public metrics dashboards (v1)
+        # LOCKED: debate data requires auth
+        # "/api/debates/",
+        # "/api/v1/debates/",
+        # LOCKED: internal metrics require auth
+        # "/api/metrics/",
+        # "/api/v1/metrics/",
         "/api/breakpoints/",  # Public breakpoints status
         "/api/v1/breakpoints/",  # Public breakpoints status (v1)
         "/api/plans/",  # Public decision plans
         "/api/v1/plans/",  # Public decision plans (v1)
-        "/api/nomic/",  # Public nomic state
-        "/api/v1/nomic/",  # Public nomic state (v1)
+        # LOCKED: leaks server paths
+        # "/api/nomic/",
+        # "/api/v1/nomic/",
     )
 
     # Type stubs for attributes expected from parent class

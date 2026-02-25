@@ -1863,7 +1863,11 @@ class IdeaToExecutionPipeline:
             if bead_manager and completed > 0:
                 try:
                     ws_mgr = bead_manager["ws_mgr"]  # type: ignore[assignment]
-                    convoy_id = bead_manager["convoy"].id if hasattr(bead_manager["convoy"], "id") else str(bead_manager["convoy"])
+                    convoy_id = (
+                        bead_manager["convoy"].id
+                        if hasattr(bead_manager["convoy"], "id")
+                        else str(bead_manager["convoy"])
+                    )
                     merge_result = {"completed": completed, "failed": total - completed}
                     await ws_mgr.complete_convoy(convoy_id, merge_result)
                     logger.info("convoy_completed convoy_id=%s tasks=%d", convoy_id, completed)
@@ -2098,7 +2102,8 @@ class IdeaToExecutionPipeline:
             loop = DebugLoop(loop_cfg)
             debug_result = await loop.execute_with_retry(
                 instruction=instruction,
-                worktree_path=getattr(cfg, "worktree_path", None) or os.path.join(tempfile.gettempdir(), "aragora-worktree"),
+                worktree_path=getattr(cfg, "worktree_path", None)
+                or os.path.join(tempfile.gettempdir(), "aragora-worktree"),
                 test_scope=task.get("test_scope", []),
             )
             return {
