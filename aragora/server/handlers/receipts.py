@@ -624,6 +624,7 @@ class ReceiptsHandler(BaseHandler):
             return error_response("Receipt not found", 404)
 
         export_format = query_params.get("format", "json").lower()
+        download = query_params.get("download", "false").lower() == "true"
         _include_signature = query_params.get("signed", "true").lower() == "true"  # noqa: F841 - Future: signed exports
 
         try:
@@ -635,28 +636,40 @@ class ReceiptsHandler(BaseHandler):
             if export_format == "json":
                 content = decision_receipt.to_json(indent=2)
                 body = content.encode("utf-8") if isinstance(content, str) else content
+                headers = {}
+                if download:
+                    headers["Content-Disposition"] = f"attachment; filename=receipt-{receipt_id}.json"
                 return HandlerResult(
                     status_code=200,
-                    content_type="application/json",
+                    content_type="application/json; charset=utf-8",
                     body=body,
+                    headers=headers if headers else None,
                 )
 
             elif export_format == "html":
                 content = decision_receipt.to_html()
                 body = content.encode("utf-8") if isinstance(content, str) else content
+                headers = {}
+                if download:
+                    headers["Content-Disposition"] = f"attachment; filename=receipt-{receipt_id}.html"
                 return HandlerResult(
                     status_code=200,
-                    content_type="text/html",
+                    content_type="text/html; charset=utf-8",
                     body=body,
+                    headers=headers if headers else None,
                 )
 
             elif export_format == "md" or export_format == "markdown":
                 content = decision_receipt.to_markdown()
                 body = content.encode("utf-8") if isinstance(content, str) else content
+                headers = {}
+                if download:
+                    headers["Content-Disposition"] = f"attachment; filename=receipt-{receipt_id}.md"
                 return HandlerResult(
                     status_code=200,
-                    content_type="text/markdown",
+                    content_type="text/markdown; charset=utf-8",
                     body=body,
+                    headers=headers if headers else None,
                 )
 
             elif export_format == "pdf":
@@ -726,7 +739,7 @@ class ReceiptsHandler(BaseHandler):
                 body = content.encode("utf-8") if isinstance(content, str) else content
                 return HandlerResult(
                     status_code=200,
-                    content_type="text/csv",
+                    content_type="text/csv; charset=utf-8",
                     body=body,
                     headers={
                         "Content-Disposition": f"attachment; filename=receipt-{receipt_id}.csv",

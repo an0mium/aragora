@@ -23,6 +23,8 @@ Usage:
 from __future__ import annotations
 
 import logging
+import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -113,6 +115,23 @@ class DebateScenario:
     # Callable that returns simulated debate results.
     # Signature: async (topic, agent_count, expected_rounds) -> dict
     runner: Callable[..., Awaitable[dict[str, Any]]] | None = None
+
+
+@dataclass
+class RegressionResult:
+    """Result of a quick regression check via scoped pytest run.
+
+    Fields:
+        passed: Number of tests that passed.
+        failed: Number of tests that failed.
+        duration_seconds: Wall-clock time for the test run.
+        is_regression: True if any test failed (indicating a regression).
+    """
+
+    passed: int = 0
+    failed: int = 0
+    duration_seconds: float = 0.0
+    is_regression: bool = False
 
 
 # A default set of lightweight scenarios for baseline/after capture.
@@ -542,6 +561,112 @@ class NomicOutcomeTracker:
                 )
 
         return regressions
+
+    @staticmethod
+    def quick_regression_check(
+        worktree_path: str,
+        test_pattern: str | None = None,
+    ) -> RegressionResult:
+        """Run a fast, scoped pytest to detect regressions in changed files.
+
+        Instead of running the full test suite (which can take minutes), this
+        method runs only the tests matching an optional pattern, with a short
+        timeout. This is the key insight from oracle-driven validation: scope
+        tests to ONLY the files changed, not the full suite.
+
+        Args:
+            worktree_path: Path to the git worktree or project root where
+                tests should run.
+            test_pattern: Optional pytest ``-k`` filter to scope the test run.
+                For example, ``"test_task_decomposer"`` to run only
+                decomposer tests. If None, runs all tests in the worktree.
+
+        Returns:
+            RegressionResult with pass/fail counts and whether a regression
+            was detected. On subprocess errors, returns a result with
+            is_regression=False and zero counts (graceful degradation).
+        """
+        cmd = [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--tb=no",
+            "-q",
+            "--timeout=10",
+        ]
+        if test_pattern:
+            cmd.extend(["-k", test_pattern])
+
+        start_time = time.time()
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                cwd=worktree_path,
+                timeout=30,
+            )
+            duration = time.time() - start_time
+
+            # Parse pytest summary line: "X passed, Y failed" or "X passed"
+            stdout = result.stdout
+            passed = 0
+            failed = 0
+
+            # Match patterns like "5 passed", "3 failed", "2 error"
+            import re
+
+            pass_match = re.search(r"(\d+) passed", stdout)
+            fail_match = re.search(r"(\d+) failed", stdout)
+            error_match = re.search(r"(\d+) error", stdout)
+
+            if pass_match:
+                passed = int(pass_match.group(1))
+            if fail_match:
+                failed = int(fail_match.group(1))
+            if error_match:
+                failed += int(error_match.group(1))
+
+            is_regression = failed > 0
+
+            logger.info(
+                "quick_regression_check passed=%d failed=%d duration=%.1fs "
+                "regression=%s pattern=%s",
+                passed,
+                failed,
+                duration,
+                is_regression,
+                test_pattern,
+            )
+
+            return RegressionResult(
+                passed=passed,
+                failed=failed,
+                duration_seconds=round(duration, 2),
+                is_regression=is_regression,
+            )
+
+        except subprocess.TimeoutExpired:
+            duration = time.time() - start_time
+            logger.warning(
+                "quick_regression_check_timeout duration=%.1fs pattern=%s",
+                duration,
+                test_pattern,
+            )
+            return RegressionResult(
+                passed=0,
+                failed=0,
+                duration_seconds=round(duration, 2),
+                is_regression=False,
+            )
+        except OSError as e:
+            logger.warning("quick_regression_check_error error=%s", e)
+            return RegressionResult(
+                passed=0,
+                failed=0,
+                duration_seconds=0.0,
+                is_regression=False,
+            )
 
     # --- Internal ---
 

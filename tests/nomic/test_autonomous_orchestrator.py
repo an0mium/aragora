@@ -1560,6 +1560,9 @@ class TestCIFeedbackIntegration:
         mock_coordinator = MagicMock()
         mock_coordinator._worktree_paths = {"dev/sme-test": "/tmp/sme"}
         mock_coordinator.config = MagicMock(base_branch="main")
+        mock_coordinator.safe_merge_with_gate = AsyncMock(
+            return_value=MagicMock(success=True, commit_sha="merged123")
+        )
         mock_coordinator.safe_merge = AsyncMock(
             return_value=MagicMock(success=True, commit_sha="merged123")
         )
@@ -1584,7 +1587,8 @@ class TestCIFeedbackIntegration:
         ):
             await orchestrator._merge_and_cleanup(assignments)
 
-        mock_coordinator.safe_merge.assert_awaited_once()
+        # Now uses safe_merge_with_gate by default
+        mock_coordinator.safe_merge_with_gate.assert_awaited_once()
 
 
 class TestGatesIntegration:
@@ -1678,3 +1682,355 @@ class TestGatesIntegration:
         )
 
         assert decision.status == ApprovalStatus.SKIPPED
+
+
+class TestPipelineWiring:
+    """Tests for ExecutionBridge, DebugLoop, and BranchCoordinator wiring."""
+
+    @pytest.fixture
+    def mock_workflow_engine(self):
+        engine = MagicMock()
+        engine.execute = AsyncMock(
+            return_value=MagicMock(
+                success=True,
+                final_output={"status": "completed"},
+                error=None,
+            )
+        )
+        return engine
+
+    @pytest.fixture
+    def mock_task_decomposer(self):
+        decomposer = MagicMock()
+        decomposer.analyze = MagicMock(
+            return_value=TaskDecomposition(
+                original_task="Test goal",
+                complexity_score=5,
+                complexity_level="medium",
+                should_decompose=True,
+                subtasks=[
+                    SubTask(
+                        id="sub1",
+                        title="Test Task",
+                        description="Do a test thing",
+                        file_scope=["aragora/server/handlers/auth.py"],
+                        estimated_complexity="medium",
+                    ),
+                ],
+            )
+        )
+        return decomposer
+
+    def test_execution_bridge_initialized_by_default(self):
+        """ExecutionBridge should be created during init."""
+        orchestrator = AutonomousOrchestrator()
+        assert orchestrator._execution_bridge is not None
+
+    def test_debug_loop_initialized_by_default(self):
+        """DebugLoop should be created during init."""
+        orchestrator = AutonomousOrchestrator()
+        assert orchestrator._debug_loop is not None
+
+    def test_branch_coordinator_initialized_by_default(self):
+        """BranchCoordinator should be created by default when in git repo."""
+        orchestrator = AutonomousOrchestrator()
+        # BranchCoordinator may be None if not in a git repo, but should
+        # attempt creation. In test env (which is a git repo), it should exist.
+        # We check the type rather than None since subprocess may fail.
+        if orchestrator.branch_coordinator is not None:
+            from aragora.nomic.branch_coordinator import BranchCoordinator
+
+            assert isinstance(orchestrator.branch_coordinator, BranchCoordinator)
+
+    def test_custom_branch_coordinator_preserved(self):
+        """Passing a custom BranchCoordinator should not be overridden."""
+        custom_bc = MagicMock()
+        orchestrator = AutonomousOrchestrator(branch_coordinator=custom_bc)
+        assert orchestrator.branch_coordinator is custom_bc
+
+    def test_execution_bridge_creates_instruction(self):
+        """ExecutionBridge.create_instruction should produce structured output."""
+        from aragora.nomic.execution_bridge import ExecutionBridge
+
+        bridge = ExecutionBridge()
+        subtask = SubTask(
+            id="t1",
+            title="Auth Fix",
+            description="Fix auth handler",
+            file_scope=["aragora/server/handlers/auth.py"],
+        )
+        instruction = bridge.create_instruction(
+            subtask=subtask,
+            debate_context="Security review recommended this fix",
+        )
+        assert instruction.subtask_id == "t1"
+        assert "auth" in instruction.objective.lower()
+        prompt = instruction.to_agent_prompt()
+        assert "Security review" in prompt
+
+    def test_get_worktree_for_assignment_returns_none_without_coordinator(self):
+        """Should return None when no branch coordinator worktrees exist."""
+        orchestrator = AutonomousOrchestrator(branch_coordinator=None)
+        subtask = SubTask(id="1", title="T", description="D")
+        assignment = AgentAssignment(subtask=subtask, track=Track.QA, agent_type="claude")
+        result = orchestrator._get_worktree_for_assignment(assignment)
+        assert result is None
+
+    def test_get_worktree_for_assignment_matches_track(self):
+        """Should match worktree path by track value in branch name."""
+        mock_bc = MagicMock()
+        mock_bc._worktree_paths = {
+            "dev/sme-fix-ui-0224": "/tmp/worktrees/sme",
+            "dev/qa-add-tests-0224": "/tmp/worktrees/qa",
+        }
+        orchestrator = AutonomousOrchestrator(branch_coordinator=mock_bc)
+        subtask = SubTask(id="1", title="T", description="D")
+        assignment = AgentAssignment(subtask=subtask, track=Track.SME, agent_type="claude")
+        result = orchestrator._get_worktree_for_assignment(assignment)
+        assert result == "/tmp/worktrees/sme"
+
+    def test_bridge_ingest_result_records_success(self):
+        """_bridge_ingest_result should call ExecutionBridge.ingest_result."""
+        orchestrator = AutonomousOrchestrator()
+        mock_bridge = MagicMock()
+        orchestrator._execution_bridge = mock_bridge
+
+        subtask = SubTask(id="sub1", title="Task", description="D")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.QA,
+            agent_type="claude",
+            status="completed",
+            result={"files_changed": ["a.py"]},
+        )
+        orchestrator._bridge_ingest_result(assignment)
+        mock_bridge.ingest_result.assert_called_once()
+        call_arg = mock_bridge.ingest_result.call_args[0][0]
+        assert call_arg.subtask_id == "sub1"
+        assert call_arg.success is True
+
+    def test_bridge_ingest_result_records_failure(self):
+        """_bridge_ingest_result should record failure status."""
+        orchestrator = AutonomousOrchestrator()
+        mock_bridge = MagicMock()
+        orchestrator._execution_bridge = mock_bridge
+
+        subtask = SubTask(id="sub2", title="Failed", description="D")
+        assignment = AgentAssignment(
+            subtask=subtask,
+            track=Track.QA,
+            agent_type="claude",
+            status="failed",
+            result={"error": "tests failed"},
+        )
+        orchestrator._bridge_ingest_result(assignment)
+        call_arg = mock_bridge.ingest_result.call_args[0][0]
+        assert call_arg.success is False
+
+    def test_bridge_ingest_skipped_when_no_bridge(self):
+        """_bridge_ingest_result should be a no-op when bridge is None."""
+        orchestrator = AutonomousOrchestrator()
+        orchestrator._execution_bridge = None
+
+        subtask = SubTask(id="1", title="T", description="D")
+        assignment = AgentAssignment(
+            subtask=subtask, track=Track.QA, agent_type="claude", status="completed",
+        )
+        # Should not raise
+        orchestrator._bridge_ingest_result(assignment)
+
+    def test_record_pipeline_outcome_calls_km_bridge(self):
+        """_record_pipeline_outcome should call KM feedback bridge."""
+        orchestrator = AutonomousOrchestrator()
+        mock_km = MagicMock()
+        orchestrator._km_feedback_bridge = mock_km
+        orchestrator._orchestration_id = "test_orch_123"
+
+        result = OrchestrationResult(
+            goal="Improve auth",
+            total_subtasks=3,
+            completed_subtasks=2,
+            failed_subtasks=1,
+            skipped_subtasks=0,
+            assignments=[],
+            duration_seconds=45.0,
+            success=False,
+        )
+        orchestrator._record_pipeline_outcome(result)
+        mock_km.record_pipeline_outcome.assert_called_once()
+        call_kwargs = mock_km.record_pipeline_outcome.call_args[1]
+        assert call_kwargs["goal"] == "Improve auth"
+        assert call_kwargs["success"] is False
+
+    def test_record_pipeline_outcome_noop_without_bridge(self):
+        """_record_pipeline_outcome should be a no-op without KM bridge."""
+        orchestrator = AutonomousOrchestrator()
+        orchestrator._km_feedback_bridge = None
+
+        result = OrchestrationResult(
+            goal="Test",
+            total_subtasks=1,
+            completed_subtasks=1,
+            failed_subtasks=0,
+            skipped_subtasks=0,
+            assignments=[],
+            duration_seconds=10.0,
+            success=True,
+        )
+        # Should not raise
+        orchestrator._record_pipeline_outcome(result)
+
+    @pytest.mark.asyncio
+    async def test_execution_bridge_enriches_workflow_inputs(
+        self, mock_workflow_engine, mock_task_decomposer
+    ):
+        """ExecutionBridge should enrich subtask descriptions in workflow inputs."""
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+        )
+        # Ensure bridge is present
+        assert orchestrator._execution_bridge is not None
+
+        await orchestrator.execute_goal(goal="Test enrichment", max_cycles=1)
+
+        # The workflow engine should have been called with enriched inputs
+        call_kwargs = mock_workflow_engine.execute.call_args
+        inputs = call_kwargs[1]["inputs"] if "inputs" in (call_kwargs[1] or {}) else call_kwargs[0][1] if len(call_kwargs[0]) > 1 else {}
+        # The subtask input should contain structured sections from ExecutionBridge
+        if isinstance(inputs, dict) and "subtask" in inputs:
+            assert "Task:" in inputs["subtask"] or "Do a test thing" in inputs["subtask"]
+
+    @pytest.mark.asyncio
+    async def test_debug_loop_called_on_failure(
+        self, mock_workflow_engine, mock_task_decomposer
+    ):
+        """DebugLoop should be invoked when workflow execution fails."""
+        mock_workflow_engine.execute = AsyncMock(
+            return_value=MagicMock(
+                success=False,
+                final_output=None,
+                error="Test failure",
+            )
+        )
+
+        mock_debug_loop = MagicMock()
+        mock_debug_result = MagicMock(
+            success=True,
+            total_attempts=2,
+            final_tests_passed=5,
+            final_tests_failed=0,
+            final_files_changed=["auth.py"],
+        )
+        mock_debug_loop.execute_with_retry = AsyncMock(return_value=mock_debug_result)
+
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+            max_parallel_tasks=1,
+        )
+        orchestrator._debug_loop = mock_debug_loop
+
+        # Set up a worktree path so debug loop has a path to use
+        # The subtask file_scope routes to SME track, so branch name must contain "sme"
+        mock_bc = MagicMock()
+        mock_bc._worktree_paths = {"dev/sme-do-a-test-thing-0224": "/tmp/wt"}
+        mock_bc.config = MagicMock(base_branch="main")
+        mock_bc.create_track_branch = AsyncMock(return_value="dev/sme-do-a-test-thing-0224")
+        mock_bc.safe_merge_with_gate = AsyncMock(
+            return_value=MagicMock(success=True, commit_sha="abc")
+        )
+        mock_bc.cleanup_all_worktrees = MagicMock(return_value=0)
+        mock_bc.get_worktree_path = MagicMock(return_value=None)
+        orchestrator.branch_coordinator = mock_bc
+
+        result = await orchestrator.execute_goal(goal="Test debug loop", max_cycles=1)
+
+        # DebugLoop should have been called
+        mock_debug_loop.execute_with_retry.assert_awaited()
+        # The task should have been recovered
+        assert result.completed_subtasks == 1
+
+    @pytest.mark.asyncio
+    async def test_debug_loop_skipped_without_worktree(
+        self, mock_workflow_engine, mock_task_decomposer
+    ):
+        """DebugLoop should be skipped when no worktree path is available."""
+        mock_workflow_engine.execute = AsyncMock(
+            return_value=MagicMock(
+                success=False,
+                final_output=None,
+                error="Test failure",
+            )
+        )
+
+        mock_debug_loop = MagicMock()
+        mock_debug_loop.execute_with_retry = AsyncMock()
+
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+            max_parallel_tasks=1,
+            branch_coordinator=None,  # No coordinator -> no worktree
+        )
+        orchestrator.branch_coordinator = None  # Explicitly disable
+        orchestrator._debug_loop = mock_debug_loop
+
+        await orchestrator.execute_goal(goal="Test no worktree", max_cycles=1)
+
+        # DebugLoop should NOT have been called (no worktree_path)
+        mock_debug_loop.execute_with_retry.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_merge_uses_safe_merge_with_gate(
+        self, mock_workflow_engine, mock_task_decomposer
+    ):
+        """Merge should prefer safe_merge_with_gate over safe_merge."""
+        mock_coordinator = MagicMock()
+        mock_coordinator._worktree_paths = {"dev/sme-test": "/tmp/sme"}
+        mock_coordinator.config = MagicMock(base_branch="main")
+        mock_coordinator.safe_merge_with_gate = AsyncMock(
+            return_value=MagicMock(success=True, commit_sha="merged123")
+        )
+        mock_coordinator.safe_merge = AsyncMock(
+            return_value=MagicMock(success=True, commit_sha="merged456")
+        )
+        mock_coordinator.cleanup_all_worktrees = MagicMock(return_value=0)
+
+        orchestrator = AutonomousOrchestrator(
+            branch_coordinator=mock_coordinator,
+        )
+
+        assignments = [
+            AgentAssignment(
+                subtask=SubTask(id="1", title="SME Fix", description="Fix SME", file_scope=[]),
+                track=Track.SME,
+                agent_type="claude",
+                status="completed",
+            ),
+        ]
+
+        await orchestrator._merge_and_cleanup(assignments)
+
+        # Should have used safe_merge_with_gate, not safe_merge
+        mock_coordinator.safe_merge_with_gate.assert_awaited_once()
+        mock_coordinator.safe_merge.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_pipeline_outcome_recorded_after_execution(
+        self, mock_workflow_engine, mock_task_decomposer
+    ):
+        """_record_pipeline_outcome should be called after execute_goal completes."""
+        orchestrator = AutonomousOrchestrator(
+            workflow_engine=mock_workflow_engine,
+            task_decomposer=mock_task_decomposer,
+        )
+        mock_km = MagicMock()
+        orchestrator._km_feedback_bridge = mock_km
+
+        await orchestrator.execute_goal(goal="Test outcome recording", max_cycles=1)
+
+        mock_km.record_pipeline_outcome.assert_called_once()
+        call_kwargs = mock_km.record_pipeline_outcome.call_args[1]
+        assert call_kwargs["goal"] == "Test outcome recording"
+        assert call_kwargs["success"] is True

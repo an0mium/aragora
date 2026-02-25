@@ -570,7 +570,7 @@ class TestExportReceipt:
         ):
             result = await handler._export_receipt("receipt-001", {"format": "json"})
             assert result.status_code == 200
-            assert result.content_type == "application/json"
+            assert result.content_type.startswith("application/json")
 
     @pytest.mark.asyncio
     async def test_export_html(self, handler):
@@ -582,7 +582,7 @@ class TestExportReceipt:
         ):
             result = await handler._export_receipt("receipt-001", {"format": "html"})
             assert result.status_code == 200
-            assert result.content_type == "text/html"
+            assert result.content_type.startswith("text/html")
 
     @pytest.mark.asyncio
     async def test_export_markdown(self, handler):
@@ -594,7 +594,7 @@ class TestExportReceipt:
         ):
             result = await handler._export_receipt("receipt-001", {"format": "md"})
             assert result.status_code == 200
-            assert result.content_type == "text/markdown"
+            assert result.content_type.startswith("text/markdown")
 
     @pytest.mark.asyncio
     async def test_export_csv(self, handler):
@@ -606,8 +606,24 @@ class TestExportReceipt:
         ):
             result = await handler._export_receipt("receipt-001", {"format": "csv"})
             assert result.status_code == 200
-            assert result.content_type == "text/csv"
+            assert result.content_type.startswith("text/csv")
             assert "Content-Disposition" in result.headers
+
+    @pytest.mark.asyncio
+    async def test_export_download_mode(self, handler):
+        """Download flag adds Content-Disposition header for text formats."""
+        mock_dr = MagicMock()
+        mock_dr.to_markdown.return_value = "# Receipt\nApproved"
+
+        with patch(
+            "aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_dr
+        ):
+            result = await handler._export_receipt(
+                "receipt-001", {"format": "md", "download": "true"}
+            )
+            assert result.status_code == 200
+            assert "Content-Disposition" in result.headers
+            assert "receipt-001.md" in result.headers["Content-Disposition"]
 
     @pytest.mark.asyncio
     async def test_export_pdf_success(self, handler):

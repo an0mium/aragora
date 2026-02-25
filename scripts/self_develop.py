@@ -52,6 +52,7 @@ import argparse
 import asyncio
 import logging
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +60,7 @@ from aragora.nomic.autonomous_orchestrator import (
     OrchestrationResult,
     Track,
 )
+from aragora.nomic.cli_stream_bridge import CLIStreamBridge
 from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 from aragora.nomic.task_decomposer import TaskDecomposer, TaskDecomposition
 
@@ -1009,31 +1011,14 @@ Examples:
         except (ImportError, OSError, RuntimeError, ValueError) as e:
             logger.debug("Codebase knowledge ingestion skipped: %s", e)
 
-    # Progress callback for self-improve pipeline
-    def _print_progress(event: str, data: dict) -> None:
-        if event == "cycle_started":
-            print(f"  [start] Cycle {data.get('cycle_id', '?')}")
-        elif event == "planning_complete":
-            print(f"  [plan] {data['goals']} goals identified")
-        elif event == "decomposition_complete":
-            print(f"  [decompose] {data['subtasks']} subtasks created")
-        elif event == "risk_assessment_complete":
-            print(
-                f"  [risk] {data['total']} scored: "
-                f"{data['auto_approved']} auto, "
-                f"{data['needs_review']} review, "
-                f"{data['blocked']} blocked"
-            )
-        elif event == "risk_blocked":
-            print(f"  [risk:BLOCKED] {data['subtask'][:60]} (score={data['score']:.2f})")
-        elif event == "risk_review_needed":
-            print(f"  [risk:REVIEW] {data['subtask'][:60]} (score={data['score']:.2f})")
-        elif event == "execution_complete":
-            print(f"  [exec] {data['completed']} completed, {data['failed']} failed")
-        elif event == "cycle_complete":
-            print(
-                f"  [done] {data['completed']} completed, {data['failed']} failed, {data['duration']:.1f}s"
-            )
+    # Progress callback for self-improve pipeline -- use CLIStreamBridge
+    # to emit events to both stdout and WebSocket stream servers.
+    stream_bridge = CLIStreamBridge(
+        nomic_port=8767,
+        pipeline_id=f"self-develop-{uuid.uuid4().hex[:8]}",
+        print_to_stdout=True,
+    )
+    _print_progress = stream_bridge.as_progress_callback()
 
     # Self-improve mode: unified pipeline with Claude Code dispatch
     if args.self_improve:
@@ -1065,8 +1050,18 @@ Examples:
             # objective may be None when --scan is used (self-directing mode)
             objective = args.goal
 
+            async def _run_self_improve_with_bridge(dry_run: bool):
+                """Run self-improve pipeline with stream bridge lifecycle."""
+                await stream_bridge.start()
+                try:
+                    if dry_run:
+                        return await pipeline.dry_run(objective)
+                    return await pipeline.run(objective)
+                finally:
+                    await stream_bridge.stop()
+
             if args.dry_run:
-                plan = asyncio.run(pipeline.dry_run(objective))
+                plan = asyncio.run(_run_self_improve_with_bridge(dry_run=True))
                 print_header("SELF-IMPROVE DRY RUN")
                 print(f"Objective: {plan['objective']}")
                 print(f"\nGoals ({len(plan['goals'])}):")
@@ -1122,7 +1117,7 @@ Examples:
 
                 return 0
 
-            result = asyncio.run(pipeline.run(objective))
+            result = asyncio.run(_run_self_improve_with_bridge(dry_run=False))
             print_header("SELF-IMPROVE RESULT")
             print(f"Cycle: {result.cycle_id}")
             print(f"Objective: {result.objective}")
@@ -1176,9 +1171,11 @@ Examples:
     use_worktree = args.worktree or args.parallel
 
     # Full run
-    try:
-        result = asyncio.run(
-            run_orchestration(
+    async def _run_orchestration_with_bridge():
+        """Run orchestration with stream bridge lifecycle."""
+        await stream_bridge.start()
+        try:
+            return await run_orchestration(
                 goal=args.goal,
                 tracks=args.tracks,
                 max_cycles=args.max_cycles,
@@ -1198,7 +1195,11 @@ Examples:
                 enable_watchdog=getattr(args, "watchdog", False),
                 auto_execute_low_risk=args.auto,
             )
-        )
+        finally:
+            await stream_bridge.stop()
+
+    try:
+        result = asyncio.run(_run_orchestration_with_bridge())
         print_result(result)
 
         # Generate visual pipeline from orchestration goals if requested
