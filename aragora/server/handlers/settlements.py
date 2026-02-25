@@ -281,7 +281,8 @@ class SettlementHandler(BaseHandler):
         except KeyError:
             return error_response(f"Settlement not found: {settlement_id}", 404)
         except ValueError as e:
-            return error_response(str(e), 409)
+            logger.warning("Settlement conflict for %s: %s", settlement_id, e)
+            return error_response("Settlement conflict", 409)
 
     # ------------------------------------------------------------------
     # POST /api/v1/settlements/batch

@@ -93,7 +93,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             <Link
               href="/playground"
               className="px-8 py-4 bg-acid-green text-bg font-mono font-bold text-lg
-                         hover:bg-acid-green/80 transition-colors
+                         hover:bg-acid-green/90 hover:shadow-[0_0_20px_var(--accent-glow)] transition-all
                          flex items-center gap-3"
             >
               <span>[&gt;]</span>
@@ -102,7 +102,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
 
             <Link
               href="/login"
-              className="px-8 py-4 border-2 border-acid-cyan/60 text-acid-cyan font-mono font-bold text-sm
+              className="px-8 py-4 border-2 border-acid-cyan/70 text-acid-cyan font-mono font-bold text-sm
                          hover:border-acid-cyan hover:bg-acid-cyan/10 transition-colors
                          flex items-center gap-2"
             >
@@ -111,7 +111,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             </Link>
           </div>
 
-          <p className="text-text-muted/50 font-mono text-[10px] mt-4">
+          <p className="text-text-muted/50 font-mono text-[0.625rem] mt-4">
             No signup required to try a debate
           </p>
         </>

@@ -524,7 +524,7 @@ export function LeftSidebar() {
         href={item.href}
         onClick={() => isMobile && closeLeftSidebar()}
         className={`
-          flex items-center gap-3 px-3 py-2 sm:py-1.5 rounded-md transition-colors text-[13px]
+          flex items-center gap-3 px-3 py-2 sm:py-1.5 rounded-md transition-colors text-xs
           ${isActive
             ? 'bg-[var(--acid-green)]/10 text-[var(--acid-green)]'
             : 'text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text)]'
@@ -573,12 +573,12 @@ export function LeftSidebar() {
               {section.title}
               {/* Count badge -- shows how many items are in this section */}
               {canCollapse && (
-                <span className="px-1 py-0.5 text-[9px] font-medium bg-[var(--surface-elevated)] text-[var(--text-muted)] rounded leading-none">
+                <span className="px-1 py-0.5 text-[10px] font-medium bg-[var(--surface-elevated)] text-[var(--text-muted)] rounded leading-none">
                   {filtered.length}
                 </span>
               )}
               {section.highlight && (
-                <span className="px-1 py-0.5 text-[9px] font-medium bg-[var(--acid-green)]/10 text-[var(--acid-green)] rounded leading-none">
+                <span className="px-1 py-0.5 text-[10px] font-medium bg-[var(--acid-green)]/10 text-[var(--acid-green)] rounded leading-none">
                   PRO
                 </span>
               )}

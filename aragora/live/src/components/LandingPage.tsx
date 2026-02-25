@@ -65,7 +65,7 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
   return (
     <main className="min-h-screen bg-bg text-text">
       {/* Nav */}
-      <nav className="border-b border-border bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+      <nav className="border-b border-border bg-surface/80 backdrop-blur-sm shadow-[0_1px_0_var(--border-glow)] sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <span className="font-mono text-acid-green font-bold text-sm tracking-wider">
             ARAGORA

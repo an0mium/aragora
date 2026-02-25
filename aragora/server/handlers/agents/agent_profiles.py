@@ -116,20 +116,37 @@ class AgentProfilesMixin:
         calibration_tracker = self.get_calibration_tracker()
         if calibration_tracker is not None:
             try:
-                summary = calibration_tracker.get_calibration_summary(agent, domain=domain)
-                if summary and summary.total_predictions > 0:
+                curve = calibration_tracker.get_calibration_curve(
+                    agent_id=agent, domain=domain
+                )
+                total = curve.get("total_records", 0)
+                if total > 0:
+                    # Compute Brier-like score from bucket data
+                    buckets = curve.get("buckets", [])
+                    brier_sum = 0.0
+                    ece_sum = 0.0
+                    correct = 0
+                    for b in buckets:
+                        cnt = b.get("count", 0)
+                        if cnt > 0:
+                            pred = b.get("predicted", 0.0)
+                            act = b.get("actual", 0.0)
+                            brier_sum += cnt * (pred - act) ** 2
+                            ece_sum += cnt * abs(pred - act)
+                            correct += int(round(act * cnt))
+                    brier = brier_sum / total if total else 0.0
+                    ece = ece_sum / total if total else 0.0
+
                     from aragora.server.handlers.base import _compute_trust_tier
 
                     return json_response(
                         {
                             "agent": agent,
-                            "brier_score": round(summary.brier_score, 4),
-                            "ece": round(summary.ece, 4),
-                            "trust_tier": _compute_trust_tier(
-                                summary.brier_score, summary.total_predictions
-                            ),
-                            "prediction_count": summary.total_predictions,
-                            "total_correct": summary.total_correct,
+                            "brier_score": round(brier, 4),
+                            "ece": round(ece, 4),
+                            "trust_tier": _compute_trust_tier(brier, total),
+                            "prediction_count": total,
+                            "total_correct": correct,
                             "domain": domain,
                         }
                     )

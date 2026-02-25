@@ -231,7 +231,8 @@ class DebateInterventionHandler(BaseHandler):
             )
 
         except ValueError as e:
-            return error_response(str(e), 400)
+            logger.warning("Invalid intervention request for debate %s: %s", debate_id, e)
+            return error_response("Invalid intervention request", 400)
         except (AttributeError, RuntimeError, TypeError) as e:
             logger.exception("Failed to queue intervention: %s", e)
             return error_response(safe_error_message(e, "queue intervention"), 500)

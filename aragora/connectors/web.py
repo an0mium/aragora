@@ -277,7 +277,7 @@ class WebConnector(BaseConnector):
                             action, category=category, lineno=lineno, append=append
                         )
 
-                    warnings.simplefilter = _safe_simplefilter
+                    warnings.simplefilter = _safe_simplefilter  # type: ignore[assignment]
                     try:
                         with warnings.catch_warnings():
                             warnings.filterwarnings(
