@@ -18,6 +18,7 @@
     "/api/v1/coordination/health",
     "/api/v1/coordination/stats",
     "/api/v1/coordination/workspaces",
-    "/api/v1/km/checkpoints/compare"
+    "/api/v1/km/checkpoints/compare",
+    "/api/v1/matches/stats"
   ]
 }

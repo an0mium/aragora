@@ -44,7 +44,13 @@ def from_config(
     Returns:
         A fully initialized Arena instance.
     """
-    from aragora.debate.arena_config import ArenaConfig, EvolutionConfig, KnowledgeConfig, MLConfig, MemoryConfig
+    from aragora.debate.arena_config import (
+        ArenaConfig,
+        EvolutionConfig,
+        KnowledgeConfig,
+        MLConfig,
+        MemoryConfig,
+    )
     from aragora.debate.feature_validator import validate_and_warn
 
     config = config or ArenaConfig()

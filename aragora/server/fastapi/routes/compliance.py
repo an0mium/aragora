@@ -258,7 +258,9 @@ async def get_compliance_status(
 
         if soc2_assessed > 0:
             ratio = soc2_compliant / soc2_assessed
-            soc2_status = "compliant" if ratio >= 1.0 else ("in_progress" if ratio > 0 else "non_compliant")
+            soc2_status = (
+                "compliant" if ratio >= 1.0 else ("in_progress" if ratio > 0 else "non_compliant")
+            )
 
         # ----- GDPR -----
         gdpr_status = "supported"
@@ -299,7 +301,9 @@ async def get_compliance_status(
                         hipaa_pass = sum(
                             1
                             for c in hipaa_ctrls
-                            if (c.get("status") if isinstance(c, dict) else getattr(c, "status", ""))
+                            if (
+                                c.get("status") if isinstance(c, dict) else getattr(c, "status", "")
+                            )
                             in ("passing", "compliant")
                         )
                         if hipaa_pass == len(hipaa_ctrls) and len(hipaa_ctrls) > 0:
@@ -1260,25 +1264,23 @@ async def get_audit_events(
                             d = ev
                         else:
                             continue
-                        entries.append({
-                            "id": d.get("id", ""),
-                            "timestamp": d.get("timestamp", ""),
-                            "event_type": (
-                                f"{d.get('category', 'system')}.{d.get('action', 'unknown')}"
-                            ),
-                            "actor": d.get("actor_id", d.get("actor", "system")),
-                            "resource": d.get("resource_id", d.get("resource_type", "")),
-                            "action": d.get("action", ""),
-                            "outcome": d.get("outcome", "success"),
-                            "details": (
-                                d.get("reason", "")
-                                or (
-                                    str(d.get("details", ""))
-                                    if d.get("details")
-                                    else None
-                                )
-                            ),
-                        })
+                        entries.append(
+                            {
+                                "id": d.get("id", ""),
+                                "timestamp": d.get("timestamp", ""),
+                                "event_type": (
+                                    f"{d.get('category', 'system')}.{d.get('action', 'unknown')}"
+                                ),
+                                "actor": d.get("actor_id", d.get("actor", "system")),
+                                "resource": d.get("resource_id", d.get("resource_type", "")),
+                                "action": d.get("action", ""),
+                                "outcome": d.get("outcome", "success"),
+                                "details": (
+                                    d.get("reason", "")
+                                    or (str(d.get("details", "")) if d.get("details") else None)
+                                ),
+                            }
+                        )
                 except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                     logger.debug("AuditLog query failed: %s", exc)
 
@@ -1288,16 +1290,20 @@ async def get_audit_events(
                     raw = store.list_entries(limit=limit, offset=0)
                     for entry in raw:
                         if isinstance(entry, dict):
-                            entries.append({
-                                "id": entry.get("id", entry.get("entry_id", "")),
-                                "timestamp": entry.get("timestamp", ""),
-                                "event_type": entry.get("action", "unknown"),
-                                "actor": entry.get("actor", "system"),
-                                "resource": entry.get("resource_id", entry.get("resource_type", "")),
-                                "action": entry.get("action", ""),
-                                "outcome": entry.get("outcome", "success"),
-                                "details": str(entry.get("details", "")) or None,
-                            })
+                            entries.append(
+                                {
+                                    "id": entry.get("id", entry.get("entry_id", "")),
+                                    "timestamp": entry.get("timestamp", ""),
+                                    "event_type": entry.get("action", "unknown"),
+                                    "actor": entry.get("actor", "system"),
+                                    "resource": entry.get(
+                                        "resource_id", entry.get("resource_type", "")
+                                    ),
+                                    "action": entry.get("action", ""),
+                                    "outcome": entry.get("outcome", "success"),
+                                    "details": str(entry.get("details", "")) or None,
+                                }
+                            )
                     total = len(entries)
                 except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as exc:
                     logger.debug("list_entries fallback failed: %s", exc)
