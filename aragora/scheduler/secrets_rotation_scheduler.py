@@ -60,10 +60,10 @@ class SecretType(Enum):
 
     API_KEY = "api_key"
     DATABASE_CREDENTIAL = "database_credential"
-    JWT_SECRET = "jwt_secret"
-    OAUTH_TOKEN = "oauth_token"
+    JWT_SECRET = "jwt_secret"  # noqa: S105 -- enum value
+    OAUTH_TOKEN = "oauth_token"  # noqa: S105 -- enum value
     ENCRYPTION_KEY = "encryption_key"
-    WEBHOOK_SECRET = "webhook_secret"
+    WEBHOOK_SECRET = "webhook_secret"  # noqa: S105 -- enum value
     SERVICE_ACCOUNT = "service_account"
 
 

@@ -23,7 +23,7 @@ class SensitivityLevel(str, Enum):
     INTERNAL = "internal"  # Internal use only
     CONFIDENTIAL = "confidential"  # Restricted access
     RESTRICTED = "restricted"  # Highly restricted
-    TOP_SECRET = "top_secret"  # Maximum restriction
+    TOP_SECRET = "top_secret"  # noqa: S105 -- enum value (maximum restriction)
 
 
 @dataclass

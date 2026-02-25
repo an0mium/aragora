@@ -281,7 +281,7 @@ class Action(str, Enum):
     # Session and auth actions
     REVOKE = "revoke"  # Revoke sessions/credentials
     LIST_ACTIVE = "list_active"  # List active sessions
-    RESET_PASSWORD = "reset_password"  # Reset user password
+    RESET_PASSWORD = "reset_password"  # noqa: S105 -- enum value (reset user password)
     REQUIRE_MFA = "require_mfa"  # Enforce MFA
 
     # Approval workflow actions
@@ -305,7 +305,7 @@ class Action(str, Enum):
     OVERRIDE = "override"  # Override quotas/limits
     DISSOLVE = "dissolve"  # Dissolve teams/groups
     LIST_ALL = "list_all"  # List all items (not just own)
-    EXPORT_SECRET = "export_secret"  # Export secrets/credentials
+    EXPORT_SECRET = "export_secret"  # noqa: S105 -- enum value (export secrets/credentials)
     EXPORT_HISTORY = "export_history"  # Export historical data
     RESTORE = "restore"  # Restore from backup
     EXECUTE = "execute"  # Execute procedures (DR, migrations)
