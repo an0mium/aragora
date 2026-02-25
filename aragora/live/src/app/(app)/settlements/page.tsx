@@ -21,12 +21,35 @@ interface SettlementSummary {
   accuracy_rate: number;
 }
 
+interface ObservabilityTelemetry {
+  settlement_review?: {
+    running: boolean;
+    interval_hours: number | null;
+    stats?: {
+      total_runs?: number;
+      total_receipts_updated?: number;
+      success_rate?: number;
+      last_result?: {
+        unresolved_due?: number;
+      } | null;
+    } | null;
+    available: boolean;
+  };
+  oracle_stream?: {
+    active_sessions: number;
+    stalls_total: number;
+    ttft_avg_ms: number | null;
+    available: boolean;
+  };
+}
+
 type TabType = 'pending' | 'history' | 'stats';
 
 export default function SettlementsPage() {
   const [tab, setTab] = useState<TabType>('pending');
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [summary, setSummary] = useState<SettlementSummary | null>(null);
+  const [telemetry, setTelemetry] = useState<ObservabilityTelemetry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,9 +74,29 @@ export default function SettlementsPage() {
     }
   }, [tab]);
 
+  const loadTelemetry = useCallback(async () => {
+    try {
+      const data = await apiFetch<ObservabilityTelemetry>('/api/v1/observability/dashboard');
+      setTelemetry(data);
+    } catch {
+      setTelemetry(null);
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    loadTelemetry();
+    const interval = setInterval(loadTelemetry, 30000);
+    return () => clearInterval(interval);
+  }, [loadTelemetry]);
+
+  const settlementReview = telemetry?.settlement_review;
+  const oracleStream = telemetry?.oracle_stream;
+  const settlementAvailable = settlementReview?.available === true;
+  const oracleAvailable = oracleStream?.available === true;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -65,6 +108,70 @@ export default function SettlementsPage() {
           <p className="text-sm text-[var(--text-muted)] mt-1">
             Verify debate claims against real outcomes to calibrate agent accuracy
           </p>
+        </div>
+      </div>
+
+      {/* Ops telemetry strip */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6" aria-label="Settlement ops health">
+        <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-md">
+          <div className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+            Settlement Review
+          </div>
+          {settlementAvailable ? (
+            <>
+              <div className="text-sm font-mono text-[var(--text)] mt-1">
+                Scheduler: {settlementReview.running ? 'RUNNING' : 'NOT RUNNING'}
+              </div>
+              <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                Interval: {settlementReview.interval_hours ?? '-'}h
+              </div>
+            </>
+          ) : (
+            <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+              Ops telemetry unavailable
+            </div>
+          )}
+        </div>
+
+        <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-md">
+          <div className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+            Calibration Rollup
+          </div>
+          {settlementAvailable ? (
+            <>
+              <div className="text-sm font-mono text-[var(--text)] mt-1">
+                Success: {((settlementReview.stats?.success_rate ?? 0) * 100).toFixed(1)}%
+              </div>
+              <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                Updated: {settlementReview.stats?.total_receipts_updated ?? 0} | Unresolved:{' '}
+                {settlementReview.stats?.last_result?.unresolved_due ?? 0}
+              </div>
+            </>
+          ) : (
+            <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+              No settlement rollup
+            </div>
+          )}
+        </div>
+
+        <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-md">
+          <div className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider">
+            Oracle Streaming
+          </div>
+          {oracleAvailable ? (
+            <>
+              <div className="text-sm font-mono text-[var(--text)] mt-1">
+                Active: {oracleStream.active_sessions} | Stalls: {oracleStream.stalls_total}
+              </div>
+              <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                TTFT: {oracleStream.ttft_avg_ms != null ? `${Math.round(oracleStream.ttft_avg_ms)}ms` : '-'}
+              </div>
+            </>
+          ) : (
+            <div className="text-xs font-mono text-[var(--text-muted)] mt-1">
+              No oracle stream telemetry
+            </div>
+          )}
         </div>
       </div>
 

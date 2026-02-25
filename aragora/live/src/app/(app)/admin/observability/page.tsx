@@ -49,6 +49,48 @@ interface DashboardData {
     recent_runs: RecentRun[];
     available: boolean;
   };
+  oracle_stream: {
+    sessions_started: number;
+    sessions_completed: number;
+    sessions_cancelled: number;
+    sessions_errors: number;
+    active_sessions: number;
+    stalls_waiting_first_token: number;
+    stalls_stream_inactive: number;
+    stalls_total: number;
+    ttft_samples: number;
+    ttft_avg_ms: number | null;
+    ttft_last_ms: number | null;
+    available: boolean;
+  };
+  settlement_review: {
+    running: boolean;
+    interval_hours: number | null;
+    max_receipts_per_run: number | null;
+    startup_delay_seconds: number | null;
+    stats: {
+      total_runs: number;
+      total_receipts_scanned: number;
+      total_receipts_updated: number;
+      total_calibration_predictions: number;
+      failures: number;
+      success_rate: number;
+      last_run: string | null;
+      last_result: {
+        receipts_scanned: number;
+        receipts_due: number;
+        receipts_updated: number;
+        calibration_predictions_recorded: number;
+        unresolved_due: number;
+        started_at: string;
+        completed_at: string;
+        duration_seconds: number;
+        success: boolean;
+        error: string | null;
+      } | null;
+    } | null;
+    available: boolean;
+  };
   system_health: {
     memory_percent: number | null;
     cpu_percent: number | null;
@@ -118,6 +160,13 @@ function runStatusColor(status: string): string {
   if (status === 'failed') return 'text-acid-red';
   if (status === 'running' || status === 'in_progress') return 'text-acid-yellow';
   return 'text-text-muted';
+}
+
+function formatPercent(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) {
+    return '-';
+  }
+  return `${(value * 100).toFixed(1)}%`;
 }
 
 export default function ObservabilityPage() {
@@ -261,6 +310,127 @@ export default function ObservabilityPage() {
               : 'acid-cyan'
           }
         />
+      </div>
+
+      {/* Settlement + Oracle telemetry */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="card p-6">
+          <h2 className="font-mono text-acid-green mb-4">Settlement Review</h2>
+          {!data?.settlement_review.available ? (
+            <p className="font-mono text-xs text-text-muted">
+              Settlement review scheduler unavailable
+            </p>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <StatusDot status={data.settlement_review.running ? 'green' : 'yellow'} />
+                  <span className="font-mono text-sm text-text">
+                    {data.settlement_review.running ? 'RUNNING' : 'NOT RUNNING'}
+                  </span>
+                </div>
+                <span className="font-mono text-xs text-text-muted">
+                  Every {data.settlement_review.interval_hours ?? '-'}h
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="p-3 bg-bg rounded">
+                  <div className="font-mono text-xs text-text-muted">Total Runs</div>
+                  <div className="font-mono text-xl text-acid-cyan">
+                    {data.settlement_review.stats?.total_runs ?? 0}
+                  </div>
+                </div>
+                <div className="p-3 bg-bg rounded">
+                  <div className="font-mono text-xs text-text-muted">Success Rate</div>
+                  <div className="font-mono text-xl text-acid-green">
+                    {formatPercent(data.settlement_review.stats?.success_rate)}
+                  </div>
+                </div>
+                <div className="p-3 bg-bg rounded">
+                  <div className="font-mono text-xs text-text-muted">Receipts Updated</div>
+                  <div className="font-mono text-xl text-acid-green">
+                    {data.settlement_review.stats?.total_receipts_updated ?? 0}
+                  </div>
+                </div>
+                <div className="p-3 bg-bg rounded">
+                  <div className="font-mono text-xs text-text-muted">Calibration Records</div>
+                  <div className="font-mono text-xl text-acid-yellow">
+                    {data.settlement_review.stats?.total_calibration_predictions ?? 0}
+                  </div>
+                </div>
+              </div>
+
+              {data.settlement_review.stats?.last_result && (
+                <div className="pt-3 border-t border-border">
+                  <div className="font-mono text-xs text-text-muted mb-2">Last Run</div>
+                  <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                    <div className="text-text-muted">
+                      Due: <span className="text-text">{data.settlement_review.stats.last_result.receipts_due}</span>
+                    </div>
+                    <div className="text-text-muted">
+                      Updated:{' '}
+                      <span className="text-acid-green">
+                        {data.settlement_review.stats.last_result.receipts_updated}
+                      </span>
+                    </div>
+                    <div className="text-text-muted">
+                      Unresolved:{' '}
+                      <span className="text-acid-yellow">
+                        {data.settlement_review.stats.last_result.unresolved_due}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="card p-6">
+          <h2 className="font-mono text-acid-green mb-4">Oracle Streaming</h2>
+          {!data?.oracle_stream.available ? (
+            <p className="font-mono text-xs text-text-muted">
+              Oracle stream metrics unavailable
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="p-3 bg-bg rounded">
+                  <div className="font-mono text-xs text-text-muted">Active Sessions</div>
+                  <div className="font-mono text-xl text-acid-cyan">
+                    {data.oracle_stream.active_sessions}
+                  </div>
+                </div>
+                <div className="p-3 bg-bg rounded">
+                  <div className="font-mono text-xs text-text-muted">Sessions Started</div>
+                  <div className="font-mono text-xl text-text">
+                    {data.oracle_stream.sessions_started}
+                  </div>
+                </div>
+                <div className="p-3 bg-bg rounded">
+                  <div className="font-mono text-xs text-text-muted">Stalls Total</div>
+                  <div className="font-mono text-xl text-acid-yellow">
+                    {data.oracle_stream.stalls_total}
+                  </div>
+                </div>
+                <div className="p-3 bg-bg rounded">
+                  <div className="font-mono text-xs text-text-muted">TTFT Avg</div>
+                  <div className="font-mono text-xl text-acid-green">
+                    {data.oracle_stream.ttft_avg_ms != null
+                      ? `${Math.round(data.oracle_stream.ttft_avg_ms)}ms`
+                      : '-'}
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs font-mono text-text-muted">
+                Completed: {data.oracle_stream.sessions_completed} | Errors:{' '}
+                {data.oracle_stream.sessions_errors} | Waiting-first-token stalls:{' '}
+                {data.oracle_stream.stalls_waiting_first_token}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
