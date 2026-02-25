@@ -164,7 +164,7 @@ async def claim_task(body: ClaimTaskRequest):
         if not cp:
             raise HTTPException(status_code=503, detail="Control plane not initialized")
 
-        task = await cp.claim_task(
+        task = await cp.coordinator.claim_task(
             agent_id=body.agent_id,
             capabilities=body.capabilities,
             block_ms=body.block_ms,
@@ -246,7 +246,7 @@ async def cancel_task(task_id: str):
         if not cp:
             raise HTTPException(status_code=503, detail="Control plane not initialized")
 
-        success = await cp.cancel_task(task_id)
+        success = await cp.coordinator.cancel_task(task_id)
         if not success:
             raise HTTPException(
                 status_code=404, detail=f"Task not found or already completed: {task_id}"
@@ -277,8 +277,9 @@ async def get_queue(limit: int = Query(default=50, ge=1, le=1000)):
         if not cp:
             raise HTTPException(status_code=503, detail="Control plane not initialized")
 
-        pending = await cp._scheduler.list_by_status(TaskStatus.PENDING, limit=limit)
-        running = await cp._scheduler.list_by_status(TaskStatus.RUNNING, limit=limit)
+        scheduler = cp.coordinator._scheduler_bridge._scheduler
+        pending = await scheduler.list_by_status(TaskStatus.PENDING, limit=limit)
+        running = await scheduler.list_by_status(TaskStatus.RUNNING, limit=limit)
 
         def task_to_job(task: Any) -> dict[str, Any]:
             progress = 0.0
@@ -397,9 +398,10 @@ async def get_task_history(
             if status.lower() in status_map:
                 history_statuses = [status_map[status.lower()]]
 
+        scheduler = cp.coordinator._scheduler_bridge._scheduler
         all_tasks = []
         for st in history_statuses:
-            tasks = await cp._scheduler.list_by_status(st, limit=limit + offset)
+            tasks = await scheduler.list_by_status(st, limit=limit + offset)
             all_tasks.extend(tasks)
 
         if task_type:
