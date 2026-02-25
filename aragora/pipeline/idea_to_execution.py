@@ -848,6 +848,15 @@ class IdeaToExecutionPipeline:
         pipeline_id = pipeline_id or f"pipe-{uuid.uuid4().hex[:8]}"
         start_time = time.monotonic()
 
+        # Auto-wire PipelineStreamEmitter for WebSocket delivery if no callback set
+        if cfg.event_callback is None:
+            try:
+                from aragora.server.stream.pipeline_stream import get_pipeline_emitter
+
+                cfg.event_callback = get_pipeline_emitter().as_event_callback(pipeline_id)
+            except (ImportError, RuntimeError):
+                pass  # No server context, skip WebSocket emission
+
         result = PipelineResult(
             pipeline_id=pipeline_id,
             stage_status=_initial_stage_status(enable_principles=cfg.enable_principles),
