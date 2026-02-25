@@ -125,7 +125,9 @@ class TestFilterAvailableAgents:
                 AgentSpec(provider="openai-api", name="gpt-1"),
             ]
             # Force unavailable by patching env
-            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "", "OPENAI_API_KEY": ""}, clear=False):
+            with patch.dict(
+                os.environ, {"ANTHROPIC_API_KEY": "", "OPENAI_API_KEY": ""}, clear=False
+            ):
                 with pytest.raises(ValueError, match="agents have valid credentials"):
                     filter_available_agents(specs, log_filtered=False, min_agents=2)
             return

@@ -61,9 +61,7 @@ def service(catalog) -> MarketplaceService:
 class TestSkillLifecycle:
     """Browse -> install -> verify in registry -> invoke -> uninstall."""
 
-    def test_browse_find_install_invoke_uninstall(
-        self, service, installer, skill_registry
-    ) -> None:
+    def test_browse_find_install_invoke_uninstall(self, service, installer, skill_registry) -> None:
         """Complete skill lifecycle from browsing to uninstallation."""
         # 1. Browse -- find skills in the catalog
         listings = service.list_listings(item_type="skill")
@@ -215,18 +213,14 @@ class TestMixedLifecycle:
         # Verify both registries
         assert skill_registry.has_skill("skill-classify")
         tpl_found = template_registry.search(query="Brainstorm Session", status="approved")
-        assert any(
-            l.template_data.get("marketplace_id") == "tpl-brainstorm" for l in tpl_found
-        )
+        assert any(l.template_data.get("marketplace_id") == "tpl-brainstorm" for l in tpl_found)
 
         # Uninstall skill -- template should remain
         installer.uninstall("skill-classify")
         assert not skill_registry.has_skill("skill-classify")
 
         tpl_still = template_registry.search(query="Brainstorm Session", status="approved")
-        assert any(
-            l.template_data.get("marketplace_id") == "tpl-brainstorm" for l in tpl_still
-        )
+        assert any(l.template_data.get("marketplace_id") == "tpl-brainstorm" for l in tpl_still)
 
 
 # ---------------------------------------------------------------------------
@@ -237,9 +231,7 @@ class TestMixedLifecycle:
 class TestServiceInstallTracking:
     """MarketplaceService tracks user installs alongside registry bridging."""
 
-    def test_service_install_and_bridge(
-        self, catalog, skill_registry, template_registry
-    ) -> None:
+    def test_service_install_and_bridge(self, catalog, skill_registry, template_registry) -> None:
         """Service install_listing tracks user + bridges via installer."""
         service = MarketplaceService(catalog=catalog)
         installer = MarketplaceInstaller(

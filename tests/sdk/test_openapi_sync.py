@@ -368,8 +368,9 @@ class TestCrossSDKParity:
 
     def test_namespace_parity(self):
         """Both SDKs should cover the same core namespaces."""
-        assert TS_NAMESPACES.exists() and PY_NAMESPACES.exists(), \
+        assert TS_NAMESPACES.exists() and PY_NAMESPACES.exists(), (
             "One or both SDK namespace directories missing"
+        )
 
         ts_ns = {
             p.stem.replace("-", "_")

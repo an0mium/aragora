@@ -376,6 +376,7 @@ class TestRunOrchestration:
         goals and attempts execution. Tasks complete with planned/failed
         status when DebugLoop is unavailable or path validation fails.
         """
+
         # Mock _execute_task to return "planned" status (simulates no execution backend)
         async def _mock_execute(task, cfg):
             return {

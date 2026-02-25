@@ -125,9 +125,7 @@ class MarketplaceInstaller:
                 item_id=item_id,
                 errors=validation_errors,
             )
-            return InstallBridgeResult(
-                catalog_result=catalog_result, errors=validation_errors
-            )
+            return InstallBridgeResult(catalog_result=catalog_result, errors=validation_errors)
 
         # Run catalog install (increments downloads, etc.)
         catalog_result = self._catalog.install_item(item_id)
@@ -212,9 +210,7 @@ class MarketplaceInstaller:
     # Skill bridging
     # ------------------------------------------------------------------
 
-    def _bridge_skill(
-        self, item: MarketplaceItem, result: InstallBridgeResult
-    ) -> None:
+    def _bridge_skill(self, item: MarketplaceItem, result: InstallBridgeResult) -> None:
         """Register a marketplace skill item in the SkillRegistry."""
         try:
             registry = self._get_skill_registry()
@@ -284,9 +280,7 @@ class MarketplaceInstaller:
     # Template bridging
     # ------------------------------------------------------------------
 
-    def _bridge_template(
-        self, item: MarketplaceItem, result: InstallBridgeResult
-    ) -> None:
+    def _bridge_template(self, item: MarketplaceItem, result: InstallBridgeResult) -> None:
         """Register a marketplace template in the workflow TemplateRegistry."""
         try:
             registry = self._get_template_registry()

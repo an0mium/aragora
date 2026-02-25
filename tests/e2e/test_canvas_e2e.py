@@ -964,9 +964,7 @@ class TestCanvasWebSocketStreamE2E:
         """Test that canvas stream server can be initialized."""
         from aragora.server.stream.canvas_stream import CanvasStreamServer
 
-        server = CanvasStreamServer(
-            host="localhost", port=0
-        )  # Port 0 for random available port
+        server = CanvasStreamServer(host="localhost", port=0)  # Port 0 for random available port
         assert server is not None
         assert hasattr(server, "start")
         assert hasattr(server, "handle_connection")
