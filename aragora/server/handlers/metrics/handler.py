@@ -29,7 +29,7 @@ from aragora.persistence.db_config import LEGACY_DB_NAMES, DatabaseType
 from aragora.server.versioning.compat import strip_version_prefix
 
 from ..admin.cache import _cache, get_cache_stats
-from ..base import BaseHandler, HandlerResult, error_response, json_response, safe_error_message
+from ..base import BaseHandler, HandlerResult, error_response, handle_errors, json_response, safe_error_message
 from ..utils.rate_limit import RateLimiter, get_client_ip
 from .formatters import format_size, format_uptime
 from .tracking import get_request_stats, get_start_time, get_verification_stats
@@ -68,6 +68,12 @@ class MetricsHandler(BaseHandler):
         "/api/v1/monitoring/slos",
         "/api/v1/monitoring/traces",
         "/metrics",  # Prometheus-format endpoint
+    ]
+
+    DYNAMIC_ROUTES = [
+        "/api/v1/monitoring/alerts/{alert_id}/acknowledge",
+        "/api/v1/monitoring/alerts/{alert_id}/resolve",
+        "/api/v1/monitoring/dashboards/{dashboard_id}",
     ]
 
     _ALERT_PREFIX = "/api/v1/monitoring/alerts/"
@@ -157,13 +163,39 @@ class MetricsHandler(BaseHandler):
         if path == "/metrics":
             return self._get_prometheus_metrics()
 
-        # Dynamic GET: /api/v1/monitoring/dashboards/{id}
-        original = strip_version_prefix(handler.path) if hasattr(handler, "path") else path
-        if original.startswith("/api/v1/monitoring/dashboards/") and original.count("/") == 5:
-            dashboard_id, err = self.extract_path_param(original, 5, "dashboard_id")
+        # Dynamic GET: /api/monitoring/dashboards/{id} (after strip_version_prefix)
+        if path.startswith("/api/monitoring/dashboards/") and path.count("/") == 4:
+            dashboard_id, err = self.extract_path_param(path, 4, "dashboard_id")
             if err:
                 return err
             return self._get_dashboard(dashboard_id)
+
+        return None
+
+    @handle_errors("monitoring alert action")
+    def handle_post(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+        """Route POST requests for monitoring alert actions."""
+        # Rate limit check
+        client_ip = get_client_ip(handler)
+        if not _metrics_limiter.is_allowed(client_ip):
+            logger.warning("Rate limit exceeded for monitoring POST endpoint: %s", client_ip)
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        if path.startswith(self._ALERT_PREFIX) and path.endswith("/acknowledge"):
+            alert_id, err = self.extract_path_param(path, 5, "alert_id")
+            if err:
+                return err
+            body = self.read_json_body(handler)
+            comment = body.get("comment") if body else None
+            return self._acknowledge_alert(alert_id, comment)
+
+        if path.startswith(self._ALERT_PREFIX) and path.endswith("/resolve"):
+            alert_id, err = self.extract_path_param(path, 5, "alert_id")
+            if err:
+                return err
+            body = self.read_json_body(handler)
+            resolution = body.get("resolution") if body else None
+            return self._resolve_alert(alert_id, resolution)
 
         return None
 
