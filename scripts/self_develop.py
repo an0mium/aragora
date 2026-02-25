@@ -543,13 +543,17 @@ async def run_orchestration(
         mode_label = "STANDARD"
     else:
         # Default: HardenedOrchestrator with production features
-        orchestrator = HardenedOrchestrator(
-            use_worktree_isolation=use_worktree,
-            enable_meta_planning=enable_meta_plan,
-            budget_limit_usd=budget_limit,
-            enable_watchdog=enable_watchdog,
+        hardened_kwargs: dict[str, Any] = {
+            "use_worktree_isolation": use_worktree,
+            "enable_meta_planning": enable_meta_plan,
+            "enable_watchdog": enable_watchdog,
             **common_kwargs,
-        )
+        }
+        # Only pass budget_limit_usd when explicitly set; otherwise let
+        # HardenedOrchestrator apply its GA-safe default ($5).
+        if budget_limit is not None:
+            hardened_kwargs["budget_limit_usd"] = budget_limit
+        orchestrator = HardenedOrchestrator(**hardened_kwargs)
         mode_label = "HARDENED"
 
     print_header(f"STARTING ORCHESTRATION ({mode_label})")

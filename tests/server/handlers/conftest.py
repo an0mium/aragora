@@ -21,6 +21,7 @@ Common patterns:
 """
 
 import json
+import sys
 from dataclasses import dataclass
 from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, Mock
@@ -1325,16 +1326,17 @@ def _reset_handler_global_state():
     except (ImportError, AttributeError):
         pass
 
-    # Reset Slack bot state
-    try:
-        from aragora.server.handlers.bots.slack import state as slack_state
-
-        if hasattr(slack_state, "_active_debates"):
-            slack_state._active_debates.clear()
-        if hasattr(slack_state, "_user_votes"):
-            slack_state._user_votes.clear()
-    except (ImportError, AttributeError):
-        pass
+    # Reset Slack bot state — only if already imported to avoid shadowing
+    # aragora.server.handlers.social.slack (importing bots.slack at collection
+    # time causes social.slack imports to resolve to None)
+    _slack_mod = sys.modules.get("aragora.server.handlers.bots.slack")
+    if _slack_mod is not None:
+        slack_state = getattr(_slack_mod, "state", None)
+        if slack_state is not None:
+            if hasattr(slack_state, "_active_debates"):
+                slack_state._active_debates.clear()
+            if hasattr(slack_state, "_user_votes"):
+                slack_state._user_votes.clear()
 
     # Reset Teams bot state
     try:
