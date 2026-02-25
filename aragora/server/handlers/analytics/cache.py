@@ -264,7 +264,7 @@ def cached_analytics(
     workspace_key: str = "workspace_id",
     time_range_key: str = "time_range",
     extra_keys: list[str] | None = None,
-):
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
     Decorator for caching analytics dashboard endpoint results.
 
@@ -286,7 +286,7 @@ def cached_analytics(
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
-        def wrapper(self, query_params: dict, *args, **kwargs) -> T:
+        def wrapper(self, query_params: dict[str, Any], *args: Any, **kwargs: Any) -> T:
             # Extract workspace ID
             workspace_id = query_params.get(workspace_key)
             if not workspace_id:
@@ -325,7 +325,7 @@ def cached_analytics_org(
     org_key: str = "org_id",
     days_key: str = "days",
     extra_keys: list[str] | None = None,
-):
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
     Decorator for caching analytics endpoints scoped by org_id.
 
@@ -341,7 +341,7 @@ def cached_analytics_org(
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
-        def wrapper(self, query_params: dict, *args, **kwargs) -> T:
+        def wrapper(self, query_params: dict[str, Any], *args: Any, **kwargs: Any) -> T:
             org_id = query_params.get(org_key)
             if not org_id:
                 return func(self, query_params, *args, **kwargs)

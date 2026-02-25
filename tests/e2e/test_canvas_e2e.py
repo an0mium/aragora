@@ -962,17 +962,14 @@ class TestCanvasWebSocketStreamE2E:
     @pytest.mark.asyncio
     async def test_canvas_stream_server_initialization(self):
         """Test that canvas stream server can be initialized."""
-        try:
-            from aragora.server.stream.canvas_stream import CanvasStreamServer
+        from aragora.server.stream.canvas_stream import CanvasStreamServer
 
-            server = CanvasStreamServer(
-                host="localhost", port=0
-            )  # Port 0 for random available port
-            assert server is not None
-            assert hasattr(server, "start")
-            assert hasattr(server, "handle_connection")
-        except ImportError:
-            pytest.skip("Canvas stream server not available")
+        server = CanvasStreamServer(
+            host="localhost", port=0
+        )  # Port 0 for random available port
+        assert server is not None
+        assert hasattr(server, "start")
+        assert hasattr(server, "handle_connection")
 
     @pytest.mark.asyncio
     async def test_canvas_event_broadcasting(self):
