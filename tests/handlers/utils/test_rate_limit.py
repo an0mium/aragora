@@ -702,7 +702,7 @@ class TestValidateRateLimitConfiguration:
         monkeypatch.setenv("ARAGORA_RATE_LIMIT_STRICT", "true")
         from aragora.server.handlers.utils.rate_limit import validate_rate_limit_configuration
 
-        with pytest.raises(RuntimeError, match="Redis is required"):
+        with pytest.raises(RuntimeError, match="Multi-instance deployment detected"):
             validate_rate_limit_configuration()
 
     def test_multi_instance_no_strict_no_redis_warns(self, monkeypatch):

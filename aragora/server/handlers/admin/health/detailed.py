@@ -36,6 +36,7 @@ def health_check(handler) -> HandlerResult:
     Checks:
     - degraded_mode: Server configuration and startup status
     - database: Can execute a query
+    - database_pool: PostgreSQL connection pool health and utilization
     - storage: Debate storage is initialized
     - elo_system: ELO ranking system is available
     - nomic_dir: Nomic state directory exists
@@ -92,6 +93,41 @@ def health_check(handler) -> HandlerResult:
             "healthy": True,  # Downgrade to warning
             "warning": "Database check failed",
             "initialized": False,
+        }
+
+    # Check PostgreSQL connection pool health
+    try:
+        from aragora.storage.pool_manager import get_database_pool_health
+
+        pool_health = get_database_pool_health()
+        pool_status = pool_health.get("status", "unknown")
+
+        # Map pool status to the health check schema
+        pool_healthy = pool_status in ("healthy", "not_configured")
+        checks["database_pool"] = {
+            "healthy": pool_healthy,
+            "connected": pool_health.get("connected", False),
+            "pool_active": pool_health.get("pool_active"),
+            "pool_idle": pool_health.get("pool_idle"),
+            "pool_size": pool_health.get("pool_size"),
+            "pool_utilization_pct": pool_health.get("pool_utilization_pct"),
+            "status": pool_status,
+        }
+
+        # Unhealthy pool (DB unreachable) is non-critical -- the server can
+        # still function for debates without PostgreSQL.  But we do flag it.
+        if pool_status == "unhealthy":
+            checks["database_pool"]["warning"] = "Database unreachable"
+        elif pool_status == "degraded":
+            checks["database_pool"]["warning"] = "High pool utilization"
+    except ImportError:
+        checks["database_pool"] = {"healthy": True, "status": "module_not_available"}
+    except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
+        logger.warning("Database pool health check failed: %s: %s", type(e).__name__, e)
+        checks["database_pool"] = {
+            "healthy": True,
+            "warning": "Pool health check failed",
+            "status": "error",
         }
 
     # Check ELO system
