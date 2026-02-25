@@ -356,7 +356,6 @@ jobs:
         if: github.event_name == 'pull_request' && steps.compare.outputs.spec_changed == 'true'
         continue-on-error: true
         uses: actions/github-script@v7
-        continue-on-error: true
         with:
           script: |
             try {
