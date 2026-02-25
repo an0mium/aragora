@@ -46,7 +46,7 @@ const filterPresets: { label: string; types: ActivityEventType[] }[] = [
     types: ['task_completed', 'task_failed'],
   },
   {
-    label: 'Vetted Decisionmaking',
+    label: 'Debates',
     types: ['deliberation_started', 'deliberation_consensus', 'deliberation_failed'],
   },
   {

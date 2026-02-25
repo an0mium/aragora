@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback } from 'react';
 import { DeliberationCard, type Deliberation, type DeliberationStatus } from './DeliberationCard';
 
 export interface DeliberationTrackerProps {
-  /** List of vetted decisionmaking sessions to display */
+  /** List of debate sessions to display */
   deliberations: Deliberation[];
   /** Show filter tabs */
   showFilters?: boolean;
@@ -39,7 +39,7 @@ const statusToFilter: Record<DeliberationStatus, FilterTab> = {
 };
 
 /**
- * Vetted Decisionmaking Tracker - Panel showing active and recent sessions.
+ * Debate Tracker - Panel showing active and recent sessions.
  *
  * Displays:
  * - Count of in-progress debates

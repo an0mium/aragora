@@ -522,7 +522,7 @@ export default function ControlPlanePage() {
                       </div>
                     </div>
 
-                    {/* Vetted Decisionmaking Tracker */}
+                    {/* Debate Tracker */}
                     {deliberations.length > 0 && (
                       <DeliberationTracker
                         deliberations={deliberations}
@@ -644,7 +644,7 @@ export default function ControlPlanePage() {
                       </div>
                     </div>
 
-                    {/* Vetted Decisionmaking Console */}
+                    {/* Decision Console */}
                     <div className="card">
                       <div className="p-4 border-b border-border">
                         <h2 className="font-mono text-sm text-acid-green">Decision Console</h2>

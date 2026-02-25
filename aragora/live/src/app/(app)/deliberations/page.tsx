@@ -25,7 +25,7 @@ export default function DeliberationsPage() {
   const [wsConnected, setWsConnected] = useState(false);
   const [filter, setFilter] = useState<'all' | 'active' | 'complete'>('all');
 
-  // Fetch active vetted decisionmaking sessions
+  // Fetch active debate sessions
   const fetchDeliberations = useCallback(async () => {
     try {
       const response = await fetch(`${backendConfig.api}/api/v1/deliberations/active`);

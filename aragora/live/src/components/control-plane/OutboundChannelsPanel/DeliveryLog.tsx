@@ -189,7 +189,7 @@ export function DeliveryLog({
                     </p>
                     {entry.deliberation_id && (
                       <div className="text-xs text-cyan-400 mt-1">
-                        Vetted Decisionmaking: {entry.deliberation_id.slice(0, 8)}...
+                        Debate: {entry.deliberation_id.slice(0, 8)}...
                       </div>
                     )}
                     {entry.error_message && entry.status === 'failed' && (
