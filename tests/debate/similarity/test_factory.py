@@ -233,42 +233,50 @@ class TestListAndInfo:
 
 
 class TestIsAvailable:
-    def test_available_when_instantiation_succeeds(self):
+    """Tests for is_available() which checks required packages via find_spec."""
+
+    def test_available_when_no_requires(self):
+        """Backend with no required packages is always available."""
         SimilarityFactory.register("good", _DummyBackend)
         SimilarityFactory._initialized = True
         assert SimilarityFactory.is_available("good") is True
 
-    def test_not_available_on_import_error(self):
-        SimilarityFactory.register("bad", _FailingBackend)
+    def test_available_when_requires_installed(self):
+        """Backend whose required packages exist is available."""
+        SimilarityFactory.register(
+            "with_dep", _DummyBackend, requires=["json"]
+        )
+        SimilarityFactory._initialized = True
+        assert SimilarityFactory.is_available("with_dep") is True
+
+    def test_not_available_when_requires_missing(self):
+        """Backend with a missing required package is not available."""
+        SimilarityFactory.register(
+            "bad", _DummyBackend, requires=["nonexistent_package_xyz"]
+        )
         SimilarityFactory._initialized = True
         assert SimilarityFactory.is_available("bad") is False
 
-    def test_not_available_on_runtime_error(self):
-        SimilarityFactory.register("rterr", _RuntimeErrorBackend)
+    def test_not_available_when_any_require_missing(self):
+        """Backend is not available if any required package is missing."""
+        SimilarityFactory.register(
+            "partial", _DummyBackend, requires=["json", "nonexistent_xyz"]
+        )
         SimilarityFactory._initialized = True
-        assert SimilarityFactory.is_available("rterr") is False
+        assert SimilarityFactory.is_available("partial") is False
 
     def test_not_available_for_unregistered_name(self):
         SimilarityFactory._initialized = True
         assert SimilarityFactory.is_available("ghost") is False
 
-    def test_not_available_on_type_error(self):
-        class _TypeErrBackend:
-            def __init__(self):
-                raise TypeError("bad type")
-
-        SimilarityFactory.register("typeerr", _TypeErrBackend)
+    def test_pip_name_to_module_conversion(self):
+        """Pip names with hyphens are converted to underscores for find_spec."""
+        # pytest-randomly -> pytest_randomly (installed, importable)
+        SimilarityFactory.register(
+            "hyphen", _DummyBackend, requires=["pytest-randomly"]
+        )
         SimilarityFactory._initialized = True
-        assert SimilarityFactory.is_available("typeerr") is False
-
-    def test_not_available_on_value_error(self):
-        class _ValErrBackend:
-            def __init__(self):
-                raise ValueError("bad value")
-
-        SimilarityFactory.register("valerr", _ValErrBackend)
-        SimilarityFactory._initialized = True
-        assert SimilarityFactory.is_available("valerr") is False
+        assert SimilarityFactory.is_available("hyphen") is True
 
 
 # ---------------------------------------------------------------------------
