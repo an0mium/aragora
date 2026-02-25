@@ -341,4 +341,36 @@ export class CanvasNamespace {
       }
     );
   }
+
+  /** List agents assigned to a pipeline. */
+  async getPipelineAgents(pipelineId: string): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v1/pipeline/${encodeURIComponent(pipelineId)}/agents`
+    );
+  }
+
+  /** Approve an agent's assignment to a pipeline. */
+  async approvePipelineAgent(
+    pipelineId: string,
+    agentId: string,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/pipeline/${encodeURIComponent(pipelineId)}/agents/${encodeURIComponent(agentId)}/approve`
+    );
+  }
+
+  /** Reject an agent's assignment to a pipeline. */
+  async rejectPipelineAgent(
+    pipelineId: string,
+    agentId: string,
+    reason?: string,
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      `/api/v1/pipeline/${encodeURIComponent(pipelineId)}/agents/${encodeURIComponent(agentId)}/reject`,
+      { body: reason ? { reason } : undefined }
+    );
+  }
 }

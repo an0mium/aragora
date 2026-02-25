@@ -88,4 +88,20 @@ export class VerificationAPI {
       body: request,
     }) as Promise<VerificationResult>;
   }
+
+  /**
+   * List generated verification proofs.
+   * @route GET /api/v1/verification/proofs
+   */
+  async listProofs(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/verification/proofs', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Validate a verification proof.
+   * @route POST /api/v1/verification/validate
+   */
+  async validate(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/verification/validate', { body: data }) as Promise<Record<string, unknown>>;
+  }
 }
