@@ -47,7 +47,7 @@ def _bypass_auth(app):
     )
     app.dependency_overrides[require_authenticated] = lambda: mock_ctx
     yield
-    app.dependency_overrides.clear()
+    app.dependency_overrides.pop(require_authenticated, None)
 
 
 @pytest.fixture

@@ -46,6 +46,7 @@
     "rbac",
     "receipts",
     "reconciliation",
+    "reputation",
     "replays",
     "repository",
     "self-improve",
