@@ -196,6 +196,15 @@ class TestBuildExecutionPlan:
 class TestExecuteTask:
     """Test _execute_task with various DebugLoop scenarios."""
 
+    @pytest.fixture(autouse=True)
+    def block_pipeline_adapter(self):
+        """Block real KM adapter async calls that would hang tests."""
+        with patch.dict(
+            "sys.modules",
+            {"aragora.knowledge.mound.adapters.pipeline_adapter": None},
+        ):
+            yield
+
     @pytest.mark.asyncio
     async def test_execute_task_success_with_debug_loop(self, pipeline):
         """DebugLoop succeeds -> task status is 'completed'."""

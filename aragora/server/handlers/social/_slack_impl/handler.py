@@ -66,9 +66,6 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
         "/api/v1/integrations/slack/interactive",
         "/api/v1/integrations/slack/events",
         "/api/v1/integrations/slack/status",
-        "/api/v1/bots/slack/commands",
-        "/api/v1/bots/slack/interactive",
-        "/api/v1/bots/slack/events",
         "/api/v1/bots/slack/status",
     ]
 
