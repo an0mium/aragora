@@ -130,7 +130,6 @@ export default function Home() {
 
   // Onboarding wizard state
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [, setPendingPrompt] = useState<string | null>(null);
 
   // Theme context for conditional CRT effects
   const { effectiveTheme } = useTheme();
@@ -278,9 +277,9 @@ export default function Home() {
     markOnboardingComplete();
     setShowOnboarding(false);
     if (startWithPrompt) {
-      setPendingPrompt(startWithPrompt);
+      router.push(`/arena?topic=${encodeURIComponent(startWithPrompt)}&rounds=3&consensus=majority`);
     }
-  }, [markOnboardingComplete]);
+  }, [markOnboardingComplete, router]);
 
   const handleOnboardingSkip = useCallback(() => {
     markOnboardingComplete();

@@ -11,6 +11,9 @@ export default defineConfig({
   // Exclude production tests from regular CI runs (they test live site)
   testIgnore: process.env.PLAYWRIGHT_INCLUDE_PROD ? undefined : '**/production/**',
 
+  // Global test timeout (30s per test)
+  timeout: 30_000,
+
   // Run tests in files in parallel
   fullyParallel: true,
 

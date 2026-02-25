@@ -1074,7 +1074,7 @@ jobs:
 
       - name: Run Jest unit tests
         working-directory: aragora/live
-        run: npx jest --ci --passWithNoTests
+        run: npx jest --ci
 
       - name: Install Playwright browsers
         working-directory: aragora/live

@@ -11,28 +11,34 @@ Test Coverage:
 3. Receipt cryptographic hash verification (SHA-256)
 4. Receipt export to JSON format
 5. Performance benchmark (debate completes within reasonable time)
+6. DebateController-level flow with stream event emission
+7. Oracle streaming session and SentenceAccumulator
+8. Self-improve dry-run (TaskDecomposer.analyze)
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import queue
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from aragora.core import Agent, Critique, Environment, Message, Vote
 from aragora.debate.orchestrator import Arena
 from aragora.debate.protocol import DebateProtocol
+from aragora.events.types import StreamEvent, StreamEventType
 from aragora.gauntlet.receipt import (
     ConsensusProof,
     DecisionReceipt,
     ProvenanceRecord,
 )
+from aragora.server.stream.emitter import SyncEventEmitter
 
 
 # =============================================================================
