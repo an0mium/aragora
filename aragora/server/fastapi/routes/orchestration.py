@@ -53,7 +53,9 @@ class KnowledgeSourceItem(BaseModel):
 class OutputChannelItem(BaseModel):
     """An output channel for routing deliberation results."""
 
-    type: str = Field(..., description="Channel type (slack, teams, discord, telegram, email, webhook)")
+    type: str = Field(
+        ..., description="Channel type (slack, teams, discord, telegram, email, webhook)"
+    )
     id: str = Field(..., description="Channel identifier (channel ID, email, webhook URL)")
     thread_id: str | None = Field(None, description="Optional thread/conversation ID")
 
@@ -302,9 +304,7 @@ async def start_deliberation(
             )
             from aragora.server.handlers.orchestration.templates import TEMPLATES
         except ImportError:
-            raise HTTPException(
-                status_code=503, detail="Orchestration models not available"
-            )
+            raise HTTPException(status_code=503, detail="Orchestration models not available")
 
         # Parse the request using the legacy model
         orch_request = OrchestrationRequest.from_dict(data)
@@ -318,9 +318,7 @@ async def start_deliberation(
                 from aragora.server.handlers.orchestration.models import KnowledgeContextSource
 
                 for src in template.default_knowledge_sources:
-                    orch_request.knowledge_sources.append(
-                        KnowledgeContextSource.from_string(src)
-                    )
+                    orch_request.knowledge_sources.append(KnowledgeContextSource.from_string(src))
             orch_request.max_rounds = template.max_rounds
 
         # Validate question
@@ -362,8 +360,12 @@ async def start_deliberation(
                 result = await orch_handler._execute_deliberation(orch_request)
                 results_store[orch_request.request_id] = result
             except (
-                ValueError, TypeError, KeyError, AttributeError,
-                RuntimeError, OSError,
+                ValueError,
+                TypeError,
+                KeyError,
+                AttributeError,
+                RuntimeError,
+                OSError,
             ) as e:
                 logger.exception("Async deliberation failed: %s", e)
                 results_store[orch_request.request_id] = OrchestrationResult(
@@ -424,9 +426,7 @@ async def start_deliberation_sync(
             )
             from aragora.server.handlers.orchestration.templates import TEMPLATES
         except ImportError:
-            raise HTTPException(
-                status_code=503, detail="Orchestration models not available"
-            )
+            raise HTTPException(status_code=503, detail="Orchestration models not available")
 
         orch_request = OrchestrationRequest.from_dict(data)
 
@@ -439,9 +439,7 @@ async def start_deliberation_sync(
                 from aragora.server.handlers.orchestration.models import KnowledgeContextSource
 
                 for src in template.default_knowledge_sources:
-                    orch_request.knowledge_sources.append(
-                        KnowledgeContextSource.from_string(src)
-                    )
+                    orch_request.knowledge_sources.append(KnowledgeContextSource.from_string(src))
             orch_request.max_rounds = template.max_rounds
 
         if not orch_request.question:
@@ -594,9 +592,7 @@ async def list_templates(
                 TEMPLATES,
             )
         except ImportError:
-            raise HTTPException(
-                status_code=503, detail="Orchestration templates not available"
-            )
+            raise HTTPException(status_code=503, detail="Orchestration templates not available")
 
         parsed_tags = None
         if tags:
@@ -610,14 +606,11 @@ async def list_templates(
                 limit=limit,
                 offset=offset,
             )
-            template_dicts = [
-                t.to_dict() if hasattr(t, "to_dict") else t for t in templates_raw
-            ]
+            template_dicts = [t.to_dict() if hasattr(t, "to_dict") else t for t in templates_raw]
         else:
             # Fallback: unfiltered from TEMPLATES dict
             template_dicts = [
-                t.to_dict() if hasattr(t, "to_dict") else t
-                for t in TEMPLATES.values()
+                t.to_dict() if hasattr(t, "to_dict") else t for t in TEMPLATES.values()
             ]
 
         templates = []

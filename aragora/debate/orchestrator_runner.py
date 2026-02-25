@@ -913,9 +913,7 @@ async def handle_debate_completion(
 
             tracker = EpistemicSettlementTracker()
             tracker.capture_settlement(ctx.result)
-            logger.debug(
-                "Settlement captured for debate %s", state.debate_id
-            )
+            logger.debug("Settlement captured for debate %s", state.debate_id)
         except ImportError:
             pass
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:

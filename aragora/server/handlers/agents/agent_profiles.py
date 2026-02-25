@@ -116,9 +116,7 @@ class AgentProfilesMixin:
         calibration_tracker = self.get_calibration_tracker()
         if calibration_tracker is not None:
             try:
-                curve = calibration_tracker.get_calibration_curve(
-                    agent_id=agent, domain=domain
-                )
+                curve = calibration_tracker.get_calibration_curve(agent_id=agent, domain=domain)
                 total = curve.get("total_records", 0)
                 if total > 0:
                     # Compute Brier-like score from bucket data

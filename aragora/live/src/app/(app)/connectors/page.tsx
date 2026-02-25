@@ -748,7 +748,6 @@ export default function ConnectorsPage() {
     syncs: activeSyncs,
     recentDocuments,
     rateLimitWarnings,
-    reconnect: wsReconnect,
   } = useConnectorWebSocket({
     enabled: true,
     autoReconnect: true,
