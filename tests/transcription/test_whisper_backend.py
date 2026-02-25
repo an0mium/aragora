@@ -320,25 +320,27 @@ class TestWhisperCppBackend:
 
     def test_initialization_with_binary(self):
         """Test backend initialization when binary is available."""
-        import shutil
+        from unittest.mock import patch
 
-        whisper_path = shutil.which("whisper")
-        if whisper_path:
+        with patch("shutil.which", return_value="/usr/local/bin/whisper"):
             backend = WhisperCppBackend()
             assert backend.name == "whisper-cpp"
-        else:
-            pytest.skip("whisper.cpp binary not in PATH")
 
     def test_is_not_available(self):
         """Test is_available when whisper.cpp not in PATH."""
-        import shutil
-        import os
+        from unittest.mock import patch
 
-        # Check for whisper-cpp binary (the actual name used)
-        if shutil.which("whisper-cpp") is not None or os.getenv("WHISPER_CPP_PATH"):
-            pytest.skip("whisper-cpp is installed")
-        backend = WhisperCppBackend()
-        assert backend.is_available() is False
+        original_which = shutil.which
+
+        def mock_which(name, *args, **kwargs):
+            if name in ("whisper-cpp", "whisper"):
+                return None
+            return original_which(name, *args, **kwargs)
+
+        with patch("shutil.which", side_effect=mock_which):
+            with patch.dict("os.environ", {"WHISPER_CPP_PATH": ""}, clear=False):
+                backend = WhisperCppBackend()
+                assert backend.is_available() is False
 
 
 # ===========================================================================
