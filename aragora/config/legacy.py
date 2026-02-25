@@ -597,19 +597,6 @@ DB_NAMES = {
 }
 
 
-# Legacy database path constants (for backwards compatibility)
-# DEPRECATED: Prefer using get_db_path() instead
-# These return relative paths for compatibility; new code should use get_db_path()
-def _deprecated_db_path(var: str, default: str) -> str:
-    """Return deprecated DB path with warning."""
-    warnings.warn(
-        f"{var} is deprecated. Use get_db_path() instead.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    return _env_str(var, default)
-
-
 # Lazy deprecation - warn only on access via property-like pattern
 _DB_PATH_DEFAULTS = {
     "DB_ELO_PATH": ("ARAGORA_DB_ELO", "agent_elo.db"),

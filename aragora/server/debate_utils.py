@@ -14,11 +14,9 @@ from __future__ import annotations
 import logging
 import threading
 import time
-import warnings
 from typing import Any
 
 from aragora.server.state import get_state_manager
-from aragora.server.stream import SyncEventEmitter
 
 logger = logging.getLogger(__name__)
 
@@ -205,39 +203,9 @@ def increment_cleanup_counter() -> bool:
     return False
 
 
-def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: str) -> Any:
-    """DEPRECATED: Use aragora.server.stream.wrap_agent_for_streaming instead.
-
-    This function was missing task_id on TOKEN events, causing text interleaving
-    when multiple agents stream concurrently. The correct implementation in
-    aragora.server.stream.arena_hooks includes proper task_id handling.
-
-    Args:
-        agent: Agent instance (duck-typed, must have generate method)
-        emitter: Event emitter for streaming events
-        debate_id: ID of the current debate
-
-    Returns:
-        The agent with wrapped generate method (or unchanged if no streaming support)
-    """
-    warnings.warn(
-        "debate_utils.wrap_agent_for_streaming is deprecated and was causing text "
-        "interleaving bugs. Use aragora.server.stream.wrap_agent_for_streaming instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    # Import here to avoid circular imports
-    from aragora.server.stream.arena_hooks import (
-        wrap_agent_for_streaming as _correct_wrap,
-    )
-
-    return _correct_wrap(agent, emitter, debate_id)
-
-
 # Backward compatibility aliases (prefixed with underscore)
 _update_debate_status = update_debate_status
 _cleanup_stale_debates = cleanup_stale_debates
-_wrap_agent_for_streaming = wrap_agent_for_streaming
 
 # Stuck debate timeout (10 minutes for production, prevents indefinitely running debates)
 STUCK_DEBATE_TIMEOUT_SECONDS = 600
@@ -352,7 +320,6 @@ __all__ = [
     "update_debate_status",
     "cleanup_stale_debates",
     "increment_cleanup_counter",
-    "wrap_agent_for_streaming",
     "watchdog_stuck_debates",
     # Constants
     "_DEBATE_TTL_SECONDS",
@@ -362,5 +329,4 @@ __all__ = [
     "_active_debates_lock",
     "_update_debate_status",
     "_cleanup_stale_debates",
-    "_wrap_agent_for_streaming",
 ]

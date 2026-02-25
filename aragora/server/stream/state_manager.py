@@ -338,27 +338,6 @@ def get_stream_state_manager() -> DebateStateManager:
     return _state_manager
 
 
-def get_state_manager() -> DebateStateManager:
-    """DEPRECATED: Use get_stream_state_manager() for streaming state.
-
-    For general debate management, use aragora.server.state.get_state_manager():
-
-        from aragora.server.state import get_state_manager
-        state = get_state_manager()
-
-    This alias is kept for backward compatibility.
-    """
-    import warnings
-
-    warnings.warn(
-        "stream.state_manager.get_state_manager() is deprecated. "
-        "Use get_stream_state_manager() for streaming or "
-        "aragora.server.state.get_state_manager() for general debate management.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return get_stream_state_manager()
-
 
 # =============================================================================
 # Periodic Cleanup Background Task
@@ -444,8 +423,7 @@ __all__ = [
     "get_debate_executor",
     "set_debate_executor",
     "get_debate_executor_lock",
-    "get_stream_state_manager",  # Preferred - streaming-specific
-    "get_state_manager",  # Deprecated - use get_stream_state_manager() instead
+    "get_stream_state_manager",
     "cleanup_stale_debates",
     "increment_cleanup_counter",
     # Periodic cleanup
