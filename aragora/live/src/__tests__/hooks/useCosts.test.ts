@@ -116,6 +116,22 @@ describe('useCostsBreakdown', () => {
       expect.anything()
     );
   });
+
+  it('unwraps data envelope', () => {
+    const mockBreakdown = {
+      by_provider: [{ name: 'openai', cost: 42, percentage: 70 }],
+      by_feature: [{ name: 'debate', cost: 18, percentage: 30 }],
+    };
+    mockUseSWRFetch.mockReturnValue({
+      data: { data: mockBreakdown },
+      error: null,
+      isLoading: false,
+      mutate: mockMutate,
+    });
+
+    const { result } = renderHook(() => useCostsBreakdown());
+    expect(result.current.breakdown).toEqual(mockBreakdown);
+  });
 });
 
 describe('useCostTimeline', () => {
