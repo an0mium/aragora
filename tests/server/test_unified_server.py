@@ -324,8 +324,8 @@ class TestAuthentication:
         for path in health_paths:
             assert path in UnifiedHandler.AUTH_EXEMPT_PATHS, f"{path} should be exempt"
 
-    def test_auth_exempt_paths_docs(self):
-        """Test that API documentation endpoints are auth exempt."""
+    def test_auth_exempt_paths_docs_require_auth(self):
+        """Test that API documentation endpoints require auth (locked down)."""
         from aragora.server.unified_server import UnifiedHandler
 
         doc_paths = [
@@ -336,7 +336,9 @@ class TestAuthentication:
             "/api/docs/",
         ]
         for path in doc_paths:
-            assert path in UnifiedHandler.AUTH_EXEMPT_PATHS, f"{path} should be exempt"
+            assert path not in UnifiedHandler.AUTH_EXEMPT_PATHS, (
+                f"{path} should NOT be exempt (requires auth to prevent attack surface mapping)"
+            )
 
     def test_auth_exempt_prefixes_oauth(self):
         """Test that OAuth flow prefixes are auth exempt."""

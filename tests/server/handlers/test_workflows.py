@@ -22,48 +22,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import importlib
-import importlib.util
-import sys
-import types
-import os
-
-# Load the workflows handler module directly from its file path, bypassing
-# the broken aragora.server.handlers.__init__.py which fails on Slack imports.
-_WORKFLOWS_PATH = os.path.join(
-    os.path.dirname(__file__),
-    "..",
-    "..",
-    "..",
-    "aragora",
-    "server",
-    "handlers",
-    "workflows",
-    "handler.py",
-)
-_WORKFLOWS_PATH = os.path.abspath(_WORKFLOWS_PATH)
-
-# Ensure parent package modules exist in sys.modules (but skip the broken __init__)
-for _pkg in [
-    "aragora.server.handlers",
-    "aragora.server.handlers.workflows",
-]:
-    if _pkg not in sys.modules:
-        _stub = types.ModuleType(_pkg)
-        _stub.__path__ = [os.path.dirname(_WORKFLOWS_PATH)]  # type: ignore[attr-defined]
-        _stub.__package__ = _pkg
-        sys.modules[_pkg] = _stub
-
-_spec = importlib.util.spec_from_file_location(
-    "aragora.server.handlers.workflows.handler", _WORKFLOWS_PATH
-)
-_workflows_mod = importlib.util.module_from_spec(_spec)  # type: ignore[arg-type]
-sys.modules["aragora.server.handlers.workflows.handler"] = _workflows_mod
-_spec.loader.exec_module(_workflows_mod)  # type: ignore[union-attr]
-
-WorkflowHandler = _workflows_mod.WorkflowHandler  # type: ignore[attr-defined]
-
-from aragora.server.handlers.utils.responses import HandlerResult, json_response, error_response  # noqa: E402
+from aragora.server.handlers.workflows.handler import WorkflowHandler
+from aragora.server.handlers.utils.responses import HandlerResult, json_response, error_response
 
 
 # ===========================================================================

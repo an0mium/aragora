@@ -148,8 +148,8 @@ class TestCanHandle:
     def test_rejects_partial_path(self, handler):
         assert handler.can_handle("/api/v1/laboratory") is False
 
-    def test_rejects_no_version_prefix(self, handler):
-        assert handler.can_handle("/api/laboratory/emergent-traits") is False
+    def test_accepts_no_version_prefix(self, handler):
+        assert handler.can_handle("/api/laboratory/emergent-traits") is True
 
 
 # ============================================================================

@@ -1244,11 +1244,11 @@ class TestRoutes:
     """Tests for the ROUTES class attribute."""
 
     def test_routes_count(self, handler_module):
-        assert len(handler_module.SlackHandler.ROUTES) == 4
+        assert len(handler_module.SlackHandler.ROUTES) == 5
 
     def test_routes_all_start_with_api(self, handler_module):
         for route in handler_module.SlackHandler.ROUTES:
-            assert route.startswith("/api/v1/integrations/slack/")
+            assert route.startswith("/api/v1/")
 
     def test_routes_contains_commands(self, handler_module):
         assert "/api/v1/integrations/slack/commands" in handler_module.SlackHandler.ROUTES

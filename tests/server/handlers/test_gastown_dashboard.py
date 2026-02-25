@@ -71,6 +71,25 @@ def isolate_canonical_store(tmp_path, monkeypatch) -> None:  # type: ignore[misc
     reset_convoy_manager()
 
 
+@pytest.fixture(autouse=True)
+def isolate_extension_state() -> None:  # type: ignore[misc]
+    """Reset global extension state so the handler always uses canonical stores.
+
+    Without this, a preceding test that calls ``init_extensions()`` can leave
+    a non-None ``_extension_state`` whose ``convoy_tracker`` causes
+    ``_resolve_convoy_tracker()`` to return the gastown tracker instead of
+    falling through to the canonical bead/convoy stores.  That mismatch makes
+    ``test_overview_with_convoy_data`` fail because the gastown tracker does
+    not contain the convoys created via canonical stores.
+    """
+    import aragora.server.extensions as ext_module
+
+    saved = ext_module._extension_state
+    ext_module._extension_state = None
+    yield
+    ext_module._extension_state = saved
+
+
 def _parse(result: HandlerResult) -> dict[str, Any]:
     """Parse a HandlerResult body into a dict."""
     return json.loads(result.body)

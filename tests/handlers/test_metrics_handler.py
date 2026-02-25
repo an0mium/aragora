@@ -140,16 +140,6 @@ class TestCanHandle:
     @pytest.mark.parametrize(
         "path",
         [
-            # Versioned monitoring routes are in ROUTES but strip_version_prefix
-            # converts /api/v1/monitoring/X -> /api/monitoring/X which does NOT
-            # match. These routes are effectively unreachable via can_handle.
-            "/api/v1/monitoring/alerts",
-            "/api/v1/monitoring/dashboards",
-            "/api/v1/monitoring/health",
-            "/api/v1/monitoring/logs",
-            "/api/v1/monitoring/metrics",
-            "/api/v1/monitoring/slos",
-            "/api/v1/monitoring/traces",
             # Other unrelated paths
             "/api/debates",
             "/api/v1/agents",
@@ -160,6 +150,21 @@ class TestCanHandle:
     )
     def test_cannot_handle_unrelated_routes(self, handler, path):
         assert handler.can_handle(path) is False
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/v1/monitoring/alerts",
+            "/api/v1/monitoring/dashboards",
+            "/api/v1/monitoring/health",
+            "/api/v1/monitoring/logs",
+            "/api/v1/monitoring/metrics",
+            "/api/v1/monitoring/slos",
+            "/api/v1/monitoring/traces",
+        ],
+    )
+    def test_can_handle_monitoring_routes(self, handler, path):
+        assert handler.can_handle(path) is True
 
 
 # ===========================================================================

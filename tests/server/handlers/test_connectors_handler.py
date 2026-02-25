@@ -379,8 +379,8 @@ class TestConnectorsRBAC:
         assert "connectors" in result
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.connectors.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.check_permission", mock_check_permission_denied)
     async def test_list_connectors_rbac_denied(self):
         """List connectors returns error when RBAC denies."""
         auth_ctx = MockAuthorizationContext(roles=["viewer"])
@@ -391,8 +391,8 @@ class TestConnectorsRBAC:
         assert result.get("status") == 403
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.connectors.check_permission", mock_check_permission_allowed)
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.check_permission", mock_check_permission_allowed)
     async def test_list_connectors_rbac_allowed(self):
         """List connectors succeeds when RBAC allows."""
         auth_ctx = MockAuthorizationContext(roles=["admin"])
@@ -402,8 +402,8 @@ class TestConnectorsRBAC:
         assert "connectors" in result or "error" not in result
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.connectors.check_permission", mock_check_permission_denied)
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.connectors.legacy.check_permission", mock_check_permission_denied)
     async def test_create_connector_rbac_denied(self):
         """Create connector returns error when RBAC denies."""
         auth_ctx = MockAuthorizationContext(roles=["viewer"])
@@ -436,7 +436,7 @@ class TestConnectorsRBAC:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("aragora.server.handlers.connectors.RBAC_AVAILABLE", False)
+    @patch("aragora.server.handlers.connectors.legacy.RBAC_AVAILABLE", False)
     async def test_check_permission_graceful_degradation(self):
         """_check_permission allows when RBAC is disabled."""
         from aragora.server.handlers.connectors import _check_permission

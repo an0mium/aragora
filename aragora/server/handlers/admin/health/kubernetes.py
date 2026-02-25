@@ -84,6 +84,7 @@ def readiness_probe_fast(handler: Any) -> HandlerResult:
 
         if is_degraded():
             state = get_degraded_state()
+            latency_ms = (time.time() - start_time) * 1000
             return json_response(
                 {
                     "status": "not_ready",
@@ -94,6 +95,7 @@ def readiness_probe_fast(handler: Any) -> HandlerResult:
                         "recovery_hint": state.recovery_hint,
                     },
                     "checks": {"degraded_mode": False},
+                    "latency_ms": round(latency_ms, 2),
                 },
                 status=503,
             )

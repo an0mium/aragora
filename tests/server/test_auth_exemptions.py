@@ -42,8 +42,8 @@ class TestAuthExemptPaths:
         """OAuth provider discovery should be public."""
         assert "/api/auth/oauth/providers" in exempt_paths
 
-    def test_api_docs_endpoints_exempt(self, exempt_paths):
-        """API documentation endpoints should be publicly accessible."""
+    def test_api_docs_endpoints_require_auth(self, exempt_paths):
+        """API documentation endpoints require auth to prevent attack surface mapping."""
         doc_endpoints = [
             "/api/openapi",
             "/api/openapi.json",
@@ -55,7 +55,9 @@ class TestAuthExemptPaths:
             "/api/redoc/",
         ]
         for endpoint in doc_endpoints:
-            assert endpoint in exempt_paths, f"Doc endpoint {endpoint} should be exempt"
+            assert endpoint not in exempt_paths, (
+                f"Doc endpoint {endpoint} should NOT be exempt (requires auth)"
+            )
 
     def test_public_data_endpoints_exempt(self, exempt_paths):
         """Public read-only data endpoints should be accessible."""

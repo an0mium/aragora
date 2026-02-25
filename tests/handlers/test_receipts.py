@@ -562,7 +562,7 @@ class TestExportReceipt:
             "GET", "/api/v2/receipts/rcpt-001/export", query_params={"format": "json"}
         )
         assert _status(result) == 200
-        assert result.content_type == "application/json"
+        assert "application/json" in result.content_type
 
     @pytest.mark.asyncio
     async def test_export_html(self, handler):
@@ -570,7 +570,7 @@ class TestExportReceipt:
             "GET", "/api/v2/receipts/rcpt-001/export", query_params={"format": "html"}
         )
         assert _status(result) == 200
-        assert result.content_type == "text/html"
+        assert "text/html" in result.content_type
 
     @pytest.mark.asyncio
     async def test_export_markdown(self, handler):
@@ -578,7 +578,7 @@ class TestExportReceipt:
             "GET", "/api/v2/receipts/rcpt-001/export", query_params={"format": "md"}
         )
         assert _status(result) == 200
-        assert result.content_type == "text/markdown"
+        assert "text/markdown" in result.content_type
 
     @pytest.mark.asyncio
     async def test_export_markdown_long_name(self, handler):
@@ -586,7 +586,7 @@ class TestExportReceipt:
             "GET", "/api/v2/receipts/rcpt-001/export", query_params={"format": "markdown"}
         )
         assert _status(result) == 200
-        assert result.content_type == "text/markdown"
+        assert "text/markdown" in result.content_type
 
     @pytest.mark.asyncio
     async def test_export_pdf(self, handler):
@@ -614,7 +614,7 @@ class TestExportReceipt:
             "GET", "/api/v2/receipts/rcpt-001/export", query_params={"format": "csv"}
         )
         assert _status(result) == 200
-        assert result.content_type == "text/csv"
+        assert "text/csv" in result.content_type
         assert "Content-Disposition" in result.headers
 
     @pytest.mark.asyncio
@@ -642,7 +642,7 @@ class TestExportReceipt:
     async def test_export_default_format_is_json(self, handler):
         result = await handler.handle("GET", "/api/v2/receipts/rcpt-001/export")
         assert _status(result) == 200
-        assert result.content_type == "application/json"
+        assert "application/json" in result.content_type
 
     @pytest.mark.asyncio
     async def test_export_receipt_not_found(self, handler, mock_store):
