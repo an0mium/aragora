@@ -146,8 +146,8 @@ jobs:
       - name: Deploy to Vercel
         if: steps.skip-check.outputs.skip != 'true'
         id: vercel-deploy
-        working-directory: aragora/live
         run: |
+          # Run from repo root; Vercel project rootDirectory is configured server-side.
           npx vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
           DEPLOY_URL=$(npx vercel deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}")
           echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
