@@ -9,7 +9,7 @@ Operational procedures for Aragora deployments.
 | EC2 Staging | `http://{EC2_HOST}:8080/api/health` | Via SSM Run Command |
 | EC2 Production | `http://{EC2_HOST}:8080/api/health` | Via SSM Run Command |
 | Load Balancer | `https://api.aragora.ai/api/health` | Cloudflare Dashboard |
-| Frontend | `https://aragora.ai` | Cloudflare Pages |
+| Frontend | `https://aragora.ai` | Vercel Runtime |
 
 ## Standard Deployment
 
@@ -20,7 +20,7 @@ Operational procedures for Aragora deployments.
 gh workflow run deploy-secure.yml
 
 # Deploy to specific target
-gh workflow run deploy-secure.yml -f environment=cloudflare
+gh workflow run deploy-secure.yml -f environment=vercel
 gh workflow run deploy-secure.yml -f environment=ec2-staging
 gh workflow run deploy-secure.yml -f environment=ec2-production
 ```
@@ -89,15 +89,18 @@ sudo systemctl restart aragora
 curl -sf http://localhost:8080/api/health
 ```
 
-### Cloudflare Pages
+### Vercel Runtime (Frontend)
 
 ```bash
 # Build and deploy from local machine
 cd aragora/live
 npm ci
-npm run build:export
-npx wrangler pages deploy out --project-name=aragora
+LIVE_DEPLOY_MODE=runtime npm run build
+npx vercel pull --yes --environment=production
+npx vercel deploy --prod --yes
 ```
+
+`aragora.pages.dev` is a mirror domain and may lag deployments. Use `https://aragora.ai` as canonical production frontend.
 
 ## Rollback Procedures
 
@@ -120,14 +123,14 @@ pip install -e . --quiet
 sudo systemctl restart aragora
 ```
 
-### Rollback Cloudflare Deployment
+### Rollback Vercel Frontend
 
 ```bash
 # List recent deployments
-npx wrangler pages deployments list --project-name=aragora
+npx vercel ls
 
-# Rollback to specific deployment
-npx wrangler pages deployments rollback <deployment-id> --project-name=aragora
+# Promote a previous deployment to production
+npx vercel promote <deployment-url-or-id> --scope <team-or-user>
 ```
 
 ## Health Check Verification

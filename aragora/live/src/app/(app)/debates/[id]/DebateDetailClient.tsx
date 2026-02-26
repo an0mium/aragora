@@ -15,44 +15,14 @@ import { InterventionPanel } from '@/components/debate-viewer/InterventionPanel'
 import { useDebateWebSocket } from '@/hooks/debate-websocket';
 import { LiveDebateStream } from '@/components/debate/LiveDebateStream';
 import { logger } from '@/utils/logger';
+import { normalizeDecisionPackage, type DecisionPackage } from './normalizeDecisionPackage';
 
 type Tab = 'overview' | 'arguments' | 'graph' | 'receipt' | 'export';
 
-interface DecisionPackage {
-  id: string;
-  question: string;
-  verdict: string;
-  confidence: number;
-  consensus_reached: boolean;
-  explanation: string;
-  final_answer: string;
-  agents: string[];
-  rounds: number;
-  arguments: Array<{
-    agent: string;
-    round: number;
-    position: string;
-    content: string;
-  }>;
-  cost_breakdown: Array<{
-    agent: string;
-    tokens: number;
-    cost: number;
-  }>;
-  total_cost: number;
-  receipt: {
-    hash: string;
-    timestamp: string;
-    signers: string[];
-  } | null;
-  next_steps: string[];
-  created_at: string;
-  duration_seconds: number;
-}
-
 export default function DebateDetailClient() {
-  const params = useParams();
-  const id = params.id as string;
+  const params = useParams<{ id?: string | string[] }>();
+  const rawId = params?.id;
+  const id = Array.isArray(rawId) ? rawId[0] || '' : rawId || '';
 
   const [pkg, setPkg] = useState<DecisionPackage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,12 +42,18 @@ export default function DebateDetailClient() {
 
   // WebSocket hook — only connect when debate is in_progress
   const ws = useDebateWebSocket({
-    debateId: id,
-    enabled: debateStatus === 'in_progress',
+    debateId: id || 'unknown-debate',
+    enabled: Boolean(id) && debateStatus === 'in_progress',
   });
 
   // Fetch the debate package (completed debates)
   const fetchDebatePackage = useCallback(async () => {
+    if (!id) {
+      setError('not_found');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -91,7 +67,7 @@ export default function DebateDetailClient() {
         return;
       }
       const data = await res.json();
-      setPkg(data);
+      setPkg(normalizeDecisionPackage(data, id));
     } catch (e) {
       logger.error('Failed to fetch debate package:', e);
       setError('Network error. Please try again.');
@@ -139,6 +115,7 @@ export default function DebateDetailClient() {
   }, [id, fetchDebatePackage]);
 
   const handleShare = useCallback(async () => {
+    if (!id) return;
     const url = `${window.location.origin}/debates/${id}`;
     try {
       await navigator.clipboard.writeText(url);

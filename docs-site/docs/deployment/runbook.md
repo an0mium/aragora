@@ -13,7 +13,7 @@ Operational procedures for Aragora deployments.
 |--------|-----------------|------------|
 | EC2 Staging | `http://{EC2_HOST}:8080/api/health` | `ssh -i ~/.ssh/ec2 ec2-user@{EC2_HOST}` |
 | Lightsail Prod | `http://{LIGHTSAIL_HOST}:8080/api/health` | `ssh -i ~/.ssh/lightsail ubuntu@{LIGHTSAIL_HOST}` |
-| Cloudflare | `https://aragora.live/api/health` | N/A (static site) |
+| Frontend (Vercel) | `https://aragora.ai` | N/A (managed runtime) |
 
 ## Standard Deployment
 
@@ -21,12 +21,12 @@ Operational procedures for Aragora deployments.
 
 ```bash
 # Deploy to all targets
-gh workflow run deploy.yml
+gh workflow run deploy-secure.yml
 
 # Deploy to specific target
-gh workflow run deploy.yml -f environment=cloudflare
-gh workflow run deploy.yml -f environment=lightsail
-gh workflow run deploy.yml -f environment=ec2
+gh workflow run deploy-secure.yml -f environment=vercel
+gh workflow run deploy-secure.yml -f environment=ec2-staging
+gh workflow run deploy-secure.yml -f environment=ec2-production
 ```
 
 ### Monitor Deployment
@@ -93,15 +93,18 @@ sudo systemctl restart aragora
 curl -sf http://localhost:8080/api/health
 ```
 
-### Cloudflare Pages
+### Vercel Runtime (Frontend)
 
 ```bash
 # Build and deploy from local machine
 cd aragora/live
 npm ci
-npm run build:export
-npx wrangler pages deploy out --project-name=aragora
+LIVE_DEPLOY_MODE=runtime npm run build
+npx vercel pull --yes --environment=production
+npx vercel deploy --prod --yes
 ```
+
+`aragora.pages.dev` is a mirror domain and may lag deployments. Use `https://aragora.ai` as canonical production frontend.
 
 ## Rollback Procedures
 
@@ -124,14 +127,14 @@ pip install -e . --quiet
 sudo systemctl restart aragora
 ```
 
-### Rollback Cloudflare Deployment
+### Rollback Vercel Frontend
 
 ```bash
 # List recent deployments
-npx wrangler pages deployments list --project-name=aragora
+npx vercel ls
 
-# Rollback to specific deployment
-npx wrangler pages deployments rollback <deployment-id> --project-name=aragora
+# Promote a previous deployment to production
+npx vercel promote <deployment-url-or-id> --scope <team-or-user>
 ```
 
 ## Health Check Verification
@@ -145,8 +148,8 @@ curl -s http://$EC2_HOST:8080/api/health | jq .
 # Lightsail Production
 curl -s http://$LIGHTSAIL_HOST:8080/api/health | jq .
 
-# Cloudflare (frontend health)
-curl -s https://aragora.live/api/health | jq .
+# Frontend (runtime)
+curl -I https://aragora.ai
 ```
 
 ### Expected Healthy Response
