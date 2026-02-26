@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import argparse
+import json
+import subprocess
 import sys
 from datetime import timezone
 from pathlib import Path
@@ -172,3 +175,128 @@ def test_parse_ts_normalizes_naive_timestamp_to_utc():
     parsed = mod._parse_ts("2026-02-24T12:00:00")
     assert parsed is not None
     assert parsed.tzinfo == timezone.utc
+
+
+def test_cmd_cleanup_keeps_session_when_worktree_remove_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    active_path = tmp_path / "active-wt"
+    active_path.mkdir()
+    state = {
+        "sessions": [
+            {
+                "session_id": "s1",
+                "agent": "codex",
+                "branch": "codex/s1",
+                "path": str(active_path),
+                "created_at": "2026-02-01T00:00:00+00:00",
+            }
+        ]
+    }
+    saved_state: dict[str, object] = {}
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.WorktreeEntry(path=active_path, branch="codex/s1")],
+    )
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(mod, "_branch_ahead_count", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(mod, "_remove_worktree", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(mod, "_delete_branch", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(
+        mod,
+        "_run_git",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git", "worktree", "prune"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        base="main",
+        ttl_hours=0,
+        force_unmerged=False,
+        delete_branches=True,
+        json=True,
+    )
+    rc = mod.cmd_cleanup(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["removed"] == 0
+    assert payload["kept"] == 1
+    assert payload["failed_worktree_removals"] == 1
+    assert payload["failed_branch_deletions"] == 0
+    assert len(saved_state["sessions"]) == 1
+
+
+def test_cmd_cleanup_reports_failed_branch_deletions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    stale_path = tmp_path / "stale-wt"
+    state = {
+        "sessions": [
+            {
+                "session_id": "s2",
+                "agent": "codex",
+                "branch": "codex/s2",
+                "path": str(stale_path),
+                "created_at": "2026-02-01T00:00:00+00:00",
+            }
+        ]
+    }
+    saved_state: dict[str, object] = {}
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(mod, "_get_worktree_entries", lambda _repo: [])
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(mod, "_delete_branch", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(
+        mod,
+        "_run_git",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=["git", "worktree", "prune"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        ),
+    )
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        base="main",
+        ttl_hours=24,
+        force_unmerged=False,
+        delete_branches=True,
+        json=True,
+    )
+    rc = mod.cmd_cleanup(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["removed"] == 1
+    assert payload["kept"] == 0
+    assert payload["failed_worktree_removals"] == 0
+    assert payload["failed_branch_deletions"] == 1
+    assert saved_state["sessions"] == []

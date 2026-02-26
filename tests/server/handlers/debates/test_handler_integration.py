@@ -174,6 +174,22 @@ class TestGetDebateBySlug:
             assert body["settlement"]["status"] == "pending_human_adjudication"
             assert body["settlement"]["sla_state"] == "pending"
 
+    def test_get_debate_malformed_in_progress_payload_returns_not_found(self, handler_with_storage):
+        """Malformed in-memory active debates should fail safe without raising."""
+        storage = handler_with_storage.get_storage()
+        storage.get_debate = MagicMock(return_value=None)
+
+        active_debates = {"in-progress-debate": "unexpected-non-dict-state"}
+        with patch(
+            "aragora.server.handlers.debates.handler._active_debates",
+            active_debates,
+        ):
+            mock_handler = MagicMock()
+            result = handler_with_storage._get_debate_by_slug(mock_handler, "in-progress-debate")
+
+            assert result is not None
+            assert result.status_code == 404
+
 
 class TestGetDebateMessages:
     """Integration tests for _get_debate_messages method."""
