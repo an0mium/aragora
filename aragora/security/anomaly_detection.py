@@ -641,7 +641,7 @@ class AnomalyDetector:
                     "ip_address": ip_address or "",
                 },
             )
-        except (ImportError, RuntimeError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug("Anomaly event emission unavailable: %s", e)
 
     # =========================================================================

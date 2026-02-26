@@ -410,7 +410,7 @@ class CruxDetector:
                             "resolution_impact": round(crux.resolution_impact, 4),
                         },
                     )
-            except (ImportError, RuntimeError, AttributeError) as e:
+            except Exception as e:  # noqa: BLE001
                 logger.debug("Crux event emission unavailable: %s", e)
 
         # Compute summary statistics
