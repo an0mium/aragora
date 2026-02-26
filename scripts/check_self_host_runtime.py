@@ -368,6 +368,24 @@ def _wait_for_http_200(base_url: str, path: str, timeout_seconds: int) -> None:
     )
 
 
+def _wait_for_any_http_200(base_url: str, paths: list[str], timeout_seconds: int) -> str:
+    if not paths:
+        raise RuntimeCheckError("No health endpoint paths configured")
+
+    per_path_timeout = max(10, timeout_seconds // len(paths))
+    failures: list[str] = []
+    for path in paths:
+        try:
+            _wait_for_http_200(base_url, path, timeout_seconds=per_path_timeout)
+            return path
+        except RuntimeCheckError as exc:
+            failures.append(f"{path}: {exc}")
+
+    raise RuntimeCheckError(
+        "Timed out waiting for health endpoint candidates: " + "; ".join(failures[:4])
+    )
+
+
 def _check_api_flow(base_url: str, api_token: str) -> None:
     list_url = urllib.parse.urljoin(base_url, "/api/v1/debates?limit=1&offset=0")
     status, body = _http_request(list_url, token=api_token)
@@ -458,8 +476,18 @@ def main() -> int:
         runtime_base_url = _resolve_runtime_base_url(base_cmd, args.base_url)
 
         print("[step] waiting for HTTP health endpoints")
-        _wait_for_http_200(runtime_base_url, "/healthz", timeout_seconds=args.api_timeout)
-        _wait_for_http_200(runtime_base_url, "/readyz", timeout_seconds=args.api_timeout)
+        health_path = _wait_for_any_http_200(
+            runtime_base_url,
+            ["/healthz", "/api/v1/health", "/api/health", "/health"],
+            timeout_seconds=args.api_timeout,
+        )
+        print(f"[ok] liveness endpoint: {health_path}")
+        readiness_path = _wait_for_any_http_200(
+            runtime_base_url,
+            ["/readyz", "/api/v1/health", "/api/health"],
+            timeout_seconds=args.api_timeout,
+        )
+        print(f"[ok] readiness endpoint: {readiness_path}")
 
         print("[step] validating authenticated API flow")
         _check_api_flow(runtime_base_url, api_token=api_token)

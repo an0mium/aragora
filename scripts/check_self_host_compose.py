@@ -21,9 +21,9 @@ from pathlib import Path
 import yaml
 
 
-REQUIRED_SERVICES = {
-    "aragora",
-    "postgres",
+CORE_REQUIRED_SERVICES = {"aragora", "postgres"}
+
+SENTINEL_REQUIRED_SERVICES = {
     "redis-master",
     "redis-replica-1",
     "redis-replica-2",
@@ -32,46 +32,48 @@ REQUIRED_SERVICES = {
     "sentinel-3",
 }
 
-REQUIRED_ENV_KEYS = {
-    "DOMAIN",
+STANDALONE_REQUIRED_SERVICES = {"redis"}
+
+BASE_REQUIRED_ENV_KEYS = {
     "POSTGRES_PASSWORD",
     "ARAGORA_API_TOKEN",
     "ARAGORA_JWT_SECRET",
     "ARAGORA_ENCRYPTION_KEY",
     "ARAGORA_RATE_LIMIT_BACKEND",
     "ARAGORA_REDIS_MODE",
-    "ARAGORA_REDIS_SENTINEL_HOSTS",
-    "ARAGORA_REDIS_SENTINEL_MASTER",
     "ARAGORA_STRICT_DEPLOYMENT",
 }
 
-REQUIRED_ARAGORA_ENV_PREFIXES = {
+DOMAIN_ENV_ALIASES = {"DOMAIN", "ARAGORA_DOMAIN"}
+
+BASE_REQUIRED_ARAGORA_ENV_KEYS = {
     "DATABASE_URL",
     "ARAGORA_DB_BACKEND",
     "ARAGORA_SECRETS_STRICT",
     "ARAGORA_REDIS_MODE",
-    "ARAGORA_REDIS_SENTINEL_HOSTS",
-    "ARAGORA_REDIS_SENTINEL_MASTER",
     "ARAGORA_JWT_SECRET",
     "ARAGORA_ENCRYPTION_KEY",
     "ARAGORA_RATE_LIMIT_BACKEND",
 }
 
-REQUIRED_HEALTHCHECK_SERVICES = {
-    "aragora",
-    "postgres",
-    "redis-master",
-    "redis-replica-1",
-    "redis-replica-2",
-    "sentinel-1",
-    "sentinel-2",
-    "sentinel-3",
+SENTINEL_REQUIRED_ARAGORA_ENV_KEYS = {
+    "ARAGORA_REDIS_SENTINEL_HOSTS",
+    "ARAGORA_REDIS_SENTINEL_MASTER",
 }
 
-REQUIRED_RUNBOOK_MARKERS = {
-    "Startup and Readiness Verification",
-    "Health Checks",
-    "Failure Recovery Playbook",
+RUNBOOK_MARKER_ALIASES = {
+    "Startup and Readiness Verification": (
+        "Startup and Readiness Verification",
+        "Verify Installation",
+    ),
+    "Health Checks": (
+        "Health Checks",
+        "Verify Installation",
+    ),
+    "Failure Recovery Playbook": (
+        "Failure Recovery Playbook",
+        "Troubleshooting",
+    ),
 }
 
 
@@ -107,7 +109,11 @@ def _parse_service_env(service: dict[str, object]) -> dict[str, str]:
 
 def _contains_required_runbook_markers(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
-    return [marker for marker in sorted(REQUIRED_RUNBOOK_MARKERS) if marker not in text]
+    missing: list[str] = []
+    for canonical, aliases in sorted(RUNBOOK_MARKER_ALIASES.items()):
+        if not any(alias in text for alias in aliases):
+            missing.append(canonical)
+    return missing
 
 
 def main() -> int:
@@ -146,9 +152,23 @@ def main() -> int:
 
     errors: list[str] = []
 
-    missing_services = sorted(REQUIRED_SERVICES - set(services.keys()))
-    if missing_services:
-        errors.append(f"Missing required services: {missing_services}")
+    service_names = set(services.keys())
+    missing_core_services = sorted(CORE_REQUIRED_SERVICES - service_names)
+    if missing_core_services:
+        errors.append(f"Missing required services: {missing_core_services}")
+
+    has_sentinel_topology = {"sentinel-1", "sentinel-2", "sentinel-3"}.issubset(service_names)
+    has_standalone_topology = "redis" in service_names
+    redis_topology = "none"
+    if has_sentinel_topology:
+        redis_topology = "sentinel"
+        missing_sentinel_services = sorted(SENTINEL_REQUIRED_SERVICES - service_names)
+        if missing_sentinel_services:
+            errors.append(f"Missing required services: {missing_sentinel_services}")
+    elif has_standalone_topology:
+        redis_topology = "standalone"
+    else:
+        errors.append("Missing Redis topology services (expected sentinel-* or redis)")
 
     aragora_service = services.get("aragora", {})
     depends_on = aragora_service.get("depends_on", {})
@@ -159,15 +179,23 @@ def main() -> int:
     else:
         dependency_names = set()
 
-    required_dependencies = {"postgres", "sentinel-1", "sentinel-2", "sentinel-3"}
+    required_dependencies = {"postgres"}
+    if redis_topology == "sentinel":
+        required_dependencies.update({"sentinel-1", "sentinel-2", "sentinel-3"})
+    elif redis_topology == "standalone":
+        required_dependencies.add("redis")
     missing_dependencies = sorted(required_dependencies - dependency_names)
     if missing_dependencies:
         errors.append(f"aragora service missing required dependencies: {missing_dependencies}")
 
     parsed_aragora_env = _parse_service_env(aragora_service)
 
+    required_aragora_env = set(BASE_REQUIRED_ARAGORA_ENV_KEYS)
+    if redis_topology == "sentinel":
+        required_aragora_env.update(SENTINEL_REQUIRED_ARAGORA_ENV_KEYS)
+
     missing_aragora_env = sorted(
-        key for key in REQUIRED_ARAGORA_ENV_PREFIXES if key not in parsed_aragora_env
+        key for key in required_aragora_env if key not in parsed_aragora_env
     )
     if missing_aragora_env:
         errors.append(f"aragora service missing required env wiring: {missing_aragora_env}")
@@ -185,12 +213,28 @@ def main() -> int:
         )
 
     redis_mode = parsed_aragora_env.get("ARAGORA_REDIS_MODE", "")
-    if "sentinel" not in redis_mode:
+    normalized_mode = redis_mode.strip().lower()
+    if redis_topology == "sentinel" and normalized_mode and "sentinel" not in normalized_mode:
         errors.append("aragora service should set ARAGORA_REDIS_MODE=sentinel")
+    if redis_topology == "standalone" and normalized_mode:
+        if "standalone" not in normalized_mode and "single" not in normalized_mode:
+            errors.append("aragora service should set ARAGORA_REDIS_MODE=standalone")
+
+    if redis_topology == "standalone":
+        if not (parsed_aragora_env.get("REDIS_URL") or parsed_aragora_env.get("ARAGORA_REDIS_URL")):
+            errors.append(
+                "aragora service should set REDIS_URL or ARAGORA_REDIS_URL for standalone Redis"
+            )
+
+    required_healthcheck_services = set(CORE_REQUIRED_SERVICES)
+    if redis_topology == "sentinel":
+        required_healthcheck_services.update(SENTINEL_REQUIRED_SERVICES)
+    elif redis_topology == "standalone":
+        required_healthcheck_services.update(STANDALONE_REQUIRED_SERVICES)
 
     missing_healthcheck = sorted(
         name
-        for name in REQUIRED_HEALTHCHECK_SERVICES
+        for name in required_healthcheck_services
         if name in services
         and isinstance(services[name], dict)
         and "healthcheck" not in services[name]
@@ -199,9 +243,24 @@ def main() -> int:
         errors.append(f"services missing healthcheck configuration: {missing_healthcheck}")
 
     env_keys = _parse_env_keys(env_path)
-    missing_env_keys = sorted(REQUIRED_ENV_KEYS - env_keys)
+    missing_env_keys = sorted(BASE_REQUIRED_ENV_KEYS - env_keys)
     if missing_env_keys:
         errors.append(f".env production example missing required keys: {missing_env_keys}")
+
+    if not any(domain_key in env_keys for domain_key in DOMAIN_ENV_ALIASES):
+        errors.append(
+            ".env production example missing required domain key: one of "
+            f"{sorted(DOMAIN_ENV_ALIASES)}"
+        )
+
+    if redis_topology == "sentinel":
+        missing_sentinel_env_keys = sorted(
+            {"ARAGORA_REDIS_SENTINEL_HOSTS", "ARAGORA_REDIS_SENTINEL_MASTER"} - env_keys
+        )
+        if missing_sentinel_env_keys:
+            errors.append(
+                f".env production example missing required keys: {missing_sentinel_env_keys}"
+            )
 
     missing_markers = _contains_required_runbook_markers(runbook_path)
     if missing_markers:
@@ -215,7 +274,7 @@ def main() -> int:
 
     print(
         "Self-host compose validation passed "
-        f"(services={len(services)}, required={len(REQUIRED_SERVICES)})"
+        f"(services={len(services)}, redis_topology={redis_topology})"
     )
     return 0
 
