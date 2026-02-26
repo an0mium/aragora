@@ -1585,7 +1585,8 @@ class MetaPlanner:
                     )
                 )
 
-        # Add default goals for available tracks
+        # Add goals for available tracks that don't have specific keyword matches.
+        # Carry the original objective through so agents know the actual task.
         priority = len(goals) + 1
         for track in available_tracks:
             if not any(g.track == track for g in goals):
@@ -1593,8 +1594,8 @@ class MetaPlanner:
                     PrioritizedGoal(
                         id=f"goal_{priority - 1}",
                         track=track,
-                        description=f"Improve {track.value} track capabilities",
-                        rationale="Supports overall project health",
+                        description=f"[{track.value}] {objective}",
+                        rationale=f"Addresses objective within {track.value} track scope",
                         estimated_impact="medium",
                         priority=priority,
                     )

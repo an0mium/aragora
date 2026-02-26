@@ -124,6 +124,7 @@ Examples:
     _add_handlers_parser(subparsers)
     _add_coordinate_parser(subparsers)
     _add_self_improve_parser(subparsers)
+    _add_swarm_parser(subparsers)
     _add_worktree_parser(subparsers)
     _add_outcome_parser(subparsers)
     _add_explain_parser(subparsers)
@@ -1862,3 +1863,60 @@ def _add_consensus_parser(subparsers) -> None:
     from aragora.cli.commands.consensus import add_consensus_parser
 
     add_consensus_parser(subparsers)
+
+
+def _add_swarm_parser(subparsers) -> None:
+    """Add the 'swarm' subcommand for swarm commander."""
+    swarm_parser = subparsers.add_parser(
+        "swarm",
+        help="Launch a swarm of AI agents to accomplish a goal",
+        description=(
+            "Swarm Commander: interrogate -> spec -> dispatch -> merge -> report.\n\n"
+            "The swarm will:\n"
+            "  1. Ask you questions to understand your goal\n"
+            "  2. Break the goal into tasks and dispatch agents\n"
+            "  3. Agents work in parallel in isolated worktrees\n"
+            "  4. Merge successful changes back to main\n"
+            "  5. Report results in plain language"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    swarm_parser.add_argument(
+        "goal",
+        nargs="?",
+        help="Your goal in plain language",
+    )
+    swarm_parser.add_argument(
+        "--spec",
+        help="Path to a pre-built SwarmSpec YAML file",
+    )
+    swarm_parser.add_argument(
+        "--skip-interrogation",
+        action="store_true",
+        help="Skip Q&A phase, use goal directly (developer mode)",
+    )
+    swarm_parser.add_argument(
+        "--budget-limit",
+        type=float,
+        default=5.0,
+        help="Maximum budget in USD (default: 5.0)",
+    )
+    swarm_parser.add_argument(
+        "--require-approval",
+        action="store_true",
+        help="Require approval at safety gates",
+    )
+    swarm_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show the spec without executing (interrogation only)",
+    )
+    swarm_parser.add_argument(
+        "--save-spec",
+        help="Save the produced spec to a YAML file",
+    )
+    swarm_parser.set_defaults(
+        func=lambda args: __import__(
+            "aragora.cli.commands.swarm", fromlist=["cmd_swarm"]
+        ).cmd_swarm(args)
+    )
