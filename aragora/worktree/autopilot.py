@@ -21,7 +21,7 @@ class AutopilotRequest:
     agent: str = "codex"
     session_id: str | None = None
     force_new: bool = False
-    strategy: str = "merge"
+    strategy: str = "ff-only"
     reconcile: bool = False
     reconcile_all: bool = False
     path: str | None = None

@@ -8,7 +8,7 @@ LABEL="com.aragora.codex-worktree-maintainer"
 INTERVAL_SECONDS=300
 BASE_BRANCH="main"
 TTL_HOURS="${CODEX_WORKTREE_TTL_HOURS:-24}"
-STRATEGY="merge"
+STRATEGY="ff-only"
 LOG_PATH="${REPO_ROOT}/.worktrees/codex-maintainer.log"
 KEEP_BRANCHES=true
 
@@ -21,7 +21,7 @@ Options:
   --base <branch>               Base branch to integrate from (default: main)
   --ttl-hours <n>               Stale-session TTL in hours (default: 24)
   --strategy <merge|rebase|ff-only|none>
-                                Integration strategy (default: merge)
+                                Integration strategy (default: ff-only)
   --delete-branches             Allow cleanup to delete local codex/* branches
   --log-path <file>             Log file path (default: .worktrees/codex-maintainer.log)
   --help                        Show this help
@@ -43,7 +43,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --strategy)
-            STRATEGY="${2:-merge}"
+            STRATEGY="${2:-ff-only}"
             shift 2
             ;;
         --delete-branches)

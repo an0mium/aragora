@@ -126,20 +126,20 @@ def test_cleanup_parser_defaults_to_delete_branches():
     assert args.delete_branches is True
 
 
-def test_ensure_parser_defaults_to_merge_strategy():
+def test_ensure_parser_defaults_to_ff_only_strategy():
     import codex_worktree_autopilot as mod
 
     parser = mod._build_parser()
     args = parser.parse_args(["ensure"])
-    assert args.strategy == "merge"
+    assert args.strategy == "ff-only"
 
 
-def test_reconcile_parser_defaults_to_rebase_strategy():
+def test_reconcile_parser_defaults_to_ff_only_strategy():
     import codex_worktree_autopilot as mod
 
     parser = mod._build_parser()
     args = parser.parse_args(["reconcile"])
-    assert args.strategy == "rebase"
+    assert args.strategy == "ff-only"
 
 
 def test_cleanup_parser_allows_no_delete_branches_toggle():
@@ -158,12 +158,12 @@ def test_maintain_parser_allows_no_delete_branches_toggle():
     assert args.delete_branches is False
 
 
-def test_maintain_parser_defaults_to_merge_strategy():
+def test_maintain_parser_defaults_to_ff_only_strategy():
     import codex_worktree_autopilot as mod
 
     parser = mod._build_parser()
     args = parser.parse_args(["maintain"])
-    assert args.strategy == "merge"
+    assert args.strategy == "ff-only"
 
 
 def test_parse_ts_normalizes_naive_timestamp_to_utc():

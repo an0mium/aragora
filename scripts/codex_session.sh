@@ -59,7 +59,7 @@ done
 
 ENSURE_ARGS=(ensure --agent "${AGENT}" --base "${BASE_BRANCH}" --print-path)
 if ${RECONCILE}; then
-    ENSURE_ARGS+=(--reconcile --strategy merge)
+    ENSURE_ARGS+=(--reconcile --strategy ff-only)
 fi
 
 if ${MAINTAIN}; then

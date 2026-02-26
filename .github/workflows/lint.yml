@@ -51,6 +51,9 @@ jobs:
           pip install ruff==0.14.14
           pip install -e .
 
+      - name: Enforce branch mutation policy
+        run: python scripts/check_branch_mutation_policy.py
+
       - name: Run ruff format check (all Python files)
         run: ruff format --check aragora/ tests/ scripts/
         shell: bash
