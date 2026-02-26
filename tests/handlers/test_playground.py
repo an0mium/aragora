@@ -1039,10 +1039,11 @@ class TestBuildTentaclePrompt:
 
     def test_landing_source_neutral(self):
         prompt = _build_tentacle_prompt("consult", "Q?", "ROLE", source="landing")
-        assert "adversarial debate" in prompt.lower() or "independent AI agents" in prompt
+        assert "senior analyst" in prompt.lower() or "multi-perspective" in prompt.lower()
         # Should NOT leak oracle terminology
         assert "tentacle" not in prompt.lower()
         assert "Shoggoth" not in prompt
+        assert "Oracle" not in prompt
 
 
 # ============================================================================

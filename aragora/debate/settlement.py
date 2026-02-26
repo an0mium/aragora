@@ -207,6 +207,7 @@ class SettlementTracker:
         elo_system: Optional EloSystem instance for rating updates.
         calibration_tracker: Optional CalibrationTracker for calibration data.
         knowledge_mound: Optional KnowledgeMound for persistent storage.
+        hooks: Optional SettlementHookRegistry for lifecycle callbacks.
     """
 
     def __init__(
@@ -214,10 +215,12 @@ class SettlementTracker:
         elo_system: Any | None = None,
         calibration_tracker: Any | None = None,
         knowledge_mound: Any | None = None,
+        hooks: Any | None = None,
     ) -> None:
         self._elo_system = elo_system
         self._calibration_tracker = calibration_tracker
         self._knowledge_mound = knowledge_mound
+        self._hooks = hooks
 
         # In-memory store: settlement_id -> SettlementRecord
         self._records: dict[str, SettlementRecord] = {}
@@ -293,6 +296,10 @@ class SettlementTracker:
                 skipped,
             )
 
+        # Fire hooks
+        if self._hooks is not None and settlement_ids:
+            self._hooks.fire_claims_extracted(batch)
+
         return batch
 
     # ------------------------------------------------------------------
@@ -367,13 +374,19 @@ class SettlementTracker:
             record.claim.debate_id,
         )
 
-        return SettleResult(
+        settle_result = SettleResult(
             settlement_id=settlement_id,
             outcome=outcome,
             score=score,
             elo_updates=elo_updates,
             calibration_recorded=calibration_recorded,
         )
+
+        # Fire hooks
+        if self._hooks is not None:
+            self._hooks.fire_settled(record, settle_result)
+
+        return settle_result
 
     def settle_batch(
         self,

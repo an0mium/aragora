@@ -57,6 +57,9 @@ jobs:
       - name: Enforce deploy SHA verification guard
         run: python scripts/check_deploy_secure_sha_guard.py
 
+      - name: Enforce required-check-priority keep-list policy
+        run: python scripts/check_required_check_priority_policy.py
+
       - name: Run ruff format check (all Python files)
         run: ruff format --check aragora/ tests/ scripts/
         shell: bash

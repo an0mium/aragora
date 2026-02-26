@@ -1,0 +1,83 @@
+name: Live Deploy Mode Gate
+
+on:
+  pull_request:
+    paths:
+      - 'aragora/live/**'
+      - '.github/workflows/live-deploy-mode-gate.yml'
+      - '.github/workflows/deploy-frontend.yml'
+      - '.github/workflows/deploy-secure.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/live/**'
+      - '.github/workflows/live-deploy-mode-gate.yml'
+      - '.github/workflows/deploy-frontend.yml'
+      - '.github/workflows/deploy-secure.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-deploy-mode-gate-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Validate Live Deploy Mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_VERSION: '20'
+      LIVE_DEPLOY_MODE: ${{ vars.LIVE_DEPLOY_MODE }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve deploy mode
+        id: mode
+        run: |
+          MODE="${LIVE_DEPLOY_MODE:-runtime}"
+          if [ "$MODE" != "runtime" ] && [ "$MODE" != "export" ]; then
+            echo "::error::LIVE_DEPLOY_MODE must be 'runtime' or 'export' (got '$MODE')"
+            exit 1
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "Resolved LIVE_DEPLOY_MODE=$MODE"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: aragora/live/package-lock.json
+
+      - name: Install dependencies
+        working-directory: aragora/live
+        run: npm ci
+
+      - name: Runtime mode checks
+        if: steps.mode.outputs.mode == 'runtime'
+        working-directory: aragora/live
+        run: |
+          npx tsc --noEmit
+          npm run build
+          npx playwright install --with-deps chromium
+          npx playwright test \
+            e2e/debate-viewing.spec.ts \
+            e2e/debate-intervention-live.spec.ts \
+            e2e/websocket.spec.ts \
+            --project=chromium \
+            --workers=1
+
+      - name: Export mode checks
+        if: steps.mode.outputs.mode == 'export'
+        working-directory: aragora/live
+        run: |
+          if rg -n "export const dynamicParams = true" src/app; then
+            echo "::error::dynamicParams=true is incompatible with output: export"
+            exit 1
+          fi
+          npm run build:export

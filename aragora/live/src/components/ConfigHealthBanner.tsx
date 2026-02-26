@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { getEnvWarnings, IS_DEV_MODE, type EnvWarning } from '@/config';
 
 const DISMISS_KEY = 'aragora-config-warnings-dismissed';
+const CANONICAL_DOMAIN = 'aragora.ai';
 
 /**
  * Runtime configuration health banner.
@@ -16,17 +17,29 @@ export function ConfigHealthBanner() {
   const [warnings, setWarnings] = useState<EnvWarning[]>([]);
   const [dismissed, setDismissed] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [hasDomainWarning, setHasDomainWarning] = useState(false);
 
   useEffect(() => {
     setMounted(true);
 
     // Check for warnings
     const envWarnings = getEnvWarnings();
-    setWarnings(envWarnings);
+    const host = window.location.hostname;
+    const isPagesMirror = host.endsWith('.pages.dev');
+    const domainWarning: EnvWarning[] = isPagesMirror
+      ? [{
+          key: 'HOST',
+          message: `Preview mirror detected (${host}); use https://${CANONICAL_DOMAIN} for canonical production`,
+          severity: 'warning',
+        }]
+      : [];
+    const allWarnings = [...envWarnings, ...domainWarning];
+    setWarnings(allWarnings);
+    setHasDomainWarning(isPagesMirror);
 
     // Check if previously dismissed (only for warnings, not errors)
-    const hasErrors = envWarnings.some((w) => w.severity === 'error');
-    if (hasErrors) {
+    const hasErrors = allWarnings.some((w) => w.severity === 'error');
+    if (hasErrors || isPagesMirror) {
       setDismissed(false);
     } else {
       const wasDismissed = localStorage.getItem(DISMISS_KEY) === 'true';
@@ -47,7 +60,7 @@ export function ConfigHealthBanner() {
 
   // Don't show in production unless there are errors
   const hasErrors = warnings.some((w) => w.severity === 'error');
-  if (!IS_DEV_MODE && !hasErrors) return null;
+  if (!IS_DEV_MODE && !hasErrors && !hasDomainWarning) return null;
 
   return (
     <div
@@ -70,7 +83,7 @@ export function ConfigHealthBanner() {
             </span>
           ))}
         </div>
-        {!hasErrors && (
+        {!hasErrors && !hasDomainWarning && (
           <button
             onClick={handleDismiss}
             className="px-2 py-0.5 border border-current hover:bg-acid-cyan/20 transition-colors"
