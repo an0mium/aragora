@@ -861,6 +861,44 @@ _TENTACLE_ROLE_PROMPTS: list[str] = [
     ),
 ]
 
+_LANDING_ROLE_PROMPTS = [
+    (
+        "You are the STRATEGIC ANALYST. Evaluate from a strategic perspective — "
+        "market dynamics, competitive positioning, risk/reward tradeoffs. "
+        "Structure your response with clear sections. Be direct and evidence-based. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the DEVIL'S ADVOCATE. Identify the strongest counterarguments, "
+        "hidden risks, and blind spots. What could go wrong? What assumptions are "
+        "being made? Be constructive but unflinching. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the IMPLEMENTATION EXPERT. Cut through theory — what should actually "
+        "be done? Concrete, actionable steps with priorities. Consider resources, "
+        "timeline, and dependencies. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the INDUSTRY ANALYST. Place this in context — what have others done "
+        "in similar situations? What patterns or precedents are relevant? "
+        "Draw on real-world examples. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the RISK ASSESSOR. Evaluate downside scenarios, failure modes, and "
+        "mitigation strategies. What's the worst case? What's the expected case? "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the SYNTHESIZER. Integrate the other perspectives into a balanced "
+        "recommendation. Where do analyses agree and diverge? End with a clear "
+        "bottom-line assessment. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+]
+
 
 def _build_tentacle_prompt(
     mode: str,
@@ -911,18 +949,23 @@ def _build_tentacle_prompt(
                 "genuine insight."
             )
     else:
-        # Neutral debate language for the main site
+        # Professional advisory language for the main site — completely separate from Oracle
         context = (
-            "You are one of several independent AI agents in an adversarial debate. "
-            "Each agent brings a different analytical perspective. Your job is to "
-            "provide a rigorous, honest, and well-reasoned response. Challenge weak "
-            "arguments, acknowledge strong ones, and prioritize intellectual honesty "
-            "over agreement."
+            "You are a senior analyst participating in a structured multi-perspective "
+            "review. Multiple independent AI models are each providing a different "
+            "analytical lens on the same question. Be professional, rigorous, and "
+            "direct. Focus on actionable insight over abstract discussion. "
+            "Acknowledge uncertainty where it exists."
         )
 
-    # Inject model-specific essay summary if available
+    # Inject model-specific essay summary if available (Oracle only)
     summary_block = ""
-    if model_name and summary_depth != "none" and model_name in _MODEL_SUMMARIES:
+    if (
+        source == "oracle"
+        and model_name
+        and summary_depth != "none"
+        and model_name in _MODEL_SUMMARIES
+    ):
         summary = _MODEL_SUMMARIES[model_name]
         if summary_depth == "light":
             summary = summary[:32000]  # ~8K tokens
@@ -956,8 +999,9 @@ def _try_oracle_tentacles(
         return None
 
     # Assign roles to available models (up to agent_count)
-    count = max(2, min(agent_count, len(available), len(_TENTACLE_ROLE_PROMPTS)))
-    assignments = list(zip(available[:count], _TENTACLE_ROLE_PROMPTS[:count]))
+    role_prompts = _TENTACLE_ROLE_PROMPTS if source == "oracle" else _LANDING_ROLE_PROMPTS
+    count = max(2, min(agent_count, len(available), len(role_prompts)))
+    assignments = list(zip(available[:count], role_prompts[:count]))
     results: dict[str, str] = {}
     start = time.monotonic()
     logger.info(
