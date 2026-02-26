@@ -6,8 +6,8 @@
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **74**
-- Total top-level invocations (including aliases): **75**
+- Canonical top-level commands: **75**
+- Total top-level invocations (including aliases): **76**
 
 ## Installation
 
@@ -99,6 +99,7 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `starter` | - | SME Starter Pack -- install to decision receipt in 15 minutes | - |
 | `stats` | - | Show memory statistics | - |
 | `status` | - | Show environment health and agent availability | - |
+| `swarm` | - | Launch a swarm of AI agents to accomplish a goal | - |
 | `template` | - | Manage workflow templates | `list`, `package`, `run`, `show`, `validate` |
 | `templates` | - | List available debate templates | - |
 | `tenant` | - | Manage multi-tenant deployments | `activate`, `create`, `delete`, `export`, `list`, `quota-get`, `quota-set`, `suspend` |
