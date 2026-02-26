@@ -49,12 +49,12 @@ class TestSecretsConfig:
         assert config.cache_ttl_seconds == 300
 
     def test_from_env_defaults(self):
-        """Config loads defaults when env vars not set."""
+        """Config defaults to use_aws=True (graceful fallback to env vars)."""
         with patch.dict(os.environ, {}, clear=True):
             config = SecretsConfig.from_env()
             assert config.aws_region == "us-east-1"
             assert config.secret_name == "aragora/production"
-            assert config.use_aws is False
+            assert config.use_aws is True
 
     def test_from_env_with_values(self):
         """Config loads values from environment."""
@@ -76,12 +76,18 @@ class TestSecretsConfig:
             config = SecretsConfig.from_env()
             assert config.use_aws is True
 
-    @pytest.mark.parametrize("value", ["false", "0", "no", "", "invalid"])
+    @pytest.mark.parametrize("value", ["false", "0", "no", "invalid"])
     def test_use_aws_falsy_values(self, value):
         """Config treats non-truthy values as False for use_aws."""
         with patch.dict(os.environ, {"ARAGORA_USE_SECRETS_MANAGER": value}, clear=True):
             config = SecretsConfig.from_env()
             assert config.use_aws is False
+
+    def test_use_aws_default_when_unset(self):
+        """Config defaults to use_aws=True when env var is not set."""
+        with patch.dict(os.environ, {}, clear=True):
+            config = SecretsConfig.from_env()
+            assert config.use_aws is True
 
 
 class TestSecretManager:

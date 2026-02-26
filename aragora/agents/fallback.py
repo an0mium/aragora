@@ -71,6 +71,16 @@ QUOTA_ERROR_KEYWORDS = frozenset(
         "insufficient",
         "insufficient_quota",
         "purchase credits",
+        # Invalid / expired API key
+        "invalid api key",
+        "invalid_api_key",
+        "api key expired",
+        "key expired",
+        "invalid key",
+        "api key invalid",
+        "authentication failed",
+        "not authenticated",
+        "unauthorized",
     ]
 )
 
@@ -143,11 +153,12 @@ class QuotaFallbackMixin:
         return self.OPENROUTER_MODEL_MAP.get(model, self.DEFAULT_FALLBACK_MODEL)
 
     def is_quota_error(self, status_code: int, error_text: str) -> bool:
-        """Check if an error indicates quota/rate limit issues or timeouts.
+        """Check if an error indicates quota/rate limit issues, auth failures, or timeouts.
 
         This is a unified check that works across providers:
+        - 401: Authentication failure (invalid/expired API key)
         - 429: Rate limit (all providers)
-        - 403: Can indicate quota exceeded (Gemini)
+        - 403: Can indicate quota exceeded (Gemini) or auth failure
         - 408, 504, 524: Timeout errors (should trigger fallback)
 
         Args:
@@ -155,8 +166,12 @@ class QuotaFallbackMixin:
             error_text: Error message text from response body
 
         Returns:
-            True if this appears to be a quota/rate limit/timeout error
+            True if this appears to be a quota/rate limit/auth/timeout error
         """
+        # 401 is universally an auth failure (invalid/expired key)
+        if status_code == 401:
+            return True
+
         # 429 is universally rate limit
         if status_code == 429:
             return True
@@ -166,11 +181,21 @@ class QuotaFallbackMixin:
         if status_code in (408, 504, 524):
             return True
 
-        # 403 can indicate quota exceeded (especially for Gemini)
+        # 403 can indicate quota exceeded (especially for Gemini) or auth failure
         if status_code == 403:
-            # Only treat as quota if error text contains quota keywords
             error_lower = error_text.lower()
-            if any(kw in error_lower for kw in ["quota", "exceeded", "billing"]):
+            if any(
+                kw in error_lower
+                for kw in [
+                    "quota",
+                    "exceeded",
+                    "billing",
+                    "invalid",
+                    "expired",
+                    "api key",
+                    "unauthorized",
+                ]
+            ):
                 return True
 
         # 400 can indicate billing/credit exhaustion (especially Anthropic)

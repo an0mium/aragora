@@ -490,6 +490,8 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             try:
                 # Phase 2: ExecutionBridge instruction generation
                 enriched_context = dict(context or {})
+                # Carry the original objective so agents know the user's intent
+                enriched_context.setdefault("original_objective", goal)
                 if self.hardened_config.enable_execution_bridge:
                     bridge = self._get_execution_bridge()
                     if bridge:
