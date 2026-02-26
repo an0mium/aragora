@@ -58,3 +58,9 @@ def test_main_failure_exit_code(mock_service_cls, capsys) -> None:
     assert exit_code == 1
     out = capsys.readouterr().out
     assert "failures=1" in out
+
+
+def test_build_parser_defaults_to_ff_only_strategy() -> None:
+    parser = maintainer.build_parser()
+    args = parser.parse_args([])
+    assert args.strategy == "ff-only"
