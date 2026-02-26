@@ -32,6 +32,9 @@ DEFAULT_CORE_SERVICES = [
     "aragora",
 ]
 
+LIVENESS_PATH_CANDIDATES = ["/healthz", "/api/v1/health", "/api/health", "/health"]
+READINESS_PATH_CANDIDATES = ["/readyz", "/api/v1/health", "/api/health", "/healthz"]
+
 
 class RuntimeCheckError(RuntimeError):
     """Raised when the runtime self-host check fails."""
@@ -484,13 +487,13 @@ def main() -> int:
         print("[step] waiting for HTTP health endpoints")
         health_path = _wait_for_any_http_200(
             runtime_base_url,
-            ["/healthz", "/api/v1/health", "/api/health", "/health"],
+            LIVENESS_PATH_CANDIDATES,
             timeout_seconds=args.api_timeout,
         )
         print(f"[ok] liveness endpoint: {health_path}")
         readiness_path = _wait_for_any_http_200(
             runtime_base_url,
-            ["/readyz", "/api/v1/health", "/api/health"],
+            READINESS_PATH_CANDIDATES,
             timeout_seconds=args.api_timeout,
         )
         print(f"[ok] readiness endpoint: {readiness_path}")
