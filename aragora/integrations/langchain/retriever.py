@@ -48,7 +48,7 @@ try:
             CallbackManagerForRetrieverRun as _CallbackManagerForRetrieverRun,
         )
     except ImportError:
-        from langchain.callbacks.manager import (
+        from langchain.callbacks.manager import (  # type: ignore[no-redef]
             AsyncCallbackManagerForRetrieverRun as _AsyncCallbackManagerForRetrieverRun,
             CallbackManagerForRetrieverRun as _CallbackManagerForRetrieverRun,
         )
@@ -56,8 +56,8 @@ try:
         from langchain_core.retrievers import BaseRetriever as _BaseRetriever
         from langchain_core.documents import Document as _Document
     except ImportError:
-        from langchain.schema import BaseRetriever as _BaseRetriever
-        from langchain.schema import Document as _Document
+        from langchain.schema import BaseRetriever as _BaseRetriever  # type: ignore[no-redef]
+        from langchain.schema import Document as _Document  # type: ignore[no-redef]
 
     LANGCHAIN_AVAILABLE = True
     _ActualBaseRetriever: Any = _BaseRetriever
@@ -78,14 +78,14 @@ if TYPE_CHECKING:
             CallbackManagerForRetrieverRun,
         )
     except ImportError:
-        from langchain.callbacks.manager import (
+        from langchain.callbacks.manager import (  # type: ignore[no-redef]
             AsyncCallbackManagerForRetrieverRun,
             CallbackManagerForRetrieverRun,
         )
     try:
         from langchain_core.documents import Document
     except ImportError:
-        from langchain.schema import Document
+        from langchain.schema import Document  # type: ignore[no-redef]
 
 
 class AragoraRetriever(_ActualBaseRetriever):
