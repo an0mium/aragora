@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from aragora.swarm.spec import SwarmSpec
@@ -172,6 +173,7 @@ class SwarmReporter:
     ) -> SwarmReport | None:
         """Try to generate report using Claude. Returns None on failure."""
         try:
+            from aragora.harnesses.base import AnalysisType
             from aragora.harnesses.claude_code import ClaudeCodeHarness
 
             harness = ClaudeCodeHarness()
@@ -193,8 +195,8 @@ class SwarmReporter:
             )
 
             llm_result = await harness.analyze_repository(
-                repo_path=".",  # type: ignore[arg-type]
-                analysis_type="general",  # type: ignore[arg-type]
+                repo_path=Path("."),
+                analysis_type=AnalysisType.GENERAL,
                 prompt=prompt,
             )
             raw = llm_result.raw_output if hasattr(llm_result, "raw_output") else str(llm_result)
