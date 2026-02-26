@@ -750,6 +750,102 @@ class TestHealth:
 
 
 # ===================================================================
+# Fleet monitor endpoints
+# ===================================================================
+
+
+@pytest.mark.no_auto_auth
+class TestFleetEndpoints:
+    def test_get_fleet_status(self, handler):
+        mock_fleet = MagicMock()
+        mock_fleet.fleet_status.return_value = {
+            "generated_at": "2026-02-26T00:00:00+00:00",
+            "active_sessions": 1,
+            "total_sessions": 1,
+            "sessions": [],
+            "claims": {"conflict_count": 0},
+            "merge_queue": {"total": 0, "blocked": 0, "items": []},
+            "actionable_failures": [],
+        }
+        with patch(
+            "aragora.server.handlers.coordination.create_fleet_coordinator",
+            return_value=mock_fleet,
+        ):
+            result = handler.handle("/api/v1/coordination/fleet/status", {"tail": "500"}, None)
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["active_sessions"] == 1
+        mock_fleet.fleet_status.assert_called_once_with(tail_lines=500)
+
+    def test_get_fleet_logs(self, handler):
+        mock_fleet = MagicMock()
+        mock_fleet.fleet_logs.return_value = {
+            "generated_at": "2026-02-26T00:00:00+00:00",
+            "tail_lines": 200,
+            "sessions": [],
+        }
+        with patch(
+            "aragora.server.handlers.coordination.create_fleet_coordinator",
+            return_value=mock_fleet,
+        ):
+            result = handler.handle("/api/v1/coordination/fleet/logs", {}, None)
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["tail_lines"] == 200
+
+    def test_post_fleet_claim_conflict_returns_409(self, handler):
+        mock_fleet = MagicMock()
+        mock_fleet.claim_paths.return_value = {
+            "ok": False,
+            "applied": False,
+            "owner": "track:qa",
+            "conflicts": [{"path": "x.py", "owner": "track:core"}],
+        }
+        with patch(
+            "aragora.server.handlers.coordination.create_fleet_coordinator",
+            return_value=mock_fleet,
+        ):
+            req = _make_http_handler(
+                body={
+                    "owner": "track:qa",
+                    "paths": ["x.py"],
+                    "override": False,
+                }
+            )
+            result = handler.handle_post("/api/v1/coordination/fleet/claims", {}, req)
+
+        assert _status(result) == 409
+        body = _body(result)
+        assert body["ok"] is False
+
+    def test_post_fleet_merge_queue_enqueue(self, handler):
+        mock_fleet = MagicMock()
+        mock_fleet.enqueue_merge.return_value = {
+            "ok": True,
+            "enqueued": True,
+            "item": {"id": "mq-1"},
+        }
+        with patch(
+            "aragora.server.handlers.coordination.create_fleet_coordinator",
+            return_value=mock_fleet,
+        ):
+            req = _make_http_handler(
+                body={
+                    "action": "enqueue",
+                    "owner": "track:core",
+                    "branch": "codex/core-123",
+                }
+            )
+            result = handler.handle_post("/api/v1/coordination/fleet/merge-queue", {}, req)
+
+        assert _status(result) == 201
+        body = _body(result)
+        assert body["enqueued"] is True
+
+
+# ===================================================================
 # Coordination unavailable (501)
 # ===================================================================
 

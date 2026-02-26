@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -146,6 +147,33 @@ Workflow:
     auto_p.add_argument("--json", action="store_true", help="Emit JSON output")
     auto_p.add_argument("--print-path", action="store_true", help="Print ensured path only")
 
+    # fleet-status
+    fleet_status_p = wt_sub.add_parser(
+        "fleet-status",
+        help="Show single-pane status for all active agent sessions",
+    )
+    fleet_status_p.add_argument(
+        "--tail",
+        type=int,
+        default=200,
+        help="Tail N lines per session log (default: 200)",
+    )
+    fleet_status_p.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON output",
+    )
+    fleet_status_p.add_argument(
+        "--report",
+        action="store_true",
+        help="Write a timestamped single-pane report under docs/status",
+    )
+    fleet_status_p.add_argument(
+        "--report-dir",
+        default=None,
+        help="Optional report output directory override",
+    )
+
     wt_parser.set_defaults(func=cmd_worktree)
 
 
@@ -164,6 +192,9 @@ def cmd_worktree(args: argparse.Namespace) -> None:
     if action == "autopilot":
         base_branch = getattr(args, "auto_base", None) or base_branch
         _cmd_worktree_autopilot(args, repo_path=repo_root, base_branch=base_branch)
+        return
+    if action == "fleet-status":
+        _cmd_worktree_fleet_status(args, repo_path=repo_root)
         return
 
     from aragora.nomic.branch_coordinator import (
@@ -345,3 +376,61 @@ def _cmd_worktree_autopilot(args: argparse.Namespace, *, repo_path: Path, base_b
         print(result.stderr.rstrip(), file=sys.stderr)
     if result.returncode != 0:
         print(f"Autopilot command failed with exit code {result.returncode}")
+
+
+def _cmd_worktree_fleet_status(args: argparse.Namespace, *, repo_path: Path) -> None:
+    """Render fleet monitor status for all active coordination sessions."""
+    from aragora.coordination.fleet import create_fleet_coordinator
+
+    fleet = create_fleet_coordinator(repo_root=repo_path)
+    tail = max(1, int(getattr(args, "tail", 200)))
+    status = fleet.fleet_status(tail_lines=tail)
+
+    if getattr(args, "report", False):
+        report_dir = getattr(args, "report_dir", None)
+        output_dir = None
+        if report_dir:
+            output_dir = Path(report_dir)
+            if not output_dir.is_absolute():
+                output_dir = (repo_path / output_dir).resolve()
+        report = fleet.write_report(status=status, output_dir=output_dir)
+        status["report_path"] = report["report_path"]
+
+    if getattr(args, "json", False):
+        print(json.dumps(status, indent=2))
+        return
+
+    print("\n" + "=" * 64)
+    print("  Fleet Status")
+    print("=" * 64)
+    print(f"Generated:       {status.get('generated_at', 'unknown')}")
+    print(
+        "Sessions:        "
+        f"{status.get('active_sessions', 0)} active / {status.get('total_sessions', 0)} total"
+    )
+    claims = status.get("claims", {})
+    print(f"Claim conflicts: {claims.get('conflict_count', 0)}")
+    queue = status.get("merge_queue", {})
+    print(f"Merge queue:     {queue.get('total', 0)} items ({queue.get('blocked', 0)} blocked)")
+    if status.get("report_path"):
+        print(f"Report:          {status['report_path']}")
+
+    failures = status.get("actionable_failures", [])
+    print("\nActionable failures:")
+    if failures:
+        for failure in failures:
+            print(f"  [{failure.get('priority', 'P?')}] {failure.get('summary', '')}")
+    else:
+        print("  none")
+
+    sessions = status.get("sessions", [])
+    print("\nSessions:")
+    if sessions:
+        for session in sessions:
+            owner = session.get("owner", "?")
+            branch = session.get("branch") or "-"
+            checks = session.get("required_checks_state", "unknown")
+            drift = "yes" if session.get("drift") else "no"
+            print(f"  {owner:<28} branch={branch:<28} checks={checks:<8} drift={drift}")
+    else:
+        print("  none")

@@ -343,6 +343,22 @@ class ControlPlaneHandler(
         if path == "/api/v1/coordination/health":
             return self._handle_coordination_health(query_params)
 
+        # /api/v1/coordination/fleet/status
+        if path == "/api/v1/coordination/fleet/status":
+            return self._handle_fleet_status(query_params)
+
+        # /api/v1/coordination/fleet/logs
+        if path == "/api/v1/coordination/fleet/logs":
+            return self._handle_fleet_logs(query_params)
+
+        # /api/v1/coordination/fleet/claims
+        if path == "/api/v1/coordination/fleet/claims":
+            return self._handle_fleet_claims(query_params)
+
+        # /api/v1/coordination/fleet/merge-queue
+        if path == "/api/v1/coordination/fleet/merge-queue":
+            return self._handle_fleet_merge_queue(query_params)
+
         return None
 
     # =========================================================================
@@ -467,6 +483,20 @@ class ControlPlaneHandler(
             if err:
                 return err
             return self._handle_approve_request(request_id, body)
+
+        # /api/v1/coordination/fleet/claims
+        if path == "/api/v1/coordination/fleet/claims":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_fleet_claim_paths(body)
+
+        # /api/v1/coordination/fleet/merge-queue
+        if path == "/api/v1/coordination/fleet/merge-queue":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_fleet_merge_queue_action(body)
 
         return None
 

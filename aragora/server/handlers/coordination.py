@@ -15,13 +15,21 @@ Wires the CrossWorkspaceCoordinator into REST endpoints:
 - POST   /api/v1/coordination/approve/{id}       - approve pending execution
 - GET    /api/v1/coordination/stats              - coordination stats
 - GET    /api/v1/coordination/health             - health check
+- GET    /api/v1/coordination/fleet/status       - fleet monitor status
+- GET    /api/v1/coordination/fleet/logs         - tailed logs per session
+- GET    /api/v1/coordination/fleet/claims       - path claim map/conflicts
+- POST   /api/v1/coordination/fleet/claims       - claim path ownership
+- GET    /api/v1/coordination/fleet/merge-queue  - merge queue visibility
+- POST   /api/v1/coordination/fleet/merge-queue  - enqueue/advance queue operations
 """
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
+from aragora.coordination.fleet import create_fleet_coordinator
 from aragora.rbac.decorators import require_permission
 from .base import (
     BaseHandler,
@@ -95,6 +103,26 @@ def _parse_operation_type(value: str) -> Any:
         return None
 
 
+def _parse_tail(query_params: dict[str, Any], default: int = 200) -> int:
+    """Parse and clamp log tail lines from query params."""
+    raw = query_params.get("tail", default)
+    try:
+        tail = int(raw)
+    except (TypeError, ValueError):
+        tail = default
+    if tail < 1:
+        return 1
+    return min(tail, 5000)
+
+
+def _parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
 class CoordinationHandler(BaseHandler):
     """Handler for cross-workspace coordination API endpoints."""
 
@@ -107,6 +135,10 @@ class CoordinationHandler(BaseHandler):
         "/api/v1/coordination/consent",
         "/api/v1/coordination/stats",
         "/api/v1/coordination/health",
+        "/api/v1/coordination/fleet/status",
+        "/api/v1/coordination/fleet/logs",
+        "/api/v1/coordination/fleet/claims",
+        "/api/v1/coordination/fleet/merge-queue",
     ]
 
     def __init__(self, ctx: dict[str, Any] | None = None):
@@ -147,6 +179,14 @@ class CoordinationHandler(BaseHandler):
             return self._handle_stats()
         if normalized.endswith("/coordination/health"):
             return self._handle_health()
+        if normalized.endswith("/coordination/fleet/status"):
+            return self._handle_fleet_status(query_params)
+        if normalized.endswith("/coordination/fleet/logs"):
+            return self._handle_fleet_logs(query_params)
+        if normalized.endswith("/coordination/fleet/claims"):
+            return self._handle_fleet_claims(query_params)
+        if normalized.endswith("/coordination/fleet/merge-queue"):
+            return self._handle_fleet_merge_queue(query_params)
 
         return None
 
@@ -183,6 +223,18 @@ class CoordinationHandler(BaseHandler):
             if body is None:
                 return error_response("Invalid JSON body", 400)
             return self._handle_grant_consent(body)
+
+        if normalized.endswith("/coordination/fleet/claims"):
+            body = self.read_json_body(handler)
+            if body is None:
+                return error_response("Invalid JSON body", 400)
+            return self._handle_fleet_claims_post(body)
+
+        if normalized.endswith("/coordination/fleet/merge-queue"):
+            body = self.read_json_body(handler)
+            if body is None:
+                return error_response("Invalid JSON body", 400)
+            return self._handle_fleet_merge_queue_post(body)
 
         # POST /api/v1/coordination/approve/{id}
         if "/coordination/approve/" in normalized:
@@ -590,6 +642,121 @@ class CoordinationHandler(BaseHandler):
         logger.info("Approved request %s by %s", request_id, approved_by)
 
         return json_response({"approved": True, "request_id": request_id})
+
+    # =================================================================
+    # Fleet monitor endpoints
+    # =================================================================
+
+    def _fleet(self):
+        repo_root = self.ctx.get("repo_root")
+        if isinstance(repo_root, Path):
+            return create_fleet_coordinator(repo_root=repo_root)
+        return create_fleet_coordinator(repo_root=Path.cwd())
+
+    @require_permission("coordination:read")
+    def _handle_fleet_status(self, query_params: dict[str, Any]) -> HandlerResult:
+        """GET /api/v1/coordination/fleet/status."""
+        fleet = self._fleet()
+        tail = _parse_tail(query_params, default=200)
+        status = fleet.fleet_status(tail_lines=tail)
+
+        write_report = _parse_bool(query_params.get("write_report"))
+        if write_report:
+            report_dir = query_params.get("report_dir")
+            output_dir = None
+            if isinstance(report_dir, str) and report_dir.strip():
+                output_dir = Path(report_dir)
+                if not output_dir.is_absolute():
+                    output_dir = (fleet.repo_root / output_dir).resolve()
+            report = fleet.write_report(status=status, output_dir=output_dir)
+            status["report_path"] = report["report_path"]
+
+        return json_response(status)
+
+    @require_permission("coordination:read")
+    def _handle_fleet_logs(self, query_params: dict[str, Any]) -> HandlerResult:
+        """GET /api/v1/coordination/fleet/logs."""
+        fleet = self._fleet()
+        tail = _parse_tail(query_params, default=200)
+        session_id = query_params.get("session_id")
+        if session_id is not None:
+            session_id = str(session_id)
+        payload = fleet.fleet_logs(tail_lines=tail, session_id=session_id)
+        return json_response(payload)
+
+    @require_permission("coordination:read")
+    def _handle_fleet_claims(self, query_params: dict[str, Any]) -> HandlerResult:
+        """GET /api/v1/coordination/fleet/claims."""
+        _ = query_params
+        fleet = self._fleet()
+        return json_response(fleet.get_claims())
+
+    @handle_errors("fleet claims update")
+    @require_permission("coordination:write")
+    def _handle_fleet_claims_post(self, body: dict[str, Any]) -> HandlerResult:
+        """POST /api/v1/coordination/fleet/claims."""
+        owner = str(body.get("owner", "")).strip()
+        paths = body.get("paths", [])
+        if not isinstance(paths, list):
+            return error_response("'paths' must be a list", 400)
+        normalized_paths = [str(path) for path in paths if isinstance(path, str)]
+        override = bool(body.get("override", False))
+        result = self._fleet().claim_paths(owner, normalized_paths, override=override)
+        status = 200 if result.get("ok") else 409
+        if not result.get("ok") and result.get("error"):
+            status = 400
+        return json_response(result, status=status)
+
+    @require_permission("coordination:read")
+    def _handle_fleet_merge_queue(self, query_params: dict[str, Any]) -> HandlerResult:
+        """GET /api/v1/coordination/fleet/merge-queue."""
+        _ = query_params
+        return json_response(self._fleet().get_merge_queue())
+
+    @handle_errors("fleet merge queue update")
+    @require_permission("coordination:write")
+    def _handle_fleet_merge_queue_post(self, body: dict[str, Any]) -> HandlerResult:
+        """POST /api/v1/coordination/fleet/merge-queue."""
+        action = str(body.get("action", "enqueue")).strip().lower()
+        fleet = self._fleet()
+
+        if action == "enqueue":
+            owner = str(body.get("owner", "")).strip()
+            branch = str(body.get("branch", "")).strip()
+            session_id = body.get("session_id")
+            if session_id is not None:
+                session_id = str(session_id)
+            pr_number = body.get("pr_number")
+            if pr_number is not None:
+                try:
+                    pr_number = int(pr_number)
+                except (TypeError, ValueError):
+                    return error_response("'pr_number' must be an integer", 400)
+            override = bool(body.get("override_claim_conflicts", False))
+            result = fleet.enqueue_merge(
+                owner=owner,
+                branch=branch,
+                session_id=session_id,
+                pr_number=pr_number,
+                override_claim_conflicts=override,
+            )
+            if not result.get("ok"):
+                return error_response(result.get("error", "invalid merge queue request"), 400)
+            return json_response(result, status=201)
+
+        if action == "advance":
+            return json_response(fleet.advance_merge_queue())
+
+        if action == "remove":
+            item_id = str(body.get("id", "")).strip()
+            if not item_id:
+                return error_response("'id' is required for remove", 400)
+            return json_response(fleet.remove_merge_item(item_id))
+
+        if action == "clear":
+            return json_response(fleet.clear_merge_queue())
+
+        return error_response("Unsupported action. Use enqueue|advance|remove|clear", 400)
 
     # =================================================================
     # Stats and health

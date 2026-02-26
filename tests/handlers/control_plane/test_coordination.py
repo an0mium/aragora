@@ -368,6 +368,71 @@ class TestCoordinationHealth:
 
 
 # ============================================================================
+# Fleet Monitor Endpoints
+# ============================================================================
+
+
+class TestFleetMonitorEndpoints:
+    def test_fleet_status(self, handler: ControlPlaneHandler):
+        mock_fleet = MagicMock()
+        mock_fleet.fleet_status.return_value = {
+            "generated_at": "2026-02-26T00:00:00+00:00",
+            "active_sessions": 1,
+            "total_sessions": 1,
+            "sessions": [],
+            "claims": {"conflict_count": 0},
+            "merge_queue": {"total": 0, "blocked": 0, "items": []},
+            "actionable_failures": [],
+        }
+        with patch(
+            "aragora.server.handlers.control_plane.coordination.create_fleet_coordinator",
+            return_value=mock_fleet,
+        ):
+            result = handler._handle_fleet_status({"tail": "500"})
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["active_sessions"] == 1
+        mock_fleet.fleet_status.assert_called_once_with(tail_lines=500)
+
+    def test_fleet_claim_paths_conflict(self, handler: ControlPlaneHandler):
+        mock_fleet = MagicMock()
+        mock_fleet.claim_paths.return_value = {
+            "ok": False,
+            "applied": False,
+            "conflicts": [{"path": "x.py", "owner": "track:core"}],
+        }
+        with patch(
+            "aragora.server.handlers.control_plane.coordination.create_fleet_coordinator",
+            return_value=mock_fleet,
+        ):
+            result = handler._handle_fleet_claim_paths(
+                {
+                    "owner": "track:qa",
+                    "paths": ["x.py"],
+                    "override": False,
+                }
+            )
+
+        assert result.status_code == 409
+        data = json.loads(result.body)
+        assert data["ok"] is False
+
+    def test_fleet_merge_queue_advance(self, handler: ControlPlaneHandler):
+        mock_fleet = MagicMock()
+        mock_fleet.advance_merge_queue.return_value = {"ok": True, "advanced": True}
+        with patch(
+            "aragora.server.handlers.control_plane.coordination.create_fleet_coordinator",
+            return_value=mock_fleet,
+        ):
+            result = handler._handle_fleet_merge_queue_action({"action": "advance"})
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["advanced"] is True
+
+
+# ============================================================================
 # Route Dispatch
 # ============================================================================
 
@@ -398,5 +463,24 @@ class TestRouteDispatch:
     ):
         mock_http_handler.path = "/api/v1/coordination/health"
         result = handler.handle("/api/v1/coordination/health", {}, mock_http_handler)
+        assert result is not None
+        assert result.status_code == 200
+
+    def test_get_fleet_status(self, handler: ControlPlaneHandler, mock_http_handler: MagicMock):
+        mock_http_handler.path = "/api/v1/coordination/fleet/status"
+        with patch(
+            "aragora.server.handlers.control_plane.coordination.create_fleet_coordinator",
+        ) as mock_create:
+            mock_create.return_value.fleet_status.return_value = {
+                "generated_at": "2026-02-26T00:00:00+00:00",
+                "active_sessions": 0,
+                "total_sessions": 0,
+                "sessions": [],
+                "claims": {"conflict_count": 0},
+                "merge_queue": {"total": 0, "blocked": 0, "items": []},
+                "actionable_failures": [],
+            }
+            result = handler.handle("/api/v1/coordination/fleet/status", {}, mock_http_handler)
+
         assert result is not None
         assert result.status_code == 200

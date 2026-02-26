@@ -12,8 +12,10 @@ Provides REST API endpoints for:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
+from aragora.coordination.fleet import create_fleet_coordinator
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -27,6 +29,25 @@ from aragora.server.handlers.utils.decorators import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_tail(query_params: dict[str, Any], default: int = 200) -> int:
+    raw = query_params.get("tail", default)
+    try:
+        tail = int(raw)
+    except (TypeError, ValueError):
+        tail = default
+    if tail < 1:
+        return 1
+    return min(tail, 5000)
+
+
+def _parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 class CoordinationHandlerMixin:
@@ -466,6 +487,154 @@ class CoordinationHandlerMixin:
             return error_response(f"Request not found or not pending: {request_id}", 404)
 
         return json_response({"approved": True})
+
+    # =========================================================================
+    # Fleet Monitor
+    # =========================================================================
+
+    def _fleet(self):
+        repo_root = self.ctx.get("repo_root")
+        if isinstance(repo_root, Path):
+            return create_fleet_coordinator(repo_root=repo_root)
+        return create_fleet_coordinator(repo_root=Path.cwd())
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/coordination/fleet/status",
+        summary="Get fleet status for all active sessions",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:stats.read")
+    def _handle_fleet_status(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Get fleet monitor status."""
+        fleet = self._fleet()
+        tail = _parse_tail(query_params, default=200)
+        status = fleet.fleet_status(tail_lines=tail)
+
+        if _parse_bool(query_params.get("write_report")):
+            report_dir = query_params.get("report_dir")
+            output_dir = None
+            if isinstance(report_dir, str) and report_dir.strip():
+                output_dir = Path(report_dir)
+                if not output_dir.is_absolute():
+                    output_dir = (fleet.repo_root / output_dir).resolve()
+            report = fleet.write_report(status=status, output_dir=output_dir)
+            status["report_path"] = report["report_path"]
+
+        return json_response(status)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/coordination/fleet/logs",
+        summary="Get tailed logs for fleet sessions",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:stats.read")
+    def _handle_fleet_logs(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Get tailed logs across active sessions."""
+        tail = _parse_tail(query_params, default=200)
+        session_id = query_params.get("session_id")
+        if session_id is not None:
+            session_id = str(session_id)
+        payload = self._fleet().fleet_logs(tail_lines=tail, session_id=session_id)
+        return json_response(payload)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/coordination/fleet/claims",
+        summary="Get path claims and conflicts",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:stats.read")
+    def _handle_fleet_claims(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Get current path claims and conflicts."""
+        _ = query_params
+        return json_response(self._fleet().get_claims())
+
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/coordination/fleet/claims",
+        summary="Claim file paths for a session/owner",
+        tags=["Coordination"],
+    )
+    @handle_errors("fleet path claim")
+    @require_permission("coordination:execute.write")
+    def _handle_fleet_claim_paths(self, body: dict[str, Any]) -> HandlerResult:
+        """Claim paths for an owner with optional conflict override."""
+        owner = str(body.get("owner", "")).strip()
+        paths = body.get("paths", [])
+        if not isinstance(paths, list):
+            return error_response("'paths' must be a list", 400)
+        normalized_paths = [str(path) for path in paths if isinstance(path, str)]
+        override = bool(body.get("override", False))
+        result = self._fleet().claim_paths(owner, normalized_paths, override=override)
+        status = 200 if result.get("ok") else 409
+        if not result.get("ok") and result.get("error"):
+            status = 400
+        return json_response(result, status=status)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/coordination/fleet/merge-queue",
+        summary="Get merge queue state with blockers",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:stats.read")
+    def _handle_fleet_merge_queue(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Get merge queue state and live blockers."""
+        _ = query_params
+        return json_response(self._fleet().get_merge_queue())
+
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/coordination/fleet/merge-queue",
+        summary="Update merge queue (enqueue/advance/remove/clear)",
+        tags=["Coordination"],
+    )
+    @handle_errors("fleet merge queue operation")
+    @require_permission("coordination:execute.write")
+    def _handle_fleet_merge_queue_action(self, body: dict[str, Any]) -> HandlerResult:
+        """Perform merge queue actions."""
+        action = str(body.get("action", "enqueue")).strip().lower()
+        fleet = self._fleet()
+
+        if action == "enqueue":
+            owner = str(body.get("owner", "")).strip()
+            branch = str(body.get("branch", "")).strip()
+            session_id = body.get("session_id")
+            if session_id is not None:
+                session_id = str(session_id)
+            pr_number = body.get("pr_number")
+            if pr_number is not None:
+                try:
+                    pr_number = int(pr_number)
+                except (TypeError, ValueError):
+                    return error_response("'pr_number' must be an integer", 400)
+            override = bool(body.get("override_claim_conflicts", False))
+            result = fleet.enqueue_merge(
+                owner=owner,
+                branch=branch,
+                session_id=session_id,
+                pr_number=pr_number,
+                override_claim_conflicts=override,
+            )
+            if not result.get("ok"):
+                return error_response(result.get("error", "invalid merge queue request"), 400)
+            return json_response(result, status=201)
+
+        if action == "advance":
+            return json_response(fleet.advance_merge_queue())
+
+        if action == "remove":
+            item_id = str(body.get("id", "")).strip()
+            if not item_id:
+                return error_response("'id' is required for remove", 400)
+            return json_response(fleet.remove_merge_item(item_id))
+
+        if action == "clear":
+            return json_response(fleet.clear_merge_queue())
+
+        return error_response("Unsupported action. Use enqueue|advance|remove|clear", 400)
 
     # =========================================================================
     # Stats and Health

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from aragora.cli.commands.worktree import (
     _cmd_worktree_autopilot,
+    _cmd_worktree_fleet_status,
     add_worktree_parser,
     cmd_worktree,
 )
@@ -98,6 +99,22 @@ class TestWorktreeParser:
         assert args.base == "main"
         assert args.auto_base == "release"
 
+    def test_fleet_status_parse(self):
+        args = _parser().parse_args(
+            [
+                "worktree",
+                "fleet-status",
+                "--tail",
+                "500",
+                "--json",
+                "--report",
+            ]
+        )
+        assert args.wt_action == "fleet-status"
+        assert args.tail == 500
+        assert args.json is True
+        assert args.report is True
+
 
 class TestWorktreeDispatch:
     @patch("aragora.cli.commands.worktree._cmd_worktree_autopilot")
@@ -126,6 +143,18 @@ class TestWorktreeDispatch:
         cmd_worktree(args)
         call = mock_autopilot.call_args
         assert call.kwargs["base_branch"] == "release"
+
+    @patch("aragora.cli.commands.worktree._cmd_worktree_fleet_status")
+    def test_dispatches_fleet_status(self, mock_fleet_status):
+        args = argparse.Namespace(
+            wt_action="fleet-status",
+            repo="/tmp/repo",
+            base="main",
+        )
+        cmd_worktree(args)
+        mock_fleet_status.assert_called_once()
+        call = mock_fleet_status.call_args
+        assert call.kwargs["repo_path"] == Path("/tmp/repo").resolve()
 
 
 class TestWorktreeAutopilot:
@@ -180,3 +209,29 @@ class TestWorktreeAutopilot:
         captured = capsys.readouterr()
         assert "boom" in captured.err
         assert "Autopilot command failed with exit code 2" in captured.out
+
+
+class TestWorktreeFleetStatus:
+    @patch("aragora.coordination.fleet.create_fleet_coordinator")
+    def test_fleet_status_json_output(self, mock_create_fleet, capsys, tmp_path: Path):
+        mock_fleet = mock_create_fleet.return_value
+        mock_fleet.fleet_status.return_value = {
+            "generated_at": "2026-02-26T00:00:00+00:00",
+            "active_sessions": 1,
+            "total_sessions": 1,
+            "claims": {"conflict_count": 0},
+            "merge_queue": {"total": 0, "blocked": 0},
+            "actionable_failures": [],
+            "sessions": [],
+        }
+
+        args = argparse.Namespace(
+            tail=500,
+            json=True,
+            report=False,
+            report_dir=None,
+        )
+        _cmd_worktree_fleet_status(args, repo_path=tmp_path)
+        out = capsys.readouterr().out
+        assert '"active_sessions": 1' in out
+        mock_fleet.fleet_status.assert_called_once_with(tail_lines=500)

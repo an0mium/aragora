@@ -48,6 +48,10 @@ from aragora.coordination.reconciler import (
     ConflictInfo,
     ConflictCategory,
 )
+from aragora.coordination.fleet import (
+    FleetCoordinator,
+    create_fleet_coordinator,
+)
 
 __all__ = [
     # Cross-workspace
@@ -77,4 +81,7 @@ __all__ = [
     "MergeAttempt",
     "ConflictInfo",
     "ConflictCategory",
+    # Fleet monitoring
+    "FleetCoordinator",
+    "create_fleet_coordinator",
 ]
