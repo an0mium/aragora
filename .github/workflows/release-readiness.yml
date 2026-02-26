@@ -13,6 +13,18 @@ on:
       - "scripts/check_deploy_secure_sha_guard.py"
       - "scripts/check_required_check_priority_policy.py"
       - ".github/workflows/release-readiness.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "aragora/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "requirements.txt"
+      - "scripts/ci_release_readiness.sh"
+      - "scripts/check_branch_mutation_policy.py"
+      - "scripts/check_deploy_secure_sha_guard.py"
+      - "scripts/check_required_check_priority_policy.py"
+      - ".github/workflows/release-readiness.yml"
   workflow_dispatch:
 
 concurrency:
@@ -40,4 +52,12 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run release-readiness gate
+        # Keep this gate deterministic: never rely on optional external
+        # integration env vars inherited from org/repo secrets.
+        env:
+          REDIS_URL: ""
+          CACHE_REDIS_URL: ""
+          ARAGORA_REDIS_URL: ""
+          GOOGLE_CHAT_CREDENTIALS: ""
+          GOOGLE_CHAT_PROJECT_ID: ""
         run: bash scripts/ci_release_readiness.sh
