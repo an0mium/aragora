@@ -75,6 +75,17 @@ class GauntletSecureHandler(ABC):
         """Return the URL path pattern for this handler. Override in subclasses."""
         ...
 
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can handle the given path.
+
+        Uses get_path_pattern() to determine the base path prefix.
+        """
+        try:
+            pattern = self.get_path_pattern()
+        except Exception:
+            return False
+        return path.startswith(pattern.split("{")[0].rstrip("/") or pattern)
+
     def get_methods(self) -> list[str]:
         """Return the HTTP methods this handler supports. Default is GET."""
         return ["GET"]
