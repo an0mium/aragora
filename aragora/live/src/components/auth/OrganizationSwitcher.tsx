@@ -131,7 +131,7 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
 
         {isOpen && (
           <div
-            className="absolute left-0 top-full mt-1 w-56 bg-surface border border-acid-green/30 shadow-lg z-50"
+            className="absolute left-0 top-full mt-1 w-56 bg-surface border border-acid-green/30 shadow-elevated z-50"
             role="listbox"
             aria-label="Organizations"
           >

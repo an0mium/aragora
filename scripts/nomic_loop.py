@@ -3461,6 +3461,16 @@ The most valuable proposals combine deep analysis with actionable implementation
         if not _NOMIC_PHASES_AVAILABLE:
             raise RuntimeError("Extracted phases not available")
 
+        test_quality_gate = None
+        try:
+            from aragora.nomic.gates import TestQualityGate
+
+            test_quality_gate = TestQualityGate(
+                require_all_tests_pass=True,
+            )
+        except ImportError:
+            pass
+
         return VerifyPhase(
             aragora_path=self.aragora_path,
             codex=self.codex if hasattr(self, "codex") else None,
@@ -3474,12 +3484,24 @@ The most valuable proposals combine deep analysis with actionable implementation
                 self._record_replay_event if hasattr(self, "_record_replay_event") else None
             ),
             save_state_fn=self._save_state if hasattr(self, "_save_state") else None,
+            test_quality_gate=test_quality_gate,
         )
 
     def _create_commit_phase(self) -> "CommitPhase":
         """Create an extracted CommitPhase instance."""
         if not _NOMIC_PHASES_AVAILABLE:
             raise RuntimeError("Extracted phases not available")
+
+        commit_gate = None
+        try:
+            from aragora.nomic.gates import CommitGate
+
+            commit_gate = CommitGate(
+                enabled=True,
+                aragora_path=self.aragora_path,
+            )
+        except ImportError:
+            pass
 
         return CommitPhase(
             aragora_path=self.aragora_path,
@@ -3488,6 +3510,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             cycle_count=self.cycle_count,
             log_fn=self._log,
             stream_emit_fn=self._stream_emit,
+            commit_gate=commit_gate,
         )
 
     def _create_debate_phase(self, topic_hint: str = "") -> "DebatePhase":
@@ -3567,6 +3590,16 @@ The most valuable proposals combine deep analysis with actionable implementation
         if not design_agents:
             raise RuntimeError("No agents available for design phase")
 
+        design_gate = None
+        try:
+            from aragora.nomic.gates import DesignGate
+
+            design_gate = DesignGate(
+                auto_approve_dev=not self.require_human_approval,
+            )
+        except ImportError:
+            pass
+
         return DesignPhase(
             aragora_path=self.aragora_path,
             agents=design_agents,
@@ -3588,6 +3621,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             record_replay_fn=(
                 self._record_replay_event if hasattr(self, "_record_replay_event") else None
             ),
+            design_gate=design_gate,
         )
 
     def _create_memory_gateway(self):

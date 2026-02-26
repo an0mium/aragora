@@ -122,7 +122,7 @@ export function TopicDetailDrawer({
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-surface border-l border-acid-green/30 z-50 flex flex-col shadow-2xl">
+      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-surface border-l border-acid-green/30 z-50 flex flex-col shadow-floating">
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">

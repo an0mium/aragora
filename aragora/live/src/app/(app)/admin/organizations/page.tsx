@@ -142,7 +142,7 @@ function OrgDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-surface border border-acid-green/40 rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] overflow-hidden z-10">
+      <div className="relative bg-surface border border-acid-green/40 rounded-lg shadow-floating w-full max-w-3xl max-h-[80vh] overflow-hidden z-10">
         {/* Header */}
         <div className="p-4 border-b border-acid-green/20">
           <div className="flex items-center justify-between">

@@ -189,7 +189,7 @@ export function DeliveryModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg mx-4 bg-bg border border-border rounded-lg shadow-xl max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-lg mx-4 bg-bg border border-border rounded-lg shadow-floating max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>

@@ -215,7 +215,7 @@ export function CommandPalette() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="command-palette-title"
-        className="w-full h-full sm:h-auto sm:max-h-[70vh] max-w-2xl border-0 sm:border border-acid-green/40 bg-surface shadow-2xl shadow-acid-green/10 rounded-none sm:rounded-sm overflow-hidden flex flex-col"
+        className="w-full h-full sm:h-auto sm:max-h-[70vh] max-w-2xl border-0 sm:border border-acid-green/40 bg-surface shadow-floating rounded-none sm:rounded-sm overflow-hidden flex flex-col"
       >
         {/* Hidden title for accessibility */}
         <h2 id="command-palette-title" className="sr-only">

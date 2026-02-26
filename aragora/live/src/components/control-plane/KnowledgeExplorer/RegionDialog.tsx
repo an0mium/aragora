@@ -171,7 +171,7 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
       />
 
       {/* Dialog */}
-      <div className="relative bg-surface border border-acid-green/30 rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-auto">
+      <div className="relative bg-surface border border-acid-green/30 rounded-lg shadow-floating w-full max-w-lg mx-4 max-h-[90vh] overflow-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-acid-green/20">
           <h2 className="text-lg font-mono text-acid-green">

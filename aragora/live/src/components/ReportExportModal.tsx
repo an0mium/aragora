@@ -198,7 +198,7 @@ export function ReportExportModal({
       />
 
       {/* Modal */}
-      <div className="relative bg-background border border-border rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-background border border-border rounded-lg shadow-floating w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 id="export-modal-title" className="font-mono text-lg">Export Audit Report</h2>

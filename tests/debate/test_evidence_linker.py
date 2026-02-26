@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import pytest
 
+pytest.importorskip("sentence_transformers")
+
 from aragora.debate.evidence_linker import (
     CLAIM_INDICATORS,
     EMBEDDINGS_AVAILABLE,

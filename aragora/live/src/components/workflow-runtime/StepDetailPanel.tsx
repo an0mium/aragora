@@ -70,7 +70,7 @@ export function StepDetailPanel({
   const statusColors = STATUS_COLORS[step.status] || STATUS_COLORS.pending;
 
   return (
-    <div className="fixed right-0 top-0 h-full w-full max-w-md bg-surface border-l border-border z-50 flex flex-col shadow-2xl">
+    <div className="fixed right-0 top-0 h-full w-full max-w-md bg-surface border-l border-border z-50 flex flex-col shadow-floating">
       {/* Header */}
       <div className="p-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-3">

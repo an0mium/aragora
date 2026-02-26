@@ -123,7 +123,7 @@ export const VisibilitySelector: React.FC<VisibilitySelectorProps> = ({
 
           {/* Dropdown */}
           <ul
-            className="absolute z-20 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg py-1"
+            className="absolute z-20 mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-elevated py-1"
             role="listbox"
             aria-label="Visibility options"
           >

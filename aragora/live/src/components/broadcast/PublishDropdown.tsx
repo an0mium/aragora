@@ -84,7 +84,7 @@ export function PublishDropdown({ debateId, title }: PublishDropdownProps) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 py-1 bg-surface border border-accent/30 shadow-lg z-50 min-w-[160px]">
+        <div className="absolute right-0 mt-1 py-1 bg-surface border border-accent/30 shadow-elevated z-50 min-w-[160px]">
           <button
             onClick={handleTwitter}
             disabled={publishing === 'twitter'}

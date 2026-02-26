@@ -114,7 +114,7 @@ export function DAGToolbar({
 
       {/* Brain Dump Input */}
       {showBrainDump && (
-        <div className="absolute top-14 left-4 z-30 w-96 bg-surface border border-border rounded-lg shadow-xl p-3">
+        <div className="absolute top-14 left-4 z-30 w-96 bg-surface border border-border rounded-lg shadow-elevated p-3">
           <textarea
             value={brainDumpText}
             onChange={(e) => setBrainDumpText(e.target.value)}

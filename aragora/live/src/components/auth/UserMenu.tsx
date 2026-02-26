@@ -122,7 +122,7 @@ export function UserMenu() {
 
       {isOpen && (
         <div
-          className="absolute right-0 top-full mt-2 w-64 bg-surface border border-acid-green/30 shadow-lg z-50"
+          className="absolute right-0 top-full mt-2 w-64 bg-surface border border-acid-green/30 shadow-elevated z-50"
           role="menu"
           aria-label="User menu"
         >

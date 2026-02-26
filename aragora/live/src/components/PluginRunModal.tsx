@@ -102,7 +102,7 @@ export function PluginRunModal({ plugin, onClose, apiBase = API_BASE_URL }: Plug
     >
       <div
         ref={modalRef}
-        className="w-full max-w-2xl mx-4 border border-acid-green/40 bg-surface shadow-2xl shadow-acid-green/10"
+        className="w-full max-w-2xl mx-4 border border-acid-green/40 bg-surface shadow-floating"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-acid-green/20 bg-bg/50">
