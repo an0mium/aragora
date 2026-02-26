@@ -46,7 +46,7 @@ export function AISuggestionsPanel({ suggestions, onAddToDAG, onRefresh, loading
           {suggestions.map(s => (
             <div key={s.id} className="px-2.5 py-2 bg-bg rounded border border-border">
               <div className="flex items-center gap-2 mb-1">
-                <span className={`px-1.5 py-0.5 text-[9px] font-mono rounded border ${PRIORITY_COLORS[s.priority]}`}>
+                <span className={`px-1.5 py-0.5 text-[10px] font-mono rounded border ${PRIORITY_COLORS[s.priority]}`}>
                   {s.priority.toUpperCase()}
                 </span>
                 <span className="text-xs font-mono text-text truncate flex-1">{s.title}</span>

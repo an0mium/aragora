@@ -46,7 +46,7 @@ export function IdeaPalette() {
                     <span className="opacity-60">{config.icon}</span>
                     <span className="text-[var(--text)]">{config.label}</span>
                   </div>
-                  <p className="text-[9px] text-[var(--text-muted)] mt-0.5">
+                  <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
                     {config.description}
                   </p>
                 </div>

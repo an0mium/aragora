@@ -109,7 +109,7 @@ function ProvenanceNodeComponent({ data }: { data: ProvenanceNode }) {
     >
       <div className="flex items-center justify-between mb-1">
         <span
-          className="px-1 py-0.5 text-[9px] font-bold uppercase"
+          className="px-1 py-0.5 text-[10px] font-bold uppercase"
           style={{
             background: colors.border,
             color: '#000',
@@ -122,7 +122,7 @@ function ProvenanceNodeComponent({ data }: { data: ProvenanceNode }) {
         {data.label}
       </div>
       <div
-        className="text-[9px] opacity-60 font-mono truncate"
+        className="text-[10px] opacity-60 font-mono truncate"
         title={data.hash}
         data-testid="provenance-hash"
       >

@@ -406,7 +406,7 @@ export function ApiExplorerPanel() {
                             {endpoint.path}
                           </span>
                           {endpoint.deprecated && (
-                            <span className="text-[9px] font-mono text-yellow-400 border border-yellow-400/30 px-1">
+                            <span className="text-[10px] font-mono text-yellow-400 border border-yellow-400/30 px-1">
                               DEP
                             </span>
                           )}

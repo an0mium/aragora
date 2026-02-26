@@ -393,7 +393,7 @@ export function Sidebar() {
             {title}
             {/* Count badge -- shows number of visible items in this group */}
             {canCollapse && (
-              <span className="px-1 py-0.5 text-[9px] font-medium bg-acid-green/10 text-acid-green/70 rounded leading-none">
+              <span className="px-1 py-0.5 text-[10px] font-medium bg-acid-green/10 text-acid-green/70 rounded leading-none">
                 {filteredItems.length}
               </span>
             )}

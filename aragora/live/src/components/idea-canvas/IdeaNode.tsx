@@ -48,13 +48,13 @@ export const IdeaNode = memo(function IdeaNode({
           {data.tags.slice(0, 3).map((tag) => (
             <span
               key={tag}
-              className="text-[9px] px-1 rounded bg-[var(--surface)] text-[var(--text-muted)]"
+              className="text-[10px] px-1 rounded bg-[var(--surface)] text-[var(--text-muted)]"
             >
               {tag}
             </span>
           ))}
           {data.tags.length > 3 && (
-            <span className="text-[9px] text-[var(--text-muted)]">
+            <span className="text-[10px] text-[var(--text-muted)]">
               +{data.tags.length - 3}
             </span>
           )}

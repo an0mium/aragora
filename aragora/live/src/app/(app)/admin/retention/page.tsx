@@ -360,7 +360,7 @@ export default function RetentionDashboardPage() {
                           style={{ height: `${(bucket.count / maxSurprise) * 100}%` }}
                           title={`${bucket.bucket}: ${bucket.count}`}
                         />
-                        <div className="text-[9px] font-mono text-text-muted mt-1 truncate w-full text-center">
+                        <div className="text-[10px] font-mono text-text-muted mt-1 truncate w-full text-center">
                           {bucket.bucket}
                         </div>
                       </div>

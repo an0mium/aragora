@@ -85,7 +85,7 @@ export function StreamMetricsBar({ metrics, compact = false }: StreamMetricsBarP
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {/* TTFT */}
         <div className="space-y-0.5">
-          <div className="text-[9px] font-mono text-text-muted uppercase">TTFT</div>
+          <div className="text-[10px] font-mono text-text-muted uppercase">TTFT</div>
           <div className={`text-xs font-mono font-bold ${latencyColor(metrics.ttftMs)}`}>
             {formatMs(metrics.ttftMs)}
           </div>
@@ -93,7 +93,7 @@ export function StreamMetricsBar({ metrics, compact = false }: StreamMetricsBarP
 
         {/* Token Count */}
         <div className="space-y-0.5">
-          <div className="text-[9px] font-mono text-text-muted uppercase">Tokens</div>
+          <div className="text-[10px] font-mono text-text-muted uppercase">Tokens</div>
           <div className="text-xs font-mono font-bold text-acid-green">
             {metrics.tokenCount.toLocaleString()}
           </div>
@@ -101,7 +101,7 @@ export function StreamMetricsBar({ metrics, compact = false }: StreamMetricsBarP
 
         {/* Avg Token Latency */}
         <div className="space-y-0.5">
-          <div className="text-[9px] font-mono text-text-muted uppercase">Avg Latency</div>
+          <div className="text-[10px] font-mono text-text-muted uppercase">Avg Latency</div>
           <div className={`text-xs font-mono font-bold ${latencyColor(metrics.avgTokenLatencyMs)}`}>
             {formatMs(metrics.avgTokenLatencyMs)}
           </div>
@@ -109,7 +109,7 @@ export function StreamMetricsBar({ metrics, compact = false }: StreamMetricsBarP
 
         {/* Connection Latency */}
         <div className="space-y-0.5">
-          <div className="text-[9px] font-mono text-text-muted uppercase">Conn. Lat</div>
+          <div className="text-[10px] font-mono text-text-muted uppercase">Conn. Lat</div>
           <div className={`text-xs font-mono font-bold ${latencyColor(metrics.connectionLatencyMs)}`}>
             {formatMs(metrics.connectionLatencyMs)}
           </div>

@@ -99,14 +99,14 @@ export function ProvenanceNodeCard({ node, onClick }: ProvenanceNodeCardProps) {
       <div className="flex items-center justify-between mb-1.5">
         <span
           className={`
-            px-1.5 py-0.5 text-[9px] font-bold uppercase border
+            px-1.5 py-0.5 text-[10px] font-bold uppercase border
             ${styles.badge}
           `}
         >
           {node.type}
         </span>
         {node.status && (
-          <span className={`text-[9px] font-mono uppercase ${statusColor}`}>
+          <span className={`text-[10px] font-mono uppercase ${statusColor}`}>
             {node.status}
           </span>
         )}
@@ -123,7 +123,7 @@ export function ProvenanceNodeCard({ node, onClick }: ProvenanceNodeCardProps) {
       {/* Hash */}
       {node.hash && (
         <div
-          className="text-[9px] text-[var(--text-muted)] font-mono truncate"
+          className="text-[10px] text-[var(--text-muted)] font-mono truncate"
           title={`SHA-256: ${node.hash}`}
           data-testid="provenance-node-hash"
         >
@@ -133,7 +133,7 @@ export function ProvenanceNodeCard({ node, onClick }: ProvenanceNodeCardProps) {
 
       {/* Timestamp */}
       {node.timestamp && (
-        <div className="text-[9px] text-[var(--text-muted)] font-mono mt-0.5">
+        <div className="text-[10px] text-[var(--text-muted)] font-mono mt-0.5">
           {new Date(node.timestamp).toLocaleString()}
         </div>
       )}

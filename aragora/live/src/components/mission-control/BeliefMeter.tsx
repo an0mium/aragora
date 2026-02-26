@@ -16,7 +16,7 @@ export const BeliefMeter = memo(function BeliefMeter({ confidence, size = 'sm' }
 
   const barHeight = size === 'sm' ? 'h-1' : 'h-1.5';
   const barWidth = size === 'sm' ? 'w-12' : 'w-16';
-  const fontSize = size === 'sm' ? 'text-[9px]' : 'text-[10px]';
+  const fontSize = size === 'sm' ? 'text-[10px]' : 'text-[10px]';
 
   return (
     <div className="flex items-center gap-1" data-testid="belief-meter" title={`Confidence: ${percent}%`}>

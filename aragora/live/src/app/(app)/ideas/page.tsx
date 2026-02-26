@@ -141,7 +141,7 @@ export default function IdeasPage() {
                 {canvas.description}
               </p>
             )}
-            <div className="text-[9px] text-[var(--text-muted)]">
+            <div className="text-[10px] text-[var(--text-muted)]">
               {new Date(canvas.updated_at).toLocaleDateString()}
             </div>
           </div>

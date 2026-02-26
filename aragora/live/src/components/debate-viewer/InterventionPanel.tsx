@@ -845,7 +845,7 @@ function WeightBar({ weights, totalWeight }: { weights: AgentWeight[]; totalWeig
           >
             {/* Hover label */}
             {pct > 15 && (
-              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-mono text-white/70 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-white/70 opacity-0 group-hover:opacity-100 transition-opacity">
                 {agent.slice(0, 4)}
               </span>
             )}

@@ -94,7 +94,7 @@ export function VerticalCards() {
       </div>
 
       {/* Subtitle */}
-      <p className="text-center text-text-muted/30 font-mono text-[9px] mt-3">
+      <p className="text-center text-text-muted/30 font-mono text-[10px] mt-3">
         Pre-configured specialists for domain-specific analysis
       </p>
     </section>
