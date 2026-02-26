@@ -1,9 +1,9 @@
 import { Metadata } from 'next';
 import { DebateViewerWrapper } from './DebateViewerWrapper';
 
-// Allow runtime debate IDs in standalone/server mode.
-// Static export still uses the base route param below.
-export const dynamicParams = true;
+// Static export requires dynamicParams=false.
+// Runtime/standalone mode can enable dynamic IDs.
+export const dynamicParams = process.env.NEXT_OUTPUT === 'export' ? false : true;
 
 export async function generateStaticParams() {
   // Only generate the base route - client handles the rest
