@@ -56,9 +56,7 @@ def _fetch_dashboard_json(url: str, *, token: str | None, timeout_seconds: int) 
             return json.loads(raw)
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(
-            f"Dashboard request failed ({exc.code}): {body[:300]}"
-        ) from exc
+        raise RuntimeError(f"Dashboard request failed ({exc.code}): {body[:300]}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Dashboard request failed: {exc.reason}") from exc
     except json.JSONDecodeError as exc:
@@ -121,7 +119,9 @@ def _extract_summary(
     oracle_sessions_started = _as_int(oracle.get("sessions_started")) or 0
     oracle_stalls_total = _as_int(oracle.get("stalls_total")) or 0
     oracle_stall_rate = (
-        round(oracle_stalls_total / oracle_sessions_started, 4) if oracle_sessions_started > 0 else None
+        round(oracle_stalls_total / oracle_sessions_started, 4)
+        if oracle_sessions_started > 0
+        else None
     )
 
     metric_rows: dict[str, dict[str, Any]] = {
@@ -281,7 +281,9 @@ def main() -> int:
         args.md_out.parent.mkdir(parents=True, exist_ok=True)
         args.md_out.write_text(_to_markdown(summary), encoding="utf-8")
 
-    print(json.dumps({"passed": summary["passed"], "blocking_failures": summary["blocking_failures"]}))
+    print(
+        json.dumps({"passed": summary["passed"], "blocking_failures": summary["blocking_failures"]})
+    )
 
     if args.strict and not summary["passed"]:
         return 1
@@ -290,4 +292,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

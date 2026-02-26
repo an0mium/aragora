@@ -124,4 +124,3 @@ def test_extract_weekly_kpis_strict_fails_when_thresholds_breached(tmp_path: Pat
     assert "settlement_success_rate" in summary["blocking_failures"]
     assert "oracle_stall_rate" in summary["blocking_failures"]
     assert "calibration_updates_realized" in summary["blocking_failures"]
-
