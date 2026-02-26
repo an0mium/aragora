@@ -1,0 +1,80 @@
+name: Weekly Epistemic Runtime KPIs
+
+on:
+  schedule:
+    # Mondays at 14:00 UTC
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+    inputs:
+      strict:
+        description: "Fail run if KPI thresholds are violated"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  extract-runtime-kpis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/extract_weekly_epistemic_kpis.py
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Extract weekly runtime KPI snapshot
+        env:
+          ARAGORA_OBSERVABILITY_TOKEN: ${{ secrets.ARAGORA_API_TOKEN }}
+          STRICT_INPUT: ${{ github.event.inputs.strict || 'false' }}
+        run: |
+          mkdir -p artifacts
+          CMD=(
+            python scripts/extract_weekly_epistemic_kpis.py
+            --dashboard-url "https://api.aragora.ai/api/v1/observability/dashboard"
+            --json-out "artifacts/weekly-epistemic-kpis.json"
+            --md-out "artifacts/weekly-epistemic-kpis.md"
+            --min-settlement-success-rate "0.99"
+            --max-oracle-stall-rate "0.02"
+            --min-calibration-updates "1"
+          )
+
+          if [ -n "${ARAGORA_OBSERVABILITY_TOKEN}" ]; then
+            CMD+=(--token "${ARAGORA_OBSERVABILITY_TOKEN}")
+          fi
+
+          if [ "${STRICT_INPUT}" = "true" ]; then
+            CMD+=(--strict)
+          fi
+
+          "${CMD[@]}"
+
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f artifacts/weekly-epistemic-kpis.md ]; then
+            cat artifacts/weekly-epistemic-kpis.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Weekly KPI markdown artifact missing." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload KPI artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-epistemic-kpis
+          path: artifacts/weekly-epistemic-kpis.*
+          if-no-files-found: warn
+
