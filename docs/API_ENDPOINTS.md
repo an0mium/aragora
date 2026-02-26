@@ -6,9 +6,11 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 
 - [A2A](#a2a)
 - [Accounting](#accounting)
+- [Agent Evolution Dashboard](#agent-evolution-dashboard)
 - [AnalyticsMetrics](#analyticsmetrics)
 - [AnalyticsPerformance](#analyticsperformance)
 - [Ap Automation](#ap-automation)
+- [ApiDocs](#apidocs)
 - [UnifiedApprovals](#unifiedapprovals)
 - [Ar Automation](#ar-automation)
 - [Audience Suggestions](#audience-suggestions)
@@ -17,10 +19,13 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Auditing](#auditing)
 - [Autonomous Learning](#autonomous-learning)
 - [Backup Handler](#backup-handler)
+- [Backup Offsite Handler](#backup-offsite-handler)
 - [Belief](#belief)
+- [Benchmarking](#benchmarking)
 - [Bindings](#bindings)
 - [Breakpoints](#breakpoints)
 - [Budgets](#budgets)
+- [CanvasPipeline](#canvaspipeline)
 - [Checkpoints](#checkpoints)
 - [Cloud Storage](#cloud-storage)
 - [Code Review](#code-review)
@@ -29,14 +34,20 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [ComputerUse](#computeruse)
 - [Consensus](#consensus)
 - [Context Budget](#context-budget)
+- [Coordination](#coordination)
 - [Critique](#critique)
 - [Cross Pollination](#cross-pollination)
+- [DAGOperations](#dagoperations)
 - [Dashboard](#dashboard)
+- [Data Classification Handler](#data-classification-handler)
+- [Debate Intervention](#debate-intervention)
 - [Debate Stats](#debate-stats)
 - [Decision](#decision)
+- [DecisionAnalytics](#decisionanalytics)
 - [Deliberations](#deliberations)
 - [Dependency Analysis](#dependency-analysis)
 - [Devices](#devices)
+- [Differentiation](#differentiation)
 - [Docs](#docs)
 - [Dr Handler](#dr-handler)
 - [EmailDebate](#emaildebate)
@@ -51,6 +62,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [External Integrations](#external-integrations)
 - [Feature Flags](#feature-flags)
 - [Feedback](#feedback)
+- [Feedback Hub](#feedback-hub)
 - [Gallery](#gallery)
 - [Gastown Dashboard](#gastown-dashboard)
 - [GatewayAgents](#gatewayagents)
@@ -60,49 +72,70 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [GatewayHealth](#gatewayhealth)
 - [Gdpr Deletion](#gdpr-deletion)
 - [Genesis](#genesis)
+- [Harnesses](#harnesses)
 - [HybridDebate](#hybriddebate)
+- [IdeaCanvas](#ideacanvas)
 - [Inbox Command](#inbox-command)
 - [Integration Management](#integration-management)
 - [Introspection](#introspection)
 - [Invoices](#invoices)
-- [KMAdapterStatus](#kmadapterstatus)
 - [KnowledgeChat](#knowledgechat)
+- [Knowledge Flow](#knowledge-flow)
 - [Laboratory](#laboratory)
 - [Marketplace](#marketplace)
 - [MarketplaceBrowse](#marketplacebrowse)
-- [Metrics](#metrics)
+- [Marketplace Pilot](#marketplace-pilot)
+- [Memory Unified](#memory-unified)
 - [Metrics Endpoint](#metrics-endpoint)
 - [Ml](#ml)
+- [Moderation](#moderation)
 - [ModerationAnalytics](#moderationanalytics)
 - [Moments](#moments)
 - [Nomic](#nomic)
 - [Oauth Wizard](#oauth-wizard)
 - [Onboarding](#onboarding)
 - [OpenClawGateway](#openclawgateway)
+- [OperatorIntervention](#operatorintervention)
 - [Organizations](#organizations)
+- [OutcomeAnalytics](#outcomeanalytics)
+- [Outcome Dashboard](#outcome-dashboard)
 - [Partner](#partner)
 - [Persona](#persona)
+- [Pipeline Graph](#pipeline-graph)
 - [Plans](#plans)
+- [Platform Config](#platform-config)
+- [Playbook](#playbook)
 - [Playground](#playground)
 - [Policy](#policy)
 - [Privacy](#privacy)
 - [Queue](#queue)
 - [RBAC](#rbac)
+- [ReadinessCheck](#readinesscheck)
 - [Receipts](#receipts)
 - [Replays](#replays)
 - [Repository](#repository)
 - [Reviews](#reviews)
 - [RLMContext](#rlmcontext)
+- [Sandbox](#sandbox)
 - [SCIM](#scim)
 - [Security Debate](#security-debate)
 - [Selection](#selection)
+- [Self Improve](#self-improve)
+- [Self Improve Details](#self-improve-details)
+- [Settlement](#settlement)
 - [Skill Marketplace](#skill-marketplace)
 - [Skills](#skills)
 - [Slack](#slack)
 - [Slo](#slo)
 - [SMESuccessDashboard](#smesuccessdashboard)
 - [SMEUsageDashboard](#smeusagedashboard)
+- [Spectate Ws](#spectate-ws)
+- [SpendAnalytics](#spendanalytics)
+- [SpendAnalyticsDashboard](#spendanalyticsdashboard)
 - [SSO](#sso)
+- [Status Page](#status-page)
+- [System Health](#system-health)
+- [System Intelligence](#system-intelligence)
 - [TemplateDiscovery](#templatediscovery)
 - [Template Marketplace](#template-marketplace)
 - [Threat Intel](#threat-intel)
@@ -112,6 +145,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Uncertainty](#uncertainty)
 - [UsageMetering](#usagemetering)
 - [Verticals](#verticals)
+- [Visualization](#visualization)
 - [Webhook](#webhook)
 - [Workflow Templates](#workflow-templates)
 - [Workspace Module](#workspace-module)
@@ -223,6 +257,32 @@ Generate journal entry
 
 ---
 
+## Agent Evolution Dashboard
+
+Agent Evolution Dashboard API Handler.
+
+### `GET` `/api/v1/agent-evolution/timeline`
+
+Evolution events timeline
+
+### `GET` `/api/v1/agent-evolution/elo-trends`
+
+ELO score history per agent
+
+### `GET` `/api/v1/agent-evolution/pending`
+
+Pending Nomic Loop changes
+
+### `POST` `/api/v1/agent-evolution/pending/{id}/approve`
+
+Approve a pending change
+
+### `POST` `/api/v1/agent-evolution/pending/{id}/reject`
+
+Reject a pending change
+
+---
+
 ## AnalyticsMetrics
 
 Handler for analytics metrics dashboard endpoints.
@@ -328,6 +388,24 @@ Get cash flow forecast
 ### `GET` `/api/v1/accounting/ap/discounts`
 
 Get discount opportunities
+
+---
+
+## ApiDocs
+
+Handler for API documentation and introspection endpoints.
+
+### `GET` `/api/v1/docs/openapi.json`
+
+GET /api/v1/docs/openapi.json
+
+### `GET` `/api/v1/docs/routes`
+
+Return a lightweight summary of all registered routes
+
+### `GET` `/api/v1/docs/stats`
+
+Return API statistics: endpoint counts by tag and method
 
 ---
 
@@ -583,6 +661,24 @@ Backup statistics
 
 ---
 
+## Backup Offsite Handler
+
+Backup Offsite and Restore Drill HTTP Handlers.
+
+### `GET` `/api/v1/backup/status`
+
+Current backup status and last successful backup
+
+### `GET` `/api/v1/backup/drills`
+
+List restore drill results
+
+### `POST` `/api/v1/backup/drill`
+
+Trigger a manual restore drill
+
+---
+
 ## Belief
 
 Belief Network and Reasoning endpoint handlers.
@@ -606,6 +702,24 @@ Get emergent traits from agent performance
 ### `GET` `/api/debate/:debate_id/graph-stats`
 
 Get argument graph statistics
+
+---
+
+## Benchmarking
+
+Handler for decision benchmarking endpoints.
+
+### `GET` `/api/benchmarks` 🔒
+
+GET /api/v1/benchmarks -- list aggregated benchmarks for a category
+
+### `GET` `/api/benchmarks/categories` 🔒
+
+GET /api/v1/benchmarks/categories -- list available benchmark categories
+
+### `GET` `/api/benchmarks/compare` 🔒
+
+GET /api/v1/benchmarks/compare -- compare tenant metrics to benchmarks
 
 ---
 
@@ -724,6 +838,136 @@ Get org-wide spending trends
 ### `POST` `/api/v1/budgets/check`
 
 Pre-flight cost check
+
+---
+
+## CanvasPipeline
+
+HTTP handler for the idea-to-execution canvas pipeline.
+
+### `GET` `POST /api/v1/canvas/pipeline/from-debate`
+
+GET POST /api/v1/canvas/pipeline/from-debate
+
+### `GET` `POST /api/v1/canvas/pipeline/from-ideas`
+
+GET POST /api/v1/canvas/pipeline/from-ideas
+
+### `GET` `POST /api/v1/canvas/pipeline/from-braindump`
+
+GET POST /api/v1/canvas/pipeline/from-braindump
+
+### `GET` `POST /api/v1/canvas/pipeline/from-template`
+
+GET POST /api/v1/canvas/pipeline/from-template
+
+### `GET` `POST /api/v1/canvas/pipeline/demo`
+
+GET POST /api/v1/canvas/pipeline/demo
+
+### `GET` `POST /api/v1/canvas/pipeline/advance`
+
+GET POST /api/v1/canvas/pipeline/advance
+
+### `GET` `POST /api/v1/canvas/pipeline/run`
+
+GET POST /api/v1/canvas/pipeline/run
+
+### `GET` `POST /api/v1/canvas/pipeline/{id}/approve-transition`
+
+GET POST /api/v1/canvas/pipeline/{id}/approve-transition
+
+### `GET` `POST /api/v1/canvas/pipeline/{id}/execute`
+
+GET POST /api/v1/canvas/pipeline/{id}/execute
+
+### `GET` `POST /api/v1/canvas/pipeline/{id}/self-improve`
+
+GET POST /api/v1/canvas/pipeline/{id}/self-improve
+
+### `GET` `GET /api/v1/canvas/pipeline/{id}`
+
+GET GET /api/v1/canvas/pipeline/{id}
+
+### `GET` `GET /api/v1/canvas/pipeline/{id}/status`
+
+GET GET /api/v1/canvas/pipeline/{id}/status
+
+### `GET` `GET /api/v1/canvas/pipeline/{id}/stage/{stage}`
+
+GET GET /api/v1/canvas/pipeline/{id}/stage/{stage}
+
+### `GET` `GET /api/v1/canvas/pipeline/{id}/graph`
+
+GET GET /api/v1/canvas/pipeline/{id}/graph
+
+### `GET` `GET /api/v1/canvas/pipeline/{id}/receipt`
+
+GET GET /api/v1/canvas/pipeline/{id}/receipt
+
+### `GET` `GET /api/v1/canvas/pipeline/templates`
+
+GET GET /api/v1/canvas/pipeline/templates
+
+### `GET` `PUT /api/v1/canvas/pipeline/{id}`
+
+GET PUT /api/v1/canvas/pipeline/{id}
+
+### `GET` `POST /api/v1/canvas/pipeline/extract-goals`
+
+GET POST /api/v1/canvas/pipeline/extract-goals
+
+### `GET` `POST /api/v1/canvas/pipeline/extract-principles`
+
+GET POST /api/v1/canvas/pipeline/extract-principles
+
+### `GET` `POST /api/v1/canvas/pipeline/auto-run`
+
+GET POST /api/v1/canvas/pipeline/auto-run
+
+### `GET` `POST /api/v1/canvas/pipeline/from-system-metrics`
+
+GET POST /api/v1/canvas/pipeline/from-system-metrics
+
+### `GET` `POST /api/v1/canvas/convert/debate`
+
+GET POST /api/v1/canvas/convert/debate
+
+### `GET` `POST /api/v1/canvas/convert/workflow`
+
+GET POST /api/v1/canvas/convert/workflow
+
+### `GET` `POST /api/v1/debates/{id}/to-pipeline`
+
+GET POST /api/v1/debates/{id}/to-pipeline
+
+### `GET` `GET /api/v1/canvas/pipeline/{id}/intelligence`
+
+GET GET /api/v1/canvas/pipeline/{id}/intelligence
+
+### `GET` `GET /api/v1/canvas/pipeline/{id}/beliefs`
+
+GET GET /api/v1/canvas/pipeline/{id}/beliefs
+
+### `GET` `GET /api/v1/canvas/pipeline/{id}/explanations`
+
+GET GET /api/v1/canvas/pipeline/{id}/explanations
+
+### `GET` `GET /api/v1/canvas/pipeline/{id}/precedents`
+
+GET GET /api/v1/canvas/pipeline/{id}/precedents
+
+### `GET` `GET /api/v1/pipeline/{id}/agents`
+
+GET GET /api/v1/pipeline/{id}/agents
+
+### `GET` `POST /api/v1/pipeline/{id}/agents/{agent_id}/approve`
+
+GET POST /api/v1/pipeline/{id}/agents/{agent_id}/approve
+
+### `GET` `POST /api/v1/pipeline/{id}/agents/{agent_id}/reject`
+
+GET POST /api/v1/pipeline/{id}/agents/{agent_id}/reject
 
 ---
 
@@ -885,6 +1129,10 @@ Handle GET /api/v1/computer-use/actions/stats
 
 GET /api/v1/computer-use/actions/*
 
+### `GET` `/api/v1/computer-use/actions/stats` 🔒
+
+Handle GET /api/v1/computer-use/actions/stats
+
 ### `GET` `/api/v1/computer-use/policies` 🔒
 
 Handle POST /api/v1/computer-use/policies
@@ -955,6 +1203,40 @@ Estimate token usage for given sections
 
 ---
 
+## Coordination
+
+Handler for cross-workspace coordination API endpoints.
+
+### `GET` `/api/v1/coordination/workspaces` 🔒
+
+GET /api/v1/coordination/workspaces -- list workspaces
+
+### `GET` `/api/v1/coordination/federation` 🔒
+
+POST /api/v1/coordination/federation -- create federation policy
+
+### `GET` `/api/v1/coordination/execute` 🔒
+
+POST /api/v1/coordination/execute -- cross-workspace execution
+
+### `GET` `/api/v1/coordination/executions` 🔒
+
+GET /api/v1/coordination/executions -- list pending executions
+
+### `GET` `/api/v1/coordination/consent` 🔒
+
+POST /api/v1/coordination/consent -- grant consent
+
+### `GET` `/api/v1/coordination/stats` 🔒
+
+GET /api/v1/coordination/stats -- coordination statistics
+
+### `GET` `/api/v1/coordination/health`
+
+GET /api/v1/coordination/health -- health check
+
+---
+
 ## Critique
 
 Critique pattern and reputation endpoint handlers.
@@ -999,6 +1281,48 @@ Reset subscriber statistics
 
 ---
 
+## DAGOperations
+
+HTTP handler for DAG pipeline operations.
+
+### `GET` `POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/debate`
+
+GET POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/debate
+
+### `GET` `POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/decompose`
+
+GET POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/decompose
+
+### `GET` `POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/prioritize`
+
+GET POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/prioritize
+
+### `GET` `POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents`
+
+GET POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/assign-agents
+
+### `GET` `POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/execute`
+
+GET POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/execute
+
+### `GET` `POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/find-precedents`
+
+GET POST /api/v1/pipeline/dag/{graph_id}/nodes/{node_id}/find-precedents
+
+### `GET` `POST /api/v1/pipeline/dag/{graph_id}/cluster-ideas`
+
+POST /api/v1/pipeline/dag/{graph_id}/cluster-ideas
+
+### `GET` `POST /api/v1/pipeline/dag/{graph_id}/auto-flow`
+
+POST /api/v1/pipeline/dag/{graph_id}/auto-flow
+
+### `GET` `GET /api/v1/pipeline/dag/{graph_id}`
+
+GET /api/v1/pipeline/dag/{graph_id}
+
+---
+
 ## Dashboard
 
 HTTP API Handlers for Dashboard.
@@ -1029,6 +1353,42 @@ Execute quick action
 
 ---
 
+## Data Classification Handler
+
+Data Classification Policy HTTP Handler.
+
+### `GET` `/api/v1/data-classification/policy`
+
+Get the active classification policy
+
+### `POST` `/api/v1/data-classification/classify`
+
+Classify data and return metadata
+
+### `POST` `/api/v1/data-classification/validate`
+
+Validate a handling operation
+
+### `POST` `/api/v1/data-classification/enforce`
+
+Enforce cross-context access rules
+
+---
+
+## Debate Intervention
+
+Debate intervention and reasoning endpoint handlers.
+
+### `POST` `/api/v1/debates/{debate_id}/intervene`
+
+Submit a mid-debate intervention
+
+### `GET` `/api/v1/debates/{debate_id}/reasoning`
+
+Get per-agent reasoning summary
+
+---
+
 ## Debate Stats
 
 Debate statistics handler for aggregate debate metrics.
@@ -1054,6 +1414,52 @@ List recent decisions
 ### `GET` `/api/v1/decisions/*`
 
 GET /api/v1/decisions/*
+
+---
+
+## DecisionAnalytics
+
+Handler for decision outcome analytics API endpoints.
+
+### `GET` `/api/v1/decision-analytics/overview`
+
+GET /api/v1/decision-analytics/overview
+
+### `GET` `/api/v1/decision-analytics/trends`
+
+GET /api/v1/decision-analytics/trends
+
+### `GET` `/api/v1/decision-analytics/outcomes`
+
+GET /api/v1/decision-analytics/outcomes
+
+### `GET` `/api/v1/decision-analytics/agents`
+
+GET /api/v1/decision-analytics/agents
+
+### `GET` `/api/v1/decision-analytics/domains`
+
+GET /api/v1/decision-analytics/domains
+
+### `GET` `/api/decision-analytics/overview`
+
+GET /api/decision-analytics/overview
+
+### `GET` `/api/decision-analytics/trends`
+
+GET /api/decision-analytics/trends
+
+### `GET` `/api/decision-analytics/outcomes`
+
+GET /api/decision-analytics/outcomes
+
+### `GET` `/api/decision-analytics/agents`
+
+GET /api/decision-analytics/agents
+
+### `GET` `/api/decision-analytics/domains`
+
+GET /api/decision-analytics/domains
 
 ---
 
@@ -1136,6 +1542,32 @@ Alexa skill webhook
 ### `POST` `/api/devices/google/webhook`
 
 Google Actions webhook
+
+---
+
+## Differentiation
+
+Differentiation Dashboard Handler.
+
+### `GET` `/api/v1/differentiation/summary`
+
+Top-level differentiation metrics
+
+### `GET` `/api/v1/differentiation/vetting`
+
+Adversarial vetting evidence
+
+### `GET` `/api/v1/differentiation/calibration`
+
+Multi-agent calibration advantage
+
+### `GET` `/api/v1/differentiation/memory`
+
+Institutional memory growth
+
+### `GET` `/api/v1/differentiation/benchmarks`
+
+Industry benchmark comparison
 
 ---
 
@@ -1421,6 +1853,10 @@ Handle counterfactual analysis request
 
 Handle human-readable summary request
 
+### `GET` `/api/v1/explain`
+
+GET /api/v1/explain
+
 ### `GET` `/api/v1/explain/*`
 
 GET /api/v1/explain/*
@@ -1591,6 +2027,20 @@ Get active feedback prompts (requires feedback.read)
 
 ---
 
+## Feedback Hub
+
+Feedback Hub endpoint handlers.
+
+### `GET` `/api/v1/feedback-hub/stats`
+
+Routing statistics
+
+### `GET` `/api/v1/feedback-hub/history`
+
+Recent routing history
+
+---
+
 ## Gallery
 
 Public Gallery endpoint handlers.
@@ -1701,6 +2151,14 @@ Handle GET /api/v1/gateway/routing/rules
 
 GET /api/v1/gateway/routing/*
 
+### `GET` `/api/v1/gateway/routing/rules` 🔒
+
+Handle GET /api/v1/gateway/routing/rules
+
+### `GET` `/api/v1/gateway/routing/stats` 🔒
+
+Handle GET /api/v1/gateway/routing/stats
+
 ### `GET` `/api/v1/gateway/messages` 🔒
 
 Handle POST /api/v1/gateway/messages/route
@@ -1708,6 +2166,10 @@ Handle POST /api/v1/gateway/messages/route
 ### `GET` `/api/v1/gateway/messages/*`
 
 GET /api/v1/gateway/messages/*
+
+### `GET` `/api/v1/gateway/messages/route`
+
+Get or create agent router
 
 ---
 
@@ -1777,6 +2239,24 @@ Get single genome details
 
 ---
 
+## Harnesses
+
+External harness endpoint handlers.
+
+### `GET` `/api/v1/harnesses`
+
+List available harnesses
+
+### `GET` `/api/v1/harnesses/{name}/status`
+
+Get harness status
+
+### `POST` `/api/v1/harnesses/{name}/execute`
+
+Execute a command via harness
+
+---
+
 ## HybridDebate
 
 HTTP request handler for hybrid debate API endpoints.
@@ -1788,6 +2268,44 @@ Handle POST /api/v1/debates/hybrid
 ### `GET` `/api/v1/debates/hybrid/*`
 
 GET /api/v1/debates/hybrid/*
+
+---
+
+## IdeaCanvas
+
+Handler for Idea Canvas REST API endpoints.
+
+### `GET` `/api/v1/ideas`
+
+GET /api/v1/ideas
+
+### `GET` `/api/v1/ideas/*`
+
+GET /api/v1/ideas/*
+
+### `GET` `/api/v1/ideas/*/nodes` 🔒
+
+GET /api/v1/ideas/*/nodes
+
+### `GET` `/api/v1/ideas/*/nodes/*`
+
+GET /api/v1/ideas/*/nodes/*
+
+### `GET` `/api/v1/ideas/*/edges`
+
+GET /api/v1/ideas/*/edges
+
+### `GET` `/api/v1/ideas/*/edges/*`
+
+GET /api/v1/ideas/*/edges/*
+
+### `GET` `/api/v1/ideas/*/export` 🔒
+
+GET /api/v1/ideas/*/export
+
+### `GET` `/api/v1/ideas/*/promote` 🔒
+
+GET /api/v1/ideas/*/promote
 
 ---
 
@@ -1935,16 +2453,6 @@ Get scheduled payments
 
 ---
 
-## KMAdapterStatus
-
-Handler for KM adapter status endpoints.
-
-### `GET` `/api/v1/knowledge/adapters` 🔒
-
-List all KM adapters with status information
-
----
-
 ## KnowledgeChat
 
 HTTP handler for Knowledge + Chat bridge endpoints.
@@ -1961,6 +2469,32 @@ GET /api/v1/chat/knowledge/inject
 
 GET /api/v1/chat/knowledge/store
 
+### `GET` `/api/v1/chat/knowledge/channel/*`
+
+GET /api/v1/chat/knowledge/channel/*
+
+### `GET` `/api/v1/chat/knowledge/channel/*/summary`
+
+GET /api/v1/chat/knowledge/channel/*/summary
+
+---
+
+## Knowledge Flow
+
+Knowledge Flow HTTP Handler — Debate -> KM -> Debate flywheel visualization.
+
+### `GET` `/api/knowledge/flow`
+
+Flow data (debate->KM->debate)
+
+### `GET` `/api/knowledge/flow/confidence-history`
+
+Confidence changes over time
+
+### `GET` `/api/knowledge/adapters/health`
+
+All adapter statuses
+
 ---
 
 ## Laboratory
@@ -1970,6 +2504,10 @@ Persona laboratory endpoint handlers.
 ### `GET` `/api/laboratory/emergent-traits`
 
 Get emergent traits from agent performance
+
+### `GET` `/api/laboratory/agent/{agent_name}/analysis`
+
+Get trait analysis for an agent
 
 ### `POST` `/api/laboratory/cross-pollinations/suggest`
 
@@ -2049,47 +2587,55 @@ Return popular templates sorted by downloads
 
 ---
 
-## Metrics
+## Marketplace Pilot
 
-Handler for operational metrics endpoints.
+Marketplace Pilot API Handler.
 
-### `GET` `/api/metrics`
+### `GET` `/api/v1/marketplace/listings`
 
-Get comprehensive operational metrics
+Browse listings with filters
 
-### `GET` `/api/metrics/health`
+### `GET` `/api/v1/marketplace/listings/featured`
 
-Get detailed health check status
+Featured listings
 
-### `GET` `/api/metrics/cache`
+### `GET` `/api/v1/marketplace/listings/stats`
 
-Get cache statistics
+Marketplace statistics
 
-### `GET` `/api/metrics/verification`
+### `GET` `/api/v1/marketplace/listings/{id}`
 
-Get formal verification statistics
+Get listing details
 
-### `GET` `/api/metrics/system`
+### `POST` `/api/v1/marketplace/listings/{id}/install`
 
-Get system information
+Install a listing
 
-### `GET` `/api/metrics/background`
+### `POST` `/api/v1/marketplace/listings/{id}/rate`
 
-Get background task statistics
+Rate a listing
 
-### `GET` `/api/metrics/debate`
+---
 
-Get debate performance statistics
+## Memory Unified
 
-**Parameters:**
+Unified Memory Gateway HTTP Handler.
 
-| Name | Type | Description |
-|------|------|-------------|
-| `debate_id` | string | Optional specific debate to get insights for |
+### `POST` `/api/memory/unified/query`
 
-### `GET` `/metrics`
+Fan-out search across all systems
 
-Get comprehensive operational metrics
+### `GET` `/api/memory/unified/retention`
+
+RetentionGate decisions
+
+### `GET` `/api/memory/unified/dedup`
+
+Near-duplicate clusters
+
+### `GET` `/api/memory/unified/sources`
+
+Memory source breakdown
 
 ---
 
@@ -2142,6 +2688,32 @@ List available ML models/capabilities
 ### `GET` `/api/ml/stats`
 
 Get ML module statistics
+
+---
+
+## Moderation
+
+Handler for moderation configuration and review queue.
+
+### `GET` `/api/moderation/config` 🔒
+
+GET /api/moderation/config
+
+### `GET` `/api/moderation/stats` 🔒
+
+GET /api/moderation/stats
+
+### `GET` `/api/moderation/queue` 🔒
+
+GET /api/moderation/queue
+
+### `GET` `/api/moderation/items/*/approve`
+
+GET /api/moderation/items/*/approve
+
+### `GET` `/api/moderation/items/*/reject`
+
+GET /api/moderation/items/*/reject
 
 ---
 
@@ -2381,6 +2953,16 @@ Get audit log entries
 
 ---
 
+## OperatorIntervention
+
+Handler for operator intervention control endpoints.
+
+### `GET` `/api/v1/interventions/active`
+
+List all active intervention-tracked debates
+
+---
+
 ## Organizations
 
 Organization Management Handlers.
@@ -2440,6 +3022,62 @@ Set default organization
 ### `DELETE` `/api/user/organizations/{org_id}`
 
 Leave organization
+
+---
+
+## OutcomeAnalytics
+
+Handler for decision outcome analytics endpoints.
+
+### `GET` `/api/analytics/outcomes` 🔒
+
+GET /api/analytics/outcomes/average-rounds
+
+### `GET` `/api/analytics/outcomes/consensus-rate` 🔒
+
+GET /api/analytics/outcomes/consensus-rate
+
+### `GET` `/api/analytics/outcomes/average-rounds` 🔒
+
+GET /api/analytics/outcomes/average-rounds
+
+### `GET` `/api/analytics/outcomes/contributions` 🔒
+
+GET /api/analytics/outcomes/contributions
+
+### `GET` `/api/analytics/outcomes/quality-trend` 🔒
+
+GET /api/analytics/outcomes/quality-trend
+
+### `GET` `/api/analytics/outcomes/topics` 🔒
+
+GET /api/analytics/outcomes/topics
+
+---
+
+## Outcome Dashboard
+
+Decision Outcome Dashboard API Handler.
+
+### `GET` `/api/v1/outcome-dashboard`
+
+Full dashboard data
+
+### `GET` `/api/v1/outcome-dashboard/quality`
+
+Decision quality score + trend
+
+### `GET` `/api/v1/outcome-dashboard/agents`
+
+Agent leaderboard (ELO + Brier)
+
+### `GET` `/api/v1/outcome-dashboard/history`
+
+Decision history with scores
+
+### `GET` `/api/v1/outcome-dashboard/calibration`
+
+Calibration curve data
 
 ---
 
@@ -2519,6 +3157,64 @@ Get position accuracy stats
 
 ---
 
+## Pipeline Graph
+
+Universal Pipeline Graph REST Handler.
+
+### `POST` `/api/v1/pipeline/graph`
+
+Create graph
+
+### `GET` `/api/v1/pipeline/graph`
+
+List graphs
+
+### `GET` `/api/v1/pipeline/graph/{id}`
+
+Get graph
+
+### `DELETE` `/api/v1/pipeline/graph/{id}`
+
+Delete graph
+
+### `POST` `/api/v1/pipeline/graph/{id}/node`
+
+Add node
+
+### `DELETE` `/api/v1/pipeline/graph/{id}/node/{nid}`
+
+Remove node
+
+### `GET` `/api/v1/pipeline/graph/{id}/nodes`
+
+Query nodes (stage/subtype filters)
+
+### `POST` `/api/v1/pipeline/graph/{id}/promote`
+
+Promote nodes to next stage
+
+### `GET` `/api/v1/pipeline/graph/{id}/provenance/{nid}`
+
+Provenance chain
+
+### `GET` `/api/v1/pipeline/graph/{id}/suggestions`
+
+Transition suggestions
+
+### `GET` `/api/v1/pipeline/graph/{id}/react-flow`
+
+React Flow JSON export
+
+### `GET` `/api/v1/pipeline/graph/{id}/integrity`
+
+Integrity hash
+
+### `POST` `/api/v1/pipeline/graph/{id}/node/{nid}/reassign`
+
+Reassign agent on node
+
+---
+
 ## Plans
 
 Decision Plan API handler.
@@ -2549,6 +3245,26 @@ Execute an approved plan
 
 ---
 
+## Platform Config
+
+Platform Configuration handler.
+
+### `GET` `/api/v1/platform/config`
+
+Full platform configuration
+
+---
+
+## Playbook
+
+Handler for playbook API endpoints.
+
+### `GET` `/api/playbooks`
+
+Extract playbook ID from a path like /api/playbooks/{id}[/run]
+
+---
+
 ## Playground
 
 HTTP handler for the public playground demo.
@@ -2568,6 +3284,10 @@ GET /api/v1/playground/debate/live/cost-estimate
 ### `GET` `/api/v1/playground/status`
 
 GET /api/v1/playground/status
+
+### `GET` `/api/v1/playground/tts` 🔒
+
+Proxy text-to-speech through ElevenLabs, returning audio/mpeg
 
 ---
 
@@ -2712,6 +3432,20 @@ GET /api/v1/rbac/assignments/*
 ### `GET` `/api/v1/rbac/check` 🔒
 
 Check if a user has a specific permission
+
+---
+
+## ReadinessCheck
+
+Public endpoint reporting what a user needs to configure before
+
+### `GET` `/api/v1/readiness`
+
+GET /api/v1/readiness
+
+### `GET` `/api/readiness`
+
+GET /api/readiness
 
 ---
 
@@ -2877,6 +3611,32 @@ GET /api/v1/rlm/codebase/health
 
 ---
 
+## Sandbox
+
+Sandbox execution endpoint handlers.
+
+### `POST` `/api/sandbox/execute`
+
+Execute code in sandbox
+
+### `DELETE` `/api/sandbox/executions/{id}`
+
+Cancel a running execution
+
+### `GET` `/api/sandbox/config`
+
+Get sandbox configuration
+
+### `PUT` `/api/sandbox/config`
+
+Update sandbox configuration
+
+### `GET` `/api/sandbox/pool/status`
+
+Get container pool status
+
+---
+
 ## SCIM
 
 HTTP request handler for SCIM 2.0 provisioning endpoints.
@@ -2925,6 +3685,18 @@ List all available selection plugins
 
 Get default plugin configuration
 
+### `GET` `/api/v1/selection/scorers` 🔒
+
+List available scorer plugins
+
+### `GET` `/api/v1/selection/team-selectors`
+
+GET /api/v1/selection/team-selectors
+
+### `GET` `/api/v1/selection/role-assigners`
+
+GET /api/v1/selection/role-assigners
+
 ### `GET` `/api/v1/selection/score` 🔒
 
 Get information about a specific scorer
@@ -2964,6 +3736,120 @@ GET /api/v1/agent-selection/assign-roles
 ### `GET` `/api/v1/agent-selection/history` 🔒
 
 Get agent selection history
+
+---
+
+## Self Improve
+
+Self-improvement run management endpoints.
+
+### `POST` `/api/self-improve/run`
+
+Start a new self-improvement cycle
+
+### `POST` `/api/self-improve/start`
+
+Start a new run (legacy alias)
+
+### `GET` `/api/self-improve/status`
+
+Get current cycle status (running/idle)
+
+### `GET` `/api/self-improve/runs`
+
+List all runs
+
+### `GET` `/api/self-improve/runs/:id`
+
+Get run status and progress
+
+### `GET` `/api/self-improve/history`
+
+Get run history (alias for /runs)
+
+### `GET` `/api/self-improve/feedback`
+
+Get feedback loop state and metrics
+
+### `POST` `/api/self-improve/runs/:id/cancel`
+
+Cancel a running run
+
+### `POST` `/api/self-improve/coordinate`
+
+Start a hierarchical coordination cycle
+
+### `GET` `/api/self-improve/worktrees`
+
+List active worktrees
+
+### `POST` `/api/self-improve/worktrees/cleanup`
+
+Clean up all worktrees
+
+### `GET` `/api/self-improve/worktrees/autopilot/status`
+
+Managed autopilot session status
+
+### `POST` `/api/self-improve/worktrees/autopilot/ensure`
+
+Ensure managed autopilot worktree
+
+### `POST` `/api/self-improve/worktrees/autopilot/reconcile`
+
+Reconcile managed autopilot sessions
+
+### `POST` `/api/self-improve/worktrees/autopilot/cleanup`
+
+Cleanup managed autopilot sessions
+
+### `POST` `/api/self-improve/worktrees/autopilot/maintain`
+
+Run autopilot maintain lifecycle
+
+---
+
+## Self Improve Details
+
+Self-improvement transparency dashboard endpoints.
+
+### `GET` `/api/self-improve/meta-planner/goals`
+
+MetaPlanner prioritized goals
+
+### `GET` `/api/self-improve/execution/timeline`
+
+Branch execution timeline
+
+### `GET` `/api/self-improve/learning/insights`
+
+Cross-cycle learning data
+
+### `GET` `/api/self-improve/metrics/comparison`
+
+Before/after codebase metrics
+
+### `POST` `/api/self-improve/improvement-queue`
+
+User-submitted improvement goals
+
+### `PUT` `/api/self-improve/improvement-queue/{id}/priority`
+
+Reorder queue items
+
+### `DELETE` `/api/self-improve/improvement-queue/{id}`
+
+Remove queue items
+
+---
+
+## Settlement
+
+Handler for settlement API endpoints.
+
+### `GET` `/api/settlements`
+
+GET /api/settlements
 
 ---
 
@@ -3099,6 +3985,18 @@ Configured SLO targets
 
 Versioned endpoint
 
+### `GET` `/api/v1/slo/status`
+
+SLO enforcer real-time compliance status
+
+### `GET` `/api/v1/slo/budget`
+
+SLO enforcer error budget remaining
+
+### `GET` `/api/health/slos`
+
+Debate SLO health (green/yellow/red per SLO, multi-window)
+
 ---
 
 ## SMESuccessDashboard
@@ -3165,6 +4063,80 @@ Get industry benchmark comparison data
 
 ---
 
+## Spectate Ws
+
+WebSocket/SSE handler for real-time spectate events.
+
+### `GET` `/api/v1/spectate/recent`
+
+Get recent buffered spectate events
+
+### `GET` `/api/v1/spectate/status`
+
+Get bridge status (active, subscribers, buffer size)
+
+### `GET` `/api/v1/spectate/stream`
+
+SSE endpoint (returns snapshot of recent events)
+
+---
+
+## SpendAnalytics
+
+Handler for spend analytics endpoints.
+
+### `GET` `/api/v1/spend/analytics` 🔒
+
+GET /api/v1/spend/analytics/anomalies
+
+### `GET` `/api/v1/spend/analytics/trend` 🔒
+
+GET /api/v1/spend/analytics/trend
+
+### `GET` `/api/v1/spend/analytics/provider` 🔒
+
+GET /api/v1/spend/analytics/provider
+
+### `GET` `/api/v1/spend/analytics/agent` 🔒
+
+GET /api/v1/spend/analytics/agent
+
+### `GET` `/api/v1/spend/analytics/forecast` 🔒
+
+GET /api/v1/spend/analytics/forecast
+
+### `GET` `/api/v1/spend/analytics/anomalies` 🔒
+
+GET /api/v1/spend/analytics/anomalies
+
+---
+
+## SpendAnalyticsDashboard
+
+Handler for the spend analytics dashboard endpoints.
+
+### `GET` `/api/analytics/spend/summary` 🔒
+
+Return total spend, budget utilization %, and trend direction
+
+### `GET` `/api/analytics/spend/trends` 🔒
+
+Return daily/weekly/monthly spend over time
+
+### `GET` `/api/analytics/spend/by-agent`
+
+GET /api/analytics/spend/by-agent
+
+### `GET` `/api/analytics/spend/by-decision`
+
+GET /api/analytics/spend/by-decision
+
+### `GET` `/api/analytics/spend/budget` 🔒
+
+Return budget limits, remaining, and forecast to exhaustion
+
+---
+
 ## SSO
 
 Handler for SSO (Single Sign-On) endpoints.
@@ -3228,6 +4200,68 @@ GET /api/sso/status
 ### `GET` `/api/sso/metadata`
 
 GET /api/sso/metadata
+
+---
+
+## Status Page
+
+Public Status Page endpoint handler.
+
+### `GET` `/api/v1/status`
+
+Public service status (no auth required)
+
+---
+
+## System Health
+
+System Health Dashboard handler.
+
+### `GET` `/api/admin/system-health`
+
+Aggregated health overview
+
+### `GET` `/api/admin/system-health/circuit-breakers`
+
+Circuit breaker states
+
+### `GET` `/api/admin/system-health/slos`
+
+SLO compliance status
+
+### `GET` `/api/admin/system-health/adapters`
+
+KM adapter health
+
+### `GET` `/api/admin/system-health/agents`
+
+Agent pool health
+
+### `GET` `/api/admin/system-health/budget`
+
+Budget utilization
+
+---
+
+## System Intelligence
+
+System Intelligence Dashboard Handler.
+
+### `GET` `/api/v1/system-intelligence/overview`
+
+High-level system stats
+
+### `GET` `/api/v1/system-intelligence/agent-performance`
+
+ELO, calibration, win rates
+
+### `GET` `/api/v1/system-intelligence/institutional-memory`
+
+Cross-debate injection stats
+
+### `GET` `/api/v1/system-intelligence/improvement-queue`
+
+Queue contents + breakdown
 
 ---
 
@@ -3465,10 +4499,6 @@ Export usage data as CSV
 
 Get detailed usage breakdown for billing
 
-### `GET` `/api/v1/billing/limits` 🔒
-
-Get current usage limits and utilization percentages
-
 ### `GET` `/api/v1/billing/usage/summary`
 
 GET /api/v1/billing/usage/summary
@@ -3477,9 +4507,17 @@ GET /api/v1/billing/usage/summary
 
 Export usage data as CSV
 
+### `GET` `/api/v1/billing/limits` 🔒
+
+Get current usage limits and utilization percentages
+
 ### `GET` `/api/v1/quotas`
 
 GET /api/v1/quotas
+
+### `GET` `/api/v1/quotas/usage` 🔒
+
+Export usage data as CSV
 
 ---
 
@@ -3521,6 +4559,32 @@ Suggest vertical for a task
 
 ---
 
+## Visualization
+
+Visualization endpoint handlers — argument cartography and replay.
+
+### `GET` `/api/v1/visualization/debates/{id}/graph`
+
+Get argument graph for a debate
+
+### `GET` `/api/v1/visualization/debates/{id}/mermaid`
+
+Get Mermaid diagram
+
+### `GET` `/api/v1/visualization/debates/{id}/html`
+
+Get interactive HTML export
+
+### `GET` `/api/v1/visualization/debates/{id}/statistics`
+
+Get graph statistics
+
+### `POST` `/api/v1/visualization/debates/{id}/replay`
+
+Generate replay artifact
+
+---
+
 ## Webhook
 
 Handler for webhook management API endpoints.
@@ -3533,9 +4597,17 @@ Handle GET /api/webhooks - list all webhooks
 
 Handle GET /api/webhooks/events - list available event types
 
+### `GET` `/api/v1/webhooks/events/categories`
+
+GET /api/v1/webhooks/events/categories
+
 ### `GET` `/api/v1/webhooks/slo/status`
 
 Handle GET /api/webhooks/slo/status - get SLO webhook status
+
+### `GET` `/api/v1/webhooks/slo/test`
+
+Handle POST /api/webhooks/slo/test - send test SLO violation notification
 
 ### `GET` `/api/v1/webhooks/dead-letter`
 
@@ -3544,6 +4616,18 @@ GET /api/v1/webhooks/dead-letter
 ### `GET` `/api/v1/webhooks/queue/stats`
 
 Handle GET /api/webhooks/queue/stats - get queue statistics
+
+### `GET` `/api/v1/webhooks/bulk`
+
+GET /api/v1/webhooks/bulk
+
+### `GET` `/api/v1/webhooks/pause-all`
+
+GET /api/v1/webhooks/pause-all
+
+### `GET` `/api/v1/webhooks/resume-all`
+
+GET /api/v1/webhooks/resume-all
 
 ---
 
