@@ -825,14 +825,18 @@ jobs:
 
       - name: Check shard results
         run: |
-          # Fail only when shards actually failed. "skipped" can occur for
-          # filtered/superseded runs and should not hard-fail summary coverage.
+          # Fail only when shards actually failed. "skipped"/"cancelled" can
+          # occur for filtered/superseded/prioritized runs and should not
+          # hard-fail summary coverage.
           case "${{ needs.test.result }}" in
             success)
               echo "All test shards passed."
               ;;
             skipped)
               echo "::warning::Test shards were skipped; continuing summary without failing."
+              ;;
+            cancelled)
+              echo "::warning::Test shards were cancelled; continuing summary without failing."
               ;;
             *)
               echo "::error::One or more test shards failed (result: ${{ needs.test.result }})"
