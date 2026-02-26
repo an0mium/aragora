@@ -74,7 +74,7 @@ export function KnowledgeConfidenceHistory() {
               <div className="text-[10px] font-mono text-[var(--text-muted)]">
                 Latest: {(entry.latestValue * 100).toFixed(1)}% • {entry.points} points
               </div>
-              <div className="text-[9px] font-mono text-[var(--text-muted)] mt-1">
+              <div className="text-[10px] font-mono text-[var(--text-muted)] mt-1">
                 Reason: {truncate(entry.latestReason, 68)}
               </div>
             </div>

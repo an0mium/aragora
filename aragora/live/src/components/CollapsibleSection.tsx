@@ -100,7 +100,7 @@ export function CollapsibleSection({
             {title}
           </span>
           {priority === 'core' && (
-            <span className="px-1 py-0.5 text-[9px] font-mono bg-acid-green/20 text-acid-green rounded">
+            <span className="px-1 py-0.5 text-[10px] font-mono bg-acid-green/20 text-acid-green rounded">
               CORE
             </span>
           )}

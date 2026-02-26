@@ -34,7 +34,7 @@ export function UnifiedMemorySearch() {
           <div key={s.name} className={`card p-2 flex-1 cursor-pointer border ${selectedSystems.includes(s.name) ? 'border-[var(--acid-green)]' : 'border-transparent opacity-50'}`} onClick={() => toggleSystem(s.name)}>
             <span className={`block text-[10px] font-mono ${SOURCE_COLORS[s.name]?.split(' ')[0] || 'text-[var(--text)]'}`}>{s.name}</span>
             <span className="block text-xs font-mono text-[var(--text-muted)]">{s.entry_count} entries</span>
-            <span className={`block text-[9px] font-mono ${s.status === 'active' ? 'text-emerald-400' : 'text-red-400'}`}>{s.status}</span>
+            <span className={`block text-[10px] font-mono ${s.status === 'active' ? 'text-emerald-400' : 'text-red-400'}`}>{s.status}</span>
           </div>
         ))}
       </div>

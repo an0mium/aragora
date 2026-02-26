@@ -47,7 +47,7 @@ export function MetaPlannerView() {
               )}
               <div className="flex flex-wrap gap-1">
                 {goal.signals?.map((s) => (
-                  <span key={s} className="px-1.5 py-0.5 text-[9px] font-mono bg-[var(--surface)] text-[var(--text-muted)] rounded">{s}</span>
+                  <span key={s} className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--surface)] text-[var(--text-muted)] rounded">{s}</span>
                 ))}
               </div>
             </div>

@@ -38,8 +38,8 @@ export function DedupClusters() {
                   {c.entries.map((e, i) => (
                     <div key={i} className={`p-2 rounded text-xs font-mono ${e.source === c.canonical ? 'bg-[var(--acid-green)]/10 text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
                       <div className="flex justify-between mb-0.5">
-                        <span className="text-[9px]">{e.source} {e.source === c.canonical ? '(canonical)' : ''}</span>
-                        <span className="text-[9px]">{(e.similarity * 100).toFixed(0)}% similar</span>
+                        <span className="text-[10px]">{e.source} {e.source === c.canonical ? '(canonical)' : ''}</span>
+                        <span className="text-[10px]">{(e.similarity * 100).toFixed(0)}% similar</span>
                       </div>
                       <p>{e.content}</p>
                     </div>

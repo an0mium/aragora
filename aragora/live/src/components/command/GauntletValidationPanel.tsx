@@ -78,7 +78,7 @@ export function GauntletValidationPanel({ nodeId: _nodeId, findings, verdict, lo
           return (
             <div key={i} className={`px-2.5 py-2 rounded border ${c.border} bg-bg`}>
               <div className="flex items-center gap-2 mb-1">
-                <span className={`px-1.5 py-0.5 text-[9px] font-mono font-bold rounded ${c.bg} ${c.text}`}>
+                <span className={`px-1.5 py-0.5 text-[10px] font-mono font-bold rounded ${c.bg} ${c.text}`}>
                   {c.label}
                 </span>
                 <span className="text-xs font-mono text-text truncate">{f.title}</span>

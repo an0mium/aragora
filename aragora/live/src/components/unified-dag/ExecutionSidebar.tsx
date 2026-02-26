@@ -154,7 +154,7 @@ export function ExecutionSidebar({
                   />
                 </div>
                 {/* Mini status counts */}
-                <div className="flex gap-2 text-[9px] font-mono text-text-muted">
+                <div className="flex gap-2 text-[10px] font-mono text-text-muted">
                   {s.running > 0 && <span className="text-amber-400">{s.running} running</span>}
                   {s.ready > 0 && <span className="text-blue-400">{s.ready} ready</span>}
                   {s.failed > 0 && <span className="text-red-400">{s.failed} failed</span>}

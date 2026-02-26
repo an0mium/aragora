@@ -271,7 +271,7 @@ function HealthAndMetricsSection({ summary }: { summary: MetricsSummary }) {
               value={summary.cycle_success_rate}
               color={summary.cycle_success_rate >= 0.7 ? 'bg-emerald-400' : summary.cycle_success_rate >= 0.4 ? 'bg-amber-400' : 'bg-red-400'}
             />
-            <div className="text-[9px] font-mono text-[var(--text-muted)] mt-0.5">
+            <div className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5">
               {summary.completed_cycles}/{summary.total_cycles} cycles
             </div>
           </div>
@@ -287,7 +287,7 @@ function HealthAndMetricsSection({ summary }: { summary: MetricsSummary }) {
               value={summary.goal_completion_rate}
               color={summary.goal_completion_rate >= 0.7 ? 'bg-emerald-400' : summary.goal_completion_rate >= 0.4 ? 'bg-amber-400' : 'bg-red-400'}
             />
-            <div className="text-[9px] font-mono text-[var(--text-muted)] mt-0.5">
+            <div className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5">
               {summary.completed_subtasks}/{summary.total_subtasks} subtasks
             </div>
           </div>
@@ -303,7 +303,7 @@ function HealthAndMetricsSection({ summary }: { summary: MetricsSummary }) {
               value={summary.test_pass_rate}
               color={summary.test_pass_rate >= 0.8 ? 'bg-emerald-400' : summary.test_pass_rate >= 0.5 ? 'bg-amber-400' : 'bg-red-400'}
             />
-            <div className="text-[9px] font-mono text-[var(--text-muted)] mt-0.5">
+            <div className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5">
               inferred from findings
             </div>
           </div>
@@ -388,7 +388,7 @@ function CycleHistorySection({ runs }: { runs: RunEntry[] }) {
                       </div>
                     </div>
                     <span
-                      className={`shrink-0 inline-block px-1.5 py-0.5 text-[9px] font-mono border rounded ${outcome.color}`}
+                      className={`shrink-0 inline-block px-1.5 py-0.5 text-[10px] font-mono border rounded ${outcome.color}`}
                     >
                       {outcome.text}
                     </span>
@@ -471,7 +471,7 @@ function GoalQueueSection({ goals }: { goals: GoalEntry[] }) {
 
                   {/* Source badge */}
                   <span
-                    className={`inline-block px-1.5 py-0.5 text-[9px] font-mono border rounded ${sourceColor(goal.source)}`}
+                    className={`inline-block px-1.5 py-0.5 text-[10px] font-mono border rounded ${sourceColor(goal.source)}`}
                   >
                     {sourceLabel(goal.source)}
                   </span>
@@ -479,7 +479,7 @@ function GoalQueueSection({ goals }: { goals: GoalEntry[] }) {
 
                 {/* Impact badge */}
                 <span
-                  className={`inline-block px-1.5 py-0.5 text-[9px] font-mono border rounded ${impactBadge(goal.estimated_impact)}`}
+                  className={`inline-block px-1.5 py-0.5 text-[10px] font-mono border rounded ${impactBadge(goal.estimated_impact)}`}
                 >
                   {goal.estimated_impact.toUpperCase()}
                 </span>
@@ -491,7 +491,7 @@ function GoalQueueSection({ goals }: { goals: GoalEntry[] }) {
               </div>
 
               {/* Track */}
-              <div className="text-[9px] font-mono text-[var(--text-muted)] mt-1">
+              <div className="text-[10px] font-mono text-[var(--text-muted)] mt-1">
                 Track: {goal.track}
               </div>
             </div>
@@ -542,7 +542,7 @@ function ActivityFeedSection({ activity }: { activity: ActivityEntry[] }) {
                 <div className="text-xs font-mono text-[var(--text)] leading-relaxed">
                   {entry.message}
                 </div>
-                <div className="flex items-center gap-3 text-[9px] font-mono text-[var(--text-muted)] mt-0.5">
+                <div className="flex items-center gap-3 text-[10px] font-mono text-[var(--text-muted)] mt-0.5">
                   {entry.timestamp && <span>{formatRelativeTime(entry.timestamp)}</span>}
                   {entry.run_id && <span>run:{entry.run_id.slice(0, 8)}</span>}
                 </div>
@@ -569,7 +569,7 @@ function AutopilotWorktreesSection({ summary }: { summary?: AutopilotWorktreeSum
     <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-mono text-[var(--acid-green)]">AUTOPILOT WORKTREES</h2>
-        <span className={`inline-block px-1.5 py-0.5 text-[9px] font-mono border rounded ${status.color}`}>
+        <span className={`inline-block px-1.5 py-0.5 text-[10px] font-mono border rounded ${status.color}`}>
           {status.text}
         </span>
       </div>

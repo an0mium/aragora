@@ -544,7 +544,7 @@ function SelfImprovePageInner() {
                         <td className="py-2 pr-4">
                           {statusBadge(run.status)}
                           {feedback?.regression_history.some((r) => r.cycle_id === run.run_id) && (
-                            <span className="ml-1 inline-block px-1 py-0.5 text-[9px] font-mono text-red-400 border border-red-400/40 bg-red-400/10 rounded">
+                            <span className="ml-1 inline-block px-1 py-0.5 text-[10px] font-mono text-red-400 border border-red-400/40 bg-red-400/10 rounded">
                               REGRESSED
                             </span>
                           )}

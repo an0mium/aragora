@@ -150,7 +150,7 @@ function UseCaseCard({ useCase, isExpanded, onToggle }: UseCaseCardProps) {
                 <span className={`font-mono text-[10px] ${useCase.color} group-hover/link:text-acid-green transition-colors`}>
                   {feature.name}
                 </span>
-                <p className="text-[9px] font-mono text-text-muted/40 mt-0.5">
+                <p className="text-[10px] font-mono text-text-muted/40 mt-0.5">
                   {feature.description}
                 </p>
               </div>

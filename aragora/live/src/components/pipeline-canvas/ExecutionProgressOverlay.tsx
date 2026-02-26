@@ -154,7 +154,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
                     {state === 'completed' ? '\u2713' : i + 1}
                   </div>
                   <span
-                    className={`text-[9px] font-mono mt-1 ${
+                    className={`text-[10px] font-mono mt-1 ${
                       state === 'completed'
                         ? 'text-emerald-400'
                         : state === 'active'

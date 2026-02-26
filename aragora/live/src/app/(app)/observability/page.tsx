@@ -109,7 +109,7 @@ function MetricCard({ title, value, subtitle, status }: {
         {value}
       </div>
       {subtitle && (
-        <div className="text-text-muted/50 font-mono text-[9px] mt-1">
+        <div className="text-text-muted/50 font-mono text-[10px] mt-1">
           {subtitle}
         </div>
       )}
@@ -350,13 +350,13 @@ export default function ObservabilityPage() {
                         <div className="text-acid-green font-mono text-lg">
                           {verification.z3_verified}
                         </div>
-                        <div className="text-text-muted/50 font-mono text-[9px]">VERIFIED</div>
+                        <div className="text-text-muted/50 font-mono text-[10px]">VERIFIED</div>
                       </div>
                       <div className="text-center p-2 border border-acid-green/20">
                         <div className="text-warning font-mono text-lg">
                           {verification.z3_disproved}
                         </div>
-                        <div className="text-text-muted/50 font-mono text-[9px]">DISPROVED</div>
+                        <div className="text-text-muted/50 font-mono text-[10px]">DISPROVED</div>
                       </div>
                     </div>
                     <ProgressBar
@@ -398,7 +398,7 @@ export default function ObservabilityPage() {
                     </div>
                     {cache.entries_by_prefix && Object.keys(cache.entries_by_prefix).length > 0 && (
                       <div className="pt-2 border-t border-acid-green/10">
-                        <div className="text-text-muted/50 font-mono text-[9px] mb-2">BY PREFIX</div>
+                        <div className="text-text-muted/50 font-mono text-[10px] mb-2">BY PREFIX</div>
                         <div className="space-y-1">
                           {Object.entries(cache.entries_by_prefix)
                             .sort((a, b) => b[1] - a[1])
@@ -506,7 +506,7 @@ export default function ObservabilityPage() {
                     </div>
                     {Object.keys(background.tasks || {}).length > 0 && (
                       <div className="pt-2 border-t border-acid-green/10">
-                        <div className="text-text-muted/50 font-mono text-[9px] mb-2">TASKS</div>
+                        <div className="text-text-muted/50 font-mono text-[10px] mb-2">TASKS</div>
                         {Object.entries(background.tasks).map(([name, task]) => (
                           <div key={name} className="flex justify-between text-[10px] font-mono py-1">
                             <span className="text-acid-cyan truncate">{name}</span>
@@ -537,7 +537,7 @@ export default function ObservabilityPage() {
                   {Object.entries(metrics.databases).map(([name, info]) => (
                     <div key={name} className="text-center p-3 border border-acid-green/20">
                       <div className="text-acid-cyan font-mono text-sm">{info.human}</div>
-                      <div className="text-text-muted/50 font-mono text-[9px] mt-1 truncate">
+                      <div className="text-text-muted/50 font-mono text-[10px] mt-1 truncate">
                         {name}
                       </div>
                     </div>
@@ -557,7 +557,7 @@ export default function ObservabilityPage() {
                     <div className="text-acid-green font-mono text-2xl">
                       {dashboard.summary.total_debates}
                     </div>
-                    <div className="text-text-muted/50 font-mono text-[9px] mt-1">
+                    <div className="text-text-muted/50 font-mono text-[10px] mt-1">
                       TOTAL DEBATES
                     </div>
                   </div>
@@ -565,7 +565,7 @@ export default function ObservabilityPage() {
                     <div className="text-acid-cyan font-mono text-2xl">
                       {dashboard.summary.consensus_reached}
                     </div>
-                    <div className="text-text-muted/50 font-mono text-[9px] mt-1">
+                    <div className="text-text-muted/50 font-mono text-[10px] mt-1">
                       CONSENSUS REACHED
                     </div>
                   </div>
@@ -573,7 +573,7 @@ export default function ObservabilityPage() {
                     <div className="text-acid-yellow font-mono text-2xl">
                       {((dashboard.summary.consensus_rate || 0) * 100).toFixed(0)}%
                     </div>
-                    <div className="text-text-muted/50 font-mono text-[9px] mt-1">
+                    <div className="text-text-muted/50 font-mono text-[10px] mt-1">
                       CONSENSUS RATE
                     </div>
                   </div>
@@ -581,7 +581,7 @@ export default function ObservabilityPage() {
                     <div className="text-text font-mono text-2xl">
                       {((dashboard.summary.avg_confidence || 0) * 100).toFixed(0)}%
                     </div>
-                    <div className="text-text-muted/50 font-mono text-[9px] mt-1">
+                    <div className="text-text-muted/50 font-mono text-[10px] mt-1">
                       AVG CONFIDENCE
                     </div>
                   </div>

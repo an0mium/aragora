@@ -1564,7 +1564,7 @@ export default function Oracle() {
               DEBATE
             </button>
           </div>
-          <span className="text-[9px] text-[var(--text-muted)] tracking-wider">
+          <span className="text-[10px] text-[var(--text-muted)] tracking-wider">
             {useDebateStreaming ? 'Full multi-agent debate with structured events' : 'Direct LLM streaming with multi-agent analysis'}
           </span>
         </div>

@@ -44,7 +44,7 @@ export function CollaborationOverlay({
             style={{ backgroundColor: cursor.color || getUserColor(cursor.userId) }}
           />
           <span
-            className="text-[9px] font-mono px-1 rounded whitespace-nowrap ml-2"
+            className="text-[10px] font-mono px-1 rounded whitespace-nowrap ml-2"
             style={{
               backgroundColor: cursor.color || getUserColor(cursor.userId),
               color: '#fff',
@@ -58,7 +58,7 @@ export function CollaborationOverlay({
       {/* Presence panel */}
       {onlineUsers.length > 0 && (
         <div className="absolute top-2 right-2 z-40 bg-[var(--surface)] border border-[var(--border)] rounded px-2 py-1">
-          <div className="text-[9px] text-[var(--text-muted)] font-mono uppercase tracking-wider mb-1">
+          <div className="text-[10px] text-[var(--text-muted)] font-mono uppercase tracking-wider mb-1">
             Online ({onlineUsers.length})
           </div>
           <div className="flex gap-1">
@@ -73,7 +73,7 @@ export function CollaborationOverlay({
               </div>
             ))}
             {onlineUsers.length > 5 && (
-              <span className="text-[9px] text-[var(--text-muted)] self-center">
+              <span className="text-[10px] text-[var(--text-muted)] self-center">
                 +{onlineUsers.length - 5}
               </span>
             )}

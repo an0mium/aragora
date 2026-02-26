@@ -322,7 +322,7 @@ export function ArgumentGraph({ debateId }: { debateId: string }) {
                 <text
                   y={-radius - 4}
                   textAnchor="middle"
-                  className="text-[9px]"
+                  className="text-[10px]"
                   fill="var(--text-muted)"
                   fontFamily="monospace"
                 >

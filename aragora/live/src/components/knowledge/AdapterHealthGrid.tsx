@@ -47,7 +47,7 @@ export function AdapterHealthGrid() {
           <div key={a.name} className={`card p-3 space-y-1 border-l-2 ${a.health === 'healthy' ? 'border-emerald-400' : a.health === 'degraded' ? 'border-amber-400' : a.health === 'unhealthy' ? 'border-red-400' : 'border-gray-400'}`}>
             <div className="flex items-center justify-between">
               <span className="font-mono text-xs text-[var(--text)] truncate">{a.name}</span>
-              <span className={`text-[9px] font-mono px-1.5 py-0.5 border rounded ${STATUS_BADGE[a.health] || ''}`}>
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 border rounded ${STATUS_BADGE[a.health] || ''}`}>
                 {a.status}
               </span>
             </div>
@@ -55,7 +55,7 @@ export function AdapterHealthGrid() {
               {a.entry_count} entries
             </div>
             {a.last_sync && (
-              <div className="text-[9px] font-mono text-[var(--text-muted)]">
+              <div className="text-[10px] font-mono text-[var(--text-muted)]">
                 Last sync: {a.last_sync}
               </div>
             )}

@@ -153,11 +153,11 @@ export default function ActionsPage() {
               </p>
             )}
             {canvas.source_canvas_id && (
-              <div className="text-[9px] text-amber-400 mb-1">
+              <div className="text-[10px] text-amber-400 mb-1">
                 From goals canvas
               </div>
             )}
-            <div className="text-[9px] text-[var(--text-muted)]">
+            <div className="text-[10px] text-[var(--text-muted)]">
               {new Date(canvas.updated_at).toLocaleDateString()}
             </div>
           </div>
