@@ -87,7 +87,7 @@ export function ToolCard({ tool, expanded, onToggle }: ToolCardProps) {
           {/* Parameter table */}
           {tool.parameters.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="w-full text-[11px] font-mono">
+              <table className="w-full text-xs font-mono">
                 <thead>
                   <tr className="text-[var(--text-muted)] border-b border-[var(--border)]">
                     <th className="text-left py-1.5 pr-3">Parameter</th>

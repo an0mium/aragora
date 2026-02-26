@@ -188,7 +188,7 @@ export function ExecutionSidebar({
               {validationErrors.map((err, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-1.5 text-[11px] font-mono text-red-400"
+                  className="flex items-start gap-1.5 text-xs font-mono text-red-400"
                 >
                   <span className="mt-0.5">{'\u2717'}</span>
                   <span>{err}</span>
@@ -234,7 +234,7 @@ export function ExecutionSidebar({
               {executionHistory.slice(0, 20).map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between px-2 py-1 rounded bg-bg/50 text-[11px] font-mono"
+                  className="flex items-center justify-between px-2 py-1 rounded bg-bg/50 text-xs font-mono"
                 >
                   <div className="flex items-center gap-1.5 truncate">
                     <span

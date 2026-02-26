@@ -162,7 +162,7 @@ export function TemplateMarketplace() {
               </h4>
 
               {/* Description */}
-              <p className="text-[11px] font-mono text-[var(--text-muted)] leading-relaxed mb-3 flex-1 line-clamp-2">
+              <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed mb-3 flex-1 line-clamp-2">
                 {template.description}
               </p>
 

@@ -411,7 +411,7 @@ export function ApiExplorerPanel() {
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-text-muted mt-0.5 truncate pl-14">
+                        <p className="text-xs text-text-muted mt-0.5 truncate pl-14">
                           {endpoint.summary}
                         </p>
                       </button>

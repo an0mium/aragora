@@ -310,22 +310,22 @@ export function LiveDebateView({
             {(debateMode || settlement) && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {debateMode && (
-                  <span className="px-2 py-1 text-[11px] font-mono border border-acid-cyan/40 text-acid-cyan bg-acid-cyan/10">
+                  <span className="px-2 py-1 text-xs font-mono border border-acid-cyan/40 text-acid-cyan bg-acid-cyan/10">
                     MODE: {formatModeLabel(debateMode)}
                   </span>
                 )}
                 {settlement?.status && (
-                  <span className="px-2 py-1 text-[11px] font-mono border border-acid-yellow/40 text-acid-yellow bg-acid-yellow/10">
+                  <span className="px-2 py-1 text-xs font-mono border border-acid-yellow/40 text-acid-yellow bg-acid-yellow/10">
                     SETTLEMENT: {settlement.status.toUpperCase()}
                   </span>
                 )}
                 {settlement?.resolver_type && (
-                  <span className="px-2 py-1 text-[11px] font-mono border border-acid-green/40 text-acid-green bg-acid-green/10">
+                  <span className="px-2 py-1 text-xs font-mono border border-acid-green/40 text-acid-green bg-acid-green/10">
                     RESOLVER: {settlement.resolver_type.toUpperCase()}
                   </span>
                 )}
                 {settlement?.sla_state && (
-                  <span className="px-2 py-1 text-[11px] font-mono border border-accent/40 text-accent bg-accent/10">
+                  <span className="px-2 py-1 text-xs font-mono border border-accent/40 text-accent bg-accent/10">
                     SLA: {settlement.sla_state.toUpperCase()}
                   </span>
                 )}

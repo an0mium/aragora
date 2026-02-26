@@ -52,7 +52,7 @@ export function Footer() {
       <p className="text-acid-green font-bold mb-1">
         {'>'} ARAGORA // AI MODELS THAT DEBATE YOUR DECISIONS
       </p>
-      <p className="text-text-muted/70 text-[11px] italic max-w-md mx-auto mb-4">
+      <p className="text-text-muted/70 text-xs italic max-w-md mx-auto mb-4">
         &quot;Multiple AI perspectives. One clear verdict. Full audit trail.&quot;
       </p>
       <div className="flex justify-center gap-4 text-text-muted/50 mb-4">

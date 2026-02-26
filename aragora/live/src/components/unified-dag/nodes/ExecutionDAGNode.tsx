@@ -67,7 +67,7 @@ export function ExecutionDAGNode({ id, data, selected, onExecuteNode }: Executio
           {nodeData.label}
         </div>
         {nodeData.description && (
-          <div className="text-[11px] text-text-muted line-clamp-2">
+          <div className="text-xs text-text-muted line-clamp-2">
             {nodeData.description}
           </div>
         )}

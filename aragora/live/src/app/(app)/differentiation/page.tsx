@@ -787,7 +787,7 @@ function VettingTab({
       {/* Explanation */}
       <div className="border border-surface bg-surface/20 rounded p-4">
         <h4 className="text-xs font-mono text-acid-green mb-2">HOW ADVERSARIAL VETTING WORKS</h4>
-        <div className="text-[11px] font-mono text-text-muted space-y-1">
+        <div className="text-xs font-mono text-text-muted space-y-1">
           <p>1. Multiple agents independently analyze the question from different perspectives</p>
           <p>2. Agents critique each other&apos;s proposals, identifying weaknesses and blind spots</p>
           <p>3. Dissenting views are preserved in the decision receipt, not silenced</p>
@@ -911,7 +911,7 @@ function CalibrationTab({
       {/* Explanation */}
       <div className="border border-surface bg-surface/20 rounded p-4">
         <h4 className="text-xs font-mono text-acid-cyan mb-2">WHY MULTI-AGENT CONSENSUS IS BETTER CALIBRATED</h4>
-        <div className="text-[11px] font-mono text-text-muted space-y-1">
+        <div className="text-xs font-mono text-text-muted space-y-1">
           <p>1. Individual models have systematic biases. Ensemble consensus cancels these out.</p>
           <p>2. ELO ratings track each agent&apos;s accuracy over time, weighting reliable agents higher.</p>
           <p>3. Diversity of model architectures (Claude, GPT, Gemini, Mistral) reduces correlated errors.</p>
@@ -1016,7 +1016,7 @@ function MemoryTab({
       {/* Explanation */}
       <div className="border border-surface bg-surface/20 rounded p-4">
         <h4 className="text-xs font-mono text-purple-400 mb-2">HOW INSTITUTIONAL MEMORY WORKS</h4>
-        <div className="text-[11px] font-mono text-text-muted space-y-1">
+        <div className="text-xs font-mono text-text-muted space-y-1">
           <p>1. Every debate outcome is stored in multi-tier memory (fast/medium/slow/glacial).</p>
           <p>2. The Knowledge Mound aggregates insights across 34 adapter systems.</p>
           <p>3. Cross-debate links connect related decisions, building organizational knowledge.</p>

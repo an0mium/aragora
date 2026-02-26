@@ -180,7 +180,7 @@ export function BottomNavigation({
               {showLabels && (
                 <span
                   className={cn(
-                    'text-[11px] mt-1 font-medium',
+                    'text-xs mt-1 font-medium',
                     'max-w-[64px] truncate'
                   )}
                 >

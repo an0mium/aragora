@@ -64,7 +64,7 @@ export function InlineDebatePanel({ nodeId: _nodeId, events, isActive }: InlineD
       {/* Event Timeline */}
       <div className="space-y-1 max-h-40 overflow-y-auto">
         {debateEvents.slice(-8).map(e => (
-          <div key={e.id} className="flex items-start gap-2 text-[11px] font-mono">
+          <div key={e.id} className="flex items-start gap-2 text-xs font-mono">
             <span className={`flex-shrink-0 mt-0.5 w-1.5 h-1.5 rounded-full ${
               e.type.includes('CONSENSUS') || e.type === 'consensus' ? 'bg-emerald-500' :
               e.type.includes('CRITIQUE') || e.type === 'critique' ? 'bg-amber-500' :

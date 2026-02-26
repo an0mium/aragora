@@ -118,7 +118,7 @@ function ProvenanceNodeComponent({ data }: { data: ProvenanceNode }) {
           {data.type}
         </span>
       </div>
-      <div className="text-[11px] mb-1 truncate" title={data.label}>
+      <div className="text-xs mb-1 truncate" title={data.label}>
         {data.label}
       </div>
       <div

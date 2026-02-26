@@ -84,9 +84,9 @@ export function OraclePhaseProgress({ currentPhase }: OraclePhaseProgressProps) 
                   ].join(' ')}
                 >
                   {isComplete ? (
-                    <span className="text-[11px]">{'\u2713'}</span>
+                    <span className="text-xs">{'\u2713'}</span>
                   ) : (
-                    <span className="text-[11px]">{phase.icon}</span>
+                    <span className="text-xs">{phase.icon}</span>
                   )}
                 </div>
                 <span

@@ -439,7 +439,7 @@ function EndpointDetails({
                     {contentType}
                   </span>
                   {media.schema && (
-                    <pre className="mt-1 text-[11px] font-mono text-[var(--text-muted)] overflow-x-auto max-h-40 overflow-y-auto">
+                    <pre className="mt-1 text-xs font-mono text-[var(--text-muted)] overflow-x-auto max-h-40 overflow-y-auto">
                       {JSON.stringify(media.schema, null, 2)}
                     </pre>
                   )}
@@ -483,7 +483,7 @@ function EndpointDetails({
                       media.schema ? (
                         <pre
                           key={ct}
-                          className="text-[11px] font-mono text-[var(--text-muted)] overflow-x-auto max-h-32 overflow-y-auto"
+                          className="text-xs font-mono text-[var(--text-muted)] overflow-x-auto max-h-32 overflow-y-auto"
                         >
                           {JSON.stringify(media.schema, null, 2)}
                         </pre>

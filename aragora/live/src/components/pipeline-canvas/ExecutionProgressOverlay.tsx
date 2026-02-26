@@ -196,7 +196,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
         )}
 
         {/* Stats row */}
-        <div className="flex items-center justify-between text-[11px] font-mono text-text-muted">
+        <div className="flex items-center justify-between text-xs font-mono text-text-muted">
           <div className="flex items-center gap-3">
             {streamedNodeCount > 0 && (
               <span data-testid="streamed-count">

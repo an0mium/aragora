@@ -63,7 +63,7 @@ export function KnowledgeConfidenceHistory() {
               className={`card p-3 border-l-2 ${entry.delta >= 0 ? 'border-emerald-400' : 'border-red-400'}`}
             >
               <div className="flex items-center justify-between gap-3 mb-1">
-                <span className="font-mono text-[11px] text-[var(--text)] truncate">
+                <span className="font-mono text-xs text-[var(--text)] truncate">
                   {truncate(entry.preview || entry.nodeId, 46)}
                 </span>
                 <span className={`font-mono text-[10px] ${entry.delta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>

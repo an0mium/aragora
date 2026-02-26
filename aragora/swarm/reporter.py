@@ -192,9 +192,13 @@ class SwarmReporter:
                 "Respond with ONLY the JSON object."
             )
 
+            from pathlib import Path as _Path
+
+            from aragora.harnesses.base import AnalysisType as _AT
+
             llm_result = await harness.analyze_repository(
-                repo_path=".",
-                analysis_type="general",
+                repo_path=_Path("."),
+                analysis_type=_AT.GENERAL,
                 prompt=prompt,
             )
             raw = llm_result.raw_output if hasattr(llm_result, "raw_output") else str(llm_result)

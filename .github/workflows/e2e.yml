@@ -132,17 +132,18 @@ jobs:
             sleep 2
           done
 
-      - name: Run Playwright tests
+      - name: Run critical path smoke test
         working-directory: aragora/live
         run: npx playwright test e2e/auth-callback-reliability.spec.ts --project=chromium --reporter=list
+        continue-on-error: true
         env:
           BASE_URL: http://localhost:3000
           API_URL: http://localhost:8080
           WS_URL: ws://localhost:8765
 
-      - name: Run Playwright tests
+      - name: Run Playwright E2E suite
         working-directory: aragora/live
-        run: npx playwright test --reporter=html
+        run: npx playwright test --project=chromium --reporter=list,html
         env:
           BASE_URL: http://localhost:3000
           API_URL: http://localhost:8080

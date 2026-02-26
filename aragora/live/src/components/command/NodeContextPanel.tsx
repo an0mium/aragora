@@ -148,7 +148,7 @@ export function NodeContextPanel({ node, events, onAction, onClose }: NodeContex
               {recentEvents.map(e => (
                 <div
                   key={e.id}
-                  className="flex items-center gap-2 px-2 py-1.5 text-[11px] font-mono bg-bg rounded border border-border"
+                  className="flex items-center gap-2 px-2 py-1.5 text-xs font-mono bg-bg rounded border border-border"
                 >
                   <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                     e.severity === 'error' ? 'bg-red-500' :
