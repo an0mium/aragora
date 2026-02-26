@@ -38,7 +38,7 @@ class DebateState:
 
     def to_dict(self) -> dict:
         """Convert to dictionary for API responses."""
-        return {
+        payload = {
             "debate_id": self.debate_id,
             "task": self.task,
             "agents": self.agents,
@@ -50,6 +50,23 @@ class DebateState:
             "subscriber_count": len(self.subscribers),
             "elapsed_seconds": time.time() - self.start_time,
         }
+
+        mode = self.metadata.get("mode")
+        settlement = self.metadata.get("settlement")
+        result = self.metadata.get("result")
+
+        if isinstance(result, dict):
+            if not mode:
+                mode = result.get("mode")
+            if not settlement:
+                settlement = result.get("settlement")
+
+        if isinstance(mode, str) and mode.strip():
+            payload["mode"] = mode
+        if isinstance(settlement, dict):
+            payload["settlement"] = settlement
+
+        return payload
 
 
 class StateManager:

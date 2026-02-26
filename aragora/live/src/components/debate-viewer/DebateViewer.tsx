@@ -39,6 +39,8 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
     status: liveStatus,
     task: liveTask,
     agents: liveAgents,
+    debateMode: liveDebateMode,
+    settlement: liveSettlement,
     messages: liveMessages,
     streamingMessages,
     streamEvents,
@@ -192,6 +194,8 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
               status={liveStatus}
               task={liveTask}
               agents={liveAgents}
+              debateMode={liveDebateMode}
+              settlement={liveSettlement}
               messages={liveMessages}
               streamingMessages={streamingMessages as Map<string, StreamingMessage>}
               streamEvents={streamEvents}

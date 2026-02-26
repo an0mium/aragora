@@ -31,6 +31,8 @@ function createMockContext(overrides: Partial<EventHandlerContext> = {}): EventH
     debateId: 'test-debate',
     setTask: jest.fn(),
     setAgents: jest.fn(),
+    setDebateMode: jest.fn(),
+    setSettlementMetadata: jest.fn(),
     setStatus: jest.fn(),
     setError: jest.fn(),
     setErrorDetails: jest.fn(),

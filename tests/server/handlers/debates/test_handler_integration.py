@@ -14,6 +14,7 @@ Tests cover the actual handler method implementations with mock storage:
 """
 
 import pytest
+import json
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch, AsyncMock
 
@@ -150,6 +151,12 @@ class TestGetDebateBySlug:
                 "status": "running",
                 "agents": "claude,gemini",
                 "rounds": 3,
+                "mode": "epistemic_hygiene",
+                "settlement": {
+                    "status": "pending_human_adjudication",
+                    "resolver_type": "human",
+                    "sla_state": "pending",
+                },
             }
         }
 
@@ -162,6 +169,10 @@ class TestGetDebateBySlug:
 
             assert result is not None
             assert result.status_code == 200
+            body = json.loads(result.body.decode("utf-8"))
+            assert body["mode"] == "epistemic_hygiene"
+            assert body["settlement"]["status"] == "pending_human_adjudication"
+            assert body["settlement"]["sla_state"] == "pending"
 
 
 class TestGetDebateMessages:
