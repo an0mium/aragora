@@ -808,6 +808,8 @@ class TestGoogleAuthLayer:
 
     def test_production_rejects_without_project_id(self):
         """Should reject token in production when project ID is not set."""
+        pytest.importorskip("google.oauth2.id_token")
+        pytest.importorskip("google.auth.transport.requests")
         with (
             patch("aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_PROJECT_ID", None),
             patch.dict("os.environ", {"ARAGORA_ENV": "production"}),
@@ -820,6 +822,8 @@ class TestGoogleAuthLayer:
 
     def test_value_error_returns_false(self):
         """Should return False when google-auth raises ValueError (invalid token)."""
+        pytest.importorskip("google.oauth2.id_token")
+        pytest.importorskip("google.auth.transport.requests")
         with patch(
             "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_PROJECT_ID", "test-project"
         ):
