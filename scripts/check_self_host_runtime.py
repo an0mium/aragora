@@ -323,8 +323,7 @@ def _wait_for_any_http_200(base_url: str, paths: list[str], timeout_seconds: int
             failures.append(f"{path}: {exc}")
 
     raise RuntimeCheckError(
-        "Timed out waiting for health endpoint candidates: "
-        + "; ".join(failures[:4])
+        "Timed out waiting for health endpoint candidates: " + "; ".join(failures[:4])
     )
 
 

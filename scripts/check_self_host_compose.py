@@ -194,7 +194,9 @@ def main() -> int:
     if redis_topology == "sentinel":
         required_aragora_env.update(SENTINEL_REQUIRED_ARAGORA_ENV_KEYS)
 
-    missing_aragora_env = sorted(key for key in required_aragora_env if key not in parsed_aragora_env)
+    missing_aragora_env = sorted(
+        key for key in required_aragora_env if key not in parsed_aragora_env
+    )
     if missing_aragora_env:
         errors.append(f"aragora service missing required env wiring: {missing_aragora_env}")
 
@@ -219,9 +221,7 @@ def main() -> int:
             errors.append("aragora service should set ARAGORA_REDIS_MODE=standalone")
 
     if redis_topology == "standalone":
-        if not (
-            parsed_aragora_env.get("REDIS_URL") or parsed_aragora_env.get("ARAGORA_REDIS_URL")
-        ):
+        if not (parsed_aragora_env.get("REDIS_URL") or parsed_aragora_env.get("ARAGORA_REDIS_URL")):
             errors.append(
                 "aragora service should set REDIS_URL or ARAGORA_REDIS_URL for standalone Redis"
             )
@@ -235,7 +235,9 @@ def main() -> int:
     missing_healthcheck = sorted(
         name
         for name in required_healthcheck_services
-        if name in services and isinstance(services[name], dict) and "healthcheck" not in services[name]
+        if name in services
+        and isinstance(services[name], dict)
+        and "healthcheck" not in services[name]
     )
     if missing_healthcheck:
         errors.append(f"services missing healthcheck configuration: {missing_healthcheck}")
@@ -256,7 +258,9 @@ def main() -> int:
             {"ARAGORA_REDIS_SENTINEL_HOSTS", "ARAGORA_REDIS_SENTINEL_MASTER"} - env_keys
         )
         if missing_sentinel_env_keys:
-            errors.append(f".env production example missing required keys: {missing_sentinel_env_keys}")
+            errors.append(
+                f".env production example missing required keys: {missing_sentinel_env_keys}"
+            )
 
     missing_markers = _contains_required_runbook_markers(runbook_path)
     if missing_markers:
