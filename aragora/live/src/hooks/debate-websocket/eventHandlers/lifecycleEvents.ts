@@ -3,8 +3,19 @@
  * (sync, debate_start, debate_end, debate_error)
  */
 
-import type { TranscriptMessage } from '../types';
+import type { SettlementMetadata, TranscriptMessage } from '../types';
 import type { EventHandlerContext, ParsedEventData } from './types';
+
+function normalizeMode(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const mode = raw.trim();
+  return mode ? mode : null;
+}
+
+function normalizeSettlement(raw: unknown): SettlementMetadata | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  return raw as SettlementMetadata;
+}
 
 /**
  * Handle sync event - full state restore for existing debates
@@ -19,6 +30,14 @@ export function handleSyncEvent(data: ParsedEventData, ctx: EventHandlerContext)
   }
   if (syncData.agents && Array.isArray(syncData.agents)) {
     ctx.setAgents(syncData.agents as string[]);
+  }
+  const mode = normalizeMode(syncData.mode);
+  if (mode) {
+    ctx.setDebateMode(mode);
+  }
+  const settlement = normalizeSettlement(syncData.settlement);
+  if (settlement) {
+    ctx.setSettlementMetadata(settlement);
   }
 
   // Restore messages from sync
@@ -62,6 +81,14 @@ export function handleDebateStartEvent(data: ParsedEventData, ctx: EventHandlerC
     ctx.setTask(taskFromStart);
   }
   ctx.setAgents((eventData?.agents as string[]) || []);
+  const mode = normalizeMode(eventData?.mode);
+  if (mode) {
+    ctx.setDebateMode(mode);
+  }
+  const settlement = normalizeSettlement(eventData?.settlement);
+  if (settlement) {
+    ctx.setSettlementMetadata(settlement);
+  }
   ctx.setHasReceivedDebateStart(true);
   ctx.clearDebateStartTimeout();
 }
@@ -78,6 +105,14 @@ export function handleDebateEndEvent(data: ParsedEventData, ctx: EventHandlerCon
 
   const summary = endData?.summary as Record<string, unknown> | undefined;
   const taskFromEvent = (endData?.task as string) || (summary?.task as string);
+  const mode = normalizeMode(endData?.mode) || normalizeMode(summary?.mode);
+  if (mode) {
+    ctx.setDebateMode(mode);
+  }
+  const settlement = normalizeSettlement(endData?.settlement) || normalizeSettlement(summary?.settlement);
+  if (settlement) {
+    ctx.setSettlementMetadata(settlement);
+  }
 
   ctx.setTask(prev => {
     // If we have a task from the event, use it

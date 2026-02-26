@@ -28,6 +28,7 @@ import type {
   UseDebateWebSocketReturn,
   DebateStatus,
   ConnectionQuality,
+  SettlementMetadata,
 } from './types';
 
 // Import constants from local module
@@ -56,6 +57,31 @@ export type {
   ConnectionQuality,
 };
 
+function normalizeSettlementMetadata(raw: unknown): SettlementMetadata | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return null;
+  }
+
+  const obj = raw as Record<string, unknown>;
+  const settlement: SettlementMetadata = {};
+
+  if (typeof obj.claim === 'string') settlement.claim = obj.claim;
+  if (typeof obj.falsifier === 'string') settlement.falsifier = obj.falsifier;
+  if (typeof obj.metric === 'string') settlement.metric = obj.metric;
+  if (typeof obj.review_horizon_days === 'number') {
+    settlement.review_horizon_days = obj.review_horizon_days;
+  }
+  if (typeof obj.resolver_type === 'string') settlement.resolver_type = obj.resolver_type;
+  if (typeof obj.status === 'string') settlement.status = obj.status;
+  if (typeof obj.next_review_at === 'string' || obj.next_review_at === null) {
+    settlement.next_review_at = obj.next_review_at as string | null;
+  }
+  if (typeof obj.sla_state === 'string') settlement.sla_state = obj.sla_state;
+  if (typeof obj.sla_reason === 'string') settlement.sla_reason = obj.sla_reason;
+
+  return Object.keys(settlement).length > 0 ? settlement : null;
+}
+
 export function useDebateWebSocket({
   debateId,
   wsUrl = DEFAULT_WS_URL,
@@ -69,6 +95,8 @@ export function useDebateWebSocket({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [task, setTask] = useState<string>('');
   const [agents, setAgents] = useState<string[]>([]);
+  const [debateMode, setDebateMode] = useState<string | null>(null);
+  const [settlementMetadata, setSettlementMetadata] = useState<SettlementMetadata | null>(null);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [streamingMessages, setStreamingMessages] = useState<Map<string, StreamingMessage>>(new Map());
   const [streamEvents, setStreamEvents] = useState<StreamEvent[]>([]);
@@ -186,6 +214,8 @@ export function useDebateWebSocket({
     setStreamEvents([]);
     setTask('');
     setAgents([]);
+    setDebateMode(null);
+    setSettlementMetadata(null);
     setHasCitations(false);
     setStatus('connecting');
     setError(null);
@@ -271,6 +301,8 @@ export function useDebateWebSocket({
           error: data.error || data.error_message,
           task: data.task,
           agents: data.agents,
+          mode: typeof data.mode === 'string' ? data.mode : null,
+          settlement: normalizeSettlementMetadata(data.settlement),
         };
       } else if (response.status === 404) {
         return { status: 'not_found', error: 'Debate not found' };
@@ -313,6 +345,8 @@ export function useDebateWebSocket({
     debateId,
     setTask,
     setAgents,
+    setDebateMode,
+    setSettlementMetadata,
     setStatus,
     setError,
     setErrorDetails,
@@ -419,6 +453,8 @@ export function useDebateWebSocket({
             const debateStatus = await fetchDebateStatus();
             if (debateStatus?.status === 'completed' || debateStatus?.status === 'error') {
               setStatus(debateStatus.status === 'completed' ? 'complete' : 'error');
+              if (debateStatus.mode) setDebateMode(debateStatus.mode);
+              if (debateStatus.settlement) setSettlementMetadata(debateStatus.settlement);
               if (debateStatus.error) setErrorDetails(debateStatus.error);
               stopPolling();
             }
@@ -476,6 +512,8 @@ export function useDebateWebSocket({
       if (debateStatus.status === 'running' || debateStatus.status === 'active') {
         if (debateStatus.task) setTask(debateStatus.task);
         if (debateStatus.agents) setAgents(debateStatus.agents);
+        if (debateStatus.mode) setDebateMode(debateStatus.mode);
+        if (debateStatus.settlement) setSettlementMetadata(debateStatus.settlement);
         return;
       }
     }
@@ -711,6 +749,8 @@ export function useDebateWebSocket({
     connectionQuality,
     task,
     agents,
+    debateMode,
+    settlement: settlementMetadata,
     messages,
     streamingMessages,
     streamEvents,
