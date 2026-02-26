@@ -1,0 +1,40 @@
+name: Release Readiness Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "aragora/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "requirements.txt"
+      - "scripts/ci_release_readiness.sh"
+      - ".github/workflows/release-readiness.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: release-readiness-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  release-readiness:
+    name: Release Readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install (dev)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run release-readiness gate
+        run: bash scripts/ci_release_readiness.sh

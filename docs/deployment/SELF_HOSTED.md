@@ -86,7 +86,7 @@ bash scripts/install.sh --force-env
 
 ```bash
 # Health check (from the host)
-curl -k https://localhost/healthz
+curl -k https://localhost/api/v1/health
 
 # Service status
 docker compose -f deploy/docker-compose.production.yml ps
@@ -98,6 +98,27 @@ docker compose -f deploy/docker-compose.production.yml logs -f aragora
 curl -k -X POST https://localhost/api/v1/debates \
   -H "Content-Type: application/json" \
   -d '{"topic": "What is the best database for startups?", "rounds": 2}'
+```
+
+## Startup and Readiness Verification
+
+Use the verification commands above after every install, restart, and upgrade.
+At minimum, confirm `/api/v1/health` is reachable and all core services are healthy:
+
+```bash
+docker compose -f deploy/docker-compose.production.yml ps
+curl -k https://localhost/api/v1/health
+```
+
+## Health Checks
+
+Core service health checks are defined in `deploy/docker-compose.production.yml`
+for `aragora`, `postgres`, `redis`, and `nginx`. Re-run these ad hoc probes when
+investigating incidents:
+
+```bash
+docker compose -f deploy/docker-compose.production.yml ps
+docker compose -f deploy/docker-compose.production.yml logs --tail 100 aragora
 ```
 
 ---
@@ -522,6 +543,14 @@ services:
 ---
 
 ## Troubleshooting
+
+### Failure Recovery Playbook
+
+For restart loops, degraded health, or failed deployments:
+1. Run the startup/readiness verification commands.
+2. Inspect logs for failing services.
+3. Apply the relevant recovery procedure in the troubleshooting sections below.
+4. Re-run health checks before restoring traffic.
 
 ### Service Will Not Start
 
