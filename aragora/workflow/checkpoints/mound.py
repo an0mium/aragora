@@ -77,12 +77,13 @@ class KnowledgeMoundCheckpointStore:
         try:
             # Import KM types dynamically - these may not be available at type-check time
             # as the KM module has multiple implementations
+            from aragora.memory.tier_manager import MemoryTier
+
             km_module = __import__(
                 "aragora.knowledge.mound",
-                fromlist=["KnowledgeNode", "MemoryTier", "ProvenanceChain"],
+                fromlist=["KnowledgeNode", "ProvenanceChain"],
             )
             KnowledgeNode: Any = getattr(km_module, "KnowledgeNode")
-            MemoryTier: Any = getattr(km_module, "MemoryTier")
             ProvenanceChain: Any = getattr(km_module, "ProvenanceChain")
 
             # Serialize checkpoint to JSON

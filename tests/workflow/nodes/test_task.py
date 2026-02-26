@@ -191,6 +191,45 @@ class TestFunctionExecution:
         assert "Handler not found" in result["error"]
 
     @pytest.mark.asyncio
+    async def test_legacy_action_maps_to_handler(self):
+        """Legacy action config should resolve to built-in handlers."""
+        from aragora.workflow.nodes.task import TaskStep
+
+        step = TaskStep(
+            name="Legacy Action",
+            config={
+                "task_type": "function",
+                "action": "log",
+                "message": "hello from legacy action",
+            },
+        )
+        ctx = self._make_context()
+        result = await step.execute(ctx)
+
+        assert result["success"] is True
+        assert result["result"]["logged"] is True
+
+    @pytest.mark.asyncio
+    async def test_legacy_set_state_action_populates_context(self):
+        """Legacy set_state action should map state dict into context state."""
+        from aragora.workflow.nodes.task import TaskStep
+
+        step = TaskStep(
+            name="Legacy Set State",
+            config={
+                "task_type": "function",
+                "action": "set_state",
+                "state": {"score": 85, "decision": True},
+            },
+        )
+        ctx = self._make_context()
+        result = await step.execute(ctx)
+
+        assert result["success"] is True
+        assert ctx.state["score"] == 85
+        assert ctx.state["decision"] is True
+
+    @pytest.mark.asyncio
     async def test_function_with_interpolated_args(self):
         """Test function execution with interpolated arguments."""
         from aragora.workflow.nodes.task import TaskStep, register_task_handler, _task_handlers

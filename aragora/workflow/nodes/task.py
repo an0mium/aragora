@@ -110,14 +110,39 @@ class TaskStep(BaseStep):
 
     async def _execute_function(self, config: dict[str, Any], context: WorkflowContext) -> Any:
         """Execute a registered function handler."""
-        handler_name = config.get("handler", "")
+        # Support legacy configs that used "action" instead of "handler".
+        handler_name = (config.get("handler") or config.get("action") or "").strip()
         handler = get_task_handler(handler_name)
 
         if not handler:
             return {"success": False, "error": f"Handler not found: {handler_name}"}
 
         # Build arguments from config
-        args = self._interpolate_dict(config.get("args", {}), context)
+        raw_args = config.get("args", {})
+        args = self._interpolate_dict(raw_args, context) if isinstance(raw_args, dict) else {}
+
+        # Backward-compat argument mapping for action-style task definitions.
+        if handler_name == "log":
+            if "message" not in args and "message" in config:
+                args["message"] = self._interpolate_text(str(config.get("message", "")), context)
+            if "level" not in args and "level" in config:
+                args["level"] = config.get("level")
+        elif handler_name == "set_state":
+            if "state" not in args and isinstance(config.get("state"), dict):
+                args["state"] = self._interpolate_dict(config["state"], context)
+            if "key" not in args and "key" in config:
+                args["key"] = config.get("key")
+            if "value" not in args and "value" in config:
+                value = config.get("value")
+                if isinstance(value, str):
+                    args["value"] = self._interpolate_text(value, context)
+                elif isinstance(value, dict):
+                    args["value"] = self._interpolate_dict(value, context)
+                else:
+                    args["value"] = value
+        elif handler_name == "delay":
+            if "seconds" not in args and "delay_seconds" in config:
+                args["seconds"] = config.get("delay_seconds")
 
         # Execute handler
         if asyncio.iscoroutinefunction(handler):
@@ -384,11 +409,20 @@ def _handler_log(
 
 
 def _handler_set_state(
-    context: WorkflowContext, key: str = "", value: Any = None
+    context: WorkflowContext,
+    key: str = "",
+    value: Any = None,
+    state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Set a state value."""
-    context.set_state(key, value)
-    return {"key": key, "value": value}
+    """Set one or more state values."""
+    if isinstance(state, dict):
+        for state_key, state_value in state.items():
+            context.set_state(str(state_key), state_value)
+        return {"state": state, **state}
+
+    key_str = str(key) if key is not None else ""
+    context.set_state(key_str, value)
+    return {"key": key_str, "value": value, key_str: value}
 
 
 async def _handler_delay(context: WorkflowContext, seconds: float = 1.0) -> dict[str, Any]:
