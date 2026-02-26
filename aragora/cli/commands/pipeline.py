@@ -17,10 +17,150 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from difflib import SequenceMatcher
 import json
 import logging
+import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
+_GOAL_PRIORITY_ORDER = {
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+}
+
+
+def _goal_priority_value(goal: Any) -> int:
+    """Map goal priority text to sortable rank (lower is higher priority)."""
+    priority = str(getattr(goal, "priority", "medium")).lower()
+    return _GOAL_PRIORITY_ORDER.get(priority, _GOAL_PRIORITY_ORDER["medium"])
+
+
+def _normalize_objective_text(value: str) -> str:
+    """Normalize text for loose duplication checks."""
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", value.lower())).strip()
+
+
+def _extract_pipeline_objectives(
+    pipeline_result: Any | None,
+    max_goals: int,
+) -> list[str]:
+    """Extract ranked objective strings from an idea-to-execution PipelineResult."""
+    if pipeline_result is None:
+        return []
+
+    goal_graph = getattr(pipeline_result, "goal_graph", None)
+    goals = getattr(goal_graph, "goals", None)
+    if not goals:
+        return []
+
+    ranked = sorted(
+        goals,
+        key=lambda g: (
+            _goal_priority_value(g),
+            -float(getattr(g, "confidence", 0.0) or 0.0),
+            str(getattr(g, "title", "")),
+        ),
+    )
+
+    objectives: list[str] = []
+    for g in ranked[: max(1, max_goals)]:
+        title = str(getattr(g, "title", "")).strip()
+        description = str(getattr(g, "description", "")).strip()
+
+        if title and description:
+            normalized_title = _normalize_objective_text(title)
+            normalized_description = _normalize_objective_text(description)
+            if (
+                normalized_title
+                and normalized_description
+                and (
+                    normalized_title in normalized_description
+                    or normalized_description in normalized_title
+                    or SequenceMatcher(None, normalized_title, normalized_description).ratio()
+                    >= 0.7
+                )
+            ):
+                objectives.append(description)
+            else:
+                objectives.append(f"{title}: {description}")
+        elif description:
+            objectives.append(description)
+        elif title:
+            objectives.append(title)
+
+    return objectives
+
+
+def _run_self_improve_handoff(
+    objectives: list[str],
+    *,
+    dry_run: bool,
+    require_approval: bool,
+    budget_limit: float | None,
+    quick_mode: bool,
+    max_parallel: int,
+) -> None:
+    """Run extracted pipeline objectives through the self-improvement engine."""
+    try:
+        from aragora.nomic.self_improve import SelfImproveConfig, SelfImprovePipeline
+    except ImportError:
+        print("\nSelfImprovePipeline unavailable.")
+        print('Install nomic dependencies or use: aragora self-improve "<objective>"')
+        return
+
+    default_budget = SelfImproveConfig().budget_limit_usd
+    effective_budget = budget_limit if budget_limit is not None else default_budget
+
+    for i, objective in enumerate(objectives, 1):
+        print("-" * 60)
+        print(f"SELF-IMPROVE OBJECTIVE {i}/{len(objectives)}")
+        print("-" * 60)
+        print(f"Objective: {objective}")
+        print(f"Mode: {'DRY RUN' if dry_run else 'EXECUTE'}")
+        print(f"Quick mode: {'ON' if quick_mode else 'OFF'}")
+        print(f"Max parallel: {max_parallel}")
+        print(f"Budget limit: ${effective_budget:.2f}")
+        print()
+
+        cfg = SelfImproveConfig(
+            quick_mode=quick_mode,
+            scan_mode=False,  # Pipeline already produced explicit objectives.
+            max_goals=1,
+            max_parallel=max_parallel,
+            budget_limit_usd=effective_budget,
+            require_approval=require_approval,
+            autonomous=not require_approval,
+            auto_mode=not require_approval,
+        )
+        runner = SelfImprovePipeline(config=cfg)
+
+        if dry_run:
+            plan = asyncio.run(runner.dry_run(objective=objective))
+            goals_count = len(plan.get("goals", []))
+            subtasks_count = len(plan.get("subtasks", []))
+            print(f"Planned goals: {goals_count}")
+            print(f"Planned subtasks: {subtasks_count}")
+            if goals_count:
+                print("Top goal:")
+                top = plan["goals"][0]
+                print(f"  - {top.get('description', top.get('goal', 'unknown'))}")
+            print()
+            continue
+
+        result = asyncio.run(runner.run(objective=objective))
+        print(f"Cycle: {result.cycle_id}")
+        print(f"Subtasks: {result.subtasks_completed}/{result.subtasks_total} completed")
+        print(f"Failed: {result.subtasks_failed}")
+        print(f"Improvement score: {result.improvement_score:.3f}")
+        print(f"Cost: ${result.total_cost_usd:.4f}")
+        print(f"Duration: {result.duration_seconds:.1f}s")
+        if result.error:
+            print(f"Error: {result.error}")
+        print()
 
 
 def cmd_pipeline(args: argparse.Namespace) -> None:
@@ -179,6 +319,10 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
     dry_run = args.dry_run
     require_approval = args.require_approval
     budget_limit = args.budget_limit
+    execute = getattr(args, "execute", False)
+    max_goals = max(1, int(getattr(args, "max_goals", 1)))
+    quick_mode = bool(getattr(args, "quick_mode", False))
+    max_parallel = max(1, int(getattr(args, "max_parallel", 4)))
 
     print("\n" + "=" * 60)
     print("PIPELINE SELF-IMPROVEMENT")
@@ -190,6 +334,11 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
         print(f"Budget limit: ${budget_limit:.2f}")
     if require_approval:
         print("Approval: Required at gates")
+    print(f"Handoff execute: {'ON' if execute else 'OFF (planning only)'}")
+    if execute:
+        print(f"Handoff max goals: {max_goals}")
+        print(f"Handoff quick mode: {'ON' if quick_mode else 'OFF'}")
+        print(f"Handoff max parallel: {max_parallel}")
     print()
 
     # Step 1: TaskDecomposer analyzes the goal
@@ -264,6 +413,7 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
     if not ideas:
         ideas = [goal]
 
+    pipeline_result = None
     try:
         from aragora.pipeline.idea_to_execution import (
             IdeaToExecutionPipeline,
@@ -273,6 +423,7 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
         _config = PipelineConfig(dry_run=dry_run, enable_receipts=not dry_run)  # noqa: F841
         pipeline = IdeaToExecutionPipeline()
         result = pipeline.from_ideas(ideas)
+        pipeline_result = result
 
         print(f"\nPipeline ID: {result.pipeline_id}")
 
@@ -296,11 +447,44 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
         print("Showing decomposition results only.")
 
     print()
+    objectives = _extract_pipeline_objectives(pipeline_result, max_goals=max_goals)
+    if not objectives:
+        objectives = [goal]
 
-    if dry_run:
-        print("To execute this plan:")
-        print(f'  aragora pipeline self-improve "{goal}"')
+    print("-" * 60)
+    print("STEP 4: HANDOFF TO SELF-IMPROVEMENT ENGINE")
+    print("-" * 60)
+    print("\nSelected objectives:")
+    for i, objective in enumerate(objectives, 1):
+        print(f"  {i}. {objective}")
+    print()
+
+    if not execute:
+        print("Handoff not executed (planning mode).")
+        print("\nTo execute the handoff:")
+        cmd = f'aragora pipeline self-improve "{goal}" --execute'
+        if dry_run:
+            cmd += " --dry-run"
+        if budget_limit is not None:
+            cmd += f" --budget-limit {budget_limit}"
+        if require_approval:
+            cmd += " --require-approval"
+        cmd += f" --max-goals {max_goals}"
+        if quick_mode:
+            cmd += " --quick-mode"
+        cmd += f" --max-parallel {max_parallel}"
+        print(f"  {cmd}")
         print()
+        return
+
+    _run_self_improve_handoff(
+        objectives,
+        dry_run=dry_run,
+        require_approval=require_approval,
+        budget_limit=budget_limit,
+        quick_mode=quick_mode,
+        max_parallel=max_parallel,
+    )
 
 
 def _cmd_pipeline_status(args: argparse.Namespace) -> None:
@@ -408,6 +592,28 @@ Examples:
         type=float,
         default=None,
         help="Maximum budget in USD",
+    )
+    si_parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Run extracted pipeline goals through the self-improvement engine",
+    )
+    si_parser.add_argument(
+        "--max-goals",
+        type=int,
+        default=1,
+        help="Maximum number of extracted goals to hand off (default: 1)",
+    )
+    si_parser.add_argument(
+        "--quick-mode",
+        action="store_true",
+        help="Use quick/heuristic planning mode in self-improvement handoff",
+    )
+    si_parser.add_argument(
+        "--max-parallel",
+        type=int,
+        default=4,
+        help="Maximum parallel subtasks during self-improvement handoff (default: 4)",
     )
 
     # pipeline status
