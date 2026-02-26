@@ -32,6 +32,9 @@ regexes = [
     '''Add private key to \.env''',
     # Discord example application ID
     '''DISCORD_APPLICATION_ID=''',
+    # Provider readiness metadata tuples (env var identifiers + model names)
+    '''"anthropic": \("ANTHROPIC_API_KEY", "claude-opus-4-5-20251101"\),''',
+    '''"mistral": \("MISTRAL_API_KEY", "mistral-large-2512"\),''',
 ]
 paths = [
     '''.*_test\.py$''',
