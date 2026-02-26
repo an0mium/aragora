@@ -3,6 +3,14 @@ set -euo pipefail
 
 # Post-merge release-readiness gate for critical surfaces that have regressed
 # recently: debate orchestration, handler/openclaw, observability, and SDK parity.
+#
+# Deterministic policy:
+# - This gate is hermetic and does not rely on optional external services.
+# - Ignore ambient CI secrets/vars for optional Redis/Google integrations so
+#   unit tests do not make network calls to shared environments.
+
+unset REDIS_URL CACHE_REDIS_URL ARAGORA_REDIS_URL
+unset GOOGLE_CHAT_CREDENTIALS GOOGLE_CHAT_PROJECT_ID
 
 echo "[release-readiness] workflow guardrails"
 python3 scripts/check_branch_mutation_policy.py
