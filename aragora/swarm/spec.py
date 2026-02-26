@@ -40,6 +40,9 @@ class SwarmSpec:
     estimated_complexity: str = "medium"
     requires_approval: bool = False
 
+    # Proactive suggestions made during interrogation
+    proactive_suggestions: list[str] = field(default_factory=list)
+
     # Metadata
     interrogation_turns: int = 0
     user_expertise: str = "non-developer"

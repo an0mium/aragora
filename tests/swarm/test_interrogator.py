@@ -19,7 +19,7 @@ class TestInterrogatorFallback:
     @pytest.mark.asyncio
     async def test_fallback_questions_are_asked(self):
         """When no harness is available, fixed questions are asked."""
-        answers = iter(["answer 1", "answer 2", "answer 3", "answer 4", "answer 5"])
+        answers = iter(["answer 1", "answer 2", "answer 3", "answer 4", "answer 5", "answer 6"])
         output: list[str] = []
 
         config = InterrogatorConfig(fallback_to_fixed_questions=True)
@@ -36,7 +36,7 @@ class TestInterrogatorFallback:
         assert spec.raw_goal == "Make it better"
         assert spec.interrogation_turns > 0
         # Should have asked fallback questions
-        assert any("SWARM COMMANDER" in line for line in output)
+        assert any("figure out" in line for line in output)
 
     @pytest.mark.asyncio
     async def test_spec_has_correct_raw_goal(self):
@@ -71,7 +71,7 @@ class TestInterrogatorFallback:
     @pytest.mark.asyncio
     async def test_empty_answers_are_skipped(self):
         """Empty answers should not contribute to conversation."""
-        answers = iter(["", "", "", "", ""])
+        answers = iter(["", "", "", "", "", ""])
         config = InterrogatorConfig(fallback_to_fixed_questions=True)
         interrogator = SwarmInterrogator(config=config)
 
