@@ -38,6 +38,7 @@ _PROD_ORIGINS: set[str] = {
     "https://live.aragora.ai",
     "https://api.aragora.ai",
     "https://aragora.pages.dev",  # Cloudflare Pages deployment
+    "https://aragora.vercel.app",  # Vercel deployment
 }
 
 # Default allowed origins based on environment
