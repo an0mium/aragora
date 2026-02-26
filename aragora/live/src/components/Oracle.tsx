@@ -189,6 +189,8 @@ function ModeButton({
       style={{
         borderColor: active ? c.border : 'rgba(255,255,255,0.1)',
         boxShadow: active ? `0 0 12px ${c.glow}` : 'none',
+        animation: active ? 'mode-btn-pulse 2s ease-in-out infinite' : 'none',
+        ['--glow-color' as string]: c.glow,
       }}
     >
       <div className="text-2xl mb-2" style={{ filter: active ? `drop-shadow(0 0 10px ${c.css})` : 'none' }}>
@@ -1779,8 +1781,8 @@ export default function Oracle() {
                       </span>
                     </div>
                     <div
-                      className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg"
-                      style={{ color: 'var(--text)', backgroundColor: 'var(--surface)' }}
+                      className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg oracle-message-enter"
+                      style={{ color: 'var(--text)', backgroundColor: 'var(--surface)', textShadow: `0 0 20px ${MODE_COLORS[msg.mode as OracleMode]?.glow || 'rgba(200,100,200,0.1)'}` }}
                     >
                       {msg.content}
                     </div>
@@ -1817,8 +1819,8 @@ export default function Oracle() {
                       </span>
                     </div>
                     <div
-                      className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg"
-                      style={{ color: 'var(--text)', backgroundColor: 'var(--surface)' }}
+                      className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg oracle-message-enter"
+                      style={{ color: 'var(--text)', backgroundColor: 'var(--surface)', textShadow: `0 0 20px ${MODE_COLORS[mode]?.glow || 'rgba(200,100,200,0.1)'}` }}
                     >
                       {oracle.tokens}
                       {(oracle.phase === 'reflex' || oracle.phase === 'deep') && (
@@ -1866,8 +1868,8 @@ export default function Oracle() {
                       </span>
                     </div>
                     <div
-                      className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg"
-                      style={{ color: 'var(--text)', backgroundColor: 'var(--surface)' }}
+                      className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg oracle-message-enter"
+                      style={{ color: 'var(--text)', backgroundColor: 'var(--surface)', textShadow: `0 0 20px ${MODE_COLORS[mode]?.glow || 'rgba(200,100,200,0.1)'}` }}
                     >
                       {oracle.synthesis}
                     </div>

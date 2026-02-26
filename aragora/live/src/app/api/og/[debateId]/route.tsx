@@ -16,6 +16,11 @@ export async function GET(
 ) {
   const { debateId } = await params;
 
+  // Validate debateId to prevent path traversal in server-side fetch
+  if (!/^[a-zA-Z0-9_-]+$/.test(debateId)) {
+    return new Response('Invalid debate ID', { status: 400 });
+  }
+
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
 
   let topic = 'AI Multi-Model Debate';
