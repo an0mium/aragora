@@ -406,7 +406,7 @@ Before final removal:
 ### Deprecated
 
 - `aragora.crawlers` module - Use `aragora.connectors` instead. Will be removed in v2.3.0.
-  See [Migration Guide](docs/CRAWLERS_MIGRATION.md).
+  See migration notes in the [Deprecation Policy](../reference/DEPRECATION_POLICY.md).
 
 - `ARAGORA_REQUIRE_DISTRIBUTED_STATE` environment variable - Use `ARAGORA_REQUIRE_DISTRIBUTED`.
   Will be removed in v2.3.0.
@@ -427,7 +427,7 @@ Include deprecation section in GitHub releases:
 - **ARAGORA_REQUIRE_DISTRIBUTED_STATE**: Use `ARAGORA_REQUIRE_DISTRIBUTED`
 - **GET /api/debates/list**: Use `GET /api/debates`
 
-See [Deprecation Policy](docs/DEPRECATION_POLICY.md) for migration guides.
+See [Deprecation Policy](docs/reference/DEPRECATION_POLICY.md) for migration guides.
 ```
 
 ---

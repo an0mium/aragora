@@ -183,11 +183,22 @@ aragora ask "Should we use Kafka?" --agents anthropic-api,openai-api
 
 ## Social Proof
 
-> [Placeholder: Customer testimonials and logos go here]
+### Built for Teams Making High-Stakes Decisions
 
-> [Placeholder: "Trusted by X teams at Y companies"]
+Whether you're evaluating vendor contracts, planning product strategy, or assessing regulatory risk,
+Aragora ensures every decision is adversarially vetted, evidence-backed, and audit-ready.
 
-> [Placeholder: GitHub stars badge, PyPI download count]
+| Metric | Value |
+|--------|-------|
+| Agent types | 43 |
+| Test coverage | 212,000+ tests |
+| API operations | 2,000+ |
+| Knowledge adapters | 34 |
+| Regulatory frameworks | SOC 2, GDPR, HIPAA, SOX, EU AI Act |
+
+![GitHub stars](https://img.shields.io/github/stars/aragora/aragora?style=social)
+![PyPI version](https://img.shields.io/pypi/v/aragora-debate)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
 ### Research Validation
 

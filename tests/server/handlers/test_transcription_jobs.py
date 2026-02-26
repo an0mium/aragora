@@ -103,7 +103,10 @@ def reset_state():
 
             _transcription_jobs.clear()
             reset_transcription_circuit_breaker()
-            yield
+            # Prevent LazyStoreFactory from creating real asyncpg connections
+            with patch("aragora.server.handlers.transcription._job_store") as mock_store:
+                mock_store.get.return_value = None
+                yield
             _transcription_jobs.clear()
 
 
