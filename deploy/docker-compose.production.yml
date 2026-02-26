@@ -101,6 +101,10 @@ services:
       # Redis
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       ARAGORA_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      ARAGORA_REDIS_MODE: ${ARAGORA_REDIS_MODE:-standalone}
+      ARAGORA_REDIS_SENTINEL_HOSTS: ${ARAGORA_REDIS_SENTINEL_HOSTS:-}
+      ARAGORA_REDIS_SENTINEL_MASTER: ${ARAGORA_REDIS_SENTINEL_MASTER:-mymaster}
+      ARAGORA_RATE_LIMIT_BACKEND: ${ARAGORA_RATE_LIMIT_BACKEND:-redis}
       # AI Providers
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -110,8 +114,11 @@ services:
       XAI_API_KEY: ${XAI_API_KEY:-}
       # Security
       ARAGORA_JWT_SECRET: ${ARAGORA_JWT_SECRET}
+      ARAGORA_ENCRYPTION_KEY: ${ARAGORA_ENCRYPTION_KEY}
       ARAGORA_API_TOKEN: ${ARAGORA_API_TOKEN:-}
       ARAGORA_RECEIPT_SIGNING_KEY: ${ARAGORA_RECEIPT_SIGNING_KEY:-}
+      ARAGORA_STRICT_DEPLOYMENT: ${ARAGORA_STRICT_DEPLOYMENT:-true}
+      ARAGORA_SECRETS_STRICT: ${ARAGORA_SECRETS_STRICT:-false}
       ARAGORA_ALLOWED_ORIGINS: ${ARAGORA_ALLOWED_ORIGINS:-}
       ARAGORA_TRUSTED_PROXIES: ${ARAGORA_TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
       ARAGORA_COOKIE_SECURE: ${ARAGORA_COOKIE_SECURE:-true}
@@ -138,7 +145,7 @@ services:
       - aragora-logs:/app/logs
       - ../deploy/scripts/docker-entrypoint.sh:/app/scripts/docker-entrypoint.sh:ro
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
