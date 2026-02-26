@@ -225,6 +225,57 @@ def _resolve_runtime_base_url(
     app_service: str = "aragora",
     app_port: int = 8080,
 ) -> str:
+    def _resolve_published_url(raw_output: str) -> str | None:
+        lines = [line.strip() for line in raw_output.splitlines() if line.strip()]
+        if not lines:
+            return None
+
+        endpoint = lines[0]
+        host = ""
+        port: int | None = None
+
+        # Examples from `docker compose port`:
+        # - 0.0.0.0:8080
+        # - [::]:8080
+        # - :::8080
+        # - tcp://0.0.0.0:8080
+        if endpoint.startswith("tcp://"):
+            parsed_endpoint = urllib.parse.urlparse(endpoint)
+            host = parsed_endpoint.hostname or ""
+            port = parsed_endpoint.port
+        elif endpoint.startswith(":::"):
+            host = "::"
+            try:
+                port = int(endpoint[3:])
+            except ValueError:
+                return None
+        elif endpoint.startswith("[") and "]:" in endpoint:
+            host, port_str = endpoint[1:].split("]:", 1)
+            try:
+                port = int(port_str)
+            except ValueError:
+                return None
+        elif ":" in endpoint:
+            host, port_str = endpoint.rsplit(":", 1)
+            try:
+                port = int(port_str)
+            except ValueError:
+                return None
+        else:
+            return None
+
+        if port is None:
+            return None
+
+        parsed_requested = urllib.parse.urlparse(requested_base_url)
+        scheme = parsed_requested.scheme or "http"
+        requested_host = parsed_requested.hostname or "127.0.0.1"
+
+        # `docker compose port` may return wildcard hosts; keep the
+        # caller-selected loopback host for local probing.
+        normalized_host = requested_host if host in {"", "0.0.0.0", "::"} else host
+        return f"{scheme}://{normalized_host}:{port}"
+
     parsed = urllib.parse.urlparse(requested_base_url)
     host = (parsed.hostname or "").lower()
     if host not in {"127.0.0.1", "localhost", "::1"}:
@@ -236,6 +287,14 @@ def _resolve_runtime_base_url(
 
     port_result = _compose(base_cmd, ["port", app_service, str(app_port)], check=False)
     if port_result.returncode == 0 and port_result.stdout.strip():
+        published_url = _resolve_published_url(port_result.stdout)
+        if published_url:
+            if published_url != requested_base_url:
+                print(
+                    f"[info] resolved published endpoint for {app_service}:{app_port} -> "
+                    f"{published_url}"
+                )
+            return published_url
         return requested_base_url
 
     try:

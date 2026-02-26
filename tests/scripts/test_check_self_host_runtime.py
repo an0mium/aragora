@@ -135,13 +135,31 @@ def test_resolve_runtime_base_url_uses_container_ip_when_no_host_port() -> None:
     assert resolved == "http://172.18.0.9:8080"
 
 
-def test_resolve_runtime_base_url_keeps_requested_when_port_is_published() -> None:
+def test_resolve_runtime_base_url_uses_published_host_port() -> None:
+    module = _load_script_module()
+
+    with patch.object(module, "_compose", return_value=_proc("0.0.0.0:18080\n")):
+        resolved = module._resolve_runtime_base_url(["docker", "compose"], "http://127.0.0.1:8080")
+
+    assert resolved == "http://127.0.0.1:18080"
+
+
+def test_resolve_runtime_base_url_keeps_requested_when_same_port_is_published() -> None:
     module = _load_script_module()
 
     with patch.object(module, "_compose", return_value=_proc("0.0.0.0:8080\n")):
         resolved = module._resolve_runtime_base_url(["docker", "compose"], "http://127.0.0.1:8080")
 
     assert resolved == "http://127.0.0.1:8080"
+
+
+def test_resolve_runtime_base_url_parses_ipv6_published_port() -> None:
+    module = _load_script_module()
+
+    with patch.object(module, "_compose", return_value=_proc("[::]:18081\n")):
+        resolved = module._resolve_runtime_base_url(["docker", "compose"], "http://localhost:8080")
+
+    assert resolved == "http://localhost:18081"
 
 
 def test_resolve_runtime_base_url_keeps_requested_when_resolution_fails() -> None:
