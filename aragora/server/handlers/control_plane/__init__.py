@@ -331,6 +331,22 @@ class ControlPlaneHandler(
         if path == "/api/v1/coordination/executions":
             return self._handle_list_executions(query_params)
 
+        # /api/v1/coordination/fleet/status
+        if path == "/api/v1/coordination/fleet/status":
+            return self._handle_fleet_status(query_params)
+
+        # /api/v1/coordination/fleet/logs
+        if path == "/api/v1/coordination/fleet/logs":
+            return self._handle_fleet_logs(query_params)
+
+        # /api/v1/coordination/fleet/claims
+        if path == "/api/v1/coordination/fleet/claims":
+            return self._handle_fleet_claims(query_params)
+
+        # /api/v1/coordination/fleet/merge-queue
+        if path == "/api/v1/coordination/fleet/merge-queue":
+            return self._handle_fleet_merge_queue(query_params)
+
         # /api/v1/coordination/consent
         if path == "/api/v1/coordination/consent":
             return self._handle_list_consents(query_params)
@@ -459,6 +475,27 @@ class ControlPlaneHandler(
             if err:
                 return err
             return self._handle_grant_consent(body)
+
+        # /api/v1/coordination/fleet/claims
+        if path == "/api/v1/coordination/fleet/claims":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_fleet_claim(body)
+
+        # /api/v1/coordination/fleet/claims/release
+        if path == "/api/v1/coordination/fleet/claims/release":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_fleet_release(body)
+
+        # /api/v1/coordination/fleet/merge-queue
+        if path == "/api/v1/coordination/fleet/merge-queue":
+            body, err = self.read_json_body_validated(handler)
+            if err:
+                return err
+            return self._handle_fleet_merge_enqueue(body)
 
         # /api/v1/coordination/approve/:id
         if path.startswith("/api/v1/coordination/approve/"):

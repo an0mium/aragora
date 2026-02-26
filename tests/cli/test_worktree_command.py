@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from aragora.cli.commands.worktree import (
+    _cmd_worktree_fleet_claim,
+    _cmd_worktree_fleet_queue_add,
+    _cmd_worktree_fleet_queue_list,
+    _cmd_worktree_fleet_release,
+    _cmd_worktree_fleet_status,
     _cmd_worktree_autopilot,
     add_worktree_parser,
     cmd_worktree,
@@ -37,6 +43,15 @@ def _autopilot_args(**overrides: object) -> argparse.Namespace:
         "delete_branches": None,
         "json": False,
         "print_path": False,
+    }
+    base.update(overrides)
+    return argparse.Namespace(**base)
+
+
+def _fleet_args(**overrides: object) -> argparse.Namespace:
+    base = {
+        "tail": 500,
+        "json": False,
     }
     base.update(overrides)
     return argparse.Namespace(**base)
@@ -98,6 +113,32 @@ class TestWorktreeParser:
         assert args.base == "main"
         assert args.auto_base == "release"
 
+    def test_fleet_status_parse_defaults(self):
+        args = _parser().parse_args(["worktree", "fleet-status"])
+        assert args.command == "worktree"
+        assert args.wt_action == "fleet-status"
+        assert args.tail == 500
+        assert args.json is False
+
+    def test_fleet_claim_parse(self):
+        args = _parser().parse_args(
+            [
+                "worktree",
+                "fleet-claim",
+                "--session-id",
+                "s-1",
+                "--paths",
+                "a.py",
+                "b.py",
+                "--mode",
+                "shared",
+            ]
+        )
+        assert args.wt_action == "fleet-claim"
+        assert args.session_id == "s-1"
+        assert args.paths == ["a.py", "b.py"]
+        assert args.mode == "shared"
+
 
 class TestWorktreeDispatch:
     @patch("aragora.cli.commands.worktree._cmd_worktree_autopilot")
@@ -126,6 +167,19 @@ class TestWorktreeDispatch:
         cmd_worktree(args)
         call = mock_autopilot.call_args
         assert call.kwargs["base_branch"] == "release"
+
+    @patch("aragora.cli.commands.worktree._cmd_worktree_fleet_status")
+    def test_dispatches_fleet_status_before_branch_coordinator_import(self, mock_fleet):
+        args = argparse.Namespace(
+            wt_action="fleet-status",
+            repo="/tmp/repo",
+            base="main",
+        )
+        cmd_worktree(args)
+        mock_fleet.assert_called_once()
+        call = mock_fleet.call_args
+        assert call.kwargs["repo_path"] == Path("/tmp/repo").resolve()
+        assert call.kwargs["base_branch"] == "main"
 
 
 class TestWorktreeAutopilot:
@@ -180,3 +234,161 @@ class TestWorktreeAutopilot:
         captured = capsys.readouterr()
         assert "boom" in captured.err
         assert "Autopilot command failed with exit code 2" in captured.out
+
+
+class TestWorktreeFleetStatus:
+    @patch("aragora.cli.commands.worktree.FleetCoordinationStore")
+    @patch("aragora.cli.commands.worktree.build_fleet_rows")
+    def test_fleet_status_prints_tail_and_metadata(
+        self, mock_rows, mock_store_cls, capsys, tmp_path: Path
+    ):
+        mock_rows.return_value = [
+            {
+                "session_id": "session-a",
+                "path": str(tmp_path),
+                "branch": "codex/test-session",
+                "detached": False,
+                "has_lock": True,
+                "pid": 123,
+                "pid_alive": True,
+                "agent": "codex",
+                "mode": "codex",
+                "dirty_files": 2,
+                "ahead": 1,
+                "behind": 0,
+                "last_activity": "2026-02-26T00:00:00+00:00",
+                "orchestration_pattern": "crewai",
+                "log_path": str(tmp_path / ".codex_session.log"),
+                "log_tail": ["line-2", "line-3"],
+            }
+        ]
+        store = MagicMock()
+        store.list_claims.return_value = [{"session_id": "session-a", "path": "aragora/a.py"}]
+        store.list_merge_queue.return_value = [
+            {"session_id": "session-a", "branch": "codex/test-session"}
+        ]
+        mock_store_cls.return_value = store
+
+        _cmd_worktree_fleet_status(
+            _fleet_args(tail=2),
+            repo_path=tmp_path,
+            base_branch="main",
+        )
+
+        out = capsys.readouterr().out
+        assert "[active] codex/test-session" in out
+        assert "dirty_files: 2 ahead/behind(main): +1/-0" in out
+        assert "orchestrator: crewai" in out
+        assert "claimed_paths(1): aragora/a.py" in out
+        assert "log_tail(last 2 lines):" in out
+        assert "line-2" in out
+        assert "line-3" in out
+
+    @patch("aragora.cli.commands.worktree.FleetCoordinationStore")
+    @patch("aragora.cli.commands.worktree.build_fleet_rows")
+    def test_fleet_status_json_output(self, mock_rows, mock_store_cls, capsys, tmp_path: Path):
+        mock_rows.return_value = [
+            {
+                "session_id": "session-z",
+                "path": str(tmp_path / "wt"),
+                "branch": None,
+                "detached": True,
+                "has_lock": False,
+                "pid": None,
+                "pid_alive": False,
+                "agent": "",
+                "mode": "",
+                "dirty_files": 0,
+                "ahead": None,
+                "behind": None,
+                "last_activity": None,
+                "orchestration_pattern": "generic",
+                "log_path": None,
+                "log_tail": [],
+            }
+        ]
+        store = MagicMock()
+        store.list_claims.return_value = []
+        store.list_merge_queue.return_value = []
+        mock_store_cls.return_value = store
+
+        _cmd_worktree_fleet_status(
+            _fleet_args(json=True, tail=0),
+            repo_path=tmp_path,
+            base_branch="main",
+        )
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["repo_root"] == str(tmp_path)
+        assert payload["tail"] == 0
+        assert len(payload["worktrees"]) == 1
+        assert payload["worktrees"][0]["session_id"] == "session-z"
+        assert payload["claims"] == []
+        assert payload["merge_queue"] == []
+
+
+class TestWorktreeFleetOwnership:
+    @patch("aragora.cli.commands.worktree.FleetCoordinationStore")
+    def test_fleet_claim_cli(self, mock_store_cls, capsys, tmp_path: Path):
+        store = MagicMock()
+        store.claim_paths.return_value = {
+            "session_id": "session-a",
+            "claimed": ["aragora/a.py"],
+            "conflicts": [],
+        }
+        mock_store_cls.return_value = store
+
+        args = argparse.Namespace(
+            session_id="session-a",
+            paths=["aragora/a.py"],
+            mode="exclusive",
+            branch="codex/session-a",
+            json=False,
+        )
+        _cmd_worktree_fleet_claim(args, repo_path=tmp_path)
+        out = capsys.readouterr().out
+        assert "claimed=1 conflicts=0" in out
+
+    @patch("aragora.cli.commands.worktree.FleetCoordinationStore")
+    def test_fleet_release_cli(self, mock_store_cls, capsys, tmp_path: Path):
+        store = MagicMock()
+        store.release_paths.return_value = {"session_id": "session-a", "released": 2}
+        mock_store_cls.return_value = store
+
+        args = argparse.Namespace(session_id="session-a", paths=None, json=False)
+        _cmd_worktree_fleet_release(args, repo_path=tmp_path)
+        out = capsys.readouterr().out
+        assert "released=2" in out
+
+    @patch("aragora.cli.commands.worktree.FleetCoordinationStore")
+    def test_fleet_queue_add_and_list_cli(self, mock_store_cls, capsys, tmp_path: Path):
+        store = MagicMock()
+        store.enqueue_merge.return_value = {
+            "duplicate": False,
+            "item": {"id": "mq-1", "branch": "codex/x"},
+        }
+        store.list_merge_queue.return_value = [
+            {
+                "id": "mq-1",
+                "status": "queued",
+                "priority": 60,
+                "branch": "codex/x",
+                "session_id": "session-a",
+            }
+        ]
+        mock_store_cls.return_value = store
+
+        add_args = argparse.Namespace(
+            session_id="session-a",
+            branch="codex/x",
+            title="",
+            priority=60,
+            json=False,
+        )
+        _cmd_worktree_fleet_queue_add(add_args, repo_path=tmp_path)
+        out = capsys.readouterr().out
+        assert "queued: codex/x [mq-1]" in out
+
+        list_args = argparse.Namespace(status="", json=False)
+        _cmd_worktree_fleet_queue_list(list_args, repo_path=tmp_path)
+        out = capsys.readouterr().out
+        assert "Merge queue: 1" in out

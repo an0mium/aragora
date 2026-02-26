@@ -31,6 +31,7 @@ Operational runbooks for responding to Aragora alerts and incidents.
 | Backup Automation | [RUNBOOK_BACKUP_AUTOMATION.md](./RUNBOOK_BACKUP_AUTOMATION.md) | Automated backup scheduling and validation |
 | Redis Failover | [redis-failover.md](./redis-failover.md) | Redis HA and recovery procedures |
 | Multi-Region | [RUNBOOK_MULTI_REGION_SETUP.md](./RUNBOOK_MULTI_REGION_SETUP.md) | Multi-region deployment and failover |
+| Fleet Coordination | [RUNBOOK_FLEET_COORDINATION.md](./RUNBOOK_FLEET_COORDINATION.md) | Multi-agent worktree ownership and merge queue policy |
 
 ## Incident Severity Levels
 

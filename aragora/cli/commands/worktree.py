@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -24,6 +25,10 @@ from aragora.worktree import (
     AutopilotRequest,
     resolve_repo_root,
     run_autopilot,
+)
+from aragora.worktree.fleet import (
+    FleetCoordinationStore,
+    build_fleet_rows,
 )
 
 
@@ -89,6 +94,66 @@ Workflow:
     # cleanup
     wt_sub.add_parser("cleanup", help="Clean up merged worktrees")
 
+    # fleet status
+    fleet_p = wt_sub.add_parser(
+        "fleet-status",
+        help="Show codex/claude session status and recent logs across worktrees",
+    )
+    fleet_p.add_argument(
+        "--tail",
+        type=int,
+        default=500,
+        help="Log lines to show per worktree (default: 500)",
+    )
+    fleet_p.add_argument("--json", action="store_true", help="Emit JSON output")
+
+    # fleet claims
+    claims_p = wt_sub.add_parser(
+        "fleet-claims",
+        help="List file ownership claims across active sessions",
+    )
+    claims_p.add_argument("--json", action="store_true", help="Emit JSON output")
+
+    claim_p = wt_sub.add_parser(
+        "fleet-claim",
+        help="Claim file ownership for a session to avoid collision",
+    )
+    claim_p.add_argument("--session-id", required=True, help="Session ID (from fleet-status)")
+    claim_p.add_argument("--paths", nargs="+", required=True, help="File paths to claim")
+    claim_p.add_argument("--branch", default="", help="Branch associated with the claim")
+    claim_p.add_argument(
+        "--mode",
+        choices=["exclusive", "shared"],
+        default="exclusive",
+        help="Claim mode (default: exclusive)",
+    )
+    claim_p.add_argument("--json", action="store_true", help="Emit JSON output")
+
+    release_p = wt_sub.add_parser(
+        "fleet-release",
+        help="Release file ownership claims for a session",
+    )
+    release_p.add_argument("--session-id", required=True, help="Session ID (from fleet-status)")
+    release_p.add_argument("--paths", nargs="*", default=None, help="Optional subset to release")
+    release_p.add_argument("--json", action="store_true", help="Emit JSON output")
+
+    queue_add_p = wt_sub.add_parser(
+        "fleet-queue-add",
+        help="Enqueue a branch in merge queue",
+    )
+    queue_add_p.add_argument("--session-id", required=True, help="Session ID (from fleet-status)")
+    queue_add_p.add_argument("--branch", required=True, help="Branch to enqueue")
+    queue_add_p.add_argument("--title", default="", help="Optional merge item title")
+    queue_add_p.add_argument("--priority", type=int, default=50, help="Priority 0-100")
+    queue_add_p.add_argument("--json", action="store_true", help="Emit JSON output")
+
+    queue_list_p = wt_sub.add_parser(
+        "fleet-queue-list",
+        help="List merge queue items",
+    )
+    queue_list_p.add_argument("--status", default="", help="Filter by queue status")
+    queue_list_p.add_argument("--json", action="store_true", help="Emit JSON output")
+
     # autopilot
     auto_p = wt_sub.add_parser(
         "autopilot",
@@ -153,7 +218,10 @@ def cmd_worktree(args: argparse.Namespace) -> None:
     """Dispatch worktree subcommand."""
     action = getattr(args, "wt_action", None)
     if not action:
-        print("Usage: aragora worktree {create|list|merge|merge-all|conflicts|cleanup|autopilot}")
+        print(
+            "Usage: aragora worktree "
+            "{create|list|merge|merge-all|conflicts|cleanup|fleet-status|fleet-claims|fleet-claim|fleet-release|fleet-queue-add|fleet-queue-list|autopilot}"
+        )
         print("Run 'aragora worktree --help' for details.")
         return
 
@@ -164,6 +232,24 @@ def cmd_worktree(args: argparse.Namespace) -> None:
     if action == "autopilot":
         base_branch = getattr(args, "auto_base", None) or base_branch
         _cmd_worktree_autopilot(args, repo_path=repo_root, base_branch=base_branch)
+        return
+    if action == "fleet-status":
+        _cmd_worktree_fleet_status(args, repo_path=repo_root, base_branch=base_branch)
+        return
+    if action == "fleet-claims":
+        _cmd_worktree_fleet_claims(args, repo_path=repo_root)
+        return
+    if action == "fleet-claim":
+        _cmd_worktree_fleet_claim(args, repo_path=repo_root)
+        return
+    if action == "fleet-release":
+        _cmd_worktree_fleet_release(args, repo_path=repo_root)
+        return
+    if action == "fleet-queue-add":
+        _cmd_worktree_fleet_queue_add(args, repo_path=repo_root)
+        return
+    if action == "fleet-queue-list":
+        _cmd_worktree_fleet_queue_list(args, repo_path=repo_root)
         return
 
     from aragora.nomic.branch_coordinator import (
@@ -309,6 +395,168 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         deleted = coordinator.cleanup_branches()
         removed = coordinator.cleanup_worktrees()
         print(f"Deleted {deleted} merged branch(es), removed {removed} worktree(s).")
+
+
+def _cmd_worktree_fleet_status(
+    args: argparse.Namespace, *, repo_path: Path, base_branch: str
+) -> None:
+    """Show active session state and recent logs across all git worktrees."""
+    tail_count = max(0, int(getattr(args, "tail", 500)))
+    rows = build_fleet_rows(repo_path, base_branch=base_branch, tail=tail_count)
+    store = FleetCoordinationStore(repo_path)
+    claims = store.list_claims()
+    queue = store.list_merge_queue()
+    claims_by_session: dict[str, list[str]] = {}
+    for claim in claims:
+        sid = str(claim.get("session_id", "")).strip()
+        if not sid:
+            continue
+        claims_by_session.setdefault(sid, []).append(str(claim.get("path", "")))
+    queue_by_session: dict[str, list[str]] = {}
+    for item in queue:
+        sid = str(item.get("session_id", "")).strip()
+        if not sid:
+            continue
+        queue_by_session.setdefault(sid, []).append(str(item.get("branch", "")))
+    for row in rows:
+        session_id = str(row.get("session_id", ""))
+        row["claimed_paths"] = sorted(claims_by_session.get(session_id, []))
+        row["queued_branches"] = sorted(queue_by_session.get(session_id, []))
+
+    if getattr(args, "json", False):
+        payload = {
+            "repo_root": str(repo_path),
+            "base_branch": base_branch,
+            "tail": tail_count,
+            "worktrees": rows,
+            "claims": claims,
+            "merge_queue": queue,
+        }
+        print(json.dumps(payload, indent=2))
+        return
+
+    print(f"Fleet status: {len(rows)} worktree(s)")
+    if not rows:
+        return
+
+    for row in rows:
+        pid_alive = bool(row["pid_alive"])
+        has_lock = bool(row["has_lock"])
+        status = "active" if has_lock and pid_alive else ("stale_lock" if has_lock else "idle")
+        ahead = row["ahead"]
+        behind = row["behind"]
+        ahead_behind = "?"
+        if isinstance(ahead, int) and isinstance(behind, int):
+            ahead_behind = f"+{ahead}/-{behind}"
+
+        print("")
+        print(f"[{status}] {row['branch']}")
+        print(f"  path: {row['path']}")
+        print(f"  agent: {row.get('agent') or 'n/a'} mode: {row.get('mode') or 'n/a'}")
+        print(f"  pid: {row.get('pid') or 'n/a'} alive: {pid_alive}")
+        print(f"  dirty_files: {row['dirty_files']} ahead/behind({base_branch}): {ahead_behind}")
+        print(f"  orchestrator: {row.get('orchestration_pattern') or 'generic'}")
+        print(f"  last_activity: {row.get('last_activity') or 'n/a'}")
+        claimed_paths = row.get("claimed_paths")
+        if isinstance(claimed_paths, list) and claimed_paths:
+            print(f"  claimed_paths({len(claimed_paths)}): {', '.join(claimed_paths[:8])}")
+        queued_branches = row.get("queued_branches")
+        if isinstance(queued_branches, list) and queued_branches:
+            print(f"  merge_queue({len(queued_branches)}): {', '.join(queued_branches)}")
+        if row.get("log_path"):
+            print(f"  log: {row['log_path']}")
+            tail_lines = row["log_tail"]
+            if isinstance(tail_lines, list) and tail_lines:
+                print(f"  log_tail(last {tail_count} lines):")
+                for line in tail_lines:
+                    print(f"    {line}")
+            else:
+                print("  log_tail: (empty)")
+        else:
+            print("  log: none")
+
+
+def _cmd_worktree_fleet_claims(args: argparse.Namespace, *, repo_path: Path) -> None:
+    """List ownership claims."""
+    store = FleetCoordinationStore(repo_path)
+    claims = store.list_claims()
+    if getattr(args, "json", False):
+        print(json.dumps({"repo_root": str(repo_path), "claims": claims}, indent=2))
+        return
+    print(f"Fleet claims: {len(claims)}")
+    for claim in claims:
+        print(
+            f"  {claim.get('session_id', 'n/a')} -> {claim.get('path', '')} "
+            f"[{claim.get('mode', 'exclusive')}]"
+        )
+
+
+def _cmd_worktree_fleet_claim(args: argparse.Namespace, *, repo_path: Path) -> None:
+    """Claim ownership of files for a session."""
+    store = FleetCoordinationStore(repo_path)
+    result = store.claim_paths(
+        session_id=str(args.session_id),
+        paths=[str(path) for path in args.paths],
+        branch=str(getattr(args, "branch", "") or ""),
+        mode=str(args.mode),
+    )
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2))
+        return
+    print(f"claimed={len(result.get('claimed', []))} conflicts={len(result.get('conflicts', []))}")
+    for path in result.get("claimed", []):
+        print(f"  claimed: {path}")
+    for conflict in result.get("conflicts", []):
+        owner = conflict.get("session_id", "unknown")
+        path = conflict.get("path", "")
+        print(f"  conflict: {path} (owned by {owner})")
+
+
+def _cmd_worktree_fleet_release(args: argparse.Namespace, *, repo_path: Path) -> None:
+    """Release ownership claims for a session."""
+    store = FleetCoordinationStore(repo_path)
+    paths = [str(path) for path in args.paths] if args.paths else None
+    result = store.release_paths(session_id=str(args.session_id), paths=paths)
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2))
+        return
+    print(f"released={result.get('released', 0)} session={result.get('session_id', '')}")
+
+
+def _cmd_worktree_fleet_queue_add(args: argparse.Namespace, *, repo_path: Path) -> None:
+    """Enqueue merge work for a branch."""
+    store = FleetCoordinationStore(repo_path)
+    result = store.enqueue_merge(
+        session_id=str(args.session_id),
+        branch=str(args.branch),
+        priority=int(getattr(args, "priority", 50)),
+        title=str(getattr(args, "title", "")),
+    )
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2))
+        return
+    item = result.get("item") or {}
+    if result.get("duplicate"):
+        print(f"already queued: {item.get('branch', '')} [{item.get('id', '')}]")
+        return
+    print(f"queued: {item.get('branch', '')} [{item.get('id', '')}]")
+
+
+def _cmd_worktree_fleet_queue_list(args: argparse.Namespace, *, repo_path: Path) -> None:
+    """List merge queue entries."""
+    status_filter = str(getattr(args, "status", "")).strip() or None
+    store = FleetCoordinationStore(repo_path)
+    queue = store.list_merge_queue(status=status_filter)
+    if getattr(args, "json", False):
+        print(json.dumps({"repo_root": str(repo_path), "merge_queue": queue}, indent=2))
+        return
+    print(f"Merge queue: {len(queue)}")
+    for item in queue:
+        print(
+            f"  {item.get('id', '')} {item.get('status', '')} "
+            f"p{item.get('priority', 0)} {item.get('branch', '')} "
+            f"(session={item.get('session_id', '')})"
+        )
 
 
 def _cmd_worktree_autopilot(args: argparse.Namespace, *, repo_path: Path, base_branch: str) -> None:
