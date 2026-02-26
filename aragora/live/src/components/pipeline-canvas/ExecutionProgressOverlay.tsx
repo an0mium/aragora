@@ -123,7 +123,7 @@ export const ExecutionProgressOverlay = memo(function ExecutionProgressOverlay({
         isDone && !executing ? 'opacity-0' : 'opacity-100'
       }`}
     >
-      <div className="pointer-events-auto bg-surface/95 border border-border rounded-xl shadow-2xl px-8 py-6 min-w-[340px] max-w-md">
+      <div className="pointer-events-auto bg-surface/95 border border-border rounded-xl shadow-floating px-8 py-6 min-w-[340px] max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-mono font-bold text-text uppercase tracking-wide">

@@ -262,7 +262,7 @@ export function ResponsiveDrawer({
         {/* Bottom Sheet */}
         <div
           className={cn(
-            "fixed inset-x-0 bottom-0 z-50 bg-background rounded-t-xl shadow-xl",
+            "fixed inset-x-0 bottom-0 z-50 bg-background rounded-t-xl shadow-floating",
             "max-h-[85vh] overflow-y-auto",
             "animate-in slide-in-from-bottom duration-300",
             className
@@ -314,7 +314,7 @@ export function ResponsiveDrawer({
       {/* Side Panel */}
       <div
         className={cn(
-          "fixed top-0 bottom-0 z-50 bg-background shadow-xl",
+          "fixed top-0 bottom-0 z-50 bg-background shadow-floating",
           desktopWidthClasses[desktopWidth],
           desktopPosition === "right"
             ? "right-0 animate-in slide-in-from-right"

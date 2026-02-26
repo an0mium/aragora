@@ -31,7 +31,7 @@ export function AutoFlowOrchestrator({ currentPhase, phaseProgress, nodesCreated
 
   return (
     <div className="absolute inset-0 bg-bg/80 backdrop-blur-sm z-20 flex items-center justify-center">
-      <div className="bg-surface border border-border rounded-xl p-6 w-[480px] shadow-2xl">
+      <div className="bg-surface border border-border rounded-xl p-6 w-[480px] shadow-floating">
         {/* Progress Bar with percentage */}
         <div className="flex items-center gap-3 mb-6">
           <div className="flex-1 h-2 bg-bg rounded-full overflow-hidden">

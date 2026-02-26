@@ -118,6 +118,7 @@ class DesignPhase:
         log_fn: Callable[[str], None] | None = None,
         stream_emit_fn: Callable[..., None] | None = None,
         record_replay_fn: Callable[..., None] | None = None,
+        design_gate: Any | None = None,
         # Legacy API compatibility
         claude_agent: Any | None = None,
         protected_files: list[str] | None = None,
@@ -164,6 +165,7 @@ class DesignPhase:
         self._log = log_fn or print
         self._stream_emit = stream_emit_fn or (lambda *args: None)
         self._record_replay = record_replay_fn or (lambda *args: None)
+        self.design_gate = design_gate
 
         # Legacy API attributes
         self.claude = claude_agent

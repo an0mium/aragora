@@ -800,8 +800,46 @@ class IdeaToExecutionPipeline:
         except (ImportError, RuntimeError, TypeError) as exc:
             logger.debug("KM pipeline result storage unavailable: %s", exc)
 
+        # Persist to SQLite store for retrieval by API/UI
+        try:
+            from aragora.storage.pipeline_store import get_pipeline_store
+
+            get_pipeline_store().save(result.pipeline_id, result.to_dict())
+        except (ImportError, RuntimeError, OSError) as exc:
+            logger.debug("Pipeline SQLite persistence unavailable: %s", exc)
+
         _spectate("pipeline.completed", f"pipeline_id={pipeline_id}")
         return result
+
+    async def execute(
+        self,
+        data: dict,
+        sandbox: bool = False,
+    ) -> "PipelineResult":
+        """Execute a pipeline from structured input data.
+
+        Public async entry point for the FastAPI route and external callers.
+        Extracts ideas from ``data`` and delegates to :meth:`run`.
+
+        Args:
+            data: Dict with ``ideas`` (list[str]) and optional ``config`` overrides.
+            sandbox: If True, run in sandboxed mode (reserved for future use).
+
+        Returns:
+            PipelineResult with all stage outputs.
+        """
+        ideas = data.get("ideas", [])
+        input_text = data.get("input_text", "")
+
+        # Build input: prefer explicit input_text, fall back to joining ideas
+        if not input_text and ideas:
+            input_text = "\n".join(f"- {idea}" for idea in ideas)
+
+        pipeline_id = data.get("pipeline_id")
+        cfg_overrides = data.get("config", {})
+        config = PipelineConfig(**cfg_overrides) if cfg_overrides else None
+
+        return await self.run(input_text, config=config, pipeline_id=pipeline_id)
 
     def advance_stage(
         self,
@@ -1203,6 +1241,14 @@ class IdeaToExecutionPipeline:
                     logger.debug("KM persistence skipped: PipelineKMBridge not available")
                 except (RuntimeError, ValueError, OSError) as exc:
                     logger.warning("Pipeline %s: KM persistence failed: %s", pipeline_id, exc)
+
+            # Persist to SQLite store for retrieval by API/UI
+            try:
+                from aragora.storage.pipeline_store import get_pipeline_store
+
+                get_pipeline_store().save(result.pipeline_id, result.to_dict())
+            except (ImportError, RuntimeError, OSError) as exc:
+                logger.debug("Pipeline SQLite persistence unavailable: %s", exc)
 
             # Record outcome for cross-session learning
             self._record_pipeline_outcome(result)

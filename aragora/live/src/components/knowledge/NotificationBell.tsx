@@ -254,7 +254,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             border: '1px solid #00ff00',
             borderRadius: '4px',
             zIndex: 1000,
-            boxShadow: '0 4px 12px rgba(0, 255, 0, 0.2)',
+            boxShadow: 'var(--shadow-elevated)',
           }}
         >
           {/* Header */}

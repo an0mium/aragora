@@ -61,7 +61,7 @@ export function AgentReassignPopover({
   );
 
   return (
-    <div className="w-64 rounded-lg border border-acid-green/30 bg-surface shadow-lg shadow-black/40">
+    <div className="w-64 rounded-lg border border-acid-green/30 bg-surface shadow-elevated">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-acid-green/30">
         <span className="text-xs font-mono text-acid-green uppercase tracking-wider">

@@ -199,7 +199,7 @@ function EditConnectorModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-2xl">
+      <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-floating">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-3">
             <span className="text-2xl">{CONNECTOR_TYPE_ICONS[connectorType] || '🔗'}</span>
@@ -362,7 +362,7 @@ function AddConnectorModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-2xl">
+      <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-floating">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-mono font-bold text-text">Add Connector</h2>
           <button onClick={onClose} className="text-text-muted hover:text-text">
@@ -497,7 +497,7 @@ function ConnectorDetailsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-      <div className="w-full max-w-3xl max-h-[90vh] mx-4 sm:mx-0 bg-surface border border-border rounded-lg shadow-2xl flex flex-col">
+      <div className="w-full max-w-3xl max-h-[90vh] mx-4 sm:mx-0 bg-surface border border-border rounded-lg shadow-floating flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-3">

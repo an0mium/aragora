@@ -193,8 +193,8 @@ class SwarmReporter:
             )
 
             llm_result = await harness.analyze_repository(
-                repo_path=".",
-                analysis_type="general",
+                repo_path=".",  # type: ignore[arg-type]
+                analysis_type="general",  # type: ignore[arg-type]
                 prompt=prompt,
             )
             raw = llm_result.raw_output if hasattr(llm_result, "raw_output") else str(llm_result)

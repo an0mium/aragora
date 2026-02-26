@@ -406,7 +406,7 @@ function ModalWrapper({
         role="dialog"
         aria-modal="true"
         aria-labelledby="email-modal-title"
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-bg border border-acid-green/30 rounded-lg p-6 shadow-2xl"
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-bg border border-acid-green/30 rounded-lg p-6 shadow-floating"
       >
         <h2 id="email-modal-title" className="sr-only">Email Details</h2>
         {children}
