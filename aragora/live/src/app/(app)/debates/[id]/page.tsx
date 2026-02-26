@@ -1,7 +1,8 @@
 import DebateDetailClient from './DebateDetailClient';
 
-// For static export - no pages pre-rendered, client-side navigation only
-export const dynamicParams = false;
+// Allow runtime debate IDs in standalone/server mode.
+// Static export still uses the fallback static param below.
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
   return [{ id: '_' }];

@@ -1,9 +1,9 @@
 import { Metadata } from 'next';
 import { DebateViewerWrapper } from './DebateViewerWrapper';
-import { fetchDebateById } from '@/utils/supabase';
 
-// For static export with optional catch-all
-export const dynamicParams = false;
+// Allow runtime debate IDs in standalone/server mode.
+// Static export still uses the base route param below.
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
   // Only generate the base route - client handles the rest
@@ -25,33 +25,22 @@ export async function generateMetadata(
     };
   }
 
-  // Fetch debate data for dynamic metadata
-  const debate = await fetchDebateById(debateId);
-
-  if (!debate) {
-    return {
-      title: 'Debate Not Found | ARAGORA',
-      description: 'This debate could not be found.',
-    };
-  }
-
-  const agentList = debate.agents?.join(', ') || 'AI agents';
-  const consensusText = debate.consensus_reached ? 'Consensus reached' : 'No consensus';
-  const confidenceText = `${Math.round((debate.confidence || 0) * 100)}% confidence`;
+  // Keep metadata server-safe and avoid client-only dependencies.
+  const shortId = debateId.slice(0, 12);
 
   return {
-    title: `${debate.task} | ARAGORA`,
-    description: `Debate between ${agentList} - ${consensusText} (${confidenceText})`,
+    title: `Debate ${shortId} | ARAGORA`,
+    description: `Watch debate ${shortId} and follow agent reasoning in real-time.`,
     openGraph: {
-      title: debate.task,
-      description: `AI consensus debate: ${agentList} - ${consensusText}`,
+      title: `Debate ${shortId}`,
+      description: `ARAGORA live debate stream for ${shortId}.`,
       type: 'website',
       siteName: 'ARAGORA // LIVE',
     },
     twitter: {
       card: 'summary',
-      title: debate.task,
-      description: `Debate between ${debate.agents?.length || 0} AI agents - ${consensusText}`,
+      title: `Debate ${shortId}`,
+      description: `ARAGORA debate ${shortId}`,
     },
   };
 }
