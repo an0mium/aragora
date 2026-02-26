@@ -166,7 +166,7 @@ class WorktreeLifecycleService:
         session_id: str | None = None,
         force_new: bool = False,
         reconcile: bool = True,
-        strategy: str = "merge",
+        strategy: str = "ff-only",
     ) -> ManagedWorktreeSession:
         """Ensure a managed worktree session exists and return its typed details."""
         request = AutopilotRequest(
@@ -217,7 +217,7 @@ class WorktreeLifecycleService:
         *,
         base_branch: str = "main",
         ttl_hours: int = 24,
-        strategy: str = "merge",
+        strategy: str = "ff-only",
         managed_dirs: list[str] | None = None,
         include_active: bool = False,
         reconcile_only: bool = False,

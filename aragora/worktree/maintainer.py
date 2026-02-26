@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--strategy",
         choices=("merge", "rebase", "ff-only", "none"),
-        default="merge",
+        default="ff-only",
         help="Integration strategy",
     )
     parser.add_argument(
