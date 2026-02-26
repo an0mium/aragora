@@ -219,6 +219,55 @@ def _get_container_ip(container_id: str) -> str:
     return ip_address
 
 
+def _parse_compose_port(raw_output: str) -> tuple[str, int] | None:
+    """Parse docker compose port output into (host, port)."""
+    for raw_line in raw_output.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        # Support output variants like:
+        # - 0.0.0.0:32788
+        # - [::]:32788
+        # - :::32788
+        # - 0.0.0.0:32788->8080/tcp (defensive fallback)
+        if "->" in line:
+            line = line.split("->", 1)[0].strip()
+            if not line:
+                continue
+
+        host, sep, port_text = line.rpartition(":")
+        if not sep or not port_text.isdigit():
+            continue
+
+        host = host.strip()
+        if host.startswith("[") and host.endswith("]"):
+            host = host[1:-1]
+        if not host:
+            host = "localhost"
+
+        return host, int(port_text)
+
+    return None
+
+
+def _build_url_with_host_port(parsed: urllib.parse.ParseResult, host: str, port: int) -> str:
+    if ":" in host and not host.startswith("["):
+        netloc = f"[{host}]:{port}"
+    else:
+        netloc = f"{host}:{port}"
+    return urllib.parse.urlunparse(
+        (
+            parsed.scheme or "http",
+            netloc,
+            parsed.path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
+
+
 def _resolve_runtime_base_url(
     base_cmd: list[str],
     requested_base_url: str,
@@ -236,7 +285,17 @@ def _resolve_runtime_base_url(
 
     port_result = _compose(base_cmd, ["port", app_service, str(app_port)], check=False)
     if port_result.returncode == 0 and port_result.stdout.strip():
-        return requested_base_url
+        parsed_mapping = _parse_compose_port(port_result.stdout)
+        if parsed_mapping is not None:
+            mapped_host, mapped_port = parsed_mapping
+            if mapped_host in {"0.0.0.0", "::"}:
+                mapped_host = host
+            resolved_url = _build_url_with_host_port(parsed, mapped_host, mapped_port)
+            if resolved_url != requested_base_url:
+                print(
+                    f"[info] using published endpoint {resolved_url} for {app_service}:{app_port}"
+                )
+            return resolved_url
 
     try:
         container_id = _get_primary_container_id(base_cmd, app_service)

@@ -38,7 +38,23 @@ def mock_external_calls():
             new_callable=AsyncMock,
             return_value=None,
         ):
-            yield
+            with patch(
+                "aragora.debate.post_debate_coordinator.PostDebateCoordinator._step_llm_judge",
+                return_value=None,
+            ):
+                yield
+
+
+@pytest.fixture(autouse=True)
+def reset_circuit_breakers():
+    """Isolate tests from provider circuit-breaker state left by other suites."""
+    from aragora.resilience import reset_all_circuit_breakers, reset_all_v2_circuit_breakers
+
+    reset_all_circuit_breakers()
+    reset_all_v2_circuit_breakers()
+    yield
+    reset_all_circuit_breakers()
+    reset_all_v2_circuit_breakers()
 
 
 # =============================================================================
