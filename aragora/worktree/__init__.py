@@ -13,6 +13,11 @@ from aragora.worktree.lifecycle import (
     WorktreeLifecycleService,
     WorktreeOperationResult,
 )
+from aragora.worktree.fleet import (
+    FleetCoordinationStore,
+    build_fleet_rows,
+    infer_orchestration_pattern,
+)
 
 __all__ = [
     "AUTOPILOT_ACTIONS",
@@ -24,4 +29,7 @@ __all__ = [
     "ManagedWorktreeSession",
     "WorktreeLifecycleService",
     "WorktreeOperationResult",
+    "FleetCoordinationStore",
+    "build_fleet_rows",
+    "infer_orchestration_pattern",
 ]

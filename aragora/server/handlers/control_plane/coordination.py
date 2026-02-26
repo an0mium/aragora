@@ -12,6 +12,7 @@ Provides REST API endpoints for:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from aragora.server.handlers.base import (
@@ -24,6 +25,11 @@ from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.decorators import (
     handle_errors,
     require_permission,
+)
+from aragora.worktree.fleet import (
+    FleetCoordinationStore,
+    build_fleet_rows,
+    resolve_repo_root,
 )
 
 logger = logging.getLogger(__name__)
@@ -527,6 +533,227 @@ class CoordinationHandlerMixin:
                     "error": safe_error_message(e, "coordination"),
                 }
             )
+
+    # =========================================================================
+    # Fleet Monitoring
+    # =========================================================================
+
+    def _fleet_repo_root(self) -> Path:
+        repo_hint = Path(str(self.ctx.get("repo_root", ".")))
+        return resolve_repo_root(repo_hint)
+
+    def _fleet_store(self, repo_root: Path) -> FleetCoordinationStore:
+        return FleetCoordinationStore(repo_root)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/coordination/fleet/status",
+        summary="Get worktree session fleet status",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:stats.read")
+    def _handle_fleet_status(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Return codex/claude worktree session status and recent logs."""
+        try:
+            tail = int(query_params.get("tail", 500))
+        except (TypeError, ValueError):
+            tail = 500
+        tail = max(0, min(tail, 2000))
+
+        base_branch = str(query_params.get("base", "main"))
+        repo_root = self._fleet_repo_root()
+        rows = build_fleet_rows(repo_root, base_branch=base_branch, tail=tail)
+        store = self._fleet_store(repo_root)
+        claims = store.list_claims()
+        queue = store.list_merge_queue()
+        claims_by_session: dict[str, list[str]] = {}
+        for claim in claims:
+            sid = str(claim.get("session_id", "")).strip()
+            if not sid:
+                continue
+            claims_by_session.setdefault(sid, []).append(str(claim.get("path", "")))
+        queue_by_session: dict[str, list[str]] = {}
+        for item in queue:
+            sid = str(item.get("session_id", "")).strip()
+            if not sid:
+                continue
+            queue_by_session.setdefault(sid, []).append(str(item.get("branch", "")))
+        for row in rows:
+            session_id = str(row.get("session_id", ""))
+            row["claimed_paths"] = sorted(claims_by_session.get(session_id, []))
+            row["queued_branches"] = sorted(queue_by_session.get(session_id, []))
+        return json_response(
+            {
+                "repo_root": str(repo_root),
+                "base_branch": base_branch,
+                "tail": tail,
+                "worktrees": rows,
+                "claims": claims,
+                "merge_queue": queue,
+                "total": len(rows),
+            }
+        )
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/coordination/fleet/logs",
+        summary="Get recent logs for a specific worktree session",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:stats.read")
+    def _handle_fleet_logs(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Return tail logs for one fleet session by session_id."""
+        session_id = str(query_params.get("session_id", "")).strip()
+        if not session_id:
+            return error_response("session_id is required", 400)
+
+        try:
+            tail = int(query_params.get("tail", 500))
+        except (TypeError, ValueError):
+            tail = 500
+        tail = max(0, min(tail, 5000))
+
+        base_branch = str(query_params.get("base", "main"))
+        repo_root = self._fleet_repo_root()
+        rows = build_fleet_rows(repo_root, base_branch=base_branch, tail=tail)
+
+        for row in rows:
+            if str(row.get("session_id", "")).strip() == session_id:
+                return json_response(
+                    {
+                        "repo_root": str(repo_root),
+                        "session_id": session_id,
+                        "tail": tail,
+                        "worktree": row,
+                    }
+                )
+
+        return error_response(f"session_id not found: {session_id}", 404)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/coordination/fleet/claims",
+        summary="List fleet ownership claims",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:stats.read")
+    def _handle_fleet_claims(self, query_params: dict[str, Any]) -> HandlerResult:
+        """List all file ownership claims."""
+        repo_root = self._fleet_repo_root()
+        store = self._fleet_store(repo_root)
+        session_id = str(query_params.get("session_id", "")).strip()
+        claims = store.list_claims()
+        if session_id:
+            claims = [c for c in claims if str(c.get("session_id", "")) == session_id]
+        return json_response({"repo_root": str(repo_root), "claims": claims, "total": len(claims)})
+
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/coordination/fleet/claims",
+        summary="Claim file ownership for a session",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:workspaces.write")
+    def _handle_fleet_claim(self, body: dict[str, Any]) -> HandlerResult:
+        """Claim file ownership to avoid concurrent merge collisions."""
+        session_id = str(body.get("session_id", "")).strip()
+        if not session_id:
+            return error_response("session_id is required", 400)
+        raw_paths = body.get("paths")
+        if not isinstance(raw_paths, list) or not raw_paths:
+            return error_response("paths must be a non-empty list", 400)
+        paths = [str(item) for item in raw_paths if str(item).strip()]
+        if not paths:
+            return error_response("paths must be a non-empty list", 400)
+
+        mode = str(body.get("mode", "exclusive")).strip().lower()
+        branch = str(body.get("branch", "")).strip()
+        repo_root = self._fleet_repo_root()
+        store = self._fleet_store(repo_root)
+        try:
+            result = store.claim_paths(
+                session_id=session_id,
+                paths=paths,
+                mode=mode,
+                branch=branch,
+            )
+        except ValueError as exc:
+            return error_response(safe_error_message(exc, "coordination"), 400)
+        status_code = 409 if result.get("conflicts") else 200
+        return json_response(result, status=status_code)
+
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/coordination/fleet/claims/release",
+        summary="Release file ownership claims for a session",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:workspaces.write")
+    def _handle_fleet_release(self, body: dict[str, Any]) -> HandlerResult:
+        """Release ownership claims."""
+        session_id = str(body.get("session_id", "")).strip()
+        if not session_id:
+            return error_response("session_id is required", 400)
+        raw_paths = body.get("paths")
+        paths: list[str] | None = None
+        if raw_paths is not None:
+            if not isinstance(raw_paths, list):
+                return error_response("paths must be a list", 400)
+            paths = [str(item) for item in raw_paths if str(item).strip()]
+        repo_root = self._fleet_repo_root()
+        store = self._fleet_store(repo_root)
+        result = store.release_paths(session_id=session_id, paths=paths)
+        return json_response(result)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/coordination/fleet/merge-queue",
+        summary="List merge queue items",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:stats.read")
+    def _handle_fleet_merge_queue(self, query_params: dict[str, Any]) -> HandlerResult:
+        """List merge queue entries."""
+        status = str(query_params.get("status", "")).strip()
+        repo_root = self._fleet_repo_root()
+        store = self._fleet_store(repo_root)
+        queue = store.list_merge_queue(status=status or None)
+        return json_response(
+            {"repo_root": str(repo_root), "merge_queue": queue, "total": len(queue)}
+        )
+
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/coordination/fleet/merge-queue",
+        summary="Enqueue a branch merge request",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:workspaces.write")
+    def _handle_fleet_merge_enqueue(self, body: dict[str, Any]) -> HandlerResult:
+        """Queue branch merge work in priority order."""
+        session_id = str(body.get("session_id", "")).strip()
+        if not session_id:
+            return error_response("session_id is required", 400)
+        branch = str(body.get("branch", "")).strip()
+        if not branch:
+            return error_response("branch is required", 400)
+        title = str(body.get("title", "")).strip()
+        priority_raw = body.get("priority", 50)
+        try:
+            priority = int(priority_raw)
+        except (TypeError, ValueError):
+            return error_response("priority must be an integer", 400)
+
+        repo_root = self._fleet_repo_root()
+        store = self._fleet_store(repo_root)
+        result = store.enqueue_merge(
+            session_id=session_id,
+            branch=branch,
+            priority=priority,
+            title=title,
+        )
+        status_code = 200 if result.get("duplicate") else 201
+        return json_response(result, status=status_code)
 
 
 __all__ = ["CoordinationHandlerMixin"]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -367,6 +368,134 @@ class TestCoordinationHealth:
         assert data["status"] == "unavailable"
 
 
+class TestFleetStatus:
+    @patch("aragora.server.handlers.control_plane.coordination.FleetCoordinationStore")
+    @patch("aragora.server.handlers.control_plane.coordination.build_fleet_rows")
+    @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")
+    def test_fleet_status_success(
+        self, mock_resolve, mock_build, mock_store_cls, handler: ControlPlaneHandler
+    ):
+        mock_resolve.return_value = Path("/tmp/repo")
+        mock_build.return_value = [
+            {
+                "session_id": "session-a",
+                "path": "/tmp/repo/.worktrees/codex/session-a",
+                "branch": "codex/session-a",
+                "log_tail": ["line-1", "line-2"],
+            }
+        ]
+        store = MagicMock()
+        store.list_claims.return_value = [{"session_id": "session-a", "path": "aragora/x.py"}]
+        store.list_merge_queue.return_value = [
+            {"session_id": "session-a", "branch": "codex/session-a"}
+        ]
+        mock_store_cls.return_value = store
+
+        result = handler._handle_fleet_status({"tail": "200"})
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["repo_root"] == "/tmp/repo"
+        assert data["tail"] == 200
+        assert data["total"] == 1
+        assert data["worktrees"][0]["session_id"] == "session-a"
+        assert data["worktrees"][0]["claimed_paths"] == ["aragora/x.py"]
+
+    @patch("aragora.server.handlers.control_plane.coordination.build_fleet_rows")
+    @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")
+    def test_fleet_logs_success(self, mock_resolve, mock_build, handler: ControlPlaneHandler):
+        mock_resolve.return_value = Path("/tmp/repo")
+        mock_build.return_value = [
+            {
+                "session_id": "session-a",
+                "path": "/tmp/repo/.worktrees/codex/session-a",
+                "branch": "codex/session-a",
+                "log_tail": ["line-1", "line-2"],
+            }
+        ]
+
+        result = handler._handle_fleet_logs({"session_id": "session-a", "tail": "2"})
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["session_id"] == "session-a"
+        assert data["worktree"]["log_tail"] == ["line-1", "line-2"]
+
+    def test_fleet_logs_requires_session_id(self, handler: ControlPlaneHandler):
+        result = handler._handle_fleet_logs({})
+        assert result.status_code == 400
+        assert "session_id" in json.loads(result.body).get("error", "").lower()
+
+    @patch("aragora.server.handlers.control_plane.coordination.build_fleet_rows")
+    @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")
+    def test_fleet_logs_not_found(self, mock_resolve, mock_build, handler: ControlPlaneHandler):
+        mock_resolve.return_value = Path("/tmp/repo")
+        mock_build.return_value = []
+        result = handler._handle_fleet_logs({"session_id": "missing"})
+        assert result.status_code == 404
+
+    @patch("aragora.server.handlers.control_plane.coordination.FleetCoordinationStore")
+    @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")
+    def test_fleet_claim_endpoints(
+        self, mock_resolve, mock_store_cls, handler: ControlPlaneHandler
+    ):
+        mock_resolve.return_value = Path("/tmp/repo")
+        store = MagicMock()
+        store.claim_paths.return_value = {
+            "session_id": "session-a",
+            "claimed": ["aragora/a.py"],
+            "conflicts": [],
+        }
+        store.release_paths.return_value = {"session_id": "session-a", "released": 1}
+        store.list_claims.return_value = [{"session_id": "session-a", "path": "aragora/a.py"}]
+        mock_store_cls.return_value = store
+
+        claim_result = handler._handle_fleet_claim(
+            {
+                "session_id": "session-a",
+                "paths": ["aragora/a.py"],
+            }
+        )
+        assert claim_result.status_code == 200
+        claim_body = json.loads(claim_result.body)
+        assert claim_body["claimed"] == ["aragora/a.py"]
+
+        list_result = handler._handle_fleet_claims({})
+        assert list_result.status_code == 200
+        list_body = json.loads(list_result.body)
+        assert list_body["total"] == 1
+
+        release_result = handler._handle_fleet_release({"session_id": "session-a"})
+        assert release_result.status_code == 200
+        release_body = json.loads(release_result.body)
+        assert release_body["released"] == 1
+
+    @patch("aragora.server.handlers.control_plane.coordination.FleetCoordinationStore")
+    @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")
+    def test_fleet_merge_queue_endpoints(
+        self, mock_resolve, mock_store_cls, handler: ControlPlaneHandler
+    ):
+        mock_resolve.return_value = Path("/tmp/repo")
+        store = MagicMock()
+        store.enqueue_merge.return_value = {
+            "queued": True,
+            "duplicate": False,
+            "item": {"id": "mq-1", "branch": "codex/x"},
+        }
+        store.list_merge_queue.return_value = [{"id": "mq-1", "branch": "codex/x"}]
+        mock_store_cls.return_value = store
+
+        enqueue = handler._handle_fleet_merge_enqueue(
+            {"session_id": "session-a", "branch": "codex/x", "priority": 60}
+        )
+        assert enqueue.status_code == 201
+        enqueue_data = json.loads(enqueue.body)
+        assert enqueue_data["item"]["id"] == "mq-1"
+
+        listing = handler._handle_fleet_merge_queue({})
+        assert listing.status_code == 200
+        listing_data = json.loads(listing.body)
+        assert listing_data["total"] == 1
+
+
 # ============================================================================
 # Route Dispatch
 # ============================================================================
@@ -398,5 +527,44 @@ class TestRouteDispatch:
     ):
         mock_http_handler.path = "/api/v1/coordination/health"
         result = handler.handle("/api/v1/coordination/health", {}, mock_http_handler)
+        assert result is not None
+        assert result.status_code == 200
+
+    @patch("aragora.server.handlers.control_plane.coordination.FleetCoordinationStore")
+    @patch("aragora.server.handlers.control_plane.coordination.build_fleet_rows", return_value=[])
+    @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")
+    def test_get_coordination_fleet_status(
+        self,
+        mock_resolve,
+        mock_build_rows,
+        mock_store_cls,
+        handler: ControlPlaneHandler,
+        mock_http_handler: MagicMock,
+    ):
+        mock_resolve.return_value = Path("/tmp/repo")
+        store = MagicMock()
+        store.list_claims.return_value = []
+        store.list_merge_queue.return_value = []
+        mock_store_cls.return_value = store
+        mock_http_handler.path = "/api/v1/coordination/fleet/status"
+        result = handler.handle("/api/v1/coordination/fleet/status", {}, mock_http_handler)
+        assert result is not None
+        assert result.status_code == 200
+
+    @patch("aragora.server.handlers.control_plane.coordination.FleetCoordinationStore")
+    @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")
+    def test_get_coordination_fleet_claims(
+        self,
+        mock_resolve,
+        mock_store_cls,
+        handler: ControlPlaneHandler,
+        mock_http_handler: MagicMock,
+    ):
+        mock_resolve.return_value = Path("/tmp/repo")
+        store = MagicMock()
+        store.list_claims.return_value = [{"session_id": "session-a", "path": "aragora/x.py"}]
+        mock_store_cls.return_value = store
+        mock_http_handler.path = "/api/v1/coordination/fleet/claims"
+        result = handler.handle("/api/v1/coordination/fleet/claims", {}, mock_http_handler)
         assert result is not None
         assert result.status_code == 200
