@@ -54,6 +54,7 @@ def _parse_result(result):
 
 
 _PATCH_TARGET = "aragora.server.stream.debate_stream_server.get_global_replay_buffer"
+_PATCH_ACTIVE = "aragora.server.handlers.debates.crud._active_debates"
 
 
 class TestGetDebateEventsPolling:
@@ -180,3 +181,64 @@ class TestGetDebateEventsPolling:
         assert len(body["events"]) == 2
         seqs = [e["seq"] for e in body["events"]]
         assert seqs == [1, 3]
+
+    def test_initial_poll_hydrates_active_snapshot_with_mode_and_settlement(self):
+        mixin = _make_handler_mixin()
+        mock_buffer = MagicMock()
+        mock_buffer.replay_since.return_value = []
+
+        active = {
+            "debate-1": {
+                "task": "Should we ship now?",
+                "agents": ["claude", "gpt-5"],
+                "mode": "epistemic_hygiene",
+                "settlement": {
+                    "status": "pending_outcome",
+                    "resolver_type": "oracle",
+                    "sla_state": "pending",
+                },
+            }
+        }
+
+        with (
+            patch(_PATCH_TARGET, return_value=mock_buffer),
+            patch(_PATCH_ACTIVE, active),
+        ):
+            result = mixin._get_debate_events(None, "debate-1", since_seq=0, limit=100)
+
+        status, body = _parse_result(result)
+        assert status == 200
+        assert len(body["events"]) == 1
+        evt = body["events"][0]
+        assert evt["type"] == "sync"
+        assert evt["seq"] == 1
+        assert evt["loop_id"] == "debate-1"
+        assert evt["data"]["task"] == "Should we ship now?"
+        assert evt["data"]["agents"] == ["claude", "gpt-5"]
+        assert evt["data"]["mode"] == "epistemic_hygiene"
+        assert evt["data"]["settlement"]["resolver_type"] == "oracle"
+        assert body["next_seq"] == 2
+
+    def test_non_initial_poll_does_not_emit_synthetic_sync(self):
+        mixin = _make_handler_mixin()
+        mock_buffer = MagicMock()
+        mock_buffer.replay_since.return_value = []
+
+        active = {
+            "debate-1": {
+                "task": "Should we ship now?",
+                "agents": ["claude", "gpt-5"],
+                "mode": "epistemic_hygiene",
+            }
+        }
+
+        with (
+            patch(_PATCH_TARGET, return_value=mock_buffer),
+            patch(_PATCH_ACTIVE, active),
+        ):
+            result = mixin._get_debate_events(None, "debate-1", since_seq=3, limit=100)
+
+        status, body = _parse_result(result)
+        assert status == 200
+        assert body["events"] == []
+        assert body["next_seq"] == 3

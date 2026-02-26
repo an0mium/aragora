@@ -606,6 +606,41 @@ class CrudOperationsMixin:
             except (json.JSONDecodeError, TypeError, KeyError):
                 continue
 
+        # Polling fallback hydration:
+        # When replay buffer has no events for an active debate on the first poll,
+        # emit a synthetic sync frame so clients can hydrate task/agents/mode/settlement.
+        if not events and since_seq <= 0:
+            active_snapshot = _active_debates.get(debate_id)
+            if isinstance(active_snapshot, dict):
+                synthetic_seq = max(1, since_seq + 1)
+                sync_data: dict[str, Any] = {
+                    "debate_id": debate_id,
+                    "task": active_snapshot.get("task", ""),
+                    "agents": active_snapshot.get("agents", []),
+                    "ended": False,
+                }
+
+                mode = active_snapshot.get("mode")
+                settlement = active_snapshot.get("settlement")
+                if isinstance(mode, str) and mode.strip():
+                    sync_data["mode"] = mode
+                if isinstance(settlement, dict):
+                    sync_data["settlement"] = settlement
+
+                return json_response(
+                    {
+                        "events": [
+                            {
+                                "type": "sync",
+                                "seq": synthetic_seq,
+                                "loop_id": debate_id,
+                                "data": sync_data,
+                            }
+                        ],
+                        "next_seq": synthetic_seq + 1,
+                    }
+                )
+
         return json_response({"events": events, "next_seq": last_seq + 1 if events else since_seq})
 
     @api_endpoint(
