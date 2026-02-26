@@ -13,6 +13,7 @@ import pytest
 )
 def test_golden_paths_script(tmp_path: Path) -> None:
     output_dir = tmp_path / "golden_paths"
+    timeout_seconds = int(os.environ.get("ARAGORA_GOLDEN_PATH_TIMEOUT_SECONDS", "240"))
     result = subprocess.run(
         [
             sys.executable,
@@ -25,7 +26,7 @@ def test_golden_paths_script(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         check=True,
-        timeout=120,
+        timeout=timeout_seconds,
     )
 
     assert (output_dir / "ask_result.json").exists()

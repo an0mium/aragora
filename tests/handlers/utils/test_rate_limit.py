@@ -1321,6 +1321,23 @@ class TestAuthRateLimitDecorator:
         assert login(h1).status_code == 429
         assert login(h2) == "ok"
 
+    def test_bound_method_uses_handler_arg_not_self(self):
+        """Auth decorators on bound methods should key on handler arg."""
+        from aragora.server.handlers.utils.rate_limit import auth_rate_limit
+
+        class AuthLike:
+            @auth_rate_limit(rpm=1, limiter_name="test_auth_bound_method_ip")
+            def login(self, handler):
+                return "ok"
+
+        auth_like = AuthLike()
+        h1 = FakeHandler(client_address=("1.1.1.1", 80))
+        h2 = FakeHandler(client_address=("2.2.2.2", 80))
+
+        assert auth_like.login(h1) == "ok"
+        # Different IP should not be throttled by h1's prior call.
+        assert auth_like.login(h2) == "ok"
+
 
 # ===========================================================================
 # Edge cases and integration

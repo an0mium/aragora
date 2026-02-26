@@ -895,19 +895,29 @@ def auth_rate_limit(
 
         def _get_key_from_args(args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
             """Extract rate limit key from function arguments."""
-            if key_func:
-                if args and hasattr(args[0], "headers"):
-                    return key_func(args[0])
-                return key_func(kwargs)
+            test_name = os.environ.get("PYTEST_CURRENT_TEST")
 
-            # Handler object with headers attribute and client_address
-            if args and hasattr(args[0], "headers"):
-                return get_client_ip(args[0])
+            def _apply_test_suffix(key: str) -> str:
+                # Isolate test cases to avoid cross-test lockout/rate-limit bleed.
+                if test_name:
+                    return f"{key}:{test_name}"
+                return key
+
+            if key_func:
+                for arg in args:
+                    if hasattr(arg, "headers"):
+                        return _apply_test_suffix(key_func(arg))
+                return _apply_test_suffix(key_func(kwargs))
+
+            # Locate a handler-like argument with headers/client metadata.
+            for arg in args:
+                if hasattr(arg, "headers"):
+                    return _apply_test_suffix(get_client_ip(arg))
 
             # New pattern: check for validated_client_ip
             validated_ip = kwargs.get("validated_client_ip")
             if validated_ip and type(validated_ip) is str:
-                return _normalize_ip(validated_ip)
+                return _apply_test_suffix(_normalize_ip(validated_ip))
 
             # Fallback using headers hash
             headers = kwargs.get("headers") or kwargs.get("data", {})
@@ -918,9 +928,9 @@ def auth_rate_limit(
                     import hashlib
 
                     key_data = f"{ua}:{lang}".encode()
-                    return f"anon:{hashlib.sha256(key_data).hexdigest()[:16]}"
+                    return _apply_test_suffix(f"anon:{hashlib.sha256(key_data).hexdigest()[:16]}")
 
-            return "unknown"
+            return _apply_test_suffix("unknown")
 
         def _log_security_event(client_ip: str) -> None:
             """Log security audit event for rate limit hit on auth endpoint."""

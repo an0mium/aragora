@@ -136,6 +136,8 @@ def run_ask(output_dir: Path, mode: str = "fast", enable_trending: bool = False)
             enable_audience=False,
             protocol_overrides=_protocol_overrides(mode, enable_trending),
             mode=None,
+            # Keep golden paths deterministic and offline-friendly.
+            disable_post_debate_pipeline=True,
         )
     )
     payload = result.to_dict()
@@ -168,7 +170,13 @@ async def _run_review_debate(
     task = build_review_prompt(diff)
     env = Environment(task=task, max_rounds=rounds)
     protocol = DebateProtocol(rounds=rounds, consensus="majority", **protocol_overrides)
-    arena = Arena(env, agents, protocol)
+    arena = Arena(
+        env,
+        agents,
+        protocol,
+        # Avoid external judge/model dependencies in the harness.
+        disable_post_debate_pipeline=True,
+    )
     return await arena.run()
 
 

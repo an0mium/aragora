@@ -164,6 +164,11 @@ def _isolate_email_global_state(monkeypatch):
     monkeypatch.setattr(_email_mod, "_distributed_rate_limiter", None)
     monkeypatch.setattr(_email_mod, "_get_distributed_rate_limiter", lambda: None)
     monkeypatch.setattr(_email_mod, "_get_credential_store", lambda: None)
+    # Prevent CI/provider secrets from changing SMTP validation expectations.
+    monkeypatch.delenv("SENDGRID_API_KEY", raising=False)
+    monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+    monkeypatch.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
 
 
 @pytest.fixture

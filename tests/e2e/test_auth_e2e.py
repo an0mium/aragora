@@ -91,8 +91,13 @@ def create_mock_request(
 
 
 @pytest.fixture(autouse=True)
-def reset_rate_limiters():
+def reset_rate_limiters(monkeypatch):
     """Reset rate limiters and lockout tracker before each test."""
+    # Keep auth e2e deterministic and independent from host Redis settings.
+    monkeypatch.setenv("ARAGORA_USE_DISTRIBUTED_RATE_LIMIT", "false")
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("ARAGORA_REDIS_URL", raising=False)
+
     try:
         from aragora.server.handlers.utils.rate_limit import _limiters
 
