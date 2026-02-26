@@ -71,13 +71,17 @@ describe('PolicyPage', () => {
       description: 'Block profane language in outputs',
       type: 'content',
       severity: 'medium',
+      level: 'mandatory',
       enabled: true,
       rules: [
         { id: 'rule-1', pattern: '\\b(badword)\\b', action: 'block', message: 'Profanity detected' },
       ],
       framework_id: 'default',
       vertical_id: 'general',
+      workspace_id: 'workspace-1',
+      rules_count: 1,
       created_at: '2024-01-15T10:00:00Z',
+      updated_at: '2024-01-16T10:00:00Z',
       violation_count: 5,
     },
     {
@@ -86,13 +90,17 @@ describe('PolicyPage', () => {
       description: 'Redact personally identifiable information',
       type: 'output',
       severity: 'critical',
+      level: 'recommended',
       enabled: true,
       rules: [
         { id: 'rule-2', pattern: '\\d{3}-\\d{2}-\\d{4}', action: 'redact', message: 'SSN detected' },
       ],
       framework_id: 'hipaa',
       vertical_id: 'healthcare',
+      workspace_id: 'workspace-1',
+      rules_count: 1,
       created_at: '2024-01-10T08:00:00Z',
+      updated_at: '2024-01-11T08:00:00Z',
       violation_count: 12,
     },
   ];
@@ -101,24 +109,32 @@ describe('PolicyPage', () => {
     {
       id: 'violation-1',
       policy_id: 'policy-1',
-      policy_name: 'No Profanity',
+      rule_name: 'No Profanity',
       rule_id: 'rule-1',
       content_snippet: 'This contains badword text',
+      framework_id: 'default',
+      vertical_id: 'general',
+      workspace_id: 'workspace-1',
       severity: 'medium',
       status: 'open',
       description: 'Profanity detected in agent output',
-      created_at: '2024-01-16T12:00:00Z',
+      source: 'agent-output',
+      detected_at: '2024-01-16T12:00:00Z',
     },
     {
       id: 'violation-2',
       policy_id: 'policy-2',
-      policy_name: 'PII Protection',
+      rule_name: 'PII Protection',
       rule_id: 'rule-2',
       content_snippet: 'SSN: 123-45-6789',
+      framework_id: 'hipaa',
+      vertical_id: 'healthcare',
+      workspace_id: 'workspace-1',
       severity: 'critical',
       status: 'resolved',
       description: 'SSN found in output',
-      created_at: '2024-01-14T09:00:00Z',
+      source: 'agent-output',
+      detected_at: '2024-01-14T09:00:00Z',
       resolved_at: '2024-01-14T10:00:00Z',
       resolution_notes: 'Redacted and notified user',
     },
@@ -196,7 +212,7 @@ describe('PolicyPage', () => {
       renderWithProviders(<PolicyPage />);
 
       expect(screen.getByText('[POLICY_ADMIN]')).toBeInTheDocument();
-      expect(screen.getByText('Compliance policies and violation tracking')).toBeInTheDocument();
+      expect(screen.getByText('Compliance policies, conflict detection, and violation tracking')).toBeInTheDocument();
     });
 
     it('shows loading state initially', () => {
@@ -242,7 +258,7 @@ describe('PolicyPage', () => {
 
       await waitFor(() => {
         expect(mockFetch).toHaveBeenCalledWith('http://localhost:8080/api/policies');
-        expect(mockFetch).toHaveBeenCalledWith('http://localhost:8080/api/compliance/violations?limit=100');
+        expect(mockFetch).toHaveBeenCalledWith('http://localhost:8080/api/compliance/violations');
         expect(mockFetch).toHaveBeenCalledWith('http://localhost:8080/api/compliance/stats');
       });
     });
@@ -335,38 +351,39 @@ describe('PolicyPage', () => {
       renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
-        // Multiple elements may have "5" - just verify the label exists
         const openViolationsLabel = screen.getByText('Open Violations');
         expect(openViolationsLabel).toBeInTheDocument();
-        // Get the parent card and verify it has a "5" in it
         const card = openViolationsLabel.closest('.card');
         expect(card).toBeTruthy();
-        expect(card?.textContent).toContain('5');
+        expect(card?.textContent).toContain('1');
       });
     });
 
-    it('displays critical/high count', async () => {
+    it('displays critical count', async () => {
       setupSuccessfulFetch();
 
       renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
-        // Critical (2) + High (3) = 5
-        const criticalHighElements = screen.getAllByText('5');
-        expect(criticalHighElements.length).toBeGreaterThan(0);
-        expect(screen.getByText('Critical/High')).toBeInTheDocument();
+        const criticalLabel = screen.getByText('Critical');
+        expect(criticalLabel).toBeInTheDocument();
+        const card = criticalLabel.closest('.card');
+        expect(card).toBeTruthy();
+        expect(card?.textContent).toContain('0');
       });
     });
 
-    it('displays resolved count', async () => {
+    it('displays conflicts count', async () => {
       setupSuccessfulFetch();
 
       renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
-        // Total (17) - Open (5) = 12
-        expect(screen.getByText('12')).toBeInTheDocument();
-        expect(screen.getByText('Resolved')).toBeInTheDocument();
+        const conflictsLabel = screen.getByText('Conflicts');
+        expect(conflictsLabel).toBeInTheDocument();
+        const card = conflictsLabel.closest('.card');
+        expect(card).toBeTruthy();
+        expect(card?.textContent).toContain('0');
       });
     });
   });
@@ -380,7 +397,7 @@ describe('PolicyPage', () => {
       await waitFor(() => {
         expect(screen.getByText('No Profanity')).toBeInTheDocument();
         expect(screen.getByText('Block profane language in outputs')).toBeInTheDocument();
-        expect(screen.getByText('[content]')).toBeInTheDocument();
+        expect(screen.getAllByText(/\[1 rules\]/).length).toBeGreaterThan(0);
       });
     });
 
@@ -394,12 +411,8 @@ describe('PolicyPage', () => {
         expect(screen.getByText('No Profanity')).toBeInTheDocument();
       });
 
-      // Severity badges display lowercase text (CSS uppercase is visual only)
-      // The badges should be present for both policies
-      const mediumBadges = screen.getAllByText('medium');
-      const criticalBadges = screen.getAllByText('critical');
-      expect(mediumBadges.length).toBeGreaterThan(0);
-      expect(criticalBadges.length).toBeGreaterThan(0);
+      const levelBadges = screen.getAllByText(/mandatory|recommended/i);
+      expect(levelBadges.length).toBeGreaterThan(0);
     });
 
     it('displays violation counts', async () => {
@@ -408,8 +421,7 @@ describe('PolicyPage', () => {
       renderWithProviders(<PolicyPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('5 violations')).toBeInTheDocument();
-        expect(screen.getByText('12 violations')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /VIOLATIONS \(1 open\)/i })).toBeInTheDocument();
       });
     });
 
@@ -505,7 +517,7 @@ describe('PolicyPage', () => {
 
       // Table headers should be visible
       expect(screen.getByText('Policy')).toBeInTheDocument();
-      expect(screen.getByText('Content')).toBeInTheDocument();
+      expect(screen.getByText('Description')).toBeInTheDocument();
       expect(screen.getByText('Severity')).toBeInTheDocument();
       expect(screen.getByText('Status')).toBeInTheDocument();
     });
@@ -747,7 +759,22 @@ describe('PolicyPage', () => {
         if (url.includes('/api/policies') && options?.method === 'POST') {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ id: 'new-policy' }),
+            json: () => Promise.resolve({
+              policy: {
+                id: 'new-policy',
+                name: 'Test Policy',
+                description: '',
+                framework_id: 'default',
+                workspace_id: 'workspace-1',
+                vertical_id: 'general',
+                level: 'optional',
+                enabled: true,
+                rules: [],
+                rules_count: 0,
+                created_at: '2024-01-20T10:00:00Z',
+                updated_at: '2024-01-20T10:00:00Z',
+              },
+            }),
           });
         }
         if (url.includes('/api/policies')) {
@@ -844,8 +871,8 @@ describe('PolicyPage', () => {
       await waitFor(() => {
         expect(screen.getByText('[VIOLATION DETAILS]')).toBeInTheDocument();
       });
-      // The modal should show the content - verify modal is open by checking for modal-specific element
-      expect(screen.getByText('Content:')).toBeInTheDocument();
+      expect(screen.getByText('Description:')).toBeInTheDocument();
+      expect(screen.getByText('Source:')).toBeInTheDocument();
     });
 
     it('closes violation modal when clicking close', async () => {

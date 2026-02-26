@@ -1038,7 +1038,7 @@ export default function PolicyPage() {
                       <div className="text-text-muted font-mono">No policies defined. Create your first compliance policy.</div>
                     </div>
                   ) : (
-                    policies.map((policy) => (
+                    policies.filter((policy): policy is LocalPolicy => Boolean(policy?.id)).map((policy) => (
                       <div
                         key={policy.id}
                         className={`card p-4 transition-colors ${selectedPolicy?.id === policy.id ? 'border-acid-green/50' : 'hover:border-acid-green/30'}`}
