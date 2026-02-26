@@ -46,12 +46,12 @@ try:
     try:
         from langchain_core.callbacks.base import BaseCallbackHandler
     except ImportError:
-        from langchain.callbacks.base import BaseCallbackHandler
+        from langchain.callbacks.base import BaseCallbackHandler  # type: ignore[no-redef]
     try:
         from langchain_core.agents import AgentAction, AgentFinish
         from langchain_core.outputs import LLMResult
     except ImportError:
-        from langchain.schema import AgentAction, AgentFinish, LLMResult
+        from langchain.schema import AgentAction, AgentFinish, LLMResult  # type: ignore[no-redef]
 
     LANGCHAIN_AVAILABLE = True
 except ImportError:
