@@ -1140,6 +1140,18 @@ module = [
 ]
 disable_error_code = ["attr-defined"]
 
+# LangChain integration uses try/except import fallbacks for langchain_core vs
+# legacy langchain package compatibility. The intentional redefinitions trigger
+# no-redef which cannot be suppressed inline (linter strips type: ignore comments).
+[[tool.mypy.overrides]]
+module = [
+    "aragora.integrations.langchain.callbacks",
+    "aragora.integrations.langchain.chains",
+    "aragora.integrations.langchain.retriever",
+    "aragora.integrations.langchain.tools",
+]
+disable_error_code = ["no-redef"]
+
 [tool.mutmut]
 # Note: mutmut v3.4.0 has a bug parsing paths_to_mutate from pyproject.toml
 # For now, use: mutmut run aragora/ranking/elo_core.py (positional arg)
