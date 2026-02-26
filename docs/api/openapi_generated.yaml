@@ -22356,6 +22356,56 @@ paths:
                           type: integer
       deprecated: true
       x-aragora-stability: deprecated
+  /api/reputation/domain:
+    get:
+      tags:
+      - Reputation
+      summary: Get domain reputation scores
+      responses:
+        '200':
+          description: Domain reputation
+          headers:
+            X-Request-ID:
+              description: Unique request identifier for tracing and debugging
+              schema:
+                type: string
+                format: uuid
+            X-Response-Time:
+              description: Server processing time in milliseconds
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: object
+      deprecated: true
+      x-aragora-stability: deprecated
+  /api/reputation/history:
+    get:
+      tags:
+      - Reputation
+      summary: Get reputation history
+      responses:
+        '200':
+          description: Reputation history
+          headers:
+            X-Request-ID:
+              description: Unique request identifier for tracing and debugging
+              schema:
+                type: string
+                format: uuid
+            X-Response-Time:
+              description: Server processing time in milliseconds
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      deprecated: true
+      x-aragora-stability: deprecated
   /api/reputation/{agent_id}:
     get:
       tags:
@@ -101108,6 +101158,56 @@ paths:
                         debate_count:
                           type: integer
       x-aragora-stability: stable
+  /api/v1/reputation/domain:
+    get:
+      tags:
+      - Reputation
+      summary: Get domain reputation scores
+      operationId: getReputationDomain
+      responses:
+        '200':
+          description: Domain reputation
+          headers:
+            X-Request-ID:
+              description: Unique request identifier for tracing and debugging
+              schema:
+                type: string
+                format: uuid
+            X-Response-Time:
+              description: Server processing time in milliseconds
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: object
+      x-aragora-stability: experimental
+  /api/v1/reputation/history:
+    get:
+      tags:
+      - Reputation
+      summary: Get reputation history
+      operationId: getReputationHistory
+      responses:
+        '200':
+          description: Reputation history
+          headers:
+            X-Request-ID:
+              description: Unique request identifier for tracing and debugging
+              schema:
+                type: string
+                format: uuid
+            X-Response-Time:
+              description: Server processing time in milliseconds
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+      x-aragora-stability: experimental
   /api/v1/reputation/{agent_id}:
     get:
       tags:
