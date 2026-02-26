@@ -42,8 +42,10 @@ def _try_live_overview() -> dict[str, Any] | None:
         from aragora.analytics.debate_analytics import DebateAnalytics
         from aragora.ranking.elo import EloSystem
 
+        from aragora.utils.async_utils import run_async
+
         analytics = DebateAnalytics()
-        stats = analytics.get_debate_stats()
+        stats = run_async(analytics.get_debate_stats())
         elo = EloSystem()
         top_agents = elo.get_leaderboard(limit=5)
 
@@ -51,21 +53,21 @@ def _try_live_overview() -> dict[str, Any] | None:
         return {
             "generated_at": now.isoformat(),
             "debates": {
-                "total": stats.get("total_debates", 0),
-                "consensus_rate": stats.get("consensus_rate", 0.0),
-                "avg_rounds": stats.get("avg_rounds", 0),
-                "active": stats.get("active_debates", 0),
+                "total": getattr(stats, "total_debates", 0),
+                "consensus_rate": getattr(stats, "consensus_rate", 0.0),
+                "avg_rounds": getattr(stats, "avg_rounds", 0),
+                "active": getattr(stats, "completed_debates", 0),
             },
             "agents": {
                 "total_active": len(top_agents),
-                "top_performer": top_agents[0]["name"] if top_agents else "N/A",
-                "top_elo": top_agents[0].get("elo", 0) if top_agents else 0,
+                "top_performer": top_agents[0].agent_name if top_agents else "N/A",
+                "top_elo": top_agents[0].elo if top_agents else 0,
             },
             "cards": [
                 {
                     "id": "debates",
                     "title": "Total Debates",
-                    "value": str(stats.get("total_debates", 0)),
+                    "value": str(getattr(stats, "total_debates", 0)),
                     "change": "",
                     "change_type": "neutral",
                     "icon": "message-square",
@@ -73,7 +75,7 @@ def _try_live_overview() -> dict[str, Any] | None:
                 {
                     "id": "consensus",
                     "title": "Consensus Rate",
-                    "value": f"{stats.get('consensus_rate', 0) * 100:.0f}%",
+                    "value": f"{getattr(stats, 'consensus_rate', 0) * 100:.0f}%",
                     "change": "",
                     "change_type": "neutral",
                     "icon": "check-circle",
@@ -89,7 +91,7 @@ def _try_live_overview() -> dict[str, Any] | None:
                 {
                     "id": "avg_rounds",
                     "title": "Avg Rounds",
-                    "value": f"{stats.get('avg_rounds', 0):.1f}",
+                    "value": f"{getattr(stats, 'avg_rounds', 0):.1f}",
                     "change": "",
                     "change_type": "neutral",
                     "icon": "repeat",

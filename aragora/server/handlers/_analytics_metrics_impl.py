@@ -228,7 +228,7 @@ def _demo_response(normalized: str) -> HandlerResult | None:
         },
     }
     data = demo.get(normalized)
-    if data is not None:
+    if data is not None and isinstance(data, dict):
         data["demo"] = True
         return _json(data)
     return None
