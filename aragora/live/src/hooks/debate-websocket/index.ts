@@ -20,6 +20,7 @@ export type {
   EventData,
   ParsedEvent,
   ConnectionQuality,
+  SettlementMetadata,
 } from './types';
 
 // Re-export constants

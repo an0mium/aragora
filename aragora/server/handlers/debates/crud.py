@@ -230,23 +230,39 @@ class CrudOperationsMixin:
 
         if slug in active_debates:
             active = active_debates[slug]
+            active_result = active.get("result") if isinstance(active, dict) else None
+            mode = active.get("mode")
+            settlement = active.get("settlement")
+            active_metadata = active.get("metadata") if isinstance(active, dict) else None
+            if isinstance(active_metadata, dict):
+                mode = mode or active_metadata.get("mode")
+                settlement = settlement or active_metadata.get("settlement")
+                if not isinstance(active_result, dict):
+                    active_result = active_metadata.get("result")
+            if isinstance(active_result, dict):
+                mode = mode or active_result.get("mode")
+                settlement = settlement or active_result.get("settlement")
             # Return minimal info for in-progress debate
             # Support both "task" (new) and "question" (legacy) field names
-            return json_response(
-                {
-                    "id": slug,
-                    "debate_id": slug,
-                    "task": active.get("task") or active.get("question", ""),
-                    "status": normalize_status(active.get("status", "starting")),
-                    "agents": (
-                        active.get("agents", "").split(",")
-                        if isinstance(active.get("agents"), str)
-                        else active.get("agents", [])
-                    ),
-                    "rounds": active.get("rounds", DEFAULT_ROUNDS),
-                    "in_progress": True,
-                }
-            )
+            response_payload: dict[str, Any] = {
+                "id": slug,
+                "debate_id": slug,
+                "task": active.get("task") or active.get("question", ""),
+                "status": normalize_status(active.get("status", "starting")),
+                "agents": (
+                    active.get("agents", "").split(",")
+                    if isinstance(active.get("agents"), str)
+                    else active.get("agents", [])
+                ),
+                "rounds": active.get("rounds", DEFAULT_ROUNDS),
+                "in_progress": True,
+            }
+            if mode:
+                response_payload["mode"] = mode
+            if isinstance(settlement, dict):
+                response_payload["settlement"] = settlement
+
+            return json_response(response_payload)
 
         return error_response(f"Debate not found: {slug}", 404)
 
