@@ -392,7 +392,7 @@ export default function ReasoningPage() {
                             style={{ backgroundColor: '#facc15' }}
                           />
                         )}
-                        <div className="text-center text-[9px] text-text-muted font-mono mt-0.5">
+                        <div className="text-center text-[10px] text-text-muted font-mono mt-0.5">
                           R{r}
                         </div>
                       </div>

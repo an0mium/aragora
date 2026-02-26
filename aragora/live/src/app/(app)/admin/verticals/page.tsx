@@ -85,7 +85,7 @@ function VerticalCard({
           {vertical.tags.slice(0, 4).map((tag) => (
             <span
               key={tag}
-              className="text-[9px] font-mono text-text-muted/50 px-1.5 py-0.5 bg-surface border border-acid-green/10"
+              className="text-[10px] font-mono text-text-muted/50 px-1.5 py-0.5 bg-surface border border-acid-green/10"
             >
               {tag}
             </span>
@@ -108,9 +108,9 @@ function ToolEditor({
       <div className="flex-1">
         <div className="flex items-center gap-2">
           <span className="text-acid-cyan font-mono text-xs">{tool.name}</span>
-          <span className="text-text-muted/40 font-mono text-[9px]">({tool.category})</span>
+          <span className="text-text-muted/40 font-mono text-[10px]">({tool.category})</span>
         </div>
-        <p className="text-text-muted/60 font-mono text-[9px] mt-0.5">{tool.description}</p>
+        <p className="text-text-muted/60 font-mono text-[10px] mt-0.5">{tool.description}</p>
       </div>
       <button
         onClick={onToggle}
@@ -147,11 +147,11 @@ function ComplianceEditor({
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <span className="text-acid-cyan font-mono text-xs">{framework.name}</span>
-            <span className={`px-1.5 py-0.5 font-mono text-[9px] ${levelColors[framework.level] || levelColors.optional}`}>
+            <span className={`px-1.5 py-0.5 font-mono text-[10px] ${levelColors[framework.level] || levelColors.optional}`}>
               {framework.level?.toUpperCase()}
             </span>
           </div>
-          <p className="text-text-muted/60 font-mono text-[9px] mt-0.5">{framework.description}</p>
+          <p className="text-text-muted/60 font-mono text-[10px] mt-0.5">{framework.description}</p>
         </div>
         <div className="flex items-center gap-2">
           {framework.requirements?.length > 0 && (
@@ -176,10 +176,10 @@ function ComplianceEditor({
       </div>
       {expanded && framework.requirements?.length > 0 && (
         <div className="px-3 pb-3 border-t border-acid-green/10 pt-2">
-          <div className="text-text-muted/40 font-mono text-[9px] mb-1">REQUIREMENTS:</div>
+          <div className="text-text-muted/40 font-mono text-[10px] mb-1">REQUIREMENTS:</div>
           <ul className="space-y-0.5">
             {framework.requirements.map((req, i) => (
-              <li key={i} className="text-text-muted/60 font-mono text-[9px] flex items-start gap-1">
+              <li key={i} className="text-text-muted/60 font-mono text-[10px] flex items-start gap-1">
                 <span className="text-acid-green/50">-</span>
                 {req}
               </li>
@@ -201,7 +201,7 @@ function ModelConfigEditor({
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-text-muted/60 font-mono text-[9px] block mb-1">
+        <label className="text-text-muted/60 font-mono text-[10px] block mb-1">
           TEMPERATURE
         </label>
         <input
@@ -218,7 +218,7 @@ function ModelConfigEditor({
         </div>
       </div>
       <div>
-        <label className="text-text-muted/60 font-mono text-[9px] block mb-1">
+        <label className="text-text-muted/60 font-mono text-[10px] block mb-1">
           MAX TOKENS
         </label>
         <input
@@ -229,7 +229,7 @@ function ModelConfigEditor({
         />
       </div>
       <div>
-        <label className="text-text-muted/60 font-mono text-[9px] block mb-1">
+        <label className="text-text-muted/60 font-mono text-[10px] block mb-1">
           PREFERRED MODEL (optional)
         </label>
         <input
@@ -488,7 +488,7 @@ export default function VerticalsAdminPage() {
                           {selectedConfig.expertise_areas?.map((area) => (
                             <span
                               key={area}
-                              className="text-[9px] font-mono text-acid-cyan px-2 py-0.5 border border-acid-cyan/30"
+                              className="text-[10px] font-mono text-acid-cyan px-2 py-0.5 border border-acid-cyan/30"
                             >
                               {area}
                             </span>
@@ -496,10 +496,10 @@ export default function VerticalsAdminPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-text-muted/50 font-mono text-[9px]">
+                        <div className="text-text-muted/50 font-mono text-[10px]">
                           v{selectedConfig.version}
                         </div>
-                        <div className="text-text-muted/40 font-mono text-[9px]">
+                        <div className="text-text-muted/40 font-mono text-[10px]">
                           by {selectedConfig.author}
                         </div>
                       </div>

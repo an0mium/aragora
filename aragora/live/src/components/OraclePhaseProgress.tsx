@@ -91,7 +91,7 @@ export function OraclePhaseProgress({ currentPhase }: OraclePhaseProgressProps) 
                 </div>
                 <span
                   className={[
-                    'text-[9px] font-mono mt-1.5 tracking-wider transition-colors duration-500',
+                    'text-[10px] font-mono mt-1.5 tracking-wider transition-colors duration-500',
                     isActive
                       ? 'text-[var(--acid-magenta)]'
                       : isComplete

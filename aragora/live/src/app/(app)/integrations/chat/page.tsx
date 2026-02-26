@@ -182,7 +182,7 @@ function IntegrationCard({ integration, onTest, onToggle, isLoading }: Integrati
       {/* Last Message */}
       {integration.lastMessage && (
         <div className="px-4 pb-3 border-t border-acid-green/10 pt-2">
-          <p className="text-text-muted/40 font-mono text-[9px]">
+          <p className="text-text-muted/40 font-mono text-[10px]">
             Last: {integration.lastMessage}
           </p>
         </div>
@@ -409,7 +409,7 @@ export default function ChatIntegrationsPage() {
             ].map((event) => (
               <div key={event.name} className="p-3 border border-acid-green/10 bg-surface/10">
                 <div className="text-acid-cyan font-mono text-[10px]">{event.name}</div>
-                <div className="text-text-muted/40 font-mono text-[9px] mt-1">{event.desc}</div>
+                <div className="text-text-muted/40 font-mono text-[10px] mt-1">{event.desc}</div>
               </div>
             ))}
           </div>

@@ -153,11 +153,11 @@ export default function OrchestrationPage() {
               </p>
             )}
             {canvas.source_canvas_id && (
-              <div className="text-[9px] text-pink-400 mb-1">
+              <div className="text-[10px] text-pink-400 mb-1">
                 From actions canvas
               </div>
             )}
-            <div className="text-[9px] text-[var(--text-muted)]">
+            <div className="text-[10px] text-[var(--text-muted)]">
               {new Date(canvas.updated_at).toLocaleDateString()}
             </div>
           </div>
