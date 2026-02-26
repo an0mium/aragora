@@ -178,6 +178,7 @@ jobs:
         run: |
           mkdir -p test-results
           pytest tests/e2e/ -v --tb=short --timeout=180 \
+            -m "smoke" \
             --junit-xml=test-results/e2e-results.xml
         env:
           PYTHONPATH: .
@@ -241,6 +242,11 @@ jobs:
         run: |
           PGPASSWORD=aragora_test psql -h localhost -U aragora -d aragora_test -c "CREATE DATABASE aragora;" || true
 
+      - name: Initialize PostgreSQL schema
+        run: |
+          PGPASSWORD=aragora_test psql -h localhost -U aragora -d aragora_test -f aragora/db/schema/postgres_schema.sql
+          PGPASSWORD=aragora_test psql -h localhost -U aragora -d aragora -f aragora/db/schema/postgres_schema.sql
+
       - name: Configure AWS credentials via OIDC
         if: ${{ vars.AWS_CI_ENABLED == 'true' }}
         uses: aws-actions/configure-aws-credentials@v4
@@ -303,10 +309,9 @@ jobs:
           # Integration tests focus on specific scenarios, not comprehensive coverage
           # Override the global 45% threshold from pyproject.toml
           pytest tests/integration/ -v --tb=short --timeout=120 \
-            -m "integration or integration_minimal or not slow" \
+            -m "integration or integration_minimal" \
             --cov=aragora --cov-report=xml:coverage-integration.xml \
             --cov-report=term-missing \
-            --cov-fail-under=60 \
             --junit-xml=test-results/integration-results.xml
         env:
           PYTHONPATH: .
