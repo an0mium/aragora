@@ -219,3 +219,22 @@ def test_wait_for_http_200_reports_last_connection_error_on_timeout() -> None:
     ):
         with pytest.raises(module.RuntimeCheckError, match="last_error=HTTP request failed"):
             module._wait_for_http_200("http://127.0.0.1:8080", "/healthz", timeout_seconds=1)
+
+
+def test_check_api_flow_accepts_auth_required_response() -> None:
+    module = _load_script_module()
+
+    with patch.object(
+        module,
+        "_http_request",
+        return_value=(401, '{"error":"Authentication required","code":"auth_required"}'),
+    ):
+        module._check_api_flow("http://127.0.0.1:8080", "ci-token")
+
+
+def test_check_api_flow_raises_on_unexpected_get_status() -> None:
+    module = _load_script_module()
+
+    with patch.object(module, "_http_request", return_value=(500, "server error")):
+        with pytest.raises(module.RuntimeCheckError, match="Expected GET /api/v1/debates"):
+            module._check_api_flow("http://127.0.0.1:8080", "ci-token")
