@@ -269,8 +269,15 @@ class TestEmailConfigurationValidation:
         assert config.smtp_port == 587
         assert config.email_provider == EmailProvider.SMTP
 
-    def test_smtp_config_requires_host(self) -> None:
+    def test_smtp_config_requires_host(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test SMTP config raises error without host."""
+        # Ensure no fallback provider credentials leak from the environment.
+        # EmailConfig.__post_init__ loads SENDGRID_API_KEY / AWS creds from
+        # os.environ and silently switches provider when they are present,
+        # which would suppress the expected ValueError.
+        monkeypatch.delenv("SENDGRID_API_KEY", raising=False)
+        monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        monkeypatch.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
         with pytest.raises(ValueError, match="SMTP host is required"):
             EmailConfig(provider="smtp", smtp_host="")
 
