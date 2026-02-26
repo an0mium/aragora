@@ -246,7 +246,13 @@ def _parse_compose_port(raw_output: str) -> tuple[str, int] | None:
         if not host:
             host = "localhost"
 
-        return host, int(port_text)
+        parsed_port = int(port_text)
+        if parsed_port <= 0:
+            # Docker can report :0 when no host mapping is actually published.
+            # Treat as unresolved so we fall back to container-network probing.
+            continue
+
+        return host, parsed_port
 
     return None
 

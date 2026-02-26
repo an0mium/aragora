@@ -153,6 +153,27 @@ def test_resolve_runtime_base_url_uses_published_mapped_port() -> None:
     assert resolved == "http://127.0.0.1:32788"
 
 
+def test_resolve_runtime_base_url_ignores_zero_port_mapping_and_falls_back_to_container_ip() -> (
+    None
+):
+    module = _load_script_module()
+
+    with (
+        patch.object(
+            module,
+            "_compose",
+            side_effect=[
+                _proc("0.0.0.0:0\n"),
+                _proc("aragora-container\n"),
+            ],
+        ),
+        patch.object(module, "_run", return_value=_proc("172.18.0.9\n")),
+    ):
+        resolved = module._resolve_runtime_base_url(["docker", "compose"], "http://127.0.0.1:8080")
+
+    assert resolved == "http://172.18.0.9:8080"
+
+
 def test_resolve_runtime_base_url_keeps_requested_when_resolution_fails() -> None:
     module = _load_script_module()
 
