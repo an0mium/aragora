@@ -688,7 +688,7 @@ def _build_parser() -> argparse.ArgumentParser:
     ensure.add_argument(
         "--strategy",
         choices=("merge", "rebase", "ff-only", "none"),
-        default="merge",
+        default="ff-only",
         help="Upstream integration strategy when --reconcile is enabled",
     )
     ensure.add_argument("--print-path", action="store_true")
@@ -700,7 +700,7 @@ def _build_parser() -> argparse.ArgumentParser:
     reconcile.add_argument(
         "--strategy",
         choices=("merge", "rebase", "ff-only", "none"),
-        default="rebase",
+        default="ff-only",
         help="Upstream integration strategy",
     )
     reconcile.add_argument("--all", action="store_true")
@@ -731,7 +731,7 @@ def _build_parser() -> argparse.ArgumentParser:
     maintain.add_argument(
         "--strategy",
         choices=("merge", "rebase", "ff-only", "none"),
-        default="merge",
+        default="ff-only",
         help="Upstream integration strategy for the reconcile phase",
     )
     maintain.add_argument("--ttl-hours", type=int, default=24)

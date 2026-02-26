@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -170,3 +171,11 @@ def test_ensure_managed_worktree_missing_session_payload_raises(tmp_path: Path) 
 
     with pytest.raises(RuntimeError, match="missing session payload"):
         service.ensure_managed_worktree(managed_dir=".worktrees/codex-auto")
+
+
+def test_worktree_lifecycle_defaults_to_ff_only_strategy(tmp_path: Path) -> None:
+    service = WorktreeLifecycleService(repo_root=tmp_path)
+    ensure_sig = inspect.signature(service.ensure_managed_worktree)
+    maintain_sig = inspect.signature(service.maintain_managed_dirs)
+    assert ensure_sig.parameters["strategy"].default == "ff-only"
+    assert maintain_sig.parameters["strategy"].default == "ff-only"
