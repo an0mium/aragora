@@ -366,6 +366,80 @@ class TestDebateControllerStartDebate:
             # Note: StateManager proxy converts "question" to "task"
             assert debate_info["status"] in ("starting", "running")
 
+    def test_start_debate_includes_mode_and_settlement_in_active_state_and_start_event(self):
+        """Epistemic hygiene metadata should be available immediately in active state + DEBATE_START."""
+        from aragora.server.debate_utils import _active_debates, _active_debates_lock
+
+        controller = DebateController(
+            factory=self.factory, emitter=self.emitter, storage=self.storage
+        )
+        request = DebateRequest.from_dict(
+            {
+                "question": "Should we roll out feature flag globally?",
+                "mode": "epistemic_hygiene",
+                "metadata": {
+                    "settlement": {
+                        "falsifier": "Error rate rises above 2%",
+                        "metric": "error_rate_percent",
+                        "review_horizon_days": 7,
+                        "resolver_type": "deterministic",
+                    }
+                },
+            }
+        )
+
+        mock_executor = Mock()
+        with patch.object(controller, "_get_executor", return_value=mock_executor):
+            response = controller.start_debate(request)
+
+        with _active_debates_lock:
+            debate_info = _active_debates[response.debate_id]
+            metadata = debate_info.get("metadata", {})
+            mode = debate_info.get("mode") or metadata.get("mode")
+            settlement = debate_info.get("settlement") or metadata.get("settlement")
+            assert mode == "epistemic_hygiene"
+            assert settlement["resolver_type"] == "deterministic"
+            assert settlement["metric"] == "error_rate_percent"
+
+        emitted = self.emitter.emit.call_args_list[0][0][0]
+        assert emitted.data["mode"] == "epistemic_hygiene"
+        assert emitted.data["settlement"]["status"] == "needs_definition"
+        assert emitted.data["settlement"]["resolver_type"] == "deterministic"
+
+    def test_start_debate_tracks_mode_and_settlement_metadata(self):
+        """Active debate state should include normalized mode/settlement metadata."""
+        from aragora.server.debate_utils import _active_debates, _active_debates_lock
+
+        controller = DebateController(
+            factory=self.factory, emitter=self.emitter, storage=self.storage
+        )
+
+        mock_executor = Mock()
+        with patch.object(controller, "_get_executor", return_value=mock_executor):
+            request = DebateRequest(
+                question="Should we ship this release?",
+                mode="epistemic_hygiene",
+                metadata={
+                    "settlement": {
+                        "falsifier": "p95 latency worsens > 15%",
+                        "metric": "p95_latency_ms",
+                        "review_horizon_days": 14,
+                        "resolver_type": "human",
+                    }
+                },
+            )
+            response = controller.start_debate(request)
+
+        with _active_debates_lock:
+            debate_info = _active_debates[response.debate_id]
+            metadata = debate_info.get("metadata", {})
+            mode = debate_info.get("mode") or metadata.get("mode")
+            settlement = debate_info.get("settlement") or metadata.get("settlement")
+            assert mode == "epistemic_hygiene"
+            assert settlement["claim"] == "Should we ship this release?"
+            assert settlement["resolver_type"] == "human"
+            assert settlement["review_horizon_days"] == 14
+
     def test_start_debate_sets_emitter_loop_id(self):
         """Should set loop_id on emitter."""
         controller = DebateController(

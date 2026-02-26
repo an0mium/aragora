@@ -789,6 +789,21 @@ class DebateController:
                 use_playground=is_credential_error,
             )
 
+        mode_meta = request.mode or (
+            request.metadata.get("mode") if isinstance(request.metadata, dict) else None
+        )
+        settlement_meta = (
+            request.metadata.get("settlement") if isinstance(request.metadata, dict) else None
+        )
+        settlement_snapshot = (
+            _normalize_settlement_metadata(
+                settlement_meta,
+                claim_fallback=request.question,
+            )
+            if (mode_meta == _EPISTEMIC_HYGIENE_MODE or isinstance(settlement_meta, dict))
+            else None
+        )
+
         # Track debate state (use "task" not "question" for StateManager compatibility)
         with _active_debates_lock:
             _active_debates[debate_id] = {
@@ -799,6 +814,8 @@ class DebateController:
                 "rounds": request.rounds,
                 "total_rounds": request.rounds,
                 "documents": list(request.documents or []),
+                "mode": mode_meta,
+                "settlement": settlement_snapshot,
             }
 
         # Periodic cleanup
@@ -815,7 +832,12 @@ class DebateController:
         self.emitter.emit(
             StreamEvent(
                 type=StreamEventType.DEBATE_START,
-                data={"task": request.question, "agents": agent_names},
+                data={
+                    "task": request.question,
+                    "agents": agent_names,
+                    "mode": mode_meta,
+                    "settlement": settlement_snapshot,
+                },
                 loop_id=debate_id,
             )
         )

@@ -1,5 +1,6 @@
 import type { DebateArtifact } from '@/utils/supabase';
 import type { TranscriptMessage, DebateConnectionStatus } from '@/hooks/useDebateWebSocket';
+import type { SettlementMetadata } from '@/hooks/debate-websocket';
 import type { StreamEvent } from '@/types/events';
 import type { StreamMetrics, TTSControls as TTSControlsType } from '@/hooks/useDebateStream';
 
@@ -13,6 +14,8 @@ export interface LiveDebateViewProps {
   status: DebateConnectionStatus;
   task: string;
   agents: string[];
+  debateMode?: string | null;
+  settlement?: SettlementMetadata | null;
   messages: TranscriptMessage[];
   streamingMessages: Map<string, StreamingMessage>;
   streamEvents: StreamEvent[];

@@ -446,6 +446,86 @@ class TestGetDebateBySlug:
         body = _body(result)
         assert body["agents"] == ["claude", "gpt-4"]
 
+    def test_get_debate_in_progress_includes_mode_and_settlement(self):
+        """In-progress payload should include mode/settlement when present on active state."""
+        storage = MagicMock()
+        storage.get_debate.return_value = None
+        h = _make_handler(storage=storage)
+        handler = _mock_http_handler()
+
+        active = {
+            "d-active": {
+                "task": "Active",
+                "agents": ["claude", "gpt-4"],
+                "mode": "epistemic_hygiene",
+                "settlement": {
+                    "claim": "Should we deploy?",
+                    "resolver_type": "human",
+                    "review_horizon_days": 14,
+                },
+            }
+        }
+        with _patch_active_debates(active):
+            result = h._get_debate_by_slug(handler, "d-active")
+        body = _body(result)
+        assert body["mode"] == "epistemic_hygiene"
+        assert body["settlement"]["claim"] == "Should we deploy?"
+        assert body["settlement"]["resolver_type"] == "human"
+
+    def test_get_debate_in_progress_uses_result_fallback_for_mode_and_settlement(self):
+        """Fallback to active.result metadata when top-level fields are absent."""
+        storage = MagicMock()
+        storage.get_debate.return_value = None
+        h = _make_handler(storage=storage)
+        handler = _mock_http_handler()
+
+        active = {
+            "d-active": {
+                "task": "Active",
+                "agents": ["claude"],
+                "result": {
+                    "mode": "epistemic_hygiene",
+                    "settlement": {
+                        "claim": "Should we switch regions?",
+                        "resolver_type": "deterministic",
+                    },
+                },
+            }
+        }
+        with _patch_active_debates(active):
+            result = h._get_debate_by_slug(handler, "d-active")
+        body = _body(result)
+        assert body["mode"] == "epistemic_hygiene"
+        assert body["settlement"]["claim"] == "Should we switch regions?"
+        assert body["settlement"]["resolver_type"] == "deterministic"
+
+    def test_get_debate_in_progress_reads_mode_and_settlement_from_metadata(self):
+        """Proxy-backed active entries may store mode/settlement inside metadata."""
+        storage = MagicMock()
+        storage.get_debate.return_value = None
+        h = _make_handler(storage=storage)
+        handler = _mock_http_handler()
+
+        active = {
+            "d-active": {
+                "task": "Active",
+                "agents": ["claude"],
+                "metadata": {
+                    "mode": "epistemic_hygiene",
+                    "settlement": {
+                        "claim": "Should we freeze deploys?",
+                        "resolver_type": "human",
+                    },
+                },
+            }
+        }
+        with _patch_active_debates(active):
+            result = h._get_debate_by_slug(handler, "d-active")
+        body = _body(result)
+        assert body["mode"] == "epistemic_hygiene"
+        assert body["settlement"]["claim"] == "Should we freeze deploys?"
+        assert body["settlement"]["resolver_type"] == "human"
+
     def test_get_debate_in_progress_uses_question_field(self):
         """Active debate with legacy 'question' field instead of 'task'."""
         storage = MagicMock()

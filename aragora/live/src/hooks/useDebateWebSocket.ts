@@ -22,6 +22,7 @@ export type {
   DebateStatus,
   EventData,
   ParsedEvent,
+  SettlementMetadata,
 } from './debate-websocket';
 
 // Re-export constants for consumers that need them

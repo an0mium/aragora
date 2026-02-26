@@ -191,6 +191,11 @@ class TestGetDebateBySlug:
             "status": "running",
             "agents": "claude,gpt4",
             "rounds": 3,
+            "mode": "epistemic_hygiene",
+            "settlement": {
+                "status": "pending_human_adjudication",
+                "resolver_type": "human",
+            },
         }
         mock_state_manager = MagicMock()
         mock_state_manager.get_debate.return_value = mock_state
@@ -205,6 +210,8 @@ class TestGetDebateBySlug:
         body = json.loads(result.body)
         assert body["id"] == "active_123"
         assert body["in_progress"] is True
+        assert body["mode"] == "epistemic_hygiene"
+        assert body["settlement"]["status"] == "pending_human_adjudication"
 
 
 # ===========================================================================

@@ -4,6 +4,18 @@
 
 import type { StreamEvent } from '@/types/events';
 
+export interface SettlementMetadata {
+  claim?: string;
+  falsifier?: string;
+  metric?: string;
+  review_horizon_days?: number;
+  resolver_type?: string;
+  status?: string;
+  next_review_at?: string | null;
+  sla_state?: string;
+  sla_reason?: string;
+}
+
 export interface TranscriptMessage {
   agent: string;
   role?: string;
@@ -85,6 +97,8 @@ export interface UseDebateWebSocketReturn {
   // Debate data
   task: string;
   agents: string[];
+  debateMode: string | null;
+  settlement: SettlementMetadata | null;
   messages: TranscriptMessage[];
   streamingMessages: Map<string, StreamingMessage>;
   streamEvents: StreamEvent[];
@@ -105,6 +119,8 @@ export interface DebateStatus {
   error?: string;
   task?: string;
   agents?: string[];
+  mode?: string | null;
+  settlement?: SettlementMetadata | null;
 }
 
 // Event data types for type-safe event processing
@@ -121,6 +137,8 @@ export interface EventData {
   confidence?: number;
   round?: number;
   phase?: number;
+  mode?: string;
+  settlement?: SettlementMetadata;
   timestamp?: number;
   error_type?: string;
   message?: string;
