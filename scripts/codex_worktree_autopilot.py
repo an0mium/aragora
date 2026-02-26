@@ -505,6 +505,8 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
     kept: list[dict[str, Any]] = []
     removed = 0
     skipped_unmerged = 0
+    failed_worktree_removals = 0
+    failed_branch_deletions = 0
 
     for session in state.get("sessions", []):
         path = Path(str(session.get("path", ""))).resolve()
@@ -527,12 +529,16 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
                 continue
 
         if active:
-            _remove_worktree(repo_root, path)
+            if not _remove_worktree(repo_root, path):
+                kept.append(session)
+                failed_worktree_removals += 1
+                continue
         elif path.exists():
             shutil.rmtree(path, ignore_errors=True)
 
         if args.delete_branches and branch.startswith("codex/"):
-            _delete_branch(repo_root, branch)
+            if not _delete_branch(repo_root, branch):
+                failed_branch_deletions += 1
         removed += 1
 
     state["sessions"] = kept
@@ -544,13 +550,17 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
         "removed": removed,
         "kept": len(kept),
         "skipped_unmerged": skipped_unmerged,
+        "failed_worktree_removals": failed_worktree_removals,
+        "failed_branch_deletions": failed_branch_deletions,
     }
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
         print(
             f"cleanup complete: removed={removed} kept={len(kept)} "
-            f"skipped_unmerged={skipped_unmerged}"
+            f"skipped_unmerged={skipped_unmerged} "
+            f"failed_worktree_removals={failed_worktree_removals} "
+            f"failed_branch_deletions={failed_branch_deletions}"
         )
     return 0
 

@@ -586,6 +586,7 @@ jobs:
           echo "All instances healthy"
 
       - name: Deploy via SSM
+        id: deploy
         run: |
           # Deploy to ALL production instances
           IFS=',' read -ra IDS <<< "${{ steps.get-instance.outputs.instance_ids }}"
@@ -739,6 +740,8 @@ jobs:
           echo "Production deploy completed successfully on all instances"
 
       - name: Post-deploy SHA verification
+        id: sha_verify
+        if: steps.deploy.conclusion == 'success'
         run: |
           EXPECTED_SHA="${{ github.sha }}"
           echo "Expected deployed SHA: $EXPECTED_SHA"
@@ -827,6 +830,63 @@ jobs:
           fi
 
           echo "SHA verification passed on all instances"
+
+      - name: Determine rollback requirement
+        id: rollback_gate
+        if: always() && steps.deploy.conclusion != 'skipped'
+        run: |
+          DEPLOY_CONCLUSION="${{ steps.deploy.conclusion }}"
+          SHA_CONCLUSION="${{ steps.sha_verify.conclusion }}"
+          SHOULD_ROLLBACK="false"
+          ROLLBACK_REASON=""
+
+          if [[ "$DEPLOY_CONCLUSION" != "success" ]]; then
+            SHOULD_ROLLBACK="true"
+            ROLLBACK_REASON="production deploy step conclusion=${DEPLOY_CONCLUSION}"
+          elif [[ "$SHA_CONCLUSION" != "success" && "$SHA_CONCLUSION" != "skipped" ]]; then
+            SHOULD_ROLLBACK="true"
+            ROLLBACK_REASON="post-deploy SHA verification conclusion=${SHA_CONCLUSION}"
+          fi
+
+          echo "should_rollback=$SHOULD_ROLLBACK" >> "$GITHUB_OUTPUT"
+          echo "rollback_reason=$ROLLBACK_REASON" >> "$GITHUB_OUTPUT"
+
+          if [[ "$SHOULD_ROLLBACK" == "true" ]]; then
+            echo "Rollback required: $ROLLBACK_REASON"
+          else
+            echo "::notice::Production deployment succeeded; rollback not required"
+          fi
+
+      - name: Rollback on failure
+        if: steps.rollback_gate.outputs.should_rollback == 'true'
+        run: |
+          echo "::warning::Production deployment failed - initiating rollback (${{ steps.rollback_gate.outputs.rollback_reason }})"
+          IFS=',' read -ra IDS <<< "${{ steps.get-instance.outputs.instance_ids }}"
+
+          aws ssm send-command \
+            --instance-ids "${IDS[@]}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Rollback aragora production from GitHub Actions run ${{ github.run_id }}" \
+            --parameters 'commands=[
+              "set -e",
+              "export HOME=/root",
+              "cd /home/ec2-user/aragora",
+              "git config --global safe.directory /home/ec2-user/aragora",
+              "if [ -f /tmp/aragora_deploy_state ]; then source /tmp/aragora_deploy_state; fi",
+              "if [ -n \"$PREVIOUS_COMMIT\" ]; then sudo -u ec2-user git checkout $PREVIOUS_COMMIT; fi",
+              "source venv/bin/activate",
+              "pip install -e . --quiet --no-cache-dir",
+              "sudo systemctl restart aragora",
+              "rm -f /tmp/aragora_deploy_state",
+              "echo \"Rollback complete\""
+            ]' \
+            --timeout-seconds 120
+
+      - name: Fail production deployment after rollback
+        if: steps.rollback_gate.outputs.should_rollback == 'true'
+        run: |
+          echo "::error::Production deployment failed (${{ steps.rollback_gate.outputs.rollback_reason }}). Rollback command dispatched."
+          exit 1
 
   notify:
     needs: [deploy-vercel, deploy-ec2-staging, deploy-ec2-production]

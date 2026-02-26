@@ -229,7 +229,16 @@ class CrudOperationsMixin:
             active_debates = _active_debates
 
         if slug in active_debates:
-            active = active_debates[slug]
+            active_raw = active_debates[slug]
+            if not isinstance(active_raw, dict):
+                logger.warning(
+                    "Malformed active debate state for %s: expected dict, got %s",
+                    slug,
+                    type(active_raw).__name__,
+                )
+                return error_response(f"Debate not found: {slug}", 404)
+
+            active = active_raw
             active_result = active.get("result") if isinstance(active, dict) else None
             mode = active.get("mode")
             settlement = active.get("settlement")

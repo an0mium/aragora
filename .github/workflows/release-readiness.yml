@@ -9,6 +9,9 @@ on:
       - "pyproject.toml"
       - "requirements.txt"
       - "scripts/ci_release_readiness.sh"
+      - "scripts/check_branch_mutation_policy.py"
+      - "scripts/check_deploy_secure_sha_guard.py"
+      - "scripts/check_required_check_priority_policy.py"
       - ".github/workflows/release-readiness.yml"
   workflow_dispatch:
 
