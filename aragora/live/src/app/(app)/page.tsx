@@ -190,7 +190,7 @@ export default function Home() {
   // Handle debate started from landing page - navigate to debate viewer
   const _handleDebateStarted = useCallback((_debateId: string) => {
     // Navigate to the dedicated debate viewer page
-    router.push(`/debate/${_debateId}`);
+    router.push(`/debates/${_debateId}`);
   }, [router]);
 
   // Handle starting a debate from a trending topic
@@ -213,7 +213,7 @@ export default function Home() {
 
       const data = await response.json();
       if (data.success && data.debate_id) {
-        router.push(`/debate/${data.debate_id}`);
+        router.push(`/debates/${data.debate_id}`);
       } else {
         setError(data.error || 'Failed to start debate from trend');
       }
@@ -451,7 +451,7 @@ export default function Home() {
               activeQuestion={debateTitle}
               apiBase={apiBase}
               onDismissError={() => setError(null)}
-              onDebateStarted={(debateId) => router.push(`/debate/${debateId}`)}
+              onDebateStarted={(debateId) => router.push(`/debates/${debateId}`)}
               onError={setError}
             />
             {/* Quick Debate shortcut */}
@@ -613,7 +613,7 @@ export default function Home() {
           activeQuestion={debateTitle}
           apiBase={apiBase}
           onDismissError={() => setError(null)}
-          onDebateStarted={(debateId) => router.push(`/debate/${debateId}`)}
+          onDebateStarted={(debateId) => router.push(`/debates/${debateId}`)}
           onError={setError}
         />
 
@@ -653,6 +653,42 @@ export default function Home() {
             <PanelErrorBoundary panelName="Recent Receipts">
               <RecentReceipts limit={5} />
             </PanelErrorBoundary>
+
+            {/* Self-Improvement Quick Launch */}
+            {isFeatureVisible('standard') && (
+              <div className="border border-acid-cyan/30 bg-acid-cyan/5 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h2 className="font-mono text-sm font-bold text-acid-cyan">SELF-IMPROVEMENT</h2>
+                    <p className="text-xs text-text-muted font-mono mt-0.5">
+                      Debates feed back into system learning
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => router.push('/self-improve')}
+                    className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                  >
+                    [VIEW]
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => router.push('/self-improve')}
+                    className="px-3 py-2 bg-acid-cyan/10 border border-acid-cyan/30 text-acid-cyan text-xs font-mono rounded hover:bg-acid-cyan/20 transition-colors"
+                  >
+                    View Learning Feed
+                  </button>
+                  {currentDebateId && (
+                    <button
+                      onClick={() => router.push(`/self-improve?from=debate&id=${currentDebateId}`)}
+                      className="px-3 py-2 bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs font-mono rounded hover:bg-violet-600/30 transition-colors"
+                    >
+                      Improve from Current Debate
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Pipeline Quick Launch */}
             {isFeatureVisible('standard') && (
