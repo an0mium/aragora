@@ -55,7 +55,7 @@ def _ensure_embeddings_checked() -> None:
         _SentenceTransformer = __ST
         _np = __np
         _EMBEDDINGS_AVAILABLE = True
-    except (RuntimeError, ValueError, TypeError, OSError) as e:
+    except (RuntimeError, ValueError, TypeError, OSError, ImportError) as e:
         logger.debug(
             "sentence-transformers not available: %s. Using heuristic claim-evidence linking", e
         )
