@@ -69,7 +69,7 @@ try:
             CallbackManagerForToolRun as _LCCBManager,
         )
     except ImportError:
-        from langchain.callbacks.manager import (
+        from langchain.callbacks.manager import (  # type: ignore[no-redef]
             AsyncCallbackManagerForToolRun as _LCAsyncCBManager,
             CallbackManagerForToolRun as _LCCBManager,
         )

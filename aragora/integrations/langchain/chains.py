@@ -36,7 +36,7 @@ if TYPE_CHECKING:
             CallbackManagerForChainRun,
         )
     except ImportError:
-        from langchain.callbacks.manager import (
+        from langchain.callbacks.manager import (  # type: ignore[no-redef]
             AsyncCallbackManagerForChainRun,
             CallbackManagerForChainRun,
         )
@@ -74,7 +74,7 @@ try:
             CallbackManagerForChainRun,
         )
     except ImportError:
-        from langchain.callbacks.manager import (
+        from langchain.callbacks.manager import (  # type: ignore[no-redef]
             AsyncCallbackManagerForChainRun,
             CallbackManagerForChainRun,
         )
