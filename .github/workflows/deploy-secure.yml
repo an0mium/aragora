@@ -762,9 +762,10 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --comment "SHA verification from GitHub Actions run ${{ github.run_id }}" \
             --parameters 'commands=[
-              "cd /home/ec2-user/aragora && git rev-parse HEAD"
+              "set -e",
+              "sudo -u ec2-user git -C /home/ec2-user/aragora rev-parse HEAD || git -C /home/ec2-user/aragora -c safe.directory=/home/ec2-user/aragora rev-parse HEAD"
             ]' \
-            --timeout-seconds 30 \
+            --timeout-seconds 60 \
             --query 'Command.CommandId' \
             --output text)
 
@@ -801,6 +802,22 @@ jobs:
 
             if [[ "$STATUS" != "Success" ]]; then
               echo "::error::Failed to retrieve deployed SHA from $INST_ID (status: $STATUS)"
+              STDOUT=$(aws ssm get-command-invocation \
+                --command-id "$SHA_CMD_ID" \
+                --instance-id "$INST_ID" \
+                --query 'StandardOutputContent' \
+                --output text 2>/dev/null || echo "")
+              STDERR=$(aws ssm get-command-invocation \
+                --command-id "$SHA_CMD_ID" \
+                --instance-id "$INST_ID" \
+                --query 'StandardErrorContent' \
+                --output text 2>/dev/null || echo "")
+              if [[ -n "$STDOUT" ]]; then
+                echo "::warning::SHA stdout for $INST_ID: $STDOUT"
+              fi
+              if [[ -n "$STDERR" ]]; then
+                echo "::warning::SHA stderr for $INST_ID: $STDERR"
+              fi
               SHA_MISMATCH=true
               continue
             fi
