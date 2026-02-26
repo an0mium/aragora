@@ -115,7 +115,7 @@ export function NodeContextMenu({
       <div className="fixed inset-0 z-40" onClick={onClose} />
       {/* Menu */}
       <div
-        className="fixed z-50 min-w-[180px] bg-surface border border-border rounded-lg shadow-xl py-1 font-mono text-sm"
+        className="fixed z-50 min-w-[180px] bg-surface border border-border rounded-lg shadow-elevated py-1 font-mono text-sm"
         style={{ left: x, top: y }}
       >
         {visibleItems.map((item) => (

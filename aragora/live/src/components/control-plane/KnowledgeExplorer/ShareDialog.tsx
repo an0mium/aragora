@@ -123,7 +123,7 @@ export const ShareDialog: React.FC<ShareDialogProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="share-dialog-title"
-        className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6"
+        className="relative bg-white rounded-lg shadow-floating w-full max-w-md mx-4 p-6"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">

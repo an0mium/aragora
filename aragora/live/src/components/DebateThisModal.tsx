@@ -83,7 +83,7 @@ export function DebateThisModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg mx-4 bg-surface border border-acid-green/30 rounded-lg shadow-2xl shadow-acid-green/5">
+      <div className="relative w-full max-w-lg mx-4 bg-surface border border-acid-green/30 rounded-lg shadow-floating">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-3">

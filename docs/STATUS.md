@@ -1,8 +1,85 @@
 # Aragora Project Status
 
-*Last updated: February 23, 2026*
+*Last updated: February 26, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
+
+## Release Readiness & Infrastructure Hardening (February 24-26, 2026)
+
+### Summary
+Major release-readiness push: 212,000+ tests (up from 205,000+), settlement/scope-lock system, swarm commander CLI, fleet control plane, frontend Vercel migration, self-host runtime stabilization, SDK parity expansion, CI pipeline hardening, and comprehensive worktree/branch cleanup. 860+ commits across 3 days.
+
+### Settlement & Scope Lock (v1)
+- **Scope lock gate**: `feat(v1)` enforces scope boundaries with resolver backends
+- **Settlement resolver**: Path coverage tracking and dashboard calibration counters
+- **Settlement hooks**: Secrets sync and runtime hardening integration (`#365`)
+- **Mode/settlement metadata**: Propagated through active debate state and live UI (`#356`)
+- **Settlement observability**: Scheduler follow-up, calibration gating, FastAPI routes (`#329`, `#334`)
+
+### Swarm & Fleet Control
+- **Swarm commander CLI**: Requirement-spec workflow for multi-agent orchestration (`#364`)
+- **Fleet control plane**: Session status, ownership claims, and merge queue management
+- **Operator intervention**: Wired into Arena debate lifecycle (pause/resume/restart) (`#328`)
+- **Worktree policy**: Enforce fast-forward-only defaults and branch mutation policy (`#348`)
+
+### Frontend & Live App
+- **Vercel migration**: Frontend deploy path migrated from Cloudflare to Vercel runtime (`#363`)
+- **Dynamic debate routes**: Restored with server-safe metadata (`#360`)
+- **Polling fallback**: Hydrated with sync metadata for offline resilience (`#359`)
+- **About/docs navigation**: Improved with receipts empty state (`live`)
+- **Console.log cleanup**: Centralized logging across frontend components
+- **Landing page**: Example debate topics and CTA improvements
+
+### Self-Host & Runtime
+- **Runtime probes**: Stabilized when aragora port is not published (`#345`)
+- **Compose validation**: Aligned with standalone Redis and runtime probe expectations
+- **Port 0 handling**: Ignored in self-host runtime smoke tests
+- **Readiness fallback**: Added for self-host runtime smoke integration
+
+### CI/CD Pipeline Hardening
+- **Release-readiness gate**: Reusable workflow on pull requests with deterministic optional deps
+- **Deploy verification**: Auth-aware preview route checks, staging rollback gating, SHA verification over SSM (`#355`, `#358`)
+- **PR check prioritization**: Auto-prioritize required checks (`#342`)
+- **OpenAPI sync**: Live type generation best-effort, PR comment non-blocking
+- **E2E stabilization**: Canvas, auth/workflow/email golden paths, debate fixtures isolated (`#341`, `#343`)
+- **Test determinism**: Concurrent deadlock check, KM integration mixin asyncio, rate-limit IPv6 semantic equality
+
+### SDK Parity
+- **Namespace expansion**: Continued SDK parity closing across Python and TypeScript
+- **Cross-SDK budget**: Updated baselines with services, reputation namespaces
+- **CLI reference**: Auto-synced generated documentation
+- **Type alignment**: SDK type generation stabilized for PRs
+
+### Test Suite Growth
+- **212,528 tests** across 4,908 test files (up from 205,000+)
+- **Test isolation**: Config caching, rate limiters, RBAC cleanup (`#338`)
+- **Pro-tier quota**: Aligned with current 1000 limit (`#344`)
+- **Canvas E2E**: Bounded `start_debate` action with timeout (`#343`)
+- **Similarity backend**: Isolated from provider init
+
+### Observability & Docs
+- **Weekly epistemic KPI workflow**: Automated extraction for observability
+- **Commercial positioning**: Aligned launch collateral and capability matrix
+- **Enterprise/API docs**: Synced generated documentation
+- **Honest assessment**: Evidence-scoped document added
+
+### Codebase Health (February 26)
+- **Worktree cleanup**: Removed 11 stale worktrees, pruned all orphaned references
+- **Branch cleanup**: Deleted 30 local branches (16 merged, 14 stale unmerged)
+- **Lazy imports**: numpy/scipy deferred in `stability_detector.py` and `muse_calibration.py`; weaviate guarded in `weaviate_store.py`
+- **Memory trigger tests**: Fixed API drift (`_emit_anomaly_event`, `apply_decay` signatures)
+- **Dependency updates**: certifi 2026.2.25, mcp 1.26.0, pydantic 2.12.5
+- **Stale bytecache**: Cleaned Python 3.13 `.pyc` files causing `ENTERPRISE_PLUS` collection errors
+
+### Files
+| Category | Count |
+|----------|-------|
+| Total commits | 860+ |
+| Production modules | 3,676 |
+| Test files | 4,908 |
+| Tests collected | 212,528 |
+
+---
 
 ## Production Hardening & Test Expansion (February 18-23, 2026)
 

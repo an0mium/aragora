@@ -35,6 +35,104 @@ from aragora.utils.cache import TTLCache
 
 logger = logging.getLogger(__name__)
 
+
+def _try_live_overview() -> dict[str, Any] | None:
+    """Attempt to build dashboard overview from real data sources."""
+    try:
+        from aragora.analytics.debate_analytics import DebateAnalytics
+        from aragora.ranking.elo import EloSystem
+
+        analytics = DebateAnalytics()
+        stats = analytics.get_debate_stats()
+        elo = EloSystem()
+        top_agents = elo.get_leaderboard(limit=5)
+
+        now = datetime.now(timezone.utc)
+        return {
+            "generated_at": now.isoformat(),
+            "debates": {
+                "total": stats.get("total_debates", 0),
+                "consensus_rate": stats.get("consensus_rate", 0.0),
+                "avg_rounds": stats.get("avg_rounds", 0),
+                "active": stats.get("active_debates", 0),
+            },
+            "agents": {
+                "total_active": len(top_agents),
+                "top_performer": top_agents[0]["name"] if top_agents else "N/A",
+                "top_elo": top_agents[0].get("elo", 0) if top_agents else 0,
+            },
+            "cards": [
+                {
+                    "id": "debates",
+                    "title": "Total Debates",
+                    "value": str(stats.get("total_debates", 0)),
+                    "change": "",
+                    "change_type": "neutral",
+                    "icon": "message-square",
+                },
+                {
+                    "id": "consensus",
+                    "title": "Consensus Rate",
+                    "value": f"{stats.get('consensus_rate', 0) * 100:.0f}%",
+                    "change": "",
+                    "change_type": "neutral",
+                    "icon": "check-circle",
+                },
+                {
+                    "id": "agents",
+                    "title": "Active Agents",
+                    "value": str(len(top_agents)),
+                    "change": "",
+                    "change_type": "neutral",
+                    "icon": "users",
+                },
+                {
+                    "id": "avg_rounds",
+                    "title": "Avg Rounds",
+                    "value": f"{stats.get('avg_rounds', 0):.1f}",
+                    "change": "",
+                    "change_type": "neutral",
+                    "icon": "repeat",
+                },
+            ],
+            "demo": False,
+        }
+    except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+        logger.debug("Live dashboard data unavailable, using demo data")
+        return None
+
+
+def _try_live_activity() -> list[dict[str, Any]] | None:
+    """Attempt to build activity feed from real debate history."""
+    try:
+        from aragora.storage.debate_store import DebateStorage
+
+        store = DebateStorage()
+        recent = store.list_debates(limit=8)
+        if not recent:
+            return None
+
+        activities = []
+        for i, debate in enumerate(recent):
+            activities.append(
+                {
+                    "id": f"act_{i:03d}",
+                    "type": "debate_completed"
+                    if debate.get("status") == "completed"
+                    else "debate_started",
+                    "title": f"Debate: {debate.get('topic', 'Unknown')[:50]}",
+                    "description": f"Status: {debate.get('status', 'unknown')} | {debate.get('num_rounds', 0)} rounds",
+                    "timestamp": debate.get("created_at", datetime.now(timezone.utc).isoformat()),
+                    "priority": "high" if debate.get("consensus_reached") else "medium",
+                    "icon": "check-circle" if debate.get("consensus_reached") else "message-square",
+                }
+            )
+        return activities
+    except (ImportError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+        logger.debug("Live activity data unavailable, using demo data")
+        return None
+
+
 # Cache TTL (30 seconds for real-time feel)
 CACHE_TTL = 30
 
@@ -83,9 +181,16 @@ async def handle_get_dashboard(
             if cached:
                 return success_response(cached)
 
+        # Try live data first
+        live_data = _try_live_overview()
+        if live_data:
+            live_data["user_id"] = user_id
+            _set_cached_data(user_id, "overview", live_data)
+            return success_response(live_data)
+
         now = datetime.now(timezone.utc)
 
-        # Build overview data
+        # Fallback: demo data
         overview = {
             "user_id": user_id,
             "generated_at": now.isoformat(),
@@ -155,6 +260,7 @@ async def handle_get_dashboard(
                     "icon": "check",
                 },
             ],
+            "demo": True,
         }
 
         _set_cached_data(user_id, "overview", overview)
@@ -251,6 +357,7 @@ async def handle_get_stats(
                 "avg_response_time_mins": 45,
                 "ai_accuracy": 0.94,
             },
+            "demo": True,
         }
 
         return success_response(stats)
@@ -285,9 +392,26 @@ async def handle_get_activity(
         offset = max(0, int(data.get("offset", 0)))
         activity_type = data.get("type")
 
+        # Try live activity data first
+        live_activities = _try_live_activity()
+        if live_activities:
+            if activity_type:
+                live_activities = [a for a in live_activities if a["type"] == activity_type]
+            total = len(live_activities)
+            live_activities = live_activities[offset : offset + limit]
+            return success_response(
+                {
+                    "activities": live_activities,
+                    "total": total,
+                    "limit": limit,
+                    "offset": offset,
+                    "has_more": offset + limit < total,
+                }
+            )
+
         now = datetime.now(timezone.utc)
 
-        # Generate sample activity items
+        # Fallback: demo activity items
         activities = [
             {
                 "id": "act_001",
@@ -378,6 +502,7 @@ async def handle_get_activity(
                 "limit": limit,
                 "offset": offset,
                 "has_more": offset + limit < total,
+                "demo": True,
             }
         )
 
@@ -469,6 +594,7 @@ async def handle_get_inbox_summary(
                     "from_email": "hr@company.com",
                 },
             ],
+            "demo": True,
         }
 
         return success_response(summary)

@@ -19,7 +19,7 @@ export function PhaseGate({
 }: PhaseGateProps) {
   return (
     <div className="absolute inset-0 bg-bg/80 backdrop-blur-sm z-30 flex items-center justify-center">
-      <div className="bg-surface border border-border rounded-xl p-6 w-[520px] shadow-2xl">
+      <div className="bg-surface border border-border rounded-xl p-6 w-[520px] shadow-floating">
         {/* Header */}
         <div className="mb-4">
           <h3 className="text-sm font-mono font-bold text-text">

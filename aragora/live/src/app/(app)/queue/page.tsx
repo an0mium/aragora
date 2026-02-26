@@ -380,7 +380,7 @@ export default function QueuePage() {
       {/* Submit Job Modal (powered by useQueueMonitoring) */}
       {showSubmitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-2xl">
+          <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-floating">
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h2 className="text-lg font-mono font-bold text-acid-green">[SUBMIT_JOB]</h2>
               <button onClick={() => setShowSubmitModal(false)} className="text-text-muted hover:text-text text-xl">

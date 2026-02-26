@@ -37,7 +37,7 @@ function TextInputModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+      <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-floating p-6 w-full max-w-md mx-4">
         <h3 className="text-lg font-semibold mb-4">{title}</h3>
 
         <label className="block text-sm font-medium mb-1">{fieldName}</label>
@@ -223,7 +223,7 @@ export function InterventionPanel({
 
   return (
     <>
-      <div className="fixed bottom-4 right-4 z-40 w-80 bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+      <div className="fixed bottom-4 right-4 z-40 w-80 bg-white dark:bg-zinc-900 rounded-xl shadow-floating border border-zinc-200 dark:border-zinc-700 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
           <div className="flex items-center gap-2">

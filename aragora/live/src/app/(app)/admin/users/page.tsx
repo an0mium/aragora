@@ -68,7 +68,7 @@ function InviteUserModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-surface border border-acid-green/40 rounded-lg shadow-xl w-full max-w-md p-6 z-10">
+      <div className="relative bg-surface border border-acid-green/40 rounded-lg shadow-floating w-full max-w-md p-6 z-10">
         <h2 className="font-mono text-lg text-acid-green mb-4">Invite User</h2>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
@@ -166,7 +166,7 @@ function ChangeRoleModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-surface border border-acid-green/40 rounded-lg shadow-xl w-full max-w-md p-6 z-10">
+      <div className="relative bg-surface border border-acid-green/40 rounded-lg shadow-floating w-full max-w-md p-6 z-10">
         <h2 className="font-mono text-lg text-acid-green mb-4">Change Role</h2>
         <p className="font-mono text-sm text-text-muted mb-4">
           Changing role for: <span className="text-acid-cyan">{user.email}</span>

@@ -229,6 +229,7 @@ def _demo_response(normalized: str) -> HandlerResult | None:
     }
     data = demo.get(normalized)
     if data is not None:
+        data["demo"] = True
         return _json(data)
     return None
 

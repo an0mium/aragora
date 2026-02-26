@@ -214,7 +214,7 @@ export function MobileMenu({
           'fixed top-0 bottom-0 z-50',
           position === 'left' ? 'left-0' : 'right-0',
           widthClasses[width],
-          'bg-background shadow-xl',
+          'bg-background shadow-floating',
           'flex flex-col',
           // Safe area padding
           'pt-[env(safe-area-inset-top,0px)]',

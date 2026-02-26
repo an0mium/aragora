@@ -62,7 +62,7 @@ export function KeyboardShortcutsHelp() {
           w-full max-w-4xl max-h-[85vh]
           mx-4
           bg-surface border border-acid-green/30
-          rounded-lg shadow-2xl
+          rounded-lg shadow-floating
           overflow-hidden
           flex flex-col
         "

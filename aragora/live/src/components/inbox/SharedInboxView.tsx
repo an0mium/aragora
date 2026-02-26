@@ -620,7 +620,7 @@ export function SharedInboxView({
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setAssignModalOpen(false)}
           />
-          <div className="relative w-full max-w-sm mx-4 bg-bg border border-border rounded-lg shadow-xl p-4">
+          <div className="relative w-full max-w-sm mx-4 bg-bg border border-border rounded-lg shadow-floating p-4">
             <h3 className="text-acid-green font-mono text-sm mb-4">Assign Message</h3>
             <div className="space-y-2">
               {teamMembers.map(member => (
@@ -655,7 +655,7 @@ export function SharedInboxView({
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setEmailDetailOpen(false)}
           />
-          <div className="relative w-full max-w-2xl mx-4 bg-bg border border-border rounded-lg shadow-xl max-h-[80vh] flex flex-col">
+          <div className="relative w-full max-w-2xl mx-4 bg-bg border border-border rounded-lg shadow-floating max-h-[80vh] flex flex-col">
             {/* Header */}
             <div className="p-4 border-b border-acid-green/30 flex items-start justify-between">
               <div className="flex-1 min-w-0">
