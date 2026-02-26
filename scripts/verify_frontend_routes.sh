@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${1:-https://aragora.pages.dev}"
+BASE_URL="${1:-https://aragora.ai}"
 shift || true
 
 if [ "$#" -gt 0 ]; then
