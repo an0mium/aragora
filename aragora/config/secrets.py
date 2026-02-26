@@ -126,6 +126,12 @@ MANAGED_SECRETS = frozenset(
         "SUPABASE_PROJECT_ID",
         # Monitoring
         "SENTRY_DSN",
+        # Deployment (Vercel)
+        "VERCEL_TOKEN",
+        "VERCEL_ORG_ID",
+        "VERCEL_PROJECT_ID",
+        # Grok (xAI) - alternate key name
+        "GROK_API_KEY",
     }
 )
 
