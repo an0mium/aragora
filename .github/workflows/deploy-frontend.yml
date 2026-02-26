@@ -159,12 +159,33 @@ jobs:
       - name: Verify deployment
         if: steps.skip-check.outputs.skip != 'true'
         run: |
+          # Canonical production URL verification is required and blocking.
           FRONTEND_URL="${LIVE_FRONTEND_BASE_URL:-https://aragora.ai}"
           bash scripts/verify_frontend_routes.sh "$FRONTEND_URL"
 
+          # Preview URL verification is non-blocking unless preview auth is configured.
           DEPLOY_URL="${{ steps.vercel-deploy.outputs.deploy_url }}"
-          if [ -n "$DEPLOY_URL" ]; then
-            bash scripts/verify_frontend_routes.sh "$DEPLOY_URL"
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "::warning::No deploy URL produced by Vercel; skipping preview verification"
+            exit 0
+          fi
+
+          PREVIEW_AUTH_HEADER="${{ secrets.VERCEL_PREVIEW_AUTH_HEADER }}"
+          PREVIEW_BYPASS_TOKEN="${{ secrets.VERCEL_PREVIEW_AUTH_BYPASS_TOKEN }}"
+
+          if [ -z "$PREVIEW_AUTH_HEADER" ] && [ -n "$PREVIEW_BYPASS_TOKEN" ]; then
+            PREVIEW_AUTH_HEADER="x-vercel-protection-bypass: $PREVIEW_BYPASS_TOKEN"
+          fi
+
+          if [ -n "$PREVIEW_AUTH_HEADER" ]; then
+            echo "Preview verification is blocking (auth configured)"
+            VERIFY_FRONTEND_AUTH_HEADER="$PREVIEW_AUTH_HEADER" \
+              bash scripts/verify_frontend_routes.sh "$DEPLOY_URL"
+          else
+            echo "::notice::Preview verification is non-blocking (no VERCEL_PREVIEW_AUTH_HEADER or VERCEL_PREVIEW_AUTH_BYPASS_TOKEN configured)"
+            VERIFY_FRONTEND_ANNOTATION_LEVEL=warning \
+            VERIFY_FRONTEND_SOFT_FAIL=1 \
+              bash scripts/verify_frontend_routes.sh "$DEPLOY_URL"
           fi
 
   deploy-docker:
