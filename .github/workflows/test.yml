@@ -825,12 +825,20 @@ jobs:
 
       - name: Check shard results
         run: |
-          # Fail this job if any shard failed (needs.test.result is the aggregate)
-          if [ "${{ needs.test.result }}" != "success" ]; then
-            echo "::error::One or more test shards failed (result: ${{ needs.test.result }})"
-            exit 1
-          fi
-          echo "All test shards passed."
+          # Fail only when shards actually failed. "skipped" can occur for
+          # filtered/superseded runs and should not hard-fail summary coverage.
+          case "${{ needs.test.result }}" in
+            success)
+              echo "All test shards passed."
+              ;;
+            skipped)
+              echo "::warning::Test shards were skipped; continuing summary without failing."
+              ;;
+            *)
+              echo "::error::One or more test shards failed (result: ${{ needs.test.result }})"
+              exit 1
+              ;;
+          esac
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
