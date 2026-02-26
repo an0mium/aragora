@@ -38,6 +38,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+          # The handlers/openclaw gate patches redis/google-auth symbols directly.
+          # Install these optional deps so patch targets are importable in CI.
+          pip install redis google-auth
 
       - name: Run release-readiness gate
         run: bash scripts/ci_release_readiness.sh
