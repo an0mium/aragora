@@ -81,7 +81,7 @@ describe('AttackFeed', () => {
     it('shows connecting message when no events', () => {
       render(<AttackFeed {...defaultProps} />);
 
-      expect(screen.getByText('Connecting to gauntlet...')).toBeInTheDocument();
+      expect(screen.getByText('Connecting to stress test...')).toBeInTheDocument();
     });
 
     it('shows gauntlet ID in footer', () => {
