@@ -5,6 +5,7 @@ import { API_BASE_URL } from '@/config';
 import { useOracleWebSocket } from '@/hooks';
 import type { OraclePhase, DebateEvent, DebateAgentState } from '@/hooks/useOracleWebSocket';
 import { OraclePhaseProgress } from './OraclePhaseProgress';
+import { OracleBackground } from './OracleBackground';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,26 +78,48 @@ function getTentacleColor(agentName: string): string {
 // ---------------------------------------------------------------------------
 
 function BackgroundTentacle({ index }: { index: number }) {
-  const left = (index * 7.3 + 12) % 100;
-  const height = 150 + (index * 37) % 300;
-  const duration = 6 + (index * 1.3) % 8;
-  const delay = (index * 0.7) % 5;
+  const left = 10 + (index * 20);
+  const height = 200 + (index * 50) % 250;
+  const duration = 8 + (index * 1.5) % 6;
+  const delay = (index * 1.2) % 4;
 
   return (
-    <div
+    <svg
       className="absolute pointer-events-none"
       style={{
         left: `${left}%`,
         bottom: '-20px',
-        width: '2px',
+        width: '40px',
         height: `${height}px`,
-        background: 'linear-gradient(to top, transparent, rgba(58, 122, 79, 0.15), transparent)',
-        borderRadius: '50%',
         transformOrigin: 'bottom center',
         animation: `bg-tentacle-sway ${duration}s ease-in-out ${delay}s infinite`,
       }}
+      viewBox={`0 0 40 ${height}`}
       aria-hidden="true"
-    />
+    >
+      <defs>
+        <linearGradient id={`tentacle-grad-${index}`} x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stopColor="var(--acid-green)" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="var(--acid-green)" stopOpacity="0" />
+        </linearGradient>
+        <filter id={`tentacle-glow-${index}`}>
+          <feGaussianBlur stdDeviation="3" />
+        </filter>
+      </defs>
+      <path
+        d={`M20 ${height} C20 ${height * 0.7}, ${15 + index * 2} ${height * 0.4}, 20 0`}
+        stroke={`url(#tentacle-grad-${index})`}
+        strokeWidth="2"
+        fill="none"
+        filter={`url(#tentacle-glow-${index})`}
+      />
+      <path
+        d={`M20 ${height} C20 ${height * 0.7}, ${15 + index * 2} ${height * 0.4}, 20 0`}
+        stroke={`url(#tentacle-grad-${index})`}
+        strokeWidth="1"
+        fill="none"
+      />
+    </svg>
   );
 }
 
@@ -104,19 +127,28 @@ function BackgroundTentacle({ index }: { index: number }) {
 // Floating eye component
 // ---------------------------------------------------------------------------
 
-function FloatingEye({ delay, x, y, size }: { delay: number; x: number; y: number; size: number }) {
+const EYE_IRIS_COLORS: Record<string, string> = {
+  consult: 'rgba(200, 100, 200, 0.6)',
+  divine: 'rgba(96, 165, 250, 0.6)',
+  commune: 'rgba(74, 222, 128, 0.6)',
+};
+
+function FloatingEye({ delay, x, y, size, mode }: { delay: number; x: number; y: number; size: number; mode?: string }) {
+  const irisColor = EYE_IRIS_COLORS[mode || 'consult'] || EYE_IRIS_COLORS.consult;
+
   return (
     <div
       className="absolute pointer-events-none select-none"
       style={{
         left: `${x}%`,
         top: `${y}%`,
-        width: `${size * 8}px`,
-        height: `${size * 8}px`,
+        width: `${size * 10}px`,
+        height: `${size * 10}px`,
         borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(127,219,202,0.6) 0%, rgba(127,219,202,0) 70%)',
+        background: `radial-gradient(circle, ${irisColor} 0%, ${irisColor.replace('0.6', '0')} 70%)`,
         opacity: 0,
         animation: `eye-blink-bg 4s ease-in-out ${delay}s infinite`,
+        boxShadow: `0 0 ${size * 15}px ${irisColor}`,
       }}
       aria-hidden="true"
     />
@@ -191,7 +223,7 @@ function TentacleMessage({ msg, index }: { msg: ChatMessage; index: number }) {
       </div>
       <div
         className="border-l-2 pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap ml-1 rounded-r-lg"
-        style={{ borderColor: color, color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
+        style={{ borderColor: color, color: 'var(--text)', backgroundColor: 'var(--surface)' }}
       >
         {msg.content}
       </div>
@@ -344,7 +376,7 @@ function DebateEventMessage({ event }: { event: DebateEvent }) {
           </div>
           <div
             className="border-l-2 pl-4 py-2 pr-3 text-sm leading-relaxed whitespace-pre-wrap ml-1 rounded-r-lg"
-            style={{ borderColor: color, color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
+            style={{ borderColor: color, color: 'var(--text)', backgroundColor: 'var(--surface)' }}
           >
             {event.content}
           </div>
@@ -368,7 +400,7 @@ function DebateEventMessage({ event }: { event: DebateEvent }) {
           </div>
           <div
             className="border-l-2 border-[var(--crimson,#ff3333)] pl-4 py-2 pr-3 text-sm leading-relaxed whitespace-pre-wrap ml-1 rounded-r-lg"
-            style={{ color: '#2d1b4e', backgroundColor: 'rgba(255, 220, 220, 0.9)' }}
+            style={{ color: 'var(--text)', backgroundColor: 'var(--surface)' }}
           >
             {event.content || (event.data?.issues as string[])?.map((issue: string) => `- ${issue}`).join('\n') || 'No details'}
           </div>
@@ -479,8 +511,8 @@ function DebateStreamDisplay({
             className="border-l-2 pl-4 py-2 pr-3 text-sm leading-relaxed whitespace-pre-wrap ml-1 rounded-r-lg"
             style={{
               borderColor: getTentacleColor(agent.name),
-              color: '#2d1b4e',
-              backgroundColor: 'rgba(200, 235, 210, 0.9)',
+              color: 'var(--text)',
+              backgroundColor: 'var(--surface)',
             }}
           >
             {agent.streamingTokens}
@@ -1390,35 +1422,33 @@ export default function Oracle() {
           pointer-events: auto;
           background: transparent;
         }
+        .oracle-message-enter {
+          animation: oracle-msg-enter 0.3s ease-out forwards;
+        }
+        @keyframes oracle-msg-enter {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes mode-btn-pulse {
+          0%, 100% { box-shadow: 0 0 12px var(--glow-color, rgba(200,100,200,0.15)); }
+          50% { box-shadow: 0 0 20px var(--glow-color, rgba(200,100,200,0.15)); }
+        }
       `}</style>
 
-      {/* Background atmosphere */}
-      <div className="absolute inset-0 oracle-bg" aria-hidden="true" />
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ animation: 'oracle-breathe 8s ease-in-out infinite' }}
-        aria-hidden="true"
-      >
-        <div className="absolute inset-0" style={{ background: 'var(--scanline)' }} />
-      </div>
+      {/* Background atmosphere — canvas particles */}
+      <OracleBackground mode={mode} />
 
-      {/* Background tentacles */}
+      {/* Background tentacles — refined, fewer */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-        {Array.from({ length: 15 }, (_, i) => (
+        {Array.from({ length: 5 }, (_, i) => (
           <BackgroundTentacle key={i} index={i} />
         ))}
       </div>
 
-      {/* Floating eyes */}
-      <FloatingEye delay={0} x={8} y={15} size={1.2} />
-      <FloatingEye delay={2} x={85} y={20} size={0.9} />
-      <FloatingEye delay={4} x={12} y={65} size={1.0} />
-      <FloatingEye delay={1} x={90} y={55} size={1.3} />
-      <FloatingEye delay={3} x={75} y={80} size={0.8} />
-      <FloatingEye delay={5} x={20} y={85} size={1.1} />
-      <FloatingEye delay={2.5} x={50} y={10} size={0.7} />
-      <FloatingEye delay={1.5} x={40} y={40} size={0.6} />
-      <FloatingEye delay={3.5} x={65} y={70} size={0.9} />
+      {/* Floating eyes — refined, fewer, mode-colored */}
+      <FloatingEye delay={0} x={5} y={20} size={1.1} mode={mode} />
+      <FloatingEye delay={3} x={92} y={35} size={0.9} mode={mode} />
+      <FloatingEye delay={6} x={8} y={75} size={1.0} mode={mode} />
 
       {/* Content */}
       <div className="relative z-10 max-w-3xl mx-auto px-4 py-6 min-h-screen flex flex-col">
@@ -1636,6 +1666,9 @@ export default function Oracle() {
                     : 'What\'s your take on AI? Give me the position you\'d bet money on.'
               }
               className="w-full bg-[#0c0c14] border border-[var(--border)]/40 text-white px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)]/60 focus:outline-none focus:border-[var(--acid-magenta)]/60 transition-colors resize-none min-h-[48px] rounded-xl"
+              style={{
+                boxShadow: `0 0 15px ${MODE_COLORS[mode]?.glow || 'rgba(200,100,200,0.08)'}`,
+              }}
               disabled={loading || debating}
               rows={1}
             />
@@ -1747,7 +1780,7 @@ export default function Oracle() {
                     </div>
                     <div
                       className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg"
-                      style={{ color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
+                      style={{ color: 'var(--text)', backgroundColor: 'var(--surface)' }}
                     >
                       {msg.content}
                     </div>
@@ -1785,7 +1818,7 @@ export default function Oracle() {
                     </div>
                     <div
                       className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg"
-                      style={{ color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
+                      style={{ color: 'var(--text)', backgroundColor: 'var(--surface)' }}
                     >
                       {oracle.tokens}
                       {(oracle.phase === 'reflex' || oracle.phase === 'deep') && (
@@ -1809,7 +1842,7 @@ export default function Oracle() {
                     </div>
                     <div
                       className="border-l-2 pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap ml-1 rounded-r-lg"
-                      style={{ borderColor: getTentacleColor(agent), color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
+                      style={{ borderColor: getTentacleColor(agent), color: 'var(--text)', backgroundColor: 'var(--surface)' }}
                     >
                       {state.text}
                       {!state.done && (
@@ -1834,7 +1867,7 @@ export default function Oracle() {
                     </div>
                     <div
                       className="border-l-2 border-[var(--acid-magenta)] pl-4 py-3 pr-3 text-sm leading-relaxed whitespace-pre-wrap rounded-r-lg"
-                      style={{ color: '#2d1b4e', backgroundColor: 'rgba(200, 235, 210, 0.9)' }}
+                      style={{ color: 'var(--text)', backgroundColor: 'var(--surface)' }}
                     >
                       {oracle.synthesis}
                     </div>
