@@ -3,8 +3,11 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 });
 
+const liveDeployMode = process.env.LIVE_DEPLOY_MODE || process.env.ARAGORA_LIVE_DEPLOY_MODE || 'runtime';
 const requestedOutput = process.env.NEXT_OUTPUT || process.env.ARAGORA_NEXT_OUTPUT;
-const isExport = requestedOutput === 'export';
+const defaultOutput = liveDeployMode === 'static-export' ? 'export' : undefined;
+const resolvedOutput = requestedOutput || defaultOutput;
+const isExport = resolvedOutput === 'export';
 
 // Embed build SHA at build time (set by CI/CD, falls back to git)
 const { execSync } = require('child_process');
@@ -13,8 +16,9 @@ const buildSha = process.env.NEXT_PUBLIC_BUILD_SHA
 const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString();
 
 const nextConfig = {
-  // Use 'standalone' for Docker, 'export' for static hosting
-  output: requestedOutput || 'standalone',
+  // Output mode is controlled by NEXT_OUTPUT/ARAGORA_NEXT_OUTPUT.
+  // Runtime deployments (e.g. Vercel) use Next.js default output.
+  ...(resolvedOutput ? { output: resolvedOutput } : {}),
   // Fixed build ID eliminates the Next.js 16.1.x race condition where the
   // "finalizing page optimization" step reads _ssgManifest.js under one build ID
   // while it was written under another, causing ENOENT.  A deterministic ID based

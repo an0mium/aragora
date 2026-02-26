@@ -10,6 +10,8 @@ jobs:
   health-check:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      LIVE_FRONTEND_BASE_URL: ${{ vars.LIVE_FRONTEND_BASE_URL }}
 
     steps:
       - name: Checkout
@@ -18,12 +20,13 @@ jobs:
           sparse-checkout: scripts/verify_frontend_routes.sh
           sparse-checkout-cone-mode: false
 
-      - name: Check Cloudflare Pages (Frontend Critical Routes)
+      - name: Check Frontend Critical Routes
         run: |
+          FRONTEND_URL="${LIVE_FRONTEND_BASE_URL:-https://aragora.ai}"
           # Retry once on transient failure
           for attempt in 1 2; do
-            if bash scripts/verify_frontend_routes.sh "https://aragora.pages.dev"; then
-              echo "Frontend routes: OK (https://aragora.pages.dev)"
+            if bash scripts/verify_frontend_routes.sh "$FRONTEND_URL"; then
+              echo "Frontend routes: OK ($FRONTEND_URL)"
               exit 0
             fi
             if [ "$attempt" -eq 1 ]; then
@@ -32,22 +35,6 @@ jobs:
             fi
           done
           echo "::error::Frontend route check failed after 2 attempts"
-          exit 1
-
-      - name: Check Custom Domain (Frontend Critical Routes)
-        run: |
-          # Retry once on transient failure
-          for attempt in 1 2; do
-            if bash scripts/verify_frontend_routes.sh "https://aragora.ai"; then
-              echo "Frontend routes: OK (https://aragora.ai)"
-              exit 0
-            fi
-            if [ "$attempt" -eq 1 ]; then
-              echo "Custom domain route check failed on attempt 1, retrying in 10s..."
-              sleep 10
-            fi
-          done
-          echo "::error::Custom domain route check failed after 2 attempts"
           exit 1
 
       - name: Check Production API (Lightsail)
@@ -90,7 +77,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Service | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend (Cloudflare) | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend (Vercel/custom domain) | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Production API | ${{ job.status == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Timestamp | $(date -u) |" >> $GITHUB_STEP_SUMMARY
 
@@ -117,7 +104,7 @@ jobs:
             **Workflow Run**: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
 
             ### Services to Check
-            - [ ] Frontend: https://aragora.pages.dev
+            - [ ] Frontend: https://aragora.ai
             - [ ] Production API: https://api.aragora.ai/api/health
             - [ ] Lightsail instance status
 

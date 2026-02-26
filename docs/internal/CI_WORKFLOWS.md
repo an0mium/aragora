@@ -41,7 +41,7 @@ Comprehensive catalog of all GitHub Actions workflows in `.github/workflows/`.
 |----------|------|---------|----------|
 | Deploy (Secure) | `deploy-secure.yml` | Production deployment via AWS OIDC + SSM (no SSH keys), with environment approval gates | push to main, dispatch |
 | Deploy Canary | `deploy-canary.yml` | Progressive canary deployment with ALB traffic shifting, CloudWatch health gates, auto-rollback | dispatch only (manual) |
-| Deploy Frontend | `deploy-frontend.yml` | Deploys Next.js frontend to Cloudflare Pages or Docker | push to main (live path-filtered), dispatch |
+| Deploy Frontend | `deploy-frontend.yml` | Deploys Next.js frontend to Vercel runtime or Docker | push to main (live path-filtered), dispatch |
 | Deploy Lightsail | `deploy-lightsail.yml` | Deploys to AWS Lightsail instance | dispatch only (manual) |
 | Deploy Multi-Region | `deploy-multi-region.yml` | Multi-region deployment with region selection | push to main, dispatch |
 | Docker Build | `docker.yml` | Builds backend/frontend/operator Docker images, Trivy scans, PR integration test | push/PR to main (Docker path-filtered), tags, dispatch |
