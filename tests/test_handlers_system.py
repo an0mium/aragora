@@ -202,6 +202,13 @@ def clear_health_caches():
 
 
 @pytest.fixture(autouse=True)
+def isolate_optional_cache_env(monkeypatch):
+    """Prevent ambient Redis env vars from leaking into unit tests."""
+    for key in ("REDIS_URL", "CACHE_REDIS_URL", "ARAGORA_REDIS_URL"):
+        monkeypatch.delenv(key, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def mock_server_readiness():
     """Mock server startup and handler initialization checks for readiness probes.
 
@@ -1084,6 +1091,7 @@ class TestRedisHealth:
 
     def test_redis_health_configured_but_unavailable(self, monkeypatch, mock_http_handler):
         """Test Redis health when configured but connection fails."""
+        pytest.importorskip("redis")
         monkeypatch.setenv("REDIS_URL", "redis://localhost:6379")
 
         with patch("redis.from_url") as mock_redis:
