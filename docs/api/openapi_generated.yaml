@@ -52626,6 +52626,131 @@ paths:
                 type: object
       security:
       - bearerAuth: []
+  /api/v1/coordination/fleet/claims:
+    get:
+      summary: List fleet ownership claims
+      tags:
+      - Coordination
+      description: List all file ownership claims.
+      operationId: _handle_fleet_claims
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+      - bearerAuth: []
+    post:
+      summary: Claim file ownership for a session
+      tags:
+      - Coordination
+      description: Claim file ownership to avoid concurrent merge collisions.
+      operationId: _handle_fleet_claim
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+      - bearerAuth: []
+  /api/v1/coordination/fleet/claims/release:
+    post:
+      summary: Release file ownership claims for a session
+      tags:
+      - Coordination
+      description: Release ownership claims.
+      operationId: _handle_fleet_release
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+      - bearerAuth: []
+  /api/v1/coordination/fleet/logs:
+    get:
+      summary: Get recent logs for a specific worktree session
+      tags:
+      - Coordination
+      description: Return tail logs for one fleet session by session_id.
+      operationId: _handle_fleet_logs
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+      - bearerAuth: []
+  /api/v1/coordination/fleet/merge-queue:
+    get:
+      summary: List merge queue items
+      tags:
+      - Coordination
+      description: List merge queue entries.
+      operationId: _handle_fleet_merge_queue
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+      - bearerAuth: []
+    post:
+      summary: Enqueue a branch merge request
+      tags:
+      - Coordination
+      description: Queue branch merge work in priority order.
+      operationId: _handle_fleet_merge_enqueue
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+      - bearerAuth: []
+  /api/v1/coordination/fleet/status:
+    get:
+      summary: Get worktree session fleet status
+      tags:
+      - Coordination
+      description: Return codex/claude worktree session status and recent logs.
+      operationId: _handle_fleet_status
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+      security:
+      - bearerAuth: []
   /api/v1/coordination/health:
     get:
       summary: Coordination health check
