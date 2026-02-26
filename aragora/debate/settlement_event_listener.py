@@ -71,19 +71,23 @@ def _log_due_settlement(event: Any) -> None:
 
     # Also record in the audit subsystem if available
     try:
-        from aragora.audit.log import get_audit_log
+        from aragora.audit.log import AuditCategory, AuditEvent, get_audit_log
 
         audit = get_audit_log()
         audit.log(
-            action="settlement_review_due",
-            resource_type="debate",
-            resource_id=debate_id,
-            details={
-                "confidence": confidence,
-                "falsifier_count": falsifier_count,
-                "settled_at": settled_at,
-                "review_horizon": review_horizon,
-            },
+            AuditEvent(
+                category=AuditCategory.DATA_ACCESS,
+                action="settlement_review_due",
+                actor_id="system",
+                resource_type="debate",
+                resource_id=debate_id,
+                details={
+                    "confidence": confidence,
+                    "falsifier_count": falsifier_count,
+                    "settled_at": settled_at,
+                    "review_horizon": review_horizon,
+                },
+            )
         )
     except (ImportError, AttributeError, TypeError, ValueError, RuntimeError):
         # Audit subsystem not available; standard logging above is sufficient
