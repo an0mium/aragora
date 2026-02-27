@@ -1,6 +1,6 @@
 # Aragora Evolution Roadmap
 
-> **Generated**: 2026-02-26
+> **Generated**: 2026-02-27
 > **Methodology**: Vague founder prompt → multi-agent research → structured interrogation → refined spec
 > **Status**: Approved for implementation
 
@@ -21,6 +21,74 @@ Aragora is the Decision Intelligence Platform — the only system that takes a v
 | 43-agent heterogeneous consensus | - | - | - | - | - | **Yes** |
 
 **What won't be commoditized in 6-12 months**: The combination of truth-seeking debate + accountability + self-improvement + execution. Individual pieces will be commoditized (RAG, code gen, basic agents). The integrated stack won't.
+
+---
+
+## 2026 Synthesis: Prompting Stack + Aragora Wedge
+
+### Market Observation
+
+The post-February 2026 shift is real: autonomous agents now run for long intervals, so synchronous chat skill is no longer sufficient for high-leverage work. The bottleneck moved from "good chat prompts" to "high-quality specifications, constraints, and evals."
+
+At the same time, most users (including technically strong users under time pressure) do not consistently produce complete, high-quality specs up front.
+
+### Strategic Thesis
+
+Aragora should not depend on users becoming expert spec engineers.
+
+Aragora's wedge is to take vague, underspecified intent and automatically lift it through the full stack:
+
+1. Prompt craft support: accept messy natural language input.
+2. Context engineering: pull relevant context from Obsidian, Knowledge Mound, memory, and repository state.
+3. Intent engineering: interrogate and surface goals, tradeoffs, constraints, and escalation boundaries.
+4. Specification engineering: generate an executable spec with acceptance criteria and verification plan.
+5. Adversarial validation: multi-agent challenge before execution.
+6. Orchestrated execution: implement with guardrails and quality gates.
+7. Accountability: issue cryptographically verifiable receipts and provenance.
+8. Self-correction: feed outcomes back into the Nomic loop.
+
+### Four-Discipline Mapping
+
+| Discipline | Typical user failure mode | Aragora mechanism |
+|-----------|----------------------------|-------------------|
+| Prompt craft | Vague request, shifting intent | Interrogation UI + structured prompt decomposition |
+| Context engineering | Missing, stale, or irrelevant context | Obsidian + KM + memory retrieval with scoped relevance |
+| Intent engineering | Optimization drift (speed over quality, etc.) | Explicit goals/constraints model + policy gates + approval modes |
+| Specification engineering | 80% output, unclear done criteria | Spec builder + acceptance criteria + eval harness + debate preflight |
+
+### Product Positioning (Who This Is For)
+
+Aragora must support four profiles via configuration, without splitting the product:
+
+1. Founder/power user: maximum velocity, low ceremony.
+2. CTO/technical founder: high visibility into implementation and risk.
+3. Business operator: plain-language interaction, professional outputs.
+4. Developer teams: PRD-to-implementation with measurable quality gates.
+
+### Non-Commoditized Advantage
+
+Aragora's durable advantage is not a single feature. It is the integrated loop:
+
+`vague intent -> interrogated intent -> debate-validated spec -> execution -> verification -> receipt -> self-improvement`
+
+Large labs can ship general agents; they are unlikely to ship this domain-integrated, compliance-grade, adversarially validated decision-to-execution loop tailored to organization-specific context in the next 6-12 months.
+
+### Operating Doctrine (Execution Rules)
+
+To keep delivery fast and reliable:
+
+1. Spec-first execution: no long autonomous runs without explicit acceptance criteria and constraints.
+2. One merge lane for critical changes: avoid concurrent merge-eligible branch churn.
+3. Proof before supersession: close "superseded" work only with commit/range proof.
+4. Required checks must always emit status: avoid path-filter deadlocks.
+5. Preserve value before deletion: every stash/worktree/branch maps to a destination PR/commit.
+
+### North-Star Outcomes
+
+1. A non-technical user can submit a vague request and receive a reviewable executable spec in under 5 minutes.
+2. A technical user can push that spec to implementation with transparent risk, dissent, and verification.
+3. Every meaningful decision has a tamper-evident provenance trail.
+4. The platform measurably improves its own quality over time via closed-loop evaluation.
 
 ---
 
