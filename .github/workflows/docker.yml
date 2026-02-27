@@ -39,6 +39,7 @@ env:
 
 jobs:
   build-backend:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -116,6 +117,7 @@ jobs:
           category: 'trivy-backend'
 
   build-frontend:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -192,6 +194,7 @@ jobs:
           category: 'trivy-frontend'
 
   build-operator:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -268,6 +271,7 @@ jobs:
           category: 'trivy-operator'
 
   integration-test:
+    if: ${{ !github.event.pull_request.draft }}
     needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'

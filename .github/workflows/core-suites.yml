@@ -27,6 +27,7 @@ concurrency:
 
 jobs:
   core-suites:
+    if: ${{ !github.event.pull_request.draft }}
     name: Core Suites
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -49,6 +50,7 @@ jobs:
         run: bash scripts/ci_core_suites.sh
 
   security-boundaries:
+    if: ${{ !github.event.pull_request.draft }}
     name: Security Boundaries
     runs-on: ubuntu-latest
     timeout-minutes: 15

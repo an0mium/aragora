@@ -39,6 +39,7 @@ permissions:
 
 jobs:
   codeql:
+    if: ${{ !github.event.pull_request.draft }}
     name: CodeQL Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -67,6 +68,7 @@ jobs:
           category: "/language:${{ matrix.language }}"
 
   bandit:
+    if: ${{ !github.event.pull_request.draft }}
     name: Bandit Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -98,6 +100,7 @@ jobs:
           path: bandit-results.json
 
   aragora-security-scan:
+    if: ${{ !github.event.pull_request.draft }}
     name: Aragora Security Scanner
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -127,6 +130,7 @@ jobs:
           path: security-report.json
 
   dependency-check:
+    if: ${{ !github.event.pull_request.draft }}
     name: Dependency Vulnerability Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -223,6 +227,7 @@ jobs:
           fi
 
   pentest-findings:
+    if: ${{ !github.event.pull_request.draft }}
     name: "Security: Pentest Findings Gate"
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -240,6 +245,7 @@ jobs:
         run: python scripts/check_pentest_findings.py --file security/pentest/findings.json
 
   rbac-coverage:
+    if: ${{ !github.event.pull_request.draft }}
     name: RBAC Coverage Check
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -257,6 +263,7 @@ jobs:
         run: python scripts/audit_rbac_coverage.py --summary --min-coverage 55
 
   secret-scanning:
+    if: ${{ !github.event.pull_request.draft }}
     name: Secret Scanning
     runs-on: ubuntu-latest
     timeout-minutes: 10

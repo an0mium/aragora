@@ -18,6 +18,7 @@ concurrency:
 
 jobs:
   changes:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     name: SDK Change Detection
@@ -38,6 +39,7 @@ jobs:
               - 'tests/sdk/**'
 
   python-sdk:
+    if: ${{ !github.event.pull_request.draft }}
     needs: changes
     if: needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -71,6 +73,7 @@ jobs:
           cd sdk/python && python -m ruff check aragora_sdk/ tests/
 
   typescript-sdk:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: TypeScript SDK Type Check
@@ -100,6 +103,7 @@ jobs:
           node -e "const sdk = require('./dist/index.js'); console.log('Exports:', Object.keys(sdk).length)" 2>/dev/null || echo "Build required first"
 
   sdk-integration:
+    if: ${{ !github.event.pull_request.draft }}
     needs: changes
     if: needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

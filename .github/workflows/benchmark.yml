@@ -46,6 +46,7 @@ permissions:
 
 jobs:
   benchmark:
+    if: ${{ !github.event.pull_request.draft }}
     name: Performance Benchmarks
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -113,6 +114,7 @@ jobs:
           retention-days: 30
 
   orchestration-speed-smoke:
+    if: ${{ !github.event.pull_request.draft }}
     # REQUIRED STATUS CHECK: This job must pass on all PRs.
     # Validates that fast-first routing reduces critique latency by >=25%.
     name: Orchestration Speed Smoke
@@ -141,6 +143,7 @@ jobs:
           PYTHONPATH: .
 
   performance-regression:
+    if: ${{ !github.event.pull_request.draft }}
     # REQUIRED STATUS CHECK: This job must pass on all PRs.
     # Fails if any benchmark regresses by >20% vs main branch.
     name: Performance Regression Check
@@ -215,6 +218,7 @@ jobs:
           retention-days: 14
 
   latency-tests:
+    if: ${{ !github.event.pull_request.draft }}
     name: Latency Distribution
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -254,6 +258,7 @@ jobs:
           echo "Latency distribution tests completed." >> $GITHUB_STEP_SUMMARY
 
   baseline-comparison:
+    if: ${{ !github.event.pull_request.draft }}
     name: Baseline Comparison
     runs-on: ubuntu-latest
     timeout-minutes: 15
