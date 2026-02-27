@@ -11,15 +11,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
-    paths:
-      - 'sdk/**'
-      - 'tests/sdk/**'
-      - 'openapi/**'
-      - '.github/workflows/sdk-test.yml'
-      - 'pyproject.toml'
-      - 'requirements*.txt'
-      - 'package.json'
-      - 'package-lock.json'
   workflow_dispatch:
 
 concurrency:
@@ -33,12 +24,13 @@ jobs:
     name: SDK Change Detection
     outputs:
       run_python: ${{ steps.filter.outputs.python_sdk }}
+      run_typescript: ${{ steps.filter.outputs.typescript_sdk }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Detect Python SDK relevant changes
+      - name: Detect SDK relevant changes
         id: filter
         uses: dorny/paths-filter@v3
         with:
@@ -46,6 +38,11 @@ jobs:
             python_sdk:
               - 'sdk/python/**'
               - 'tests/sdk/**'
+            typescript_sdk:
+              - 'sdk/typescript/**'
+              - 'openapi/**'
+              - 'package.json'
+              - 'package-lock.json'
 
   python-sdk:
     needs: changes
@@ -80,10 +77,12 @@ jobs:
         run: |
           cd sdk/python && python -m ruff check aragora_sdk/ tests/
 
-  typescript-sdk:
+  typescript-sdk-run:
+    needs: changes
+    if: needs.changes.outputs.run_typescript == 'true'
     runs-on: aragora
     timeout-minutes: 10
-    name: TypeScript SDK Type Check
+    name: TypeScript SDK Build
 
     steps:
       - name: Checkout
@@ -135,3 +134,18 @@ jobs:
       - name: Run SDK integration tests
         run: |
           python -m pytest tests/sdk/ -v --tb=short --timeout=60
+
+  typescript-sdk:
+    name: TypeScript SDK Type Check
+    needs: [changes, typescript-sdk-run]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate TypeScript SDK result
+        run: |
+          if [[ "${{ needs.typescript-sdk-run.result }}" == "failure" ]]; then
+            echo "::error::TypeScript SDK type check failed"
+            exit 1
+          fi
+          echo "TypeScript SDK passed (or skipped — no relevant changes)"

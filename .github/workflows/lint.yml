@@ -15,18 +15,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'AGENTS.md'
-      - 'pyproject.toml'
-      - 'requirements*.txt'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/**'
-      - 'deploy/**'
-      - 'aragora-operator/**'
   merge_group:
   workflow_dispatch:
 
@@ -35,7 +23,30 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  lint:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            python:
+              - 'aragora/**'
+              - 'tests/**'
+              - 'scripts/**'
+              - 'pyproject.toml'
+              - 'requirements*.txt'
+              - '.github/workflows/**'
+              - 'deploy/**'
+              - 'aragora-operator/**'
+
+  lint-run:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: aragora
     timeout-minutes: 10
 
@@ -72,6 +83,20 @@ jobs:
       - name: Run ruff lint check (all Python files)
         run: ruff check aragora/ tests/ scripts/
         shell: bash
+
+  lint:
+    needs: [changes, lint-run]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate lint result
+        run: |
+          if [[ "${{ needs.lint-run.result }}" == "failure" ]]; then
+            echo "::error::Lint checks failed"
+            exit 1
+          fi
+          echo "Lint passed (or skipped — no Python-relevant changes)"
 
   connector-exception-hygiene:
     runs-on: ubuntu-latest
@@ -130,7 +155,9 @@ jobs:
           echo "  python scripts/check_agent_registry_sync.py"
           echo "  python scripts/check_agent_registry_drift.py"
 
-  typecheck:
+  typecheck-run:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: aragora
     timeout-minutes: 15
 
@@ -153,6 +180,20 @@ jobs:
         run: bash scripts/test_tiers.sh typecheck
         shell: bash
         # Phase 5: mypy now REQUIRED (43→0 errors fixed Jan 2026)
+
+  typecheck:
+    needs: [changes, typecheck-run]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate typecheck result
+        run: |
+          if [[ "${{ needs.typecheck-run.result }}" == "failure" ]]; then
+            echo "::error::Type check failed"
+            exit 1
+          fi
+          echo "Type check passed (or skipped — no Python-relevant changes)"
 
   typecheck-core:
     runs-on: ubuntu-latest
