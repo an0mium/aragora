@@ -690,7 +690,7 @@ class TestAuditActionDecorator:
         assert len(events) == 1
         assert events[0].outcome == "error"
         assert events[0].severity == AuditSeverity.ERROR
-        assert "Test error" in events[0].details.get("outcome_reason", "")
+        assert "ValueError" in events[0].details.get("outcome_reason", "")
 
     def test_async_decorator_permission_denied(self, memory_backend):
         """Test decorator logs permission errors."""

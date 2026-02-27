@@ -547,21 +547,22 @@ class TestAudioEngineIntegration:
             text="This is a test narration for the debate.",
         )
 
-        mock_process = AsyncMock()
-        mock_process.communicate.return_value = (b"", b"")
-        mock_process.returncode = 0
+        import hashlib
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_process):
-            with patch("pathlib.Path.exists", return_value=True):
-                with patch("pathlib.Path.write_bytes"):
-                    # Manually create the expected file
-                    import hashlib
+        text_hash = hashlib.sha256(segment.text.encode()).hexdigest()[:12]
+        expected_file = tmp_path / f"narrator_{text_hash}.mp3"
 
-                    text_hash = hashlib.sha256(segment.text.encode()).hexdigest()[:12]
-                    expected_file = tmp_path / f"narrator_{text_hash}.mp3"
-                    expected_file.write_bytes(b"fake audio")
+        mock_backend = AsyncMock()
 
-                    result = await generate_audio_segment(segment, tmp_path)
+        async def mock_synthesize(text, output_path, **kwargs):
+            output_path.write_bytes(b"fake audio")
+            return output_path
+
+        mock_backend.synthesize = mock_synthesize
+
+        with patch("aragora.broadcast.audio_engine.get_audio_backend", return_value=mock_backend):
+            expected_file.write_bytes(b"fake audio")
+            result = await generate_audio_segment(segment, tmp_path)
 
         assert result is not None
 

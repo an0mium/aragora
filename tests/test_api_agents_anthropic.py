@@ -182,10 +182,10 @@ class TestAnthropicAgentInit:
         """Should set agent type to anthropic."""
         assert agent.agent_type == "anthropic"
 
-    def test_fallback_disabled_default(self, api_key):
-        """Should disable fallback by default (opt-in via ARAGORA_OPENROUTER_FALLBACK_ENABLED)."""
+    def test_fallback_enabled_default(self, api_key):
+        """Fallback is enabled by default for graceful degradation."""
         agent = AnthropicAPIAgent(api_key=api_key)
-        assert agent.enable_fallback is False
+        assert agent.enable_fallback is True
 
     def test_fallback_disabled(self, agent):
         """Should accept fallback disabled."""

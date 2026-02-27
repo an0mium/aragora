@@ -147,7 +147,7 @@ Aragora is useful to a 5-person startup on day one and scales to regulated enter
 
 ### 2. Leading-Edge Memory and Context
 
-Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 0 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
+Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 57 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
 
 ### 3. Extensible and Modular
 
@@ -175,7 +175,7 @@ Aragora treats each model as an **unreliable witness** and uses structured debat
 | **Decision Receipts** | Cryptographic audit trails with evidence chains, dissent tracking, and confidence calibration |
 | **Gauntlet Mode** | Red-team stress-tests for specs, policies, and architectures using adversarial personas |
 | **Calibrated Trust** | ELO rankings and Brier scores track which models are actually reliable on which domains |
-| **Institutional Memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound (33 adapters) |
+| **Institutional Memory** | Decisions persist across sessions with 4-tier memory and Knowledge Mound (<!-- adpt-count -->57<!-- /adpt-count --> adapters) |
 | **Channel Delivery** | Results route to Slack, Teams, Discord, Telegram, WhatsApp, email, or voice |
 
 ---

@@ -705,7 +705,7 @@ class TestWhatsAppDebateSummary:
         self, whatsapp_meta_integration, sample_debate_result, mock_aiohttp_session
     ):
         """Test that long questions are truncated."""
-        sample_debate_result.question = "A" * 300
+        sample_debate_result.task = "A" * 300
         await whatsapp_meta_integration.send_debate_summary(sample_debate_result)
 
         call_args = mock_aiohttp_session.post.call_args

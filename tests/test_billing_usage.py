@@ -605,8 +605,8 @@ class TestEdgeCases:
 
         summary = tracker.get_summary("org_1")
         assert summary.total_tokens_in == 1_000_000_000
-        # Cost should be very high: $15 per 1M * 1000 + $75 per 1M * 500 = $52,500
-        assert summary.total_cost_usd > Decimal("50000")
+        # Cost should be very high: $5 per 1M * 1000 + $25 per 1M * 500 = $17,500
+        assert summary.total_cost_usd > Decimal("10000")
 
     def test_unicode_in_metadata(self, tmp_path):
         """Test handling unicode in metadata."""
