@@ -14,6 +14,7 @@ on:
       - "scripts/check_required_check_priority_policy.py"
       - ".github/workflows/release-readiness.yml"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - "aragora/**"
