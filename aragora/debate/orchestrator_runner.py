@@ -1253,54 +1253,96 @@ async def cleanup_debate_resources(
 
     # Route result to originating channel (Slack, Teams, webhook, etc.)
     # Opt-in via ArenaConfig.enable_result_routing or debate_origin metadata on the env.
+    # Fire-and-forget: routing is non-blocking so callers get their DebateResult immediately.
     _result_routing_enabled = getattr(arena, "enable_result_routing", False)
     if not _result_routing_enabled:
         # Also check for debate_origin metadata on the environment (inline origin)
         _env_metadata = getattr(arena.env, "metadata", None) or {}
         _result_routing_enabled = bool(_env_metadata.get("debate_origin"))
     if result and _result_routing_enabled:
+        _debate_id_for_routing = state.debate_id
         try:
-            from aragora.server.result_router import route_result
-
-            # If the environment carries inline debate_origin metadata and no
-            # origin was registered in the store yet, register it now so the
-            # router can look it up by debate_id.
-            _env_meta = getattr(arena.env, "metadata", None) or {}
-            _origin_meta = _env_meta.get("debate_origin")
-            if isinstance(_origin_meta, dict) and _origin_meta.get("platform"):
-                try:
-                    from aragora.server.debate_origin import register_debate_origin
-
-                    register_debate_origin(
-                        debate_id=state.debate_id,
-                        platform=_origin_meta["platform"],
-                        channel_id=_origin_meta.get("channel_id", ""),
-                        user_id=_origin_meta.get("user_id", ""),
-                        metadata=_origin_meta.get("metadata", {}),
-                    )
-                except (ImportError, OSError, RuntimeError, ValueError, TypeError) as reg_err:
-                    logger.debug("[result_routing] Origin registration failed: %s", reg_err)
-
+            # Build the result dict eagerly (cheap) so the background task
+            # doesn't need to touch the result object after we return.
             if hasattr(result, "to_dict"):
-                result_dict = result.to_dict()
+                _routing_result_dict = result.to_dict()
             else:
-                result_dict = {
-                    "debate_id": state.debate_id,
+                _routing_result_dict = {
+                    "debate_id": _debate_id_for_routing,
                     "winner": getattr(result, "winner", None),
                     "consensus_reached": getattr(result, "consensus_reached", False),
                     "final_answer": getattr(result, "final_answer", ""),
                     "confidence": getattr(result, "confidence", 0.0),
                 }
-            success = await route_result(state.debate_id, result_dict)
-            if success:
-                logger.info("[result_routing] Routed debate %s result to origin", state.debate_id)
-            else:
-                logger.debug(
-                    "[result_routing] No origin found or routing skipped for debate %s",
-                    state.debate_id,
+
+            # Collect origin metadata for inline registration (if present).
+            _env_meta = getattr(arena.env, "metadata", None) or {}
+            _origin_meta = _env_meta.get("debate_origin")
+
+            async def _fire_and_forget_route(
+                debate_id: str,
+                result_dict: dict[str, Any],
+                origin_meta: dict[str, Any] | None,
+            ) -> None:
+                """Background task: register origin (if inline) then route result."""
+                try:
+                    # If the environment carries inline debate_origin metadata and no
+                    # origin was registered in the store yet, register it now so the
+                    # router can look it up by debate_id.
+                    if isinstance(origin_meta, dict) and origin_meta.get("platform"):
+                        try:
+                            from aragora.server.debate_origin import register_debate_origin
+
+                            register_debate_origin(
+                                debate_id=debate_id,
+                                platform=origin_meta["platform"],
+                                channel_id=origin_meta.get("channel_id", ""),
+                                user_id=origin_meta.get("user_id", ""),
+                                metadata=origin_meta.get("metadata", {}),
+                            )
+                        except (
+                            ImportError,
+                            OSError,
+                            RuntimeError,
+                            ValueError,
+                            TypeError,
+                        ) as reg_err:
+                            logger.debug("[result_routing] Origin registration failed: %s", reg_err)
+
+                    from aragora.server.result_router import route_result
+
+                    success = await route_result(debate_id, result_dict)
+                    if success:
+                        logger.info("[result_routing] Routed debate %s result to origin", debate_id)
+                    else:
+                        logger.debug(
+                            "[result_routing] No origin found or routing skipped for debate %s",
+                            debate_id,
+                        )
+                except (ImportError, RuntimeError, OSError, TypeError, ValueError) as e:
+                    logger.debug("[result_routing] Failed (non-critical): %s", e)
+
+            _routing_task = asyncio.create_task(
+                _fire_and_forget_route(
+                    _debate_id_for_routing,
+                    _routing_result_dict,
+                    _origin_meta if isinstance(_origin_meta, dict) else None,
                 )
+            )
+            _routing_task.add_done_callback(
+                lambda t: logger.warning("[result_routing] Background error: %s", t.exception())
+                if not t.cancelled() and t.exception()
+                else None
+            )
+            # Stash on context so cleanup can drain it in tests (same pattern as _km_ingest_task).
+            setattr(ctx, "_result_routing_task", _routing_task)
+
+            # In pytest, drain the task immediately to avoid "Task was destroyed" warnings.
+            if os.environ.get("PYTEST_CURRENT_TEST"):
+                await _drain_background_task(_routing_task, timeout_s=2.0)
+
         except (ImportError, RuntimeError, OSError, TypeError, ValueError) as e:
-            logger.debug("[result_routing] Failed (non-critical): %s", e)
+            logger.debug("[result_routing] Failed to schedule (non-critical): %s", e)
 
     return result
 

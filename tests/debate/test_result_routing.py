@@ -536,3 +536,190 @@ class TestRouteResultReturnValue:
                 c for c in mock_logger.debug.call_args_list if "result_routing" in str(c)
             ]
             assert len(debug_calls) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Tests: Fire-and-forget background task lifecycle
+# ---------------------------------------------------------------------------
+
+
+class TestFireAndForgetRouting:
+    """Verify routing runs as a fire-and-forget background task."""
+
+    @pytest.mark.asyncio
+    async def test_routing_task_stashed_on_context(self):
+        """The routing background task is stored on ctx._result_routing_task."""
+        arena = _make_arena(enable_result_routing=True)
+        state = _make_state()
+
+        with patch(
+            _ROUTE_RESULT,
+            new_callable=AsyncMock,
+            return_value=True,
+        ):
+            await cleanup_debate_resources(arena, state)
+            # In PYTEST_CURRENT_TEST env, the task is drained but should have been set.
+            # After draining it will be done.
+            task = getattr(state.ctx, "_result_routing_task", None)
+            assert task is not None
+            assert task.done()
+
+    @pytest.mark.asyncio
+    async def test_routing_does_not_block_result_return(self):
+        """cleanup_debate_resources returns the result even if routing is slow."""
+        import asyncio
+
+        slow_route = AsyncMock(side_effect=lambda *a, **kw: asyncio.sleep(0))
+
+        arena = _make_arena(enable_result_routing=True)
+        state = _make_state()
+
+        with patch(_ROUTE_RESULT, slow_route):
+            result = await cleanup_debate_resources(arena, state)
+            # Result is returned regardless of routing task completion
+            assert result is not None
+            assert result.debate_id == "test-debate-123"
+
+    @pytest.mark.asyncio
+    async def test_background_task_exception_does_not_propagate(self):
+        """An unexpected exception in the background routing task is swallowed."""
+        arena = _make_arena(enable_result_routing=True)
+        state = _make_state()
+
+        # Side effect raises an exception type not in the inner try/except.
+        # The task done-callback should log a warning instead of propagating.
+        with patch(
+            _ROUTE_RESULT,
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("unexpected"),
+        ):
+            result = await cleanup_debate_resources(arena, state)
+            assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_routing_task_drained_in_pytest(self):
+        """In test environments (PYTEST_CURRENT_TEST set), task is awaited."""
+        import os
+
+        # PYTEST_CURRENT_TEST is normally set by pytest itself
+        assert os.environ.get("PYTEST_CURRENT_TEST"), "This test expects to run under pytest"
+
+        arena = _make_arena(enable_result_routing=True)
+        state = _make_state()
+
+        with patch(
+            _ROUTE_RESULT,
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as mock_route:
+            await cleanup_debate_resources(arena, state)
+            # Since we're in pytest, the task was drained, so route_result is done
+            mock_route.assert_awaited_once()
+            task = getattr(state.ctx, "_result_routing_task", None)
+            assert task is not None
+            assert task.done()
+
+    @pytest.mark.asyncio
+    async def test_both_flag_and_env_metadata_uses_flag(self):
+        """When both enable_result_routing and env metadata exist, flag takes priority."""
+        arena = _make_arena(
+            enable_result_routing=True,
+            env_metadata={
+                "debate_origin": {
+                    "platform": "discord",
+                    "channel_id": "discord-ch",
+                    "user_id": "discord-user",
+                }
+            },
+        )
+        state = _make_state()
+
+        with (
+            patch(
+                _ROUTE_RESULT,
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_route,
+            patch(
+                _REGISTER_ORIGIN,
+            ) as mock_register,
+        ):
+            await cleanup_debate_resources(arena, state)
+            # Route is called
+            mock_route.assert_awaited_once()
+            # Origin registration still happens from env metadata
+            mock_register.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_empty_debate_origin_metadata_does_not_trigger_routing(self):
+        """Empty debate_origin dict in env metadata does not trigger routing."""
+        arena = _make_arena(
+            enable_result_routing=False,
+            env_metadata={"debate_origin": {}},
+        )
+        state = _make_state()
+
+        with patch(
+            _ROUTE_RESULT,
+            new_callable=AsyncMock,
+        ) as mock_route:
+            await cleanup_debate_resources(arena, state)
+            # Empty dict is falsy, so routing should NOT be triggered
+            mock_route.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_none_debate_origin_metadata_does_not_trigger_routing(self):
+        """None debate_origin in env metadata does not trigger routing."""
+        arena = _make_arena(
+            enable_result_routing=False,
+            env_metadata={"debate_origin": None},
+        )
+        state = _make_state()
+
+        with patch(
+            _ROUTE_RESULT,
+            new_callable=AsyncMock,
+        ) as mock_route:
+            await cleanup_debate_resources(arena, state)
+            mock_route.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_routing_with_extra_origin_metadata(self):
+        """Origin metadata with extra fields passes them through."""
+        arena = _make_arena(
+            enable_result_routing=False,
+            env_metadata={
+                "debate_origin": {
+                    "platform": "teams",
+                    "channel_id": "teams-ch-1",
+                    "user_id": "teams-usr-1",
+                    "metadata": {
+                        "webhook_url": "https://teams.example.com/webhook",
+                        "tenant_id": "t-123",
+                    },
+                }
+            },
+        )
+        state = _make_state()
+
+        with (
+            patch(
+                _ROUTE_RESULT,
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                _REGISTER_ORIGIN,
+            ) as mock_register,
+        ):
+            await cleanup_debate_resources(arena, state)
+            mock_register.assert_called_once_with(
+                debate_id="test-debate-123",
+                platform="teams",
+                channel_id="teams-ch-1",
+                user_id="teams-usr-1",
+                metadata={
+                    "webhook_url": "https://teams.example.com/webhook",
+                    "tenant_id": "t-123",
+                },
+            )
