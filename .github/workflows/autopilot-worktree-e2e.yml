@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: autopilot-worktree-e2e-${{ github.ref }}
+  group: autopilot-worktree-e2e-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -51,7 +51,7 @@ jobs:
 
   autopilot-api-e2e:
     name: Autopilot API E2E
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
     needs: scope
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || needs.scope.outputs.run_autopilot == 'true')
