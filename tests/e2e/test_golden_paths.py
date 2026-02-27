@@ -8,8 +8,8 @@ import pytest
 
 
 @pytest.mark.skipif(
-    not os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("OPENAI_API_KEY"),
-    reason="golden_paths script requires real API keys (ANTHROPIC_API_KEY or OPENAI_API_KEY)",
+    not os.environ.get("ARAGORA_RUN_GOLDEN_PATHS"),
+    reason="golden_paths script requires ARAGORA_RUN_GOLDEN_PATHS=1 (long-running, makes real API calls)",
 )
 def test_golden_paths_script(tmp_path: Path) -> None:
     output_dir = tmp_path / "golden_paths"

@@ -126,6 +126,9 @@ def _isolate_e2e_databases(tmp_path, monkeypatch):
     monkeypatch.setenv("ARAGORA_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("ARAGORA_CONVERGENCE_BACKEND", "jaccard")
     monkeypatch.setenv("ARAGORA_SIMILARITY_BACKEND", "jaccard")
+    monkeypatch.setenv("ARAGORA_OFFLINE", "1")
+    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
 
 
 @pytest.fixture(autouse=True)
