@@ -483,3 +483,64 @@ def _store_daemon_singleton(daemon: Any) -> None:
         si_module._daemon_instance = daemon
     except (ImportError, AttributeError):
         pass
+
+
+async def init_debate_settlement_scheduler() -> bool:
+    """Start the debate-side settlement review scheduler.
+
+    This scheduler monitors the EpistemicSettlementTracker for debates
+    whose review horizon has passed and flags them as due for review.
+    It complements the receipt-based settlement review scheduler by
+    operating on the debate settlement store directly.
+
+    Environment:
+        ARAGORA_ENABLE_SETTLEMENT_REVIEW: "true" to enable (default: "false")
+
+    Returns:
+        True if the scheduler was started, False otherwise.
+    """
+    import os
+
+    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
+        "ARAGORA_TEST_ENABLE_BACKGROUND_TASKS"
+    ):
+        return False
+
+    enabled = os.environ.get("ARAGORA_ENABLE_SETTLEMENT_REVIEW", "false").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    if not enabled:
+        logger.debug(
+            "Debate settlement scheduler disabled (set ARAGORA_ENABLE_SETTLEMENT_REVIEW=true)"
+        )
+        return False
+
+    try:
+        from aragora.debate.settlement_scheduler import get_scheduler
+
+        scheduler = get_scheduler()
+
+        if scheduler.is_running:
+            return True
+
+        # Wire the due-settlement event listener before starting
+        try:
+            from aragora.debate.settlement_event_listener import (
+                on_settlement_review_due,
+            )
+
+            scheduler._on_review_due = on_settlement_review_due
+        except ImportError:
+            logger.debug("Settlement event listener not available, starting scheduler without it")
+
+        await scheduler.start()
+        logger.info("Debate settlement review scheduler started")
+        return True
+    except ImportError as e:
+        logger.debug("Debate settlement scheduler not available: %s", e)
+        return False
+    except (RuntimeError, OSError, ValueError, AttributeError) as e:
+        logger.warning("Failed to start debate settlement scheduler: %s", e)
+        return False

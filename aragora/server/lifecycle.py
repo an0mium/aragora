@@ -414,6 +414,18 @@ class ServerLifecycleManager:
         except (ImportError, RuntimeError, AttributeError) as e:
             logger.debug("Settlement review scheduler shutdown: %s", e)
 
+        try:
+            from aragora.debate.settlement_scheduler import (
+                get_scheduler as _get_debate_sched,
+            )
+
+            _debate_sched = _get_debate_sched()
+            if _debate_sched is not None and _debate_sched.is_running:
+                await _debate_sched.stop()
+                logger.info("Debate settlement scheduler stopped")
+        except (ImportError, RuntimeError, AttributeError) as e:
+            logger.debug("Debate settlement scheduler shutdown: %s", e)
+
         # Stop API key proxy (frequency-hopping rotation)
         try:
             from aragora.security.api_key_proxy import get_api_key_proxy, reset_api_key_proxy

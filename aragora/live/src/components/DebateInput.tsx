@@ -744,8 +744,13 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
             className="px-8 py-3 bg-acid-green text-bg font-mono font-bold text-lg
                        hover:bg-acid-green/80 transition-colors
                        disabled:bg-text-muted disabled:cursor-not-allowed
-                       flex items-center gap-2 shrink-0"
+                       flex items-center gap-2 shrink-0 relative"
           >
+            {isPlaygroundMode && (
+              <span className="absolute -top-2 -right-2 px-1.5 py-0.5 text-[10px] font-mono font-bold bg-acid-yellow text-bg rounded-sm leading-tight">
+                DEMO
+              </span>
+            )}
             {apiStatus === 'checking' ? (
               <span className="animate-pulse">CONNECTING...</span>
             ) : apiStatus === 'offline' ? (

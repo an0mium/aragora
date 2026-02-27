@@ -709,6 +709,7 @@ __all__ = [
     "init_state_cleanup_task",
     "init_stuck_debate_watchdog",
     "init_settlement_review_scheduler",
+    "init_debate_settlement_scheduler",
     "init_slack_token_refresh_scheduler",
     "init_titans_memory_sweep",
     "init_self_improvement_daemon",
