@@ -18,7 +18,7 @@ env:
 jobs:
   production-health:
     name: Production Health Check
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
@@ -68,7 +68,7 @@ jobs:
 
   production-auth:
     name: Production Auth Flow
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: production-health
 
@@ -125,7 +125,7 @@ jobs:
 
   production-full:
     name: Full Production Suite
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: production-auth
     if: github.event_name == 'workflow_dispatch'

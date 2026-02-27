@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     name: Test Python SDK (Python ${{ matrix.python-version }})
     strategy:
@@ -66,7 +66,7 @@ jobs:
 
   build-and-publish:
     needs: test
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true') && '' || 'pypi' }}
 

@@ -12,7 +12,7 @@ concurrency:
 jobs:
   enforce-main-pr-policy:
     if: github.event_name == 'push'
-    runs-on: aragora
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read

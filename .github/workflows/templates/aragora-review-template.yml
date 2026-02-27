@@ -32,7 +32,7 @@ env:
 jobs:
   ai-review:
     name: AI Red Team Review
-    runs-on: aragora
+    runs-on: ubuntu-latest
 
     # Skip forks (no access to secrets) and bot PRs
     if: |

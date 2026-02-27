@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: aragora
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ide/vscode-aragora

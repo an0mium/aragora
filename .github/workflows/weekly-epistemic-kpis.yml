@@ -17,7 +17,7 @@ on:
 
 jobs:
   extract-runtime-kpis:
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read

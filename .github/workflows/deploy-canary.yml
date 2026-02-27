@@ -58,7 +58,7 @@ env:
 
 jobs:
   pre-flight:
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       canary_instance_id: ${{ steps.instances.outputs.canary_id }}
@@ -155,7 +155,7 @@ jobs:
 
   deploy-canary:
     needs: pre-flight
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
@@ -253,7 +253,7 @@ jobs:
 
   shift-traffic:
     needs: [pre-flight, deploy-canary]
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
@@ -299,7 +299,7 @@ jobs:
 
   bake-and-observe:
     needs: [pre-flight, shift-traffic]
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 35
 
     outputs:
@@ -406,7 +406,7 @@ jobs:
   promote:
     needs: [pre-flight, bake-and-observe]
     if: needs.bake-and-observe.outputs.canary_healthy == 'true'
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
       name: ${{ inputs.auto_promote == 'true' && 'canary-auto' || 'production' }}
@@ -509,7 +509,7 @@ jobs:
   rollback:
     needs: [pre-flight, bake-and-observe]
     if: always() && needs.bake-and-observe.outputs.canary_healthy == 'false'
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
@@ -570,7 +570,7 @@ jobs:
   summary:
     needs: [pre-flight, deploy-canary, shift-traffic, bake-and-observe, promote, rollback]
     if: always()
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:

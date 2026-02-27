@@ -33,7 +33,7 @@ jobs:
   # Resolve the version from either the tag or manual input
   # -------------------------------------------------------------------
   resolve-version:
-    runs-on: aragora
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       is_tag: ${{ steps.version.outputs.is_tag }}
@@ -62,7 +62,7 @@ jobs:
   # Run the full test suite before publishing
   # -------------------------------------------------------------------
   test:
-    runs-on: aragora
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ['3.10', '3.11', '3.12', '3.13']
@@ -89,7 +89,7 @@ jobs:
   # -------------------------------------------------------------------
   publish:
     needs: [resolve-version, test]
-    runs-on: aragora
+    runs-on: ubuntu-latest
     # For manual dispatch, require PUBLISH confirmation.
     # For tag pushes, always proceed.
     if: >-
