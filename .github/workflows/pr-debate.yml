@@ -8,7 +8,7 @@ name: Aragora PR Review
 
 on:
   pull_request_target:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -27,8 +27,8 @@ jobs:
   review:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Skip if PR is from a fork (no access to secrets)
-    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch'
+    # Skip if PR is from a fork (no access to secrets), or if PR is a draft
+    if: (github.event_name != 'pull_request_target' || !github.event.pull_request.draft) && (github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch')
 
     steps:
       # SECURITY: Checkout the BASE branch (trusted code), NOT the PR branch.
