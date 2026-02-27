@@ -179,11 +179,64 @@ class SwarmCommander:
             # Return a minimal result so reporting still works
             return _ErrorResult(str(exc))
 
+    async def run_iterative(
+        self,
+        initial_goal: str,
+        input_fn: Any | None = None,
+        print_fn: Any | None = None,
+    ) -> list[SwarmReport]:
+        """Run the swarm in an iterative loop: run -> report -> 'what next?' -> repeat.
+
+        Args:
+            initial_goal: The user's first goal in plain language.
+            input_fn: Custom input function (default: builtin input).
+            print_fn: Custom print function (default: builtin print).
+
+        Returns:
+            List of SwarmReports from each cycle.
+        """
+        _input = input_fn or input
+        _print = print_fn or print
+        reports: list[SwarmReport] = []
+        goal = initial_goal
+        cycle = 1
+
+        while True:
+            sep = "=" * 60
+            _print(f"\n{sep}")
+            _print(f"  Cycle {cycle}")
+            _print(sep)
+
+            report = await self.run(goal, input_fn=input_fn, print_fn=print_fn)
+            reports.append(report)
+
+            if not self.config.iterative_mode:
+                break
+
+            _print("\n" + "-" * 60)
+            _print("What would you like to do next?")
+            _print('(Type "done", "quit", or "exit" to finish)')
+            _print("-" * 60)
+            next_input = _input("> ")
+
+            if next_input.strip().lower() in ("done", "quit", "exit", ""):
+                _print("\nAll done! Here's a summary of what was accomplished:\n")
+                for i, r in enumerate(reports, 1):
+                    _print(f"  Cycle {i}: {r.summary}")
+                break
+
+            goal = next_input.strip()
+            # Reset interrogator for new goal
+            self._interrogator = SwarmInterrogator(self.config.interrogator)
+            cycle += 1
+
+        return reports
+
     def _build_orchestrator(self, spec: SwarmSpec) -> Any:
         """Configure HardenedOrchestrator from spec and config."""
         from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 
-        return HardenedOrchestrator(
+        orchestrator = HardenedOrchestrator(
             require_human_approval=spec.requires_approval or self.config.require_approval,
             budget_limit_usd=spec.budget_limit_usd or self.config.budget_limit_usd,
             use_worktree_isolation=self.config.use_worktree_isolation,
@@ -194,6 +247,14 @@ class SwarmCommander:
             spectate_stream=self.config.spectate_stream,
             max_parallel_tasks=self.config.max_parallel_tasks,
         )
+
+        # Post-configure task decomposer if available
+        if hasattr(orchestrator, "task_decomposer"):
+            decomposer = orchestrator.task_decomposer
+            if hasattr(decomposer, "config") and hasattr(decomposer.config, "max_subtasks"):
+                decomposer.config.max_subtasks = self.config.max_subtasks
+
+        return orchestrator
 
     @property
     def spec(self) -> SwarmSpec | None:

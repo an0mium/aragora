@@ -1898,8 +1898,19 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "--budget-limit",
         type=float,
-        default=5.0,
-        help="Maximum budget in USD (default: 5.0)",
+        default=50.0,
+        help="Maximum budget in USD (default: 50.0)",
+    )
+    swarm_parser.add_argument(
+        "--max-parallel",
+        type=int,
+        default=20,
+        help="Maximum parallel tasks (default: 20)",
+    )
+    swarm_parser.add_argument(
+        "--no-loop",
+        action="store_true",
+        help="Run once without iterative loop (single-shot mode)",
     )
     swarm_parser.add_argument(
         "--require-approval",

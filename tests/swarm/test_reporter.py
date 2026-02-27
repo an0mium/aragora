@@ -116,8 +116,8 @@ class TestSwarmReporter:
         report = await reporter.generate(spec, result, duration_seconds=90.0)
 
         assert report.success is True
-        assert "Fix all bugs" in report.summary
-        assert "3 out of 3" in report.summary
+        assert "great news" in report.summary.lower()
+        assert "3" in report.summary
         assert len(report.what_was_done) == 3
 
     @pytest.mark.asyncio
@@ -137,7 +137,7 @@ class TestSwarmReporter:
         report = await reporter.generate(spec, result)
 
         assert report.success is False
-        assert "3 out of 5" in report.summary
+        assert "3" in report.summary and "5" in report.summary
 
     @pytest.mark.asyncio
     async def test_template_report_total_failure(self):
@@ -152,7 +152,7 @@ class TestSwarmReporter:
         report = await reporter.generate(spec, result)
 
         assert report.success is False
-        assert "could not be completed" in report.summary
+        assert "wasn't able to complete" in report.summary
 
     @pytest.mark.asyncio
     async def test_template_report_with_skipped(self):

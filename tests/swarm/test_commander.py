@@ -140,3 +140,108 @@ class TestErrorResult:
     def test_error_result_assignments_empty(self):
         err = _ErrorResult("error")
         assert err.assignments == []
+
+
+class TestSwarmCommanderIterative:
+    """Test iterative loop (run -> report -> 'what next?' -> repeat)."""
+
+    @pytest.mark.asyncio
+    async def test_iterative_loop_exits_on_done(self):
+        """Typing 'done' exits the loop with one report."""
+        commander = SwarmCommander()
+        output: list[str] = []
+
+        with patch.object(
+            commander,
+            "run",
+            new_callable=AsyncMock,
+            return_value=MagicMock(summary="Cycle 1 done"),
+        ):
+            reports = await commander.run_iterative(
+                "Test goal",
+                input_fn=lambda _: "done",
+                print_fn=lambda x: output.append(str(x)),
+            )
+
+        assert len(reports) == 1
+
+    @pytest.mark.asyncio
+    async def test_iterative_loop_multiple_cycles(self):
+        """Multiple goals run multiple cycles before exit."""
+        commander = SwarmCommander()
+        inputs = iter(["fix the dashboard", "done"])
+
+        with patch.object(
+            commander,
+            "run",
+            new_callable=AsyncMock,
+            return_value=MagicMock(summary="Cycle done"),
+        ):
+            reports = await commander.run_iterative(
+                "First goal",
+                input_fn=lambda _: next(inputs),
+                print_fn=lambda _: None,
+            )
+
+        assert len(reports) == 2
+
+    @pytest.mark.asyncio
+    async def test_iterative_disabled_runs_once(self):
+        """When iterative_mode=False, runs once and exits."""
+        config = SwarmCommanderConfig(iterative_mode=False)
+        commander = SwarmCommander(config=config)
+
+        with patch.object(
+            commander,
+            "run",
+            new_callable=AsyncMock,
+            return_value=MagicMock(summary="Single run"),
+        ):
+            reports = await commander.run_iterative(
+                "One-shot goal",
+                input_fn=lambda _: "should not be called",
+                print_fn=lambda _: None,
+            )
+
+        assert len(reports) == 1
+
+
+class TestSwarmCommanderConfig:
+    """Test CEO-mode config defaults."""
+
+    def test_default_budget_is_50(self):
+        config = SwarmCommanderConfig()
+        assert config.budget_limit_usd == 50.0
+
+    def test_default_max_parallel_is_20(self):
+        config = SwarmCommanderConfig()
+        assert config.max_parallel_tasks == 20
+
+    def test_default_iterative_mode_is_true(self):
+        config = SwarmCommanderConfig()
+        assert config.iterative_mode is True
+
+    def test_max_parallel_flows_to_orchestrator(self):
+        config = SwarmCommanderConfig(max_parallel_tasks=10)
+        commander = SwarmCommander(config=config)
+        spec = SwarmSpec(raw_goal="test")
+
+        with patch("aragora.nomic.hardened_orchestrator.HardenedOrchestrator") as MockOrch:
+            commander._build_orchestrator(spec)
+            call_kwargs = MockOrch.call_args[1]
+            assert call_kwargs["max_parallel_tasks"] == 10
+
+
+class TestProactiveSuggestions:
+    """Test proactive_suggestions field on SwarmSpec."""
+
+    def test_spec_has_proactive_suggestions_field(self):
+        spec = SwarmSpec(proactive_suggestions=["Add dark mode", "Fix mobile layout"])
+        assert len(spec.proactive_suggestions) == 2
+        assert "Add dark mode" in spec.proactive_suggestions
+
+    def test_proactive_suggestions_in_dict(self):
+        spec = SwarmSpec(proactive_suggestions=["suggestion 1"])
+        data = spec.to_dict()
+        assert "proactive_suggestions" in data
+        assert data["proactive_suggestions"] == ["suggestion 1"]

@@ -28,8 +28,10 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     spec_file = getattr(args, "spec", None)
     skip_interrogation = getattr(args, "skip_interrogation", False)
     dry_run = getattr(args, "dry_run", False)
-    budget_limit = getattr(args, "budget_limit", 5.0)
+    budget_limit = getattr(args, "budget_limit", 50.0)
     require_approval = getattr(args, "require_approval", False)
+    max_parallel = getattr(args, "max_parallel", 20)
+    no_loop = getattr(args, "no_loop", False)
 
     if not goal and not spec_file:
         print("Error: provide a goal or --spec file")
@@ -40,6 +42,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         interrogator=InterrogatorConfig(),
         budget_limit_usd=budget_limit,
         require_approval=require_approval,
+        max_parallel_tasks=max_parallel,
+        iterative_mode=not no_loop,
     )
     commander = SwarmCommander(config=config)
 
@@ -73,5 +77,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         print("\nSkipping interrogation (developer mode)")
         print(spec.summary())
         asyncio.run(commander.run_from_spec(spec))
+    elif config.iterative_mode:
+        asyncio.run(commander.run_iterative(goal))
     else:
         asyncio.run(commander.run(goal))
