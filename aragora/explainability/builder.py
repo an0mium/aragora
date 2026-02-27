@@ -226,6 +226,31 @@ class ExplanationBuilder:
         return []
 
     # ==========================================================================
+    # Thinking Traces
+    # ==========================================================================
+
+    def _extract_thinking_traces(self, result: Any) -> dict[str, str]:
+        """Extract agent thinking traces from result metadata.
+
+        Looks for ``agent_thinking`` in ``result.metadata``, which is a dict
+        mapping agent name to thinking text.
+
+        Args:
+            result: DebateResult (or any object with an optional ``.metadata`` dict).
+
+        Returns:
+            Dict mapping agent name to thinking text.  Empty dict when no
+            thinking metadata is present.
+        """
+        metadata = getattr(result, "metadata", None)
+        if not isinstance(metadata, dict):
+            return {}
+        agent_thinking = metadata.get("agent_thinking")
+        if not isinstance(agent_thinking, dict):
+            return {}
+        return {name: text for name, text in agent_thinking.items() if text}
+
+    # ==========================================================================
     # Evidence Chain
     # ==========================================================================
 

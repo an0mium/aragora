@@ -6,6 +6,12 @@ Detects file creation, modification, and deletion events in an Obsidian vault
 and delivers debounced change events to an async callback.
 
 Uses watchdog for cross-platform filesystem monitoring.
+
+Two APIs are provided:
+- **ObsidianFileWatcher / WatcherConfig / FileChangeEvent / ChangeType** --
+  config-object based API (preferred for new code).
+- **VaultWatcher / VaultChangeEvent** -- original flat-argument API
+  (kept for backward compatibility).
 """
 
 from __future__ import annotations
@@ -13,7 +19,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Awaitable
 
@@ -28,6 +35,165 @@ except ImportError:
     FileSystemEventHandler = object  # type: ignore[assignment,misc]
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# New Config-Object API
+# =============================================================================
+
+
+class ChangeType(str, Enum):
+    """Type of filesystem change detected in the vault."""
+
+    CREATED = "created"
+    MODIFIED = "modified"
+    DELETED = "deleted"
+
+
+@dataclass
+class FileChangeEvent:
+    """A single file change event in an Obsidian vault.
+
+    Attributes:
+        path: Relative path within the vault of the changed file.
+        change_type: The kind of change (created, modified, deleted).
+        timestamp: Unix timestamp of when the change was detected.
+    """
+
+    path: str
+    change_type: ChangeType
+    timestamp: float = field(default_factory=time.time)
+
+
+@dataclass
+class WatcherConfig:
+    """Configuration for :class:`ObsidianFileWatcher`.
+
+    Attributes:
+        vault_path: Filesystem path to the Obsidian vault root.
+        debounce_ms: Minimum interval (ms) before pending changes are flushed.
+        watch_tags: Obsidian tags to filter on (reserved for future use).
+        ignore_folders: Folder names whose contents should be ignored.
+    """
+
+    vault_path: str
+    debounce_ms: int = 500
+    watch_tags: list[str] = field(default_factory=lambda: ["#aragora", "#debate"])
+    ignore_folders: list[str] = field(
+        default_factory=lambda: [".obsidian", ".trash", "templates"],
+    )
+
+
+class ObsidianFileWatcher:
+    """Watches an Obsidian vault for file changes with debounce.
+
+    Uses watchdog for cross-platform filesystem events.
+    Debounces rapid changes (e.g., autosave) into single events.
+    """
+
+    def __init__(
+        self,
+        config: WatcherConfig,
+        on_change: Callable[[FileChangeEvent], Awaitable[None]] | None = None,
+    ) -> None:
+        self._config = config
+        self._on_change = on_change
+        self._vault_path = Path(config.vault_path).expanduser().resolve()
+        self._pending: dict[str, FileChangeEvent] = {}
+        self._observer: Any | None = None
+        self._running = False
+
+    @property
+    def is_running(self) -> bool:
+        """Whether the watcher is actively monitoring the vault."""
+        return self._running
+
+    def _should_ignore(self, path: str) -> bool:
+        """Check if a path should be ignored.
+
+        Returns ``True`` for non-markdown files and files inside any
+        configured ignore folder.
+        """
+        if not path.endswith(".md"):
+            return True
+        for folder in self._config.ignore_folders:
+            if f"/{folder}/" in f"/{path}/" or path.startswith(f"{folder}/"):
+                return True
+        return False
+
+    def _handle_file_event(self, abs_path: str, change_type: ChangeType) -> None:
+        """Handle a raw filesystem event (pre-debounce)."""
+        try:
+            rel_path = str(Path(abs_path).relative_to(self._vault_path))
+        except ValueError:
+            rel_path = abs_path
+
+        if self._should_ignore(rel_path):
+            return
+
+        self._pending[rel_path] = FileChangeEvent(
+            path=rel_path,
+            change_type=change_type,
+        )
+
+    async def _flush_debounce(self) -> None:
+        """Flush all pending debounced events."""
+        if not self._pending or not self._on_change:
+            return
+
+        pending = dict(self._pending)
+        self._pending.clear()
+
+        for event in pending.values():
+            try:
+                await self._on_change(event)
+            except Exception:  # noqa: BLE001 -- external callback
+                logger.warning("Watcher callback failed for %s", event.path)
+
+    async def start(self) -> None:
+        """Start watching the vault directory."""
+        try:
+            from watchdog.observers import Observer as _Observer
+            from watchdog.events import (
+                FileSystemEventHandler as _Handler,
+                FileSystemEvent,
+            )
+        except ImportError:
+            logger.warning("watchdog not installed; filesystem watching disabled")
+            return
+
+        watcher = self
+
+        class _EventHandler(_Handler):
+            def on_created(self, event: FileSystemEvent) -> None:
+                if not event.is_directory:
+                    watcher._handle_file_event(event.src_path, ChangeType.CREATED)
+
+            def on_modified(self, event: FileSystemEvent) -> None:
+                if not event.is_directory:
+                    watcher._handle_file_event(event.src_path, ChangeType.MODIFIED)
+
+            def on_deleted(self, event: FileSystemEvent) -> None:
+                if not event.is_directory:
+                    watcher._handle_file_event(event.src_path, ChangeType.DELETED)
+
+        self._observer = _Observer()
+        self._observer.schedule(_EventHandler(), str(self._vault_path), recursive=True)
+        self._observer.start()
+        self._running = True
+        logger.info("Watching Obsidian vault: %s", self._vault_path)
+
+        while self._running:
+            await asyncio.sleep(self._config.debounce_ms / 1000)
+            await self._flush_debounce()
+
+    async def stop(self) -> None:
+        """Stop watching."""
+        self._running = False
+        if self._observer:
+            self._observer.stop()
+            self._observer.join(timeout=5)
+            self._observer = None
 
 
 # =============================================================================
@@ -299,6 +465,12 @@ class VaultWatcher:
 # =============================================================================
 
 __all__ = [
+    # New config-object API
+    "ChangeType",
+    "FileChangeEvent",
+    "WatcherConfig",
+    "ObsidianFileWatcher",
+    # Legacy API (backward compatible)
     "VaultChangeEvent",
     "VaultWatcher",
     "WATCHDOG_AVAILABLE",
