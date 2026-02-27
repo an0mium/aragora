@@ -2,6 +2,7 @@ name: Live Deploy Mode Gate
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/live/**'
       - '.github/workflows/live-deploy-mode-gate.yml'
