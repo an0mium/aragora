@@ -130,6 +130,7 @@ class PipelineConfig:
     enable_workspace_context: bool = True  # Check workspace for existing work
     enable_transition_debates: bool = False  # Run mini-debates at stage transitions
     transition_debate_rounds: int = 2  # Rounds per transition debate
+    enable_step_verification: bool = False  # ThinkPRM reasoning verification at transitions
     # Mode map: pipeline stage → operational mode name
     mode_map: dict[str, str] = field(
         default_factory=lambda: {
@@ -1117,6 +1118,26 @@ class IdeaToExecutionPipeline:
                                 "transition_debate_complete",
                                 td_result.to_dict(),
                             )
+
+                    # Step verification: goal extraction
+                    if cfg.enable_step_verification and result.goal_graph:
+                        idea_labels = []
+                        if result.ideas_canvas:
+                            nodes = result.ideas_canvas.nodes
+                            if isinstance(nodes, dict):
+                                nodes = nodes.values()
+                            idea_labels = [getattr(n, "label", "") for n in nodes]
+                        goal_dicts = [
+                            {"title": g.title, "priority": g.priority, "id": g.id}
+                            for g in result.goal_graph.goals
+                        ]
+                        await self._run_step_verification(
+                            "goal_extraction",
+                            pipeline_id,
+                            cfg,
+                            ideas=idea_labels,
+                            goals=goal_dicts,
+                        )
 
                 elif sr.status == "failed":
                     result.stage_status[PipelineStage.GOALS.value] = "failed"
@@ -2776,6 +2797,61 @@ class IdeaToExecutionPipeline:
             confidence=td_result.confidence,
             ai_rationale=f"[{td_result.verdict.upper()}] {td_result.rationale}",
         )
+
+    # =========================================================================
+    # Step verification helpers
+    # =========================================================================
+
+    async def _run_step_verification(
+        self,
+        verification_type: str,
+        pipeline_id: str,
+        cfg: PipelineConfig,
+        **kwargs: Any,
+    ) -> dict[str, Any] | None:
+        """Run ThinkPRM step verification at a stage transition.
+
+        Returns verification result dict or None if unavailable.
+        """
+        try:
+            from aragora.pipeline.step_verifier import PipelineStepVerifier
+
+            verifier = PipelineStepVerifier()
+
+            if verification_type == "goal_extraction":
+                vr = await verifier.verify_goal_extraction(
+                    ideas=kwargs.get("ideas", []),
+                    goals=kwargs.get("goals", []),
+                    pipeline_id=pipeline_id,
+                )
+            elif verification_type == "action_decomposition":
+                vr = await verifier.verify_action_decomposition(
+                    goals=kwargs.get("goals", []),
+                    actions=kwargs.get("actions", []),
+                    pipeline_id=pipeline_id,
+                )
+            elif verification_type == "agent_assignments":
+                vr = await verifier.verify_agent_assignments(
+                    actions=kwargs.get("actions", []),
+                    assignments=kwargs.get("assignments", []),
+                    pipeline_id=pipeline_id,
+                )
+            else:
+                return None
+
+            self._emit(
+                cfg,
+                "step_verification_complete",
+                vr.to_dict(),
+            )
+            return vr.to_dict()
+
+        except ImportError:
+            logger.debug("Step verifier not available")
+        except Exception as exc:
+            logger.warning("Step verification failed: %s", exc)
+
+        return None
 
     # =========================================================================
     # Universal graph integration
