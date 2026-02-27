@@ -1,9 +1,18 @@
 'use client';
 
-import { useState, useCallback, FormEvent } from 'react';
+import { useState, useCallback, useRef, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from './DebateResultPreview';
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
+
+const PROGRESS_MESSAGES = [
+  'Assembling agent panel...',
+  'Agents debating your question...',
+  'Cross-examining arguments...',
+  'Stress-testing conclusions...',
+  'Building consensus...',
+  'Generating verdict...',
+];
 
 interface LandingPageProps {
   apiBase?: string;
@@ -17,8 +26,20 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<DebateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progressMsg, setProgressMsg] = useState('');
+  const [lastTopic, setLastTopic] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
+  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resolvedApiBase = apiBase || 'https://api.aragora.ai';
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (progressRef.current) clearInterval(progressRef.current);
+    };
+  }, []);
 
   const saveDebateBeforeLogin = useCallback(() => {
     if (result) {
@@ -29,29 +50,58 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
   }, [result]);
 
   async function runDebate(topic: string) {
+    // Cancel any in-flight request
+    abortRef.current?.abort();
+    if (progressRef.current) clearInterval(progressRef.current);
+
     setIsRunning(true);
     setError(null);
     setResult(null);
+    setLastTopic(topic);
+    setProgressMsg(PROGRESS_MESSAGES[0]);
+
+    // Rotate progress messages every 4s
+    let msgIdx = 0;
+    progressRef.current = setInterval(() => {
+      msgIdx = Math.min(msgIdx + 1, PROGRESS_MESSAGES.length - 1);
+      setProgressMsg(PROGRESS_MESSAGES[msgIdx]);
+    }, 4000);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       const res = await fetch(`${resolvedApiBase}/api/v1/playground/debate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, question: topic, rounds: 2, agents: 3, source: 'landing' }),
+        signal: controller.signal,
       });
+
+      if (res.status === 429) {
+        const retryAfter = res.headers.get('Retry-After');
+        const waitSec = retryAfter ? parseInt(retryAfter, 10) : 60;
+        setError(`Rate limit reached. Please try again in ${waitSec > 60 ? `${Math.ceil(waitSec / 60)} minutes` : `${waitSec} seconds`}.`);
+        return;
+      }
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setError(data?.error || `Request failed (${res.status})`);
+        setError(data?.error || `Something went wrong (${res.status}). Please try again.`);
         return;
       }
 
       setResult(await res.json());
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Network error';
+      if (err instanceof Error && err.name === 'AbortError') return;
+      const message = err instanceof Error && err.message.includes('Failed to fetch')
+        ? 'Could not reach the server. Check your connection and try again.'
+        : 'Network error. Please try again.';
       setError(message);
     } finally {
+      if (progressRef.current) clearInterval(progressRef.current);
       setIsRunning(false);
+      setProgressMsg('');
     }
   }
 
@@ -158,20 +208,29 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
           )}
 
           {isRunning && (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex flex-col items-center justify-center py-8 gap-3">
               <div className="flex items-center gap-3 text-acid-green">
                 <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                <span className="text-sm font-mono">Agents are debating...</span>
+                <span className="text-sm font-mono">{progressMsg || 'Agents are debating...'}</span>
               </div>
+              <span className="text-xs font-mono text-text-muted/50">Usually takes 15-30 seconds</span>
             </div>
           )}
 
           {error && (
             <div className="border border-crimson bg-crimson/10 p-4 mt-6 text-left max-w-xl mx-auto">
-              <p className="text-sm text-crimson font-mono">{error}</p>
+              <p className="text-sm text-crimson font-mono mb-3">{error}</p>
+              {lastTopic && (
+                <button
+                  onClick={() => runDebate(lastTopic)}
+                  className="text-xs font-mono px-4 py-1.5 border border-crimson/40 text-crimson hover:bg-crimson/10 transition-colors"
+                >
+                  Try again
+                </button>
+              )}
             </div>
           )}
 
