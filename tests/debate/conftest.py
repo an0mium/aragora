@@ -319,12 +319,9 @@ def _stub_expensive_arena_io(monkeypatch, request):
     # Stub KM context initialization (Knowledge Mound queries)
     monkeypatch.setattr(Arena, "_init_km_context", _noop_async)
 
-    # Note: _ingest_debate_outcome is NOT stubbed here because
-    # TestKnowledgeMoundIntegration.test_ingest_debate_outcome_stores_high_confidence
-    # directly calls arena._ingest_debate_outcome() and verifies KM store calls.
-    # The retry/backoff loop in _km_ingest_background (1s + 2s sleep) is handled
-    # by the cleanup drain timeout.  With ARAGORA_OFFLINE=1 and fake API keys,
-    # the KM ingestion fails fast without network timeouts.
+    # Stub KM outcome ingestion (calls supermemory which may not be installed).
+    # TestKnowledgeMoundIntegration uses @pytest.mark.no_io_stubs to skip this.
+    monkeypatch.setattr(Arena, "_ingest_debate_outcome", _noop_async)
 
     # Stub Supabase sync and bead creation (prevent network I/O)
     monkeypatch.setattr(Arena, "_queue_for_supabase_sync", _noop_sync)

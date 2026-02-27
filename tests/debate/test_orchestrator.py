@@ -1368,6 +1368,7 @@ class TestCheckpointCreation:
 # =============================================================================
 
 
+@pytest.mark.no_io_stubs
 class TestKnowledgeMoundIntegration:
     """Tests for Knowledge Mound integration (retrieval and ingestion)."""
 

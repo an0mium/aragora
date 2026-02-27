@@ -272,9 +272,10 @@ class TestReExportIdentity:
         assert _oauth_limiter is impl_limiter
 
     def test_validate_redirect_url_identity(self):
-        from aragora.server.handlers._oauth_impl import _validate_redirect_url as impl_fn
+        import aragora.server.handlers._oauth_impl as _impl
+        import aragora.server.handlers.oauth.handler as _h
 
-        assert _validate_redirect_url is impl_fn
+        assert _h._validate_redirect_url is _impl._validate_redirect_url
 
     def test_generate_state_identity(self):
         from aragora.server.handlers._oauth_impl import _generate_state as impl_fn

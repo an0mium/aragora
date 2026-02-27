@@ -128,6 +128,18 @@ class TestCheckConnectorDependencies:
 class TestCheckAgentCredentials:
     """Test check_agent_credentials function."""
 
+    @pytest.fixture(autouse=True)
+    def _no_secrets_manager(self):
+        """Prevent AWS Secrets Manager cache from supplying keys.
+
+        ``_get_config_value`` checks env vars first, then falls back to
+        ``get_secret`` which may return cached AWS secrets.  Tests that
+        clear ``os.environ`` to simulate missing keys need the secrets
+        manager fallback disabled so the env-clear is effective.
+        """
+        with patch("aragora.config.secrets.get_secret", return_value=None):
+            yield
+
     def test_no_warnings_with_all_keys(self):
         with patch.dict(
             "os.environ",
