@@ -660,6 +660,28 @@ class BaseHandler:
         self._current_handler = None
         self._current_query_params = {}
 
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can handle the given path.
+
+        Default implementation checks against the ROUTES class attribute.
+        Subclasses may override for prefix-based or dynamic matching.
+        """
+        routes = getattr(self, "ROUTES", None)
+        if routes is None:
+            return False
+        if isinstance(routes, dict):
+            return path in routes
+        for route in routes:
+            if isinstance(route, (tuple, list)):
+                route_path = route[1] if len(route) >= 2 else route[0]
+            elif isinstance(route, str) and " " in route:
+                route_path = route.split(" ", 1)[1]
+            else:
+                route_path = route
+            if path == route_path or (isinstance(route_path, str) and path.startswith(route_path)):
+                return True
+        return False
+
     def set_request_context(self, handler: Any, query_params: dict[str, Any] | None = None) -> None:
         """Set the current request context for helper methods.
 

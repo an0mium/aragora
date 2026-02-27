@@ -804,7 +804,8 @@ class RouteIndex:
         for prefix, attr_name, handler in self._prefix_routes:
             if path.startswith(prefix):
                 # Verify with handler's can_handle for complex patterns
-                if handler.can_handle(path):
+                can_handle_fn = getattr(handler, "can_handle", None)
+                if can_handle_fn is None or can_handle_fn(path):
                     return (attr_name, handler)
 
         # Try normalized path for versioned routes (/api/v1/debates -> /api/debates)
@@ -812,7 +813,8 @@ class RouteIndex:
             for prefix, attr_name, handler in self._prefix_routes:
                 if normalized_path.startswith(prefix):
                     # Check if handler can handle the normalized path
-                    if handler.can_handle(normalized_path):
+                    can_handle_fn = getattr(handler, "can_handle", None)
+                    if can_handle_fn is None or can_handle_fn(normalized_path):
                         return (attr_name, handler)
 
         return None
@@ -864,20 +866,45 @@ def validate_handler_class(handler_class: Any, handler_name: str) -> list[str]:
         errors.append(f"{handler_name}: Handler class is None")
         return errors
 
-    # Required method: can_handle(path: str) -> bool
-    if not hasattr(handler_class, "can_handle"):
-        errors.append(f"{handler_name}: Missing required method 'can_handle'")
-    elif not callable(getattr(handler_class, "can_handle")):
-        errors.append(f"{handler_name}: 'can_handle' is not callable")
+    # Handlers use varied dispatch patterns:
+    # - can_handle + handle (standard BaseHandler)
+    # - ROUTES + handle_* methods (cost, voice, inbox)
+    # - register_routes (alert, autonomous)
+    # - ROUTES only (facade handlers for OpenAPI discovery)
+    has_can_handle = hasattr(handler_class, "can_handle") and callable(
+        getattr(handler_class, "can_handle")
+    )
+    has_handle = hasattr(handler_class, "handle") and callable(getattr(handler_class, "handle"))
+    has_handle_star = any(
+        attr.startswith("handle_")
+        for attr in dir(handler_class)
+        if not attr.startswith("__") and callable(getattr(handler_class, attr, None))
+    )
+    has_register = hasattr(handler_class, "register_routes") and callable(
+        getattr(handler_class, "register_routes")
+    )
+    has_routes = hasattr(handler_class, "ROUTES")
 
-    # Required method: handle(path: str, query: dict, request_handler) -> HandlerResult
-    if not hasattr(handler_class, "handle"):
-        errors.append(f"{handler_name}: Missing required method 'handle'")
-    elif not callable(getattr(handler_class, "handle")):
-        errors.append(f"{handler_name}: 'handle' is not callable")
+    if not has_can_handle:
+        if has_handle or has_handle_star or has_register or has_routes:
+            logger.debug(
+                "%s: No can_handle() method (dispatched via ROUTES/handle*/register_routes)",
+                handler_name,
+            )
+        else:
+            errors.append(f"{handler_name}: Missing required method 'can_handle'")
+
+    if not has_handle and not has_handle_star and not has_register:
+        if has_routes:
+            logger.debug(
+                "%s: No handle() method (ROUTES-only facade for OpenAPI discovery)",
+                handler_name,
+            )
+        else:
+            errors.append(f"{handler_name}: Missing required method 'handle'")
 
     # Optional but recommended: ROUTES attribute for exact path matching
-    if not hasattr(handler_class, "ROUTES"):
+    if not has_routes:
         logger.debug("%s: No ROUTES attribute (will use prefix matching only)", handler_name)
 
     return errors
