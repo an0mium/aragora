@@ -1125,7 +1125,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check for frontend changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        id: frontend_changes
+        with:
+          filters: |
+            frontend:
+              - 'aragora/live/**'
+              - 'tests/e2e/**'
+              - '.github/workflows/test.yml'
+
       - name: Set up Node.js
+        if: github.event_name != 'pull_request' || steps.frontend_changes.outputs.frontend == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -1133,28 +1145,34 @@ jobs:
           cache-dependency-path: aragora/live/package-lock.json
 
       - name: Install dependencies
+        if: github.event_name != 'pull_request' || steps.frontend_changes.outputs.frontend == 'true'
         working-directory: aragora/live
         run: npm ci
 
       - name: TypeScript Type Check
+        if: github.event_name != 'pull_request' || steps.frontend_changes.outputs.frontend == 'true'
         working-directory: aragora/live
         run: npx tsc --noEmit
 
       - name: Run Jest unit tests
+        if: github.event_name != 'pull_request' || steps.frontend_changes.outputs.frontend == 'true'
         working-directory: aragora/live
         run: npx jest --ci
 
       - name: Install Playwright browsers
+        if: github.event_name != 'pull_request' || steps.frontend_changes.outputs.frontend == 'true'
         working-directory: aragora/live
         run: npx playwright install --with-deps
 
       - name: Build frontend
+        if: github.event_name != 'pull_request' || steps.frontend_changes.outputs.frontend == 'true'
         working-directory: aragora/live
         run: npm run build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8080
 
       - name: Run E2E tests
+        if: github.event_name != 'pull_request' || steps.frontend_changes.outputs.frontend == 'true'
         working-directory: aragora/live
         run: npx playwright test
         env:
@@ -1162,7 +1180,7 @@ jobs:
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: (github.event_name != 'pull_request' || steps.frontend_changes.outputs.frontend == 'true') && failure()
         with:
           name: playwright-report
           path: aragora/live/playwright-report/
@@ -1170,11 +1188,15 @@ jobs:
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: (github.event_name != 'pull_request' || steps.frontend_changes.outputs.frontend == 'true') && always()
         with:
           name: playwright-results
           path: aragora/live/test-results/
           retention-days: 7
+
+      - name: Skip (no frontend changes)
+        if: github.event_name == 'pull_request' && steps.frontend_changes.outputs.frontend != 'true'
+        run: echo "No frontend changes detected; skipping frontend E2E suite."
 
   # Lightweight frontend type checking (PR-only, path-filtered)
   frontend-typecheck:
@@ -1469,7 +1491,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [test-fast]
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always() && github.event_name == 'pull_request')
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always() && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'))
 
     steps:
       - name: Checkout

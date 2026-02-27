@@ -70,19 +70,37 @@ async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
 @pytest.fixture
 async def clean_test_tables(postgres_pool: asyncpg.Pool):
     """Clean test data before each test."""
+    cleanup_targets = {
+        "webhook_configs": ("id", "webhook_id"),
+        "gauntlet_runs": ("run_id", "id"),
+        "approval_requests": ("request_id", "id"),
+        "federated_regions": ("region_id",),
+    }
+
+    async def _cleanup(conn: asyncpg.Connection) -> None:
+        for table_name, candidate_columns in cleanup_targets.items():
+            # Some CI/local DBs can have old schemas where tables or id columns differ.
+            column_name = await conn.fetchval(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = $1
+                  AND column_name = ANY($2::text[])
+                LIMIT 1
+                """,
+                table_name,
+                list(candidate_columns),
+            )
+            if not column_name:
+                continue
+            await conn.execute(f"DELETE FROM {table_name} WHERE {column_name}::text LIKE 'test-%'")
+
     async with postgres_pool.acquire() as conn:
-        # Clean test data (use prefixed IDs for safety)
-        await conn.execute("DELETE FROM webhook_configs WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM gauntlet_runs WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM approval_requests WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM federated_regions WHERE region_id LIKE 'test-%'")
+        await _cleanup(conn)
     yield
-    # Cleanup after test
     async with postgres_pool.acquire() as conn:
-        await conn.execute("DELETE FROM webhook_configs WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM gauntlet_runs WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM approval_requests WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM federated_regions WHERE region_id LIKE 'test-%'")
+        await _cleanup(conn)
 
 
 class TestPostgresWebhookConfigStore:

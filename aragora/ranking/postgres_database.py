@@ -601,6 +601,57 @@ class PostgresEloDatabase(PostgresStore):
             row = await conn.fetchrow("SELECT COUNT(*) as count FROM elo_matches")
             return row["count"] if row else 0
 
+    # Compatibility helpers for legacy callers/tests that still use
+    # the older SQLite-style API names.
+    async def record_match(
+        self,
+        winner: str,
+        loser: str | None = None,
+        domain: str | None = None,
+        debate_id: str | None = None,
+        winner_elo_before: float | None = None,
+        loser_elo_before: float | None = None,
+        winner_elo_after: float | None = None,
+        loser_elo_after: float | None = None,
+    ) -> int:
+        """Record a match using the legacy API shape."""
+        participants = [p for p in [winner, loser] if p]
+        scores: dict[str, float] = {}
+        if winner:
+            scores[winner] = 1.0
+        if loser:
+            scores[loser] = 0.0
+
+        elo_changes: dict[str, float] = {}
+        if winner and winner_elo_before is not None and winner_elo_after is not None:
+            elo_changes[winner] = winner_elo_after - winner_elo_before
+        if loser and loser_elo_before is not None and loser_elo_after is not None:
+            elo_changes[loser] = loser_elo_after - loser_elo_before
+
+        return await self.save_match(
+            debate_id=debate_id or f"legacy-{winner}",
+            winner=winner,
+            participants=participants,
+            domain=domain,
+            scores=scores,
+            elo_changes=elo_changes,
+        )
+
+    async def get_match_history(
+        self,
+        agent_name: str,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """Legacy alias for recent matches filtered by agent."""
+        return await self.get_recent_matches(agent_name=agent_name, limit=limit)
+
+    async def get_stats(self) -> dict[str, int]:
+        """Legacy alias returning basic DB aggregate stats."""
+        return {
+            "total_agents": await self.count_ratings(),
+            "total_matches": await self.count_matches(),
+        }
+
 
 # Singleton instance
 _postgres_elo_db: PostgresEloDatabase | None = None
