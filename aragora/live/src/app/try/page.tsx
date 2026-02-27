@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { TeaserResult } from '@/components/try/TeaserResult';
 import { API_BASE_URL } from '@/config';
@@ -24,6 +24,15 @@ export default function TryPage() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState('');
   const abortRef = useRef<AbortController | null>(null);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
+  }, []);
 
   const handleAnalyze = async () => {
     if (!question.trim() || question.length < 10) {
@@ -47,7 +56,9 @@ export default function TryPage() {
       });
 
       if (response.status === 429) {
-        setError('Rate limit reached. Please try again in a few minutes.');
+        const retryAfter = response.headers.get('Retry-After');
+        const waitSec = retryAfter ? parseInt(retryAfter, 10) : 60;
+        setError(`Rate limit reached. Please try again in ${waitSec > 60 ? `${Math.ceil(waitSec / 60)} minutes` : `${waitSec} seconds`}.`);
         setIsAnalyzing(false);
         return;
       }
@@ -73,7 +84,7 @@ export default function TryPage() {
             'Generating verdict...',
           ];
           let progressIdx = 0;
-          const progressInterval = setInterval(() => {
+          progressIntervalRef.current = setInterval(() => {
             if (progressIdx < progressMessages.length) {
               setProgress(progressMessages[progressIdx]);
               progressIdx++;
@@ -87,7 +98,7 @@ export default function TryPage() {
               accumulated += decoder.decode(value, { stream: true });
             }
           } finally {
-            clearInterval(progressInterval);
+            if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
           }
 
           // Parse the accumulated SSE data for the final result
@@ -220,12 +231,12 @@ export default function TryPage() {
 
           {/* Progress */}
           {isAnalyzing && (
-            <div className="mt-6 flex flex-col items-center gap-2">
+            <div className="mt-6 flex flex-col items-center justify-center gap-2">
               <div className="flex items-center gap-3">
                 <div className="w-5 h-5 border-2 border-[var(--acid-green)]/30 border-t-[var(--acid-green)] rounded-full animate-spin" />
                 <span className="text-sm font-mono text-[var(--acid-green)] animate-pulse">{progress}</span>
               </div>
-              <span className="text-xs font-mono text-[var(--text-muted)]/60">Usually takes 10-20 seconds</span>
+              <span className="text-xs font-mono text-[var(--text-muted)]/60">Usually takes 15-30 seconds</span>
             </div>
           )}
 

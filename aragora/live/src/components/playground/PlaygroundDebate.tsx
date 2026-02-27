@@ -3,10 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 // ---------------------------------------------------------------------------
-// Mock debate data
+// Types
 // ---------------------------------------------------------------------------
-
-const TOPIC = 'Should we use microservices or a monolith for our new product?';
 
 interface AgentEntry {
   name: string;
@@ -15,7 +13,98 @@ interface AgentEntry {
   proposal: string;
 }
 
-const AGENTS: AgentEntry[] = [
+interface CritiqueEntry {
+  from: string;
+  to: string;
+  fromColor: string;
+  text: string;
+  severity: number;
+}
+
+interface VoteEntry {
+  agent: string;
+  color: string;
+  choice: string;
+  confidence: number;
+  reasoning?: string;
+}
+
+interface ReceiptData {
+  receipt_id: string;
+  verdict: string;
+  confidence: number;
+  method: string;
+  rounds: number;
+  timestamp: string;
+  hash: string;
+}
+
+interface DebateResult {
+  id: string;
+  topic: string;
+  participants: string[];
+  proposals: Record<string, string>;
+  critiques: Array<{
+    agent: string;
+    target_agent: string;
+    issues: string[];
+    suggestions: string[];
+    severity: number;
+  }>;
+  votes: Array<{
+    agent: string;
+    choice: string;
+    confidence: number;
+    reasoning: string;
+  }>;
+  receipt: {
+    receipt_id: string;
+    verdict: string;
+    confidence: number;
+    consensus: {
+      reached: boolean;
+      method: string;
+      confidence: number;
+    };
+    rounds_used: number;
+    timestamp: string;
+    signature: string;
+  };
+  final_answer: string;
+  confidence: number;
+  consensus_reached: boolean;
+  share_url?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Agent colors
+// ---------------------------------------------------------------------------
+
+const AGENT_COLORS = [
+  'var(--acid-cyan)',
+  'var(--acid-magenta)',
+  'var(--acid-green)',
+  '#f59e0b',
+  '#a78bfa',
+];
+
+const ROLE_LABELS = ['Analyst', 'Contrarian', 'Synthesizer', 'Strategist', 'Auditor'];
+
+function agentColor(index: number): string {
+  return AGENT_COLORS[index % AGENT_COLORS.length];
+}
+
+function agentRole(index: number): string {
+  return ROLE_LABELS[index % ROLE_LABELS.length];
+}
+
+// ---------------------------------------------------------------------------
+// Demo data (used when no custom topic is provided)
+// ---------------------------------------------------------------------------
+
+const DEFAULT_TOPIC = 'Should we use microservices or a monolith for our new product?';
+
+const DEMO_AGENTS: AgentEntry[] = [
   {
     name: 'claude-analyst',
     role: 'Analyst',
@@ -51,15 +140,7 @@ const AGENTS: AgentEntry[] = [
   },
 ];
 
-interface CritiqueEntry {
-  from: string;
-  to: string;
-  fromColor: string;
-  text: string;
-  severity: number;
-}
-
-const CRITIQUES: CritiqueEntry[] = [
+const DEMO_CRITIQUES: CritiqueEntry[] = [
   {
     from: 'gpt-contrarian',
     to: 'claude-analyst',
@@ -83,20 +164,13 @@ const CRITIQUES: CritiqueEntry[] = [
   },
 ];
 
-interface VoteEntry {
-  agent: string;
-  color: string;
-  choice: string;
-  confidence: number;
-}
-
-const VOTES: VoteEntry[] = [
+const DEMO_VOTES: VoteEntry[] = [
   { agent: 'claude-analyst', color: 'var(--acid-cyan)', choice: 'gemini-synthesizer', confidence: 0.82 },
   { agent: 'gpt-contrarian', color: 'var(--acid-magenta)', choice: 'gemini-synthesizer', confidence: 0.61 },
   { agent: 'gemini-synthesizer', color: 'var(--acid-green)', choice: 'gemini-synthesizer', confidence: 0.91 },
 ];
 
-const RECEIPT = {
+const DEMO_RECEIPT: ReceiptData = {
   receipt_id: 'rcpt_pg_demo_4f8a1c',
   verdict: 'CONSENSUS REACHED',
   confidence: 0.87,
@@ -105,6 +179,59 @@ const RECEIPT = {
   timestamp: new Date().toISOString().split('T')[0],
   hash: 'sha256:e3b0c44298fc1c14...a495991b7852b855',
 };
+
+const DEMO_FINAL_ANSWER =
+  'Start with a modular monolith and invest in API contracts for future extraction. ' +
+  'Set a 6-month checkpoint keyed to team size (> 25 engineers) and scaling pressure ' +
+  'as the decomposition trigger.';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function apiResultToDisplay(result: DebateResult) {
+  const participants = result.participants || [];
+  const colorMap = new Map<string, string>();
+  participants.forEach((p, i) => colorMap.set(p, agentColor(i)));
+
+  const agents: AgentEntry[] = participants.map((p, i) => ({
+    name: p,
+    role: agentRole(i),
+    color: agentColor(i),
+    proposal: result.proposals?.[p] ?? '',
+  }));
+
+  const critiques: CritiqueEntry[] = (result.critiques ?? []).map((c) => ({
+    from: c.agent,
+    to: c.target_agent,
+    fromColor: colorMap.get(c.agent) ?? 'var(--acid-cyan)',
+    text: [
+      ...(c.issues ?? []),
+      ...(c.suggestions ?? []).map((s) => `Suggestion: ${s}`),
+    ].join(' '),
+    severity: c.severity,
+  }));
+
+  const votes: VoteEntry[] = (result.votes ?? []).map((v) => ({
+    agent: v.agent,
+    color: colorMap.get(v.agent) ?? 'var(--acid-cyan)',
+    choice: v.choice,
+    confidence: v.confidence,
+    reasoning: v.reasoning,
+  }));
+
+  const receipt: ReceiptData = {
+    receipt_id: result.receipt?.receipt_id ?? result.id,
+    verdict: result.consensus_reached ? 'CONSENSUS REACHED' : 'COMPLETED',
+    confidence: result.confidence ?? 0,
+    method: result.receipt?.consensus?.method ?? 'weighted_majority',
+    rounds: result.receipt?.rounds_used ?? 2,
+    timestamp: result.receipt?.timestamp?.split('T')[0] ?? new Date().toISOString().split('T')[0],
+    hash: result.receipt?.signature ?? '',
+  };
+
+  return { agents, critiques, votes, receipt, finalAnswer: result.final_answer ?? '' };
+}
 
 // ---------------------------------------------------------------------------
 // Typing animation hook
@@ -204,7 +331,27 @@ export function PlaygroundDebate() {
   const [voteIndex, setVoteIndex] = useState(-1);
   const [showReceipt, setShowReceipt] = useState(false);
   const [started, setStarted] = useState(false);
+  const [customTopic, setCustomTopic] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [shareUrl, setShareUrl] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Live API result state
+  const [liveAgents, setLiveAgents] = useState<AgentEntry[]>([]);
+  const [liveCritiques, setLiveCritiques] = useState<CritiqueEntry[]>([]);
+  const [liveVotes, setLiveVotes] = useState<VoteEntry[]>([]);
+  const [liveReceipt, setLiveReceipt] = useState<ReceiptData | null>(null);
+  const [liveFinalAnswer, setLiveFinalAnswer] = useState('');
+  const [isLive, setIsLive] = useState(false);
+
+  // Pick data source based on mode
+  const agents = isLive ? liveAgents : DEMO_AGENTS;
+  const critiques = isLive ? liveCritiques : DEMO_CRITIQUES;
+  const votes = isLive ? liveVotes : DEMO_VOTES;
+  const receipt = isLive ? liveReceipt : DEMO_RECEIPT;
+  const finalAnswer = isLive ? liveFinalAnswer : DEMO_FINAL_ANSWER;
+  const topic = isLive ? customTopic : DEFAULT_TOPIC;
 
   // Auto-scroll to bottom as content appears
   const scrollToBottom = useCallback(() => {
@@ -216,13 +363,67 @@ export function PlaygroundDebate() {
     }
   }, []);
 
-  // Typing hooks for each proposal
-  const p0 = useTypewriter(AGENTS[0].proposal, proposalIndex >= 0, 8);
-  const p1 = useTypewriter(AGENTS[1].proposal, proposalIndex >= 1, 8);
-  const p2 = useTypewriter(AGENTS[2].proposal, proposalIndex >= 2, 8);
-  const proposals = [p0, p1, p2];
+  // Typing hooks (use first 3 agents for demo, all agents for live — hook count must be stable)
+  const p0 = useTypewriter(agents[0]?.proposal ?? '', proposalIndex >= 0, 8);
+  const p1 = useTypewriter(agents[1]?.proposal ?? '', proposalIndex >= 1, 8);
+  const p2 = useTypewriter(agents[2]?.proposal ?? '', proposalIndex >= 2, 8);
+  const p3 = useTypewriter(agents[3]?.proposal ?? '', proposalIndex >= 3, 8);
+  const p4 = useTypewriter(agents[4]?.proposal ?? '', proposalIndex >= 4, 8);
+  const allProposals = [p0, p1, p2, p3, p4];
 
-  // Orchestrate the demo sequence
+  const startDebate = useCallback(async () => {
+    const topicText = customTopic.trim();
+
+    if (!topicText) {
+      // Demo mode — use pre-scripted animation
+      setIsLive(false);
+      setStarted(true);
+      return;
+    }
+
+    // Live mode — call the API
+    setIsLive(true);
+    setLoading(true);
+    setError('');
+    setShareUrl('');
+
+    try {
+      const res = await fetch('/api/v1/playground/debate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: topicText, rounds: 2, agents: 3 }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 429) {
+          setError(`Rate limited. Try again in ${err.retry_after ?? 60} seconds.`);
+        } else {
+          setError(err.error ?? `Request failed (${res.status})`);
+        }
+        setLoading(false);
+        return;
+      }
+
+      const data: DebateResult = await res.json();
+      const display = apiResultToDisplay(data);
+
+      setLiveAgents(display.agents);
+      setLiveCritiques(display.critiques);
+      setLiveVotes(display.votes);
+      setLiveReceipt(display.receipt);
+      setLiveFinalAnswer(display.finalAnswer);
+      if (data.share_url) setShareUrl(data.share_url);
+
+      setLoading(false);
+      setStarted(true);
+    } catch {
+      setError('Failed to connect. The server may be offline.');
+      setLoading(false);
+    }
+  }, [customTopic]);
+
+  // Orchestrate the reveal sequence (works for both demo and live)
   useEffect(() => {
     if (!started) return;
 
@@ -232,31 +433,52 @@ export function PlaygroundDebate() {
     // Topic reveal
     timers.push(setTimeout(() => setPhase('topic'), (t += 300)));
 
-    // Proposals phase
+    // Proposals phase — one per agent
     timers.push(setTimeout(() => { setPhase('proposals'); setProposalIndex(0); }, (t += 1200)));
-    timers.push(setTimeout(() => setProposalIndex(1), (t += 3500)));
-    timers.push(setTimeout(() => setProposalIndex(2), (t += 3500)));
+    for (let i = 1; i < agents.length; i++) {
+      const delay = isLive ? 800 : 3500;
+      timers.push(setTimeout(() => setProposalIndex(i), (t += delay)));
+    }
 
     // Critiques phase
-    timers.push(setTimeout(() => { setPhase('critiques'); setCritiqueIndex(0); }, (t += 4000)));
-    timers.push(setTimeout(() => setCritiqueIndex(1), (t += 1500)));
-    timers.push(setTimeout(() => setCritiqueIndex(2), (t += 1500)));
+    timers.push(setTimeout(() => { setPhase('critiques'); setCritiqueIndex(0); }, (t += (isLive ? 1000 : 4000))));
+    for (let i = 1; i < critiques.length; i++) {
+      timers.push(setTimeout(() => setCritiqueIndex(i), (t += (isLive ? 400 : 1500))));
+    }
 
     // Votes phase
-    timers.push(setTimeout(() => { setPhase('votes'); setVoteIndex(0); }, (t += 2000)));
-    timers.push(setTimeout(() => setVoteIndex(1), (t += 600)));
-    timers.push(setTimeout(() => setVoteIndex(2), (t += 600)));
+    timers.push(setTimeout(() => { setPhase('votes'); setVoteIndex(0); }, (t += (isLive ? 800 : 2000))));
+    for (let i = 1; i < votes.length; i++) {
+      timers.push(setTimeout(() => setVoteIndex(i), (t += (isLive ? 300 : 600))));
+    }
 
     // Receipt phase
-    timers.push(setTimeout(() => { setPhase('receipt'); setShowReceipt(true); }, (t += 1500)));
+    timers.push(setTimeout(() => { setPhase('receipt'); setShowReceipt(true); }, (t += (isLive ? 800 : 1500))));
 
     return () => timers.forEach(clearTimeout);
-  }, [started]);
+  }, [started, agents.length, critiques.length, votes.length, isLive]);
 
   // Scroll on phase/content changes
   useEffect(() => { scrollToBottom(); }, [phase, proposalIndex, critiqueIndex, voteIndex, showReceipt, p0, p1, p2, scrollToBottom]);
 
   const phaseIdx = PHASE_ORDER.indexOf(phase);
+
+  const handleReset = useCallback(() => {
+    setPhase('idle');
+    setProposalIndex(-1);
+    setCritiqueIndex(-1);
+    setVoteIndex(-1);
+    setShowReceipt(false);
+    setStarted(false);
+    setIsLive(false);
+    setError('');
+    setShareUrl('');
+    setLiveAgents([]);
+    setLiveCritiques([]);
+    setLiveVotes([]);
+    setLiveReceipt(null);
+    setLiveFinalAnswer('');
+  }, []);
 
   return (
     <div className="w-full max-w-3xl mx-auto">
@@ -269,29 +491,66 @@ export function PlaygroundDebate() {
             <span className="w-3 h-3 rounded-full border border-[var(--acid-green)]/40" />
           </div>
           <span className="text-xs font-mono text-[var(--text-muted)]">
-            aragora://playground/demo
+            aragora://playground{isLive ? '/live' : '/demo'}
           </span>
-          <span className="text-xs font-mono text-[var(--acid-green)]">LIVE</span>
+          <span className="text-xs font-mono text-[var(--acid-green)]">
+            {isLive ? 'LIVE' : 'DEMO'}
+          </span>
         </div>
 
         <div ref={containerRef} className="p-6 max-h-[600px] overflow-y-auto space-y-4">
           {/* Start state */}
-          {!started && (
-            <div className="text-center py-12 space-y-6">
+          {!started && !loading && (
+            <div className="text-center py-8 space-y-6">
               <div className="space-y-2">
                 <p className="text-sm font-mono text-[var(--text-muted)]">
-                  {'>'} DEMO: Watch 3 AI agents debate a real architecture decision
+                  {'>'} Watch AI agents debate any decision with adversarial rigor
                 </p>
                 <p className="text-xs font-mono text-[var(--text-muted)]/60">
-                  Proposals, critiques, votes, and a decision receipt -- all in real time
+                  Enter your question below, or leave blank for a demo
                 </p>
               </div>
-              <button
-                onClick={() => setStarted(true)}
-                className="px-8 py-3 font-mono text-sm font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
-              >
-                START DEBATE
-              </button>
+
+              <div className="max-w-lg mx-auto space-y-3">
+                <textarea
+                  value={customTopic}
+                  onChange={(e) => setCustomTopic(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      startDebate();
+                    }
+                  }}
+                  placeholder="e.g. Should we raise prices 15% or expand to a new market first?"
+                  className="w-full px-4 py-3 font-mono text-xs bg-[var(--bg)] border border-[var(--acid-green)]/30 text-[var(--text)] placeholder:text-[var(--text-muted)]/40 focus:border-[var(--acid-green)] focus:outline-none resize-none"
+                  rows={2}
+                  maxLength={500}
+                />
+                {error && (
+                  <p className="text-xs font-mono text-[var(--crimson,#ef4444)]">{error}</p>
+                )}
+                <button
+                  onClick={startDebate}
+                  disabled={loading}
+                  className="px-8 py-3 font-mono text-sm font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors disabled:opacity-50"
+                >
+                  {customTopic.trim() ? 'RUN DEBATE' : 'START DEMO'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Loading state */}
+          {loading && (
+            <div className="text-center py-12 space-y-4">
+              <div className="flex items-center justify-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[var(--acid-green)] animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-[var(--acid-green)] animate-pulse" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-[var(--acid-green)] animate-pulse" style={{ animationDelay: '300ms' }} />
+              </div>
+              <p className="text-xs font-mono text-[var(--text-muted)]">
+                Assembling agents and running debate...
+              </p>
             </div>
           )}
 
@@ -300,10 +559,10 @@ export function PlaygroundDebate() {
             <div className="border-l-2 border-[var(--acid-green)] pl-4">
               <span className="text-xs font-mono text-[var(--text-muted)]">TOPIC</span>
               <p className="text-sm font-mono text-[var(--text)] mt-1 font-bold">
-                {TOPIC}
+                {topic}
               </p>
               <div className="flex items-center gap-3 mt-2 text-xs font-mono text-[var(--text-muted)]">
-                <span>3 agents</span>
+                <span>{agents.length} agents</span>
                 <span>|</span>
                 <span>2 rounds</span>
                 <span>|</span>
@@ -316,13 +575,13 @@ export function PlaygroundDebate() {
           {started && phaseIdx >= 1 && (
             <div>
               <PhaseLabel label="Round 1: Proposals" active={phase === 'proposals'} />
-              {AGENTS.map((agent, i) => {
+              {agents.map((agent, i) => {
                 if (proposalIndex < i) return null;
                 return (
                   <AgentProposal
                     key={agent.name}
                     agent={agent}
-                    text={proposals[i]}
+                    text={allProposals[i] ?? ''}
                     typing={proposalIndex === i}
                   />
                 );
@@ -334,7 +593,7 @@ export function PlaygroundDebate() {
           {started && phaseIdx >= 2 && (
             <div>
               <PhaseLabel label="Round 2: Critiques" active={phase === 'critiques'} />
-              {CRITIQUES.map((critique, i) => {
+              {critiques.map((critique, i) => {
                 if (critiqueIndex < i) return null;
                 return (
                   <div
@@ -363,7 +622,7 @@ export function PlaygroundDebate() {
             <div>
               <PhaseLabel label="Voting" active={phase === 'votes'} />
               <div className="space-y-2">
-                {VOTES.map((vote, i) => {
+                {votes.map((vote, i) => {
                   if (voteIndex < i) return null;
                   return (
                     <div key={i} className="flex items-center gap-2 text-xs font-mono">
@@ -381,24 +640,24 @@ export function PlaygroundDebate() {
           )}
 
           {/* Receipt */}
-          {started && showReceipt && (
+          {started && showReceipt && receipt && (
             <div>
               <PhaseLabel label="Decision Receipt" active={phase === 'receipt'} />
               <div className="border border-[var(--acid-green)]/30 bg-[var(--bg)] p-4">
                 <div className="flex items-center justify-between mb-4">
                   <span className="px-3 py-1 text-sm font-mono font-bold bg-[var(--acid-green)]/20 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
-                    {RECEIPT.verdict}
+                    {receipt.verdict}
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono text-[var(--text-muted)]">CONFIDENCE</span>
                     <div className="w-24 h-2 bg-[var(--bg)] border border-[var(--acid-green)]/20 overflow-hidden">
                       <div
                         className="h-full bg-[var(--acid-green)] transition-all duration-1000"
-                        style={{ width: `${Math.round(RECEIPT.confidence * 100)}%` }}
+                        style={{ width: `${Math.round(receipt.confidence * 100)}%` }}
                       />
                     </div>
                     <span className="text-xs font-mono text-[var(--acid-green)]">
-                      {Math.round(RECEIPT.confidence * 100)}%
+                      {Math.round(receipt.confidence * 100)}%
                     </span>
                   </div>
                 </div>
@@ -406,33 +665,56 @@ export function PlaygroundDebate() {
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                   <div>
                     <span className="text-[var(--text-muted)]">Receipt ID: </span>
-                    <span className="text-[var(--acid-cyan)]">{RECEIPT.receipt_id}</span>
+                    <span className="text-[var(--acid-cyan)]">{receipt.receipt_id}</span>
                   </div>
                   <div>
                     <span className="text-[var(--text-muted)]">Method: </span>
-                    <span className="text-[var(--text)]">{RECEIPT.method}</span>
+                    <span className="text-[var(--text)]">{receipt.method}</span>
                   </div>
                   <div>
                     <span className="text-[var(--text-muted)]">Rounds: </span>
-                    <span className="text-[var(--text)]">{RECEIPT.rounds}</span>
+                    <span className="text-[var(--text)]">{receipt.rounds}</span>
                   </div>
                   <div>
                     <span className="text-[var(--text-muted)]">Date: </span>
-                    <span className="text-[var(--text)]">{RECEIPT.timestamp}</span>
+                    <span className="text-[var(--text)]">{receipt.timestamp}</span>
                   </div>
                   <div className="col-span-2">
                     <span className="text-[var(--text-muted)]">Hash: </span>
-                    <span className="text-[var(--text-muted)]/70">{RECEIPT.hash}</span>
+                    <span className="text-[var(--text-muted)]/70">
+                      {receipt.hash ? `${receipt.hash.slice(0, 32)}...` : 'N/A'}
+                    </span>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-[var(--acid-green)]/20">
-                  <p className="text-xs font-mono text-[var(--text)] leading-relaxed">
-                    <span className="text-[var(--acid-green)] font-bold">Verdict: </span>
-                    Start with a modular monolith and invest in API contracts for future extraction.
-                    Set a 6-month checkpoint keyed to team size ({'>'} 25 engineers) and
-                    scaling pressure as the decomposition trigger.
-                  </p>
+                {finalAnswer && (
+                  <div className="mt-4 pt-3 border-t border-[var(--acid-green)]/20">
+                    <p className="text-xs font-mono text-[var(--text)] leading-relaxed">
+                      <span className="text-[var(--acid-green)] font-bold">Verdict: </span>
+                      {finalAnswer}
+                    </p>
+                  </div>
+                )}
+
+                {/* Share + Try Again buttons */}
+                <div className="mt-4 pt-3 border-t border-[var(--acid-green)]/20 flex items-center gap-3">
+                  {shareUrl && (
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin}${shareUrl}`;
+                        navigator.clipboard.writeText(url).catch(() => {});
+                      }}
+                      className="px-4 py-1.5 text-xs font-mono border border-[var(--acid-green)]/30 text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 transition-colors"
+                    >
+                      COPY SHARE LINK
+                    </button>
+                  )}
+                  <button
+                    onClick={handleReset}
+                    className="px-4 py-1.5 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
+                  >
+                    TRY ANOTHER
+                  </button>
                 </div>
               </div>
             </div>
