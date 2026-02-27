@@ -92,6 +92,35 @@ To keep delivery fast and reliable:
 
 ---
 
+## Core Product Architecture: The Unified DAG Pipeline
+
+The central product experience is a **unified visual DAG (directed acyclic graph) canvas** where every stage of idea-to-execution uses the same visual language. Users interact with one canvas that spans four stages, with AI-driven transitions between them and cryptographic provenance linking every output to its source.
+
+### The Four Stages
+
+| Stage | Node Types | AI Transition | User Action |
+|-------|-----------|---------------|-------------|
+| **1. Ideas** | Observation, Hypothesis, Insight, Question, Connection | Brain dump → auto-organize into relationship graph | Drag, merge, split, annotate |
+| **2. Goals** | Objective, Principle, Constraint, Metric, Tradeoff | Interrogation + debate extract goals from idea clusters | Approve, revise, reprioritize |
+| **3. Actions** | Task, Milestone, Dependency, Acceptance Criteria, Resource | Goals decompose into dependency-aware project plans | Edit, add gates, set owners |
+| **4. Orchestration** | Agent Assignment, Parallel Run, Gate/Review, Verification, Receipt | Actions map to agent capabilities with constraint architecture | Monitor, intervene, approve |
+
+### Why This Is Novel
+
+No existing tool bridges all four stages. The market is fragmented: Obsidian/Heptabase for ideas, Quantive/ITONICS for goals, Linear/Asana for projects, LangGraph/CrewAI for orchestration. Nobody connects them with a single DAG visual language where AI auto-generates downstream stages from upstream intent.
+
+### Blockchain-Like Provenance
+
+Every stage transition creates a `ProvenanceLink` with SHA-256 content hashes. Any output can be traced back to its originating idea: `Idea → Goal → Action → Agent Assignment → Execution Result → Decision Receipt`. This satisfies EU AI Act Art. 12/13 requirements and enables cryptographic audit trails.
+
+### Implementation Status
+
+~70% backend, ~50% frontend. Key existing components: `IdeaToExecutionPipeline` (1,173 LOC), `UnifiedDAGCanvas` (React Flow with swim-lane stages), `DAGOperationsCoordinator`, 15+ REST endpoints, 135+ test files. Main gap: the "golden path" button that triggers the full pipeline from the canvas UI.
+
+See `docs/plans/IDEA_TO_EXECUTION_PIPELINE.md` for the detailed implementation plan and `docs/plans/prompt-to-spec-market-analysis.md` Part 6 for the complete vision with market analysis.
+
+---
+
 ## Phase 0: Foundation Hardening (Week 1-2)
 
 ### 0A. Obsidian Bidirectional Sync

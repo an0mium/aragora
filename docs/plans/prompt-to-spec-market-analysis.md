@@ -242,6 +242,136 @@ Aragora's Obsidian sync + Knowledge Mound + interrogation pipeline is exactly th
 
 ---
 
+## Part 6: The Unified DAG Vision — From Ideas to Execution in One Visual Language
+
+### Origin
+
+This vision was articulated across multiple Claude Code sessions (Jan 27 - Feb 22, 2026) and represents the core product architecture that connects the market thesis to a concrete user experience.
+
+### The User's Original Articulation
+
+> I have the idea for extending visual interfaces to combine the ideas of 1) organizing sets of ideas one has into relationships, 2) turning sets of organized ideas into goals and principles that allow changing one's current state to a future state in which desirable clusters of ideas are implemented, and 3) turning goals and principles into a set of actions in a project management flow to implement sequences that realize the goals and principles, and 4) turning the project management set of actions into a heterogeneous multi-agent AI orchestration flow that executes the set of actions efficiently and robustly and safely. My idea is that all of these stages are kinds of DAGs — directed acyclic graphs that have a blockchain-like structure... So a person with a lot of ideas but bad at steps 2, 3, and 4 can still turn those ideas into goals, principles, projects, and actions.
+
+### The Four-Stage Unified DAG
+
+Every stage uses the same visual language — a directed acyclic graph rendered in a shared canvas. Nodes represent different things at each stage, but edges always mean "derives from" or "depends on," and every transition carries cryptographic provenance.
+
+```
+Stage 1: IDEAS           Stage 2: GOALS          Stage 3: ACTIONS        Stage 4: ORCHESTRATION
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  ○ Observation   │     │  ◆ Objective     │     │  □ Task          │     │  ⬡ Agent Assign  │
+│  ○ Hypothesis    │ ──→ │  ◆ Principle     │ ──→ │  □ Milestone     │ ──→ │  ⬡ Parallel Run  │
+│  ○ Insight       │     │  ◆ Constraint    │     │  □ Dependency    │     │  ⬡ Gate/Review   │
+│  ○ Question      │     │  ◆ Metric        │     │  □ Acceptance    │     │  ⬡ Verification  │
+│  ○ Connection    │     │  ◆ Tradeoff      │     │  □ Resource      │     │  ⬡ Receipt       │
+└─────────────────┘     └─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                       │                       │                       │
+        └───── provenance ──────┴───── provenance ──────┴───── provenance ──────┘
+              (SHA-256 content hashes linking every output to its source ideas)
+```
+
+### What Makes This Genuinely Novel
+
+**No existing tool bridges all four stages in a unified visual interface.**
+
+| Stage | Best-in-class tools | What they miss |
+|-------|-------------------|----------------|
+| Ideas | Obsidian, Heptabase, Tana, Miro | Dead-end at "organized information" — no path to execution |
+| Goals | Quantive StrategyAI, ITONICS | Enterprise-only, assume goals already exist, no ideation upstream |
+| Projects | Linear, Asana, ClickUp | No upstream ideation, no agent execution downstream |
+| Orchestration | LangGraph, CrewAI, Dify, n8n | Code-first, no upstream planning stages, no provenance |
+
+**Closest competitors:**
+- **Taskade Genesis**: All 4 stages but shallow at each layer, no adversarial validation
+- **Miro AI + MCP**: Architecturally interesting (Stage 1 → Stage 4 bridge) but no depth in between
+- **Notion AI**: Covers ideas + PM but no goal extraction, no agent execution, no provenance
+
+**Five uniquely novel elements:**
+1. **Unified DAG visual language** across all four stages — same canvas, same interaction model, same data structure
+2. **AI-driven stage transitions** — not mechanical 1:1 conversion but genuine synthesis (debate which goals to extract from idea clusters, adversarially validate action decomposition)
+3. **Cryptographic provenance** from idea through execution result — click any output and trace it back to the original thought
+4. **Heterogeneous multi-agent orchestration** driven by project plans — not one-model execution but 43 agent types selected by capability matching
+5. **Designed for people who are idea-rich but execution-poor** — the system does the hard work of specification, decomposition, and delegation
+
+### How This Connects to Nate's Framework
+
+The unified DAG IS the product-level implementation of automating all four prompting disciplines:
+
+| Nate's Discipline | DAG Stage | What Happens |
+|---|---|---|
+| **Prompt Craft** | Brain Dump input | User pastes messy text, voice note, or Obsidian vault; system auto-organizes into Stage 1 idea graph |
+| **Context Engineering** | Stage 1 → 2 transition | Knowledge Mound, Obsidian, memory tiers, and business data are pulled in to enrich the idea graph before goal extraction |
+| **Intent Engineering** | Stage 2 goal extraction | Interrogation engine surfaces tradeoffs, constraints, priorities; adversarial debate challenges the goal structure; user makes choices |
+| **Specification Engineering** | Stage 2 → 3 → 4 | Goals decomposed into dependency-aware action plans with acceptance criteria, then mapped to agent capabilities with constraint architecture |
+
+### The User Experience
+
+**For the "lazy, idea-rich, execution-poor" user:**
+
+1. **Start**: Open the pipeline canvas. Paste a brain dump, a voice transcription, or connect your Obsidian vault. Hit "Organize."
+2. **Stage 1 (Ideas)**: AI organizes your messy input into a relationship graph. You drag to rearrange, merge, split, or add. The system pulls in related context from Knowledge Mound and memory.
+3. **Transition 1→2**: Click "Extract Goals." The system runs a mini-debate: which goals are most impactful? What are the tradeoffs? It asks you clarifying questions (interrogation). You answer or skip.
+4. **Stage 2 (Goals)**: A goal graph appears with objectives, principles, constraints, and metrics. You approve, revise, or reject. Each goal links back to its source ideas (provenance chain visible on hover).
+5. **Transition 2→3**: Click "Plan Actions." Goals decompose into tasks with dependencies, milestones, and acceptance criteria. Domain-specific templates (healthcare, financial, legal) inform the decomposition.
+6. **Stage 3 (Actions)**: A project plan DAG. You see what needs to happen, in what order, with what resources. You can edit, reprioritize, or add human approval gates.
+7. **Transition 3→4**: Click "Assign Agents." The system matches each action to the best-fit agent type based on capability, calibration score, and cost. Constraint architecture is generated (musts, must-nots, preferences, escalation triggers).
+8. **Stage 4 (Orchestration)**: Agent execution with real-time canvas updates. Nodes turn green as tasks complete, yellow when in review, red on failure. Clicking any node shows the full provenance chain back to the original idea.
+9. **Completion**: Decision receipt generated with SHA-256 integrity hash. Provenance chain exportable as audit artifact. Results flow back into Knowledge Mound for next cycle.
+
+### Implementation Status (~70% Backend, ~50% Frontend)
+
+| Component | Status | Key Files |
+|-----------|--------|-----------|
+| Canvas data models (9 idea types, 6 goal types, 5 action types, 6 orch types) | Implemented | `aragora/canvas/models.py`, `stages.py` |
+| Stage transitions with ProvenanceLink (SHA-256) | Implemented | `aragora/pipeline/idea_to_execution.py` (1,173 LOC) |
+| IdeaToExecutionPipeline master orchestrator | Implemented | `from_debate()`, `from_ideas()`, `run()`, `advance_stage()` |
+| DAG Operations Coordinator (wraps Arena, TaskDecomposer, MetaPlanner) | Implemented | `aragora/pipeline/dag_operations.py` |
+| UnifiedDAGCanvas (React Flow with swim-lane stages) | Implemented | `aragora/live/src/components/unified-dag/UnifiedDAGCanvas.tsx` |
+| Right-click AI operations (Debate, Decompose, Prioritize, Assign, Execute) | Implemented | `NodeContextMenu.tsx`, `AIOperationPanel.tsx` |
+| Brain dump input | Implemented | `DAGToolbar.tsx` |
+| Execution sidebar with validation and batch execute | Implemented | `ExecutionSidebar.tsx` |
+| useUnifiedDAG hook (full lifecycle, undo/redo, AI ops) | Implemented | `aragora/live/src/hooks/useUnifiedDAG.ts` |
+| 6 pipeline view modes (stages, unified, fractal, provenance, scenario, dag) | Implemented | `aragora/live/src/app/(app)/pipeline/page.tsx` |
+| REST endpoints (15+ covering full pipeline lifecycle) | Implemented | `aragora/server/handlers/` |
+| 135+ test files across pipeline, workflow, goals, canvas | Passing | `tests/pipeline/`, `tests/workflow/` |
+
+### Remaining Gaps (~30%)
+
+1. **Golden path not wired**: "Generate Goals" and "Run Pipeline" buttons exist in UI but don't trigger `IdeaToExecutionPipeline.run()` from the canvas
+2. **Real-time execution feedback**: WebSocket hooks ready in frontend, but backend pipeline doesn't emit events during Stage 4 execution
+3. **Natural language brain dump → auto-organize**: Text input exists but LLM-powered organization into idea graph needs integration testing
+4. **Onboarding flow**: No guided wizard from "dump your ideas" to "watch agents execute"
+5. **Self-improvement meta-pipeline**: `SelfImprovePipeline` can't yet use `IdeaToExecutionPipeline` for its own planning
+
+### The Blockchain-Like Provenance Structure
+
+Every transition between stages creates a `ProvenanceLink`:
+
+```python
+@dataclass
+class ProvenanceLink:
+    source_node_id: str       # e.g., idea-cluster-1
+    target_node_id: str       # e.g., goal-reduce-churn
+    transition_type: str      # e.g., "goal_extraction"
+    content_hash: str         # SHA-256 of source + target content
+    agent_id: str             # Which agent performed the transition
+    confidence: float         # Calibrated confidence score
+    timestamp: datetime
+    debate_receipt_id: str    # If adversarial validation was used
+```
+
+This creates an immutable chain: `Idea → Goal → Action → Agent Assignment → Execution Result → Decision Receipt`. Any output can be traced back to its originating idea with cryptographic integrity. This is the provenance structure that satisfies EU AI Act Art. 12 (record-keeping) and Art. 13 (transparency) requirements.
+
+### Defensibility
+
+1. **Format network effects**: If the unified DAG format becomes standard for idea-to-execution pipelines, switching costs are high
+2. **Regulatory moat**: EU AI Act requires audit trails; cryptographic provenance from idea through execution is uniquely positioned
+3. **Institutional memory**: Each completed pipeline trains the system; compounding intelligence is nearly impossible to replicate
+4. **Integration depth**: 34 KM adapters, multiple LLM providers, Obsidian sync, enterprise connectors create a web expensive to copy
+5. **SME-specific design**: Large platforms optimize for broad markets; this targets the "10-200 person company that needs AI-orchestrated execution" segment that incumbents ignore
+
+---
+
 ## Appendix: Source Materials
 
 - **Prompt extraction tool**: `scripts/extract_and_rank_prompts.py`
