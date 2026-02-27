@@ -6,18 +6,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
-    paths:
-      - 'aragora/server/handlers/**'
-      - 'sdk/**'
-      - 'aragora/server/unified_server.py'
-      - 'openapi/**'
-      - 'scripts/sdk_parity*'
-      - 'scripts/check_sdk_parity*'
-      - 'scripts/check_version_alignment*'
-      - '.github/workflows/sdk-parity.yml'
-      - 'pyproject.toml'
-      - 'requirements*.txt'
-      - 'package.json'
   workflow_dispatch:
 
 concurrency:
@@ -25,7 +13,33 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  sdk-parity:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - 'aragora/server/handlers/**'
+              - 'aragora/server/unified_server.py'
+              - 'sdk/**'
+              - 'openapi/**'
+              - 'scripts/sdk_parity*'
+              - 'scripts/check_sdk_parity*'
+              - 'scripts/check_version_alignment*'
+              - '.github/workflows/sdk-parity.yml'
+              - 'pyproject.toml'
+              - 'requirements*.txt'
+              - 'package.json'
+
+  sdk-parity-run:
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     runs-on: aragora
     timeout-minutes: 12
 
@@ -84,3 +98,17 @@ jobs:
             contract-drift-summary.json
             contract-drift-summary.md
           retention-days: 30
+
+  sdk-parity:
+    needs: [changes, sdk-parity-run]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate sdk-parity result
+        run: |
+          if [[ "${{ needs.sdk-parity-run.result }}" == "failure" ]]; then
+            echo "::error::SDK parity check failed"
+            exit 1
+          fi
+          echo "SDK parity passed (or skipped — no relevant changes)"

@@ -25,19 +25,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
-    paths:
-      - 'aragora/server/handlers/**'
-      - 'aragora/server/unified_server.py'
-      - 'aragora/server/openapi/**'
-      - 'aragora/server/openapi_impl.py'
-      - 'openapi/**'
-      - 'sdk/**'
-      - 'scripts/export_openapi.py'
-      - 'scripts/generate_openapi.py'
-      - 'scripts/verify_sdk_contracts.py'
-      - 'scripts/validate_openapi_routes.py'
-      - '.github/workflows/openapi.yml'
-      - 'pyproject.toml'
   workflow_dispatch:
 
 concurrency:
@@ -79,12 +66,12 @@ jobs:
             echo "run_openapi=false" >> "$GITHUB_OUTPUT"
           fi
 
-  generate:
-    name: Generate & Validate
+  generate-run:
+    name: OpenAPI Generate & Validate
     runs-on: aragora
     timeout-minutes: 10
     needs: scope
-    if: github.event_name != 'pull_request' || needs.scope.result == 'success'
+    if: needs.scope.outputs.run_openapi == 'true'
     permissions:
       contents: read
       issues: write
@@ -386,7 +373,7 @@ jobs:
   sync:
     name: Sync Spec (main only)
     runs-on: ubuntu-latest
-    needs: generate
+    needs: generate-run
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
@@ -450,3 +437,18 @@ jobs:
           else
             echo "::warning::Could not auto-push spec update (branch protection). The generated spec is available as a workflow artifact."
           fi
+
+  generate:
+    name: Generate & Validate
+    needs: [scope, generate-run]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate OpenAPI result
+        run: |
+          if [[ "${{ needs.generate-run.result }}" == "failure" ]]; then
+            echo "::error::OpenAPI generate & validate failed"
+            exit 1
+          fi
+          echo "OpenAPI passed (or skipped — no relevant changes)"
