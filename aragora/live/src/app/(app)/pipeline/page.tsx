@@ -12,6 +12,7 @@ import { FeedbackLoopPanel } from '@/components/pipeline-canvas/FeedbackLoopPane
 import { AutoTransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
 import type { TransitionSuggestion } from '@/components/pipeline-canvas/AutoTransitionSuggestion';
 import type { PipelineStageType, PipelineResultResponse, ExecutionStatus } from '@/components/pipeline-canvas/types';
+import { UseCaseWizard } from '@/components/wizards/UseCaseWizard';
 
 const PipelineCanvas = dynamic(
   () => import('@/components/pipeline-canvas/PipelineCanvas').then((m) => m.PipelineCanvas),
@@ -96,6 +97,7 @@ function PipelinePageContent() {
   const [showIdeaInput, setShowIdeaInput] = useState(false);
   const [showDebateInput, setShowDebateInput] = useState(false);
   const [showBrainDump, setShowBrainDump] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [ideaText, setIdeaText] = useState('');
   const [brainDumpText, setBrainDumpText] = useState('');
   const [debateJson, setDebateJson] = useState('');
@@ -871,12 +873,30 @@ function PipelinePageContent() {
                       From Debate
                     </button>
                     <button
+                      onClick={() => setShowWizard(true)}
+                      className="px-6 py-3 bg-amber-600 text-white font-mono text-sm rounded hover:bg-amber-500 transition-colors"
+                    >
+                      Use Template
+                    </button>
+                    <button
                       onClick={handleDemo}
                       className="px-6 py-3 bg-emerald-600 text-white font-mono text-sm rounded hover:bg-emerald-500 transition-colors"
                     >
                       Try Demo
                     </button>
                   </div>
+
+                  {showWizard && (
+                    <div className="mt-8 max-w-2xl mx-auto">
+                      <UseCaseWizard
+                        onComplete={(id) => {
+                          setShowWizard(false);
+                          router.push(`/debate/${id}`);
+                        }}
+                        onCancel={() => setShowWizard(false)}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
