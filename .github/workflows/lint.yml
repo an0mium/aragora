@@ -23,6 +23,7 @@ on:
       - '.github/workflows/**'
       - 'deploy/**'
       - 'aragora-operator/**'
+  merge_group:
   workflow_dispatch:
 
 concurrency:
