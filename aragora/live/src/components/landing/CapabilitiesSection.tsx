@@ -81,23 +81,53 @@ export function CapabilitiesSection() {
             </p>
           </div>
 
-          {/* Formal Verification */}
+          {/* Trickster Detection */}
           <div className="border border-acid-cyan/40 p-5 bg-surface/50">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-acid-magenta text-lg">{'!'}</span>
-              <h3 className="text-acid-cyan font-mono text-sm">FORMAL VERIFICATION</h3>
+              <h3 className="text-acid-cyan font-mono text-sm">TRICKSTER DETECTION</h3>
             </div>
             <p className="text-text-muted text-xs font-mono leading-relaxed mb-2">
-              Z3 and Lean backends for provable correctness. When persuasion isn&apos;t enough, demand
-              proof.
+              Detects hollow consensus where agents agree on the surface but diverge on reasoning.
+              Flags groupthink and sycophantic alignment before it reaches your decision.
             </p>
             <p className="text-acid-cyan/60 text-xs font-mono">
-              Machine-verified consensus for high-stakes decisions.
+              The only platform that catches when AI agents are faking agreement.
+            </p>
+          </div>
+
+          {/* Cross-Debate Memory */}
+          <div className="border border-acid-green/40 p-5 bg-surface/50">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-acid-green text-lg">{'⧫'}</span>
+              <h3 className="text-acid-green font-mono text-sm">CROSS-DEBATE MEMORY</h3>
+            </div>
+            <p className="text-text-muted text-xs font-mono leading-relaxed mb-2">
+              Institutional knowledge persists across debates. Agents learn from past decisions,
+              surface contradictions with prior conclusions, and build organizational wisdom.
+            </p>
+            <p className="text-acid-green/60 text-xs font-mono">
+              Your AI remembers what it decided last quarter &mdash; and why.
+            </p>
+          </div>
+
+          {/* Decision Receipts */}
+          <div className="border border-acid-cyan/40 p-5 bg-surface/50">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-acid-cyan text-lg">{'✓'}</span>
+              <h3 className="text-acid-cyan font-mono text-sm">DECISION RECEIPTS</h3>
+            </div>
+            <p className="text-text-muted text-xs font-mono leading-relaxed mb-2">
+              Every debate produces a SHA-256 hashed receipt: who argued what, confidence levels,
+              minority dissents, and the final verdict. Tamper-proof and audit-ready.
+            </p>
+            <p className="text-acid-cyan/60 text-xs font-mono">
+              Cryptographic proof of how every decision was made.
             </p>
           </div>
 
           {/* The Nomic Loop */}
-          <div className="border border-acid-green/40 p-5 bg-surface/50 md:col-span-2 lg:col-span-2">
+          <div className="border border-acid-green/40 p-5 bg-surface/50 md:col-span-2 lg:col-span-3">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-acid-green text-lg">{'@'}</span>
               <h3 className="text-acid-green font-mono text-sm">THE NOMIC LOOP</h3>
