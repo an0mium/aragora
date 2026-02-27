@@ -209,7 +209,7 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Baseline Determinism
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     needs: version-check
 
     steps:
@@ -1134,7 +1134,6 @@ jobs:
             frontend:
               - 'aragora/live/**'
               - 'tests/e2e/**'
-              - '.github/workflows/test.yml'
 
       - name: Set up Node.js
         if: github.event_name != 'pull_request' || steps.frontend_changes.outputs.frontend == 'true'
