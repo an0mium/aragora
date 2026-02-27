@@ -10,16 +10,18 @@ API-backed agents with budget + timeout caps for a taste of the full
 platform.
 
 Routes:
-    POST /api/v1/playground/debate             - Run a mock debate
-    POST /api/v1/playground/debate/live         - Run a live debate with real agents
+    POST /api/v1/playground/debate              - Run a mock debate
+    POST /api/v1/playground/debate/live          - Run a live debate with real agents
     POST /api/v1/playground/debate/live/cost-estimate - Pre-flight cost estimate
-    GET  /api/v1/playground/status              - Health check for the playground
+    GET  /api/v1/playground/debate/{id}          - Retrieve a saved debate (shareable link)
+    GET  /api/v1/playground/status               - Health check for the playground
 """
 
 from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 import os
 import random
@@ -206,33 +208,50 @@ def _build_mock_proposals(topic: str, question: str | None = None) -> dict[str, 
 # Keep static version for backward compat with tests that reference _MOCK_PROPOSALS
 _MOCK_PROPOSALS = _build_mock_proposals(_DEFAULT_TOPIC)
 
-_MOCK_CRITIQUE_ISSUES: dict[str, list[str]] = {
-    "supportive": [
-        "Could benefit from more quantitative evidence",
-        "Some claims would be stronger with explicit confidence intervals",
-    ],
-    "critical": [
-        "Key causal claims lack sufficient empirical backing",
-        "No analysis of what happens if the core assumptions are wrong",
-        "Ignores the strongest counterarguments to the thesis",
-        "Conflates multiple distinct phenomena under one framework",
-    ],
-    "balanced": [
-        "The argument could better acknowledge where uncertainty is highest",
-        "Risk assessment is asymmetric -- considers one failure mode but not others",
-    ],
-    "contrarian": [
-        "The group appears to be converging prematurely on this framing",
-        "The most important alternative scenarios have not been seriously considered",
-    ],
-}
 
-_MOCK_CRITIQUE_SUGGESTIONS: dict[str, list[str]] = {
-    "supportive": ["Consider adding falsification criteria for the key claims"],
-    "critical": ["Provide explicit evidence that would change this assessment"],
-    "balanced": ["Add a structured analysis of where this argument is most likely wrong"],
-    "contrarian": ["Steel-man the opposing position before dismissing it"],
-}
+def _build_mock_critiques(
+    topic: str, question: str | None = None
+) -> dict[str, dict[str, list[str]]]:
+    """Build topic-aware critique issues and suggestions."""
+    source = question or topic
+    snippet = source[:120].strip()
+    if len(source) > 120:
+        snippet = snippet.rsplit(" ", 1)[0] + "..."
+
+    issues: dict[str, list[str]] = {
+        "supportive": [
+            f"The argument on '{snippet}' could benefit from more quantitative evidence",
+            "Some claims would be stronger with explicit confidence intervals",
+        ],
+        "critical": [
+            f"Key causal claims about '{snippet}' lack sufficient empirical backing",
+            "No analysis of what happens if the core assumptions are wrong",
+            f"Ignores the strongest counterarguments on '{snippet}'",
+            "Conflates multiple distinct phenomena under one framework",
+        ],
+        "balanced": [
+            f"The analysis of '{snippet}' could better acknowledge where uncertainty is highest",
+            "Risk assessment is asymmetric -- considers one failure mode but not others",
+        ],
+        "contrarian": [
+            f"The group appears to be converging prematurely on '{snippet}'",
+            "The most important alternative scenarios have not been seriously considered",
+        ],
+    }
+    suggestions: dict[str, list[str]] = {
+        "supportive": [f"Consider adding falsification criteria for claims about '{snippet}'"],
+        "critical": [f"Provide explicit evidence that would change this assessment of '{snippet}'"],
+        "balanced": [
+            f"Add a structured analysis of where the argument on '{snippet}' is most likely wrong"
+        ],
+        "contrarian": ["Steel-man the opposing position before dismissing it"],
+    }
+    return {"issues": issues, "suggestions": suggestions}
+
+
+# Keep static versions for backward compat
+_MOCK_CRITIQUE_ISSUES = _build_mock_critiques(_DEFAULT_TOPIC)["issues"]
+_MOCK_CRITIQUE_SUGGESTIONS = _build_mock_critiques(_DEFAULT_TOPIC)["suggestions"]
 
 _MOCK_SEVERITY: dict[str, tuple[float, float]] = {
     "supportive": (2.0, 4.0),
@@ -1104,6 +1123,10 @@ def _run_inline_mock_debate(
     styles = [_AGENT_STYLES[i % len(_AGENT_STYLES)] for i in range(agent_count)]
 
     topic_proposals = _build_mock_proposals(topic, question=question)
+    topic_critiques = _build_mock_critiques(topic, question=question)
+    critique_issues = topic_critiques["issues"]
+    critique_suggestions = topic_critiques["suggestions"]
+
     proposals: dict[str, str] = {}
     for name, style in zip(names, styles):
         proposals[name] = random.choice(topic_proposals[style])  # noqa: S311 -- mock data generation
@@ -1118,8 +1141,8 @@ def _run_inline_mock_debate(
                 {
                     "agent": name,
                     "target_agent": target,
-                    "issues": list(_MOCK_CRITIQUE_ISSUES[style]),
-                    "suggestions": list(_MOCK_CRITIQUE_SUGGESTIONS[style]),
+                    "issues": list(critique_issues[style]),
+                    "suggestions": list(critique_suggestions[style]),
                     "severity": round(random.uniform(lo, hi), 1),  # noqa: S311 -- mock data generation
                 }
             )
@@ -1267,20 +1290,24 @@ class PlaygroundHandler(BaseHandler):
         "/api/v1/playground/tts",
     ]
 
+    _DEBATE_ID_PATTERN = re.compile(r"^/api/v1/playground/debate/([a-f0-9]{16,32})$")
+
     def __init__(self, ctx: dict | None = None):
         self.ctx = ctx or {}
 
     def can_handle(self, path: str) -> bool:
-        return path in (
+        if path in (
             "/api/v1/playground/debate",
             "/api/v1/playground/debate/live",
             "/api/v1/playground/debate/live/cost-estimate",
             "/api/v1/playground/status",
             "/api/v1/playground/tts",
-        )
+        ):
+            return True
+        return bool(self._DEBATE_ID_PATTERN.match(path))
 
     # ------------------------------------------------------------------
-    # GET /api/v1/playground/status
+    # GET /api/v1/playground/status | /api/v1/playground/debate/{id}
     # ------------------------------------------------------------------
 
     def handle(
@@ -1291,7 +1318,27 @@ class PlaygroundHandler(BaseHandler):
     ) -> HandlerResult | None:
         if path == "/api/v1/playground/status":
             return self._handle_status()
+
+        # GET /api/v1/playground/debate/{debate_id} — retrieve saved debate
+        m = self._DEBATE_ID_PATTERN.match(path)
+        if m:
+            return self._handle_get_debate(m.group(1))
+
         return None
+
+    def _handle_get_debate(self, debate_id: str) -> HandlerResult:
+        """Retrieve a saved debate by ID for shareable links."""
+        try:
+            from aragora.storage.debate_store import get_debate_store
+
+            store = get_debate_store()
+            result = store.get(debate_id)
+            if result is None:
+                return error_response("Debate not found or expired", 404)
+            return json_response(result)
+        except (ImportError, RuntimeError, OSError) as exc:
+            logger.debug("Debate store unavailable: %s", exc)
+            return error_response("Debate not found", 404)
 
     def _handle_status(self) -> HandlerResult:
         return json_response(
@@ -1518,7 +1565,10 @@ class PlaygroundHandler(BaseHandler):
         else:
             # Normal playground: try aragora-debate package
             try:
-                return self._run_debate_with_package(topic, rounds, agent_count, question=question)
+                result = self._run_debate_with_package(
+                    topic, rounds, agent_count, question=question
+                )
+                return self._persist_and_respond(result, topic, "playground")
             except ImportError:
                 logger.info("aragora-debate not installed, using inline mock debate")
             except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
@@ -1526,12 +1576,42 @@ class PlaygroundHandler(BaseHandler):
 
         # Last resort: inline mock debate (question-aware when question provided)
         try:
-            return json_response(
-                _run_inline_mock_debate(topic, rounds, agent_count, question=question)
+            mock_result = _run_inline_mock_debate(topic, rounds, agent_count, question=question)
+            return self._persist_and_respond(
+                json_response(mock_result),
+                topic,
+                "mock",
             )
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
             logger.exception("Inline mock debate failed")
             return error_response("Debate failed unexpectedly", 500)
+
+    @staticmethod
+    def _persist_and_respond(
+        handler_result: HandlerResult,
+        topic: str,
+        source: str,
+    ) -> HandlerResult:
+        """Persist the debate result and inject share_url into the response."""
+        try:
+            from aragora.storage.debate_store import get_debate_store
+
+            # HandlerResult is a dataclass with body: bytes
+            body_bytes = handler_result.body
+            if not body_bytes:
+                return handler_result
+
+            data = json.loads(body_bytes.decode("utf-8"))
+            debate_id = data.get("id", "")
+            if debate_id:
+                store = get_debate_store()
+                store.save(debate_id, topic, data, source=source)
+                data["share_url"] = f"/api/v1/playground/debate/{debate_id}"
+                return json_response(data)
+        except (ImportError, RuntimeError, OSError, json.JSONDecodeError, UnicodeDecodeError):
+            logger.debug("Debate persistence unavailable", exc_info=True)
+
+        return handler_result
 
     def _run_debate_with_package(
         self,
