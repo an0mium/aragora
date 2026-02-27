@@ -31,7 +31,7 @@ on:
 
 concurrency:
   group: security-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -40,6 +40,8 @@ permissions:
 jobs:
   codeql:
     name: CodeQL Analysis
+    # Skip on draft PRs — CodeQL is expensive (30min per language)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

@@ -44,6 +44,8 @@ permissions:
 jobs:
   load-test:
     name: Load Test Suite
+    # Skip on draft PRs — heavy workflow with server + Redis
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

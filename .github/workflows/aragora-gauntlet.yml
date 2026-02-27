@@ -11,8 +11,14 @@ on:
       - '.github/ISSUE_TEMPLATE/**'
       - '.github/PULL_REQUEST_TEMPLATE/**'
 
+concurrency:
+  group: gauntlet-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   gauntlet:
+    # Skip on draft PRs — runs only when ready for review
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
