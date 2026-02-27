@@ -223,10 +223,15 @@ class DebateProtocol:
         "supermajority",
         "any",
         "byzantine",
+        "prover_estimator",
     ] = "judge"
     consensus_threshold: float = 0.6  # fraction needed for majority
     allow_abstain: bool = True
     require_reasoning: bool = True
+
+    # Prover-Estimator protocol settings
+    prover_estimator_max_rounds: int = 2
+    prover_estimator_context: str = ""
     # Participation quorum: minimum fraction/count of agents that must vote
     min_participation_ratio: float = 0.5
     min_participation_count: int = 2
