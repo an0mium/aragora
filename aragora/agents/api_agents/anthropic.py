@@ -96,6 +96,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         timeout: int = 120,
         api_key: str | None = None,
         enable_fallback: bool | None = None,  # None = use config setting
+        thinking_budget: int | None = None,
     ) -> None:
         super().__init__(
             name=name,
@@ -107,6 +108,8 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             base_url="https://api.anthropic.com/v1",
         )
         self.agent_type = "anthropic"
+        self.thinking_budget = thinking_budget
+        self._last_thinking_trace: str | None = None
         # Use config setting if not explicitly provided
         if enable_fallback is None:
             from aragora.agents.fallback import get_default_fallback_enabled
@@ -116,6 +119,11 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             self.enable_fallback = enable_fallback
         self._fallback_agent = None  # Cached by QuotaFallbackMixin
         self.enable_web_search = True  # Enable web search tool by default
+
+    @property
+    def last_thinking_trace(self) -> str | None:
+        """Return the thinking trace from the last generation."""
+        return self._last_thinking_trace
 
     @staticmethod
     def _parse_content_blocks(
