@@ -14,6 +14,7 @@ import json
 import re
 import subprocess
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from collections.abc import Callable, Iterable
 
@@ -52,18 +53,54 @@ def _run_rg_count(pattern: str, globs: Iterable[str], exclude_globs: Iterable[st
 def _count_py_files(path: Path) -> int:
     if not path.exists():
         return 0
+    rel = path.relative_to(ROOT).as_posix()
+    tracked = _tracked_python_files()
+    if tracked is not None:
+        return sum(1 for p in tracked if p.startswith(f"{rel}/"))
     return sum(
         1
         for p in path.rglob("*.py")
-        if "__pycache__" not in p.parts and ".venv" not in p.parts and "node_modules" not in p.parts
+        if "__pycache__" not in p.parts
+        and ".venv" not in p.parts
+        and "venv" not in p.parts
+        and "node_modules" not in p.parts
+        and ".worktrees" not in p.parts
     )
 
 
+@lru_cache(maxsize=1)
+def _tracked_python_files() -> list[str] | None:
+    try:
+        out = subprocess.check_output(["git", "ls-files", "*.py"], cwd=ROOT, text=True)
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return None
+    return [line.strip() for line in out.splitlines() if line.strip()]
+
+
 def _count_tests() -> int:
+    try:
+        out = subprocess.check_output(
+            ["git", "grep", "-n", "-E", r"^\s*def test_", "--", "*.py"],
+            cwd=ROOT,
+            text=True,
+        )
+        return len(out.splitlines())
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode == 1:
+            return 0
+    except FileNotFoundError:
+        pass
+
     count = _run_rg_count(
         "def test_",
         globs=["*.py"],
-        exclude_globs=["**/node_modules/**", "**/.nomic/**", "**/.venv/**"],
+        exclude_globs=[
+            "**/node_modules/**",
+            "**/.nomic/**",
+            "**/.venv/**",
+            "**/venv/**",
+            "**/.worktrees/**",
+        ],
     )
     if count >= 0:
         return count
@@ -167,7 +204,7 @@ def _count_allowlisted_agents() -> int:
 def _approx(value: int, step: int) -> str:
     if value <= 0:
         return "0"
-    rounded = (value // step) * step
+    rounded = max(step, (value // step) * step)
     return f"{rounded:,}+"
 
 
