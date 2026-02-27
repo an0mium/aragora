@@ -137,7 +137,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install parity test deps
-        run: pip install pytest pytest-timeout
+        run: pip install -e ".[test]"
 
       - name: "BLOCKING: SDK contract parity"
         run: |
