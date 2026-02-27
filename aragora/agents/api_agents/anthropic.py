@@ -108,6 +108,8 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             base_url="https://api.anthropic.com/v1",
         )
         self.agent_type = "anthropic"
+        self.thinking_budget = thinking_budget
+        self._last_thinking_trace: str | None = None
         # Use config setting if not explicitly provided
         if enable_fallback is None:
             from aragora.agents.fallback import get_default_fallback_enabled
@@ -171,6 +173,11 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             "thinking": self._last_thinking_trace,
             "thinking_budget": self.thinking_budget,
         }
+
+    @property
+    def last_thinking_trace(self) -> str | None:
+        """Return the thinking trace from the last generation."""
+        return self._last_thinking_trace
 
     @staticmethod
     def _parse_content_blocks(
