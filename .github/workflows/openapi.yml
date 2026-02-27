@@ -83,7 +83,7 @@ jobs:
     runs-on: aragora
     timeout-minutes: 10
     needs: scope
-    if: github.event_name != 'pull_request' || needs.scope.outputs.run_openapi == 'true'
+    if: github.event_name != 'pull_request' || needs.scope.result == 'success'
     permissions:
       contents: read
       issues: write
