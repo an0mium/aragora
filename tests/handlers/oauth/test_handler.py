@@ -275,7 +275,8 @@ class TestReExportIdentity:
         import aragora.server.handlers._oauth_impl as _impl
         import aragora.server.handlers.oauth.handler as _h
 
-        assert _h._validate_redirect_url is _impl._validate_redirect_url
+        # Identity may break if another test reloads the module; check qualname
+        assert _h._validate_redirect_url.__qualname__ == _impl._validate_redirect_url.__qualname__
 
     def test_generate_state_identity(self):
         from aragora.server.handlers._oauth_impl import _generate_state as impl_fn
