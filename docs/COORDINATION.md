@@ -1,6 +1,6 @@
 # AI Agent Coordination
 
-**Last updated:** 2026-02-16
+**Last updated:** 2026-02-26
 **Maintainer:** Update this file when starting/finishing work
 
 ---
@@ -31,26 +31,54 @@
 - **Working on:** One sentence description
 - **Files:** List main files being modified
 - **Issue:** #number (if applicable)
-- **Status:** 🟡 In Progress / 🔴 Blocked / 🟢 Almost Done
+- **Status:** In Progress / Blocked / Almost Done
 
 -->
 
-*No active sessions*
+**19 open PRs** under active review or development:
+
+| PR | Branch | Focus |
+|----|--------|-------|
+| #403 | `feat/product-quality-ux` | End-to-end UX: persist, retry, share, monitor |
+| #402 | `docs/loop-first-evolution-design` | Loop-first evolution design document |
+| #401 | `feat/obsidian-bidirectional-sync` | Obsidian <-> Knowledge Mound bidirectional sync |
+| #400 | `feat/onboarding-critical-path` | Onboarding: frontend to backend API wiring |
+| #399 | `feat/decision-plan-exporters` | Decision plan exporters (Jira, Linear, webhooks) |
+| #398 | `feat/inbox-auto-debate` | Inbox auto-debate router for high-priority triage |
+| #396 | `feat/ceo-mode-extended` | CEO-mode for non-developer swarm experience |
+| #395 | `fix/pipeline-receipt-test-v2` | Pipeline receipt test mock fix |
+| #394 | `fix/benchmark-noise-floor` | CI benchmark noise floor gate |
+| #393 | `feat/landing-competitive-moats` | Landing page competitive moats |
+| #392 | `worktree-regen-openapi-spec` | Regenerate OpenAPI spec for fleet endpoints |
+| #390 | `fix/hardening-and-polish` | Hardening, swarm CEO-mode, doc polish |
+| #387 | `fix/handler-can-handle` | Default can_handle() for handler base classes |
+| #386 | `fix/normalize-text-9px-to-10px` | Normalize text sizes across frontend |
+| #385 | `feat/ui-polish-and-handler-improvements` | Standardize font sizes, improve swarm UX |
+| #382 | `chore/landing-swarm-tune` | Landing copy sharpening, swarm defaults |
+| #381 | `fix/ci-stabilization-and-frontend-polish-20260226` | CI stabilization + frontend fixes |
+| #378 | `fix/pipeline-gates-shadow-tokens` | Pipeline persistence, nomic gates, shadow token alignment |
+| #377 | `fix/e2e-workflow-cleanup` | Deduplicate Playwright E2E steps |
 
 ---
 
 ### Recently Completed (Last 7 Days)
 
-| Date | Agent | Task | Issue | Commit |
-|------|-------|------|-------|--------|
-| 2026-02-16 | Claude Opus 4.6 | Working tree cleanup + worktree consolidation | - | db54711..fa10308 |
-| 2026-02-16 | Claude Opus 4.6 | Exception handler narrowing (debate, server, workflow) | - | 93edccef..47c7f89 |
-| 2026-02-16 | Claude Opus 4.6 | SDK cost estimation + TS features namespace | - | b301d86 |
-| 2026-02-16 | Claude Opus 4.6 | CI: TypeScript SDK type check job | - | 13efc0c |
-| 2026-02-16 | Claude Opus 4.6 | Frontend: debate export UX + cost error handling | - | (in b301d86) |
-| 2026-02-15 | Claude | Worktree sessions script + dogfood tests (14 tests) | - | 52c7203..9225a99 |
-| 2026-02-14 | Claude | Handler routing bug class fixes (10 handlers) | - | various |
-| 2026-02-13 | Claude | Handler test suite: 19,776 tests, 0 failures | - | various |
+| Date | Agent | Task | PR | Commit |
+|------|-------|------|----|--------|
+| 2026-02-26 | Claude/Codex | Mypy reporter + pipeline CLI type fixes | #397 | f44d079 |
+| 2026-02-26 | Codex | CI integration gate: broadened event exception handlers | #391 | d926330..8e72b23 |
+| 2026-02-26 | Codex | Pipeline self-improve bridge: planning output into execution handoff | #383 | 9b75de4 |
+| 2026-02-26 | Codex | Fleet control plane: session status, ownership claims, merge queue | #370 | 9107477 |
+| 2026-02-26 | Codex | E2E stabilization: auth/workflow/email golden path tests | #372 | e83d035 |
+| 2026-02-26 | Codex | Self-host runtime: readiness fallback, auth-gate, port 0 fixes | #375, #376, #379 | various |
+| 2026-02-25 | Claude/Codex | Settlement hooks, secrets sync, runtime hardening | #365 | a7d55b7 |
+| 2026-02-25 | Claude/Codex | Swarm commander CLI + requirement-spec workflow | #364 | ec6cf95 |
+| 2026-02-25 | Claude/Codex | Vercel frontend deploy migration, debate routes | #360, #363 | 7398db3, 84647800 |
+| 2026-02-25 | Claude/Codex | Mode/settlement metadata propagation in live UI | #356 | b0838fc |
+| 2026-02-25 | Codex | Weekly epistemic KPI extraction workflow | #354 | c795123 |
+| 2026-02-25 | Codex | Release readiness gate + worktree hygiene checks | - | 7492cf7 |
+| 2026-02-24 | Claude/Codex | Mypy zero errors (318 errors eliminated across 60+ files) | - | various |
+| 2026-02-24 | Claude/Codex | All 36 push-triggered workflows: concurrency groups | - | various |
 
 ---
 
@@ -72,34 +100,37 @@ Session 3 claims: tests/
 
 ## Issue Priority by Track
 
-### P0 - Must Do (Blocking Release)
+> All original GA issues (#88-#108) are **CLOSED**. Current work is organized around epics.
 
-**SME Track:**
-- [ ] #100 SME starter pack GA documentation
-- [ ] #99 ROI/usage dashboard ← **next up**
-- [ ] #92 RBAC-lite for workspace members
-- [ ] #91 Workspace admin UI ← **next up**
+### Active Epics
 
-**Developer Track:**
-- [x] #103 API coverage tests (142,211 tests, 2,000+ API ops)
-- [x] #102 SDK parity pass #2 (100% TS/Python parity)
-- [ ] #94 SDK docs portal / developer quickstart ← **next up**
+**Product & UX:**
+- [ ] #292 [EPIC] Debate Engine Integration & Marketplace Synergy *(debate, stabilization)*
+- [ ] #293 [EPIC] Enterprise Communication Hub & Active Triage *(integration, stabilization)*
+- [ ] #323 Integrate FastAPI v2 marketplace/orchestration routes
 
-**Self-Hosted Track:**
-- [ ] #106 Production deployment guide ← **next up**
-- [ ] #105 Self-hosted GA sign-off / checklist
-- [x] #96 Backup and restore scripts (BackupManager implemented)
+**Developer Experience:**
+- [ ] #297 [EPIC] SDK Parity, Golden Paths & Developer Experience *(documentation, sdk)*
+- [ ] #294 [EPIC] Idea-to-Execution Pipeline & Safe Code Execution *(pipeline, stabilization)*
 
-**QA Track:**
-- [x] #107 E2E smoke tests (CI workflows active)
-- [x] #90 Integration test matrix (randomized seeds: 12345, 54321, 99999)
+**Security & Compliance:**
+- [ ] #273 [EPIC] Enterprise Assurance Closure *(priority:critical, security)*
+- [ ] #274 Execute external penetration test and remediate findings *(priority:critical, pentest)*
+- [ ] #296 [EPIC] Compliance Dashboard & Verifiable Decision Receipts *(security, compliance)*
 
-### P1 - Should Do
+**Self-Improvement:**
+- [ ] #295 [EPIC] Nomic Loop Safety Gates & Observable Evolution *(self-improvement, stabilization)*
 
-- [x] #108 Nightly CI smoke test runs (implemented in CI)
-- [ ] #104 Developer portal GA
-- [ ] #101 User feedback collection
-- [ ] #98 Automated changelog generation
+### Current Focus Areas (Feb 26)
+
+| Priority | Area | Active PRs |
+|----------|------|------------|
+| **P0** | User-facing product quality (UX, shareability) | #403, #400, #393, #396 |
+| **P0** | Landing page + onboarding critical path | #400, #382, #385, #386 |
+| **P1** | Pipeline persistence + self-improve bridge | #378, #383, #395 |
+| **P1** | CI stabilization + E2E test reliability | #381, #394, #377 |
+| **P2** | Obsidian sync, decision plan exporters | #401, #399 |
+| **P2** | OpenAPI spec regeneration, handler base classes | #392, #387 |
 
 ---
 

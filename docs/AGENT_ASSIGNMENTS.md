@@ -24,31 +24,34 @@ Run up to 3-4 agents in parallel, each on a different track:
 
 **Goal:** Make Aragora usable for non-technical business users
 
+**Previous issues (#91, #92, #99, #100) all CLOSED.** Current work:
+
 **Priority Issues:**
-1. **#91 Workspace admin UI** - Add invite/role management UI
-   - Files: `aragora/live/src/app/(app)/workspace/`
-   - Needs: React components, API integration
+1. **#293 [EPIC] Enterprise Communication Hub & Active Triage** - Active triage, communication integration
+   - Files: `aragora/connectors/`, `aragora/integrations/`, `aragora/server/handlers/`
+   - Needs: Inbox auto-debate routing, notification wiring
 
-2. **#92 RBAC-lite** - Simple permissions for workspace members
-   - Files: `aragora/rbac/`, `aragora/server/handlers/`
-   - Needs: Permission checks, UI toggles
+2. **#292 [EPIC] Debate Engine Integration & Marketplace Synergy** - Marketplace + debate UX
+   - Files: `aragora/marketplace/`, `aragora/debate/`, `aragora/live/src/`
+   - Needs: Template marketplace, debate experience polish
 
-3. **#99 ROI/usage dashboard** - Show value to customers
-   - Files: `aragora/live/src/app/(app)/dashboard/`
-   - Needs: Metrics aggregation, charts
+3. **Product quality UX** (PRs #403, #400, #396) - Onboarding, CEO-mode, persist/retry/share
+   - Files: `aragora/live/src/`, `aragora/server/handlers/`
+   - Needs: Frontend wiring, API integration, swarm UX
 
 **Starter prompt:**
 ```
 Work on the SME track for Aragora. Focus on making the product
 usable for small business users who aren't technical.
 
-Priority: Issue #91 (Workspace admin UI)
+Priority: Epic #293 (Enterprise Communication Hub) and UX quality PRs
 
 Stay within these folders:
 - aragora/live/src/ (frontend)
 - aragora/server/handlers/ (API endpoints)
+- aragora/connectors/ (integration connectors)
 
-Don't modify: aragora/debate/, aragora/agents/, core.py
+Don't modify: aragora/debate/orchestrator.py, aragora/agents/, core.py
 ```
 
 ---
@@ -57,32 +60,35 @@ Don't modify: aragora/debate/, aragora/agents/, core.py
 
 **Goal:** Make Aragora easy to integrate programmatically
 
+**Previous issues (#94, #102, #103) all CLOSED.** SDK at 185 namespaces, 100% parity.
+
 **Priority Issues:**
-1. **#102 SDK parity pass** - Ensure Python/TypeScript SDKs match
-   - Files: `sdk/`, `aragora/live/src/api/`
-   - Needs: Compare endpoints, add missing methods
+1. **#297 [EPIC] SDK Parity, Golden Paths & Developer Experience** - SDK golden paths, DX improvements
+   - Files: `sdk/`, `docs/`, `aragora/server/`
+   - Needs: SDK stale endpoint cleanup, golden path examples, developer quickstart
 
-2. **#94 SDK docs portal** - Create documentation site
-   - Files: `docs/`, `sdk/*/README.md`
-   - Needs: API reference, examples
+2. **#294 [EPIC] Idea-to-Execution Pipeline & Safe Code Execution** - Pipeline and sandbox
+   - Files: `aragora/pipeline/`, `aragora/sandbox/`, `tests/pipeline/`
+   - Needs: Pipeline persistence, safe execution, stage advancement
 
-3. **#103 API coverage tests** - Ensure all endpoints tested
-   - Files: `tests/server/handlers/`
-   - Needs: Test coverage analysis, new tests
+3. **#323 Integrate FastAPI v2 marketplace/orchestration routes** - API modernization
+   - Files: `aragora/server/`, `aragora/marketplace/`
+   - Needs: FastAPI route integration, contract-safe rollout
 
 **Starter prompt:**
 ```
-Work on the Developer track for Aragora. Focus on SDK quality
-and API documentation.
+Work on the Developer track for Aragora. Focus on SDK golden paths
+and pipeline integration.
 
-Priority: Issue #102 (SDK parity)
+Priority: Epic #297 (SDK Parity & Golden Paths)
 
 Stay within these folders:
 - sdk/ (Python and TypeScript SDKs)
 - docs/ (documentation)
+- aragora/pipeline/ (idea-to-execution pipeline)
 - tests/sdk/ (SDK tests)
 
-Don't modify: aragora/debate/, aragora/live/src/app/
+Don't modify: aragora/debate/orchestrator.py, aragora/live/src/app/
 ```
 
 ---
@@ -91,33 +97,35 @@ Don't modify: aragora/debate/, aragora/live/src/app/
 
 **Goal:** Enable customers to run Aragora on their own infrastructure
 
+**Previous issues (#88, #96, #105, #106) all CLOSED.** Deployment, backup, and observability are production-ready.
+
 **Priority Issues:**
-1. **#96 Backup and restore scripts** - Data safety
-   - Files: `scripts/`, `aragora/backup/`
-   - Needs: Shell scripts, restore verification
+1. **#273 [EPIC] Enterprise Assurance Closure** - Production hardening, security sign-off
+   - Files: `aragora/ops/`, `docker/`, `scripts/`
+   - Needs: Runtime validation, self-host smoke tests, deployment verification
 
-2. **#106 Production deployment checklist** - Go-live guide
-   - Files: `docs/deployment/`, `docker/`
-   - Needs: Step-by-step docs, validation scripts
+2. **Self-host runtime stability** - Ongoing CI fixes (PRs #375, #376, #379)
+   - Files: `scripts/`, `.github/workflows/`, `docker/`
+   - Needs: Runtime probe hardening, compose port handling, readiness fallbacks
 
-3. **#88 Observability bundle** - Monitoring out of box
-   - Files: `docker/`, `aragora/server/prometheus*.py`
-   - Needs: Grafana dashboards, alert rules
+3. **Release readiness gate** - Deterministic dep resolution (PR #369)
+   - Files: `.github/workflows/`, `scripts/`
+   - Needs: Optional deps policy, worktree hygiene checks
 
 **Starter prompt:**
 ```
-Work on the Self-Hosted track for Aragora. Focus on making
-deployment easy and reliable for ops teams.
+Work on the Self-Hosted track for Aragora. Focus on runtime
+stability and enterprise assurance closure.
 
-Priority: Issue #96 (Backup scripts)
+Priority: Epic #273 (Enterprise Assurance Closure)
 
 Stay within these folders:
 - scripts/ (automation scripts)
 - docker/ (container configs)
-- docs/deployment/ (deployment docs)
-- aragora/backup/ (backup module)
+- aragora/ops/ (deployment validation)
+- .github/workflows/ (CI pipelines)
 
-Don't modify: aragora/debate/, aragora/server/handlers/
+Don't modify: aragora/debate/orchestrator.py, aragora/server/handlers/
 ```
 
 ---
@@ -126,32 +134,34 @@ Don't modify: aragora/debate/, aragora/server/handlers/
 
 **Goal:** Ensure reliability and catch regressions
 
+**Previous issues (#90, #107, #108) all CLOSED.** 208,000+ tests, nightly CI active, E2E smoke tests running.
+
 **Priority Issues:**
-1. **#107 E2E smoke tests** - Critical path testing
-   - Files: `aragora/live/e2e/`, `tests/`
-   - Needs: Playwright tests, CI integration
+1. **E2E golden path stabilization** - Fix flaky integration tests (PRs #372, #377, #381)
+   - Files: `tests/e2e/`, `aragora/live/e2e/`, `.github/workflows/`
+   - Needs: Playwright deduplication, auth/workflow/email test stabilization
 
-2. **#90 Integration test matrix** - Connector coverage
-   - Files: `tests/connectors/`
-   - Needs: Test all connector combinations
+2. **Benchmark noise floor** - CI benchmark regression gate (PR #394)
+   - Files: `.github/workflows/`, `tests/`
+   - Needs: Noise floor calculation, false-positive reduction
 
-3. **#108 Nightly CI runs** - Automated quality gates
-   - Files: `.github/workflows/`
-   - Needs: CI config, notification setup
+3. **#295 [EPIC] Nomic Loop Safety Gates & Observable Evolution** - Self-improvement test coverage
+   - Files: `tests/nomic/`, `aragora/nomic/`, `scripts/`
+   - Needs: Gate verification, evolution observability tests
 
 **Starter prompt:**
 ```
-Work on the QA track for Aragora. Focus on test coverage
-and CI/CD reliability.
+Work on the QA track for Aragora. Focus on E2E test stability
+and CI pipeline reliability.
 
-Priority: Issue #107 (E2E smoke tests)
+Priority: E2E golden path stabilization (PRs #372, #377, #381)
 
 Stay within these folders:
 - tests/ (all tests)
 - aragora/live/e2e/ (Playwright tests)
 - .github/workflows/ (CI config)
 
-Don't modify: aragora/debate/, aragora/server/ (except adding tests)
+Don't modify: aragora/debate/orchestrator.py, aragora/server/ (except adding tests)
 ```
 
 ---
@@ -160,35 +170,36 @@ Don't modify: aragora/debate/, aragora/server/ (except adding tests)
 
 **Goal:** Identify and fix security vulnerabilities, harden production
 
-**Priority Areas:**
-1. **Authentication & Authorization** - OAuth, JWT, RBAC
-   - Files: `aragora/auth/`, `aragora/rbac/`, `aragora/server/handlers/_oauth/`
-   - Needs: Token validation, session management, permission checks
+**Priority Issues:**
+1. **#274 Execute external penetration test and remediate findings** *(priority:critical)*
+   - Files: `aragora/security/`, `aragora/audit/`
+   - Needs: Third-party pentest coordination, finding remediation
 
-2. **Vulnerability Scanning** - OWASP top 10, secrets detection
-   - Files: `aragora/audit/security_scanner.py`, `aragora/audit/bug_detector.py`
-   - Needs: Run scans, fix critical/high findings
+2. **#273 [EPIC] Enterprise Assurance Closure** *(priority:critical)*
+   - Files: `aragora/auth/`, `aragora/rbac/`, `aragora/compliance/`
+   - Needs: Security sign-off, compliance verification
 
-3. **Secrets Management** - No hardcoded credentials, rotation
-   - Files: `aragora/security/`, `.env.*.example`
-   - Needs: Encryption at rest, key rotation, secrets manager integration
+3. **#296 [EPIC] Compliance Dashboard & Verifiable Decision Receipts**
+   - Files: `aragora/compliance/`, `aragora/gauntlet/`
+   - Needs: Dashboard wiring, receipt verification UI
 
-4. **Input Validation** - SQL injection, XSS, SSRF protection
-   - Files: `aragora/security/ssrf_protection.py`, handlers with user input
-   - Needs: Parameterized queries, input sanitization
+4. **Secrets sync and runtime hardening** (completed in PR #365)
+   - Settlement hooks, secrets sync, and runtime hardening all merged
+   - Ongoing: error sanitization maintenance (no `str(e)` in responses)
 
 **Starter prompt:**
 ```
-Work on the Security track for Aragora. Focus on vulnerability
-scanning and hardening.
+Work on the Security track for Aragora. Focus on enterprise
+assurance closure and compliance.
 
-Priority: Run security scanner, address critical findings
+Priority: Epic #273 (Enterprise Assurance Closure)
 
 Stay within these folders:
 - aragora/security/ (encryption, key rotation)
 - aragora/audit/ (security scanner, bug detector)
 - aragora/auth/ (authentication)
 - aragora/rbac/ (authorization)
+- aragora/compliance/ (compliance framework)
 
 Scripts available:
 - python scripts/security_audit.py --fail-on-critical

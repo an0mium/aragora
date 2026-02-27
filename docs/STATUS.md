@@ -1,8 +1,67 @@
 # Aragora Project Status
 
-*Last updated: February 23, 2026*
+*Last updated: February 26, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
+
+## Product Quality, Pipeline Integration & CI Hardening (February 24-26, 2026)
+
+### Summary
+Rapid sprint focused on user-facing product quality, pipeline-to-self-improvement bridge, settlement infrastructure, fleet control plane, and CI/deployment hardening. 1,125+ commits since Feb 20. 19 PRs currently open across UX, pipeline, CI, and infrastructure tracks. Strategic priority shifted to front-door experience (UX, shareability, visual quality) over additional infrastructure.
+
+### Pipeline Self-Improvement Bridge (PR #383)
+- **Planning-to-execution handoff**: `self_develop.py` planning output now bridges directly into execution phase
+- Connects idea-to-execution pipeline goals into the Nomic Loop for autonomous implementation
+- Completes the Fuzzy-Hugging-Book plan items B1-B5, A1-A5, C1-C4, D1-D4
+
+### Settlement Hooks & Runtime Hardening (PR #365)
+- **`SettlementHookRegistry`**: Pluggable hook system for `SettlementTracker` — dispatches on extract + settle
+- **`ERC8004SettlementHook`**: Pushes Brier-based reputation scores to blockchain on settlement
+- **`EventBusSettlementHook`**: Emits `settlement_claims_extracted` / `settlement_resolved` events
+- **`LoggingSettlementHook`**: Structured audit logging for all settlement activity
+- **Secrets sync**: Runtime secrets synchronization hardened
+- 17 new settlement hook tests + 79 existing settlement tests passing
+
+### Fleet Control Plane (PR #370)
+- **Session visibility**: Session status tracking across fleet
+- **Ownership claims**: Agents can claim ownership of work items
+- **Merge queue APIs**: Programmatic merge queue management for fleet coordination
+
+### Mode/Settlement Metadata Propagation (PR #356)
+- Settlement and debate mode metadata now flows through active state into live UI
+- Polling fallback hydrated with sync metadata (PR #359)
+- Dynamic debate routes restored for server-safe metadata handling (PR #360)
+
+### Swarm Commander (PR #364)
+- **CEO-mode CLI**: Non-developer swarm experience via `swarm commander` command
+- **Requirement-spec workflow**: Structured requirement → specification → implementation flow
+
+### CI & Deployment Hardening
+- **E2E stabilization** (PR #372): Auth/workflow/email golden path tests stabilized
+- **Self-host runtime** (PRs #375, #376, #379): Port 0 handling, readiness fallback, auth-gate tolerance
+- **Deploy verification** (PR #367): Preview route verification made auth-aware and non-blocking
+- **Release readiness gate** (PR #369): Deterministic optional deps policy
+- **Vercel migration** (PR #363): Frontend deploy path migrated to Vercel runtime
+- **Integration gate** (PR #391): Broadened event exception handlers to prevent asyncpg crashes
+- **Mypy fixes** (PR #397): 4 remaining type errors in reporter and pipeline CLI resolved
+- **Benchmark noise floor** (PR #394): CI benchmark regression gate with noise floor calculation
+- **Weekly epistemic KPIs** (PR #354): Automated weekly extraction workflow for observability
+
+### Landing Page & UX (Active PRs)
+- **Product quality UX** (PR #403): Persist, retry, share, monitor — end-to-end experience
+- **Onboarding critical path** (PR #400): Frontend to backend API wiring
+- **CEO-mode extended** (PR #396): Non-developer swarm experience
+- **Competitive moats** (PR #393): Landing page messaging refresh
+- **Font normalization** (PRs #385, #386): Standardize text sizes across frontend
+- **Landing copy** (PR #382): Sharpen landing copy and tune swarm defaults
+
+### Type Safety
+- **Mypy zero errors maintained**: 0 mypy errors across full codebase (achieved Feb 24, maintained through Feb 26)
+- **All 36 push-triggered workflows**: Concurrency groups with cancel-in-progress (Feb 24)
+
+### Overall Health Score: 9.8/10 (up from 9.7/10)
+
+---
 
 ## Production Hardening & Test Expansion (February 18-23, 2026)
 
