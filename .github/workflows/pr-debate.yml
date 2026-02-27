@@ -8,7 +8,7 @@ name: Aragora PR Review
 
 on:
   pull_request_target:
-    types: [opened, synchronize]
+    types: [opened, synchronize, ready_for_review]
   workflow_dispatch:
     inputs:
       pr_number:

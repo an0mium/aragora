@@ -8,6 +8,7 @@ on:
       - '.github/workflows/e2e.yml'
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/live/**'
   schedule:
@@ -234,7 +235,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: e2e
-    if: github.event_name == 'pull_request'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
 
     steps:
       - name: Checkout

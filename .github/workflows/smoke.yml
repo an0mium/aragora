@@ -10,6 +10,7 @@ on:
       - '.github/workflows/smoke.yml'
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/**'
       - 'tests/**'
