@@ -141,7 +141,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install parity test deps
-        run: pip install pytest pytest-timeout pytest-rerunfailures httpx
+        run: pip install pytest pytest-timeout pytest-rerunfailures httpx pydantic
 
       - name: "BLOCKING: SDK contract parity"
         run: |
