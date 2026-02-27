@@ -15,6 +15,10 @@ on:
         description: 'PR number to review'
         required: true
 
+concurrency:
+  group: pr-debate-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write
