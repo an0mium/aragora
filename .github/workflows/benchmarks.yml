@@ -33,7 +33,7 @@ on:
 
 concurrency:
   group: perf-regression-${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read

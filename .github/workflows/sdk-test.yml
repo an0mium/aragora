@@ -11,11 +11,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
-    paths:
-      - 'sdk/**'
-      - 'tests/sdk/**'
-      - 'openapi/**'
-      - '.github/workflows/sdk-test.yml'
   workflow_dispatch:
 
 concurrency:

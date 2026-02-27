@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: autopilot-worktree-e2e-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
