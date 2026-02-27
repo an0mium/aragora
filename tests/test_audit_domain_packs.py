@@ -92,99 +92,82 @@ class TestLegalAuditor:
         # findings are returned from analyze_chunk, not stored as attribute
         assert legal_auditor.obligations == []
 
-    def test_detect_indemnification(self, legal_auditor):
+    @pytest.mark.asyncio
+    async def test_detect_indemnification(self, legal_auditor, create_chunk, audit_context):
         """Test detection of broad indemnification clauses."""
         # Content with broad indemnification that matches the pattern
         content = "The Vendor shall indemnify and hold harmless the Client against any and all claims arising from the use of the software product."
+        chunk = create_chunk(content)
 
-        findings = legal_auditor.analyze_chunk(
-            content=content,
-            document_id="doc-123",
-            chunk_id="chunk-1",
-            session_id="session-123",
-        )
+        findings = await legal_auditor.analyze_chunk(chunk, audit_context)
 
         assert len(findings) > 0
         assert any(
             "indemnif" in f.title.lower() or "indemnif" in f.description.lower() for f in findings
         )
 
-    def test_detect_liability_limitation(self, legal_auditor):
+    @pytest.mark.asyncio
+    async def test_detect_liability_limitation(self, legal_auditor, create_chunk, audit_context):
         """Test detection of liability limitation clauses."""
         content = """
         IN NO EVENT SHALL EITHER PARTY'S TOTAL LIABILITY EXCEED
         THE AMOUNT PAID BY CLIENT IN THE PRECEDING TWELVE MONTHS.
         """
+        chunk = create_chunk(content)
 
-        findings = legal_auditor.analyze_chunk(
-            content=content,
-            document_id="doc-123",
-            chunk_id="chunk-1",
-            session_id="session-123",
-        )
+        findings = await legal_auditor.analyze_chunk(chunk, audit_context)
 
         # May detect liability patterns
         # The exact finding depends on the patterns
 
-    def test_detect_assignment_clause(self, legal_auditor):
+    @pytest.mark.asyncio
+    async def test_detect_assignment_clause(self, legal_auditor, create_chunk, audit_context):
         """Test detection of assignment restrictions."""
         content = """
         Neither party may assign this Agreement without the prior
         written consent of the other party.
         """
+        chunk = create_chunk(content)
 
-        findings = legal_auditor.analyze_chunk(
-            content=content,
-            document_id="doc-123",
-            chunk_id="chunk-1",
-            session_id="session-123",
-        )
+        findings = await legal_auditor.analyze_chunk(chunk, audit_context)
 
         # Assignment patterns may trigger findings
 
-    def test_detect_termination_clause(self, legal_auditor):
+    @pytest.mark.asyncio
+    async def test_detect_termination_clause(self, legal_auditor, create_chunk, audit_context):
         """Test detection of unilateral termination provisions."""
         # Content that matches the unilateral termination pattern
         content = "Either party may terminate this Agreement at any time for any reason upon thirty days written notice."
+        chunk = create_chunk(content)
 
-        findings = legal_auditor.analyze_chunk(
-            content=content,
-            document_id="doc-123",
-            chunk_id="chunk-1",
-            session_id="session-123",
-        )
+        findings = await legal_auditor.analyze_chunk(chunk, audit_context)
 
         # Should detect unilateral termination
         assert len(findings) > 0
 
-    def test_detect_auto_renewal(self, legal_auditor):
+    @pytest.mark.asyncio
+    async def test_detect_auto_renewal(self, legal_auditor, create_chunk, audit_context):
         """Test detection of auto-renewal clauses."""
         # Content that matches the auto-renewal pattern using "auto-renew"
         content = "This Agreement shall auto-renew for successive one-year terms unless either party provides written notice at least 60 days prior."
+        chunk = create_chunk(content)
 
-        findings = legal_auditor.analyze_chunk(
-            content=content,
-            document_id="doc-123",
-            chunk_id="chunk-1",
-            session_id="session-123",
-        )
+        findings = await legal_auditor.analyze_chunk(chunk, audit_context)
 
         assert len(findings) > 0
 
-    def test_no_findings_on_clean_content(self, legal_auditor):
+    @pytest.mark.asyncio
+    async def test_no_findings_on_clean_content(self, legal_auditor, create_chunk, audit_context):
         """Test that clean content produces no findings."""
         content = "The weather is nice today."
+        chunk = create_chunk(content)
 
-        findings = legal_auditor.analyze_chunk(
-            content=content,
-            document_id="doc-123",
-            chunk_id="chunk-1",
-            session_id="session-123",
-        )
+        findings = await legal_auditor.analyze_chunk(chunk, audit_context)
 
         assert len(findings) == 0
 
-    def test_check_missing_clauses(self, legal_auditor):
+    @pytest.mark.asyncio
+    async def test_check_missing_clauses(self, legal_auditor, create_chunk, audit_context):
         """Test detection of missing standard clauses."""
         # Content missing key clauses
         content = """
@@ -192,33 +175,28 @@ class TestLegalAuditor:
         Company A will provide consulting services.
         Payment will be $10,000 per month.
         """
+        chunks = [create_chunk(content)]
 
-        findings = legal_auditor.check_missing_clauses(
-            full_content=content,
-            document_id="doc-123",
-            session_id="session-123",
-        )
+        # Missing clause detection is in cross_document_analysis
+        findings = await legal_auditor.cross_document_analysis(chunks, audit_context)
 
         # Should detect missing limitation of liability, confidentiality, etc.
         assert len(findings) > 0
         categories = [f.category for f in findings]
         assert "missing_clause" in categories
 
-    def test_obligation_extraction(self, legal_auditor):
+    @pytest.mark.asyncio
+    async def test_obligation_extraction(self, legal_auditor, create_chunk, audit_context):
         """Test extraction of obligations from contract text."""
         content = """
         The Vendor shall deliver the software within 30 days of contract signing.
         The Client must pay the initial fee within 5 business days of invoice receipt.
         Either party may request a meeting to discuss progress.
         """
+        chunk = create_chunk(content)
 
         # Call analyze_chunk which extracts obligations
-        legal_auditor.analyze_chunk(
-            content=content,
-            document_id="doc-123",
-            chunk_id="chunk-1",
-            session_id="session-123",
-        )
+        await legal_auditor.analyze_chunk(chunk, audit_context)
 
         # Check obligations were extracted
         assert len(legal_auditor.obligations) > 0
@@ -227,20 +205,17 @@ class TestLegalAuditor:
         summary = legal_auditor.get_obligation_summary()
         assert summary["total_obligations"] > 0
 
-    def test_detect_ambiguous_language(self, legal_auditor):
+    @pytest.mark.asyncio
+    async def test_detect_ambiguous_language(self, legal_auditor, create_chunk, audit_context):
         """Test detection of ambiguous language."""
         content = """
         The vendor shall use reasonable efforts to complete the work.
         The client shall provide prompt notice of any issues.
         Any material breach shall result in termination.
         """
+        chunk = create_chunk(content)
 
-        findings = legal_auditor.analyze_chunk(
-            content=content,
-            document_id="doc-123",
-            chunk_id="chunk-1",
-            session_id="session-123",
-        )
+        findings = await legal_auditor.analyze_chunk(chunk, audit_context)
 
         # Should detect ambiguous terms like "reasonable", "prompt", "material"
         assert len(findings) > 0

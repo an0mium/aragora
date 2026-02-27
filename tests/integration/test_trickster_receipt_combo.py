@@ -455,6 +455,15 @@ class TestReceiptExport:
         assert restored["receipt_id"] == receipt.receipt_id
 
 
+@pytest.fixture(autouse=True)
+def _clear_signing_env(monkeypatch):
+    """Clear receipt signing key and cached signer so tests use ephemeral keys."""
+    monkeypatch.delenv("ARAGORA_RECEIPT_SIGNING_KEY", raising=False)
+    import aragora.gauntlet.signing as _signing_mod
+
+    monkeypatch.setattr(_signing_mod, "_default_signer", None)
+
+
 class TestCryptoSigning:
     """Verify cryptographic signing of receipts with Trickster data."""
 

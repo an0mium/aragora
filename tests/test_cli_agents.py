@@ -1061,10 +1061,10 @@ class TestListAvailableAgents:
 class TestCLIAgentFallback:
     """Tests for CLI agent fallback to OpenRouter functionality."""
 
-    def test_enable_fallback_default_false(self):
-        """Should disable fallback by default (opt-in via ARAGORA_OPENROUTER_FALLBACK_ENABLED)."""
+    def test_enable_fallback_default_true(self):
+        """Should enable fallback by default for graceful degradation."""
         agent = CodexAgent(name="test", model="test")
-        assert agent.enable_fallback is False
+        assert agent.enable_fallback is True
 
     def test_enable_fallback_can_be_enabled(self):
         """Should allow enabling fallback explicitly."""

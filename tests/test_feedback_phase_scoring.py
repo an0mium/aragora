@@ -624,7 +624,8 @@ class TestGenomeFitness:
 
         phase._update_genome_fitness(mock_context)
 
-        mock_manager.update_fitness.assert_called_once()
+        # Called multiple times: rate-based update, outcome delta, and optionally ELO
+        assert mock_manager.update_fitness.call_count >= 1
 
 
 # =============================================================================

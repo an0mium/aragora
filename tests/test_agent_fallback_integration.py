@@ -460,7 +460,10 @@ class TestQuotaFallbackMixin:
 
         agent = TestAgent()
 
-        with patch.dict("os.environ", {}, clear=True):
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch("aragora.config.secrets.get_secret", return_value=None),
+        ):
             result = await agent.fallback_generate("Test prompt")
             assert result is None
 

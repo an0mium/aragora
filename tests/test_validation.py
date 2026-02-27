@@ -471,11 +471,11 @@ class TestValidateAgainstSchema:
 
     def test_debate_start_task_too_long(self):
         """Test debate start with oversized task fails."""
-        data = {"task": "x" * 2001}
+        data = {"task": "x" * 100_001}
         result = validate_against_schema(data, DEBATE_START_SCHEMA)
 
         assert result.is_valid is False
-        assert "at most 2000" in result.error
+        assert "at most 100000" in result.error
 
     def test_debate_start_single_agent_valid(self):
         """Test debate start with 1 agent is valid (min_length=0 in schema)."""
