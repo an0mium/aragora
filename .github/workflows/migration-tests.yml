@@ -2,6 +2,7 @@ name: Migration Tests
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/migrations/**'
@@ -130,7 +131,7 @@ jobs:
           PYTHONPATH: .
 
       - name: Migration test summary
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         run: |
           echo "## Migration Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

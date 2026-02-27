@@ -2,6 +2,7 @@ name: Live Deploy Mode Gate
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/live/**'
       - '.github/workflows/live-deploy-mode-gate.yml'
@@ -59,7 +60,7 @@ jobs:
         run: npm ci
 
       - name: Runtime mode checks
-        if: steps.mode.outputs.mode == 'runtime'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.mode.outputs.mode == 'runtime')
         working-directory: aragora/live
         run: |
           npx tsc --noEmit
@@ -73,7 +74,7 @@ jobs:
             --workers=1
 
       - name: Export mode checks
-        if: steps.mode.outputs.mode == 'export'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.mode.outputs.mode == 'export')
         working-directory: aragora/live
         run: |
           if rg -n "export const dynamicParams = true" src/app; then

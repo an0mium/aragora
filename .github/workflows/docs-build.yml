@@ -2,6 +2,7 @@ name: Build Documentation (PR Check)
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'docs/**'
@@ -102,18 +103,18 @@ jobs:
           fi
 
       - name: Fetch PR base branch for capability summary
-        if: github.event_name == 'pull_request'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
         run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
 
       - name: Generate capability matrix summary artifact
-        if: github.event_name == 'pull_request'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
         run: |
           python scripts/capability_matrix_delta.py \
             --base-ref "origin/${{ github.base_ref }}" \
             --out /tmp/capability-matrix-summary.md
 
       - name: Upload capability matrix summary artifact
-        if: github.event_name == 'pull_request'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
         uses: actions/upload-artifact@v4
         with:
           name: capability-matrix-summary

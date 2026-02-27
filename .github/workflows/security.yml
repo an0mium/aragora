@@ -14,6 +14,7 @@ on:
       - 'security/pentest/findings.json'
       - '.github/workflows/security.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/**'
@@ -40,6 +41,7 @@ permissions:
 jobs:
   codeql:
     name: CodeQL Analysis
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -92,7 +94,7 @@ jobs:
 
       - name: Upload Bandit results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         with:
           name: bandit-results
           path: bandit-results.json
@@ -121,7 +123,7 @@ jobs:
 
       - name: Upload scan results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         with:
           name: aragora-security-report
           path: security-report.json
@@ -155,7 +157,7 @@ jobs:
 
       - name: Security audit dependencies (pip-audit)
         id: pip-audit
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         run: |
           # Audit installed packages against the OSV vulnerability database.
           # --strict exits non-zero on any known vulnerability.
@@ -165,7 +167,7 @@ jobs:
             --ignore-vuln CVE-2025-14009
 
       - name: Report Python dependency status
-        if: always() && (steps.safety.outcome == 'failure' || steps.pip-audit.outcome == 'failure')
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always() && (steps.safety.outcome == 'failure' || steps.pip-audit.outcome == 'failure'))
         run: |
           FAILED=0
           if [ "${{ steps.pip-audit.outcome }}" == "failure" ]; then
@@ -195,19 +197,19 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
       - name: Install npm dependencies (typescript-sdk)
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         working-directory: sdk/typescript
         run: npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null || true
 
       - name: "BLOCKING: npm audit high/critical (typescript-sdk)"
         id: npm-audit-js
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         working-directory: sdk/typescript
         run: npm audit --omit=dev --audit-level=high
 
       # Aggregate: report which npm audits failed (both steps above are already blocking).
       - name: Report npm dependency status
-        if: always() && (steps.npm-audit-live.outcome == 'failure' || steps.npm-audit-js.outcome == 'failure')
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always() && (steps.npm-audit-live.outcome == 'failure' || steps.npm-audit-js.outcome == 'failure'))
         run: |
           FAILED=0
           if [ "${{ steps.npm-audit-live.outcome }}" == "failure" ]; then
@@ -224,6 +226,7 @@ jobs:
 
   pentest-findings:
     name: "Security: Pentest Findings Gate"
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -241,6 +244,7 @@ jobs:
 
   rbac-coverage:
     name: RBAC Coverage Check
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -258,6 +262,7 @@ jobs:
 
   secret-scanning:
     name: Secret Scanning
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

@@ -18,6 +18,7 @@ on:
       - 'docs-site/docs/api/cli.md'
       - '.github/workflows/capability-gap.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/capabilities.yaml'
@@ -42,6 +43,7 @@ concurrency:
 jobs:
   report:
     name: Generate Capability Gap Report
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

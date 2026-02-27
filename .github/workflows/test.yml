@@ -24,6 +24,7 @@ on:
       - 'docs-site/docs/api/cli.md'
       - '.github/workflows/test.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/**'
@@ -135,7 +136,7 @@ jobs:
             --md-out /tmp/epistemic-compliance-summary.md
 
       - name: Upload epistemic compliance summary artifact
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         uses: actions/upload-artifact@v4
         with:
           name: epistemic-compliance-summary
@@ -145,18 +146,18 @@ jobs:
           retention-days: 14
 
       - name: Fetch PR base branch for capability summary
-        if: github.event_name == 'pull_request'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
         run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
 
       - name: Generate capability matrix summary artifact
-        if: github.event_name == 'pull_request'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
         run: |
           python scripts/capability_matrix_delta.py \
             --base-ref "origin/${{ github.base_ref }}" \
             --out /tmp/capability-matrix-summary.md
 
       - name: Upload capability matrix summary artifact
-        if: github.event_name == 'pull_request'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
         uses: actions/upload-artifact@v4
         with:
           name: capability-matrix-summary
@@ -165,6 +166,7 @@ jobs:
 
   sdk-typescript-compile-gate:
     name: SDK TypeScript Compile Gate
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: version-check
@@ -204,6 +206,7 @@ jobs:
 
   baseline-determinism:
     name: Baseline Determinism
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 12
     needs: version-check
@@ -230,6 +233,7 @@ jobs:
   # Skip marker audit (warns if skip count increases)
   skip-audit:
     name: Skip Marker Audit
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -304,7 +308,7 @@ jobs:
           PYTHONPATH: .
 
       - name: Upload reconciliation report
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         uses: actions/upload-artifact@v4
         with:
           name: status-reconciliation
@@ -314,6 +318,7 @@ jobs:
   # Zero-coverage baseline check (prevents new zero-coverage files)
   zero-coverage-check:
     name: Zero Coverage Check
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: baseline-determinism
@@ -377,6 +382,7 @@ jobs:
 
   # Fast parallel tests by category (Ubuntu only, primary Python)
   test-fast:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: baseline-determinism
@@ -458,7 +464,7 @@ jobs:
           EPISTEMIC_GATE_ARTIFACT_DIR: /tmp/epistemic-gate-artifacts
 
       - name: Append epistemic compliance summary
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         run: |
           if [ -f /tmp/epistemic-gate-artifacts/epistemic-compliance-summary.md ]; then
             echo "## Epistemic Compliance Report" >> "$GITHUB_STEP_SUMMARY"
@@ -469,7 +475,7 @@ jobs:
           fi
 
       - name: Upload epistemic gate artifacts
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         uses: actions/upload-artifact@v4
         with:
           name: epistemic-settlement-gate
@@ -483,7 +489,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: baseline-determinism
-    if: github.event_name == 'pull_request'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
 
     steps:
       - name: Checkout
@@ -505,6 +511,7 @@ jobs:
   # Integration smoke lane for high-risk paths (PR only)
   integration-minimal:
     name: Integration Minimal
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: baseline-determinism
@@ -541,7 +548,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: baseline-determinism
-    if: github.event_name == 'pull_request'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
 
     steps:
       - name: Checkout
@@ -561,7 +568,7 @@ jobs:
               - 'aragora/storage/**'
 
       - name: Set up Python 3.11
-        if: steps.changes.outputs.high_risk == 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.changes.outputs.high_risk == 'true')
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -569,14 +576,14 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
-        if: steps.changes.outputs.high_risk == 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.changes.outputs.high_risk == 'true')
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev,research,test]"
           pip install pytest-timeout
 
       - name: Run integration smoke tests
-        if: steps.changes.outputs.high_risk == 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.changes.outputs.high_risk == 'true')
         run: |
           pytest tests/handlers/ tests/debate/test_arena*.py tests/memory/ \
             -x \
@@ -588,11 +595,12 @@ jobs:
           PYTHONPATH: .
 
       - name: Skip (no high-risk changes)
-        if: steps.changes.outputs.high_risk != 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.changes.outputs.high_risk != 'true')
         run: echo "No high-risk path changes detected, skipping integration smoke tests."
 
   test-pollution-randomized:
     name: Randomized Order Pollution Guard
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: test-fast
@@ -652,6 +660,7 @@ jobs:
 
   golden-paths:
     name: Golden Path Smoke
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: version-check
@@ -678,6 +687,7 @@ jobs:
 
   aragora-debate-tests:
     name: Standalone Debate Package
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: test-fast
@@ -804,7 +814,7 @@ jobs:
           PYTHONPATH: .
 
       - name: Upload shard coverage
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.shard.name }}
@@ -817,7 +827,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [test]
-    if: always()
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
 
     steps:
       - name: Checkout
@@ -984,7 +994,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Coverage Summary Comment
-        if: github.event_name == 'pull_request'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
         uses: py-cov-action/python-coverage-comment-action@v3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -995,6 +1005,7 @@ jobs:
 
   smoke:
     name: CLI Smoke
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: baseline-determinism
@@ -1069,7 +1080,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: baseline-determinism
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
 
     steps:
       - name: Checkout
@@ -1146,7 +1157,7 @@ jobs:
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (failure())
         with:
           name: playwright-report
           path: aragora/live/playwright-report/
@@ -1154,7 +1165,7 @@ jobs:
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         with:
           name: playwright-results
           path: aragora/live/test-results/
@@ -1165,7 +1176,7 @@ jobs:
     name: Frontend TypeScript Type Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event_name == 'pull_request'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
 
     steps:
       - name: Checkout
@@ -1180,7 +1191,7 @@ jobs:
               - 'aragora/live/**'
 
       - name: Set up Node.js
-        if: steps.changes.outputs.frontend == 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.changes.outputs.frontend == 'true')
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -1188,17 +1199,17 @@ jobs:
           cache-dependency-path: aragora/live/package-lock.json
 
       - name: Install dependencies
-        if: steps.changes.outputs.frontend == 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.changes.outputs.frontend == 'true')
         working-directory: aragora/live
         run: npm ci
 
       - name: TypeScript type check
-        if: steps.changes.outputs.frontend == 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.changes.outputs.frontend == 'true')
         working-directory: aragora/live
         run: npx tsc --noEmit
 
       - name: Skip (no frontend changes)
-        if: steps.changes.outputs.frontend != 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.changes.outputs.frontend != 'true')
         run: echo "No frontend file changes detected, skipping TypeScript type check."
 
   security:
@@ -1227,7 +1238,7 @@ jobs:
 
       - name: Upload security report
         uses: actions/upload-artifact@v4
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         with:
           name: security-report
           path: bandit-report.json
@@ -1235,6 +1246,7 @@ jobs:
 
   typecheck:
     name: Type Check
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -1266,6 +1278,7 @@ jobs:
   # Database migration testing
   migration-test:
     name: Database Migrations
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -1350,7 +1363,7 @@ jobs:
     timeout-minutes: 45
     needs: baseline-determinism
     # Run on schedule, push to main, or workflow_dispatch
-    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
 
     services:
       postgres:
@@ -1418,6 +1431,7 @@ jobs:
   # Test Analytics - Generate flakiness report
   quality-gates:
     name: Quality Gates
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [test-fast, test-summary, epistemic-settlement-gate, v1-scope-lock-gate]
@@ -1449,7 +1463,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [test-fast]
-    if: always() && github.event_name == 'pull_request'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always() && github.event_name == 'pull_request')
 
     steps:
       - name: Checkout
@@ -1505,7 +1519,7 @@ jobs:
           retention-days: 14
 
       - name: Comment on PR
-        if: github.event_name == 'pull_request'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
         uses: actions/github-script@v7
         with:
           script: |

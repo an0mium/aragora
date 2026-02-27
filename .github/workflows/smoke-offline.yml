@@ -9,6 +9,7 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/smoke-offline.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/**'
@@ -137,7 +138,7 @@ jobs:
           echo "OK: No network call evidence found in demo output"
 
       - name: Offline demo summary
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         run: |
           echo "## Offline Golden Path Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

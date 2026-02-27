@@ -2,7 +2,7 @@ name: Aragora Gauntlet Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -49,13 +49,13 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 
       - name: Build diff input
-        if: steps.keys.outputs.run == 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.keys.outputs.run == 'true')
         run: |
           git diff "${{ github.event.pull_request.base.sha }}...${{ github.sha }}" > /tmp/pr.diff
           echo "Diff size: $(wc -c < /tmp/pr.diff) bytes"
 
       - name: Run Gauntlet on PR diff
-        if: steps.keys.outputs.run == 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.keys.outputs.run == 'true')
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -69,13 +69,13 @@ jobs:
             --output artifacts/gauntlet_receipt.html
 
       - name: Upload Decision Receipt
-        if: steps.keys.outputs.run == 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.keys.outputs.run == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: gauntlet-decision-receipt
           path: artifacts/gauntlet_receipt.html
 
       - name: Skip (missing API keys)
-        if: steps.keys.outputs.run != 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.keys.outputs.run != 'true')
         run: |
           echo "Skipping Gauntlet run: no API keys configured in secrets."

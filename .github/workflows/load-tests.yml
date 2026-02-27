@@ -7,6 +7,7 @@ on:
       - 'aragora/**'
       - 'tests/load/**'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/**'
@@ -90,7 +91,7 @@ jobs:
           aws-region: us-east-2
 
       - name: Fetch AI provider credentials from AWS
-        if: steps.aws-creds.outcome == 'success'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.aws-creds.outcome == 'success')
         run: |
           # Fetch secrets from AWS Secrets Manager
           SECRET_JSON=$(aws secretsmanager get-secret-value \
@@ -365,7 +366,7 @@ jobs:
           "
 
       - name: Add SLO summary to job
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         run: |
           echo "## Load Test SLO Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -387,7 +388,7 @@ jobs:
 
       - name: Upload load test results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         with:
           name: load-test-results
           path: |
@@ -399,7 +400,7 @@ jobs:
           retention-days: 14
 
       - name: Stop server
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         run: |
           if [ -n "$SERVER_PID" ]; then
             kill $SERVER_PID || true
@@ -407,6 +408,7 @@ jobs:
 
   memory-stress:
     name: Memory Stress Test
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: load-test

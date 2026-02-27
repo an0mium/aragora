@@ -12,6 +12,7 @@ on:
       - 'tests/e2e/test_new_features_e2e.py'
       - '.github/workflows/new-features.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/server/handlers/marketplace.py'
@@ -29,6 +30,7 @@ concurrency:
 jobs:
   test-migrations:
     name: Test Migrations
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -72,6 +74,7 @@ jobs:
 
   test-workers:
     name: Test Background Workers
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -107,6 +110,7 @@ jobs:
 
   test-api-endpoints:
     name: Test API Endpoints
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -132,6 +136,7 @@ jobs:
 
   test-metrics:
     name: Test Metrics Integration
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -187,6 +192,7 @@ jobs:
 
   validate-openapi:
     name: Validate OpenAPI Spec
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -218,7 +224,7 @@ jobs:
     name: Summary
     needs: [test-migrations, test-workers, test-api-endpoints, test-metrics, validate-openapi]
     runs-on: ubuntu-latest
-    if: always()
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
 
     steps:
       - name: Generate summary

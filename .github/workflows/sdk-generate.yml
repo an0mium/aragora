@@ -12,6 +12,7 @@ on:
       - 'sdk/typescript/package.json'
       - 'sdk/typescript/tsconfig.json'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'sdk/typescript/src/**/*.ts'
       - 'sdk/typescript/package.json'
@@ -70,7 +71,7 @@ jobs:
           git diff --quiet sdk/typescript/src/generated-types.ts || echo "changed=true" >> $GITHUB_OUTPUT
 
       - name: Create PR with changes
-        if: steps.changes.outputs.changed == 'true'
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (steps.changes.outputs.changed == 'true')
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -92,6 +93,7 @@ jobs:
           retention-days: 7
 
   validate-typescript:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     needs: generate-typescript-types
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -110,7 +112,6 @@ jobs:
       - name: Download generated types
         uses: actions/download-artifact@v4
         with:
-          name: typescript-types
           path: sdk/typescript/src/
 
       - name: Install dependencies
@@ -127,9 +128,10 @@ jobs:
 
   # Standalone validation for direct SDK source changes (no generation needed)
   validate-sdk-source:
-    if: |
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'push' && !contains(github.event.head_commit.modified, 'docs/api/openapi'))
+    if: >-
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false) &&
+      (github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && !contains(github.event.head_commit.modified, 'docs/api/openapi')))
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

@@ -9,6 +9,7 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/smoke.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/**'
@@ -47,7 +48,7 @@ jobs:
           PYTHONPATH: .
 
       - name: Smoke test summary
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         run: |
           echo "## Smoke Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -61,6 +62,7 @@ jobs:
 
   offline-golden-path:
     name: Offline Golden Path
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -115,7 +117,7 @@ jobs:
           ARAGORA_CI: "true"
 
       - name: Server smoke test summary
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         run: |
           echo "## Server Smoke Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -153,7 +155,7 @@ jobs:
           pytest tests/e2e/test_decision_action_smoke.py -v --tb=short --timeout=120
 
       - name: Upload decision-to-action smoke artifacts
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         uses: actions/upload-artifact@v4
         with:
           name: decision-action-smoke-artifacts
@@ -161,7 +163,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Decision-to-action smoke summary
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         run: |
           echo "## Decision-to-Action Smoke Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

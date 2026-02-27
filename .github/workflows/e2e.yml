@@ -7,6 +7,7 @@ on:
       - 'aragora/live/**'
       - '.github/workflows/e2e.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/live/**'
@@ -150,7 +151,7 @@ jobs:
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         with:
           name: playwright-report
           path: aragora/live/playwright-report/
@@ -158,7 +159,7 @@ jobs:
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         with:
           name: playwright-results
           path: aragora/live/test-results/
@@ -166,14 +167,14 @@ jobs:
 
       - name: Upload server logs
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (failure())
         with:
           name: server-logs
           path: /tmp/aragora-server.log
           retention-days: 7
 
       - name: Stop servers
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         run: |
           [ -n "$SERVER_PID" ] && kill $SERVER_PID || true
           [ -n "$FRONTEND_PID" ] && kill $FRONTEND_PID || true
@@ -219,7 +220,7 @@ jobs:
 
       - name: Upload E2E test logs
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (failure())
         with:
           name: python-e2e-logs
           path: |
@@ -232,7 +233,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: e2e
-    if: github.event_name == 'pull_request'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
 
     steps:
       - name: Checkout
@@ -267,7 +268,7 @@ jobs:
 
       - name: Upload visual snapshots
         uses: actions/upload-artifact@v4
-        if: always()
+        if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (always())
         with:
           name: visual-snapshots
           path: aragora/live/e2e/__screenshots__/
