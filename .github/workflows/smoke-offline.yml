@@ -19,7 +19,7 @@ on:
 
 concurrency:
   group: smoke-offline-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   offline-demo:

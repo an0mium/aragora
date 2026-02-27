@@ -32,7 +32,7 @@ on:
 
 concurrency:
   group: contract-drift-governance-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: false
 
 jobs:
   governance:

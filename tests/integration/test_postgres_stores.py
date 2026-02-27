@@ -67,20 +67,28 @@ async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
 
 @pytest.fixture
 async def clean_test_tables(postgres_pool: asyncpg.Pool):
-    """Clean test data before each test."""
+    """Reset tested store schemas to current definitions before each test."""
+
+    async def _reset_schema(conn: asyncpg.Connection) -> None:
+        from aragora.storage.approval_request_store import PostgresApprovalRequestStore
+        from aragora.storage.federation_registry_store import PostgresFederationRegistryStore
+        from aragora.storage.gauntlet_run_store import PostgresGauntletRunStore
+        from aragora.storage.webhook_config_store import PostgresWebhookConfigStore
+
+        # Keep integration tests resilient against stale/shared CI databases.
+        await conn.execute("DROP TABLE IF EXISTS webhook_configs CASCADE")
+        await conn.execute("DROP TABLE IF EXISTS gauntlet_runs CASCADE")
+        await conn.execute("DROP TABLE IF EXISTS approval_requests CASCADE")
+        await conn.execute("DROP TABLE IF EXISTS federated_regions CASCADE")
+
+        await conn.execute(PostgresWebhookConfigStore.INITIAL_SCHEMA)
+        await conn.execute(PostgresGauntletRunStore.SCHEMA_SQL)
+        await conn.execute(PostgresApprovalRequestStore.SCHEMA_SQL)
+        await conn.execute(PostgresFederationRegistryStore.INITIAL_SCHEMA)
+
     async with postgres_pool.acquire() as conn:
-        # Clean test data (use prefixed IDs for safety)
-        await conn.execute("DELETE FROM webhook_configs WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM gauntlet_runs WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM approval_requests WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM federated_regions WHERE region_id LIKE 'test-%'")
+        await _reset_schema(conn)
     yield
-    # Cleanup after test
-    async with postgres_pool.acquire() as conn:
-        await conn.execute("DELETE FROM webhook_configs WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM gauntlet_runs WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM approval_requests WHERE id LIKE 'test-%'")
-        await conn.execute("DELETE FROM federated_regions WHERE region_id LIKE 'test-%'")
 
 
 class TestPostgresWebhookConfigStore:
@@ -91,7 +99,9 @@ class TestPostgresWebhookConfigStore:
         """Create webhook config store."""
         from aragora.storage.webhook_config_store import PostgresWebhookConfigStore
 
-        return PostgresWebhookConfigStore(postgres_pool)
+        store = PostgresWebhookConfigStore(postgres_pool)
+        await store.initialize()
+        return store
 
     @pytest.mark.asyncio
     async def test_register_and_get(self, store, clean_test_tables):
@@ -185,7 +195,9 @@ class TestPostgresGauntletRunStore:
         """Create gauntlet run store."""
         from aragora.storage.gauntlet_run_store import PostgresGauntletRunStore
 
-        return PostgresGauntletRunStore(postgres_pool)
+        store = PostgresGauntletRunStore(postgres_pool)
+        await store.initialize()
+        return store
 
     @pytest.mark.asyncio
     async def test_save_and_get(self, store, clean_test_tables):
@@ -265,7 +277,9 @@ class TestPostgresApprovalRequestStore:
         """Create approval request store."""
         from aragora.storage.approval_request_store import PostgresApprovalRequestStore
 
-        return PostgresApprovalRequestStore(postgres_pool)
+        store = PostgresApprovalRequestStore(postgres_pool)
+        await store.initialize()
+        return store
 
     @pytest.mark.asyncio
     async def test_save_and_respond(self, store, clean_test_tables):

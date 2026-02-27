@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test test-e2e lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop quickstart quickstart-live worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain worktree-maintainer-install worktree-maintainer-uninstall worktree-maintainer-status codex-session branch-start pr-open
+.PHONY: help install dev test test-e2e lint format typecheck check check-all ci ci-required guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop quickstart quickstart-live worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain worktree-maintainer-install worktree-maintainer-uninstall worktree-maintainer-status codex-session branch-start pr-open
 
 # Default target
 help:
@@ -31,6 +31,7 @@ help:
 	@echo "  make check        Run all checks (lint + typecheck)"
 	@echo "  make check-all    Run lint + typecheck + tests with coverage"
 	@echo "  make ci           CI pipeline (lint + typecheck + fast tests)"
+	@echo "  make ci-required  Run required GitHub checks locally"
 	@echo "  make guard        Check repo hygiene (tracked artifacts)"
 	@echo "  make guard-strict Check repo hygiene (tracked + untracked artifacts)"
 	@echo ""
@@ -136,6 +137,21 @@ check: lint typecheck
 check-all: lint typecheck test-cov
 
 ci: lint typecheck test-fast
+
+ci-required:
+	@echo "Running required GitHub checks locally..."
+	ruff check aragora/ tests/ scripts/
+	mypy aragora/ --ignore-missing-imports
+	python scripts/check_version_alignment.py
+	python scripts/check_sdk_parity.py --strict --baseline scripts/baselines/check_sdk_parity.json --budget scripts/baselines/check_sdk_parity_budget.json
+	python scripts/check_sdk_namespace_parity.py --strict --baseline scripts/baselines/check_sdk_namespace_parity.json
+	python scripts/check_cross_sdk_parity.py --strict --baseline scripts/baselines/cross_sdk_parity.json
+	python scripts/generate_openapi.py --output /tmp/openapi_ci_required.json --format json --quiet
+	python scripts/add_openapi_operation_ids.py --spec /tmp/openapi_ci_required.json
+	python scripts/add_openapi_param_descriptions.py --spec /tmp/openapi_ci_required.json
+	python scripts/add_openapi_descriptions.py --spec /tmp/openapi_ci_required.json
+	python scripts/verify_sdk_contracts.py --strict --baseline scripts/baselines/verify_sdk_contracts.json --extra-spec /tmp/openapi_ci_required.json
+	python scripts/validate_openapi_routes.py --spec /tmp/openapi_ci_required.json --fail-on-missing --baseline scripts/baselines/validate_openapi_routes.json
 
 guard:
 	python3 scripts/guard_repo_clean.py

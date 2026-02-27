@@ -7,6 +7,9 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import make_mocked_request
 
+from aragora.rbac.decorators import PermissionDeniedError
+from aragora.rbac.models import AuthorizationContext, AuthorizationDecision
+from aragora.server.auth import auth_config
 from aragora.server.handlers.interrogation import handler as handler_module
 from aragora.server.handlers.interrogation.handler import InterrogationHandler
 
@@ -88,6 +91,51 @@ class TestInterrogationHandler:
             assert "options" in q
             assert "context" in q
             assert "priority" in q
+
+    @pytest.mark.asyncio
+    async def test_start_denied_without_debates_create_permission(self, handler, monkeypatch):
+        monkeypatch.setattr(auth_config, "enabled", True)
+        handler._auth_context = AuthorizationContext(user_id="test-user", permissions=set())
+
+        body = json.dumps({"prompt": "Make it better"}).encode()
+        request = make_mocked_request("POST", "/api/v1/interrogation/start")
+        denied = AuthorizationDecision(
+            allowed=False,
+            reason="denied",
+            permission_key="debates:create",
+            context=handler._auth_context,
+        )
+        checker = MagicMock()
+        checker.check_permission.return_value = denied
+
+        with patch("aragora.rbac.decorators.get_permission_checker", return_value=checker):
+            with patch.object(request, "read", new_callable=AsyncMock, return_value=body):
+                with pytest.raises(PermissionDeniedError):
+                    await handler.handle_start(request)
+
+    @pytest.mark.asyncio
+    async def test_start_allows_with_debates_create_permission(self, handler, monkeypatch):
+        monkeypatch.setattr(auth_config, "enabled", True)
+        handler._auth_context = AuthorizationContext(
+            user_id="test-user",
+            permissions={"debates:create"},
+        )
+
+        body = json.dumps({"prompt": "Make it better"}).encode()
+        request = make_mocked_request("POST", "/api/v1/interrogation/start")
+        allowed = AuthorizationDecision(
+            allowed=True,
+            reason="allowed",
+            permission_key="debates:create",
+            context=handler._auth_context,
+        )
+        checker = MagicMock()
+        checker.check_permission.return_value = allowed
+
+        with patch("aragora.rbac.decorators.get_permission_checker", return_value=checker):
+            with patch.object(request, "read", new_callable=AsyncMock, return_value=body):
+                response = await handler.handle_start(request)
+        assert response.status == 200
 
     # ------------------------------------------------------------------
     # POST /api/v1/interrogation/answer

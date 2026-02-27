@@ -30,7 +30,7 @@ on:
 
 concurrency:
   group: migration-tests-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: false
 
 jobs:
   migration-tests:

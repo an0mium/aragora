@@ -25,7 +25,7 @@ on:
 
 concurrency:
   group: integration-gate-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -141,7 +141,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install parity test deps
-        run: pip install pytest pytest-timeout
+        run: pip install pytest pytest-timeout pydantic pydantic-settings
 
       - name: "BLOCKING: SDK contract parity"
         run: |

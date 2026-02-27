@@ -7,7 +7,7 @@ on:
 
 concurrency:
   group: production-smoke
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   smoke:

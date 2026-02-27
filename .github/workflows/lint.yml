@@ -15,15 +15,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'AGENTS.md'
-      - 'pyproject.toml'
-      - '.github/workflows/**'
-      - 'deploy/**'
-      - 'aragora-operator/**'
   merge_group:
   workflow_dispatch:
 

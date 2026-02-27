@@ -6,15 +6,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
-    paths:
-      - 'aragora/server/handlers/**'
-      - 'sdk/**'
-      - 'aragora/server/unified_server.py'
-      - 'openapi/**'
-      - 'scripts/sdk_parity*'
-      - 'scripts/check_sdk_parity*'
-      - 'scripts/check_version_alignment*'
-      - '.github/workflows/sdk-parity.yml'
   workflow_dispatch:
 
 concurrency:

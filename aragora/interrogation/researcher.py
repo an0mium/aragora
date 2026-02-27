@@ -4,9 +4,57 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+class ResearchSource(str, Enum):
+    """Legacy source labels used by interrogation tests."""
+
+    KNOWLEDGE_MOUND = "knowledge_mound"
+    OBSIDIAN = "obsidian"
+    CODEBASE = "codebase"
+    WEB = "web"
+
+
+@dataclass
+class Finding:
+    """Legacy finding shape consumed by questioner/tests."""
+
+    source: ResearchSource
+    content: str
+    relevance: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ResearchResult:
+    """Legacy research result indexed by dimension name."""
+
+    findings: dict[str, list[Finding]] = field(default_factory=dict)
+    summary_text: str = ""
+
+    def for_dimension(self, dimension_name: str) -> list[Finding]:
+        return list(self.findings.get(dimension_name, []))
+
+    def add_finding(self, dimension_name: str, finding: Finding) -> None:
+        self.findings.setdefault(dimension_name, []).append(finding)
+
+    def summary(self, max_chars: int = 2000) -> str:
+        if self.summary_text:
+            return self.summary_text[:max_chars]
+
+        lines: list[str] = []
+        for dimension, findings in self.findings.items():
+            for finding in findings:
+                line = f"[{dimension}/{finding.source.value}] {finding.content}"
+                if sum(len(item) for item in lines) + len(line) > max_chars:
+                    return "\n".join(lines)
+                lines.append(line)
+
+        return "\n".join(lines) if lines else "No research findings."
 
 
 @dataclass
@@ -78,11 +126,11 @@ class UnifiedResearcher:
     async def _query_source(self, source: str, query: str, max_results: int) -> list[SourceResult]:
         if source == "km":
             return await self._query_km(query, max_results)
-        elif source == "obsidian":
+        if source == "obsidian":
             return await self._query_obsidian(query, max_results)
-        elif source == "codebase":
+        if source == "codebase":
             return await self._query_codebase(query, max_results)
-        elif source == "web":
+        if source == "web":
             return await self._query_web(query, max_results)
         return []
 

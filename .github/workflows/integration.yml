@@ -32,7 +32,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 # OIDC permissions for AWS Secrets Manager access
 permissions:

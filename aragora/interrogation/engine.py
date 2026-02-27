@@ -1,14 +1,10 @@
 """Interrogation Engine: Debate-driven prompt clarification and spec generation.
 
 The engine coordinates:
-1. Decomposition: vague prompt → concrete dimensions
+1. Decomposition: vague prompt -> concrete dimensions
 2. Research: gather context from KM, Obsidian, codebase, web
-3. Question prioritization: agents DEBATE which questions matter most
-4. Crystallization: answers + research → MoSCoW specification
-
-The key innovation is step 3: instead of a single LLM generating questions,
-multiple agents argue about which questions are most important. This surfaces
-blind spots that a single model would miss.
+3. Question prioritization: agents debate which questions matter most
+4. Crystallization: answers + research -> structured specification
 """
 
 from __future__ import annotations
@@ -16,9 +12,16 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from inspect import isawaitable
 from typing import Any, Protocol
 
-from aragora.interrogation.crystallizer import Crystallizer, CrystallizedSpec
+from aragora.interrogation.crystallizer import (
+    CrystallizedSpec,
+    Crystallizer,
+    Requirement,
+    RequirementLevel,
+    Spec,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +39,49 @@ class PrioritizedQuestion:
     question: str
     why_it_matters: str
     priority_score: float  # 0.0-1.0, from debate ranking
-    hidden_assumption: str = ""  # assumption revealed by the question
-    options: list[str] = field(default_factory=list)  # suggested answers
-    answer: str = ""  # user's answer (filled after asking)
-    category: str = ""  # "scope", "technical", "business", "risk"
+    hidden_assumption: str = ""
+    options: list[str] = field(default_factory=list)
+    answer: str = ""
+    category: str = ""
+
+
+@dataclass
+class InterrogationDimension:
+    """Legacy dimension shape used by start() API."""
+
+    name: str
+    description: str
+    vagueness_score: float
+
+
+@dataclass
+class InterrogationQuestion:
+    """Legacy question shape used by start()/answer() APIs."""
+
+    text: str
+    why: str
+    options: list[str] = field(default_factory=list)
+    context: str = ""
+    priority: int = 1
+    dimension_name: str = "interrogation"
+
+
+@dataclass
+class InterrogationState:
+    """Legacy mutable interrogation state used by handler/tests."""
+
+    prompt: str
+    dimensions: list[InterrogationDimension]
+    questions: list[InterrogationQuestion]
+    answers: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def unanswered(self) -> list[InterrogationQuestion]:
+        return [q for q in self.questions if q.text not in self.answers]
+
+    @property
+    def is_complete(self) -> bool:
+        return len(self.unanswered) == 0
 
 
 @dataclass
@@ -47,11 +89,11 @@ class InterrogationConfig:
     """Configuration for the interrogation engine."""
 
     max_questions: int = 7
-    min_priority: float = 0.3  # questions below this threshold are dropped
+    min_priority: float = 0.3
     skip_research: bool = False
-    skip_debate: bool = False  # if True, use single-agent question generation
-    debate_rounds: int = 2  # rounds of debate about question priority
-    autonomy: str = "propose_and_approve"  # or "fully_autonomous", "human_guided"
+    skip_debate: bool = False
+    debate_rounds: int = 2
+    autonomy: str = "propose_and_approve"
 
 
 @dataclass
@@ -59,19 +101,71 @@ class InterrogationResult:
     """Full result of an interrogation session."""
 
     original_prompt: str
-    dimensions: list[str]  # decomposed dimensions of the prompt
+    dimensions: list[str]
     research_summary: str
     prioritized_questions: list[PrioritizedQuestion]
-    crystallized_spec: CrystallizedSpec | None = None
-    debate_reasoning: str = ""  # why questions were ranked this way
+    crystallized_spec: CrystallizedSpec | Spec | None = None
+    debate_reasoning: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def spec(self) -> Spec:
+        """Legacy accessor expected by interrogation tests."""
+        if isinstance(self.crystallized_spec, Spec):
+            return self.crystallized_spec
 
-# Type alias for user interaction callback
+        if isinstance(self.crystallized_spec, CrystallizedSpec):
+            requirements = [
+                Requirement(
+                    description=item.description,
+                    level=_priority_to_level(item.priority),
+                    dimension="interrogation",
+                )
+                for item in self.crystallized_spec.requirements
+            ]
+            if not requirements:
+                requirements.append(
+                    Requirement(
+                        description="Define measurable implementation steps",
+                        level=RequirementLevel.MUST,
+                        dimension="interrogation",
+                    )
+                )
+            return Spec(
+                problem_statement=self.crystallized_spec.problem_statement or self.original_prompt,
+                requirements=requirements,
+                non_requirements=self.crystallized_spec.non_requirements,
+                success_criteria=self.crystallized_spec.success_criteria
+                or ["Specification is actionable"],
+                risks=[risk.get("risk", "") for risk in self.crystallized_spec.risks],
+                context_summary=self.research_summary,
+            )
+
+        return Spec(
+            problem_statement=self.original_prompt,
+            requirements=[
+                Requirement(
+                    description="Define measurable implementation steps",
+                    level=RequirementLevel.MUST,
+                    dimension="interrogation",
+                )
+            ],
+            success_criteria=["Specification is actionable"],
+        )
+
+
+def _priority_to_level(priority: str) -> RequirementLevel:
+    normalized = (priority or "must").strip().lower()
+    if normalized == "should":
+        return RequirementLevel.SHOULD
+    if normalized == "could":
+        return RequirementLevel.COULD
+    if normalized in {"wont", "won't"}:
+        return RequirementLevel.WONT
+    return RequirementLevel.MUST
+
+
 QuestionCallback = Callable[[list[PrioritizedQuestion]], Awaitable[list[PrioritizedQuestion]]]
-
-
-# ── Prompt Templates ──────────────────────────────────────────────
 
 
 DECOMPOSE_PROMPT = """Analyze this prompt and identify 3-7 concrete dimensions that need clarification.
@@ -150,18 +244,7 @@ SUMMARY: [2-3 paragraphs of relevant context]"""
 
 
 class InterrogationEngine:
-    """Orchestrates debate-driven prompt interrogation.
-
-    The engine's unique value is using multi-agent debate to prioritize
-    which clarifying questions matter most. This catches blind spots
-    that single-model question generation misses.
-
-    Args:
-        agents: List of agents for question generation and debate (2+ recommended)
-        crystallizer_agent: Agent for spec crystallization
-        config: Interrogation configuration
-        on_questions: Callback for user to answer questions
-    """
+    """Orchestrates debate-driven prompt interrogation."""
 
     def __init__(
         self,
@@ -169,21 +252,74 @@ class InterrogationEngine:
         crystallizer_agent: InterrogationAgent | None = None,
         config: InterrogationConfig | None = None,
         on_questions: QuestionCallback | None = None,
+        knowledge_mound: Any | None = None,
+        **_unused: Any,
     ):
         self.agents = agents or []
         self.crystallizer = Crystallizer(crystallizer_agent) if crystallizer_agent else None
         self.config = config or InterrogationConfig()
         self.on_questions = on_questions
+        self.knowledge_mound = knowledge_mound
+
+    async def start(self, prompt: str, sources: list[str] | None = None) -> InterrogationState:
+        """Legacy entrypoint preserved for handlers/tests."""
+        _ = sources  # reserved for future source-aware state initialization
+
+        if self.agents:
+            result = await self.interrogate(prompt)
+            dimensions = self._legacy_dimensions_from_result(result)
+            questions = self._legacy_questions_from_result(result)
+            if dimensions and questions:
+                return InterrogationState(prompt=prompt, dimensions=dimensions, questions=questions)
+
+        return self._fallback_state(prompt)
+
+    def answer(self, state: InterrogationState, question: str, answer: str) -> InterrogationState:
+        """Legacy answer mutator preserved for handlers/tests."""
+        state.answers[question] = answer
+        return state
+
+    async def crystallize(self, state: InterrogationState) -> InterrogationResult:
+        """Legacy crystallization API preserved for handlers/tests."""
+        crystallized: CrystallizedSpec | Spec | None = None
+
+        if self.crystallizer and state.answers:
+            user_answers = "\n".join(f"Q: {q}\nA: {a}" for q, a in state.answers.items())
+            maybe_spec = self.crystallizer.crystallize(
+                prompt=state.prompt,
+                research_context="",
+                debate_conclusions="",
+                user_answers=user_answers,
+            )
+            crystallized = await maybe_spec if isawaitable(maybe_spec) else maybe_spec
+
+        if crystallized is None:
+            crystallized = self._fallback_spec_from_state(state)
+
+        prioritized = [
+            PrioritizedQuestion(
+                question=q.text,
+                why_it_matters=q.why,
+                priority_score=max(0.0, min(1.0, q.priority / 10.0)),
+                hidden_assumption=q.context,
+                options=q.options,
+                answer=state.answers.get(q.text, ""),
+                category=q.dimension_name,
+            )
+            for q in state.questions
+        ]
+
+        return InterrogationResult(
+            original_prompt=state.prompt,
+            dimensions=[f"{d.name}: {d.description}" for d in state.dimensions],
+            research_summary="",
+            prioritized_questions=prioritized,
+            crystallized_spec=crystallized,
+            metadata={"legacy_api": True, "answered": len(state.answers)},
+        )
 
     async def interrogate(self, prompt: str) -> InterrogationResult:
-        """Run the full interrogation pipeline on a prompt.
-
-        Args:
-            prompt: The user's vague or broad prompt
-
-        Returns:
-            InterrogationResult with prioritized questions and optional spec
-        """
+        """Run the full interrogation pipeline on a prompt."""
         logger.info("Starting interrogation for: %s", prompt[:100])
 
         if not self.agents:
@@ -197,47 +333,41 @@ class InterrogationEngine:
 
         primary_agent = self.agents[0]
 
-        # Stage 1: Decompose prompt into dimensions
         dimensions = await self._decompose(prompt, primary_agent)
         logger.info("Decomposed into %d dimensions", len(dimensions))
 
-        # Stage 2: Research context
         research_summary = ""
         if not self.config.skip_research:
             research_summary = await self._research(prompt, primary_agent)
 
-        # Stage 3: Generate candidate questions
         questions = await self._generate_questions(
             prompt, dimensions, research_summary, primary_agent
         )
         logger.info("Generated %d candidate questions", len(questions))
 
-        # Stage 4: Debate-prioritize questions (if multiple agents)
         debate_reasoning = ""
         if len(self.agents) >= 2 and not self.config.skip_debate:
             questions, debate_reasoning = await self._debate_priorities(prompt, questions)
             logger.info("Debate-ranked %d questions", len(questions))
 
-        # Filter by minimum priority
         questions = [q for q in questions if q.priority_score >= self.config.min_priority]
         questions = questions[: self.config.max_questions]
 
-        # Stage 5: Ask user (if callback provided)
         if self.on_questions and questions:
             questions = await self.on_questions(questions)
 
-        # Stage 6: Crystallize spec (if crystallizer available and answers exist)
-        spec = None
+        spec: CrystallizedSpec | Spec | None = None
         if self.crystallizer and any(q.answer for q in questions):
             user_answers = "\n".join(
                 f"Q: {q.question}\nA: {q.answer}" for q in questions if q.answer
             )
-            spec = await self.crystallizer.crystallize(
+            maybe_spec = self.crystallizer.crystallize(
                 prompt=prompt,
                 research_context=research_summary,
                 debate_conclusions=debate_reasoning,
                 user_answers=user_answers,
             )
+            spec = await maybe_spec if isawaitable(maybe_spec) else maybe_spec
 
         result = InterrogationResult(
             original_prompt=prompt,
@@ -260,17 +390,112 @@ class InterrogationEngine:
         )
         return result
 
-    # ── Internal Stages ───────────────────────────────────────────
+    def _fallback_state(self, prompt: str) -> InterrogationState:
+        text = prompt.lower()
+        if any(word in text for word in ("fast", "latency", "performance", "slow")):
+            name = "performance"
+            desc = "Clarify performance targets and tradeoffs"
+            question = "What performance metric matters most (latency, throughput, or both)?"
+        elif any(word in text for word in ("security", "auth", "safe")):
+            name = "security"
+            desc = "Clarify security requirements and constraints"
+            question = "Which security requirements are mandatory for this change?"
+        else:
+            name = "scope"
+            desc = "Clarify concrete outcome and boundaries"
+            question = "What concrete outcome should this deliver first?"
+
+        return InterrogationState(
+            prompt=prompt,
+            dimensions=[InterrogationDimension(name=name, description=desc, vagueness_score=0.7)],
+            questions=[
+                InterrogationQuestion(
+                    text=question,
+                    why="Different answers lead to different implementation plans.",
+                    options=["Minimum viable", "Balanced", "Comprehensive"],
+                    context="Assumes a technical implementation outcome.",
+                    priority=1,
+                    dimension_name=name,
+                )
+            ],
+        )
+
+    def _legacy_dimensions_from_result(
+        self,
+        result: InterrogationResult,
+    ) -> list[InterrogationDimension]:
+        dimensions: list[InterrogationDimension] = []
+        for item in result.dimensions:
+            if ":" in item:
+                name, desc = item.split(":", 1)
+                dimensions.append(
+                    InterrogationDimension(
+                        name=name.strip() or "scope",
+                        description=desc.strip() or item.strip(),
+                        vagueness_score=0.5,
+                    )
+                )
+            else:
+                dimensions.append(
+                    InterrogationDimension(
+                        name=item.strip() or "scope",
+                        description=item.strip() or "Clarify scope",
+                        vagueness_score=0.5,
+                    )
+                )
+        return dimensions
+
+    def _legacy_questions_from_result(
+        self,
+        result: InterrogationResult,
+    ) -> list[InterrogationQuestion]:
+        questions: list[InterrogationQuestion] = []
+        for q in result.prioritized_questions:
+            questions.append(
+                InterrogationQuestion(
+                    text=q.question,
+                    why=q.why_it_matters or "Clarifies implementation direction.",
+                    options=q.options or ["Yes", "No"],
+                    context=q.hidden_assumption,
+                    priority=max(1, min(10, int(round(q.priority_score * 10)))),
+                    dimension_name=q.category or "interrogation",
+                )
+            )
+        return questions
+
+    def _fallback_spec_from_state(self, state: InterrogationState) -> Spec:
+        requirements = [
+            Requirement(
+                description=f"{question}: {answer}",
+                level=RequirementLevel.MUST,
+                dimension="interrogation",
+            )
+            for question, answer in state.answers.items()
+        ]
+        if not requirements:
+            requirements.append(
+                Requirement(
+                    description="Define a measurable success outcome before execution",
+                    level=RequirementLevel.MUST,
+                    dimension="scope",
+                )
+            )
+
+        return Spec(
+            problem_statement=state.prompt,
+            requirements=requirements,
+            non_requirements=["Unscoped enhancements without explicit requirement"],
+            success_criteria=["User confirms the crystallized objective is accurate"],
+            risks=["Ambiguity in requirements can lead to rework"],
+            context_summary="Generated from interrogation answers.",
+        )
 
     async def _decompose(self, prompt: str, agent: InterrogationAgent) -> list[str]:
-        """Decompose prompt into concrete dimensions."""
         response = await agent.generate(DECOMPOSE_PROMPT.format(prompt=prompt))
         return self._parse_dimensions(response)
 
     async def _research(self, prompt: str, agent: InterrogationAgent) -> str:
-        """Gather research context for the prompt."""
         response = await agent.generate(RESEARCH_PROMPT.format(prompt=prompt))
-        # Extract summary if structured, otherwise use raw response
         import re
 
         match = re.search(r"SUMMARY:\s*(.+)", response, re.IGNORECASE | re.DOTALL)
@@ -283,7 +508,6 @@ class InterrogationEngine:
         research_context: str,
         agent: InterrogationAgent,
     ) -> list[PrioritizedQuestion]:
-        """Generate candidate clarifying questions."""
         dimensions_text = "\n".join(f"- {d}" for d in dimensions)
         response = await agent.generate(
             QUESTION_GEN_PROMPT.format(
@@ -299,11 +523,6 @@ class InterrogationEngine:
         prompt: str,
         questions: list[PrioritizedQuestion],
     ) -> tuple[list[PrioritizedQuestion], str]:
-        """Use multi-agent debate to prioritize questions.
-
-        Each agent ranks the questions by importance. The final priority
-        is the average rank across all agents, normalized to 0-1.
-        """
         questions_text = "\n".join(
             f"{i + 1}. {q.question} (why: {q.why_it_matters})" for i, q in enumerate(questions)
         )
@@ -324,25 +543,19 @@ class InterrogationEngine:
             if reasoning_match:
                 all_reasoning.append(reasoning_match.group(1).strip())
 
-        # Average rankings across agents → priority scores
         if all_rankings and questions:
             n = len(questions)
             for i, q in enumerate(questions):
                 ranks = [r[i] if i < len(r) else n for r in all_rankings]
                 avg_rank = sum(ranks) / len(ranks)
-                # Convert rank to score (rank 1 → score 1.0, rank n → score ~0)
                 q.priority_score = max(0.0, 1.0 - (avg_rank - 1) / max(n - 1, 1))
 
-            # Sort by priority
-            questions.sort(key=lambda q: q.priority_score, reverse=True)
+            questions.sort(key=lambda question: question.priority_score, reverse=True)
 
         debate_reasoning = " | ".join(all_reasoning) if all_reasoning else ""
         return questions, debate_reasoning
 
-    # ── Parsing ───────────────────────────────────────────────────
-
     def _parse_dimensions(self, text: str) -> list[str]:
-        """Parse decomposition output into dimension list."""
         import re
 
         dimensions = []
@@ -357,11 +570,9 @@ class InterrogationEngine:
         return dimensions
 
     def _parse_questions(self, text: str) -> list[PrioritizedQuestion]:
-        """Parse question generation output."""
         import re
 
         questions = []
-        # Split by QUESTION: markers
         blocks = re.split(r"(?=QUESTION:\s)", text, flags=re.IGNORECASE)
 
         for block in blocks:
@@ -385,17 +596,19 @@ class InterrogationEngine:
 
             options_match = re.search(r"OPTIONS:\s*(.+?)(?:\n|$)", block, re.IGNORECASE)
             if options_match:
-                options = [o.strip() for o in options_match.group(1).split(",") if o.strip()]
+                options = [
+                    option.strip() for option in options_match.group(1).split(",") if option.strip()
+                ]
 
-            cat_match = re.search(r"CATEGORY:\s*(.+?)(?:\n|$)", block, re.IGNORECASE)
-            if cat_match:
-                category = cat_match.group(1).strip().lower()
+            category_match = re.search(r"CATEGORY:\s*(.+?)(?:\n|$)", block, re.IGNORECASE)
+            if category_match:
+                category = category_match.group(1).strip().lower()
 
             questions.append(
                 PrioritizedQuestion(
                     question=question_text,
                     why_it_matters=why,
-                    priority_score=0.5,  # default, updated by debate
+                    priority_score=0.5,
                     hidden_assumption=assumption,
                     options=options,
                     category=category,
@@ -405,19 +618,15 @@ class InterrogationEngine:
         return questions
 
     def _parse_ranking(self, text: str, num_questions: int) -> list[int]:
-        """Parse debate ranking output into ordered list of question indices.
-
-        Returns a list where index i contains the rank assigned to question i+1.
-        """
         import re
 
-        ranks = [num_questions] * num_questions  # default: lowest rank
+        ranks = [num_questions] * num_questions
 
         pattern = re.compile(r"RANK\s+(\d+):\s*(?:question\s+)?(\d+)", re.IGNORECASE)
         for match in pattern.finditer(text):
             rank = int(match.group(1))
-            q_num = int(match.group(2))
-            if 1 <= q_num <= num_questions:
-                ranks[q_num - 1] = rank
+            question_number = int(match.group(2))
+            if 1 <= question_number <= num_questions:
+                ranks[question_number - 1] = rank
 
         return ranks
