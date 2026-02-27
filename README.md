@@ -26,22 +26,24 @@ Aragora orchestrates 43 agent types in structured adversarial debates -- forcing
 
 ## Try It Now
 
+**Option A -- One command, no API keys:**
+
 ```bash
-pip install aragora
-
-# Zero-config demo — runs a full adversarial debate, no API keys needed
-aragora demo
-
-# Or run the guided quickstart (opens receipt in your browser)
-aragora quickstart --demo
+pip install aragora && aragora demo
 ```
 
-**Or run with Docker (includes dashboard UI):**
+This runs a full adversarial debate with mock agents and opens a decision receipt in your browser.
+
+**Option B -- Docker (includes dashboard UI):**
 
 ```bash
 docker compose -f deploy/demo/docker-compose.yml up
-# Open http://localhost:3000
+# Open http://localhost:3000 — try any question in the playground
 ```
+
+**Option C -- Live playground:**
+
+Visit the deployed instance and type any question. Three AI agents will debate it, critique each other, vote, and produce a shareable decision receipt.
 
 <details>
 <summary>What you'll see (click to expand)</summary>
@@ -147,7 +149,7 @@ Aragora is useful to a 5-person startup on day one and scales to regulated enter
 
 ### 2. Leading-Edge Memory and Context
 
-Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 0 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
+Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 34 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
 
 ### 3. Extensible and Modular
 
@@ -297,7 +299,7 @@ aragora/
 │   ├── cli_agents.py     # Claude Code, Codex, Gemini CLI, Grok CLI
 │   └── fallback.py       # OpenRouter fallback on quota errors
 ├── gauntlet/       # Adversarial stress testing
-├── knowledge/      # Knowledge Mound with 0 registered adapters
+├── knowledge/      # Knowledge Mound with 34 registered adapters
 ├── memory/         # 4-tier memory (fast/medium/slow/glacial)
 ├── server/         # 3,000+ API operations, 260+ WebSocket event types
 ├── pipeline/       # Decision-to-PR generation
