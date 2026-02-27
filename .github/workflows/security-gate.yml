@@ -30,7 +30,7 @@ jobs:
   python-security:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Python Security Scan
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -91,7 +91,7 @@ jobs:
   npm-security:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: npm Security Scan
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -162,7 +162,7 @@ jobs:
 
   security-summary:
     name: Security Gate Summary
-    runs-on: ubuntu-latest
+    runs-on: aragora
     needs: [python-security, npm-security]
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always())
     timeout-minutes: 2

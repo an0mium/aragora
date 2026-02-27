@@ -18,7 +18,7 @@ concurrency:
 jobs:
   gauntlet:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 30
     permissions:
       contents: read
