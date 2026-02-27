@@ -272,9 +272,9 @@ jobs:
           category: 'trivy-operator'
 
   integration-test:
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
     needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
 
     steps:
       - name: Checkout

@@ -231,11 +231,11 @@ jobs:
           retention-days: 7
 
   visual-regression:
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && ((github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')) }}
     name: Visual Regression Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: e2e
-    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
 
     steps:
       - name: Checkout

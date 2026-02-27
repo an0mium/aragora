@@ -6,6 +6,7 @@ name: "Integration Gate"
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/**'
@@ -102,10 +103,10 @@ jobs:
           PYTHONPATH: .
 
   frontend-build:
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && ((github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'workflow_call')) }}
     name: Frontend Build
     runs-on: ubuntu-latest
     timeout-minutes: 12
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'workflow_call')
 
     steps:
       - name: Checkout
@@ -217,10 +218,10 @@ jobs:
           echo "Version alignment check passed"
 
   integration-summary:
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && ((github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always())) }}
     name: Integration Gate Summary
     runs-on: ubuntu-latest
     needs: [smoke-tests, api-contract-sync, status-doc-validation, frontend-build]
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always())
     timeout-minutes: 2
 
     steps:

@@ -12,6 +12,7 @@ on:
       - 'tests/e2e/test_new_features_e2e.py'
       - '.github/workflows/new-features.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/server/handlers/marketplace.py'
@@ -220,10 +221,10 @@ jobs:
           echo "All required endpoints present in OpenAPI spec"
 
   summary:
+    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && ((github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always())) }}
     name: Summary
     needs: [test-migrations, test-workers, test-api-endpoints, test-metrics, validate-openapi]
     runs-on: ubuntu-latest
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always())
 
     steps:
       - name: Generate summary

@@ -14,6 +14,7 @@ on:
       - 'security/pentest/findings.json'
       - '.github/workflows/security.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/**'
