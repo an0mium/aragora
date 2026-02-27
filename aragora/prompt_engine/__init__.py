@@ -1,10 +1,7 @@
-"""Prompt-to-Spec Engine.
+"""Prompt Engine: Transforms vague prompts into validated specifications.
 
-Transforms vague user prompts into structured specifications through:
-1. Decomposition - classify intent, detect ambiguities
-2. Interrogation - generate clarifying questions
-3. Research - investigate current state and context
-4. Specification - produce formal implementation spec
+Coordinates decomposition, interrogation, research, and specification building
+into a single coherent flow with configurable autonomy levels.
 
 Usage:
     from aragora.prompt_engine import PromptConductor
@@ -26,6 +23,7 @@ from aragora.prompt_engine.spec_builder import SpecBuilder
 from aragora.prompt_engine.types import (
     PROFILE_DEFAULTS,
     Ambiguity,
+    AmbiguityLevel,
     Assumption,
     AutonomyLevel,
     ClarifyingQuestion,
@@ -35,17 +33,20 @@ from aragora.prompt_engine.types import (
     PromptIntent,
     QuestionOption,
     ResearchReport,
+    RiskItem,
     ScopeEstimate,
     SpecFile,
     SpecProvenance,
     SpecRisk,
     Specification,
+    SpecificationStatus,
     SuccessCriterion,
     UserProfile,
 )
 
 __all__ = [
     "Ambiguity",
+    "AmbiguityLevel",
     "Assumption",
     "AutonomyLevel",
     "ClarifyingQuestion",
@@ -62,12 +63,14 @@ __all__ = [
     "PromptResearcher",
     "QuestionOption",
     "ResearchReport",
+    "RiskItem",
     "ScopeEstimate",
     "SpecBuilder",
     "SpecFile",
     "SpecProvenance",
     "SpecRisk",
     "Specification",
+    "SpecificationStatus",
     "SuccessCriterion",
     "UserProfile",
 ]
