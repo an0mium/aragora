@@ -46,6 +46,7 @@ permissions:
 
 jobs:
   benchmark:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Performance Benchmarks
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -118,7 +119,7 @@ jobs:
     name: Orchestration Speed Smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
 
     steps:
       - name: Checkout
@@ -146,7 +147,7 @@ jobs:
     name: Performance Regression Check
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: github.event_name == 'pull_request'
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name == 'pull_request')
 
     steps:
       - name: Checkout PR
@@ -257,7 +258,7 @@ jobs:
     name: Baseline Comparison
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
 
     steps:
       - name: Checkout

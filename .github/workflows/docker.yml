@@ -39,6 +39,7 @@ env:
 
 jobs:
   build-backend:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -116,6 +117,7 @@ jobs:
           category: 'trivy-backend'
 
   build-frontend:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -192,6 +194,7 @@ jobs:
           category: 'trivy-frontend'
 
   build-operator:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -270,7 +273,7 @@ jobs:
   integration-test:
     needs: [build-backend, build-frontend]
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
 
     steps:
       - name: Checkout

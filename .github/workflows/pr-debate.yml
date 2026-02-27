@@ -19,12 +19,16 @@ permissions:
   contents: read
   pull-requests: write
 
+concurrency:
+  group: pr-debate-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   review:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Skip if PR is from a fork (no access to secrets)
-    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch'
+    # Skip if PR is from a fork (no access to secrets), or if PR is a draft
+    if: (github.event_name != 'pull_request_target' || !github.event.pull_request.draft) && (github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch')
 
     steps:
       # SECURITY: Checkout the BASE branch (trusted code), NOT the PR branch.

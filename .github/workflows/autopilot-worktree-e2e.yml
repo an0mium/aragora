@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   scope:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Autopilot Scope
     runs-on: ubuntu-latest
     outputs:
@@ -52,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: scope
-    if: github.event_name != 'pull_request' || needs.scope.outputs.run_autopilot == 'true'
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || needs.scope.outputs.run_autopilot == 'true')
 
     steps:
       - name: Checkout
