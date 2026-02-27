@@ -21,7 +21,9 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Cancel non-required workflow runs for this PR head
+      - name: Inspect non-required workflow runs for this PR head
+        env:
+          ARAGORA_CANCEL_NON_REQUIRED_RUNS: "0"
         uses: actions/github-script@v7
         with:
           script: |
@@ -35,6 +37,13 @@ jobs:
 
             const sweeps = 4;
             const sweepDelayMs = 10000;
+            const allowCancel = process.env.ARAGORA_CANCEL_NON_REQUIRED_RUNS === '1';
+
+            if (!allowCancel) {
+              core.info(
+                'Run cancellation is disabled to avoid merge-queue ALLGREEN deadlocks; monitoring only.'
+              );
+            }
 
             // Required checks are currently produced by these workflows.
             // Keep this list in sync with branch protection required contexts.
@@ -175,6 +184,11 @@ jobs:
                 // a required status context, keep it.
                 const hasRequiredContext = await runHasRequiredContext(run);
                 if (hasRequiredContext) continue;
+
+                if (!allowCancel) {
+                  core.info(`Would cancel run ${run.id} (${run.name}) [disabled]`);
+                  continue;
+                }
 
                 try {
                   await github.rest.actions.cancelWorkflowRun({
