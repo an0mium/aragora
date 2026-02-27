@@ -45,7 +45,6 @@ concurrency:
 
 jobs:
   scope:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: OpenAPI Scope
     runs-on: ubuntu-latest
     outputs:
