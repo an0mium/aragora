@@ -7,6 +7,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pathlib import Path
+
+from aragora.harnesses.base import AnalysisType
 from aragora.swarm.spec import SwarmSpec
 
 logger = logging.getLogger(__name__)
