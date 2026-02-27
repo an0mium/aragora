@@ -80,7 +80,7 @@ jobs:
 
   generate:
     name: Generate & Validate
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     needs: scope
     if: github.event_name != 'pull_request' || needs.scope.outputs.run_openapi == 'true'

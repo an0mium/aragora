@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   sdk-parity:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 12
 
     steps:
