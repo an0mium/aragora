@@ -1153,6 +1153,9 @@ class PostDebateCoordinator:
         except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.warning("LLM judge evaluation failed: %s", e)
             return None
+        except Exception as e:  # noqa: BLE001 - optional post-debate step must not crash debate
+            logger.warning("LLM judge evaluation failed (unexpected): %s: %s", type(e).__name__, e)
+            return None
 
     @staticmethod
     def _build_cartographer_data(debate_result: Any) -> dict[str, Any]:

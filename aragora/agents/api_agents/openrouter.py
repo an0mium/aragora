@@ -2,10 +2,13 @@
 OpenRouter agent and provider-specific subclasses.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
 from collections.abc import AsyncGenerator
+from typing import Any
 
 import aiohttp
 
@@ -113,6 +116,8 @@ class OpenRouterAgent(APIAgent):
         temperature: float | None = None,
         top_p: float | None = None,
         max_tokens: int | None = None,
+        enable_fallback: bool | None = None,
+        **_kwargs: Any,
     ) -> None:
         super().__init__(
             name=name,

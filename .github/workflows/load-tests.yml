@@ -7,6 +7,7 @@ on:
       - 'aragora/**'
       - 'tests/load/**'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/**'
@@ -43,6 +44,7 @@ permissions:
 
 jobs:
   load-test:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Load Test Suite
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -406,6 +408,7 @@ jobs:
           fi
 
   memory-stress:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Memory Stress Test
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test test-e2e lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain worktree-maintainer-install worktree-maintainer-uninstall worktree-maintainer-status codex-session branch-start pr-open
+.PHONY: help install dev test test-e2e lint format typecheck check check-all ci guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop quickstart quickstart-live worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain worktree-maintainer-install worktree-maintainer-uninstall worktree-maintainer-status codex-session branch-start pr-open
 
 # Default target
 help:
@@ -38,6 +38,8 @@ help:
 	@echo "  make demo         Launch full-stack demo locally (backend + frontend)"
 	@echo "  make demo-docker  Launch demo via Docker Compose"
 	@echo "  make demo-stop    Stop running demo"
+	@echo "  make quickstart   Docker quickstart (mock agents, zero config)"
+	@echo "  make quickstart-live Docker quickstart with real agents (needs .env)"
 	@echo ""
 	@echo "Development:"
 	@echo "  make serve        Start development server"
@@ -150,6 +152,12 @@ demo-docker:
 
 demo-stop:
 	@bash scripts/demo.sh --stop
+
+quickstart:
+	docker compose -f docker-compose.quickstart.yml up --build
+
+quickstart-live:
+	docker compose -f docker-compose.simple.yml up --build
 
 # Development
 serve:

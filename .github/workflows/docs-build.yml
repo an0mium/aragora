@@ -25,11 +25,16 @@ on:
       - 'docs-site/scripts/sync-docs.js'
       - '.github/workflows/docs-build.yml'
 
+concurrency:
+  group: docs-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '20'
 
 jobs:
   build:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
 
     steps:

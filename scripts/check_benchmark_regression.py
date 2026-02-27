@@ -95,6 +95,16 @@ def compare_benchmarks(
 
         change_pct = ((current_mean - baseline_mean) / baseline_mean) * 100
 
+        # Skip noise: sub-microsecond benchmarks have high variance from
+        # CPU scheduling; ignore regressions where absolute delta < 0.01ms.
+        abs_delta_ms = (current_mean - baseline_mean) * 1000
+        if change_pct > threshold_pct and abs_delta_ms < 0.01:
+            unchanged.append(
+                f"  OK (noise)  {name}: {change_pct:+.1f}% "
+                f"(delta {abs_delta_ms:.4f}ms < 0.01ms floor)"
+            )
+            continue
+
         if change_pct > threshold_pct:
             regressions.append(
                 f"  REGRESSION  {name}: {baseline_mean * 1000:.3f}ms -> "
