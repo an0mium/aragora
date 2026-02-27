@@ -498,7 +498,7 @@ class ComplianceMonitor:
                     else {},
                 },
             )
-        except (ImportError, RuntimeError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug("Compliance event emission unavailable: %s", e)
 
     def _emit_compliance_event(self, alert_type: str, severity: str, data: dict[str, Any]) -> None:

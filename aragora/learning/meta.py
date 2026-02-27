@@ -449,7 +449,7 @@ class MetaLearner(SQLiteStore):
                     "cycles_evaluated": metrics.cycles_evaluated,
                 },
             )
-        except (ImportError, RuntimeError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug("Meta-learning event emission unavailable: %s", e)
 
     def _clamp_hyperparameters(self):

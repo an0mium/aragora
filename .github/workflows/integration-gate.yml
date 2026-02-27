@@ -131,6 +131,14 @@ jobs:
       # ---------------------------------------------------------------
       # SDK contract parity (Python vs TypeScript)
       # ---------------------------------------------------------------
+      - name: Set up Python for SDK parity check
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install parity test deps
+        run: pip install pytest pytest-timeout
+
       - name: "BLOCKING: SDK contract parity"
         run: |
           pytest tests/sdk/test_contract_parity.py -q --timeout=60 --tb=short
