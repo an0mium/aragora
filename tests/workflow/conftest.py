@@ -447,3 +447,33 @@ def relaxed_limits():
         timeout_seconds=3600.0,
         max_api_calls=10000,
     )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_notification_tokens(monkeypatch):
+    """Remove real Slack tokens to prevent external API calls."""
+    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _mock_gauntlet_runner(monkeypatch):
+    """Prevent GauntletRunner from making real API calls."""
+    try:
+        from aragora.gauntlet.result import AttackSummary, ProbeSummary, ScenarioSummary
+        from aragora.gauntlet.runner import GauntletRunner
+
+        async def _noop_red_team(self, *a, **kw):
+            return AttackSummary()
+
+        async def _noop_probes(self, *a, **kw):
+            return ProbeSummary()
+
+        async def _noop_scenarios(self, *a, **kw):
+            return ScenarioSummary()
+
+        monkeypatch.setattr(GauntletRunner, "_run_red_team", _noop_red_team)
+        monkeypatch.setattr(GauntletRunner, "_run_probes", _noop_probes)
+        monkeypatch.setattr(GauntletRunner, "_run_scenarios", _noop_scenarios)
+    except (ImportError, AttributeError):
+        pass

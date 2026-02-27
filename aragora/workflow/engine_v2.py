@@ -329,7 +329,9 @@ class EnhancedWorkflowEngine(WorkflowEngine):
             limits_exceeded = True
             # Extract resource type from error message
             err_lower = str(e).lower()
-            if "token" in err_lower:
+            if "time" in err_lower:
+                limit_exceeded_type = ResourceType.TIME
+            elif "token" in err_lower:
                 limit_exceeded_type = ResourceType.TOKENS
             elif "cost" in err_lower:
                 limit_exceeded_type = ResourceType.COST

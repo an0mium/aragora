@@ -1837,6 +1837,11 @@ class PlaygroundHandler(BaseHandler):
         except (ValueError, RuntimeError, OSError) as e:
             logger.warning("Live playground debate failed: %s", e)
             return error_response("Live debate failed", 500)
+        except Exception as e:  # noqa: BLE001 - playground must never crash with raw errors
+            logger.warning(
+                "Live playground debate failed (unexpected): %s: %s", type(e).__name__, e
+            )
+            return error_response("Live debate temporarily unavailable", 503)
 
         # Build response in the same shape as mock debates
         response = {
@@ -1969,18 +1974,48 @@ def start_playground_debate(
 
             result = asyncio.run(_run_arena())
 
-            # Extract key fields
+            # Extract key fields, filtering out error stubs from ChaosTheater
+            _ERROR_MARKERS = (
+                "[System:",
+                "wild bug appeared",
+                "cognitive hiccup",
+                "handling it",
+                "FATAL EXCEPTION",
+                "brain.exe",
+                "is a teapot",
+                "thinking credits",
+                "QUOTA POLICE",
+                "NaN stares back",
+            )
+
+            def _is_real_proposal(text: str) -> bool:
+                """Return False for ChaosTheater/error stub responses."""
+                if not text or len(text) < 80:
+                    return False
+                return not any(marker in text for marker in _ERROR_MARKERS)
+
+            raw_proposals = result.proposals or {}
+            proposals = {
+                agent: text
+                for agent, text in (
+                    raw_proposals.items()
+                    if isinstance(raw_proposals, dict)
+                    else enumerate(raw_proposals)
+                )
+                if _is_real_proposal(str(text))
+            }
+
             return {
-                "status": result.status,
+                "status": result.status if proposals else "degraded",
                 "rounds_used": result.rounds_used,
-                "consensus_reached": result.consensus_reached,
-                "confidence": result.confidence,
+                "consensus_reached": result.consensus_reached if proposals else False,
+                "confidence": result.confidence if proposals else 0.0,
                 "verdict": result.verdict.value
                 if hasattr(result, "verdict") and result.verdict
                 else None,
                 "duration_seconds": result.duration_seconds,
                 "participants": result.participants,
-                "proposals": result.proposals,
+                "proposals": proposals,
                 "critiques": [
                     {
                         "agent": c.agent,
@@ -2007,7 +2042,13 @@ def start_playground_debate(
                 "dissenting_views": result.dissenting_views
                 if hasattr(result, "dissenting_views")
                 else [],
-                "final_answer": result.final_answer,
+                "final_answer": result.final_answer
+                if _is_real_proposal(str(result.final_answer or ""))
+                else (
+                    "Agents were unable to reach a conclusion. "
+                    "Please try again — this may happen when API providers "
+                    "are temporarily unavailable."
+                ),
             }
         except asyncio.TimeoutError:
             raise TimeoutError(f"Debate timed out after {timeout}s")

@@ -281,12 +281,16 @@ class TestPipelineQuerying:
         assert data["edges"] == []
 
     def test_get_pipeline_receipt_no_receipt(self, client, mock_pipeline_store):
-        """Receipt endpoint returns has_receipt=False when unavailable."""
+        """Receipt endpoint returns has_receipt=False when generator unavailable."""
         mock_pipeline_store["pipe-r"] = {
             "pipeline_id": "pipe-r",
             "stage_status": {},
         }
-        resp = client.get("/api/v2/canvas/pipeline/pipe-r/receipt")
+        with patch(
+            "aragora.pipeline.receipt_generator.generate_pipeline_receipt",
+            side_effect=ValueError("incomplete pipeline data"),
+        ):
+            resp = client.get("/api/v2/canvas/pipeline/pipe-r/receipt")
         assert resp.status_code == 200
         data = resp.json()
         assert data["has_receipt"] is False

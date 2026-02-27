@@ -30,6 +30,7 @@ concurrency:
 
 jobs:
   generate-typescript-types:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -92,6 +93,7 @@ jobs:
           retention-days: 7
 
   validate-typescript:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     needs: generate-typescript-types
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -128,8 +130,9 @@ jobs:
   # Standalone validation for direct SDK source changes (no generation needed)
   validate-sdk-source:
     if: |
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'push' && !contains(github.event.head_commit.modified, 'docs/api/openapi'))
+      (github.event_name != 'pull_request' || !github.event.pull_request.draft) &&
+      (github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && !contains(github.event.head_commit.modified, 'docs/api/openapi')))
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
