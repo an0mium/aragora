@@ -20,6 +20,11 @@ from aragora.prompt_engine.decomposer import PromptDecomposer
 from aragora.prompt_engine.interrogator import PromptInterrogator
 from aragora.prompt_engine.researcher import PromptResearcher
 from aragora.prompt_engine.spec_builder import SpecBuilder
+from aragora.prompt_engine.spec_validator import (
+    SpecValidator,
+    ValidationResult,
+    ValidatorRole,
+)
 from aragora.prompt_engine.types import (
     PROFILE_DEFAULTS,
     Ambiguity,
@@ -66,6 +71,7 @@ __all__ = [
     "RiskItem",
     "ScopeEstimate",
     "SpecBuilder",
+    "SpecValidator",
     "SpecFile",
     "SpecProvenance",
     "SpecRisk",
@@ -73,4 +79,6 @@ __all__ = [
     "SpecificationStatus",
     "SuccessCriterion",
     "UserProfile",
+    "ValidationResult",
+    "ValidatorRole",
 ]
