@@ -25,22 +25,51 @@ export async function generateMetadata(
     };
   }
 
-  // Keep metadata server-safe and avoid client-only dependencies.
-  const shortId = debateId.slice(0, 12);
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://api.aragora.ai';
+  let topic = `Debate ${debateId.slice(0, 12)}`;
+  let verdict = '';
+  let confidence = 0;
+  let participantCount = 0;
+
+  try {
+    const res = await fetch(`${apiBase}/api/v1/debates/${debateId}`, {
+      next: { revalidate: 3600 },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      topic = data.topic || data.question || topic;
+      verdict = data.verdict?.replace(/_/g, ' ') || '';
+      confidence = Math.round((data.confidence || 0) * 100);
+      participantCount = data.participants?.length || 0;
+    }
+  } catch {
+    // Use defaults
+  }
+
+  const truncatedTopic = topic.length > 70 ? topic.slice(0, 67) + '...' : topic;
+  const description = [
+    verdict && `Verdict: ${verdict}`,
+    confidence && `${confidence}% confidence`,
+    participantCount && `${participantCount} AI analysts`,
+  ].filter(Boolean).join(' | ') || 'ARAGORA debate analysis';
+
+  const ogImageUrl = `/api/og/${debateId}`;
 
   return {
-    title: `Debate ${shortId} | ARAGORA`,
-    description: `Watch debate ${shortId} and follow agent reasoning in real-time.`,
+    title: `ARAGORA | ${truncatedTopic}`,
+    description,
     openGraph: {
-      title: `Debate ${shortId}`,
-      description: `ARAGORA live debate stream for ${shortId}.`,
+      title: truncatedTopic,
+      description,
       type: 'website',
       siteName: 'ARAGORA // LIVE',
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `ARAGORA verdict: ${truncatedTopic}` }],
     },
     twitter: {
-      card: 'summary',
-      title: `Debate ${shortId}`,
-      description: `ARAGORA debate ${shortId}`,
+      card: 'summary_large_image',
+      title: `ARAGORA | ${truncatedTopic}`,
+      description,
+      images: [ogImageUrl],
     },
   };
 }
