@@ -31,8 +31,8 @@ class TestMistralAgentInitialization:
         assert agent.role == "proposer"
         assert agent.timeout == 180  # Increased timeout for Mistral
         assert agent.agent_type == "mistral"
-        # Fallback is opt-in by default (requires ARAGORA_OPENROUTER_FALLBACK_ENABLED=true)
-        assert agent.enable_fallback is False
+        # Fallback is enabled by default for graceful degradation
+        assert agent.enable_fallback is True
         assert "api.mistral.ai" in agent.base_url
 
     def test_init_with_custom_config(self, mock_env_with_api_keys):
@@ -93,8 +93,8 @@ class TestCodestralAgentInitialization:
         assert agent.name == "codestral"
         assert agent.model == "codestral-latest"
         assert agent.agent_type == "codestral"
-        # Fallback is opt-in by default (requires ARAGORA_OPENROUTER_FALLBACK_ENABLED=true)
-        assert agent.enable_fallback is False
+        # Fallback is enabled by default for graceful degradation
+        assert agent.enable_fallback is True
 
     def test_init_with_custom_config(self, mock_env_with_api_keys):
         """Should initialize with custom configuration."""

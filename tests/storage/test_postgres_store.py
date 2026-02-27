@@ -170,14 +170,15 @@ class TestGetPostgresPool:
         module._pool = None
 
         with patch.dict("os.environ", {}, clear=True):
-            with patch.object(module, "asyncpg", MagicMock()) as mock_asyncpg:
-                mock_asyncpg.create_pool = AsyncMock()
+            with patch("aragora.config.secrets.get_secret", return_value=None):
+                with patch.object(module, "asyncpg", MagicMock()) as mock_asyncpg:
+                    mock_asyncpg.create_pool = AsyncMock()
 
-                try:
-                    with pytest.raises(RuntimeError, match="DSN not configured"):
-                        await get_postgres_pool(dsn=None)
-                finally:
-                    module._pool = original_pool
+                    try:
+                        with pytest.raises(RuntimeError, match="DSN not configured"):
+                            await get_postgres_pool(dsn=None)
+                    finally:
+                        module._pool = original_pool
 
     @pytest.mark.asyncio
     async def test_uses_env_var_for_dsn(self, mock_asyncpg_available):

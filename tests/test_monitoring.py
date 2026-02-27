@@ -235,25 +235,31 @@ class TestRecordLoopIdIssue:
         with patch.object(observer.logger, "info") as mock_log:
             observer.record_loop_id_issue("ws-123", True, "client")
             mock_log.assert_called_once()
-            log_msg = mock_log.call_args[0][0]
-            assert "present" in log_msg
-            assert "ws-123" in log_msg
+            # Logger uses %s formatting: "Loop ID %s for %s from %s"
+            log_args = mock_log.call_args[0]
+            formatted = log_args[0] % log_args[1:]
+            assert "present" in formatted
+            assert "ws-123" in formatted
 
     def test_logs_missing_loop_id(self, observer):
         """Should log when loop_id is missing."""
         with patch.object(observer.logger, "info") as mock_log:
             observer.record_loop_id_issue("ws-456", False, "server")
             mock_log.assert_called_once()
-            log_msg = mock_log.call_args[0][0]
-            assert "missing" in log_msg
-            assert "ws-456" in log_msg
+            # Logger uses %s formatting: "Loop ID %s for %s from %s"
+            log_args = mock_log.call_args[0]
+            formatted = log_args[0] % log_args[1:]
+            assert "missing" in formatted
+            assert "ws-456" in formatted
 
     def test_logs_source(self, observer):
         """Should log the source of the issue."""
         with patch.object(observer.logger, "info") as mock_log:
             observer.record_loop_id_issue("ws-789", True, "middleware")
             mock_log.assert_called_once()
-            assert "middleware" in mock_log.call_args[0][0]
+            log_args = mock_log.call_args[0]
+            formatted = log_args[0] % log_args[1:]
+            assert "middleware" in formatted
 
 
 # =============================================================================

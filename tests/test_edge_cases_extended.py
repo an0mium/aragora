@@ -705,12 +705,12 @@ class TestOpenRouterFallbackIntegration:
     """Test OpenRouter fallback integration."""
 
     def test_fallback_enabled_by_default(self):
-        """Test that fallback is disabled by default in CLI agents (opt-in via ARAGORA_OPENROUTER_FALLBACK_ENABLED)."""
+        """Test that fallback is enabled by default for graceful degradation."""
         from aragora.agents.cli_agents import ClaudeAgent
 
         # Create agent without explicit enable_fallback (uses concrete subclass)
         agent = ClaudeAgent(name="test", model="claude")
-        assert agent.enable_fallback is False
+        assert agent.enable_fallback is True
 
     def test_fallback_can_be_enabled(self):
         """Test that fallback can be explicitly enabled."""

@@ -678,14 +678,19 @@ class TestConfigureFromEnv:
 
     def test_configure_from_env_origins(self):
         """Should load allowed origins from environment."""
+        from aragora.server.cors_config import CORSConfig
+
         with patch.dict(
             os.environ,
             {"ARAGORA_ALLOWED_ORIGINS": "http://localhost:3000, https://example.com"},
         ):
-            config = AuthConfig()
-            config.configure_from_env()
-            assert "http://localhost:3000" in config.allowed_origins
-            assert "https://example.com" in config.allowed_origins
+            # Re-create CORSConfig so it reads the patched env var
+            fresh_cors = CORSConfig()
+            with patch("aragora.server.auth.cors_config", fresh_cors):
+                config = AuthConfig()
+                config.configure_from_env()
+                assert "http://localhost:3000" in config.allowed_origins
+                assert "https://example.com" in config.allowed_origins
 
 
 # =============================================================================

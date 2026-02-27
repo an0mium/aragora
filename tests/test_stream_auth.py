@@ -519,6 +519,9 @@ class TestErrorEventHandling:
         client1 = AsyncMock()
         client2 = AsyncMock()
         server.clients = {client1, client2}
+        # Register clients as subscribed to the event's loop_id
+        server._client_subscriptions[id(client1)] = "test_loop"
+        server._client_subscriptions[id(client2)] = "test_loop"
 
         error_event = StreamEvent(
             type=StreamEventType.ERROR, data={"error": "Debate failed"}, loop_id="test_loop"
