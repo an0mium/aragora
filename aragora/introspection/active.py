@@ -321,7 +321,11 @@ class ActiveIntrospectionTracker:
                     "total_critiques": summary.total_critiques,
                 },
             )
-        except (ImportError, RuntimeError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001
+            # Broad catch: event emission is optional and must never disrupt
+            # the debate flow. asyncpg InterfaceError / ConnectionDoesNotExistError
+            # can surface when webhook store initialization races with event
+            # loop teardown in tests.
             logger.debug("Introspection event emission unavailable: %s", e)
 
     def get_summary(self, agent_name: str) -> AgentPerformanceSummary | None:

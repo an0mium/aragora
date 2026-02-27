@@ -243,7 +243,7 @@ class HealthChecker:
                     "last_error": last_error or "",
                 },
             )
-        except (ImportError, RuntimeError, AttributeError) as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.debug("Health event emission unavailable: %s", exc)
 
     def get_status(self) -> ComponentHealthStatus:
