@@ -117,6 +117,53 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
         self._fallback_agent = None  # Cached by QuotaFallbackMixin
         self.enable_web_search = True  # Enable web search tool by default
 
+    @staticmethod
+    def _parse_content_blocks(
+        content_blocks: list[dict[str, Any]],
+    ) -> tuple[str, str | None]:
+        """Separate text and thinking blocks from API response content.
+
+        Args:
+            content_blocks: List of content block dicts from the Anthropic API response.
+
+        Returns:
+            Tuple of (text_content, thinking_content_or_none).
+            Multiple text blocks are joined with ``\\n``.
+            Multiple thinking blocks are joined with ``\\n\\n``.
+        """
+        text_parts: list[str] = []
+        thinking_parts: list[str] = []
+
+        for block in content_blocks:
+            block_type = block.get("type")
+            if block_type == "thinking":
+                thinking_parts.append(block.get("thinking", ""))
+            elif block_type == "text":
+                text_parts.append(block.get("text", ""))
+            elif block_type == "web_search_tool_result":
+                search_results = block.get("content", [])
+                for result in search_results:
+                    if result.get("type") == "web_search_result":
+                        title = result.get("title", "")
+                        url = result.get("url", "")
+                        if title and url:
+                            text_parts.append(f"\n[Source: {title}]({url})")
+
+        text_content = "\n".join(text_parts)
+        thinking_content = "\n\n".join(thinking_parts) if thinking_parts else None
+        return text_content, thinking_content
+
+    def get_metadata(self) -> dict[str, Any]:
+        """Return metadata about the last generation, including thinking trace.
+
+        Returns:
+            Dict with ``thinking`` (str or None) and ``thinking_budget`` (int or None).
+        """
+        return {
+            "thinking": self._last_thinking_trace,
+            "thinking_budget": self.thinking_budget,
+        }
+
     def _needs_web_search(self, prompt: str) -> bool:
         """Detect if the prompt would benefit from web search.
 
@@ -313,27 +360,12 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
                     )
 
                     try:
-                        # Extract text from response content blocks
-                        # May include multiple blocks: text, web_search_tool_result, etc.
+                        # Extract text and thinking from response content blocks
                         content_blocks = data.get("content", [])
-                        text_parts = []
-                        for block in content_blocks:
-                            if block.get("type") == "text":
-                                text_parts.append(block.get("text", ""))
-                            elif block.get("type") == "web_search_tool_result":
-                                # Include web search citations in response
-                                search_results = block.get("content", [])
-                                for result in search_results:
-                                    if result.get("type") == "web_search_result":
-                                        # Format as a citation
-                                        title = result.get("title", "")
-                                        url = result.get("url", "")
-                                        if title and url:
-                                            text_parts.append(f"\n[Source: {title}]({url})")
+                        output, thinking = self._parse_content_blocks(content_blocks)
+                        self._last_thinking_trace = thinking
 
-                        if text_parts:
-                            output = "\n".join(text_parts)
-                        else:
+                        if not output:
                             # Fallback to old format
                             output = data["content"][0]["text"]
 
