@@ -447,10 +447,10 @@ class ProverEstimatorEngine:
             text_content = match.group(2).strip()
             importance = float(match.group(3).strip())
             evidence = match.group(4).strip()
-            depends_raw = match.group(5).strip().lower()
+            depends_raw = match.group(5).strip()
 
             depends_on = []
-            if depends_raw != "none" and depends_raw:
+            if depends_raw.lower() != "none" and depends_raw:
                 depends_on = [d.strip() for d in depends_raw.split(",") if d.strip()]
 
             subclaims.append(
