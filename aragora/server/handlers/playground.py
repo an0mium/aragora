@@ -111,6 +111,28 @@ def _reset_rate_limits() -> None:
     _live_request_timestamps.clear()
 
 
+def _persist_playground_debate(response: dict) -> str | None:
+    """Persist a playground debate for shareable permalinks.
+
+    Uses the global DebateStorage singleton. Non-fatal on failure —
+    the debate still works, it just won't be shareable.
+
+    Returns the generated slug, or None if persistence failed.
+    """
+    try:
+        from aragora.server.storage import get_debates_db
+
+        storage = get_debates_db()
+        if storage is None:
+            return None
+        slug = storage.save_dict(response)
+        logger.info("Persisted playground debate %s → slug=%s", response.get("id"), slug)
+        return slug
+    except (ImportError, OSError, ValueError, TypeError) as exc:
+        logger.warning("Failed to persist playground debate: %s", exc)
+        return None
+
+
 def _reset_oracle_sessions() -> None:
     """Reset all Oracle session state. Used by tests."""
     _oracle_sessions.clear()
@@ -1526,9 +1548,14 @@ class PlaygroundHandler(BaseHandler):
 
         # Last resort: inline mock debate (question-aware when question provided)
         try:
-            return json_response(
-                _run_inline_mock_debate(topic, rounds, agent_count, question=question)
-            )
+            mock_result = _run_inline_mock_debate(topic, rounds, agent_count, question=question)
+            mock_result["visibility"] = "public"
+            mock_result["source"] = "playground"
+            mock_result["task"] = mock_result.get("topic", topic)
+            slug = _persist_playground_debate(mock_result)
+            if slug:
+                mock_result["slug"] = slug
+            return json_response(mock_result)
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
             logger.exception("Inline mock debate failed")
             return error_response("Debate failed unexpectedly", 500)
@@ -1615,6 +1642,7 @@ class PlaygroundHandler(BaseHandler):
         response = {
             "id": result.id,
             "topic": result.task,
+            "task": result.task,
             "status": result.status,
             "rounds_used": result.rounds_used,
             "consensus_reached": result.consensus_reached,
@@ -1629,7 +1657,14 @@ class PlaygroundHandler(BaseHandler):
             "final_answer": result.final_answer,
             "receipt": receipt_data,
             "receipt_hash": receipt_hash,
+            "visibility": "public",
+            "source": "playground",
         }
+
+        # Persist for shareable permalinks
+        slug = _persist_playground_debate(response)
+        if slug:
+            response["slug"] = slug
 
         return json_response(response)
 

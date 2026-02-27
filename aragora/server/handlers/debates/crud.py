@@ -173,10 +173,19 @@ class CrudOperationsMixin:
         SECURITY: After retrieval, verifies the requesting user's tenant/org matches
         the debate's tenant to prevent cross-tenant data access (IDOR).
         """
-        # First check persistent storage
+        # First check persistent storage (by ID, then by slug)
         storage = self.get_storage()
         debate = storage.get_debate(slug)
+        if not debate and hasattr(storage, "get_debate_by_slug"):
+            slug_result = storage.get_debate_by_slug(slug)
+            if isinstance(slug_result, dict):
+                debate = slug_result
         if debate:
+            # Public debates (e.g. playground, landing page) are accessible without auth
+            debate_visibility = debate.get("visibility", "private")
+            if debate_visibility == "public":
+                return json_response(normalize_debate_response(debate))
+
             # SECURITY: Verify tenant isolation - requesting user must belong
             # to the same org/tenant as the debate, or the debate must be public
             user = self.get_current_user(handler)
