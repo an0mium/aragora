@@ -854,6 +854,30 @@ class VerticalsHandler(SecureHandler):
             # Log the update
             logger.info("Updated vertical %s config: %s", vertical_id, updates_applied)
 
+            # Persist to database so changes survive restarts
+            try:
+                from aragora.storage.repositories.verticals import (
+                    get_verticals_config_repository,
+                )
+
+                repo = get_verticals_config_repository()
+                repo.save_config(
+                    vertical_id,
+                    {
+                        "tools": [t.to_dict() for t in config.tools],
+                        "compliance_frameworks": [
+                            c.to_dict() for c in config.compliance_frameworks
+                        ],
+                        "model_config": config.model_config.to_dict(),
+                    },
+                )
+            except Exception as persist_err:  # noqa: BLE001
+                logger.warning(
+                    "Config updated in-memory but persistence failed for %s: %s",
+                    vertical_id,
+                    persist_err,
+                )
+
             self._circuit_breaker.record_success()
             return json_response(
                 {
