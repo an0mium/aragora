@@ -89,79 +89,63 @@ class UnifiedResearcher:
     async def _query_km(self, query: str, max_results: int) -> list[SourceResult]:
         if self._km is None:
             return []
-        try:
-            results = self._km.query(query, limit=max_results)
-            if not results:
-                return []
-            return [
-                SourceResult(
-                    source="km",
-                    content=str(r.get("content", r.get("text", str(r)))),
-                    relevance=float(r.get("relevance", r.get("score", 0.5))),
-                    metadata={"type": r.get("type", "unknown")},
-                )
-                for r in (results if isinstance(results, list) else [results])
-            ][:max_results]
-        except Exception:
-            logger.warning("KM query failed: %s", query)
+        results = self._km.query(query, limit=max_results)
+        if not results:
             return []
+        return [
+            SourceResult(
+                source="km",
+                content=str(r.get("content", r.get("text", str(r)))),
+                relevance=float(r.get("relevance", r.get("score", 0.5))),
+                metadata={"type": r.get("type", "unknown")},
+            )
+            for r in (results if isinstance(results, list) else [results])
+        ][:max_results]
 
     async def _query_obsidian(self, query: str, max_results: int) -> list[SourceResult]:
         if self._obsidian is None:
             return []
-        try:
-            results = self._obsidian.search(query, limit=max_results)
-            if not results:
-                return []
-            return [
-                SourceResult(
-                    source="obsidian",
-                    content=str(r.get("content", str(r))),
-                    relevance=float(r.get("relevance", 0.5)),
-                    metadata={"title": r.get("title", ""), "path": r.get("path", "")},
-                )
-                for r in (results if isinstance(results, list) else [results])
-            ][:max_results]
-        except Exception:
-            logger.warning("Obsidian query failed: %s", query)
+        results = self._obsidian.search(query, limit=max_results)
+        if not results:
             return []
+        return [
+            SourceResult(
+                source="obsidian",
+                content=str(r.get("content", str(r))),
+                relevance=float(r.get("relevance", 0.5)),
+                metadata={"title": r.get("title", ""), "path": r.get("path", "")},
+            )
+            for r in (results if isinstance(results, list) else [results])
+        ][:max_results]
 
     async def _query_codebase(self, query: str, max_results: int) -> list[SourceResult]:
         if self._codebase is None:
             return []
-        try:
-            results = self._codebase.analyze(query, limit=max_results)
-            if not results:
-                return []
-            return [
-                SourceResult(
-                    source="codebase",
-                    content=str(r.get("content", str(r))),
-                    relevance=float(r.get("relevance", 0.5)),
-                    metadata={"file": r.get("file", ""), "type": r.get("type", "pattern")},
-                )
-                for r in (results if isinstance(results, list) else [results])
-            ][:max_results]
-        except Exception:
-            logger.warning("Codebase analysis failed: %s", query)
+        results = self._codebase.analyze(query, limit=max_results)
+        if not results:
             return []
+        return [
+            SourceResult(
+                source="codebase",
+                content=str(r.get("content", str(r))),
+                relevance=float(r.get("relevance", 0.5)),
+                metadata={"file": r.get("file", ""), "type": r.get("type", "pattern")},
+            )
+            for r in (results if isinstance(results, list) else [results])
+        ][:max_results]
 
     async def _query_web(self, query: str, max_results: int) -> list[SourceResult]:
         if self._web is None:
             return []
-        try:
-            results = self._web.search(query, limit=max_results)
-            if not results:
-                return []
-            return [
-                SourceResult(
-                    source="web",
-                    content=str(r.get("content", r.get("snippet", str(r)))),
-                    relevance=float(r.get("relevance", 0.5)),
-                    metadata={"url": r.get("url", ""), "title": r.get("title", "")},
-                )
-                for r in (results if isinstance(results, list) else [results])
-            ][:max_results]
-        except Exception:
-            logger.warning("Web search failed: %s", query)
+        results = self._web.search(query, limit=max_results)
+        if not results:
             return []
+        return [
+            SourceResult(
+                source="web",
+                content=str(r.get("content", r.get("snippet", str(r)))),
+                relevance=float(r.get("relevance", 0.5)),
+                metadata={"url": r.get("url", ""), "title": r.get("title", "")},
+            )
+            for r in (results if isinstance(results, list) else [results])
+        ][:max_results]
