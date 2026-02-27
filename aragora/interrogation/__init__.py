@@ -8,6 +8,11 @@ from aragora.interrogation.engine import (
     InterrogationState,
 )
 from aragora.interrogation.questioner import InterrogationQuestioner, Question, QuestionSet
+from aragora.interrogation.executor import (
+    InterrogationExecutor,
+    ExecutionRequest,
+    ExecutionResult,
+)
 from aragora.interrogation.researcher import (
     InterrogationResearcher,
     ResearchResult,
@@ -29,6 +34,9 @@ __all__ = [
     "InterrogationQuestioner",
     "Question",
     "QuestionSet",
+    "InterrogationExecutor",
+    "ExecutionRequest",
+    "ExecutionResult",
     "InterrogationResearcher",
     "ResearchResult",
     "Finding",
