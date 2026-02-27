@@ -27,7 +27,7 @@ on:
 
 concurrency:
   group: sdk-generate-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: false
 
 jobs:
   generate-typescript-types:
