@@ -714,7 +714,7 @@ class MemoryCoordinator:
                             else 0,
                         },
                     )
-                except (ImportError, RuntimeError, AttributeError) as e:
+                except Exception as e:  # noqa: BLE001
                     logger.debug("Memory coordination event emission unavailable: %s", e)
 
             elif transaction.partial_failure:
