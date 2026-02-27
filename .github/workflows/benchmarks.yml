@@ -27,6 +27,8 @@ on:
       - 'scripts/check_benchmark_regression.py'
       - 'pyproject.toml'
       - '.github/workflows/benchmarks.yml'
+  merge_group:
+    branches: [main]
 
 concurrency:
   group: perf-regression-${{ github.head_ref || github.ref }}
@@ -38,7 +40,7 @@ permissions:
 
 jobs:
   regression-gate:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: github.event_name == 'merge_group' || github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Regression Gate
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -137,7 +139,7 @@ jobs:
 
       # ── Post results to PR ──────────────────────────────────────────
       - name: Post regression report on PR
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
