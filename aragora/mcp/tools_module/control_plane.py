@@ -263,11 +263,8 @@ async def submit_task_tool(
     if not task_type:
         return {"error": "task_type is required"}
 
-    coordinator = await _get_coordinator()
-    if not coordinator:
-        return {"error": "Control plane not available"}
-
-    # Parse payload with type validation
+    # Validate payload before checking coordinator availability so input
+    # errors are reported even when the control plane is offline.
     import json
 
     try:
@@ -276,6 +273,10 @@ async def submit_task_tool(
             return {"error": f"Payload must be a JSON object, not {type(payload_dict).__name__}"}
     except json.JSONDecodeError as e:
         return {"error": f"Invalid JSON payload: {e}"}
+
+    coordinator = await _get_coordinator()
+    if not coordinator:
+        return {"error": "Control plane not available"}
 
     # Parse capabilities
     cap_list = (

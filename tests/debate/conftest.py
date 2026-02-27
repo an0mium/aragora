@@ -64,6 +64,9 @@ def _isolate_debate_databases(tmp_path, monkeypatch):
     # (QuestionClassifier.classify() creates an AsyncAnthropic client that
     # opens TCP connections which keep the event loop alive).
     monkeypatch.setenv("ARAGORA_OFFLINE", "1")
+    # Prevent real Slack API calls from notification providers
+    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
 
 
 @pytest.fixture(autouse=True)
