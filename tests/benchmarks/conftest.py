@@ -114,6 +114,21 @@ class BenchmarkAgent(Agent):
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _disable_post_debate_steps(monkeypatch):
+    """Prevent PostDebateCoordinator from blocking on real async calls."""
+    try:
+        from aragora.debate import post_debate_coordinator as pdc_mod
+
+        def _noop(self, *a, **kw):
+            return None
+
+        monkeypatch.setattr(pdc_mod.PostDebateCoordinator, "_step_llm_judge", _noop)
+        monkeypatch.setattr(pdc_mod.PostDebateCoordinator, "_step_outcome_feedback", _noop)
+    except (ImportError, AttributeError):
+        pass
+
+
 @pytest.fixture
 def benchmark_agent() -> BenchmarkAgent:
     """Fast agent for benchmarking."""

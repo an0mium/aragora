@@ -682,6 +682,7 @@ class TestIntegration:
 # =============================================================================
 
 
+@pytest.mark.no_io_stubs
 class TestPerformResearch:
     """Tests for the _perform_research method - research context gathering."""
 

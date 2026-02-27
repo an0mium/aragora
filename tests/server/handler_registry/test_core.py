@@ -65,10 +65,9 @@ class _BrokenCanHandle:
 
 
 class _NoCanHandle:
-    """Handler missing can_handle."""
+    """Handler missing can_handle (and all dispatch methods)."""
 
-    def handle(self, path: str, query: dict, request_handler: Any) -> Any:
-        return None
+    pass
 
 
 class _NoHandle:
@@ -292,7 +291,9 @@ class TestValidateHandlerClass:
 
     def test_non_callable_methods(self) -> None:
         errors = validate_handler_class(_NonCallableMethods, "NonCallable")
-        assert any("not callable" in e for e in errors)
+        # Non-callable attributes are treated as missing
+        assert any("can_handle" in e for e in errors)
+        assert any("handle" in e for e in errors)
 
     def test_handler_without_routes_is_valid(self) -> None:
         """Missing ROUTES is a debug-level note, not an error."""
