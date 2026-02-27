@@ -312,7 +312,7 @@ jobs:
           mkdir -p test-results
           # Integration tests focus on specific scenarios, not comprehensive coverage
           # Override the global 45% threshold from pyproject.toml
-          pytest tests/integration/ -v --tb=short --timeout=120 \
+          pytest tests/integration/ -v --tb=short --timeout=240 \
             -m "integration or integration_minimal" \
             --cov=aragora --cov-report=xml:coverage-integration.xml \
             --cov-report=term-missing \

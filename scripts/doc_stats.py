@@ -78,18 +78,17 @@ def _tracked_python_files() -> list[str] | None:
 
 
 def _count_tests() -> int:
-    try:
-        out = subprocess.check_output(
-            ["git", "grep", "-n", "-E", r"^\s*def test_", "--", "*.py"],
-            cwd=ROOT,
-            text=True,
-        )
-        return len(out.splitlines())
-    except subprocess.CalledProcessError as exc:
-        if exc.returncode == 1:
-            return 0
-    except FileNotFoundError:
-        pass
+    tracked = _tracked_python_files()
+    if tracked is not None:
+        pattern = re.compile(r"^\s*def test_", re.MULTILINE)
+        total = 0
+        for rel_path in tracked:
+            path = ROOT / rel_path
+            try:
+                total += len(pattern.findall(path.read_text(errors="ignore")))
+            except OSError:
+                continue
+        return total
 
     count = _run_rg_count(
         "def test_",
