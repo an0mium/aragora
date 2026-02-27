@@ -204,6 +204,7 @@ def mock_debate_result():
     result.rounds_used = 3
     result.final_answer = "Test answer"
     result.bead_id = None
+    result.metadata = {}
     return result
 
 

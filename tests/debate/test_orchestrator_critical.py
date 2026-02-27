@@ -800,6 +800,7 @@ class TestPerformResearch:
 # =============================================================================
 
 
+@pytest.mark.no_io_stubs
 class TestGatherEvidenceContext:
     """Tests for the _gather_evidence_context method - evidence grounding."""
 
@@ -1008,6 +1009,7 @@ class TestNotifySpectator:
 # =============================================================================
 
 
+@pytest.mark.no_io_stubs
 class TestCreateDebateBead:
     """Tests for the _create_debate_bead method - audit trail creation."""
 
@@ -1322,6 +1324,7 @@ class TestUpdateRoleAssignments:
 # =============================================================================
 
 
+@pytest.mark.no_io_stubs
 class TestCriticalMethodsIntegration:
     """Integration tests for the new critical methods together."""
 

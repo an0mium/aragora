@@ -137,14 +137,19 @@ def _mock_scan_code_markers(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _disable_post_debate_external_calls(monkeypatch):
+def _disable_post_debate_external_calls(monkeypatch, request):
     """Disable post-debate pipeline steps that make external calls.
 
     The DEFAULT_POST_DEBATE_CONFIG enables gauntlet validation, explanation
     building, plan creation, and other steps that call _run_async_callable()
     which starts threads making real HTTP calls. In tests without real API
     keys, these threads block indefinitely.
+
+    Tests marked with ``@pytest.mark.no_post_debate_stubs`` skip these patches
+    (e.g. tests that verify the real step methods).
     """
+    if request.node.get_closest_marker("no_post_debate_stubs"):
+        return
     try:
         import aragora.debate.post_debate_coordinator as pdc_mod
 

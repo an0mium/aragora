@@ -61,7 +61,7 @@ class TestOrchestratorRoleRotation:
 
     def test_role_rotator_initialized_when_enabled(self, basic_env, mock_agents):
         """Role rotator should be initialized when protocol enables it."""
-        protocol = DebateProtocol(role_rotation=True)
+        protocol = DebateProtocol(role_rotation=True, role_matching=False)
         arena = Arena(basic_env, mock_agents, protocol)
 
         assert arena.role_rotator is not None
@@ -83,6 +83,7 @@ class TestOrchestratorRoleRotation:
         )
         protocol = DebateProtocol(
             role_rotation=True,
+            role_matching=False,
             role_rotation_config=custom_config,
         )
         arena = Arena(basic_env, mock_agents, protocol)

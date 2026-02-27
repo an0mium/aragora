@@ -303,11 +303,20 @@ Do not advocate - analyze impartially."""
         Returns:
             Role context string for prompt injection, or empty string if not available
         """
-        if not self.role_rotator or agent.name not in self.current_role_assignments:
+        if agent.name not in self.current_role_assignments:
             return ""
 
         assignment = self.current_role_assignments[agent.name]
-        return self.role_rotator.format_role_context(assignment)
+        if self.role_rotator:
+            return self.role_rotator.format_role_context(assignment)
+        # For role matcher assignments, wrap with the same header format
+        if not assignment.role_prompt:
+            return ""
+        return f"""
+=== COGNITIVE ROLE ASSIGNMENT (Round {assignment.round_num + 1}) ===
+{assignment.role_prompt}
+=== END ROLE ASSIGNMENT ===
+"""
 
     # =========================================================================
     # Convenience aliases and summary methods

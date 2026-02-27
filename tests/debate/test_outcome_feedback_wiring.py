@@ -12,6 +12,8 @@ from aragora.debate.post_debate_coordinator import (
     PostDebateResult,
 )
 
+pytestmark = pytest.mark.no_post_debate_stubs
+
 
 class TestOutcomeFeedbackConfig:
     """Tests for auto_outcome_feedback config flag."""

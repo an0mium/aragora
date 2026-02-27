@@ -1188,6 +1188,7 @@ class TestKnowledgeMoundIntegration:
         assert result == "knowledge context"
         arena._km_manager.fetch_context.assert_called_once()
 
+    @pytest.mark.no_io_stubs
     @pytest.mark.asyncio
     async def test_ingest_debate_outcome(self, arena):
         """_ingest_debate_outcome delegates to KM manager."""

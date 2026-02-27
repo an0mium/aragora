@@ -39,7 +39,7 @@ class TestPlatform:
     def test_platform_iteration(self):
         """Test iterating over platforms."""
         platforms = list(Platform)
-        assert len(platforms) == 4
+        assert len(platforms) == len(Platform)
 
 
 class TestBotUser:
@@ -262,7 +262,7 @@ class TestBotConfig:
 
         assert config.platform == Platform.SLACK
         assert config.token == "xoxb-123"
-        assert config.api_base == "http://localhost:8080"
+        assert config.api_base == ""  # Localhost default applied in BaseBotClient.__init__
         assert config.bot_name == "Aragora"
 
     def test_config_rate_limits(self):

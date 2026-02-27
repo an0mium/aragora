@@ -171,16 +171,7 @@ class TestFeedbackPhaseFlag:
         phase.enable_post_debate_workflow = True
         phase.post_debate_workflow_threshold = 0.5
 
-        # Run _maybe_trigger_workflow in an event loop
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(phase._maybe_trigger_workflow(ctx))
-        finally:
-            # Clean up pending tasks
-            pending = asyncio.all_tasks(loop)
-            for task in pending:
-                task.cancel()
-            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-            loop.close()
+        # Run _maybe_trigger_workflow
+        asyncio.run(phase._maybe_trigger_workflow(ctx))
 
         assert getattr(ctx, "post_debate_workflow_triggered", False) is True

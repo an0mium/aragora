@@ -223,113 +223,100 @@ class TestValidateRedirectUrl:
     """Test _validate_redirect_url() with various inputs."""
 
     def test_allowed_https_host(self):
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("https://example.com/callback") is True
 
     def test_allowed_http_host(self):
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"localhost"}),
         ):
             assert _oauth_impl._validate_redirect_url("http://localhost/callback") is True
 
     def test_disallowed_host(self):
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("https://evil.com/callback") is False
 
     def test_subdomain_matching(self):
         """Subdomain of allowed host should be allowed."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("https://sub.example.com/callback") is True
 
     def test_deeply_nested_subdomain_matching(self):
         """Deeply nested subdomain of allowed host should be allowed."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("https://a.b.c.example.com/path") is True
 
     def test_ftp_scheme_blocked(self):
         """Non http/https schemes should be blocked."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("ftp://example.com/file") is False
 
     def test_javascript_scheme_blocked(self):
         """javascript: scheme must be blocked."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("javascript:alert(1)") is False
 
     def test_data_scheme_blocked(self):
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("data:text/html,<h1>hi</h1>") is False
 
     def test_empty_url(self):
         """Empty URL should return False."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("") is False
 
     def test_url_no_host(self):
         """URL without a host should return False."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("https://") is False
 
     def test_host_case_insensitive(self):
         """Host matching should be case-insensitive."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("https://EXAMPLE.COM/path") is True
 
     def test_empty_allowed_hosts(self):
         """When allowlist is empty, all hosts should be rejected."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset(),
         ):
             assert _oauth_impl._validate_redirect_url("https://example.com/callback") is False
 
     def test_multiple_allowed_hosts(self):
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com", "myapp.io"}),
         ):
             assert _oauth_impl._validate_redirect_url("https://example.com/cb") is True
@@ -337,34 +324,30 @@ class TestValidateRedirectUrl:
             assert _oauth_impl._validate_redirect_url("https://other.com/cb") is False
 
     def test_localhost_with_port(self):
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"localhost"}),
         ):
             assert _oauth_impl._validate_redirect_url("http://localhost:3000/callback") is True
 
     def test_ip_address_allowed(self):
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"127.0.0.1"}),
         ):
             assert _oauth_impl._validate_redirect_url("http://127.0.0.1:8080/callback") is True
 
     def test_ip_address_not_allowed(self):
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"127.0.0.1"}),
         ):
             assert _oauth_impl._validate_redirect_url("http://192.168.1.1/callback") is False
 
     def test_partial_host_match_not_allowed(self):
         """A host that ends with the allowed host string but is not a subdomain should fail."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             # "notexample.com" ends with "example.com" but is NOT a subdomain
@@ -373,44 +356,39 @@ class TestValidateRedirectUrl:
 
     def test_exception_in_url_parsing_returns_false(self):
         """If _get_allowed_redirect_hosts raises, should return False gracefully."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             side_effect=AttributeError("boom"),
         ):
             assert _oauth_impl._validate_redirect_url("https://example.com/callback") is False
 
     def test_value_error_returns_false(self):
         """ValueError during parsing should return False."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             side_effect=ValueError("bad"),
         ):
             assert _oauth_impl._validate_redirect_url("https://example.com/cb") is False
 
     def test_type_error_returns_false(self):
         """TypeError during processing should return False."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             side_effect=TypeError("bad type"),
         ):
             assert _oauth_impl._validate_redirect_url("https://example.com/cb") is False
 
     def test_key_error_returns_false(self):
         """KeyError during processing should return False."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             side_effect=KeyError("missing"),
         ):
             assert _oauth_impl._validate_redirect_url("https://example.com/cb") is False
 
     def test_url_with_query_params(self):
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert (
@@ -419,18 +397,16 @@ class TestValidateRedirectUrl:
             )
 
     def test_url_with_fragment(self):
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("https://example.com/cb#token=abc") is True
 
     def test_url_with_path_only(self):
         """Relative path without scheme should return False."""
-        with patch.object(
-            _oauth_impl,
-            "_get_allowed_redirect_hosts",
+        with patch(
+            "aragora.server.handlers._oauth_impl._get_allowed_redirect_hosts",
             return_value=frozenset({"example.com"}),
         ):
             assert _oauth_impl._validate_redirect_url("/callback") is False
@@ -447,18 +423,16 @@ class TestValidateState:
     def test_delegates_to_internal(self):
         """_validate_state should delegate to _validate_state_internal."""
         expected = {"user_id": "u1", "redirect_url": "/home"}
-        with patch.object(
-            _oauth_impl,
-            "_validate_state_internal",
+        with patch(
+            "aragora.server.handlers._oauth_impl._validate_state_internal",
             return_value=expected,
         ):
             result = _oauth_impl._validate_state("some-state-token")
             assert result == expected
 
     def test_returns_none_for_invalid_state(self):
-        with patch.object(
-            _oauth_impl,
-            "_validate_state_internal",
+        with patch(
+            "aragora.server.handlers._oauth_impl._validate_state_internal",
             return_value=None,
         ):
             result = _oauth_impl._validate_state("invalid-token")
@@ -466,7 +440,7 @@ class TestValidateState:
 
     def test_passes_state_argument_through(self):
         mock_fn = MagicMock(return_value=None)
-        with patch.object(_oauth_impl, "_validate_state_internal", mock_fn):
+        with patch("aragora.server.handlers._oauth_impl._validate_state_internal", mock_fn):
             _oauth_impl._validate_state("my-token-123")
             mock_fn.assert_called_once_with("my-token-123")
 

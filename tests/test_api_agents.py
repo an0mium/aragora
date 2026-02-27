@@ -345,7 +345,8 @@ class TestCreateAgentFactory:
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test"}):
             agent = create_agent("gemini", model="gemini-2.5-pro")
 
-        assert agent.model == "gemini-2.5-pro"
+        # gemini-2.5-pro is remapped to gemini-3.1-pro-preview in model aliases
+        assert agent.model == "gemini-3.1-pro-preview"
 
 
 class TestAgentStance:
