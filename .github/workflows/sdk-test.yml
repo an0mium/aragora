@@ -10,6 +10,11 @@ on:
       - '.github/workflows/sdk-test.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'sdk/python/**'
+      - 'sdk/typescript/**'
+      - 'tests/sdk/**'
+      - '.github/workflows/sdk-test.yml'
   workflow_dispatch:
 
 concurrency:

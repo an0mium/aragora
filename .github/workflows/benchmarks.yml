@@ -19,6 +19,7 @@ name: Performance Regression
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/**'
       - 'tests/benchmarks/**'
@@ -38,6 +39,7 @@ permissions:
 
 jobs:
   regression-gate:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Regression Gate
     runs-on: ubuntu-latest
     timeout-minutes: 20

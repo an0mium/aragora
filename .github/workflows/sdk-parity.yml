@@ -3,8 +3,22 @@ name: SDK Parity Check
 on:
   push:
     branches: [main]
+    paths:
+      - 'sdk/**'
+      - 'aragora/server/handlers/**'
+      - 'aragora/server/openapi/**'
+      - 'scripts/check_sdk_namespace_parity.py'
+      - 'scripts/baselines/check_sdk_namespace_parity.json'
+      - '.github/workflows/sdk-parity.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'sdk/**'
+      - 'aragora/server/handlers/**'
+      - 'aragora/server/openapi/**'
+      - 'scripts/check_sdk_namespace_parity.py'
+      - 'scripts/baselines/check_sdk_namespace_parity.json'
+      - '.github/workflows/sdk-parity.yml'
   workflow_dispatch:
 
 concurrency:

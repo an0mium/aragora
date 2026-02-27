@@ -8,6 +8,7 @@ on:
       - '.github/workflows/lighthouse.yml'
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/live/**'
   workflow_dispatch:
@@ -26,6 +27,7 @@ permissions:
 
 jobs:
   lighthouse:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Lighthouse Performance Audit
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -207,6 +209,7 @@ jobs:
           [ -n "$FRONTEND_PID" ] && kill $FRONTEND_PID || true
 
   accessibility-audit:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Accessibility Audit
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -285,6 +288,7 @@ jobs:
           retention-days: 14
 
   mobile-responsiveness:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Mobile Responsiveness Check
     runs-on: ubuntu-latest
     timeout-minutes: 15

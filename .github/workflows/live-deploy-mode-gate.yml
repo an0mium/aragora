@@ -2,6 +2,7 @@ name: Live Deploy Mode Gate
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/live/**'
       - '.github/workflows/live-deploy-mode-gate.yml'
@@ -25,6 +26,7 @@ concurrency:
 
 jobs:
   gate:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Validate Live Deploy Mode
     runs-on: ubuntu-latest
     timeout-minutes: 30

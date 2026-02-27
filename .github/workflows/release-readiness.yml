@@ -15,6 +15,7 @@ on:
       - ".github/workflows/release-readiness.yml"
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "aragora/**"
       - "tests/**"
@@ -33,6 +34,7 @@ concurrency:
 
 jobs:
   release-readiness:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Release Readiness
     runs-on: ubuntu-latest
     timeout-minutes: 35

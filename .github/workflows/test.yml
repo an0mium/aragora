@@ -25,6 +25,7 @@ on:
       - '.github/workflows/test.yml'
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/**'
       - 'aragora-debate/**'
@@ -67,6 +68,7 @@ jobs:
 
   # Version alignment check (fast, runs first)
   version-check:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Version Alignment
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -229,6 +231,7 @@ jobs:
 
   # Skip marker audit (warns if skip count increases)
   skip-audit:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Skip Marker Audit
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -277,6 +280,7 @@ jobs:
 
   # Status document reconciliation (detect drift across capability/GA/roadmap docs)
   status-reconciliation:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Status Doc Reconciliation
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -817,7 +821,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [test]
-    if: always()
+    if: always() && (github.event.pull_request.draft == false || github.event_name != 'pull_request')
 
     steps:
       - name: Checkout
@@ -1101,6 +1105,7 @@ jobs:
           PYTHONPATH: .
 
   frontend:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Frontend E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1165,7 +1170,7 @@ jobs:
     name: Frontend TypeScript Type Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false || github.event_name != 'pull_request'
 
     steps:
       - name: Checkout
@@ -1202,6 +1207,7 @@ jobs:
         run: echo "No frontend file changes detected, skipping TypeScript type check."
 
   security:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -1234,6 +1240,7 @@ jobs:
           retention-days: 30
 
   typecheck:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Type Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1265,6 +1272,7 @@ jobs:
 
   # Database migration testing
   migration-test:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Database Migrations
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -1449,7 +1457,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [test-fast]
-    if: always() && github.event_name == 'pull_request'
+    if: always() && github.event_name == 'pull_request' && github.event.pull_request.draft == false
 
     steps:
       - name: Checkout

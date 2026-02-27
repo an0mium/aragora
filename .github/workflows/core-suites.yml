@@ -3,6 +3,7 @@ name: Core Suites (Decision Integrity)
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/**'
       - 'tests/**'
@@ -27,6 +28,7 @@ concurrency:
 
 jobs:
   core-suites:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Core Suites
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -49,6 +51,7 @@ jobs:
         run: bash scripts/ci_core_suites.sh
 
   security-boundaries:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     name: Security Boundaries
     runs-on: ubuntu-latest
     timeout-minutes: 15
