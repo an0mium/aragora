@@ -138,7 +138,7 @@ function ArenaContent() {
 
   // Handle debate started - navigate to debate viewer
   const handleDebateStarted = useCallback((debateId: string, _question: string) => {
-    router.push(`/debate/${debateId}`);
+    router.push(`/debates/${debateId}`);
   }, [router]);
 
   // Handle error
@@ -191,7 +191,7 @@ function ArenaContent() {
           {recentDebates.map((debate) => (
             <Link
               key={debate.id}
-              href={`/debate/${debate.id}`}
+              href={`/debates/${debate.id}`}
               className="block w-full px-2 py-1.5 text-xs font-mono text-left bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors truncate"
             >
               {debate.question?.slice(0, 40) || debate.id.slice(0, 8)}...

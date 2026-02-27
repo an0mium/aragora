@@ -176,6 +176,12 @@ export default function DebateDetailClient() {
             SHARE LINK
           </button>
           <Link
+            href={`/self-improve?from=debate&id=${id}`}
+            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+          >
+            IMPROVE FROM THIS
+          </Link>
+          <Link
             href="/debates"
             className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >

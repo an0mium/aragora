@@ -27,14 +27,14 @@ FALLBACK_QUESTIONS = [
 ]
 
 SPEC_EXTRACTION_PROMPT = """\
-Given the following conversation between a project manager and a user, \
-produce a JSON object capturing the user's requirements.
+You are a CTO summarizing a conversation you just had with your CEO. \
+Extract their requirements into a structured format your engineering team can use.
 
 Conversation:
 {conversation}
 
 Produce a JSON object with these fields:
-- "refined_goal": A clear 1-2 sentence goal statement
+- "refined_goal": A clear 1-2 sentence goal statement (in plain language)
 - "acceptance_criteria": Array of measurable success conditions
 - "constraints": Array of things that must NOT change
 - "track_hints": Array from ["sme", "developer", "self_hosted", "qa", "core", "security"] \
@@ -42,6 +42,7 @@ Produce a JSON object with these fields:
 - "file_scope_hints": Array of file/directory paths mentioned (empty if none)
 - "estimated_complexity": "low", "medium", or "high"
 - "requires_approval": true if the user wants to review changes before they are applied
+- "proactive_suggestions": Array of additional improvements you suggested during the conversation
 
 Respond with ONLY the JSON object, no other text.
 """

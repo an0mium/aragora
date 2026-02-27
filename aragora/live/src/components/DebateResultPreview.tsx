@@ -58,6 +58,15 @@ export interface DebateResponse {
   final_answer: string;
   receipt: ReceiptResult | null;
   receipt_hash: string | null;
+  is_live?: boolean;
+  mock_fallback?: boolean;
+  mock_fallback_reason?: string;
+  upgrade_cta?: {
+    title: string;
+    message: string;
+    action_url: string;
+    action_label: string;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +109,32 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
 
   return (
     <div className="text-left space-y-4 mt-8">
+      {/* Demo mode / Live badge */}
+      {result.mock_fallback && (
+        <div className="flex items-center justify-between gap-3 p-3 bg-[var(--acid-yellow,#ffd700)]/10 border border-[var(--acid-yellow,#ffd700)]/30">
+          <div className="flex items-center gap-2 text-[var(--acid-yellow,#ffd700)] font-mono text-sm">
+            <span className="px-1.5 py-0.5 text-xs font-bold bg-[var(--acid-yellow,#ffd700)]/20 border border-[var(--acid-yellow,#ffd700)]/40">
+              DEMO
+            </span>
+            <span>This debate used simulated agents{result.mock_fallback_reason ? ` (${result.mock_fallback_reason})` : ''}</span>
+          </div>
+          {result.upgrade_cta && (
+            <Link
+              href={result.upgrade_cta.action_url}
+              className="shrink-0 px-3 py-1.5 text-xs font-mono font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
+            >
+              {result.upgrade_cta.action_label}
+            </Link>
+          )}
+        </div>
+      )}
+      {result.is_live && !result.mock_fallback && (
+        <div className="flex items-center gap-2 text-xs font-mono text-[var(--acid-green)]">
+          <span className="w-2 h-2 rounded-full bg-[var(--acid-green)] animate-pulse" />
+          LIVE DEBATE
+        </div>
+      )}
+
       {/* Summary bar */}
       <div className="border border-[var(--border)] p-4 flex flex-wrap gap-4 items-center text-sm font-mono">
         <span
@@ -274,6 +309,19 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* Self-improvement link */}
+      <div className="flex items-center gap-2 p-3 bg-[var(--surface)]/50 border border-[var(--border)]">
+        <span className="text-xs font-mono text-[var(--text-muted)]">
+          This debate feeds into Aragora&apos;s self-improvement cycle
+        </span>
+        <Link
+          href="/self-improve"
+          className="ml-auto shrink-0 text-xs font-mono text-[var(--acid-cyan)] hover:text-[var(--acid-green)] transition-colors"
+        >
+          Learn more &rarr;
+        </Link>
       </div>
     </div>
   );
