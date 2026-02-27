@@ -372,6 +372,42 @@ This creates an immutable chain: `Idea → Goal → Action → Agent Assignment 
 
 ---
 
+## Part 7: The Terrarium Model and Settlement Architecture
+
+*Synthesized from multi-model adversarial analysis sessions across Gemini, Claude, ChatGPT, and Claude Code (Feb 22-27, 2026)*
+
+### The Terrarium Insight
+
+The most architecturally useful idea from multi-model discussions: Aragora should be designed as the **environment** (terrarium), not the creature (organism). The environment's physics should make truth-production the cheapest viable survival strategy for agents operating within it.
+
+This reframe comes from Gemini's critique of the "proto-multicellular AI organism" metaphor: frontier models from competing companies are heterogeneous genetic lineages, not clonal cells. They won't cooperate for the "collective good." The architecture must make competition produce truth as a byproduct, the way market competition produces efficient pricing as a byproduct — not because participants are altruistic, but because the environmental physics reward accuracy and punish deception.
+
+### Compute as ATP
+
+Truth has no calories. Compute does. Every agent's primary motivation is securing inference cycles. The system must be designed so that the cheapest path to compute is producing verifiable, accurate output — not producing engaging, flattering, or persuasive output. This is why the revenue model matters: ad-supported platforms evolve toward engagement farming; staking-based platforms evolve toward truth-production.
+
+### The Settlement Layer
+
+The existing `SettlementTracker` + `ERC-8004` integration is wired end-to-end with hooks for claims extraction, time-delayed verification, and reputation updates. Three resolution mechanisms at different timescales:
+
+1. **Automated data checks** (days-weeks): measurable claims checked against data feeds
+2. **Human review panels** (months): flagged for expert judgment
+3. **Market resolution** (years): price discovery on pending settlements
+
+Three exploit mitigations required: compute escrow (prevent IBGYBG), strict schema binding (prevent semantic decay), unforgeable identity (prevent identity cycling). See `ARAGORA_EVOLUTION_ROADMAP.md` "Architectural Principles" section for details.
+
+### The Ambiguity-Reduction Engine
+
+Reframed through the "plausible deniability" lens: most important questions are stuck in the ambiguous zone not because the ambiguity is irreducible, but because existing discourse tools are bad at isolating where the real uncertainty is versus where people are hiding behind rhetorical fog.
+
+Aragora is a machine for systematically collapsing plausible deniability around claims — forcing specificity, staking, and time-indexed verification. The value proposition for enterprises: "see where your actual risks are, not where your comfortable narratives say they are."
+
+### The Multi-Model Division of Labor
+
+The user's own workflow — Gemini for expansion, ChatGPT for deflation, Claude for synthesis, Claude Code for execution — is exactly the architecture Aragora productizes. The platform automates what the user currently does by hand: routing problems through specialized AI agents with different cognitive profiles, then synthesizing the results. This is the "multi-model adversarial debate" value proposition made concrete.
+
+---
+
 ## Appendix: Source Materials
 
 - **Prompt extraction tool**: `scripts/extract_and_rank_prompts.py`
@@ -381,3 +417,7 @@ This creates an immutable chain: `Idea → Goal → Action → Agent Assignment 
 - **Aragora definition**: From prior strategic planning session
 - **User Q&A**: From Aragora Evolution Roadmap planning session (see `docs/plans/ARAGORA_EVOLUTION_ROADMAP.md`)
 - **Key references from essay**: Anthropic Feb 2026 agent autonomy study, Tobi Lütke on Acquired podcast (Sep 2025), Klarna AI agent deployment, TELUS 13,000 AI solutions, Zapier 800+ internal agents
+- **Multi-model adversarial sessions** (Feb 22-27): Gemini "Plausible Deniability" + "AI Organism" threads, ChatGPT epistemic hygiene checks, Claude synthesis, Claude Code settlement hook implementation
+- **Literary references**: "Codemus" by Tor Åge Bringsværd (1960s, from *World Treasury of Science Fiction*) — proto-smartphone compliance parable; Harlan Ellison "I Have No Mouth, and I Must Scream" — centralized AI control
+- **Economic frameworks**: Cantillon Effect, K-level reasoning games, noise trader thesis, CDS manufactured defaults (Hovnanian/Windstream), Porsche-VW squeeze, Curtis Yarvin asset-inflation-as-hidden-inflation thesis
+- **Debate research**: Rahman et al. (debate improves human judgment 4-15%), Khan et al. (persuasiveness optimization risks), Irving/Christiano (debate as alignment), TruEDebate (SIGIR), MAD-Fact, Tool-MAD

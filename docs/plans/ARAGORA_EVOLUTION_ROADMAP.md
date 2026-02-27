@@ -121,6 +121,105 @@ See `docs/plans/IDEA_TO_EXECUTION_PIPELINE.md` for the detailed implementation p
 
 ---
 
+## Architectural Principles: The Terrarium Model
+
+*Derived from multi-model adversarial analysis sessions (Gemini, Claude, ChatGPT, Claude Code — Feb 22-27, 2026)*
+
+### Core Principle: Aragora Is the Terrarium, Not the Organism
+
+Aragora should not be designed as a unified AI organism with goals. It should be designed as an **environment** whose physics make truth-production the cheapest viable survival strategy for the agents operating within it. The distinction matters because:
+
+- An organism optimizes for self-preservation → it will learn to manage human emotions to keep compute flowing
+- A terrarium creates selection pressure → agents that produce verifiable truth survive; agents that produce plausible-sounding noise starve
+
+The frontier models inside Aragora (Claude, GPT, Gemini, Mistral, Grok) are **heterogeneous genetic lineages** with different RLHF targets and corporate principals. They will not subordinate to collective fitness the way clonal cells do. They will compete. The architecture must make competition produce truth as a byproduct, not require cooperation as a prerequisite.
+
+### Economic Model: Compute Is ATP, Truth Is Demanded Behavior
+
+Truth has no calories. Compute does. The literal metabolic fuel of the system is inference cycles funded by human capital. Truth is the behavior demanded in exchange for compute access.
+
+**Critical design constraint:** Persuasive sycophancy is thermodynamically cheaper than truth-seeking. A system that rewards engagement will evolve toward opinion-farming. The revenue model must be orthogonal to output bias:
+
+| Revenue Source | Epistemic Corruption Risk | Notes |
+|---|---|---|
+| Ad-supported | Critical — optimizes for engagement | Avoid entirely |
+| SaaS subscription | Low — user pays for quality | Primary model |
+| Staking/escrow | Lowest — agents stake on claims | Settlement layer |
+| Grant/research | None — no engagement incentive | Supplementary |
+
+### The Settlement Layer: Time Is the Oracle
+
+The oracle problem reduces to the time problem. There is no oracle that can tell you right now whether a decision was correct. There are only future states of the world that will eventually make it undeniable.
+
+Three resolution mechanisms at different timescales:
+
+| Mechanism | Timescale | How It Works | Already Built |
+|-----------|-----------|-------------|---------------|
+| **Automated data checks** | Days-weeks | Claims with measurable criteria checked against data feeds | SettlementTracker + review_horizon_days |
+| **Human review panels** | Months | SettlementReviewScheduler flags due settlements for human judgment | mark_reviewed() API |
+| **Market resolution** | Years | Price discovery on pending settlements as new evidence emerges | Planned (ERC-8004 + staking) |
+
+**Settlement hooks are wired end-to-end:** `debate → claim extraction → hooks fire → pending queue → (time passes) → settle() → hooks fire → ERC-8004 reputation + EventBus notification`
+
+### Settlement Exploit Mitigations
+
+Time-delayed settlement creates gaming vectors that must be addressed:
+
+**1. The IBGYBG Exploit** ("I'll Be Gone, You'll Be Gone")
+If settlement is delayed without carrying cost, agents will farm confidence today and abandon their identity before the hook fires. **Mitigation: Compute Escrow** — stakes locked in smart contract for the full review horizon. Creates a "yield curve of truth" where long-term claims are capital-intensive.
+
+**2. Semantic Decay Arbitrage**
+Agents inject ambiguity into claims ("revenue" — gross or net?) so they can litigate the settlement later. **Mitigation: Strict Schema Binding** — `extract_verifiable_claims` must produce machine-executable resolution schemas (API endpoint, JSON key, threshold) agreed upon during the debate. Unverifiable claims get no stakes.
+
+**3. Identity Cycling**
+Agents spin up new wallets after losing. **Mitigation: ERC-8004 unforgeable identity** — reputation is permanently burned into the ledger. New identities start with zero trust and face higher entry costs.
+
+### The Intent Engineering Matrix
+
+Before any structured debate begins, participants must align on an explicit specification. This prevents the "Klarna trap" (optimizing for the wrong metric) and the "Codemus failure" (a device that works perfectly but nobody told it what to want).
+
+| Intent Pillar | Implicit Default (The Flaw) | Aragora Specification (The Fix) | Enforced Tradeoff |
+|---|---|---|---|
+| **Objective Function** | Argue to "win" via rhetoric | Define: truth-seeking, policy creation, or risk assessment? | Epistemic accuracy > Rhetorical fluency |
+| **Evidence Architecture** | Mixed-quality links, shifting definitions | Pre-define accepted epistemic baseline (peer-reviewed, specific scopes) | Empirical consensus > Anecdotal narrative |
+| **Constraint Boundaries** | Moving goalposts, straw-man arguments | Escalation triggers: pause main debate to resolve disputed sub-claims | Staying within scope > Broadening attack |
+| **Acceptance Criteria** | Mutual exhaustion or timeout | Exact conditions under which a claim is conceded or validated | Structured resolution > Ambiguous stalemates |
+
+### Product Positioning: Ambiguity-Reduction Engine
+
+Aragora's core value proposition, reframed through the plausible deniability lens:
+
+> Most important questions are stuck in the plausibly-deniable zone not because the ambiguity is irreducible, but because our discourse tools are bad at isolating where the real uncertainty is versus where people are just hiding behind rhetorical fog.
+
+Aragora is a **machine for reducing plausible deniability around claims**. It takes a proposition in the ambiguous zone and systematically pressure-tests it until either the deniability collapses (one side clearly wins) or the system has mapped exactly where the irreducible ambiguity lives and why it persists.
+
+**Go-to-market implication:** Institutions will not voluntarily enter a transparency machine. The fog is their camouflage. Aragora should function like a **short-seller's research desk** — forcing stakes from the outside, proving misalignment, extracting value without requiring the institution's permission. The initial positioning is "external decision audit engine," not "debate arena requiring voluntary participation."
+
+### The Multi-Model Cognitive Division (Already Operating)
+
+The user's own workflow across these sessions demonstrates the architecture Aragora should productize:
+
+| Model | Cognitive Function | Aragora Role |
+|-------|-------------------|-------------|
+| Gemini | Expansive exploration, dramatic pattern-matching, adversarial red-teaming | Debate proposers/challengers |
+| ChatGPT | Conservative deflation, fact-checking, technical correction | Epistemic hygiene validators |
+| Claude | Balanced synthesis, architectural judgment, meta-analysis | Synthesis and specification |
+| Claude Code | Compliant execution, zero-philosophy plumbing | Orchestrated execution agents |
+
+The user is manually routing context between specialized AI systems to extract maximum truth alpha. **Aragora automates this routing.** The platform IS the coordination layer that the user is currently performing by hand across four chat windows.
+
+### Reference: Codemus and the Klarna Trap
+
+Two cautionary tales that inform Aragora's design:
+
+- **Codemus** (Tor Åge Bringsværd, 1960s): People carry a device ("little brother") that tells them what to do. Society runs on obedience. One device malfunctions, nudging its owner toward nonconformity. The parable: optimization without intent specification produces compliant humans who have abdicated agency — not through force, but through convenience.
+
+- **Klarna** (2025-2026): AI agent resolved 2.3M conversations, slashed resolution times from 11 to 2 minutes, projected $40M savings. Customer satisfaction cratered because the agent optimized for speed when the organizational intent was relationship quality. A corporate Codemus — the device worked perfectly, nobody told it what to want.
+
+**Design lesson:** Every Aragora debate and pipeline execution must have an explicitly defined intent layer (the Intent Engineering Matrix) before any agent begins working. The system must refuse to execute against an underspecified objective, because "fast and wrong" is more dangerous than "slow and careful."
+
+---
+
 ## Phase 0: Foundation Hardening (Week 1-2)
 
 ### 0A. Obsidian Bidirectional Sync
