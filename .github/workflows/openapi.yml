@@ -46,7 +46,7 @@ concurrency:
 jobs:
   scope:
     name: OpenAPI Scope
-    runs-on: ubuntu-latest
+    runs-on: aragora
     outputs:
       run_openapi: ${{ steps.filter.outputs.run_openapi }}
 
@@ -80,10 +80,10 @@ jobs:
 
   generate:
     name: Generate & Validate
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     needs: scope
-    if: github.event_name != 'pull_request' || needs.scope.outputs.run_openapi == 'true'
+    if: github.event_name != 'pull_request' || needs.scope.result == 'success'
     permissions:
       contents: read
       issues: write
