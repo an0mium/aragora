@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 import { PerspectiveCard } from './PerspectiveCard';
+import { ShareToolbar } from './ShareToolbar';
 
 // ---------------------------------------------------------------------------
 // Types (shared with Playground.tsx)
@@ -128,6 +129,12 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
 
   return (
     <div className="text-left space-y-4 mt-8">
+      {/* Share toolbar */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-mono text-[var(--text-muted)]">Share this debate</span>
+        <ShareToolbar debateId={result.id} topic={result.topic} />
+      </div>
+
       {/* Summary bar with verdict badge */}
       <div className="border border-[var(--border)] p-4 flex flex-wrap gap-4 items-center text-sm font-mono">
         <span
