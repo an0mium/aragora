@@ -233,7 +233,7 @@ class GenesisLedger:
                     else {},
                 },
             )
-        except (ImportError, RuntimeError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001
             logger.debug("Genesis event emission unavailable: %s", e)
 
     # === Debate Events ===
