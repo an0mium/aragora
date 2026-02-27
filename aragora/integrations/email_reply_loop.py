@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
+from aragora.exceptions import REDIS_CONNECTION_ERRORS
 from aragora.control_plane.leader import (
     is_distributed_state_required,
     DistributedStateError,
@@ -557,7 +558,7 @@ def register_email_origin(
                 "Redis library not installed (pip install redis)",
             )
         logger.debug("Redis not available, using SQLite/PostgreSQL only")
-    except (ConnectionError, TimeoutError, OSError, RuntimeError, ValueError) as e:
+    except (*REDIS_CONNECTION_ERRORS, RuntimeError, ValueError) as e:
         if is_distributed_state_required():
             raise DistributedStateError(
                 "email_reply_loop",
@@ -588,9 +589,7 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
             if origin:
                 _reply_origins[in_reply_to] = origin  # Cache locally
                 return origin
-        except (ConnectionError, TimeoutError, OSError) as e:
-            logger.debug("Redis email origin lookup connection error: %s: %s", type(e).__name__, e)
-        except (RuntimeError, ValueError) as e:
+        except (*REDIS_CONNECTION_ERRORS, RuntimeError, ValueError) as e:
             logger.debug("Redis email origin lookup not available: %s: %s", type(e).__name__, e)
 
         # Try PostgreSQL if configured

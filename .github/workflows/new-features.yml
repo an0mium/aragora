@@ -12,6 +12,7 @@ on:
       - 'tests/e2e/test_new_features_e2e.py'
       - '.github/workflows/new-features.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/server/handlers/marketplace.py'

@@ -18,6 +18,7 @@ on:
       - 'docs-site/docs/api/cli.md'
       - '.github/workflows/capability-gap.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - 'aragora/capabilities.yaml'

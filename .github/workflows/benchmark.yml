@@ -22,6 +22,7 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/benchmark.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:

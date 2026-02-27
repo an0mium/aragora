@@ -18,11 +18,12 @@ SPEC_READY_MARKER = "SPEC_READY"
 
 # Fixed fallback questions when Claude CLI is unavailable
 FALLBACK_QUESTIONS = [
-    "What would you like to change or build? Describe the outcome you're looking for.",
-    "Why is this needed? What problem does it solve for you?",
-    "Are there specific parts of the system this should affect, or should it be broad?",
-    "How will you know this worked? What does success look like?",
-    "Is there anything that should NOT be changed? Any budget limits?",
+    "Tell me what you'd like to happen. What's the end result you're looking for?",
+    "What's the problem this would solve? Why does it matter right now?",
+    "Should this affect the whole system or just specific parts? Which ones?",
+    "How will you know it worked? What does 'done' look like to you?",
+    "Is there anything that should NOT be changed, or any budget limits to keep in mind?",
+    "Based on what you've described, is there anything else we should tackle while we're at it?",
 ]
 
 SPEC_EXTRACTION_PROMPT = """\
@@ -83,7 +84,7 @@ class SwarmInterrogator:
         self._conversation = [{"role": "user", "content": initial_goal}]
 
         _print("\n" + "=" * 60)
-        _print("SWARM COMMANDER - Requirement Gathering")
+        _print("Let's figure out exactly what you need.")
         _print("=" * 60)
         _print(f"\nYour goal: {initial_goal}\n")
 
@@ -212,6 +213,7 @@ class SwarmInterrogator:
             file_scope_hints=spec_data.get("file_scope_hints", []),
             estimated_complexity=spec_data.get("estimated_complexity", "medium"),
             requires_approval=spec_data.get("requires_approval", False),
+            proactive_suggestions=spec_data.get("proactive_suggestions", []),
             interrogation_turns=len([m for m in self._conversation if m["role"] == "user"]),
             user_expertise=spec_data.get("user_expertise", "non-developer"),
         )

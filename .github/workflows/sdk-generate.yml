@@ -12,6 +12,7 @@ on:
       - 'sdk/typescript/package.json'
       - 'sdk/typescript/tsconfig.json'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'sdk/typescript/src/**/*.ts'
       - 'sdk/typescript/package.json'
