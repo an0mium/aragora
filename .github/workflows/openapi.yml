@@ -24,11 +24,12 @@ on:
       - 'sdk/typescript/src/namespaces/**'
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
 
 concurrency:
   group: openapi-sync-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   scope:
@@ -49,6 +50,11 @@ jobs:
           set -euo pipefail
           if [[ "${{ github.event_name }}" != "pull_request" ]]; then
             echo "run_openapi=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${{ github.event.pull_request.draft }}" == "true" ]]; then
+            echo "run_openapi=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 

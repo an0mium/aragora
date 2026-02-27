@@ -14,6 +14,7 @@ on:
       - 'aragora-operator/**'
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'aragora/**'
       - 'tests/**'
@@ -33,6 +34,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     steps:
       - name: Checkout
@@ -128,6 +130,7 @@ jobs:
   typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     steps:
       - name: Checkout

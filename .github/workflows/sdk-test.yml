@@ -10,6 +10,7 @@ on:
       - '.github/workflows/sdk-test.yml'
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
 
 concurrency:
@@ -21,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     name: SDK Change Detection
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     outputs:
       run_python: ${{ steps.filter.outputs.python_sdk }}
 
@@ -39,7 +41,7 @@ jobs:
 
   python-sdk:
     needs: changes
-    if: needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: Python SDK Tests
@@ -74,6 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: TypeScript SDK Type Check
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     steps:
       - name: Checkout
@@ -101,7 +104,7 @@ jobs:
 
   sdk-integration:
     needs: changes
-    if: needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: SDK Integration Tests

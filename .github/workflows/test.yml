@@ -25,6 +25,7 @@ on:
       - '.github/workflows/test.yml'
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'aragora/**'
       - 'aragora-debate/**'
@@ -70,6 +71,7 @@ jobs:
     name: Version Alignment
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     steps:
       - name: Checkout
@@ -232,6 +234,7 @@ jobs:
     name: Skip Marker Audit
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     steps:
       - name: Checkout
@@ -280,6 +283,7 @@ jobs:
     name: Status Doc Reconciliation
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     steps:
       - name: Checkout
@@ -1104,6 +1108,7 @@ jobs:
     name: Frontend E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     steps:
       - name: Checkout
@@ -1165,7 +1170,7 @@ jobs:
     name: Frontend TypeScript Type Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
 
     steps:
       - name: Checkout
@@ -1205,6 +1210,7 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     steps:
       - name: Checkout
@@ -1237,6 +1243,7 @@ jobs:
     name: Type Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     steps:
       - name: Checkout
@@ -1268,6 +1275,7 @@ jobs:
     name: Database Migrations
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     services:
       postgres:

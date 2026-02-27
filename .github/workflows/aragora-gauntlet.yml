@@ -2,7 +2,7 @@ name: Aragora Gauntlet Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -11,10 +11,15 @@ on:
       - '.github/ISSUE_TEMPLATE/**'
       - '.github/PULL_REQUEST_TEMPLATE/**'
 
+concurrency:
+  group: aragora-gauntlet-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   gauntlet:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     permissions:
       contents: read
       pull-requests: read

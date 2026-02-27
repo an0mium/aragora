@@ -16,6 +16,7 @@ on:
       - 'setup.py'
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'aragora/**'
       - 'tests/**'
@@ -47,6 +48,7 @@ jobs:
     name: Self-Hosted Compose Readiness
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     steps:
       - name: Checkout
@@ -102,6 +104,7 @@ jobs:
     name: E2E Harness Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     services:
       redis:
@@ -208,6 +211,7 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     services:
       redis:
@@ -350,6 +354,7 @@ jobs:
     name: Control Plane Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     services:
       redis:
@@ -444,7 +449,7 @@ jobs:
     name: Integration Summary
     runs-on: ubuntu-latest
     needs: [e2e-harness, integration-tests, control-plane-tests]
-    if: always()
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && always()
 
     steps:
       - name: Check results

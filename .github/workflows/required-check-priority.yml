@@ -6,7 +6,7 @@ on:
 
 concurrency:
   group: required-check-priority-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   actions: write
@@ -31,6 +31,7 @@ jobs:
             const headSha = pr.head.sha;
             const headBranch = pr.head.ref;
             const baseBranch = pr.base.ref;
+            const isDraft = Boolean(pr.draft);
             const selfRunId = Number(process.env.GITHUB_RUN_ID);
 
             const sweeps = 4;
@@ -44,9 +45,6 @@ jobs:
               '.github/workflows/sdk-test.yml',
               '.github/workflows/openapi.yml',
               '.github/workflows/required-check-priority.yml',
-              '.github/workflows/autopilot-worktree-e2e.yml',
-              '.github/workflows/aragora-gauntlet.yml',
-              '.github/workflows/pr-debate.yml',
             ]);
             const alwaysKeepWorkflowNames = new Set([
               'Required Check Priority',
@@ -54,9 +52,6 @@ jobs:
               'SDK Parity Check',
               'SDK Tests',
               'OpenAPI Spec',
-              'Autopilot Worktree E2E',
-              'Aragora Gauntlet Review',
-              'Aragora PR Review',
             ]);
 
             const requiredContexts = new Set();
@@ -79,6 +74,7 @@ jobs:
                   `(continuing with static required-workflow keep-list): ${error.message}`
               );
             }
+            core.info(`Draft fast-path mode: ${isDraft ? 'enabled' : 'disabled'}`);
             const requiredContextsNormalized = new Set(
               Array.from(requiredContexts).map((value) => String(value || '').trim())
             );
@@ -170,17 +166,19 @@ jobs:
 
                 const workflowPath = (run.path || '').split('@')[0];
                 const workflowName = String(run.name || '').trim();
-                if (
-                  alwaysKeepWorkflowPaths.has(workflowPath) ||
-                  alwaysKeepWorkflowNames.has(workflowName)
-                ) {
-                  continue;
-                }
+                if (!isDraft) {
+                  if (
+                    alwaysKeepWorkflowPaths.has(workflowPath) ||
+                    alwaysKeepWorkflowNames.has(workflowName)
+                  ) {
+                    continue;
+                  }
 
-                // Defensive check: if a non-allowlisted workflow run currently owns
-                // a required status context, keep it.
-                const hasRequiredContext = await runHasRequiredContext(run);
-                if (hasRequiredContext) continue;
+                  // Defensive check: if a non-allowlisted workflow run currently owns
+                  // a required status context, keep it.
+                  const hasRequiredContext = await runHasRequiredContext(run);
+                  if (hasRequiredContext) continue;
+                }
 
                 try {
                   await github.rest.actions.cancelWorkflowRun({

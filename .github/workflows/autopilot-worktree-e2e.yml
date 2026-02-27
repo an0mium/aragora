@@ -3,6 +3,7 @@ name: Autopilot Worktree E2E
 on:
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
 
 concurrency:
@@ -16,6 +17,7 @@ jobs:
   scope:
     name: Autopilot Scope
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     outputs:
       run_autopilot: ${{ steps.filter.outputs.run_autopilot }}
 
@@ -52,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: scope
-    if: github.event_name != 'pull_request' || needs.scope.outputs.run_autopilot == 'true'
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.scope.outputs.run_autopilot == 'true')
 
     steps:
       - name: Checkout

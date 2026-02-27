@@ -32,6 +32,7 @@ Operational runbooks for responding to Aragora alerts and incidents.
 | Redis Failover | [redis-failover.md](./redis-failover.md) | Redis HA and recovery procedures |
 | Multi-Region | [RUNBOOK_MULTI_REGION_SETUP.md](./RUNBOOK_MULTI_REGION_SETUP.md) | Multi-region deployment and failover |
 | Fleet Coordination | [RUNBOOK_FLEET_COORDINATION.md](./RUNBOOK_FLEET_COORDINATION.md) | Multi-agent worktree ownership and merge queue policy |
+| CI Lane Discipline | [RUNBOOK_CI_LANE_DISCIPLINE.md](./RUNBOOK_CI_LANE_DISCIPLINE.md) | Draft-vs-integrator lane policy for high-throughput agent collaboration |
 
 ## Incident Severity Levels
 

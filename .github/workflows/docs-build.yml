@@ -3,6 +3,7 @@ name: Build Documentation (PR Check)
 on:
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
     paths:
       - 'docs/**'
       - 'docs-site/**'
@@ -28,9 +29,14 @@ on:
 env:
   NODE_VERSION: '20'
 
+concurrency:
+  group: docs-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
 
     steps:
       - name: Checkout
