@@ -23,6 +23,7 @@ on:
       - '.github/workflows/benchmark.yml'
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/**'
       - 'tests/benchmark/**'
@@ -219,7 +220,7 @@ jobs:
     name: Latency Distribution
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
 
     steps:
       - name: Checkout
