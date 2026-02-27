@@ -177,6 +177,12 @@ class CrudOperationsMixin:
         storage = self.get_storage()
         debate = storage.get_debate(slug)
         if debate:
+            # Public playground debates are accessible without authentication
+            visibility = debate.get("visibility", "private")
+            source = debate.get("source", "")
+            if visibility == "public" or source in ("landing", "playground", "try"):
+                return json_response(normalize_debate_response(debate))
+
             # SECURITY: Verify tenant isolation - requesting user must belong
             # to the same org/tenant as the debate, or the debate must be public
             user = self.get_current_user(handler)

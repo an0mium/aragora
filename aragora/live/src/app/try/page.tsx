@@ -195,7 +195,14 @@ export default function TryPage() {
           {/* Error */}
           {error && (
             <div className="mb-6 p-3 border border-[var(--warning)]/30 bg-[var(--warning)]/10">
-              <p className="text-sm font-mono text-[var(--warning)]">{error}</p>
+              <p className="text-sm font-mono text-[var(--warning)] mb-2">{error}</p>
+              <button
+                onClick={() => { setError(null); handleAnalyze(); }}
+                disabled={question.length < 10}
+                className="text-xs font-mono px-4 py-1.5 border border-[var(--warning)]/40 text-[var(--warning)] hover:bg-[var(--warning)]/10 transition-colors disabled:opacity-50"
+              >
+                Try again
+              </button>
             </div>
           )}
 
@@ -213,9 +220,12 @@ export default function TryPage() {
 
           {/* Progress */}
           {isAnalyzing && (
-            <div className="mt-6 flex items-center justify-center gap-3">
-              <div className="w-5 h-5 border-2 border-[var(--acid-green)]/30 border-t-[var(--acid-green)] rounded-full animate-spin" />
-              <span className="text-sm font-mono text-[var(--acid-green)] animate-pulse">{progress}</span>
+            <div className="mt-6 flex flex-col items-center gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 border-2 border-[var(--acid-green)]/30 border-t-[var(--acid-green)] rounded-full animate-spin" />
+                <span className="text-sm font-mono text-[var(--acid-green)] animate-pulse">{progress}</span>
+              </div>
+              <span className="text-xs font-mono text-[var(--text-muted)]/60">Usually takes 10-20 seconds</span>
             </div>
           )}
 
@@ -227,6 +237,20 @@ export default function TryPage() {
                 confidence={result.confidence}
                 explanation={result.explanation}
               />
+
+              {/* Share + Upgrade CTAs */}
+              <div className="mt-6 flex flex-col gap-3 items-center">
+                <a
+                  href="/signup"
+                  className="w-full py-3 font-mono font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)]
+                             hover:bg-[var(--acid-green)]/80 transition-colors text-center"
+                >
+                  Sign up for full debate transcripts
+                </a>
+                <p className="text-xs font-mono text-[var(--text-muted)]/60">
+                  Free tier includes 5 debates/day with full receipts
+                </p>
+              </div>
             </div>
           )}
 
