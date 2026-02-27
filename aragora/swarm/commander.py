@@ -66,14 +66,23 @@ class SwarmCommander:
             initial_goal, input_fn=input_fn, print_fn=print_fn
         )
 
+        # Phase 1.5: Research enrichment
+        if self.config.enable_research_pipeline:
+            _print("\n[Phase 1.5/4] Researching and enriching spec...\n")
+            self._spec = await self._research(self._spec)
+
         # Phase 2: Dispatch
-        _print("\n[Phase 2/3] Dispatching agents...\n")
+        _print("\n[Phase 2/4] Dispatching agents...\n")
         start_time = time.monotonic()
         self._result = await self._dispatch(self._spec)
         duration = time.monotonic() - start_time
 
+        # Phase 2.5: Truth-seeking validation
+        if self.config.enable_epistemic_scoring:
+            self._result = await self._validate_results(self._result, self._spec)
+
         # Phase 3: Report
-        _print("\n[Phase 3/3] Generating report...\n")
+        _print("\n[Phase 3/4] Generating report...\n")
         report = await self._reporter.generate(
             spec=self._spec,
             result=self._result,
@@ -81,6 +90,10 @@ class SwarmCommander:
         )
 
         _print(report.to_plain_text())
+
+        # Phase 4: Write receipt to Obsidian if configured
+        await self._write_receipt_to_obsidian(report)
+
         return report
 
     async def run_from_spec(
@@ -179,11 +192,198 @@ class SwarmCommander:
             # Return a minimal result so reporting still works
             return _ErrorResult(str(exc))
 
+    async def run_iterative(
+        self,
+        initial_goal: str,
+        input_fn: Any | None = None,
+        print_fn: Any | None = None,
+    ) -> list[SwarmReport]:
+        """Run the swarm in an iterative loop: run -> report -> 'what next?' -> repeat.
+
+        Args:
+            initial_goal: The user's first goal in plain language.
+            input_fn: Custom input function (default: builtin input).
+            print_fn: Custom print function (default: builtin print).
+
+        Returns:
+            List of SwarmReports from each cycle.
+        """
+        _input = input_fn or input
+        _print = print_fn or print
+        reports: list[SwarmReport] = []
+        goal = initial_goal
+        cycle = 1
+
+        while True:
+            sep = "=" * 60
+            _print(f"\n{sep}")
+            _print(f"  Cycle {cycle}")
+            _print(sep)
+
+            report = await self.run(goal, input_fn=input_fn, print_fn=print_fn)
+            reports.append(report)
+
+            if not self.config.iterative_mode:
+                break
+
+            _print("\n" + "-" * 60)
+            _print("What would you like to do next?")
+            _print('(Type "done", "quit", or "exit" to finish)')
+            _print("-" * 60)
+            next_input = _input("> ")
+
+            # Phase 6: Persist cycle learnings
+            if self.config.enable_cross_cycle_learning:
+                await self._persist_cycle_learnings(report, cycle)
+
+            if next_input.strip().lower() in ("done", "quit", "exit", ""):
+                _print("\nAll done! Here's a summary of what was accomplished:\n")
+                for i, r in enumerate(reports, 1):
+                    _print(f"  Cycle {i}: {r.summary}")
+                break
+
+            # Phase 6: MetaPlanner suggestion in metrics-driven mode
+            if self.config.autonomy_level.value == "metrics" and not next_input.strip():
+                try:
+                    from aragora.nomic.meta_planner import MetaPlanner
+
+                    planner = MetaPlanner()
+                    suggestion = await planner.suggest_next_goal([r.summary for r in reports])
+                    if suggestion:
+                        _print(f"\nSuggested next goal: {suggestion}")
+                        goal = suggestion
+                    else:
+                        goal = next_input.strip()
+                except (ImportError, Exception):
+                    goal = next_input.strip()
+            else:
+                goal = next_input.strip()
+
+            # Reset interrogator for new goal
+            self._interrogator = SwarmInterrogator(self.config.interrogator)
+            cycle += 1
+
+        return reports
+
+    async def _research(self, spec: SwarmSpec) -> SwarmSpec:
+        """Enrich spec with pipeline research (Phase 3)."""
+        if not self.config.enable_research_pipeline:
+            return spec
+        try:
+            from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+
+            pipeline = IdeaToExecutionPipeline()
+            result = pipeline.from_ideas([spec.refined_goal or spec.raw_goal])
+            spec.research_context = {
+                "goal_graph": (
+                    result.goal_graph.to_dict()
+                    if hasattr(result, "goal_graph") and result.goal_graph
+                    else {}
+                ),
+                "stage": "ideas_to_goals",
+            }
+            spec.pipeline_stage = "enriched"
+            logger.info("Research pipeline enriched spec with goal graph")
+        except (ImportError, Exception):
+            logger.debug("Research pipeline unavailable, skipping enrichment")
+        return spec
+
+    async def _load_from_obsidian(self, vault_path: str) -> list[str]:
+        """Read goals from tagged Obsidian notes (Phase 4)."""
+        try:
+            from aragora.connectors.knowledge.obsidian import (
+                ObsidianConfig,
+                ObsidianConnector,
+            )
+
+            config = ObsidianConfig(
+                vault_path=vault_path,
+                watch_tags=["#aragora", "#swarm"],
+            )
+            connector = ObsidianConnector(config)
+            notes = list(connector.search_notes(tags=["#swarm"]))
+            return [note.content for note in notes if note.content]
+        except (ImportError, Exception):
+            logger.debug("Obsidian connector unavailable")
+            return []
+
+    async def _write_receipt_to_obsidian(self, report: SwarmReport) -> None:
+        """Write decision receipt back to Obsidian vault (Phase 4)."""
+        if not self.config.obsidian_vault_path or not self.config.obsidian_write_receipts:
+            return
+        try:
+            from aragora.connectors.knowledge.obsidian import (
+                ObsidianConfig,
+                ObsidianConnector,
+            )
+
+            config = ObsidianConfig(vault_path=self.config.obsidian_vault_path)
+            connector = ObsidianConnector(config)
+            receipt_md = report.to_markdown()
+            goal_slug = (report.spec.raw_goal[:50] if report.spec else "unknown").strip()
+            connector.write_note(
+                title=f"Swarm Receipt - {goal_slug}",
+                content=receipt_md,
+                tags=["#aragora", "#receipt"],
+                folder="aragora-receipts",
+            )
+            logger.info("Decision receipt written to Obsidian vault")
+        except (ImportError, Exception):
+            logger.debug("Obsidian receipt write failed, skipping")
+
+    async def _validate_results(self, result: Any, spec: SwarmSpec) -> Any:
+        """Post-dispatch truth-seeking validation (Phase 5)."""
+        if not self.config.enable_epistemic_scoring:
+            return result
+        try:
+            from aragora.reasoning.epistemic_scorer import EpistemicScorer
+
+            scorer = EpistemicScorer()
+            scores = []
+            for assignment in getattr(result, "assignments", []):
+                if getattr(assignment, "status", "") == "completed":
+                    output = getattr(assignment, "output", "")
+                    if output:
+                        score = scorer.score(output)
+                        if hasattr(assignment, "__dict__"):
+                            assignment.__dict__["epistemic_score"] = score
+                        scores.append(score.overall if hasattr(score, "overall") else 0.0)
+            if scores:
+                spec.epistemic_scores = {
+                    "average": sum(scores) / len(scores),
+                    "min": min(scores),
+                    "max": max(scores),
+                    "count": len(scores),
+                }
+        except (ImportError, Exception):
+            logger.debug("Epistemic scoring unavailable")
+        return result
+
+    async def _persist_cycle_learnings(self, report: SwarmReport, cycle: int) -> None:
+        """Store cycle results in KnowledgeMound for cross-cycle learning (Phase 6)."""
+        try:
+            from aragora.knowledge.mound.core import KnowledgeMound
+
+            mound = KnowledgeMound()
+            mound.ingest(
+                {
+                    "type": "swarm_cycle",
+                    "cycle": cycle,
+                    "goal": report.spec.raw_goal if report.spec else "",
+                    "success": report.success,
+                    "duration": report.duration_seconds,
+                    "cost": report.budget_spent_usd,
+                }
+            )
+            logger.info("Cycle %d learnings persisted to KnowledgeMound", cycle)
+        except (ImportError, Exception):
+            logger.debug("KnowledgeMound unavailable for cross-cycle learning")
+
     def _build_orchestrator(self, spec: SwarmSpec) -> Any:
         """Configure HardenedOrchestrator from spec and config."""
         from aragora.nomic.hardened_orchestrator import HardenedOrchestrator
 
-        return HardenedOrchestrator(
+        orchestrator = HardenedOrchestrator(
             require_human_approval=spec.requires_approval or self.config.require_approval,
             budget_limit_usd=spec.budget_limit_usd or self.config.budget_limit_usd,
             use_worktree_isolation=self.config.use_worktree_isolation,
@@ -194,6 +394,14 @@ class SwarmCommander:
             spectate_stream=self.config.spectate_stream,
             max_parallel_tasks=self.config.max_parallel_tasks,
         )
+
+        # Post-configure task decomposer if available
+        if hasattr(orchestrator, "task_decomposer"):
+            decomposer = orchestrator.task_decomposer
+            if hasattr(decomposer, "config") and hasattr(decomposer.config, "max_subtasks"):
+                decomposer.config.max_subtasks = self.config.max_subtasks
+
+        return orchestrator
 
     @property
     def spec(self) -> SwarmSpec | None:

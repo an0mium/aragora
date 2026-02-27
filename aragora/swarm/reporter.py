@@ -181,10 +181,13 @@ class SwarmReporter:
             if not await harness.initialize():
                 return None
 
-            result_summary = self._summarize_result(result)
+            result_summary = self._summarize_result(result, spec=spec)
             prompt = (
-                "You are writing a report for someone who is NOT a developer.\n"
-                "Explain what happened in plain, simple language.\n\n"
+                "You are a CTO giving a status update to your CEO.\n"
+                "Explain what your engineering team accomplished in plain, "
+                "simple language. Never use jargon. Be specific about what "
+                "was done -- say 'We updated the login page to show your "
+                "company logo' not 'Task 3 completed successfully'.\n\n"
                 f"Goal: {spec.refined_goal or spec.raw_goal}\n\n"
                 f"Results:\n{result_summary}\n\n"
                 "Produce a JSON object with:\n"
@@ -237,18 +240,18 @@ class SwarmReporter:
 
         if success:
             summary = (
-                f'All work for "{goal}" completed successfully. '
-                f"{completed} out of {total} tasks finished without issues."
+                "Great news -- everything you asked for is done. "
+                f"Your team finished all {total} tasks without any issues."
             )
         elif completed > 0:
             summary = (
-                f'Work on "{goal}" partially completed. '
-                f"{completed} out of {total} tasks succeeded, "
-                f"{failed} had issues."
+                f'Your team made good progress on "{goal}". '
+                f"They finished {completed} out of {total} tasks, "
+                f"but {failed} had issues."
             )
         else:
             summary = (
-                f'Work on "{goal}" could not be completed. All {total} tasks encountered issues.'
+                f"Your team wasn't able to complete '{goal}'. All {total} tasks ran into issues."
             )
 
         what_was_done = []
@@ -271,17 +274,29 @@ class SwarmReporter:
         what_to_do_next = []
         if failed > 0:
             what_to_do_next.append(
-                "Review the failed tasks and consider running the swarm again "
-                "with adjusted constraints"
+                "Some tasks had issues -- you might want to run the swarm again "
+                "or have someone look into what went wrong"
             )
         if skipped > 0:
             what_to_do_next.append(
-                f"{skipped} tasks were skipped -- they may need manual attention"
+                f"{skipped} tasks were skipped and may need someone to handle them manually"
             )
         if success:
             what_to_do_next.append(
-                "Review the changes and run your tests to confirm everything works"
+                "You might want to have someone do a quick review of the changes "
+                "to make sure everything looks right"
             )
+
+        # Add confidence level from epistemic scores if available (Phase 5)
+        if hasattr(spec, "epistemic_scores") and spec.epistemic_scores:
+            avg_score = spec.epistemic_scores.get("average", 0)
+            if avg_score >= 0.7:
+                confidence = "High"
+            elif avg_score >= 0.4:
+                confidence = "Medium"
+            else:
+                confidence = "Low"
+            summary += f" Confidence level: {confidence}."
 
         return SwarmReport(
             success=success,
@@ -307,7 +322,7 @@ class SwarmReporter:
         """Extract total cost from result."""
         return getattr(result, "total_cost_usd", 0.0)
 
-    def _summarize_result(self, result: Any) -> str:
+    def _summarize_result(self, result: Any, spec: SwarmSpec | None = None) -> str:
         """Produce a text summary of OrchestrationResult for LLM consumption."""
         lines = []
         total = getattr(result, "total_subtasks", 0)
@@ -320,7 +335,7 @@ class SwarmReporter:
         lines.append(f"Skipped: {skipped}")
 
         assignments = getattr(result, "assignments", [])
-        for assignment in assignments[:10]:
+        for assignment in assignments[:15]:
             title = getattr(assignment, "subtask_title", "Unknown")
             status = getattr(assignment, "status", "unknown")
             error = getattr(assignment, "error", "")
@@ -328,5 +343,10 @@ class SwarmReporter:
             if error:
                 line += f" - {error}"
             lines.append(line)
+
+        if spec and spec.proactive_suggestions:
+            lines.append("\nProactive suggestions made during planning:")
+            for suggestion in spec.proactive_suggestions:
+                lines.append(f"  - {suggestion}")
 
         return "\n".join(lines)
