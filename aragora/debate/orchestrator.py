@@ -713,6 +713,12 @@ class Arena(ArenaDelegatesMixin):
         core.autotune_config = getattr(cfg, "autotune_config", None)
         _init_apply_core_components(self, core)
 
+        # Propagate thinking_budget from protocol to Anthropic agents
+        if self.protocol.thinking_budget:
+            for agent in self.agents:
+                if hasattr(agent, "thinking_budget") and agent.thinking_budget is None:
+                    agent.thinking_budget = self.protocol.thinking_budget
+
         # Codebase grounding (opt-in, stored directly on Arena)
         self.codebase_path = cfg.codebase_path
         self.enable_codebase_grounding = cfg.enable_codebase_grounding
