@@ -31,8 +31,8 @@ class TestAnthropicAgentInitialization:
         assert agent.role == "proposer"
         assert agent.agent_type == "anthropic"
         assert agent.timeout == 120
-        # Fallback is opt-in by default (requires ARAGORA_OPENROUTER_FALLBACK_ENABLED=true)
-        assert agent.enable_fallback is False
+        # Fallback is enabled by default for graceful degradation
+        assert agent.enable_fallback is True
 
     def test_custom_initialization(self):
         """Test agent with custom parameters."""

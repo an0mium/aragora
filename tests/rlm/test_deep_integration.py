@@ -266,6 +266,8 @@ class TestInitOfficialRLM:
         )
 
         env = env_overrides or {}
+        # Remove OPENROUTER_API_KEY to prevent auto-fallback backend creation
+        env.setdefault("OPENROUTER_API_KEY", "")
         with patch.dict(os.environ, env, clear=False):
             with patch.dict(sys.modules, {"rlm": fake_rlm_mod, "rlm.logger": fake_logger_mod}):
                 with patch("aragora.rlm.bridge.HAS_OFFICIAL_RLM", True):

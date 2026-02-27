@@ -330,7 +330,7 @@ class TestBatchLocal:
     @patch("aragora.cli.main.run_debate", new_callable=AsyncMock)
     def test_handles_failures(self, mock_run_debate, sample_items, mock_args, capsys):
         """Handle failed debates."""
-        mock_run_debate.side_effect = Exception("API error")
+        mock_run_debate.side_effect = RuntimeError("API error")
 
         _batch_local(sample_items, mock_args)
 

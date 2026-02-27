@@ -36,8 +36,8 @@ class TestGrokAgentInitialization:
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "grok"
-        # Fallback is opt-in by default (requires ARAGORA_OPENROUTER_FALLBACK_ENABLED=true)
-        assert agent.enable_fallback is False
+        # Fallback is enabled by default for graceful degradation
+        assert agent.enable_fallback is True
         assert agent.base_url == "https://api.x.ai/v1"
 
     def test_init_with_custom_config(self, mock_env_with_api_keys):

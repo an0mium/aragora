@@ -354,6 +354,9 @@ class DebateResult:
     # Partial consensus - tracks which sub-questions/topics reached agreement
     # when overall consensus wasn't achieved. Enables plans to proceed with agreed portions.
     partial_consensus: Any | None = None  # PartialConsensus from aragora.debate.consensus
+    # Topic modeling - categorizes the debate for routing and analysis
+    topic_id: str | None = None  # Canonical ID for the primary topic
+    topic_tags: list[str] = field(default_factory=list)  # Associated tags
 
     def __post_init__(self) -> None:
         if self.debate_id:
@@ -391,6 +394,8 @@ class DebateResult:
             "agent_failures": self.agent_failures,
             "duration_seconds": self.duration_seconds,
             "winner": self.winner,
+            "topic_id": self.topic_id,
+            "topic_tags": self.topic_tags,
         }
         # Include cost data if present
         if self.total_cost_usd > 0 or self.total_tokens > 0:
@@ -429,6 +434,8 @@ class DebateResult:
             duration_seconds=data.get("duration_seconds", 0.0),
             winner=data.get("winner"),
             translations=data.get("translations", {}),
+            topic_id=data.get("topic_id"),
+            topic_tags=data.get("topic_tags", []),
         )
 
     def summary(self) -> str:
@@ -526,6 +533,9 @@ class Environment:
     consensus_threshold: float = 0.7  # fraction of agents that must agree
     # Document IDs attached to this debate (Heavy3-inspired)
     documents: list[str] = field(default_factory=list)
+    # Topic modeling - used for agent routing and analytics
+    topic_id: str | None = None
+    topic_tags: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Validate task input for safety."""

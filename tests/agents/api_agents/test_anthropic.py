@@ -36,8 +36,8 @@ class TestAnthropicAgentInitialization:
         assert agent.role == "proposer"
         assert agent.timeout == 120
         assert agent.agent_type == "anthropic"
-        # Fallback is opt-in by default (requires ARAGORA_OPENROUTER_FALLBACK_ENABLED=true)
-        assert agent.enable_fallback is False
+        # Fallback is enabled by default for graceful degradation
+        assert agent.enable_fallback is True
         assert agent.enable_web_search is True
         assert "api.anthropic.com" in agent.base_url
 
