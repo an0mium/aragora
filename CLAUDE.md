@@ -29,6 +29,7 @@ For high-churn parallel sessions, use managed disposable worktrees and auto-reco
 | Agents | `aragora/agents/` | `cli_agents.py`, `api_agents/` |
 | Analytics | `aragora/analytics/` | `dashboard.py`, `debate_analytics.py` |
 | Audit | `aragora/audit/` | `log.py`, `orchestrator.py`, `codebase_auditor.py`, `bug_detector.py` |
+| CI Lanes | `docs/CI_LANES.md` | Two-lane CI: draft PRs run 5 checks, ready PRs run full suite |
 | Backup | `aragora/backup/` | `manager.py` (disaster recovery) |
 | Billing | `aragora/billing/` | `cost_tracker.py`, `budget_manager.py`, `metering.py`, `forecaster.py` |
 | Chat routing | `aragora/server/` | `debate_origin.py`, `result_router.py` |
