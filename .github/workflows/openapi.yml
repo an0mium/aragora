@@ -32,6 +32,7 @@ concurrency:
 
 jobs:
   scope:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: OpenAPI Scope
     runs-on: ubuntu-latest
     outputs:
@@ -70,7 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: scope
-    if: github.event_name != 'pull_request' || needs.scope.outputs.run_openapi == 'true'
+    if: (github.event_name != 'pull_request' || needs.scope.outputs.run_openapi == 'true') && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     permissions:
       contents: read
       issues: write
@@ -373,7 +374,7 @@ jobs:
     name: Sync Spec (main only)
     runs-on: ubuntu-latest
     needs: generate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') && !github.event.pull_request.draft
     permissions:
       contents: write
 

@@ -27,6 +27,7 @@ env:
 
 jobs:
   e2e:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Playwright E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -179,6 +180,7 @@ jobs:
           [ -n "$FRONTEND_PID" ] && kill $FRONTEND_PID || true
 
   python-e2e:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Python E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -232,7 +234,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: e2e
-    if: github.event_name == 'pull_request'
+    if: (github.event_name == 'pull_request') && !github.event.pull_request.draft
 
     steps:
       - name: Checkout

@@ -28,6 +28,7 @@ permissions:
 
 jobs:
   python-security:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Python Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -88,6 +89,7 @@ jobs:
           retention-days: 30
 
   npm-security:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: npm Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -162,7 +164,7 @@ jobs:
     name: Security Gate Summary
     runs-on: ubuntu-latest
     needs: [python-security, npm-security]
-    if: always()
+    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     timeout-minutes: 2
 
     steps:
