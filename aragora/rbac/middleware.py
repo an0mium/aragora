@@ -214,6 +214,10 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)/run$", "POST", "debates.run", 1),
     RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)/stop$", "POST", "debates.stop", 1),
     RoutePermission(r"^/api/(?:v1/)?debates?/([^/]+)/fork$", "POST", "debates.fork", 1),
+    # Interrogation
+    RoutePermission(r"^/api/(?:v1/)?interrogation/start$", "POST", "debates.create"),
+    RoutePermission(r"^/api/(?:v1/)?interrogation/answer$", "POST", "debates.create"),
+    RoutePermission(r"^/api/(?:v1/)?interrogation/crystallize$", "POST", "debates.create"),
     # Agents (matches both /api/agents and /api/v1/agents)
     RoutePermission(r"^/api/(?:v1/)?agents?$", "GET", "agents.read"),
     RoutePermission(r"^/api/(?:v1/)?agents?$", "POST", "agents.create"),
