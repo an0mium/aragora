@@ -46,7 +46,7 @@ concurrency:
 jobs:
   scope:
     name: OpenAPI Scope
-    runs-on: ubuntu-latest
+    runs-on: aragora
     outputs:
       run_openapi: ${{ steps.filter.outputs.run_openapi }}
 
