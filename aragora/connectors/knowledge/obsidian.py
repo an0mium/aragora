@@ -7,6 +7,8 @@ Integration with Obsidian vaults for knowledge management:
 - Wikilink/backlink resolution
 - Tag-based filtering
 - Decision receipt writing
+- Bidirectional sync (KM validation results -> Obsidian frontmatter)
+- Filesystem watching for real-time sync
 
 Supports both local vault access and Obsidian REST API (via community plugin).
 """
@@ -17,12 +19,13 @@ import hashlib
 import logging
 import os
 import re
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 
 import yaml
 
@@ -31,6 +34,14 @@ from aragora.connectors.enterprise.base import SyncItem, SyncResult, SyncState
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
+
+# Optional watchdog import for filesystem watching
+try:
+    from watchdog.observers import Observer
+
+    _WATCHDOG_AVAILABLE = True
+except ImportError:
+    _WATCHDOG_AVAILABLE = False
 
 
 # =============================================================================
@@ -51,6 +62,30 @@ class NoteType(str, Enum):
     UNKNOWN = "unknown"
 
 
+class ConflictStrategy(str, Enum):
+    """Strategy for resolving conflicts between Obsidian and KM."""
+
+    USER_CONTENT_KM_FRONTMATTER = "user_content_km_frontmatter"
+    KM_WINS = "km_wins"
+    USER_WINS = "user_wins"
+    MANUAL = "manual"
+
+
+@dataclass
+class ConflictRecord:
+    """Record of a detected conflict between Obsidian and KM."""
+
+    note_path: str
+    field_name: str
+    obsidian_value: Any
+    km_value: Any
+    resolved_value: Any
+    strategy: ConflictStrategy
+    detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    note_modified_at: datetime | None = None
+    km_modified_at: datetime | None = None
+
+
 @dataclass
 class ObsidianConfig:
     """Configuration for Obsidian connector."""
@@ -62,6 +97,9 @@ class ObsidianConfig:
     ignore_folders: list[str] = field(default_factory=lambda: [".obsidian", ".trash", "templates"])
     sync_attachments: bool = False
     parse_dataview: bool = True  # Parse dataview inline fields
+    enable_reverse_sync: bool = True  # Enable KM -> Obsidian frontmatter updates
+    conflict_strategy: ConflictStrategy = ConflictStrategy.USER_CONTENT_KM_FRONTMATTER
+    watcher_debounce_ms: int = 500  # Debounce window for filesystem watcher
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> ObsidianConfig | None:
@@ -102,6 +140,8 @@ class ObsidianConfig:
             ignore_folders=ignore_folders or [".obsidian", ".trash", "templates"],
             sync_attachments=_parse_bool(env.get("ARAGORA_OBSIDIAN_SYNC_ATTACHMENTS"), False),
             parse_dataview=_parse_bool(env.get("ARAGORA_OBSIDIAN_PARSE_DATAVIEW"), True),
+            enable_reverse_sync=_parse_bool(env.get("ARAGORA_OBSIDIAN_ENABLE_REVERSE_SYNC"), True),
+            watcher_debounce_ms=int(env.get("ARAGORA_OBSIDIAN_WATCHER_DEBOUNCE_MS", "500")),
         )
 
 
@@ -392,6 +432,17 @@ class ObsidianConnector(BaseConnector):
         self._vault_path = Path(config.vault_path).expanduser().resolve()
         self._note_cache: dict[str, ObsidianNote] = {}
         self._backlink_index: dict[str, list[str]] = {}  # note -> notes linking to it
+
+        # Reverse sync state: track KM write timestamps per note path
+        self._km_write_timestamps: dict[str, datetime] = {}
+
+        # Conflict log
+        self._conflict_log: list[ConflictRecord] = []
+
+        # Filesystem watcher state
+        self._watcher_observer: Any | None = None
+        self._watcher_running = False
+        self._watcher_callback: Callable[[str], None] | None = None
 
     @property
     def name(self) -> str:
@@ -968,6 +1019,248 @@ class ObsidianConnector(BaseConnector):
         return await self.write_note(path, note.content, note.frontmatter, overwrite=True)
 
     # =========================================================================
+    # Reverse Sync (KM -> Obsidian)
+    # =========================================================================
+
+    async def write_km_validation(
+        self,
+        path: str,
+        km_confidence: float,
+        km_validation_result: str,
+        cross_debate_utility: float | None = None,
+        extra_fields: dict[str, Any] | None = None,
+    ) -> ObsidianNote | None:
+        """Write KM validation results back to an Obsidian note's frontmatter.
+
+        This is the reverse flow: Knowledge Mound -> Obsidian. It appends
+        KM-specific fields to frontmatter while preserving user content.
+
+        Args:
+            path: Note path within the vault.
+            km_confidence: KM confidence score (0.0 - 1.0).
+            km_validation_result: Validation outcome (e.g. "validated", "contradicted").
+            cross_debate_utility: Optional cross-debate utility score.
+            extra_fields: Additional KM fields to write.
+
+        Returns:
+            Updated ObsidianNote or None if note not found or reverse sync disabled.
+        """
+        if not self._config.enable_reverse_sync:
+            logger.debug("Reverse sync disabled, skipping write to %s", path)
+            return None
+
+        note = self.get_note(path)
+        if not note:
+            logger.warning("Cannot write KM validation: note not found at %s", path)
+            return None
+
+        now = datetime.now(timezone.utc)
+
+        # Build the KM update fields
+        updates: dict[str, Any] = {
+            "km_confidence": round(km_confidence, 4),
+            "km_validated_at": now.isoformat(),
+            "km_validation_result": km_validation_result,
+        }
+        if cross_debate_utility is not None:
+            updates["cross_debate_utility"] = round(cross_debate_utility, 4)
+        if extra_fields:
+            updates.update(extra_fields)
+
+        # Check for conflicts before writing
+        conflicts = self._detect_conflicts(note, updates, now)
+        for conflict in conflicts:
+            self._conflict_log.append(conflict)
+            logger.info(
+                "Conflict detected on %s field '%s': obsidian=%s km=%s resolved=%s",
+                path,
+                conflict.field_name,
+                conflict.obsidian_value,
+                conflict.km_value,
+                conflict.resolved_value,
+            )
+            # Apply resolved value
+            updates[conflict.field_name] = conflict.resolved_value
+
+        # Write back via update_note_frontmatter
+        result = await self.update_note_frontmatter(path, updates)
+        if result is not None:
+            self._km_write_timestamps[path] = now
+
+        return result
+
+    # =========================================================================
+    # Conflict Detection
+    # =========================================================================
+
+    def _detect_conflicts(
+        self,
+        note: ObsidianNote,
+        km_updates: dict[str, Any],
+        km_modified_at: datetime,
+    ) -> list[ConflictRecord]:
+        """Detect conflicts between existing note frontmatter and KM updates.
+
+        Strategy (default USER_CONTENT_KM_FRONTMATTER):
+        - For user-authored content fields (title, tags, content): prefer user
+        - For KM result fields (km_confidence, km_validated_at, etc.): prefer KM
+        - Log all conflicts regardless of resolution
+
+        Args:
+            note: The current note state.
+            km_updates: Fields being written from KM.
+            km_modified_at: When the KM validation was generated.
+
+        Returns:
+            List of ConflictRecord for any detected conflicts.
+        """
+        conflicts: list[ConflictRecord] = []
+        strategy = self._config.conflict_strategy
+
+        # User-authored fields that should not be overwritten by KM
+        user_fields = {"title", "tags", "aliases", "related_issues"}
+
+        # Check if user has modified the note since last KM write
+        last_km_write = self._km_write_timestamps.get(note.path)
+        note_modified_after_km = (
+            last_km_write is not None
+            and note.modified_at is not None
+            and note.modified_at > last_km_write
+        )
+
+        for field_name, km_value in km_updates.items():
+            # Get existing value from frontmatter
+            if hasattr(note.frontmatter, field_name):
+                existing_value = getattr(note.frontmatter, field_name)
+            else:
+                existing_value = note.frontmatter.custom.get(field_name)
+
+            # No conflict if field doesn't exist yet
+            if existing_value is None:
+                continue
+
+            # No conflict if values are the same
+            if existing_value == km_value:
+                continue
+
+            # Determine resolved value based on strategy
+            if strategy == ConflictStrategy.USER_CONTENT_KM_FRONTMATTER:
+                if field_name in user_fields and note_modified_after_km:
+                    # User edited after last KM write -- keep user value
+                    resolved_value = existing_value
+                else:
+                    # KM result field or no user edit -- prefer KM
+                    resolved_value = km_value
+            elif strategy == ConflictStrategy.KM_WINS:
+                resolved_value = km_value
+            elif strategy == ConflictStrategy.USER_WINS:
+                resolved_value = existing_value
+            else:
+                # MANUAL: log but don't apply KM value
+                resolved_value = existing_value
+
+            conflicts.append(
+                ConflictRecord(
+                    note_path=note.path,
+                    field_name=field_name,
+                    obsidian_value=existing_value,
+                    km_value=km_value,
+                    resolved_value=resolved_value,
+                    strategy=strategy,
+                    note_modified_at=note.modified_at,
+                    km_modified_at=km_modified_at,
+                )
+            )
+
+        return conflicts
+
+    def get_conflict_log(self) -> list[ConflictRecord]:
+        """Return the conflict log for inspection/auditing."""
+        return list(self._conflict_log)
+
+    def clear_conflict_log(self) -> None:
+        """Clear the conflict log."""
+        self._conflict_log.clear()
+
+    # =========================================================================
+    # Filesystem Watcher
+    # =========================================================================
+
+    def start_watcher(
+        self,
+        callback: Callable[[str], None] | None = None,
+    ) -> bool:
+        """Start watching the vault for file changes.
+
+        Uses the ``watchdog`` library for cross-platform filesystem events.
+        Debounces rapid changes with a configurable window (default 500ms).
+        Only fires for .md files matching configured watch_tags.
+
+        Args:
+            callback: Function called with the relative note path on change.
+                If None, changes are logged but no callback is fired.
+
+        Returns:
+            True if watcher started successfully, False otherwise.
+        """
+        if not _WATCHDOG_AVAILABLE:
+            logger.warning("watchdog library not installed. Install with: pip install watchdog")
+            return False
+
+        if self._watcher_running:
+            logger.warning("Watcher already running")
+            return False
+
+        if not self.is_available:
+            logger.warning("Vault not available, cannot start watcher")
+            return False
+
+        self._watcher_callback = callback
+        debounce_seconds = self._config.watcher_debounce_ms / 1000.0
+
+        handler = _ObsidianFileHandler(
+            vault_path=self._vault_path,
+            watch_tags=self._config.watch_tags,
+            ignore_folders=self._config.ignore_folders,
+            debounce_seconds=debounce_seconds,
+            callback=self._on_file_change,
+        )
+
+        self._watcher_observer = Observer()
+        self._watcher_observer.schedule(handler, str(self._vault_path), recursive=True)
+        self._watcher_observer.start()
+        self._watcher_running = True
+        logger.info("Started Obsidian vault watcher on %s", self._vault_path)
+        return True
+
+    def stop_watcher(self) -> None:
+        """Stop the filesystem watcher."""
+        if self._watcher_observer is not None and self._watcher_running:
+            self._watcher_observer.stop()
+            self._watcher_observer.join(timeout=5.0)
+            self._watcher_observer = None
+            self._watcher_running = False
+            logger.info("Stopped Obsidian vault watcher")
+
+    @property
+    def watcher_running(self) -> bool:
+        """Check if the filesystem watcher is running."""
+        return self._watcher_running
+
+    def _on_file_change(self, rel_path: str) -> None:
+        """Handle a debounced file change event.
+
+        Args:
+            rel_path: Relative path to the changed note within the vault.
+        """
+        logger.debug("Obsidian note changed: %s", rel_path)
+        if self._watcher_callback is not None:
+            try:
+                self._watcher_callback(rel_path)
+            except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+                logger.warning("Watcher callback failed for %s: %s", rel_path, e)
+
+    # =========================================================================
     # Sync Operations
     # =========================================================================
 
@@ -1075,6 +1368,95 @@ class ObsidianConnector(BaseConnector):
 
 
 # =============================================================================
+# Filesystem Watcher Handler
+# =============================================================================
+
+
+class _ObsidianFileHandler:
+    """Watchdog event handler for Obsidian vault changes.
+
+    Debounces rapid filesystem events and filters to relevant .md files.
+    Only available when the ``watchdog`` library is installed.
+    """
+
+    def __init__(
+        self,
+        vault_path: Path,
+        watch_tags: list[str],
+        ignore_folders: list[str],
+        debounce_seconds: float,
+        callback: Callable[[str], None],
+    ) -> None:
+        self._vault_path = vault_path
+        self._watch_tags = watch_tags
+        self._ignore_folders = ignore_folders
+        self._debounce_seconds = debounce_seconds
+        self._callback = callback
+        self._pending: dict[str, threading.Timer] = {}
+        self._lock = threading.Lock()
+
+    if _WATCHDOG_AVAILABLE:
+
+        def dispatch(self, event: Any) -> None:
+            """Handle filesystem events from watchdog."""
+            # Only handle file modifications and creations
+            if not hasattr(event, "src_path"):
+                return
+            if event.is_directory:
+                return
+
+            src_path = Path(event.src_path)
+
+            # Only .md files
+            if src_path.suffix.lower() != ".md":
+                return
+
+            # Skip ignored folders
+            try:
+                rel_path = src_path.relative_to(self._vault_path)
+            except ValueError:
+                return
+
+            if any(part in self._ignore_folders for part in rel_path.parts):
+                return
+
+            rel_str = str(rel_path)
+            self._debounce(rel_str)
+
+    def _debounce(self, rel_path: str) -> None:
+        """Debounce file change events.
+
+        Delays firing the callback until no new events arrive within
+        the debounce window.
+        """
+        with self._lock:
+            # Cancel any existing timer for this path
+            existing = self._pending.get(rel_path)
+            if existing is not None:
+                existing.cancel()
+
+            # Schedule new timer
+            timer = threading.Timer(
+                self._debounce_seconds,
+                self._fire,
+                args=(rel_path,),
+            )
+            timer.daemon = True
+            self._pending[rel_path] = timer
+            timer.start()
+
+    def _fire(self, rel_path: str) -> None:
+        """Fire the callback after debounce completes."""
+        with self._lock:
+            self._pending.pop(rel_path, None)
+
+        try:
+            self._callback(rel_path)
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.warning("Watcher handler callback failed for %s: %s", rel_path, e)
+
+
+# =============================================================================
 # Factory Functions
 # =============================================================================
 
@@ -1112,5 +1494,7 @@ __all__ = [
     "ObsidianNote",
     "Frontmatter",
     "NoteType",
+    "ConflictStrategy",
+    "ConflictRecord",
     "create_obsidian_connector",
 ]

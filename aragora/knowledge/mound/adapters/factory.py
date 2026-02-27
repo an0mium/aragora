@@ -377,7 +377,7 @@ _ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
             "name": "obsidian",
             "required_deps": [],
             "forward_method": "sync_to_km",
-            "reverse_method": None,
+            "reverse_method": "sync_from_km",
             "priority": 5,
             "enabled_by_default": False,
             "config_key": "km_obsidian_adapter",
