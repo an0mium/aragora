@@ -32,9 +32,10 @@ from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vo
 from aragora.debate.orchestrator import Arena, _compute_domain_from_task
 from aragora.debate.protocol import DebateProtocol
 
-# Many tests in this file run full Arena.run() debates (~10-30s each).
-# Under load from 9000+ prior tests, these can exceed the global 30s timeout.
-pytestmark = pytest.mark.timeout(120)
+# Arena.run() tests are fast (<1s each) thanks to conftest stubs for
+# expensive I/O (context gathering, memory prefetch, KM queries).
+# 30s per test is generous but allows headroom under heavy CI load.
+pytestmark = pytest.mark.timeout(30)
 
 
 class MockAgent(Agent):

@@ -15,6 +15,9 @@ from typing import TYPE_CHECKING
 from collections.abc import Generator
 from unittest.mock import Mock, MagicMock, AsyncMock
 
+import concurrent.futures
+import threading
+
 import pytest
 
 from aragora.resilience import reset_all_circuit_breakers
@@ -2891,3 +2894,35 @@ def _global_mock_pollution_guard():
     if _GlobalAgent is not None and _global_real_agent_init is not None:
         if _GlobalAgent.__init__ is not _global_real_agent_init:
             _GlobalAgent.__init__ = _global_real_agent_init
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Force-cleanup dangling non-daemon threads and executor pools.
+
+    After all tests complete, leaked ThreadPoolExecutor workers
+    (created by asyncio loop.run_in_executor(None, ...)) and stale
+    httpx/aiohttp connections can keep the process alive indefinitely.
+    """
+    import gc
+
+    gc.collect()
+    for obj in gc.get_objects():
+        if isinstance(obj, concurrent.futures.ThreadPoolExecutor):
+            try:
+                obj.shutdown(wait=False, cancel_futures=True)
+            except (TypeError, RuntimeError):
+                try:
+                    obj.shutdown(wait=False)
+                except RuntimeError:
+                    pass
+
+    non_daemon_threads = [
+        t
+        for t in threading.enumerate()
+        if t.is_alive()
+        and not t.daemon
+        and t is not threading.main_thread()
+        and t.name != "MainThread"
+    ]
+    for t in non_daemon_threads:
+        t.join(timeout=1.0)

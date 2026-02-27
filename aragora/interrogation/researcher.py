@@ -2,11 +2,49 @@
 
 from __future__ import annotations
 
+import enum
 import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+# ── Backward-compatible types (used by questioner.py & older tests) ──
+
+
+class ResearchSource(enum.Enum):
+    """Sources from which research findings originate."""
+
+    KNOWLEDGE_MOUND = "knowledge_mound"
+    OBSIDIAN = "obsidian"
+    CODEBASE = "codebase"
+    WEB = "web"
+
+
+@dataclass
+class Finding:
+    """A single research finding from a source."""
+
+    source: ResearchSource
+    content: str
+    relevance: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ResearchResult:
+    """Backward-compatible research result used by the questioner.
+
+    Stores findings keyed by dimension name so the questioner can
+    look up research relevant to each dimension.
+    """
+
+    findings: dict[str, list[Finding]] = field(default_factory=dict)
+
+    def for_dimension(self, dimension_name: str) -> list[Finding]:
+        """Return findings relevant to a specific dimension."""
+        return self.findings.get(dimension_name, [])
 
 
 @dataclass

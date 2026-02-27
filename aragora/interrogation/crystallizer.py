@@ -8,6 +8,7 @@ and implications the user didn't state but would want.
 
 from __future__ import annotations
 
+import enum
 import logging
 import re
 from dataclasses import dataclass, field
@@ -140,6 +141,51 @@ PRIOR_ART:
 ...
 
 Be precise. Every requirement should be testable. Every success criterion should be measurable."""
+
+
+# ── Backward-compatible types (used by older tests, handler, executor) ──
+
+
+class RequirementLevel(enum.Enum):
+    """Priority level for a requirement."""
+
+    MUST = "must"
+    SHOULD = "should"
+    COULD = "could"
+    WONT = "wont"
+
+
+@dataclass
+class Requirement:
+    """A single requirement with priority level and dimension."""
+
+    description: str
+    level: RequirementLevel = RequirementLevel.MUST
+    dimension: str = ""
+
+
+@dataclass
+class Spec:
+    """Backward-compatible specification output.
+
+    This is the simpler legacy type used by the executor, handler, and older
+    test_crystallizer tests. The newer ``CrystallizedSpec`` is the richer
+    MoSCoW-based spec produced by the LLM crystallizer.
+    """
+
+    problem_statement: str = ""
+    requirements: list[Requirement] = field(default_factory=list)
+    non_requirements: list[str] = field(default_factory=list)
+    success_criteria: list[str] = field(default_factory=list)
+    risks: list[str] = field(default_factory=list)
+    context_summary: str = ""
+
+    def to_goal_text(self) -> str:
+        """Convert spec to a goal string for the execution pipeline."""
+        parts = [self.problem_statement]
+        for r in self.requirements:
+            parts.append(f"[{r.level.value.upper()}] {r.description}")
+        return "\n".join(parts)
 
 
 class Crystallizer:

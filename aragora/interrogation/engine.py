@@ -18,7 +18,13 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from aragora.interrogation.crystallizer import Crystallizer, CrystallizedSpec
+from aragora.interrogation.crystallizer import (
+    Crystallizer,
+    CrystallizedSpec,
+    Requirement,
+    RequirementLevel,
+    Spec,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +71,40 @@ class InterrogationResult:
     crystallized_spec: CrystallizedSpec | None = None
     debate_reasoning: str = ""  # why questions were ranked this way
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class _StateQuestion:
+    """Lightweight question representation for InterrogationState."""
+
+    text: str
+    why: str
+    options: list[str] = field(default_factory=list)
+    context: str = ""
+    priority: float = 0.5
+
+
+@dataclass
+class InterrogationState:
+    """Multi-step interrogation session state (backward-compatible).
+
+    Tracks the prompt, decomposed dimensions, generated questions,
+    and user answers across the start → answer → crystallize flow.
+    """
+
+    prompt: str
+    dimensions: list[Any] = field(default_factory=list)  # Dimension objects
+    questions: list[_StateQuestion] = field(default_factory=list)
+    answers: dict[str, str] = field(default_factory=dict)
+    research_summary: str = ""
+
+    @property
+    def unanswered(self) -> list[_StateQuestion]:
+        return [q for q in self.questions if q.text not in self.answers]
+
+    @property
+    def is_complete(self) -> bool:
+        return len(self.unanswered) == 0 and len(self.questions) > 0
 
 
 # Type alias for user interaction callback
@@ -169,11 +209,13 @@ class InterrogationEngine:
         crystallizer_agent: InterrogationAgent | None = None,
         config: InterrogationConfig | None = None,
         on_questions: QuestionCallback | None = None,
+        knowledge_mound: Any | None = None,
     ):
         self.agents = agents or []
         self.crystallizer = Crystallizer(crystallizer_agent) if crystallizer_agent else None
         self.config = config or InterrogationConfig()
         self.on_questions = on_questions
+        self._knowledge_mound = knowledge_mound
 
     async def interrogate(self, prompt: str) -> InterrogationResult:
         """Run the full interrogation pipeline on a prompt.
@@ -258,6 +300,97 @@ class InterrogationEngine:
             len(questions),
             spec is not None,
         )
+        return result
+
+    # ── Backward-compatible multi-step API ──────────────────────
+
+    async def start(self, prompt: str, *, sources: list[str] | None = None) -> InterrogationState:
+        """Begin an interrogation session (backward-compatible).
+
+        Decomposes the prompt and generates questions using the heuristic
+        decomposer and questioner, returning an ``InterrogationState`` that
+        can be mutated via ``answer()`` and finalized via ``crystallize()``.
+        """
+        from aragora.interrogation.decomposer import InterrogationDecomposer
+        from aragora.interrogation.questioner import InterrogationQuestioner
+        from aragora.interrogation.researcher import ResearchResult
+
+        decomposer = InterrogationDecomposer()
+        decomposition = decomposer.decompose(prompt)
+
+        questioner = InterrogationQuestioner()
+        question_set = questioner.generate(decomposition.dimensions, ResearchResult())
+
+        state_questions = [
+            _StateQuestion(
+                text=q.text,
+                why=q.why,
+                options=q.options,
+                context=q.context,
+                priority=q.priority,
+            )
+            for q in question_set.questions
+        ]
+
+        return InterrogationState(
+            prompt=prompt,
+            dimensions=decomposition.dimensions,
+            questions=state_questions,
+        )
+
+    def answer(self, state: InterrogationState, question: str, answer: str) -> InterrogationState:
+        """Record a user answer in the interrogation state."""
+        state.answers[question] = answer
+        return state
+
+    async def crystallize(self, state: InterrogationState) -> InterrogationResult:
+        """Crystallize the interrogation state into a spec and result.
+
+        Produces a backward-compatible ``InterrogationResult`` with a ``spec``
+        attribute (a ``Spec`` instance) derived from the state.
+        """
+        # Build a simple Spec from the state
+        requirements: list[Requirement] = []
+        for dim in state.dimensions:
+            dim_name = getattr(dim, "name", str(dim))
+            answer_text = ""
+            for q in state.questions:
+                if getattr(q, "dimension_name", "") == dim_name or dim_name in q.text.lower():
+                    answer_text = state.answers.get(q.text, "")
+                    break
+            requirements.append(
+                Requirement(
+                    description=answer_text or f"Address {dim_name}",
+                    level=RequirementLevel.MUST,
+                    dimension=dim_name,
+                )
+            )
+
+        if not requirements:
+            requirements.append(
+                Requirement(
+                    description=state.prompt,
+                    level=RequirementLevel.MUST,
+                    dimension="general",
+                )
+            )
+
+        spec = Spec(
+            problem_statement=state.prompt,
+            requirements=requirements,
+            success_criteria=[f"Addresses: {state.prompt}"],
+        )
+
+        result = InterrogationResult(
+            original_prompt=state.prompt,
+            dimensions=[getattr(d, "name", str(d)) for d in state.dimensions],
+            research_summary=state.research_summary,
+            prioritized_questions=[],
+            metadata={"spec": spec.to_dict() if hasattr(spec, "to_dict") else {}},
+        )
+        # Attach spec as attribute for backward-compat handler access
+        result.spec = spec  # type: ignore[attr-defined]
+
         return result
 
     # ── Internal Stages ───────────────────────────────────────────
