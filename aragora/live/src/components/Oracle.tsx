@@ -127,7 +127,14 @@ function BackgroundTentacle({ index }: { index: number }) {
 // Floating eye component
 // ---------------------------------------------------------------------------
 
-function FloatingEye({ delay, x, y, size }: { delay: number; x: number; y: number; size: number }) {
+const EYE_IRIS_COLORS: Record<OracleMode, string> = {
+  consult: 'rgba(200,100,200,0.6)',
+  divine:  'rgba(96,165,250,0.6)',
+  commune: 'rgba(74,222,128,0.6)',
+};
+
+function FloatingEye({ delay, x, y, size, mode }: { delay: number; x: number; y: number; size: number; mode?: OracleMode }) {
+  const irisColor = mode ? EYE_IRIS_COLORS[mode] : 'rgba(127,219,202,0.6)';
   return (
     <div
       className="absolute pointer-events-none select-none"
@@ -137,7 +144,7 @@ function FloatingEye({ delay, x, y, size }: { delay: number; x: number; y: numbe
         width: `${size * 8}px`,
         height: `${size * 8}px`,
         borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(127,219,202,0.6) 0%, rgba(127,219,202,0) 70%)',
+        background: `radial-gradient(circle, ${irisColor} 0%, transparent 70%)`,
         opacity: 0,
         animation: `eye-blink-bg 4s ease-in-out ${delay}s infinite`,
       }}
