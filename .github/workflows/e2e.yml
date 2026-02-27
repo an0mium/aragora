@@ -9,7 +9,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/live/**'
   schedule:
