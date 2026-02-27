@@ -28,6 +28,7 @@ concurrency:
 
 jobs:
   test-migrations:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Test Migrations
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -71,6 +72,7 @@ jobs:
           echo "Migration tests passed"
 
   test-workers:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Test Background Workers
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -106,6 +108,7 @@ jobs:
             || echo "No worker-specific tests found"
 
   test-api-endpoints:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Test API Endpoints
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -131,6 +134,7 @@ jobs:
           PYTHONPATH: .
 
   test-metrics:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Test Metrics Integration
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -186,6 +190,7 @@ jobs:
           "
 
   validate-openapi:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Validate OpenAPI Spec
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -218,7 +223,7 @@ jobs:
     name: Summary
     needs: [test-migrations, test-workers, test-api-endpoints, test-metrics, validate-openapi]
     runs-on: ubuntu-latest
-    if: always()
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always())
 
     steps:
       - name: Generate summary

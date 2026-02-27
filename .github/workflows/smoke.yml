@@ -10,6 +10,7 @@ on:
       - '.github/workflows/smoke.yml'
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'aragora/**'
       - 'tests/**'
@@ -22,6 +23,7 @@ concurrency:
 
 jobs:
   smoke:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Smoke Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -60,6 +62,7 @@ jobs:
           echo "- Error handling and performance baselines" >> $GITHUB_STEP_SUMMARY
 
   offline-golden-path:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Offline Golden Path
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -89,6 +92,7 @@ jobs:
           aragora ask "Offline mode smoke" --demo --rounds 1
 
   server-smoke:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Server Smoke Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -127,6 +131,7 @@ jobs:
           echo "- Server startup within 30s SLO" >> $GITHUB_STEP_SUMMARY
 
   decision-action-smoke:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Decision-to-Action Smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -23,7 +23,20 @@ on:
       - 'sdk/python/aragora/namespaces/**'
       - 'sdk/typescript/src/namespaces/**'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
+    paths:
+      - 'aragora/server/handlers/**'
+      - 'aragora/server/unified_server.py'
+      - 'aragora/server/openapi/**'
+      - 'aragora/server/openapi_impl.py'
+      - 'openapi/**'
+      - 'sdk/**'
+      - 'scripts/export_openapi.py'
+      - 'scripts/generate_openapi.py'
+      - 'scripts/verify_sdk_contracts.py'
+      - 'scripts/validate_openapi_routes.py'
+      - '.github/workflows/openapi.yml'
   workflow_dispatch:
 
 concurrency:

@@ -26,6 +26,7 @@ permissions:
 
 jobs:
   lighthouse:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Lighthouse Performance Audit
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -207,6 +208,7 @@ jobs:
           [ -n "$FRONTEND_PID" ] && kill $FRONTEND_PID || true
 
   accessibility-audit:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Accessibility Audit
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -285,6 +287,7 @@ jobs:
           retention-days: 14
 
   mobile-responsiveness:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Mobile Responsiveness Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
