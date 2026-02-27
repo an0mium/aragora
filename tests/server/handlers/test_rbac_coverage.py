@@ -63,6 +63,8 @@ EXEMPT_HANDLERS = frozenset(
         # Public landing pages
         "PlansHandler",
         "PublicGalleryHandler",
+        # Interrogation engine - public-facing interactive prompt refinement
+        "InterrogationHandler",
         # Webhook receivers (verify via signature, not JWT)
         "StripeWebhookHandler",
         "SlackWebhookHandler",

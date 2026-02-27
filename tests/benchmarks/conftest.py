@@ -128,6 +128,24 @@ def _disable_post_debate_steps(monkeypatch):
     except (ImportError, AttributeError):
         pass
 
+    # Reset circuit breakers so failed API calls in one test don't
+    # trip breakers for subsequent tests.
+    try:
+        from aragora.resilience.registry import reset_all_circuit_breakers
+
+        reset_all_circuit_breakers()
+    except ImportError:
+        pass
+
+    yield
+
+    try:
+        from aragora.resilience.registry import reset_all_circuit_breakers
+
+        reset_all_circuit_breakers()
+    except ImportError:
+        pass
+
 
 @pytest.fixture
 def benchmark_agent() -> BenchmarkAgent:
