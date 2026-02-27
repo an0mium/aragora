@@ -25,7 +25,7 @@ concurrency:
 jobs:
   check:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: aragora
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -30,7 +30,7 @@ jobs:
   test-migrations:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Test Migrations
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -74,7 +74,7 @@ jobs:
   test-workers:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Test Background Workers
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -110,7 +110,7 @@ jobs:
   test-api-endpoints:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Test API Endpoints
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -136,7 +136,7 @@ jobs:
   test-metrics:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Test Metrics Integration
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -192,7 +192,7 @@ jobs:
   validate-openapi:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Validate OpenAPI Spec
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 5
 
     steps:
@@ -222,7 +222,7 @@ jobs:
   summary:
     name: Summary
     needs: [test-migrations, test-workers, test-api-endpoints, test-metrics, validate-openapi]
-    runs-on: ubuntu-latest
+    runs-on: aragora
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always())
 
     steps:

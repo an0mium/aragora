@@ -8,7 +8,7 @@ on:
 
 jobs:
   health-check:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 5
     env:
       LIVE_FRONTEND_BASE_URL: ${{ vars.LIVE_FRONTEND_BASE_URL }}
@@ -84,7 +84,7 @@ jobs:
   notify-on-failure:
     needs: health-check
     if: failure()
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 5
     permissions:
       issues: write

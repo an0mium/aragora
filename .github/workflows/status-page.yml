@@ -30,7 +30,7 @@ env:
 jobs:
   validate:
     name: Validate Configuration
-    runs-on: ubuntu-latest
+    runs-on: aragora
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,7 +90,7 @@ jobs:
     name: Deploy to Staging
     needs: validate
     if: github.event.inputs.environment == 'staging' || github.ref != 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: aragora
     environment: staging
     steps:
       - name: Checkout
@@ -105,7 +105,7 @@ jobs:
     name: Deploy to Production
     needs: validate
     if: github.event.inputs.environment == 'production' || github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: aragora
     environment: production
     outputs:
       deployed: ${{ steps.deploy_secrets.outputs.deploy_ready }}
@@ -229,7 +229,7 @@ jobs:
     name: Provision Monitors
     needs: deploy-production
     if: needs.deploy-production.outputs.deployed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: aragora
     environment: production
     steps:
       - name: Checkout
