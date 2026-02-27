@@ -13,12 +13,16 @@ blind spots that a single model would miss.
 
 from __future__ import annotations
 
+import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from aragora.interrogation.crystallizer import Crystallizer, CrystallizedSpec
+from aragora.interrogation.crystallizer import Crystallizer
+from aragora.interrogation.decomposer import DecompositionResult, InterrogationDecomposer
+from aragora.interrogation.questioner import InterrogationQuestioner, QuestionSet
+from aragora.interrogation.researcher import ResearchResult
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +59,24 @@ class InterrogationConfig:
 
 
 @dataclass
+class InterrogationState:
+    """Legacy stateful interrogation session representation."""
+
+    prompt: str
+    dimensions: list[Any]
+    questions: list[Any]
+    answers: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def unanswered(self) -> list[Any]:
+        return [q for q in self.questions if getattr(q, "text", "") not in self.answers]
+
+    @property
+    def is_complete(self) -> bool:
+        return len(self.unanswered) == 0
+
+
+@dataclass
 class InterrogationResult:
     """Full result of an interrogation session."""
 
@@ -62,9 +84,14 @@ class InterrogationResult:
     dimensions: list[str]  # decomposed dimensions of the prompt
     research_summary: str
     prioritized_questions: list[PrioritizedQuestion]
-    crystallized_spec: CrystallizedSpec | None = None
+    crystallized_spec: Any = None
     debate_reasoning: str = ""  # why questions were ranked this way
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def spec(self) -> Any:
+        """Legacy alias used by older callers/tests."""
+        return self.crystallized_spec
 
 
 # Type alias for user interaction callback
@@ -169,11 +196,16 @@ class InterrogationEngine:
         crystallizer_agent: InterrogationAgent | None = None,
         config: InterrogationConfig | None = None,
         on_questions: QuestionCallback | None = None,
+        knowledge_mound: Any | None = None,
+        **_: Any,
     ):
         self.agents = agents or []
         self.crystallizer = Crystallizer(crystallizer_agent) if crystallizer_agent else None
         self.config = config or InterrogationConfig()
         self.on_questions = on_questions
+        self.knowledge_mound = knowledge_mound
+        self._legacy_decomposer = InterrogationDecomposer()
+        self._legacy_questioner = InterrogationQuestioner()
 
     async def interrogate(self, prompt: str) -> InterrogationResult:
         """Run the full interrogation pipeline on a prompt.
@@ -232,12 +264,13 @@ class InterrogationEngine:
             user_answers = "\n".join(
                 f"Q: {q.question}\nA: {q.answer}" for q in questions if q.answer
             )
-            spec = await self.crystallizer.crystallize(
+            maybe_spec = self.crystallizer.crystallize(
                 prompt=prompt,
                 research_context=research_summary,
                 debate_conclusions=debate_reasoning,
                 user_answers=user_answers,
             )
+            spec = await maybe_spec if inspect.isawaitable(maybe_spec) else maybe_spec
 
         result = InterrogationResult(
             original_prompt=prompt,
@@ -260,7 +293,94 @@ class InterrogationEngine:
         )
         return result
 
+    async def start(self, prompt: str, sources: list[str] | None = None) -> InterrogationState:
+        """Legacy stateful entrypoint retained for compatibility."""
+        decomposition = self._legacy_decomposer.decompose(prompt)
+        research = await self._legacy_research_context(prompt=prompt, sources=sources or [])
+        question_set = self._legacy_questioner.generate(decomposition.dimensions, research)
+        return InterrogationState(
+            prompt=prompt,
+            dimensions=decomposition.dimensions,
+            questions=question_set.questions,
+        )
+
+    def answer(self, state: InterrogationState, question: str, answer: str) -> InterrogationState:
+        """Legacy answer mutator retained for compatibility."""
+        state.answers[question] = answer
+        return state
+
+    async def crystallize(self, state: InterrogationState) -> InterrogationResult:
+        """Legacy crystallization flow retained for compatibility."""
+        if state.dimensions:
+            average_vagueness = sum(
+                float(getattr(dim, "vagueness_score", 0.5) or 0.5) for dim in state.dimensions
+            ) / len(state.dimensions)
+        else:
+            average_vagueness = 0.5
+
+        decomposition = DecompositionResult(
+            original_prompt=state.prompt,
+            dimensions=state.dimensions,
+            overall_vagueness=round(average_vagueness, 2),
+        )
+        question_set = QuestionSet(questions=state.questions)
+        research = await self._legacy_research_context(prompt=state.prompt, sources=[])
+
+        crystallizer = self.crystallizer or Crystallizer()
+        maybe_spec = crystallizer.crystallize(
+            decomposition,
+            question_set,
+            state.answers,
+            research,
+        )
+        spec = await maybe_spec if inspect.isawaitable(maybe_spec) else maybe_spec
+
+        prioritized_questions = [
+            PrioritizedQuestion(
+                question=q.text,
+                why_it_matters=q.why,
+                priority_score=q.priority,
+                hidden_assumption=q.context,
+                options=list(q.options),
+                answer=state.answers.get(q.text, ""),
+                category=q.dimension_name,
+            )
+            for q in state.questions
+        ]
+
+        return InterrogationResult(
+            original_prompt=state.prompt,
+            dimensions=[
+                f"{getattr(d, 'name', str(d))}: {getattr(d, 'description', '')}".strip(": ")
+                for d in state.dimensions
+            ],
+            research_summary="",
+            prioritized_questions=prioritized_questions,
+            crystallized_spec=spec,
+            metadata={"legacy_mode": True},
+        )
+
     # ── Internal Stages ───────────────────────────────────────────
+
+    async def _legacy_research_context(self, prompt: str, sources: list[str]) -> ResearchResult:
+        """Best-effort adapter for legacy research structure."""
+        result = ResearchResult()
+        if "knowledge_mound" not in sources or self.knowledge_mound is None:
+            return result
+
+        try:
+            maybe_payload = self.knowledge_mound.query(prompt)
+            payload = await maybe_payload if inspect.isawaitable(maybe_payload) else maybe_payload
+            items = getattr(payload, "items", payload)
+            if inspect.isawaitable(items):
+                items = await items
+            if items is None:
+                return result
+        except Exception:
+            logger.debug(
+                "knowledge_mound query failed for legacy interrogation flow", exc_info=True
+            )
+        return result
 
     async def _decompose(self, prompt: str, agent: InterrogationAgent) -> list[str]:
         """Decompose prompt into concrete dimensions."""

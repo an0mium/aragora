@@ -4,9 +4,42 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+class ResearchSource(str, Enum):
+    """Legacy source enum used by interrogation questioning/tests."""
+
+    KNOWLEDGE_MOUND = "knowledge_mound"
+    OBSIDIAN = "obsidian"
+    CODEBASE = "codebase"
+    WEB = "web"
+
+
+@dataclass
+class Finding:
+    """Legacy finding object grouped by prompt dimension."""
+
+    source: ResearchSource
+    content: str
+    relevance: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ResearchResult:
+    """Legacy research container grouped by dimension name."""
+
+    findings: dict[str, list[Finding]] = field(default_factory=dict)
+
+    def for_dimension(self, dimension_name: str) -> list[Finding]:
+        return list(self.findings.get(dimension_name, []))
+
+    def add_finding(self, dimension_name: str, finding: Finding) -> None:
+        self.findings.setdefault(dimension_name, []).append(finding)
 
 
 @dataclass

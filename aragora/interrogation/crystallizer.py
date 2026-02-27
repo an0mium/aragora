@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,70 @@ class CrystallizedSpec:
             "constraints": self.constraints,
             "prior_art": self.prior_art,
         }
+
+    def to_legacy_spec(self) -> Spec:
+        requirements: list[Requirement] = []
+        for item in self.requirements:
+            if item.priority == "must":
+                level = RequirementLevel.MUST
+            elif item.priority == "should":
+                level = RequirementLevel.SHOULD
+            elif item.priority == "could":
+                level = RequirementLevel.COULD
+            else:
+                level = RequirementLevel.WONT
+
+            requirements.append(
+                Requirement(
+                    description=item.description,
+                    level=level,
+                    dimension="general",
+                )
+            )
+
+        risks = [
+            f"{risk.get('risk', '').strip()}: {risk.get('mitigation', '').strip()}".strip(": ")
+            for risk in self.risks
+            if risk.get("risk") or risk.get("mitigation")
+        ]
+        return Spec(
+            problem_statement=self.problem_statement,
+            requirements=requirements,
+            non_requirements=list(self.non_requirements),
+            success_criteria=list(self.success_criteria),
+            risks=risks,
+            context_summary="Derived from crystallized MoSCoW output.",
+        )
+
+
+class RequirementLevel(str, Enum):
+    MUST = "must"
+    SHOULD = "should"
+    COULD = "could"
+    WONT = "wont"
+
+
+@dataclass
+class Requirement:
+    description: str
+    level: RequirementLevel = RequirementLevel.MUST
+    dimension: str = "general"
+
+
+@dataclass
+class Spec:
+    problem_statement: str
+    requirements: list[Requirement] = field(default_factory=list)
+    non_requirements: list[str] = field(default_factory=list)
+    success_criteria: list[str] = field(default_factory=list)
+    risks: list[str] = field(default_factory=list)
+    context_summary: str = ""
+
+    def to_goal_text(self) -> str:
+        if not self.requirements:
+            return self.problem_statement
+        requirement_lines = "\n".join(f"- {req.description}" for req in self.requirements)
+        return f"{self.problem_statement}\n\nRequirements:\n{requirement_lines}"
 
 
 CRYSTALLIZE_PROMPT = """You are a specification crystallizer. Given research findings, debate conclusions,
@@ -153,27 +218,42 @@ class Crystallizer:
         agent: LLM agent for crystallization
     """
 
-    def __init__(self, agent: CrystallizerAgent):
+    def __init__(self, agent: CrystallizerAgent | None = None):
         self.agent = agent
 
-    async def crystallize(
+    def crystallize(self, *args: Any, **kwargs: Any) -> Any:
+        """Compatibility facade for modern async and legacy sync APIs."""
+        if args and hasattr(args[0], "original_prompt") and hasattr(args[0], "dimensions"):
+            decomposition = args[0]
+            answered_questions = args[1] if len(args) > 1 else None
+            user_answers = args[2] if len(args) > 2 else {}
+            research = args[3] if len(args) > 3 else None
+            return self._crystallize_legacy(
+                decomposition=decomposition,
+                answered_questions=answered_questions,
+                user_answers=user_answers,
+                research=research,
+            )
+
+        prompt = kwargs.get("prompt", args[0] if args else "")
+        research_context = kwargs.get("research_context", "")
+        debate_conclusions = kwargs.get("debate_conclusions", "")
+        user_answers = kwargs.get("user_answers", "")
+        return self._crystallize_modern(
+            prompt=prompt,
+            research_context=research_context,
+            debate_conclusions=debate_conclusions,
+            user_answers=user_answers,
+        )
+
+    async def _crystallize_modern(
         self,
         prompt: str,
         research_context: str = "",
         debate_conclusions: str = "",
         user_answers: str = "",
     ) -> CrystallizedSpec:
-        """Crystallize inputs into a structured specification.
-
-        Args:
-            prompt: The original user prompt
-            research_context: Gathered research and evidence
-            debate_conclusions: Conclusions from agent debate
-            user_answers: User's answers to clarifying questions
-
-        Returns:
-            CrystallizedSpec with MoSCoW-prioritized requirements
-        """
+        """Modern async crystallization path used by the new engine."""
         full_prompt = CRYSTALLIZE_PROMPT.format(
             prompt=prompt,
             research_context=research_context or "No research available.",
@@ -181,8 +261,92 @@ class Crystallizer:
             user_answers=user_answers or "No user answers provided.",
         )
 
+        if self.agent is None:
+            return CrystallizedSpec(
+                title=prompt[:80] or "Crystallized Spec",
+                problem_statement=prompt,
+                requirements=[
+                    MoSCoWItem(
+                        description="Clarify concrete implementation requirements.",
+                        priority="must",
+                        rationale="No crystallizer agent was configured.",
+                    )
+                ],
+                success_criteria=["Stakeholders approve the clarified requirements."],
+                risks=["Missing LLM crystallizer may reduce requirement quality."],
+            )
+
         response = await self.agent.generate(full_prompt)
         return self._parse_spec(response, prompt)
+
+    def _crystallize_legacy(
+        self,
+        decomposition: Any,
+        answered_questions: Any,
+        user_answers: dict[str, str] | None,
+        research: Any,
+    ) -> Spec:
+        """Legacy sync crystallization path expected by older tests/callers."""
+        answers = user_answers or {}
+        requirements: list[Requirement] = []
+
+        questions = getattr(answered_questions, "questions", []) if answered_questions else []
+        for question in questions:
+            question_text = getattr(question, "text", "").strip()
+            if not question_text:
+                continue
+
+            answer_text = answers.get(question_text, "").strip()
+            if not answer_text:
+                continue
+
+            priority = float(getattr(question, "priority", 0.5) or 0.5)
+            if priority >= 0.75:
+                level = RequirementLevel.MUST
+            elif priority >= 0.5:
+                level = RequirementLevel.SHOULD
+            else:
+                level = RequirementLevel.COULD
+
+            requirements.append(
+                Requirement(
+                    description=f"{question_text} {answer_text}",
+                    level=level,
+                    dimension=getattr(question, "dimension_name", "general"),
+                )
+            )
+
+        if not requirements:
+            requirements.append(
+                Requirement(
+                    description="Capture at least one explicit requirement before execution.",
+                    level=RequirementLevel.MUST,
+                    dimension="scope",
+                )
+            )
+
+        success_criteria = [
+            f"Requirement validated: {req.description[:140]}" for req in requirements[:3]
+        ]
+        if not success_criteria:
+            success_criteria = ["At least one requirement is validated with the user."]
+
+        findings = getattr(research, "findings", {}) if research is not None else {}
+        context_summary = (
+            f"Research dimensions referenced: {', '.join(sorted(findings.keys()))}"
+            if findings
+            else "No prior research context available."
+        )
+
+        return Spec(
+            problem_statement=getattr(decomposition, "original_prompt", "").strip()
+            or "Unknown prompt",
+            requirements=requirements,
+            non_requirements=["Out-of-scope enhancements without explicit user confirmation."],
+            success_criteria=success_criteria,
+            risks=["Ambiguity can still create implementation drift."],
+            context_summary=context_summary,
+        )
 
     def _parse_spec(self, text: str, original_prompt: str) -> CrystallizedSpec:
         """Parse crystallizer LLM output into structured spec."""

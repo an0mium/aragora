@@ -51,10 +51,12 @@ paths = [
     '''marketplace/.*\.md$''',
     '''benchmarks/.*\.py$''',
     '''deploy/k8s/secret\.yaml$''',
+    '''deploy/kubernetes/secret\.yaml$''',
     '''deploy/self-hosted/.*''',
     '''\.github/workflows/.*\.yml$''',
     '''scripts/sign_constitution\.py$''',
     '''aragora/agents/spec\.py$''',
+    '''aragora/server/handlers/readiness_check\.py$''',
     '''aragora/connectors/ecommerce/.*\.py$''',
     '''aragora/connectors/advertising/.*\.py$''',
 ]

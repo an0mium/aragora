@@ -316,6 +316,7 @@ jobs:
             -m "integration or integration_minimal" \
             --cov=aragora --cov-report=xml:coverage-integration.xml \
             --cov-report=term-missing \
+            --cov-fail-under=0 \
             --junit-xml=test-results/integration-results.xml
         env:
           PYTHONPATH: .

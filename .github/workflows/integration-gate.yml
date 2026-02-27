@@ -145,9 +145,9 @@ jobs:
 
       - name: "BLOCKING: SDK contract parity"
         run: |
-          pytest tests/sdk/test_contract_parity.py -q --timeout=60 --tb=short
+          pytest tests/sdk/test_contract_parity.py -q --timeout=60 --tb=short --noconftest
         env:
-          PYTHONPATH: .
+          PYTHONPATH: sdk/python:.
 
   status-doc-validation:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
