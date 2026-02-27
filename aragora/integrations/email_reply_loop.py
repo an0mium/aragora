@@ -592,6 +592,8 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
             logger.debug("Redis email origin lookup connection error: %s: %s", type(e).__name__, e)
         except (RuntimeError, ValueError) as e:
             logger.debug("Redis email origin lookup not available: %s: %s", type(e).__name__, e)
+        except Exception as e:  # noqa: BLE001 — redis.exceptions.ConnectionError != builtins.ConnectionError
+            logger.debug("Redis email origin lookup failed: %s: %s", type(e).__name__, e)
 
         # Try PostgreSQL if configured
         pg_store = await _get_postgres_email_store()

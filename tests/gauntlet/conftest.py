@@ -60,3 +60,9 @@ def _mock_gauntlet_runner_external_calls(monkeypatch):
     monkeypatch.setattr(GauntletRunner, "_run_red_team", _mock_run_red_team)
     monkeypatch.setattr(GauntletRunner, "_run_probes", _mock_run_probes)
     monkeypatch.setattr(GauntletRunner, "_run_scenarios", _mock_run_scenarios)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_signing_key(monkeypatch):
+    """Remove ARAGORA_RECEIPT_SIGNING_KEY to prevent invalid hex errors."""
+    monkeypatch.delenv("ARAGORA_RECEIPT_SIGNING_KEY", raising=False)
