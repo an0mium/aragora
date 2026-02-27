@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useBackend, BACKENDS } from '@/components/BackendSelector';
 import { useDashboardPreferences } from '@/hooks/useDashboardPreferences';
-import { useOnboardingStore } from '@/store/onboardingStore';
+import { useOnboarding } from '@/hooks/useOnboarding';
 
 type WizardStep = 'role' | 'question' | 'launch';
 
@@ -75,7 +75,8 @@ export default function OnboardingPage() {
     updateChecklist,
     completeOnboarding,
     skipOnboarding,
-  } = useOnboardingStore();
+    initFlow,
+  } = useOnboarding();
 
   const [step, setStep] = useState<WizardStep>('role');
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -107,8 +108,9 @@ export default function OnboardingPage() {
   const handleRoleSelect = useCallback((role: string) => {
     setSelectedRole(role);
     setSelectedIndustry(role);
+    initFlow(role);
     setStep('question');
-  }, [setSelectedIndustry]);
+  }, [setSelectedIndustry, initFlow]);
 
   const handleQuestionNext = useCallback(() => {
     if (question.trim().length >= 5) {
