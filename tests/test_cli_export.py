@@ -271,7 +271,7 @@ class TestMain:
         """Handle load error gracefully."""
         mock_args.debate_id = "nonexistent"
         mock_args.output = str(tmp_path)
-        mock_load.side_effect = Exception("Debate not found")
+        mock_load.side_effect = RuntimeError("Debate not found")
 
         main(mock_args)
 

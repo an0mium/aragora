@@ -126,7 +126,7 @@ class TestQueryConfig:
         assert config.max_answer_length == 500
         assert config.include_quotes is True
         assert config.require_citations is True
-        assert config.model == "claude-3.5-sonnet"
+        assert config.model == "claude-sonnet-4"
 
     def test_custom_config(self):
         """Test custom configuration."""

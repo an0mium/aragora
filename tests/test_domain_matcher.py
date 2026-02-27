@@ -293,6 +293,15 @@ class TestDomainDetectorKeywords:
 # =============================================================================
 
 
+def _make_text_block(text: str) -> MagicMock:
+    """Create a mock TextBlock that passes isinstance checks."""
+    from anthropic.types import TextBlock
+
+    block = MagicMock(spec=TextBlock)
+    block.text = text
+    return block
+
+
 class TestDomainDetectorLLM:
     """Tests for DomainDetector LLM-based detection."""
 
@@ -301,7 +310,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            MagicMock(text='{"domains": [{"name": "security", "confidence": 0.95}]}')
+            _make_text_block('{"domains": [{"name": "security", "confidence": 0.95}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -317,7 +326,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            MagicMock(text='```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```')
+            _make_text_block('```json\n{"domains": [{"name": "api", "confidence": 0.9}]}\n```')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -332,7 +341,7 @@ class TestDomainDetectorLLM:
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.content = [
-            MagicMock(text='{"domains": [{"name": "invalid_domain", "confidence": 0.9}]}')
+            _make_text_block('{"domains": [{"name": "invalid_domain", "confidence": 0.9}]}')
         ]
         mock_client.messages.create.return_value = mock_response
 
@@ -347,7 +356,7 @@ class TestDomainDetectorLLM:
     def test_llm_detection_failure_fallback(self):
         """Test that LLM failure falls back to keywords."""
         mock_client = MagicMock()
-        mock_client.messages.create.side_effect = Exception("API Error")
+        mock_client.messages.create.side_effect = RuntimeError("API Error")
 
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test_key"}):
             detector = DomainDetector(use_llm=True, client=mock_client, use_cache=False)
@@ -359,11 +368,13 @@ class TestDomainDetectorLLM:
 
     def test_llm_detection_caching(self):
         """Test that LLM results are cached."""
+        from anthropic.types import TextBlock
+
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_response.content = [
-            MagicMock(text='{"domains": [{"name": "security", "confidence": 0.9}]}')
-        ]
+        text_block = MagicMock(spec=TextBlock)
+        text_block.text = '{"domains": [{"name": "security", "confidence": 0.9}]}'
+        mock_response.content = [text_block]
         mock_client.messages.create.return_value = mock_response
 
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test_key"}):

@@ -543,11 +543,11 @@ class TestEdgeCases:
     """Edge cases and boundary conditions."""
 
     def test_empty_nomic_dir_env(self):
-        """Empty string for ARAGORA_DATA_DIR."""
+        """Empty string for ARAGORA_DATA_DIR falls back to default."""
         with patch.dict(os.environ, {"ARAGORA_DATA_DIR": ""}):
             nomic_dir = get_nomic_dir()
-            # Empty string should be treated as valid path
-            assert nomic_dir == Path("")
+            # Empty string is falsy, so falls back to .nomic default
+            assert nomic_dir == Path(".nomic")
 
     def test_cycle_with_all_fields(self):
         """Cycle with all fields populated."""

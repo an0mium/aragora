@@ -27,8 +27,8 @@ class TestGrokAgentInitialization:
         assert agent.role == "proposer"
         assert agent.agent_type == "grok"
         assert agent.timeout == 120
-        # Fallback is opt-in by default (requires ARAGORA_OPENROUTER_FALLBACK_ENABLED=true)
-        assert agent.enable_fallback is False
+        # Fallback is enabled by default for graceful degradation
+        assert agent.enable_fallback is True
 
     def test_custom_initialization(self):
         """Test agent with custom parameters."""
@@ -64,7 +64,10 @@ class TestGrokAgentInitialization:
 
     def test_alternate_api_key_env_var(self):
         """Test GROK_API_KEY can be used as fallback."""
-        with patch.dict("os.environ", {"GROK_API_KEY": "grok-key"}, clear=True):
+        with (
+            patch.dict("os.environ", {"GROK_API_KEY": "grok-key"}, clear=True),
+            patch("aragora.config.secrets.get_secret", return_value=None),
+        ):
             agent = GrokAgent()
             assert agent.api_key == "grok-key"
 
