@@ -1,0 +1,1 @@
+"""Obsidian bidirectional sync connector."""

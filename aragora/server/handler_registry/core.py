@@ -128,6 +128,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_plan_management_handler": "extended",
     "_receipt_explorer_handler": "extended",
     "_decomposition_handler": "extended",
+    "_pipeline_intake_handler": "extended",
     "_differentiation_handler": "extended",
     "_moderation_analytics_handler": "extended",
     "_context_budget_handler": "extended",
@@ -494,6 +495,7 @@ class RouteIndex:
             "_orchestration_canvas_handler": ["/api/v1/orchestration/canvas"],
             "_universal_graph_handler": ["/api/v1/pipeline/graphs"],
             "_pipeline_transitions_handler": ["/api/v1/pipeline/transitions"],
+            "_pipeline_intake_handler": ["/api/v1/pipeline/start"],
             "_outcome_handler": [
                 "/api/v1/decisions/",
                 "/api/decisions/",

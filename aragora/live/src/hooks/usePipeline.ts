@@ -176,6 +176,34 @@ export function usePipeline() {
     [api]
   );
 
+  const startFromPrompt = useCallback(
+    async (prompt: string, autonomyLevel: number = 2) => {
+      const result = await api.post('/api/v1/pipeline/start', {
+        prompt,
+        autonomy_level: autonomyLevel,
+        skip_interrogation: false,
+      });
+      if (result?.data) {
+        const intakeData = result.data as { pipeline_id: string; ideas: string[]; ready_for_pipeline: boolean; pipeline_status: string };
+        // If intake produced ideas, feed them to the canvas pipeline
+        if (intakeData.ready_for_pipeline && intakeData.ideas?.length > 0) {
+          const pipelineResult = await api.post('/api/v1/canvas/pipeline/from-ideas', {
+            ideas: intakeData.ideas,
+            auto_advance: autonomyLevel >= 3,
+            pipeline_id: intakeData.pipeline_id,
+          });
+          if (pipelineResult?.result) {
+            setPipelineData(pipelineResult.result);
+          }
+          return pipelineResult;
+        }
+        return result;
+      }
+      return result;
+    },
+    [api]
+  );
+
   const advanceStage = useCallback(
     async (pipelineId: string, targetStage: PipelineStageType) => {
       // Demo mode: advance stages client-side without backend call
@@ -314,6 +342,7 @@ export function usePipeline() {
     createFromDebate,
     createFromIdeas,
     createFromBrainDump,
+    startFromPrompt,
     advanceStage,
     getPipeline,
     getStage,

@@ -79,6 +79,7 @@ function PipelinePageContent() {
     createFromIdeas,
     createFromBrainDump,
     createFromDebate,
+    startFromPrompt,
     advanceStage,
     executePipeline,
     executeWithSelfImprove,
@@ -96,6 +97,9 @@ function PipelinePageContent() {
   const [showIdeaInput, setShowIdeaInput] = useState(false);
   const [showDebateInput, setShowDebateInput] = useState(false);
   const [showBrainDump, setShowBrainDump] = useState(false);
+  const [showPromptIntake, setShowPromptIntake] = useState(false);
+  const [promptText, setPromptText] = useState('');
+  const [autonomyLevel, setAutonomyLevel] = useState(2);
   const [ideaText, setIdeaText] = useState('');
   const [brainDumpText, setBrainDumpText] = useState('');
   const [debateJson, setDebateJson] = useState('');
@@ -230,6 +234,15 @@ function PipelinePageContent() {
       setDebateError('Invalid JSON — paste ArgumentCartographer export');
     }
   }, [debateJson, createFromDebate]);
+
+  const handlePromptIntake = useCallback(async () => {
+    if (promptText.trim()) {
+      await startFromPrompt(promptText, autonomyLevel);
+      setShowPromptIntake(false);
+      setPromptText('');
+      setKey((k) => k + 1);
+    }
+  }, [promptText, autonomyLevel, startFromPrompt]);
 
   const handleBrainDump = useCallback(async () => {
     if (brainDumpText.trim()) {
@@ -807,7 +820,63 @@ function PipelinePageContent() {
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="w-full max-w-2xl px-6">
-              {showBrainDump ? (
+              {showPromptIntake ? (
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-mono font-bold text-text">
+                    What do you want to accomplish?
+                  </h2>
+                  <p className="text-text-muted text-sm font-mono">
+                    Describe your goal in plain language. We&apos;ll break it down, organize it,
+                    and build an execution plan with AI agents.
+                  </p>
+                  <textarea
+                    className="w-full min-h-[150px] bg-bg border border-border rounded-lg p-4 text-sm text-text font-mono resize-none focus:outline-none focus:ring-2 focus:ring-acid-green/50"
+                    placeholder="e.g. Improve our customer onboarding flow to reduce drop-off by 30%..."
+                    value={promptText}
+                    onChange={(e) => setPromptText(e.target.value)}
+                    autoFocus
+                  />
+                  <div className="flex items-center gap-4">
+                    <label className="text-xs font-mono text-text-muted">Autonomy</label>
+                    <div className="flex gap-1">
+                      {[
+                        { level: 1, label: 'Step-by-step', desc: 'Approve each stage' },
+                        { level: 2, label: 'Guided', desc: 'Approve at boundaries' },
+                        { level: 3, label: 'Autonomous', desc: 'Run and report' },
+                        { level: 4, label: 'Full auto', desc: 'End-to-end' },
+                      ].map(({ level, label, desc }) => (
+                        <button
+                          key={level}
+                          onClick={() => setAutonomyLevel(level)}
+                          className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+                            autonomyLevel === level
+                              ? 'bg-acid-green/20 border border-acid-green text-acid-green'
+                              : 'bg-surface border border-border text-text-muted hover:text-text'
+                          }`}
+                          title={desc}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => { setShowPromptIntake(false); setShowBrainDump(true); }}
+                      className="text-sm font-mono text-text-muted hover:text-text underline"
+                    >
+                      I have detailed notes instead
+                    </button>
+                    <button
+                      onClick={handlePromptIntake}
+                      disabled={!promptText.trim() || loading}
+                      className="px-6 py-2 bg-acid-green text-bg font-mono text-sm rounded-lg hover:bg-acid-green/90 disabled:opacity-50 transition-colors"
+                    >
+                      {loading ? 'Processing...' : 'Start Pipeline'}
+                    </button>
+                  </div>
+                </div>
+              ) : showBrainDump ? (
                 <div className="space-y-4">
                   <h2 className="text-2xl font-mono font-bold text-text">
                     What&apos;s on your mind?
@@ -852,6 +921,12 @@ function PipelinePageContent() {
                     Turn scattered thoughts into organized execution plans
                   </p>
                   <div className="flex flex-wrap gap-3 justify-center">
+                    <button
+                      onClick={() => setShowPromptIntake(true)}
+                      className="px-6 py-3 bg-acid-green text-bg font-mono text-sm rounded hover:bg-acid-green/90 transition-colors"
+                    >
+                      Start from Prompt
+                    </button>
                     <button
                       onClick={() => setShowBrainDump(true)}
                       className="px-6 py-3 bg-indigo-600 text-white font-mono text-sm rounded hover:bg-indigo-500 transition-colors"
