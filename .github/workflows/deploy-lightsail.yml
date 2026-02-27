@@ -26,7 +26,7 @@ permissions:
 jobs:
   test:
     if: ${{ github.event.inputs.skip_tests != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
   deploy:
     needs: test
     if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     steps:
       - name: Deploy via SSH

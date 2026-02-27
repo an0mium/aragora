@@ -37,7 +37,7 @@ jobs:
   build-standalone:
     name: Build Frontend (Standalone)
     if: github.event.inputs.target == 'docker'
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -84,7 +84,7 @@ jobs:
   deploy-vercel:
     name: Deploy to Vercel
     if: github.event.inputs.target == 'vercel' || github.event.inputs.target == '' || github.event_name == 'push' || github.event_name == 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 20
 
     steps:
@@ -192,7 +192,7 @@ jobs:
     name: Build & Push Frontend Docker Image
     needs: build-standalone
     if: github.event.inputs.target == 'docker'
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:

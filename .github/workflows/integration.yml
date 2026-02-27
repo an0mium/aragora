@@ -48,7 +48,7 @@ jobs:
   self-host-readiness:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Self-Hosted Compose Readiness
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 25
 
     steps:
@@ -104,7 +104,7 @@ jobs:
   e2e-harness:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: E2E Harness Tests
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 30
 
     services:
@@ -211,7 +211,7 @@ jobs:
   integration-tests:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 30
 
     services:
@@ -354,7 +354,7 @@ jobs:
   control-plane-tests:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Control Plane Tests
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 20
 
     services:
@@ -448,7 +448,7 @@ jobs:
 
   summary:
     name: Integration Summary
-    runs-on: ubuntu-latest
+    runs-on: aragora
     needs: [e2e-harness, integration-tests, control-plane-tests]
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always())
 

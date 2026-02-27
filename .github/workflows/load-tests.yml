@@ -46,7 +46,7 @@ jobs:
   load-test:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Load Test Suite
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 30
 
     services:
@@ -410,7 +410,7 @@ jobs:
   memory-stress:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Memory Stress Test
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
     needs: load-test
 

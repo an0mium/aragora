@@ -26,7 +26,7 @@ jobs:
   smoke:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -65,7 +65,7 @@ jobs:
   offline-golden-path:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Offline Golden Path
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -95,7 +95,7 @@ jobs:
   server-smoke:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Server Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -134,7 +134,7 @@ jobs:
   decision-action-smoke:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Decision-to-Action Smoke
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:

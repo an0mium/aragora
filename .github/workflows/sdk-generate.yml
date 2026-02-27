@@ -32,7 +32,7 @@ concurrency:
 jobs:
   generate-typescript-types:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     permissions:
       contents: write
@@ -96,7 +96,7 @@ jobs:
   validate-typescript:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     needs: generate-typescript-types
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -134,7 +134,7 @@ jobs:
       (github.event_name != 'pull_request' || !github.event.pull_request.draft) &&
       (github.event_name == 'pull_request' ||
       (github.event_name == 'push' && !contains(github.event.head_commit.modified, 'docs/api/openapi')))
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:

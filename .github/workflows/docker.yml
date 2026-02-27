@@ -41,7 +41,7 @@ env:
 jobs:
   build-backend:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: aragora
     permissions:
       contents: read
       packages: write
@@ -119,7 +119,7 @@ jobs:
 
   build-frontend:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: aragora
     permissions:
       contents: read
       packages: write
@@ -196,7 +196,7 @@ jobs:
 
   build-operator:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: aragora
     permissions:
       contents: read
       packages: write
@@ -273,7 +273,7 @@ jobs:
 
   integration-test:
     needs: [build-backend, build-frontend]
-    runs-on: ubuntu-latest
+    runs-on: aragora
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
 
     steps:

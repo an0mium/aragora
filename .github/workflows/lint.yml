@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -71,7 +71,7 @@ jobs:
         shell: bash
 
   connector-exception-hygiene:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     name: Connector Exception Hygiene
     # PR fast path: this job is non-required and runs on push/workflow_dispatch.
@@ -95,7 +95,7 @@ jobs:
           echo "Reproduce locally: python scripts/check_connector_exception_handling.py --path aragora/connectors aragora/runtime"
 
   agent-registry-sync:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     name: Agent Registry Sync
     if: github.event_name != 'pull_request'
@@ -128,7 +128,7 @@ jobs:
           echo "  python scripts/check_agent_registry_drift.py"
 
   typecheck:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -152,7 +152,7 @@ jobs:
         # Phase 5: mypy now REQUIRED (43→0 errors fixed Jan 2026)
 
   typecheck-core:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
     name: Core Module Type Safety
     if: github.event_name != 'pull_request'
@@ -232,7 +232,7 @@ jobs:
           echo "Core modules type check passed!"
 
   frontend-lint:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     if: github.event_name != 'pull_request'
 
@@ -263,7 +263,7 @@ jobs:
         run: npm run check:types
 
   security:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
     if: github.event_name != 'pull_request'
 
@@ -296,7 +296,7 @@ jobs:
           safety check --full-report --ignore 70612
 
   secrets:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     name: Secret Scanning
     if: github.event_name != 'pull_request'
@@ -314,7 +314,7 @@ jobs:
           GITLEAKS_ENABLE_COMMENTS: false
 
   helm-lint:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     name: Helm Chart Validation
     if: github.event_name != 'pull_request'
@@ -404,7 +404,7 @@ jobs:
           echo "All charts passed Kubernetes schema validation!"
 
   todo-audit:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 5
     name: TODO/FIXME Enforcement
     if: github.event_name != 'pull_request'
@@ -442,7 +442,7 @@ jobs:
           fi
 
   docs-sync:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     if: github.event_name != 'pull_request'
 

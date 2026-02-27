@@ -31,7 +31,7 @@ jobs:
   core-suites:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Core Suites
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -54,7 +54,7 @@ jobs:
   security-boundaries:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Security Boundaries
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:

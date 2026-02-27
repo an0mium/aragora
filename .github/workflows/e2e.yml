@@ -31,7 +31,7 @@ jobs:
   e2e:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Playwright E2E Tests
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 30
 
     services:
@@ -184,7 +184,7 @@ jobs:
   python-e2e:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Python E2E Tests
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 20
 
     services:
@@ -233,7 +233,7 @@ jobs:
 
   visual-regression:
     name: Visual Regression Tests
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
     needs: e2e
     if: (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name == 'pull_request')
