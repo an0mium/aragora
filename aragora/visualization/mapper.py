@@ -465,7 +465,9 @@ class ArgumentCartographer:
                     "total_edges": len(self.edges),
                 },
             )
-        except (ImportError, RuntimeError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001
+            # Broad catch: event emission is optional and must never disrupt
+            # visualization. asyncpg errors can surface during webhook store init.
             logger.debug("Graph update event emission unavailable: %s", e)
 
     def _make_id(self, agent: str, round_num: int, content: str) -> str:

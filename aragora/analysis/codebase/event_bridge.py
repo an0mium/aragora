@@ -139,7 +139,8 @@ class AnalysisEventBridge:
                 },
             )
             self.stats["events_emitted"] += 1
-        except (ImportError, RuntimeError, AttributeError) as e:
+        except Exception as e:  # noqa: BLE001
+            # Broad catch: event emission is optional and must never disrupt analysis.
             logger.debug("Risk warning event emission unavailable: %s", e)
 
 
