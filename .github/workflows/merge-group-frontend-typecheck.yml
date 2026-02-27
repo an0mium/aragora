@@ -3,6 +3,7 @@ name: Merge Group Frontend Type Check
 on:
   merge_group:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: merge-group-frontend-tsc-${{ github.ref }}
