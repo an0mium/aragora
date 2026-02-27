@@ -1247,6 +1247,45 @@ def _run_inline_mock_debate(
 
 
 # ---------------------------------------------------------------------------
+# Persistence helper
+# ---------------------------------------------------------------------------
+
+
+def _persist_playground_debate(response: dict[str, Any]) -> None:
+    """Persist a playground debate result for shareable permalinks.
+
+    Non-fatal: if persistence fails, the debate still works but won't
+    have a shareable link.
+    """
+    try:
+        from aragora.persistence.repositories.debate import DebateEntity, DebateRepository
+
+        topic = response.get("topic", "debate")
+        debate_id = response.get("id", uuid.uuid4().hex[:16])
+
+        # Generate URL-friendly slug
+        slug_base = re.sub(r"[^a-z0-9]+", "-", topic[:60].lower()).strip("-")
+        slug = f"{slug_base}-{debate_id[:8]}"
+
+        # Mark as public playground debate
+        response["visibility"] = "public"
+        response.setdefault("source", "landing")
+
+        entity = DebateEntity.from_artifact(
+            artifact=response,
+            slug=slug,
+            debate_id=debate_id,
+        )
+
+        repo = DebateRepository()
+        repo.save(entity)
+        response["slug"] = slug
+        logger.info("Persisted debate %s as slug=%s", debate_id, slug)
+    except (ImportError, OSError, ValueError) as exc:
+        logger.warning("Failed to persist debate: %s", exc)
+
+
+# ---------------------------------------------------------------------------
 # Handler
 # ---------------------------------------------------------------------------
 
@@ -1526,9 +1565,9 @@ class PlaygroundHandler(BaseHandler):
 
         # Last resort: inline mock debate (question-aware when question provided)
         try:
-            return json_response(
-                _run_inline_mock_debate(topic, rounds, agent_count, question=question)
-            )
+            mock_result = _run_inline_mock_debate(topic, rounds, agent_count, question=question)
+            _persist_playground_debate(mock_result)
+            return json_response(mock_result)
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
             logger.exception("Inline mock debate failed")
             return error_response("Debate failed unexpectedly", 500)
@@ -1631,6 +1670,7 @@ class PlaygroundHandler(BaseHandler):
             "receipt_hash": receipt_hash,
         }
 
+        _persist_playground_debate(response)
         return json_response(response)
 
     # ------------------------------------------------------------------
