@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { getAgentColors } from '@/utils/agentColors';
 import type { DebateNode } from './types';
 import { getBranchColor } from './utils';
@@ -75,6 +76,22 @@ export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {
             <span className="text-text-muted">Children: </span>
             <span className="text-text">{node.child_ids.length}</span>
           </div>
+        </div>
+
+        {/* Actions */}
+        <div className="pt-2 border-t border-border flex gap-2">
+          <Link
+            href={`/arena?task=${encodeURIComponent(node.content.slice(0, 500))}`}
+            className="flex-1 px-3 py-1.5 bg-acid-green/10 border border-acid-green/30 text-acid-green text-xs font-mono text-center hover:bg-acid-green/20 transition-colors"
+          >
+            [DEBATE THIS]
+          </Link>
+          <Link
+            href={`/pipeline?from=graph-debate&content=${encodeURIComponent(node.content.slice(0, 500))}`}
+            className="flex-1 px-3 py-1.5 bg-acid-cyan/10 border border-acid-cyan/30 text-acid-cyan text-xs font-mono text-center hover:bg-acid-cyan/20 transition-colors"
+          >
+            [TO PIPELINE]
+          </Link>
         </div>
 
         {/* Hash */}
