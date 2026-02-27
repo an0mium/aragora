@@ -12,16 +12,23 @@ from aragora.prompt_engine.types import (
     SessionState,
     UserProfile,
 )
+from aragora.prompt_engine.engine import PromptToSpecEngine, should_validate
+from aragora.prompt_engine.researcher import MultiSourceResearcher
+from aragora.prompt_engine.spec_builder import SpecBuilder
 
 __all__ = [
     "ClarifyingQuestion",
     "EngineStage",
+    "MultiSourceResearcher",
     "PROFILE_DEFAULTS",
     "PromptIntent",
+    "PromptToSpecEngine",
     "QuestionOption",
     "RefinedIntent",
     "ResearchReport",
     "ResearchSource",
     "SessionState",
+    "should_validate",
+    "SpecBuilder",
     "UserProfile",
 ]
