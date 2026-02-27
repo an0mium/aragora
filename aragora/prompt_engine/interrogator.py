@@ -186,7 +186,7 @@ class PromptInterrogator:
                         ambiguity_ref=ambiguity_ref,
                     )
                 )
-            except (KeyError, TypeError, ValueError) as e:
+            except (KeyError, TypeError, ValueError, AttributeError) as e:
                 logger.debug("Skipping malformed question: %s", e)
 
         return questions or self._fallback_questions(intent)
