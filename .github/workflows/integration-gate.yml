@@ -18,6 +18,7 @@ on:
       - 'docs/STATUS.md'
       - 'pyproject.toml'
       - '.github/workflows/integration-gate.yml'
+  merge_group:
   workflow_call:
     # Allow release.yml to call this workflow as a reusable gate
   workflow_dispatch:
