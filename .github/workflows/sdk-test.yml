@@ -9,7 +9,13 @@ on:
       - 'tests/sdk/**'
       - '.github/workflows/sdk-test.yml'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
+    paths:
+      - 'sdk/**'
+      - 'tests/sdk/**'
+      - 'openapi/**'
+      - '.github/workflows/sdk-test.yml'
   workflow_dispatch:
 
 concurrency:
@@ -40,7 +46,7 @@ jobs:
 
   python-sdk:
     needs: changes
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch')
+    if: needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: Python SDK Tests
@@ -72,7 +78,6 @@ jobs:
           cd sdk/python && python -m ruff check aragora_sdk/ tests/
 
   typescript-sdk:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: TypeScript SDK Type Check
@@ -103,7 +108,7 @@ jobs:
 
   sdk-integration:
     needs: changes
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch')
+    if: needs.changes.outputs.run_python == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: SDK Integration Tests
