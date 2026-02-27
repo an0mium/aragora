@@ -30,7 +30,7 @@ from aragora.knowledge.mound.adapters._base import (
     ADAPTER_CIRCUIT_CONFIGS,
     AdapterCircuitBreakerConfig,
 )
-from aragora.knowledge.mound.adapters._types import SyncResult
+from aragora.knowledge.mound.adapters._types import SyncResult, ValidationSyncResult
 from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
 
 logger = logging.getLogger(__name__)
@@ -241,6 +241,134 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
             errors=errors,
             duration_ms=duration_ms,
         )
+
+    async def sync_from_km(
+        self,
+        knowledge_mound: Any | None = None,
+        limit: int | None = None,
+        min_confidence: float = 0.0,
+    ) -> ValidationSyncResult:
+        """Reverse sync: write KM validation results back to Obsidian frontmatter.
+
+        Queries KM for entries sourced from Obsidian and writes back
+        validation metadata (confidence, cross-debate utility, validation
+        status) into note frontmatter using ``km_`` prefixed fields.
+
+        Args:
+            knowledge_mound: Optional Knowledge Mound instance
+            limit: Maximum entries to process
+            min_confidence: Minimum confidence to include
+        """
+        start_time = time.time()
+        analyzed = 0
+        updated = 0
+        failed = 0
+        errors: list[str] = []
+
+        connector = self._connector
+        if connector is None or not connector.is_configured:
+            return ValidationSyncResult(
+                records_analyzed=0,
+                records_updated=0,
+                records_failed=1,
+                errors=["Obsidian connector not configured"],
+                duration_ms=(time.time() - start_time) * 1000,
+            )
+
+        mound = knowledge_mound or self._get_mound()
+        if mound is None:
+            return ValidationSyncResult(
+                records_analyzed=0,
+                records_updated=0,
+                records_failed=1,
+                errors=["Knowledge Mound not available"],
+                duration_ms=(time.time() - start_time) * 1000,
+            )
+
+        try:
+            async with self._resilient_call("sync_from_km"):
+                entries = await self._query_obsidian_entries(mound, limit)
+
+                for entry in entries:
+                    analyzed += 1
+                    confidence = entry.get("confidence", 0.0)
+                    if confidence < min_confidence:
+                        continue
+
+                    note_path = self._extract_note_path(entry)
+                    if not note_path:
+                        continue
+
+                    try:
+                        frontmatter_updates = {
+                            "km_confidence": round(confidence, 3),
+                            "km_validated_at": datetime.utcnow().isoformat(),
+                            "km_validation_result": entry.get("validation_status", "unvalidated"),
+                        }
+                        utility = entry.get("cross_debate_utility")
+                        if utility is not None:
+                            frontmatter_updates["km_cross_debate_utility"] = round(
+                                float(utility), 3
+                            )
+
+                        connector.update_note_frontmatter(note_path, frontmatter_updates)
+                        updated += 1
+                    except (RuntimeError, ValueError, OSError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
+                        failed += 1
+                        logger.warning("Obsidian frontmatter update failed: %s", e)
+                        errors.append("Frontmatter update failed")
+
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
+            logger.warning("Obsidian reverse sync failed: %s", e)
+            errors.append("Reverse sync failed")
+
+        duration_ms = (time.time() - start_time) * 1000
+        self._emit_event(
+            "obsidian_reverse_sync_complete",
+            {
+                "analyzed": analyzed,
+                "updated": updated,
+                "failed": failed,
+                "duration_ms": duration_ms,
+            },
+        )
+
+        return ValidationSyncResult(
+            records_analyzed=analyzed,
+            records_updated=updated,
+            records_failed=failed,
+            errors=errors,
+            duration_ms=duration_ms,
+        )
+
+    async def _query_obsidian_entries(
+        self, mound: Any, limit: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Query KM for entries sourced from Obsidian."""
+        try:
+            results = await mound.query(
+                query="source:obsidian",
+                limit=limit or 100,
+            )
+            if isinstance(results, list):
+                return results
+            return []
+        except (RuntimeError, ValueError, AttributeError) as e:
+            logger.debug("KM query for obsidian entries failed: %s", e)
+            return []
+
+    @staticmethod
+    def _extract_note_path(entry: dict[str, Any]) -> str | None:
+        """Extract the Obsidian note path from a KM entry."""
+        metadata = entry.get("metadata", {})
+        if isinstance(metadata, dict):
+            path = metadata.get("path") or metadata.get("source_id")
+            if isinstance(path, str):
+                return path
+        doc_id = entry.get("document_id")
+        if isinstance(doc_id, str) and doc_id.endswith(".md"):
+            return doc_id
+        return None
 
 
 __all__ = ["ObsidianAdapter", "ObsidianSyncConfig"]
