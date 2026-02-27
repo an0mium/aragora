@@ -417,6 +417,12 @@ class StreamEventType(Enum):
     PIPELINE_COMPLETED = "pipeline_completed"  # Full pipeline completed
     PIPELINE_FAILED = "pipeline_failed"  # Pipeline failed
 
+    # Interrogation events (decomposition → questioning → crystallization)
+    INTERROGATION_STARTED = "interrogation_started"  # Interrogation session started
+    INTERROGATION_QUESTION = "interrogation_question"  # Question posed to agent
+    INTERROGATION_ANSWER = "interrogation_answer"  # Agent answered a question
+    INTERROGATION_CRYSTALLIZED = "interrogation_crystallized"  # Insights crystallized
+
 
 @dataclass
 class StreamEvent:
