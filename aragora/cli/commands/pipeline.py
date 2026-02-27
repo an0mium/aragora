@@ -158,8 +158,9 @@ def _run_self_improve_handoff(
         print(f"Improvement score: {result.improvement_score:.3f}")
         print(f"Cost: ${result.total_cost_usd:.4f}")
         print(f"Duration: {result.duration_seconds:.1f}s")
-        if result.error:
-            print(f"Error: {result.error}")
+        _err = getattr(result, "error", None)
+        if _err:
+            print(f"Error: {_err}")
         print()
 
 

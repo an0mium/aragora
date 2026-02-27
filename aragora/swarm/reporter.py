@@ -6,6 +6,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from pathlib import Path
+
+from aragora.harnesses.base import AnalysisType
 from aragora.swarm.spec import SwarmSpec
 
 logger = logging.getLogger(__name__)
@@ -193,8 +196,8 @@ class SwarmReporter:
             )
 
             llm_result = await harness.analyze_repository(
-                repo_path=".",
-                analysis_type="general",
+                repo_path=Path("."),
+                analysis_type=AnalysisType.GENERAL,
                 prompt=prompt,
             )
             raw = llm_result.raw_output if hasattr(llm_result, "raw_output") else str(llm_result)
