@@ -37,6 +37,24 @@ from aragora.server.handlers.openclaw._base import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_gateway_module():
+    """Remove openclaw_gateway from sys.modules before each test.
+
+    Root conftest patches ``has_permission`` to a lambda, which changes the
+    identity comparison inside ``_has_permission``.  If the gateway module is
+    already in ``sys.modules`` from an earlier test, the override path fires
+    instead of the canonical fallback, breaking tests that rely on the default
+    delegation path.
+    """
+    saved = sys.modules.pop("aragora.server.handlers.openclaw_gateway", None)
+    yield
+    if saved is not None:
+        sys.modules["aragora.server.handlers.openclaw_gateway"] = saved
+    else:
+        sys.modules.pop("aragora.server.handlers.openclaw_gateway", None)
+
+
 # ============================================================================
 # _has_permission tests
 # ============================================================================

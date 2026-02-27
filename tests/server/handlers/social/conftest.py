@@ -426,8 +426,13 @@ def mock_admin_user():
 
 
 @pytest.fixture(autouse=True)
-def reset_slack_globals():
+def reset_slack_globals(monkeypatch):
     """Reset Slack global state before each test."""
+    # Isolate from real Slack credentials in the environment
+    monkeypatch.delenv("SLACK_SIGNING_SECRET", raising=False)
+    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
+
     # Import and reset Slack module globals
     try:
         from aragora.server.handlers.social import slack
