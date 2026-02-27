@@ -919,11 +919,48 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
 
         async with self._pool.acquire() as conn:
             await conn.execute(sql, *params)
+            row = await conn.fetchrow(
+                """
+                SELECT data_json, last_sync_at, last_sync_error, last_push_at, last_pull_at,
+                       total_pushes, total_pulls, total_nodes_synced, total_sync_errors, updated_at
+                FROM federated_regions
+                WHERE region_id = $1 AND workspace_id = $2
+                """,
+                region_id,
+                ws_id,
+            )
+            if not row:
+                return
 
-        # Update data_json field to keep it in sync
-        region = await self.get(region_id, workspace_id)
-        if region:
-            await self.save(region)
+            data_json = row["data_json"]
+            data = json.loads(data_json) if isinstance(data_json, str) else dict(data_json)
+            data.update(
+                {
+                    "last_sync_at": row["last_sync_at"],
+                    "last_sync_error": row["last_sync_error"],
+                    "last_push_at": row["last_push_at"],
+                    "last_pull_at": row["last_pull_at"],
+                    "total_pushes": row["total_pushes"],
+                    "total_pulls": row["total_pulls"],
+                    "total_nodes_synced": row["total_nodes_synced"],
+                    "total_sync_errors": row["total_sync_errors"],
+                    "updated_at": (
+                        row["updated_at"].isoformat()
+                        if hasattr(row["updated_at"], "isoformat")
+                        else row["updated_at"]
+                    ),
+                }
+            )
+            await conn.execute(
+                """
+                UPDATE federated_regions
+                SET data_json = $1::jsonb
+                WHERE region_id = $2 AND workspace_id = $3
+                """,
+                json.dumps(data),
+                region_id,
+                ws_id,
+            )
 
     def update_sync_status_sync(
         self,
