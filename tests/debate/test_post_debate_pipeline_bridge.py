@@ -96,6 +96,8 @@ class TestConfidenceThreshold:
             auto_outcome_feedback=False,
             auto_execution_bridge=False,
             auto_push_calibration=False,
+            auto_llm_judge=False,
+            auto_verify_arguments=False,
         )
         coordinator = PostDebateCoordinator(config=config)
         debate_result = _make_debate_result()
@@ -123,6 +125,8 @@ class TestConfidenceThreshold:
             auto_outcome_feedback=False,
             auto_execution_bridge=False,
             auto_push_calibration=False,
+            auto_llm_judge=False,
+            auto_verify_arguments=False,
         )
         coordinator = PostDebateCoordinator(config=config)
         msg = _make_message(

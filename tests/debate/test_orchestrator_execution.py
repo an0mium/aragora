@@ -1441,6 +1441,7 @@ class TestPromptBuilding:
 # =============================================================================
 
 
+@pytest.mark.no_io_stubs
 class TestContextDelegation:
     """Tests for context gathering and delegation."""
 

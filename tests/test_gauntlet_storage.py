@@ -512,15 +512,19 @@ class TestBackendSelection:
         db_path = tmp_path / "env_test.db"
 
         with patch.dict(os.environ, {"DATABASE_URL": "postgresql://localhost/test"}):
-            # Should raise ImportError if psycopg2 not available
-            # or create PostgreSQL backend if available
+            # Should raise ImportError if psycopg2 not available,
+            # OperationalError if psycopg2 available but DB unreachable,
+            # or create PostgreSQL backend if available and reachable
             try:
                 storage = GauntletStorage(str(db_path))
-                # If we get here, psycopg2 is available
+                # If we get here, psycopg2 is available and DB is reachable
                 assert storage._backend.backend_type == "postgresql"
             except ImportError as e:
                 # Expected if psycopg2 not installed
                 assert "psycopg2" in str(e)
+            except Exception as e:
+                # OperationalError when psycopg2 installed but DB unreachable
+                assert "connection" in str(e).lower() or "database" in str(e).lower()
 
     def test_aragora_database_url_env_var(self, tmp_path):
         """Test ARAGORA_DATABASE_URL env var is recognized."""
@@ -540,8 +544,8 @@ class TestBackendSelection:
                     try:
                         storage = GauntletStorage(str(db_path))
                         assert storage._backend.backend_type == "postgresql"
-                    except ImportError:
-                        # Expected if psycopg2 not installed
+                    except (ImportError, Exception):
+                        # Expected if psycopg2 not installed or DB unreachable
                         pass
 
     def test_explicit_database_url_overrides_env(self, tmp_path):

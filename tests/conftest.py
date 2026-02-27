@@ -2926,3 +2926,27 @@ def pytest_sessionfinish(session, exitstatus):
     ]
     for t in non_daemon_threads:
         t.join(timeout=1.0)
+
+    # If leaked threads remain, start a daemon watchdog that will force-exit
+    # after a grace period. Python waits for non-daemon threads during shutdown
+    # (threading._shutdown), so a daemon timer ensures the process terminates.
+    import os
+
+    remaining = [
+        t
+        for t in threading.enumerate()
+        if t.is_alive()
+        and not t.daemon
+        and t is not threading.main_thread()
+        and t.name != "MainThread"
+    ]
+    if remaining:
+
+        def _watchdog():
+            import time
+
+            time.sleep(5)
+            os._exit(exitstatus or 0)
+
+        wd = threading.Thread(target=_watchdog, daemon=True, name="pytest-exit-watchdog")
+        wd.start()

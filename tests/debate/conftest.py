@@ -163,6 +163,20 @@ def _disable_post_debate_external_calls(monkeypatch):
             auto_llm_judge=False,
         )
         monkeypatch.setattr(pdc_mod, "DEFAULT_POST_DEBATE_CONFIG", patched)
+
+        # Patch specific step methods that make real LLM/async calls and block
+        # indefinitely in tests. These are the steps where tests create their
+        # own PostDebateConfig, bypassing the DEFAULT_POST_DEBATE_CONFIG patch.
+        def _noop_llm_judge(self, *args, **kwargs):
+            return None
+
+        def _noop_outcome_feedback(self, *args, **kwargs):
+            return None
+
+        monkeypatch.setattr(pdc_mod.PostDebateCoordinator, "_step_llm_judge", _noop_llm_judge)
+        monkeypatch.setattr(
+            pdc_mod.PostDebateCoordinator, "_step_outcome_feedback", _noop_outcome_feedback
+        )
     except ImportError:
         pass
 
@@ -247,8 +261,11 @@ def _ensure_fake_api_keys(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _stub_expensive_arena_io(monkeypatch):
+def _stub_expensive_arena_io(monkeypatch, request):
     """Stub out expensive I/O operations inside Arena.run().
+
+    Tests marked with ``@pytest.mark.no_io_stubs`` skip these patches
+    (e.g. delegation tests that verify the call chain).
 
     Targets:
     - Arena._gather_aragora_context (reads project docs via run_in_executor)
@@ -268,6 +285,9 @@ def _stub_expensive_arena_io(monkeypatch):
 
     This reduces per-test arena.run() time from ~5s to <0.5s.
     """
+    if request.node.get_closest_marker("no_io_stubs"):
+        return
+
     from aragora.debate.orchestrator import Arena
 
     async def _noop_async_none(self, *args, **kwargs):

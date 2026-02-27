@@ -22,6 +22,23 @@ from aragora.debate.post_debate_coordinator import (
     PostDebateResult,
 )
 
+# Default overrides: disable all post-debate steps that make real API/async calls.
+# Tests opt-in to specific steps they want to exercise.
+_ALL_STEPS_OFF = {
+    "auto_explain": False,
+    "auto_create_plan": False,
+    "auto_notify": False,
+    "auto_persist_receipt": False,
+    "auto_gauntlet_validate": False,
+    "auto_execution_bridge": False,
+    "auto_push_calibration": False,
+    "auto_llm_judge": False,
+    "auto_outcome_feedback": False,
+    "auto_trigger_canvas": False,
+    "auto_queue_improvement": False,
+    "auto_verify_arguments": False,
+}
+
 
 class TestArgumentVerificationConfigDefaults:
     """Tests for argument verification config defaults."""
@@ -39,16 +56,7 @@ class TestArgumentVerificationStep:
     """Tests for _step_argument_verification method."""
 
     def _make_coordinator(self, **config_kwargs):
-        defaults = {
-            "auto_verify_arguments": True,
-            "auto_explain": False,
-            "auto_create_plan": False,
-            "auto_notify": False,
-            "auto_persist_receipt": False,
-            "auto_gauntlet_validate": False,
-            "auto_execution_bridge": False,
-            "auto_push_calibration": False,
-        }
+        defaults = {**_ALL_STEPS_OFF, "auto_verify_arguments": True}
         defaults.update(config_kwargs)
         config = PostDebateConfig(**defaults)
         return PostDebateCoordinator(config=config)
@@ -117,16 +125,7 @@ class TestArgumentVerificationStep:
 
     def test_step_skipped_when_disabled(self):
         """When auto_verify_arguments is False (default), the step is skipped."""
-        config = PostDebateConfig(
-            auto_verify_arguments=False,
-            auto_explain=False,
-            auto_create_plan=False,
-            auto_notify=False,
-            auto_persist_receipt=False,
-            auto_gauntlet_validate=False,
-            auto_execution_bridge=False,
-            auto_push_calibration=False,
-        )
+        config = PostDebateConfig(**_ALL_STEPS_OFF)
         coordinator = PostDebateCoordinator(config=config)
         mock_result = self._make_debate_result()
 
@@ -185,6 +184,7 @@ class TestArgumentVerificationStep:
         coordinator = self._make_coordinator(
             auto_explain=True,
             auto_persist_receipt=True,
+            auto_verify_arguments=True,
         )
         mock_result = self._make_debate_result()
 
@@ -316,8 +316,6 @@ class TestArgumentVerificationStep:
             auto_gauntlet_validate=True,
             auto_verify_arguments=True,
             auto_notify=True,
-            auto_explain=False,
-            auto_persist_receipt=False,
         )
         mock_result = self._make_debate_result()
 
