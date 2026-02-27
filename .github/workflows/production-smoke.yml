@@ -1,0 +1,45 @@
+name: Production Smoke Test
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 minutes
+  workflow_dispatch:
+
+concurrency:
+  group: production-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check backend health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 10 \
+            "${API_URL}/healthz" || echo "000")
+          echo "Health check status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Backend health check failed (status=$STATUS)"
+            exit 1
+          fi
+        env:
+          API_URL: ${{ vars.PRODUCTION_API_URL || 'https://api.aragora.ai' }}
+
+      - name: Check playground endpoint
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 15 \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"topic":"health check","rounds":1,"agents":2,"source":"ci"}' \
+            "${API_URL}/api/v1/playground/debate" || echo "000")
+          echo "Playground status: $STATUS"
+          # 200 or 429 (rate limited) are both "alive" signals
+          if [ "$STATUS" != "200" ] && [ "$STATUS" != "429" ]; then
+            echo "::error::Playground endpoint failed (status=$STATUS)"
+            exit 1
+          fi
+        env:
+          API_URL: ${{ vars.PRODUCTION_API_URL || 'https://api.aragora.ai' }}

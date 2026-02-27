@@ -121,6 +121,10 @@ class DecisionReceipt:
     # Epistemic settlement metadata (optional, for quality feedback loop)
     settlement_metadata: dict[str, Any] | None = None
 
+    # Extended thinking traces from Anthropic agents (optional, for explainability)
+    # Maps agent name -> thinking trace string produced during the debate
+    thinking_traces: dict[str, str] | None = None
+
     # Schema version for forward compatibility
     schema_version: str = "1.1"
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, FormEvent } from 'react';
+import { useState, useCallback, useRef, FormEvent } from 'react';
 import Link from 'next/link';
 import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from './DebateResultPreview';
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
@@ -12,11 +12,21 @@ interface LandingPageProps {
   onEnterDashboard?: () => void;
 }
 
+const PROGRESS_MESSAGES = [
+  'Assembling analyst panel...',
+  'Agents debating your question...',
+  'Analyzing arguments...',
+  'Building consensus...',
+  'Generating verdict...',
+];
+
 export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
   const [question, setQuestion] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<DebateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progressMsg, setProgressMsg] = useState(PROGRESS_MESSAGES[0]);
+  const abortRef = useRef<AbortController | null>(null);
 
   const resolvedApiBase = apiBase || 'https://api.aragora.ai';
 
@@ -33,24 +43,43 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
     setError(null);
     setResult(null);
 
+    // Rotate progress messages
+    let progressIdx = 0;
+    const progressInterval = setInterval(() => {
+      progressIdx = (progressIdx + 1) % PROGRESS_MESSAGES.length;
+      setProgressMsg(PROGRESS_MESSAGES[progressIdx]);
+    }, 4000);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const res = await fetch(`${resolvedApiBase}/api/v1/playground/debate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, question: topic, rounds: 2, agents: 3, source: 'landing' }),
+        signal: controller.signal,
       });
+
+      if (res.status === 429) {
+        const data = await res.json().catch(() => null);
+        const retryAfter = data?.retry_after || 60;
+        setError(`Rate limit reached. Please try again in ${retryAfter} seconds.`);
+        return;
+      }
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setError(data?.error || `Request failed (${res.status})`);
+        setError(data?.error || 'Something went wrong. Please try again.');
         return;
       }
 
       setResult(await res.json());
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Network error';
-      setError(message);
+      if (err instanceof Error && err.name === 'AbortError') return;
+      setError('Could not connect to the server. Check your connection and try again.');
     } finally {
+      clearInterval(progressInterval);
       setIsRunning(false);
     }
   }
@@ -158,20 +187,27 @@ export function LandingPage({ apiBase, onEnterDashboard }: LandingPageProps) {
           )}
 
           {isRunning && (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex flex-col items-center py-8 gap-3">
               <div className="flex items-center gap-3 text-acid-green">
                 <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                <span className="text-sm font-mono">Agents are debating...</span>
+                <span className="text-sm font-mono">{progressMsg}</span>
               </div>
+              <span className="text-xs font-mono text-text-muted/60">Usually takes 10-20 seconds</span>
             </div>
           )}
 
           {error && (
-            <div className="border border-crimson bg-crimson/10 p-4 mt-6 text-left max-w-xl mx-auto">
-              <p className="text-sm text-crimson font-mono">{error}</p>
+            <div className="border border-crimson/40 bg-crimson/5 p-4 mt-6 text-left max-w-xl mx-auto">
+              <p className="text-sm text-crimson font-mono mb-3">{error}</p>
+              <button
+                onClick={() => { setError(null); if (question.trim()) runDebate(question.trim()); }}
+                className="font-mono text-xs px-4 py-2 border border-crimson/40 text-crimson hover:bg-crimson/10 transition-colors"
+              >
+                Try again
+              </button>
             </div>
           )}
 

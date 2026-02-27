@@ -1156,6 +1156,23 @@ async def handle_debate_completion(
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.debug("Live explainability snapshot failed (non-critical): %s", e)
 
+    # Collect extended thinking traces from Anthropic agents
+    if ctx.result and arena.agents:
+        thinking_traces: dict[str, str] = {}
+        for agent in arena.agents:
+            trace = getattr(agent, "_last_thinking_trace", None)
+            if trace:
+                thinking_traces[agent.name] = trace
+        if thinking_traces:
+            if not isinstance(ctx.result.metadata, dict):
+                ctx.result.metadata = {}
+            ctx.result.metadata["thinking_traces"] = thinking_traces
+            logger.info(
+                "thinking_traces_attached debate_id=%s agents=%s",
+                state.debate_id,
+                len(thinking_traces),
+            )
+
     # Queue for Supabase background sync
     arena._queue_for_supabase_sync(ctx, ctx.result)
 

@@ -223,10 +223,15 @@ class DebateProtocol:
         "supermajority",
         "any",
         "byzantine",
+        "prover_estimator",
     ] = "judge"
     consensus_threshold: float = 0.6  # fraction needed for majority
     allow_abstain: bool = True
     require_reasoning: bool = True
+
+    # Prover-Estimator protocol settings
+    prover_estimator_max_rounds: int = 2
+    prover_estimator_context: str = ""
     # Participation quorum: minimum fraction/count of agents that must vote
     min_participation_ratio: float = 0.5
     min_participation_count: int = 2
@@ -582,6 +587,13 @@ class DebateProtocol:
     epistemic_require_falsifiers: bool = True  # Require falsifiability statements
     epistemic_require_confidence: bool = True  # Require confidence intervals on claims
     epistemic_require_unknowns: bool = True  # Require explicit unknowns each round
+
+    # Extended thinking: Enable transparent reasoning chains from Anthropic agents.
+    # When set, AnthropicAPIAgent uses the thinking API to produce step-by-step
+    # reasoning that is captured as debate metadata for explainability and
+    # decision receipts.  Only affects Anthropic-backed agents; other providers
+    # ignore this setting.
+    thinking_budget: int | None = None  # Token budget for extended thinking (None = disabled)
 
     def get_round_phase(self, round_number: int) -> RoundPhase | None:
         """Get the phase configuration for a specific round.

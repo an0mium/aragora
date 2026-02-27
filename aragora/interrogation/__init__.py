@@ -1,44 +1,33 @@
-"""Interrogation Engine -- vague prompts to structured specs."""
+"""Interrogation Engine: Debate-driven prompt clarification.
 
-from aragora.interrogation.crystallizer import Crystallizer, Spec, Requirement, RequirementLevel
-from aragora.interrogation.decomposer import InterrogationDecomposer, Dimension, DecompositionResult
+The unique Aragora differentiator: before executing on any prompt, the system
+runs an adversarial debate among agents to determine WHICH clarifying questions
+matter most, then asks the user only the highest-value questions.
+
+This is not single-LLM question generation — it's multi-agent deliberation
+about what's worth asking, with cross-verification of assumptions.
+
+Usage:
+    from aragora.interrogation import InterrogationEngine, InterrogationConfig
+
+    engine = InterrogationEngine()
+    result = await engine.interrogate("Make our product better")
+    # result.prioritized_questions — debate-ranked questions
+    # result.crystallized_spec — MoSCoW specification
+    # result.research_context — gathered evidence
+"""
+
 from aragora.interrogation.engine import (
+    InterrogationConfig,
     InterrogationEngine,
     InterrogationResult,
-    InterrogationState,
 )
-from aragora.interrogation.questioner import InterrogationQuestioner, Question, QuestionSet
-from aragora.interrogation.executor import (
-    InterrogationExecutor,
-    ExecutionRequest,
-    ExecutionResult,
-)
-from aragora.interrogation.researcher import (
-    InterrogationResearcher,
-    ResearchResult,
-    Finding,
-    ResearchSource,
-)
+from aragora.interrogation.crystallizer import Crystallizer, CrystallizedSpec
 
 __all__ = [
     "Crystallizer",
-    "Spec",
-    "Requirement",
-    "RequirementLevel",
-    "InterrogationDecomposer",
-    "Dimension",
-    "DecompositionResult",
+    "CrystallizedSpec",
+    "InterrogationConfig",
     "InterrogationEngine",
     "InterrogationResult",
-    "InterrogationState",
-    "InterrogationQuestioner",
-    "Question",
-    "QuestionSet",
-    "InterrogationExecutor",
-    "ExecutionRequest",
-    "ExecutionResult",
-    "InterrogationResearcher",
-    "ResearchResult",
-    "Finding",
-    "ResearchSource",
 ]
