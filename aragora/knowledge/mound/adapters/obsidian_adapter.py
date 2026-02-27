@@ -22,7 +22,10 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.connectors.knowledge.obsidian_watcher import VaultChangeEvent
 
 from aragora.connectors.knowledge.obsidian import ObsidianConfig, ObsidianConnector
 from aragora.knowledge.mound.adapters._base import (
@@ -111,6 +114,22 @@ class ObsidianAdapter(KnowledgeMoundAdapter):
                 self._event_callback(event_type, data)
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
                 logger.debug("ObsidianAdapter event callback failed: %s", e)
+
+    async def _on_vault_change(self, event: VaultChangeEvent) -> None:
+        """Respond to a VaultWatcher change event by triggering incremental sync.
+
+        Args:
+            event: The vault change event from the watcher.
+        """
+        if event.change_type == "deleted":
+            logger.info("Vault file deleted: %s (KM staleness handles cleanup)", event.path)
+            return
+
+        if event.change_type in ("created", "modified"):
+            try:
+                await self.sync_to_km()
+            except (RuntimeError, ValueError, OSError, AttributeError) as e:  # noqa: BLE001 - adapter isolation
+                logger.warning("Incremental sync on vault change failed: %s", e)
 
     def _get_mound(self) -> Any | None:
         """Get Knowledge Mound instance."""
