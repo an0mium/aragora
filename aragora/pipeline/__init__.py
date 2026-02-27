@@ -71,6 +71,11 @@ from aragora.pipeline.templates import (
     get_template_config,
     list_templates,
 )
+from aragora.pipeline.unified_orchestrator import (
+    OrchestratorConfig,
+    OrchestratorResult,
+    UnifiedOrchestrator,
+)
 from aragora.pipeline.universal_node import UniversalEdge, UniversalGraph, UniversalNode
 from aragora.pipeline.verification_plan import (
     VerificationCase,
@@ -151,6 +156,10 @@ __all__ = [
     "get_template",
     "get_template_config",
     "list_templates",
+    # Unified orchestrator
+    "UnifiedOrchestrator",
+    "OrchestratorConfig",
+    "OrchestratorResult",
     # Backward compatibility
     "TestPlan",
     "TestCase",
