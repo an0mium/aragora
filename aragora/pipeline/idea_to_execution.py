@@ -128,6 +128,8 @@ class PipelineConfig:
     enable_fractal: bool = False  # Use FractalOrchestrator for recursive ideation
     enable_meta_tuning: bool = False  # MetaLearner self-tuning
     enable_workspace_context: bool = True  # Check workspace for existing work
+    enable_transition_debates: bool = False  # Run mini-debates at stage transitions
+    transition_debate_rounds: int = 2  # Rounds per transition debate
     # Mode map: pipeline stage → operational mode name
     mode_map: dict[str, str] = field(
         default_factory=lambda: {
@@ -1084,6 +1086,38 @@ class IdeaToExecutionPipeline:
                             logger.debug("Workspace goal marking unavailable: %s", exc)
 
                     result.stage_status[PipelineStage.GOALS.value] = "complete"
+
+                    # Transition debate: Ideas → Goals
+                    if cfg.enable_transition_debates and result.goal_graph:
+                        td_result = await self._run_transition_debate(
+                            "ideas_to_goals",
+                            ideas=[
+                                getattr(n, "label", "")
+                                for n in (
+                                    result.ideas_canvas.nodes.values()
+                                    if result.ideas_canvas
+                                    and isinstance(
+                                        getattr(result.ideas_canvas, "nodes", None),
+                                        dict,
+                                    )
+                                    else []
+                                )
+                            ],
+                            goals=result.goal_graph,
+                            cfg=cfg,
+                        )
+                        if td_result:
+                            result.transitions.append(
+                                self._debate_to_stage_transition(
+                                    td_result, PipelineStage.IDEAS, PipelineStage.GOALS
+                                )
+                            )
+                            self._emit(
+                                cfg,
+                                "transition_debate_complete",
+                                td_result.to_dict(),
+                            )
+
                 elif sr.status == "failed":
                     result.stage_status[PipelineStage.GOALS.value] = "failed"
 
@@ -1125,6 +1159,45 @@ class IdeaToExecutionPipeline:
                                     "label": getattr(node, "label", ""),
                                 },
                             )
+
+                    # Transition debate: Goals → Actions
+                    if cfg.enable_transition_debates and result.actions_canvas:
+                        actions_data = []
+                        act_nodes = result.actions_canvas.nodes
+                        if isinstance(act_nodes, dict):
+                            act_nodes = act_nodes.values()
+                        for n in act_nodes:
+                            actions_data.append(
+                                {
+                                    "name": getattr(n, "label", ""),
+                                    "step_type": getattr(n, "data", {}).get("step_type", "task"),
+                                    "id": getattr(n, "id", ""),
+                                }
+                            )
+                        goals_data = [
+                            {"title": g.title, "priority": g.priority}
+                            for g in (result.goal_graph.goals if result.goal_graph else [])
+                        ]
+                        td_result = await self._run_transition_debate(
+                            "goals_to_actions",
+                            goals=goals_data,
+                            actions=actions_data,
+                            cfg=cfg,
+                        )
+                        if td_result:
+                            result.transitions.append(
+                                self._debate_to_stage_transition(
+                                    td_result,
+                                    PipelineStage.GOALS,
+                                    PipelineStage.ACTIONS,
+                                )
+                            )
+                            self._emit(
+                                cfg,
+                                "transition_debate_complete",
+                                td_result.to_dict(),
+                            )
+
                 elif sr.status == "failed":
                     result.stage_status[PipelineStage.ACTIONS.value] = "failed"
 
@@ -1146,6 +1219,50 @@ class IdeaToExecutionPipeline:
                         if result.actions_canvas:
                             result = self._advance_to_orchestration(result)
                         result.stage_status[PipelineStage.ORCHESTRATION.value] = "complete"
+
+                        # Transition debate: Actions → Orchestration
+                        if cfg.enable_transition_debates and result.orchestration_canvas:
+                            orch_tasks = []
+                            orch_nodes = result.orchestration_canvas.nodes
+                            if isinstance(orch_nodes, dict):
+                                orch_nodes = orch_nodes.values()
+                            for n in orch_nodes:
+                                data = getattr(n, "data", {})
+                                orch_tasks.append(
+                                    {
+                                        "name": getattr(n, "label", ""),
+                                        "agent_id": data.get("agent_id", "unassigned"),
+                                        "id": getattr(n, "id", ""),
+                                    }
+                                )
+                            act_nodes_list = []
+                            if result.actions_canvas:
+                                act_n = result.actions_canvas.nodes
+                                if isinstance(act_n, dict):
+                                    act_n = act_n.values()
+                                act_nodes_list = [
+                                    {"name": getattr(n, "label", ""), "id": getattr(n, "id", "")}
+                                    for n in act_n
+                                ]
+                            td_result = await self._run_transition_debate(
+                                "actions_to_orchestration",
+                                actions=act_nodes_list,
+                                assignments=orch_tasks,
+                                cfg=cfg,
+                            )
+                            if td_result:
+                                result.transitions.append(
+                                    self._debate_to_stage_transition(
+                                        td_result,
+                                        PipelineStage.ACTIONS,
+                                        PipelineStage.ORCHESTRATION,
+                                    )
+                                )
+                                self._emit(
+                                    cfg,
+                                    "transition_debate_complete",
+                                    td_result.to_dict(),
+                                )
 
             # Generate receipt (skip in dry_run mode)
             if cfg.enable_receipts and not cfg.dry_run:
@@ -2592,6 +2709,73 @@ class IdeaToExecutionPipeline:
             len(execution_plan.get("tasks", [])),
         )
         return result
+
+    # =========================================================================
+    # Transition debate helpers
+    # =========================================================================
+
+    async def _run_transition_debate(
+        self,
+        debate_type: str,
+        cfg: PipelineConfig,
+        **kwargs: Any,
+    ) -> Any:
+        """Run a mini-debate at a stage transition boundary.
+
+        Returns a TransitionDebateResult or None if debate is unavailable.
+        """
+        try:
+            from aragora.pipeline.stage_debate import StageTransitionDebater
+
+            debater = StageTransitionDebater(
+                debate_rounds=cfg.transition_debate_rounds,
+                enable_receipts=cfg.enable_receipts,
+            )
+
+            if debate_type == "ideas_to_goals":
+                ideas = kwargs.get("ideas", [])
+                goal_graph = kwargs.get("goals")
+                proposed_goals = []
+                if goal_graph and hasattr(goal_graph, "goals"):
+                    proposed_goals = [
+                        {"title": g.title, "priority": g.priority, "id": g.id}
+                        for g in goal_graph.goals
+                    ]
+                return await debater.debate_ideas_to_goals(ideas, proposed_goals)
+
+            elif debate_type == "goals_to_actions":
+                goals = kwargs.get("goals", [])
+                actions = kwargs.get("actions", [])
+                return await debater.debate_goals_to_actions(goals, actions)
+
+            elif debate_type == "actions_to_orchestration":
+                actions = kwargs.get("actions", [])
+                assignments = kwargs.get("assignments", [])
+                return await debater.debate_actions_to_orchestration(actions, assignments)
+
+        except ImportError:
+            logger.debug("Stage debate module not available")
+        except Exception as exc:
+            logger.warning("Transition debate failed: %s", exc)
+
+        return None
+
+    @staticmethod
+    def _debate_to_stage_transition(
+        td_result: Any,
+        from_stage: Any,
+        to_stage: Any,
+    ) -> StageTransition:
+        """Convert a TransitionDebateResult into a StageTransition record."""
+        return StageTransition(
+            id=td_result.transition_id,
+            from_stage=from_stage,
+            to_stage=to_stage,
+            provenance=[],
+            status="completed",
+            confidence=td_result.confidence,
+            ai_rationale=f"[{td_result.verdict.upper()}] {td_result.rationale}",
+        )
 
     # =========================================================================
     # Universal graph integration
