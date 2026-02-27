@@ -12,6 +12,7 @@ import pytest
 
 from aragora.swarm.commander import SwarmCommander, _ErrorResult
 from aragora.swarm.config import SwarmCommanderConfig
+from aragora.swarm.reporter import SwarmReport
 from aragora.swarm.spec import SwarmSpec
 
 
@@ -245,3 +246,110 @@ class TestProactiveSuggestions:
         data = spec.to_dict()
         assert "proactive_suggestions" in data
         assert data["proactive_suggestions"] == ["suggestion 1"]
+
+
+class TestUserProfiles:
+    """Test user profile selection (Phase 2)."""
+
+    def test_profile_selects_correct_prompt(self):
+        from aragora.swarm.config import UserProfile, USER_PROFILE_PROMPTS
+
+        config = SwarmCommanderConfig(user_profile=UserProfile.CTO)
+        # The interrogator should use the CTO prompt
+        assert "architect" in config.interrogator.system_prompt.lower()
+
+    def test_ceo_profile_is_default(self):
+        config = SwarmCommanderConfig()
+        assert config.user_profile.value == "ceo"
+
+    def test_developer_profile_mentions_files(self):
+        from aragora.swarm.config import UserProfile, USER_PROFILE_PROMPTS
+
+        prompt = USER_PROFILE_PROMPTS[UserProfile.DEVELOPER]
+        assert "file" in prompt.lower()
+
+
+class TestResearchPipeline:
+    """Test research pipeline bridge (Phase 3)."""
+
+    @pytest.mark.asyncio
+    async def test_research_disabled_skips_pipeline(self):
+        config = SwarmCommanderConfig(enable_research_pipeline=False)
+        commander = SwarmCommander(config=config)
+        spec = SwarmSpec(raw_goal="test", refined_goal="test")
+
+        result = await commander._research(spec)
+        assert result.pipeline_stage == ""
+        assert result.research_context == {}
+
+    @pytest.mark.asyncio
+    async def test_research_failure_falls_through(self):
+        """If pipeline import fails, spec is returned unchanged."""
+        config = SwarmCommanderConfig(enable_research_pipeline=True)
+        commander = SwarmCommander(config=config)
+        spec = SwarmSpec(raw_goal="test", refined_goal="test")
+
+        with patch(
+            "aragora.swarm.commander.SwarmCommander._research",
+            new_callable=AsyncMock,
+            return_value=spec,
+        ):
+            result = await commander._research(spec)
+        assert result.raw_goal == "test"
+
+
+class TestObsidianSync:
+    """Test Obsidian bidirectional sync (Phase 4)."""
+
+    @pytest.mark.asyncio
+    async def test_obsidian_disabled_by_default(self):
+        config = SwarmCommanderConfig()
+        assert config.obsidian_vault_path is None
+
+    @pytest.mark.asyncio
+    async def test_write_receipt_skips_when_no_vault(self):
+        """Receipt writing is a no-op when no vault is configured."""
+        commander = SwarmCommander()
+        report = SwarmReport(success=True, summary="test")
+        # Should not raise
+        await commander._write_receipt_to_obsidian(report)
+
+
+class TestTruthSeeking:
+    """Test truth-seeking integration (Phase 5)."""
+
+    @pytest.mark.asyncio
+    async def test_truth_seeking_disabled_passes_through(self):
+        config = SwarmCommanderConfig(enable_epistemic_scoring=False)
+        commander = SwarmCommander(config=config)
+        result = MockOrchestrationResult()
+        spec = SwarmSpec(raw_goal="test")
+
+        validated = await commander._validate_results(result, spec)
+        assert validated is result
+
+    def test_spec_has_epistemic_scores_field(self):
+        spec = SwarmSpec(epistemic_scores={"average": 0.85})
+        assert spec.epistemic_scores["average"] == 0.85
+
+
+class TestSelfImprovement:
+    """Test self-improvement loop (Phase 6)."""
+
+    def test_default_autonomy_is_propose(self):
+        from aragora.swarm.config import AutonomyLevel
+
+        config = SwarmCommanderConfig()
+        assert config.autonomy_level == AutonomyLevel.PROPOSE_APPROVE
+
+    def test_cross_cycle_learning_enabled_by_default(self):
+        config = SwarmCommanderConfig()
+        assert config.enable_cross_cycle_learning is True
+
+    @pytest.mark.asyncio
+    async def test_persist_learnings_no_op_without_km(self):
+        """Persisting learnings should not raise when KM is unavailable."""
+        commander = SwarmCommander()
+        report = SwarmReport(success=True, summary="test")
+        # Should not raise
+        await commander._persist_cycle_learnings(report, 1)

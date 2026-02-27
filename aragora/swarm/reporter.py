@@ -287,6 +287,17 @@ class SwarmReporter:
                 "to make sure everything looks right"
             )
 
+        # Add confidence level from epistemic scores if available (Phase 5)
+        if hasattr(spec, "epistemic_scores") and spec.epistemic_scores:
+            avg_score = spec.epistemic_scores.get("average", 0)
+            if avg_score >= 0.7:
+                confidence = "High"
+            elif avg_score >= 0.4:
+                confidence = "Medium"
+            else:
+                confidence = "Low"
+            summary += f" Confidence level: {confidence}."
+
         return SwarmReport(
             success=success,
             summary=summary,

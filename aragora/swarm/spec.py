@@ -43,6 +43,16 @@ class SwarmSpec:
     # Proactive suggestions from the interrogation
     proactive_suggestions: list[str] = field(default_factory=list)
 
+    # Research pipeline context (Phase 3)
+    research_context: dict[str, Any] = field(default_factory=dict)
+    pipeline_stage: str = ""
+
+    # Obsidian source (Phase 4)
+    obsidian_source: str = ""
+
+    # Truth-seeking scores (Phase 5)
+    epistemic_scores: dict[str, Any] = field(default_factory=dict)
+
     # Metadata
     interrogation_turns: int = 0
     user_expertise: str = "non-developer"

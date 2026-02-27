@@ -1913,6 +1913,33 @@ def _add_swarm_parser(subparsers) -> None:
         help="Run once without iterative loop (single-shot mode)",
     )
     swarm_parser.add_argument(
+        "--profile",
+        choices=["ceo", "cto", "developer", "power-user"],
+        default="ceo",
+        help="User profile for prompt style and report detail (default: ceo)",
+    )
+    swarm_parser.add_argument(
+        "--from-obsidian",
+        metavar="VAULT_PATH",
+        help="Read goals from tagged Obsidian notes in the given vault",
+    )
+    swarm_parser.add_argument(
+        "--obsidian-vault",
+        metavar="VAULT_PATH",
+        help="Write decision receipts to this Obsidian vault",
+    )
+    swarm_parser.add_argument(
+        "--no-obsidian-receipts",
+        action="store_true",
+        help="Disable writing receipts to Obsidian vault",
+    )
+    swarm_parser.add_argument(
+        "--autonomy",
+        choices=["full-auto", "propose", "guided", "metrics"],
+        default="propose",
+        help="Self-improvement autonomy level (default: propose)",
+    )
+    swarm_parser.add_argument(
         "--require-approval",
         action="store_true",
         help="Require approval at safety gates",

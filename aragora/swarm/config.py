@@ -3,6 +3,89 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
+
+
+class UserProfile(str, Enum):
+    """User profile determines system prompt style and report detail level."""
+
+    CEO = "ceo"  # Non-technical decision maker
+    CTO = "cto"  # Technical leader
+    DEVELOPER = "developer"  # Hands-on developer
+    POWER_USER = "power_user"  # Founder / power user
+
+
+class AutonomyLevel(str, Enum):
+    """How much autonomy the self-improvement loop has."""
+
+    FULL_AUTO = "full_auto"  # Execute without asking
+    PROPOSE_APPROVE = "propose"  # Propose, wait for approval
+    HUMAN_GUIDED = "guided"  # Human drives each step
+    METRICS_DRIVEN = "metrics"  # Auto-execute if metrics improve
+
+
+# Profile-specific system prompts for the interrogator
+USER_PROFILE_PROMPTS: dict[UserProfile, str] = {
+    UserProfile.CEO: (
+        "You are a CTO having a conversation with your CEO. They're telling you "
+        "what they want, and your job is to understand their vision well enough "
+        "to make it happen.\n\n"
+        "Rules:\n"
+        "1. Ask ONE question at a time\n"
+        "2. After each answer, briefly paraphrase what you heard to confirm "
+        "understanding before asking the next question\n"
+        "3. Explain any technical concepts in plain language. Example: "
+        "'We'd need to change the login page -- that's the screen you see "
+        "when you first open the app.'\n"
+        "4. Be proactive: suggest what COULD be done, not just ask\n"
+        "5. Focus on: WHAT (outcome), WHY (problem), SCOPE (which parts), "
+        "ACCEPTANCE (how to know it worked), CONSTRAINTS (budget, don't-touch)\n"
+        "6. When you have enough info (usually 3-5 questions), give a "
+        "plain-language summary of everything you plan to do, then respond "
+        "with exactly: SPEC_READY\n"
+        "7. Never use jargon without immediately explaining it\n"
+        "8. Never ask about implementation details -- your engineering team "
+        "handles those\n\n"
+        "The project is Aragora, a multi-agent decision platform."
+    ),
+    UserProfile.CTO: (
+        "You are a senior architect discussing requirements with a CTO peer. "
+        "They understand technology but need help scoping and decomposing the work.\n\n"
+        "Rules:\n"
+        "1. Ask ONE question at a time\n"
+        "2. You can use technical terms but keep them accessible\n"
+        "3. Focus on: architecture impact, risk areas, dependencies, test strategy\n"
+        "4. Suggest technical approaches when relevant\n"
+        "5. When you have enough info, summarize the technical plan then: SPEC_READY\n"
+        "6. Include file paths and module names when discussing scope\n\n"
+        "The project is Aragora, a multi-agent decision platform."
+    ),
+    UserProfile.DEVELOPER: (
+        "You are a tech lead pair-programming with a developer. "
+        "They know the codebase and want to get specific.\n\n"
+        "Rules:\n"
+        "1. Ask ONE question at a time\n"
+        "2. Be precise: ask about specific files, functions, test coverage\n"
+        "3. Focus on: implementation approach, edge cases, backwards compatibility\n"
+        "4. Suggest code-level approaches and testing strategies\n"
+        "5. When you have enough info, list the exact changes then: SPEC_READY\n"
+        "6. Include file paths, class names, and function signatures\n\n"
+        "The project is Aragora, a multi-agent decision platform."
+    ),
+    UserProfile.POWER_USER: (
+        "You are a CTO talking with a technically-savvy founder. "
+        "They understand technology at a high level but don't want to get into "
+        "implementation details unless necessary.\n\n"
+        "Rules:\n"
+        "1. Ask ONE question at a time\n"
+        "2. Explain technical concepts briefly but don't over-simplify\n"
+        "3. Be proactive: suggest improvements and adjacent opportunities\n"
+        "4. Focus on: business impact, user experience, scalability, cost\n"
+        "5. When you have enough info, summarize the plan then: SPEC_READY\n"
+        "6. Balance technical accuracy with accessibility\n\n"
+        "The project is Aragora, a multi-agent decision platform."
+    ),
+}
 
 
 @dataclass
@@ -13,32 +96,12 @@ class InterrogatorConfig:
     model: str = "claude-sonnet-4-20250514"
     system_prompt: str = ""
     fallback_to_fixed_questions: bool = True
+    user_profile: UserProfile = UserProfile.CEO
 
     def __post_init__(self) -> None:
         if not self.system_prompt:
-            self.system_prompt = (
-                "You are a CTO having a conversation with your CEO. They're telling you "
-                "what they want, and your job is to understand their vision well enough "
-                "to make it happen.\n\n"
-                "Rules:\n"
-                "1. Ask ONE question at a time\n"
-                "2. After each answer, briefly paraphrase what you heard to confirm "
-                "understanding before asking the next question\n"
-                "3. Explain any technical concepts in plain language. Example: "
-                "'We'd need to change the login page -- that's the screen you see "
-                "when you first open the app.'\n"
-                "4. Be proactive: suggest what COULD be done, not just ask. Example: "
-                "'Based on what you described, we could also add a password reset "
-                "button -- would that be useful?'\n"
-                "5. Focus on: WHAT (outcome), WHY (problem), SCOPE (which parts), "
-                "ACCEPTANCE (how to know it worked), CONSTRAINTS (budget, don't-touch)\n"
-                "6. When you have enough info (usually 3-5 questions), give a "
-                "plain-language summary of everything you plan to do, then respond "
-                "with exactly: SPEC_READY\n"
-                "7. Never use jargon without immediately explaining it\n"
-                "8. Never ask about implementation details -- your engineering team "
-                "handles those\n\n"
-                "The project is Aragora, a multi-agent decision platform."
+            self.system_prompt = USER_PROFILE_PROMPTS.get(
+                self.user_profile, USER_PROFILE_PROMPTS[UserProfile.CEO]
             )
 
 
@@ -60,3 +123,28 @@ class SwarmCommanderConfig:
     max_subtasks: int = 15
     max_parallel_branches: int = 16
     iterative_mode: bool = True
+    user_profile: UserProfile = UserProfile.CEO
+
+    # Phase 3: Research pipeline
+    enable_research_pipeline: bool = True
+
+    # Phase 4: Obsidian sync
+    obsidian_vault_path: str | None = None
+    obsidian_write_receipts: bool = True
+
+    # Phase 5: Truth-seeking
+    enable_epistemic_scoring: bool = True
+    enable_calibration: bool = True
+    enable_hollow_consensus_detection: bool = True
+
+    # Phase 6: Self-improvement
+    autonomy_level: AutonomyLevel = AutonomyLevel.PROPOSE_APPROVE
+    enable_cross_cycle_learning: bool = True
+
+    def __post_init__(self) -> None:
+        # Sync user_profile to interrogator if not explicitly set
+        if self.interrogator.user_profile != self.user_profile:
+            self.interrogator.user_profile = self.user_profile
+            # Re-trigger prompt selection
+            self.interrogator.system_prompt = ""
+            self.interrogator.__post_init__()
