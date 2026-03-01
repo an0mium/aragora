@@ -166,6 +166,45 @@ DEBATE_SCHEMAS: dict[str, Any] = {
                 "type": "object",
                 "description": "Optional metadata for tracking and integrations",
             },
+            "quality_pipeline": {
+                "type": "object",
+                "description": "Post-consensus quality pipeline configuration. When present, the server applies deterministic quality checks and repairs to the consensus answer.",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Enable the quality pipeline (default true when this object is present)",
+                        "default": True,
+                    },
+                    "required_sections": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Explicit section headings to require in the output",
+                        "example": [
+                            "Ranked High-Level Tasks",
+                            "Suggested Subtasks",
+                            "Owner module / file paths",
+                            "Test Plan",
+                            "Rollback Plan",
+                            "Gate Criteria",
+                            "JSON Payload",
+                        ],
+                    },
+                    "output_contract_file": {
+                        "type": "string",
+                        "description": "Server-side path to a JSON output contract file",
+                    },
+                    "quality_min_score": {
+                        "type": "number",
+                        "description": "Minimum quality score (0-10) for the gate to pass",
+                        "default": 9.0,
+                    },
+                    "practicality_min_score": {
+                        "type": "number",
+                        "description": "Minimum practicality score (0-10) for the gate to pass",
+                        "default": 6.0,
+                    },
+                },
+            },
         },
         "required": ["task"],
         "example": {
