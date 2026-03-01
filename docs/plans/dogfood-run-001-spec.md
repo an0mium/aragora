@@ -303,12 +303,84 @@ Report format:
 
 ---
 
-## Tasks (To Be Populated by Debate)
+## Dogfood Run 001 Results
 
-*This section will be filled by the debate output. The debate's job is to produce ≥5 tasks that meet all acceptance criteria above, ranked P0/P1/P2, with the full field set defined in the orchestration payload schema.*
+### Run Configuration
+- **Models**: Claude Sonnet 4 (proposer), GPT-4o (critic), Gemini 2.0 Flash (synthesizer) — via OpenRouter
+- **Rounds**: 2
+- **Consensus**: Majority
+- **Context**: 24,733 chars (roadmap + market analysis excerpts)
+- **Total time**: ~90 seconds (debate rounds only)
+- **Date**: 2026-03-01
+
+### Evaluation Scorecard
+
+| Criterion | Pass? | Score | Notes |
+|-----------|-------|-------|-------|
+| ≥5 ranked tasks | YES | 1.0 | 5 tasks: 1 P0, 4 P1 |
+| Owner file paths present | YES* | 0.2 | Paths present but ALL WRONG — uses `/src/core/` (doesn't exist), should be `aragora/` |
+| Acceptance criteria per task | YES | 0.8 | 5-8 specific criteria with thresholds per task |
+| Test plan per task | YES | 0.8 | Detailed plans with performance targets |
+| Rollback plan per task | YES | 0.9 | Feature flags, fallbacks, graceful degradation |
+| No vague language | PARTIAL | 0.6 | Some measurable targets, but "90%+ of obvious flaws" is vague |
+| ≥2 dissenting positions | PARTIAL | 0.4 | One "DISAGREEMENT WITH CRITIQUE" preserved |
+| Wires existing infrastructure | **FAIL** | 0.0 | Every task proposes new files. Ignores all existing components. |
+
+**Overall score: 0.54** (weighted average across dimensions)
+
+### Critical Finding: Context Engineering Failure
+
+The debate produced well-structured output that is **fundamentally wrong** because the agents didn't know what already exists in the codebase.
+
+**What agents proposed → What already exists:**
+| Proposed New File | Already Exists As |
+|---|---|
+| `/src/core/dag/pipeline.py` | `aragora/pipeline/idea_to_execution.py` (1,173 LOC) |
+| `/src/core/dag/node_types.py` | `aragora/canvas/models.py` + `stages.py` (9 idea types, 6 goal types, 5 action types, 6 orch types) |
+| `/src/core/dag/transitions.py` | `aragora/pipeline/dag_operations.py` |
+| `/src/core/provenance/hash_chain.py` | `ProvenanceLink` in pipeline with SHA-256 hashing |
+| `/src/agents/interrogator/intent_engine.py` | `aragora/interrogation/engine.py` |
+| `/src/ui/components/IntentCapture.tsx` | `aragora/live/src/components/unified-dag/DAGToolbar.tsx` (brain dump input) |
+| `/src/integrations/obsidian/context_retrieval.py` | `aragora/knowledge/mound/adapters/obsidian.py` |
+| `/src/knowledge/mound_connector.py` | `aragora/knowledge/bridges.py` (KnowledgeBridgeHub) |
+| `/src/agents/spec_builder/generator.py` | `aragora/prompt_engine/spec_builder.py` |
+| `/src/agents/debate/adversarial_validator.py` | `aragora/debate/orchestrator.py` (Arena class) |
+| `/src/core/receipts/generator.py` | `aragora/gauntlet/receipt.py` + `aragora/pipeline/receipt_generator.py` |
+
+**The agents reinvented 70% of the existing codebase from scratch.** This is the exact "80% problem" (Stack Overflow 2025: 66% of devs cite "AI solutions that are almost right but not quite") applied to self-improvement planning.
+
+### Root Cause Analysis
+
+1. **Insufficient context**: The input documents described the vision and market analysis but did NOT include the codebase inventory (`IDEA_TO_EXECUTION_PIPELINE.md` lines 42-61, `STRATEGIC_ASSESSMENT_FEB22.md` lines 36-61). The agents had no way to know what already existed.
+
+2. **No codebase verification step**: The debate protocol had no "verify claims against actual files" step. Truth-seeking checks were specified in the protocol but not enforced.
+
+3. **Generic file paths**: Agents defaulted to a generic `/src/` project structure instead of the actual `aragora/` layout, proving they never consulted the codebase.
+
+### Implications for Aragora's Pipeline
+
+This result validates the core thesis of the market analysis:
+
+> "Aragora's wedge is to take vague, underspecified intent and automatically lift it through the full stack"
+
+The debate engine (Discipline 1: Prompt Craft) works. But Discipline 2 (Context Engineering) was missing — the agents operated without the right context. This is exactly the problem Aragora is designed to solve for users, and it's the same problem Aragora has when trying to improve itself.
+
+**Required fix for dogfood run 002:**
+1. Auto-inject codebase inventory (file tree, existing component map) into debate context
+2. Add a "codebase verification" step where agents must confirm file paths exist before proposing them
+3. Require a "what already exists" section before any "what to build" section
+4. Run `grep`/`glob` verification on all proposed file paths before accepting the plan
+
+### Raw Debate Output
+
+The full debate output (synthesized across 2 rounds, 3 models) is preserved at `/tmp/dogfood_debate_output_v3.txt`.
 
 ---
 
-## Dissenting Positions (To Be Populated by Debate)
+## Dissenting Positions (From Debate)
 
-*This section will preserve minority positions from the debate — ideas that were outvoted but may contain valuable signal for future runs.*
+The synthesizer preserved one dissenting position:
+
+> "I respectfully maintain that the current task breakdown is optimal... these represent distinct technical domains (DAG infrastructure, NLP processing, knowledge integration, spec generation, cryptography) that benefit from focused implementation and testing."
+
+This dissent is wrong in the specific case (the tasks duplicate existing work) but correct in general principle (distinct technical domains do benefit from focused implementation). The error is in not knowing the domains were already implemented, not in the decomposition strategy.
