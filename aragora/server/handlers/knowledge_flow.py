@@ -151,7 +151,7 @@ class KnowledgeFlowHandler(BaseHandler):
 
             mound = self._get_knowledge_mound()
             if mound:
-                insight_adapter = get_adapter("insight", mound)
+                insight_adapter = get_adapter("insights", mound)
                 if insight_adapter and hasattr(insight_adapter, "search_by_topic"):
                     results = insight_adapter.search_by_topic("cross-adapter-synthesis", limit=5)
                     for r in results or []:

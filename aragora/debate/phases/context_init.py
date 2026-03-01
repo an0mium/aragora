@@ -1465,6 +1465,9 @@ class ContextInitializer:
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001 - phase isolation
             logger.warning("research_error error=%s", e)
             # Continue without research - don't break the debate
+        except Exception as e:  # noqa: BLE001 - provider SDK exceptions (e.g. quota) should not fail debate
+            logger.warning("research_error_unexpected error=%s", e)
+            # Continue without research - don't break the debate
 
     async def _collect_evidence(self, ctx: DebateContext) -> None:
         """Collect evidence from configured connectors for debate grounding.

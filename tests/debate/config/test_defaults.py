@@ -136,6 +136,34 @@ class TestEnvironmentOverrides:
 
         get_debate_defaults.cache_clear()
 
+    def test_extended_timeout_env_overrides(self):
+        """Test round/distributed timeout environment variable overrides."""
+        from aragora.debate.config.defaults import get_debate_defaults
+
+        get_debate_defaults.cache_clear()
+
+        with patch.dict(
+            os.environ,
+            {
+                "ARAGORA_DEBATE_ROUND_TIMEOUT": "240",
+                "ARAGORA_DEBATE_ROUNDS_PHASE_TIMEOUT": "1200",
+                "ARAGORA_DEBATE_DISTRIBUTED_PROPOSAL_TIMEOUT": "150.0",
+                "ARAGORA_DEBATE_DISTRIBUTED_CRITIQUE_TIMEOUT": "110.0",
+                "ARAGORA_DEBATE_DISTRIBUTED_VOTE_TIMEOUT": "75.0",
+                "ARAGORA_DEBATE_DISTRIBUTED_FAILOVER_TIMEOUT": "55.0",
+            },
+        ):
+            get_debate_defaults.cache_clear()
+            defaults = get_debate_defaults()
+            assert defaults.round_timeout_seconds == 240
+            assert defaults.debate_rounds_phase_timeout_seconds == 1200
+            assert defaults.distributed_proposal_timeout_seconds == 150.0
+            assert defaults.distributed_critique_timeout_seconds == 110.0
+            assert defaults.distributed_vote_timeout_seconds == 75.0
+            assert defaults.distributed_failover_timeout_seconds == 55.0
+
+        get_debate_defaults.cache_clear()
+
 
 class TestIntegration:
     """Test integration with other modules."""

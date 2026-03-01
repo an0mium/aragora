@@ -57,6 +57,7 @@ from aragora.debate.orchestrator_factory import (
     from_configs as _factory_from_configs,
 )
 from aragora.debate.orchestrator_init import (
+    _KNOWLEDGE_MOUND_UNSET as _INIT_KNOWLEDGE_MOUND_UNSET,
     apply_core_components as _init_apply_core_components,
     apply_tracker_components as _init_apply_tracker_components,
     cleanup_convergence as _conv_cleanup_convergence,
@@ -125,7 +126,7 @@ from aragora.debate.orchestrator_setup import (  # noqa: F401
 logger = get_structured_logger(__name__)
 
 # Sentinel for distinguishing "not provided" from explicit None
-_KNOWLEDGE_MOUND_UNSET = object()
+_KNOWLEDGE_MOUND_UNSET = _INIT_KNOWLEDGE_MOUND_UNSET
 
 # TYPE_CHECKING imports for type hints without runtime import overhead
 if TYPE_CHECKING:

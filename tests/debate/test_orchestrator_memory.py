@@ -564,6 +564,24 @@ class TestAutoCreateKnowledgeMound:
 
         assert result is existing_mound
 
+    def test_invalid_mound_object_is_ignored_and_auto_created(self, mock_km_module):
+        """Invalid non-KM object should be ignored and replaced when auto-create is enabled."""
+        from aragora.debate.orchestrator_memory import auto_create_knowledge_mound
+
+        mock_mound = MagicMock()
+        mock_km_module.get_knowledge_mound.return_value = mock_mound
+
+        with patch.dict(sys.modules, {"aragora.knowledge.mound": mock_km_module}):
+            result = auto_create_knowledge_mound(
+                knowledge_mound=object(),
+                auto_create=True,
+                enable_retrieval=True,
+                enable_ingestion=True,
+                org_id="org-123",
+            )
+
+        assert result is mock_mound
+
     def test_returns_none_when_auto_create_disabled(self):
         """When auto_create is False, return None."""
         from aragora.debate.orchestrator_memory import auto_create_knowledge_mound

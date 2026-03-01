@@ -1,0 +1,214 @@
+"""Deterministic repository-grounding and practicality heuristics for debate outputs."""
+
+from __future__ import annotations
+
+import os
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+
+_HEADER_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
+_PATH_RE = re.compile(r"((?:/?[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+)")
+_THRESHOLD_RE = re.compile(
+    r"(?i)(<=|>=|<|>|=|==)\s*\d+(?:\.\d+)?\s*(?:%|ms|s|sec|seconds|m|min|minutes|h|hours|rps|qps|req/s)?"
+)
+_ACTION_VERB_RE = re.compile(
+    r"(?i)\b(add|create|implement|update|refactor|remove|wire|integrate|validate|test|harden|instrument|enforce|ship)\b"
+)
+_PLACEHOLDER_PATTERNS: dict[str, re.Pattern[str]] = {
+    "new_marker": re.compile(r"\[new\]", re.IGNORECASE),
+    "inferred_marker": re.compile(r"\[inferred\]", re.IGNORECASE),
+    "tbd": re.compile(r"\btbd\b", re.IGNORECASE),
+    "todo": re.compile(r"\btodo\b", re.IGNORECASE),
+    "placeholder": re.compile(r"\bplaceholder\b", re.IGNORECASE),
+    "fill_me": re.compile(r"<\s*fill[^>]*>", re.IGNORECASE),
+}
+
+
+def _normalize_heading(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
+def _extract_sections(markdown: str) -> list[dict[str, Any]]:
+    matches = list(_HEADER_RE.finditer(markdown))
+    if not matches:
+        return []
+
+    sections: list[dict[str, Any]] = []
+    for idx, match in enumerate(matches):
+        title = match.group(2).strip()
+        start = match.end()
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(markdown)
+        sections.append(
+            {
+                "title": title,
+                "normalized": _normalize_heading(title),
+                "content": markdown[start:end].strip(),
+            }
+        )
+    return sections
+
+
+def _normalize_repo_path(candidate: str) -> str | None:
+    value = candidate.strip().strip("`'\".,:;()[]{}")
+    if not value:
+        return None
+    if "://" in value:
+        return None
+    while value.startswith("./"):
+        value = value[2:]
+    value = value.lstrip("/")
+    if not value or "/" not in value:
+        return None
+    return value
+
+
+def extract_repo_paths(text: str) -> list[str]:
+    """Extract normalized candidate repository paths from text."""
+    if not text:
+        return []
+    paths: list[str] = []
+    seen: set[str] = set()
+    for raw in _PATH_RE.findall(text):
+        normalized = _normalize_repo_path(raw)
+        if not normalized:
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        paths.append(normalized)
+    return paths
+
+
+def _find_section_content(sections: list[dict[str, Any]], normalized_title: str) -> str:
+    for section in sections:
+        if section["normalized"] == normalized_title:
+            return str(section["content"] or "")
+    return ""
+
+
+def _collect_placeholder_hits(text: str) -> list[str]:
+    hits: list[str] = []
+    for label, pattern in _PLACEHOLDER_PATTERNS.items():
+        if pattern.search(text):
+            hits.append(label)
+    return hits
+
+
+def _estimate_placeholder_rate(text: str, hits: list[str]) -> float:
+    if not text.strip():
+        return 0.0
+    if not hits:
+        return 0.0
+    total_tokens = max(1, len(re.findall(r"\w+", text)))
+    # Scale count against token volume and clamp into [0, 1].
+    density = min(1.0, (len(hits) * 25.0) / float(total_tokens))
+    return round(density, 4)
+
+
+def _first_nonempty_line(text: str) -> str:
+    for raw_line in text.splitlines():
+        line = raw_line.strip(" \t-")
+        if line:
+            return line
+    return ""
+
+
+def _line_concreteness(line: str) -> float:
+    if not line:
+        return 0.0
+    score = 0.0
+    if _ACTION_VERB_RE.search(line):
+        score += 0.35
+    if _PATH_RE.search(line):
+        score += 0.35
+    if _THRESHOLD_RE.search(line):
+        score += 0.2
+    if len(line.split()) >= 6:
+        score += 0.1
+    return min(1.0, score)
+
+
+@dataclass
+class RepoGroundingReport:
+    """Deterministic grounding metrics for practical executability."""
+
+    mentioned_paths: list[str] = field(default_factory=list)
+    existing_paths: list[str] = field(default_factory=list)
+    missing_paths: list[str] = field(default_factory=list)
+    path_existence_rate: float = 0.0
+    placeholder_hits: list[str] = field(default_factory=list)
+    placeholder_rate: float = 0.0
+    first_batch_concreteness: float = 0.0
+    practicality_score_10: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mentioned_paths": list(self.mentioned_paths),
+            "existing_paths": list(self.existing_paths),
+            "missing_paths": list(self.missing_paths),
+            "path_existence_rate": self.path_existence_rate,
+            "placeholder_hits": list(self.placeholder_hits),
+            "placeholder_rate": self.placeholder_rate,
+            "first_batch_concreteness": self.first_batch_concreteness,
+            "practicality_score_10": self.practicality_score_10,
+        }
+
+
+def assess_repo_grounding(
+    answer: str,
+    *,
+    repo_root: str | None = None,
+    require_owner_paths: bool = True,
+) -> RepoGroundingReport:
+    """Evaluate whether output is grounded in real repo paths and concrete first steps."""
+    text = answer or ""
+    sections = _extract_sections(text)
+
+    owner_text = _find_section_content(sections, _normalize_heading("Owner module / file paths"))
+    path_source = owner_text or text
+    mentioned_paths = extract_repo_paths(path_source)
+
+    root = Path(repo_root or os.getcwd())
+    existing_paths: list[str] = []
+    missing_paths: list[str] = []
+    for rel_path in mentioned_paths:
+        if (root / rel_path).exists():
+            existing_paths.append(rel_path)
+        else:
+            missing_paths.append(rel_path)
+
+    if mentioned_paths:
+        path_existence_rate = round(len(existing_paths) / len(mentioned_paths), 4)
+    else:
+        path_existence_rate = 1.0 if not require_owner_paths else 0.0
+
+    placeholder_hits = _collect_placeholder_hits(text)
+    placeholder_rate = _estimate_placeholder_rate(text, placeholder_hits)
+
+    ranked_text = _find_section_content(sections, _normalize_heading("Ranked High-Level Tasks"))
+    subtasks_text = _find_section_content(sections, _normalize_heading("Suggested Subtasks"))
+    candidate_lines = [_first_nonempty_line(ranked_text), _first_nonempty_line(subtasks_text)]
+    line_scores = [_line_concreteness(line) for line in candidate_lines if line]
+    if line_scores:
+        first_batch_concreteness = round(sum(line_scores) / len(line_scores), 4)
+    else:
+        first_batch_concreteness = 0.0
+
+    no_placeholder_factor = max(0.0, 1.0 - placeholder_rate)
+    practicality_score = (
+        0.45 * path_existence_rate + 0.35 * first_batch_concreteness + 0.20 * no_placeholder_factor
+    ) * 10.0
+
+    return RepoGroundingReport(
+        mentioned_paths=mentioned_paths,
+        existing_paths=existing_paths,
+        missing_paths=missing_paths,
+        path_existence_rate=path_existence_rate,
+        placeholder_hits=placeholder_hits,
+        placeholder_rate=placeholder_rate,
+        first_batch_concreteness=first_batch_concreteness,
+        practicality_score_10=round(min(10.0, max(0.0, practicality_score)), 2),
+    )

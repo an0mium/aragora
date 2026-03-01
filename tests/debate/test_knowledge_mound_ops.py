@@ -125,6 +125,15 @@ class TestFetchKnowledgeContext:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_missing_query_interface_returns_none(self):
+        ops = KnowledgeMoundOperations(
+            knowledge_mound=SimpleNamespace(store=AsyncMock()),
+            enable_retrieval=True,
+        )
+        result = await ops.fetch_knowledge_context("task")
+        assert result is None
+
+    @pytest.mark.asyncio
     async def test_query_semantic_success_with_list(self):
         items = [_make_item(), _make_item(item_id="item-2", source="fact")]
         mound = _make_mound()

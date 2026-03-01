@@ -24,6 +24,7 @@ from collections.abc import Callable
 from aragora.agents.base import MAX_CONTEXT_CHARS, MAX_MESSAGE_CHARS, CritiqueMixin
 from aragora.agents.errors import (
     RATE_LIMIT_PATTERNS,
+    AgentStreamError,
     AgentCircuitOpenError,
     CLISubprocessError,
     ErrorClassifier,
@@ -48,6 +49,14 @@ _subprocess_semaphore = asyncio.Semaphore(_MAX_CLI_SUBPROCESSES)
 MAX_CLI_PROMPT_CHARS = int(
     os.environ.get("ARAGORA_MAX_CLI_PROMPT_CHARS", "100000")
 )  # 100KB default
+
+# Retry OpenRouter fallback generation for transient transport failures.
+FALLBACK_GENERATE_RETRY_ATTEMPTS = max(
+    1, int(os.environ.get("ARAGORA_FALLBACK_GENERATE_RETRY_ATTEMPTS", "2"))
+)
+FALLBACK_GENERATE_RETRY_DELAY_SECONDS = float(
+    os.environ.get("ARAGORA_FALLBACK_GENERATE_RETRY_DELAY_SECONDS", "0.75")
+)
 
 # Re-export constants for backward compatibility
 __all__ = [
@@ -450,17 +459,34 @@ class CLIAgent(CritiqueMixin, Agent):
                         str(e)[:100],
                     )
                     self._fallback_used = True
-                    try:
-                        result = await fallback.generate(prompt, context)
-                        # Record success when fallback works - prevents circuit from opening
-                        if self._circuit_breaker is not None:
-                            self._circuit_breaker.record_success()
-                        return result
-                    except (OSError, RuntimeError, ValueError, TimeoutError) as fallback_error:
-                        # Fallback also failed - record as failure
-                        if self._circuit_breaker is not None:
-                            self._circuit_breaker.record_failure()
-                        raise fallback_error
+                    for attempt in range(1, FALLBACK_GENERATE_RETRY_ATTEMPTS + 1):
+                        try:
+                            result = await fallback.generate(prompt, context)
+                            # Record success when fallback works - prevents circuit from opening
+                            if self._circuit_breaker is not None:
+                                self._circuit_breaker.record_success()
+                            return result
+                        except (
+                            AgentStreamError,
+                            OSError,
+                            RuntimeError,
+                            ValueError,
+                            TimeoutError,
+                        ) as fallback_error:
+                            if attempt >= FALLBACK_GENERATE_RETRY_ATTEMPTS:
+                                # Fallback also failed - record as failure
+                                if self._circuit_breaker is not None:
+                                    self._circuit_breaker.record_failure()
+                                raise fallback_error
+
+                            logger.warning(
+                                "[%s] OpenRouter fallback attempt %d/%d failed (%s), retrying",
+                                self.name,
+                                attempt,
+                                FALLBACK_GENERATE_RETRY_ATTEMPTS,
+                                type(fallback_error).__name__,
+                            )
+                            await asyncio.sleep(FALLBACK_GENERATE_RETRY_DELAY_SECONDS * attempt)
             raise
 
     def _build_critique_prompt(self, proposal: str, task: str) -> str:

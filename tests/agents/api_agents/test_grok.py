@@ -481,6 +481,28 @@ class TestGrokAgentModelMapping:
             assert "/" in openrouter_model  # OpenRouter format: provider/model
 
 
+class TestGrokQuotaDetection:
+    """Tests for Grok-specific quota/fallback trigger detection."""
+
+    def test_410_live_search_deprecation_triggers_fallback(self, mock_env_with_api_keys):
+        from aragora.agents.api_agents.grok import GrokAgent
+
+        agent = GrokAgent()
+        assert (
+            agent.is_quota_error(
+                410,
+                "Live search is deprecated. Please switch to the Agent Tools API",
+            )
+            is True
+        )
+
+    def test_410_unrelated_error_does_not_trigger_fallback(self, mock_env_with_api_keys):
+        from aragora.agents.api_agents.grok import GrokAgent
+
+        agent = GrokAgent()
+        assert agent.is_quota_error(410, "Gone") is False
+
+
 class TestGrokAgentCircuitBreaker:
     """Tests for circuit breaker functionality."""
 

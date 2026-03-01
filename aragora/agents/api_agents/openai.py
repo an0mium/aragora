@@ -25,9 +25,9 @@ _WEB_SEARCH_PATTERNS = [
     re.compile(r"\bwebsite\b", re.IGNORECASE),  # Website mentions
     re.compile(r"\bweb\s*page\b", re.IGNORECASE),  # Web page mentions
     re.compile(r"\bonline\b", re.IGNORECASE),  # Online content
-    re.compile(r"\blatest\b", re.IGNORECASE),  # Latest information (might need fresh data)
-    re.compile(r"\bcurrent\b", re.IGNORECASE),  # Current information
-    re.compile(r"\brecent\b", re.IGNORECASE),  # Recent information
+    re.compile(r"\blatest\s+(news|updates?|release|releases|version|versions)\b", re.IGNORECASE),
+    re.compile(r"\bcurrent\s+(events|status|market|prices?|pricing)\b", re.IGNORECASE),
+    re.compile(r"\brecent\s+(news|developments|changes|updates?|articles?)\b", re.IGNORECASE),
     re.compile(r"\bnews\b", re.IGNORECASE),  # News
     re.compile(r"\barticle\b", re.IGNORECASE),  # Articles
 ]

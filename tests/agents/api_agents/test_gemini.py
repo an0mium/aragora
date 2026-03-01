@@ -126,7 +126,7 @@ class TestGeminiWebSearchDetection:
         agent = GeminiAgent()
 
         assert agent._needs_web_search("What's the latest news?") is True
-        assert agent._needs_web_search("Find current information") is True
+        assert agent._needs_web_search("Find current market prices") is True
         assert agent._needs_web_search("Get recent updates") is True
 
     def test_detects_website_mentions(self, mock_env_with_api_keys):

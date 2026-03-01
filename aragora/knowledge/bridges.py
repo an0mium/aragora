@@ -724,7 +724,7 @@ class KnowledgeBridgeHub:
             ("consensus", "search_by_topic", "Past Consensus Decisions"),
             ("debate", "search_by_topic", "Related Debate Outcomes"),
             ("evidence", "search_by_topic", "Evidence & Citations"),
-            ("insight", "search_by_topic", "Organizational Insights"),
+            ("insights", "search_by_topic", "Organizational Insights"),
             ("compliance", "search_by_topic", "Compliance Considerations"),
         ]
 

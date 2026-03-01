@@ -223,8 +223,22 @@ def auto_create_knowledge_mound(
     Returns:
         A KnowledgeMound instance or ``None``.
     """
+
+    def _is_valid_knowledge_mound(obj: Any) -> bool:
+        """Return True when object exposes at least one KM capability method."""
+        return any(
+            hasattr(obj, method)
+            for method in ("query_semantic", "query_with_visibility", "store", "initialize")
+        )
+
     if knowledge_mound is not None:
-        return knowledge_mound
+        if _is_valid_knowledge_mound(knowledge_mound):
+            return knowledge_mound
+        logger.warning(
+            "[knowledge_mound] Ignoring invalid KM object of type %s (missing query/store methods)",
+            type(knowledge_mound).__name__,
+        )
+        knowledge_mound = None
 
     if not auto_create:
         if enable_retrieval or enable_ingestion:

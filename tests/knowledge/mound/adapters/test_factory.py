@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from aragora.knowledge.mound.adapters.factory import (
     AdapterFactory,
     AdapterSpec,
     CreatedAdapter,
+    get_adapter,
     register_adapter_spec,
 )
 
@@ -106,6 +108,17 @@ class TestAdapterSpecsRegistry:
     def test_provenance_no_reverse(self):
         spec = ADAPTER_SPECS["provenance"]
         assert spec.reverse_method is None
+
+    def test_calibration_fusion_methods_exist(self):
+        """Calibration fusion spec should reference actual adapter methods."""
+        spec = ADAPTER_SPECS["calibration_fusion"]
+        from aragora.knowledge.mound.adapters.calibration_fusion_adapter import (
+            CalibrationFusionAdapter,
+        )
+
+        assert hasattr(CalibrationFusionAdapter, spec.forward_method)
+        if spec.reverse_method is not None:
+            assert hasattr(CalibrationFusionAdapter, spec.reverse_method)
 
     def test_priorities_reasonable(self):
         """Higher priority adapters should be core ones."""
@@ -485,3 +498,39 @@ class TestRegisterWithCoordinator:
         )
         coordinator.enable_adapter.assert_called_once_with("test")
         coordinator.disable_adapter.assert_not_called()
+
+
+# =============================================================================
+# get_adapter helper
+# =============================================================================
+
+
+class TestGetAdapterHelper:
+    def test_get_adapter_uses_mound_evidence_store(self):
+        """Evidence adapter should bind to mound evidence store, not mound object."""
+        mock_store = MagicMock()
+        mock_store.search_evidence = MagicMock(return_value=[])
+        mound = SimpleNamespace(_evidence=mock_store)
+
+        adapter = get_adapter("evidence", mound)
+
+        assert adapter is not None
+        assert hasattr(adapter, "evidence_store")
+        assert adapter.evidence_store is mock_store
+
+    def test_get_adapter_returns_none_when_required_dep_missing(self):
+        """Adapters with missing required deps should not be constructed."""
+        mound = SimpleNamespace(_evidence=None)
+
+        adapter = get_adapter("evidence", mound)
+
+        assert adapter is None
+
+    def test_get_adapter_supports_insight_alias(self):
+        """Legacy 'insight' name should resolve to 'insights' adapter."""
+        mound = SimpleNamespace(_insight_store=MagicMock(), _flip_detector=None)
+
+        adapter = get_adapter("insight", mound)
+
+        assert adapter is not None
+        assert getattr(adapter, "adapter_name", "") == "insights"

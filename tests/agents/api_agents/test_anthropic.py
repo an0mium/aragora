@@ -106,7 +106,7 @@ class TestAnthropicWebSearchDetection:
         agent = AnthropicAPIAgent()
 
         assert agent._needs_web_search("What's the latest news?") is True
-        assert agent._needs_web_search("Find current information") is True
+        assert agent._needs_web_search("Find current market prices") is True
         assert agent._needs_web_search("Get recent updates") is True
 
     def test_no_web_search_for_basic_prompts(self, mock_env_with_api_keys):

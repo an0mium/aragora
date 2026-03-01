@@ -18,8 +18,8 @@ from .base import ContextStrategy
 
 logger = logging.getLogger(__name__)
 
-# Configurable timeout (default 120s to allow thorough web search)
-CLAUDE_SEARCH_TIMEOUT = float(os.getenv("ARAGORA_CLAUDE_SEARCH_TIMEOUT", "120.0"))
+# Configurable timeout (default 240s to allow thorough web search)
+CLAUDE_SEARCH_TIMEOUT = float(os.getenv("ARAGORA_CLAUDE_SEARCH_TIMEOUT", "240.0"))
 
 
 class ClaudeSearchStrategy(ContextStrategy):

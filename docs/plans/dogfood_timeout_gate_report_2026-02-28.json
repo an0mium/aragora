@@ -1,0 +1,32 @@
+{
+  "total_runs": 3,
+  "successful_runs": 0,
+  "timeouts": 3,
+  "runtime_blockers_zero": false,
+  "runs": [
+    {
+      "run": 1,
+      "exit_code": 1,
+      "duration_seconds": 122.04,
+      "timed_out": true,
+      "stdout_excerpt": "",
+      "stderr_excerpt": "Debate timed out after 120s\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=32>\n"
+    },
+    {
+      "run": 2,
+      "exit_code": 1,
+      "duration_seconds": 122.08,
+      "timed_out": true,
+      "stdout_excerpt": "",
+      "stderr_excerpt": "Debate timed out after 120s\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=53>\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=52>\n"
+    },
+    {
+      "run": 3,
+      "exit_code": 1,
+      "duration_seconds": 121.99,
+      "timed_out": true,
+      "stdout_excerpt": "",
+      "stderr_excerpt": "Debate timed out after 120s\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/aiohttp/connector.py:380: ResourceWarning: Unclosed connector <aiohttp.connector.TCPConnector object at 0x1297211d0>\nUnclosed connector\nconnections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x129acd010>, 36313.603393083)])', 'deque([(<aiohttp.client_proto.ResponseHandler object at 0x129e669e0>, 36313.805795708)])']\nconnector: <aiohttp.connector.TCPConnector object at 0x1297211d0>\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/sslproto.py:123: ResourceWarning: unclosed transport <asyncio._SSLProtocolTransport object>\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=37"
+    }
+  ]
+}
