@@ -71,5 +71,14 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):
             self.enable_fallback = enable_fallback
         self._fallback_agent = None
 
+    def is_quota_error(self, status_code: int, error_text: str) -> bool:
+        """Treat xAI live-search deprecation as a fallback-triggering provider error."""
+        error_lower = (error_text or "").lower()
+        if status_code == 410 and (
+            "live search is deprecated" in error_lower or "agent tools api" in error_lower
+        ):
+            return True
+        return super().is_quota_error(status_code, error_text)
+
 
 __all__ = ["GrokAgent"]

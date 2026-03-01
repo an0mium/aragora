@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -110,3 +111,387 @@ def test_cmd_ask_demo_forces_local_offline(monkeypatch):
     import os
 
     assert os.getenv("ARAGORA_OFFLINE") == "1"
+
+
+def test_cmd_ask_strict_wall_clock_timeout_exits(monkeypatch, capsys):
+    """Strict wall-clock timeout should terminate ask with a clear timeout message."""
+    from aragora.cli.commands import debate as debate_cmd
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    args = argparse.Namespace(
+        task="strict timeout test",
+        agents="claude,openai",
+        rounds=2,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=False,
+        api=False,
+        local=True,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        timeout=1,
+    )
+
+    @contextmanager
+    def _always_timeout(_seconds: float):
+        raise debate_cmd._StrictWallClockTimeout("forced strict timeout")
+        yield
+
+    with patch.object(debate_cmd, "_strict_wall_clock_timeout", _always_timeout):
+        with pytest.raises(SystemExit) as exc_info:
+            debate_cmd.cmd_ask(args)
+
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert "Debate timed out after 1s" in err
+    assert "strict wall-clock" in err
+
+
+def test_cmd_ask_quality_fail_closed_requires_contract(monkeypatch, capsys):
+    """Fail-closed quality mode should require an explicit/derivable output contract."""
+    from aragora.cli.commands import debate as debate_cmd
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    args = argparse.Namespace(
+        task="General planning question without explicit sections",
+        agents="claude,openai",
+        rounds=2,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=False,
+        api=False,
+        local=True,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        timeout=30,
+        post_consensus_quality=True,
+        upgrade_to_good=True,
+        quality_upgrade_max_loops=2,
+        quality_min_score=9.0,
+        quality_fail_closed=True,
+        required_sections=None,
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        debate_cmd.cmd_ask(args)
+
+    assert exc_info.value.code == 2
+    err = capsys.readouterr().err
+    assert "--quality-fail-closed requires an explicit output contract" in err
+
+
+def test_cmd_ask_quality_fail_closed_invalid_output_contract_file(monkeypatch, capsys):
+    """Invalid output contract file path should fail fast with clear configuration error."""
+    from aragora.cli.commands import debate as debate_cmd
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    args = argparse.Namespace(
+        task="General planning task",
+        agents="claude,openai",
+        rounds=1,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=False,
+        api=False,
+        local=True,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        timeout=30,
+        post_consensus_quality=True,
+        upgrade_to_good=True,
+        quality_upgrade_max_loops=2,
+        quality_min_score=9.0,
+        quality_fail_closed=True,
+        required_sections=None,
+        output_contract_file="/tmp/does_not_exist_contract.json",
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        debate_cmd.cmd_ask(args)
+
+    assert exc_info.value.code == 2
+    err = capsys.readouterr().err
+    assert "Failed to read output contract file" in err
+
+
+def test_cmd_ask_quality_fail_closed_accepts_output_contract_file(monkeypatch, tmp_path):
+    """A valid explicit output contract file should satisfy fail-closed preflight."""
+    from aragora.cli.commands import debate as debate_cmd
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+    contract_path = tmp_path / "contract.json"
+    contract_path.write_text(
+        """{
+  "required_sections": [
+    "Ranked High-Level Tasks",
+    "Suggested Subtasks",
+    "Owner module / file paths",
+    "Test Plan",
+    "Rollback Plan",
+    "Gate Criteria",
+    "JSON Payload"
+  ]
+}""",
+        encoding="utf-8",
+    )
+
+    args = argparse.Namespace(
+        task="General planning task without explicit section hints",
+        agents="anthropic-api,openai-api,gemini,grok",
+        rounds=1,
+        consensus="hybrid",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=False,
+        api=False,
+        local=True,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        timeout=30,
+        post_consensus_quality=True,
+        upgrade_to_good=True,
+        quality_upgrade_max_loops=2,
+        quality_min_score=9.0,
+        quality_fail_closed=True,
+        required_sections=None,
+        output_contract_file=str(contract_path),
+    )
+
+    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
+        mock_result = MagicMock()
+        mock_result.final_answer = """
+## Ranked High-Level Tasks
+- Task 1
+
+## Suggested Subtasks
+- Subtask 1.1
+
+## Owner module / file paths
+- aragora/cli/commands/debate.py
+
+## Test Plan
+- Unit tests
+
+## Rollback Plan
+If error_rate > 2% for 10m, rollback by disabling feature flag and redeploying last stable build.
+
+## Gate Criteria
+- p95_latency <= 250ms for 15m
+- error_rate < 1% over 15m
+
+## JSON Payload
+```json
+{"ok": true}
+```
+"""
+        mock_result.metadata = {}
+        mock_result.dissenting_views = []
+        mock_run_debate.return_value = mock_result
+        debate_cmd.cmd_ask(args)
+        assert mock_run_debate.called
+
+
+def test_cmd_ask_upgrades_output_to_good(monkeypatch, capsys):
+    """Post-consensus quality loop should repair a weak draft to a contract-compliant answer."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    weak_answer = """
+## Ranked High-Level Tasks
+- Task 1
+
+## Gate Criteria
+- Should be reliable.
+"""
+    upgraded_answer = """
+## Ranked High-Level Tasks
+- Task 1
+
+## Suggested Subtasks
+- Subtask 1.1
+
+## Owner module / file paths
+- aragora/cli/commands/debate.py
+- tests/cli/test_offline_golden_path.py
+
+## Test Plan
+- Run deterministic output-quality tests.
+
+## Rollback Plan
+If error_rate > 2% for 10m, rollback by disabling feature flag and redeploying last stable build.
+
+## Gate Criteria
+- p95_latency <= 250ms for 15m
+- error_rate < 1% over 15m
+
+## JSON Payload
+```json
+{
+  "ranked_high_level_tasks": ["Task 1"],
+  "suggested_subtasks": ["Subtask 1.1"],
+  "owner_module_file_paths": ["aragora/cli/commands/debate.py"],
+  "test_plan": ["Run deterministic output-quality tests."],
+  "rollback_plan": {"trigger": "error_rate > 2% for 10m", "action": "disable feature flag"},
+  "gate_criteria": [
+    {"metric": "p95_latency", "op": "<=", "threshold": 250, "unit": "ms"},
+    {"metric": "error_rate", "op": "<", "threshold": 1, "unit": "%"}
+  ]
+}
+```
+"""
+
+    args = argparse.Namespace(
+        task=(
+            "Smoke test: output sections Ranked High-Level Tasks, Suggested Subtasks, "
+            "Owner module / file paths, Test Plan, Rollback Plan, Gate Criteria, JSON Payload"
+        ),
+        agents="anthropic-api,openai-api,gemini,grok",
+        rounds=1,
+        consensus="hybrid",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=False,
+        api=False,
+        local=True,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        timeout=30,
+        post_consensus_quality=True,
+        upgrade_to_good=True,
+        quality_upgrade_max_loops=1,
+        quality_min_score=9.0,
+        quality_fail_closed=True,
+    )
+
+    result = DebateResult(task=args.task, final_answer=weak_answer, metadata={})
+    repair_agent = MagicMock()
+    repair_agent.generate = AsyncMock(return_value=upgraded_answer)
+
+    @contextmanager
+    def _no_timeout(_seconds: float):
+        yield
+
+    with (
+        patch.object(debate_cmd, "_strict_wall_clock_timeout", _no_timeout),
+        patch.object(debate_cmd, "run_debate", new_callable=AsyncMock, return_value=result),
+        patch.object(debate_cmd, "create_agent", return_value=repair_agent),
+    ):
+        debate_cmd.cmd_ask(args)
+
+    out = capsys.readouterr().out
+    assert "## Suggested Subtasks" in out
+    assert "[quality] verdict=good" in out
+    assert "practicality=" in out

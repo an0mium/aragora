@@ -9,9 +9,13 @@ import argparse
 import asyncio
 import json
 import logging
+import math
 import os
+import signal
 import sys
+import threading
 import time
+from contextlib import contextmanager
 from typing import Any, Literal, cast
 
 from aragora.agents.base import AgentType, create_agent
@@ -20,7 +24,6 @@ from aragora.config import (
     DEFAULT_AGENTS,
     DEFAULT_CONSENSUS,
     DEFAULT_ROUNDS,
-    DEBATE_TIMEOUT_SECONDS,
     MAX_AGENTS_PER_DEBATE,
 )
 from aragora.core import Environment
@@ -34,6 +37,54 @@ logger = logging.getLogger(__name__)
 
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
+
+
+class _StrictWallClockTimeout(TimeoutError):
+    """Raised when a hard wall-clock timeout expires."""
+
+
+@contextmanager
+def _strict_wall_clock_timeout(timeout_seconds: float):
+    """Enforce a hard wall-clock timeout using SIGALRM when available.
+
+    Falls back to a no-op context on platforms/threads where SIGALRM is unavailable.
+    """
+    if timeout_seconds <= 0:
+        yield
+        return
+
+    if not hasattr(signal, "SIGALRM") or threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    previous_timer: tuple[float, float] | None = None
+
+    def _on_timeout(_signum: int, _frame: Any) -> None:
+        raise _StrictWallClockTimeout(f"strict wall-clock timeout after {timeout_seconds:.2f}s")
+
+    try:
+        signal.signal(signal.SIGALRM, _on_timeout)
+        if hasattr(signal, "setitimer") and hasattr(signal, "ITIMER_REAL"):
+            previous_timer = signal.getitimer(signal.ITIMER_REAL)
+            signal.setitimer(signal.ITIMER_REAL, float(timeout_seconds))
+        else:
+            signal.alarm(max(1, math.ceil(timeout_seconds)))
+        yield
+    finally:
+        if hasattr(signal, "setitimer") and hasattr(signal, "ITIMER_REAL"):
+            signal.setitimer(signal.ITIMER_REAL, 0.0)
+        else:
+            signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_handler)
+        if (
+            previous_timer is not None
+            and hasattr(signal, "setitimer")
+            and hasattr(signal, "ITIMER_REAL")
+        ):
+            remaining, interval = previous_timer
+            if remaining > 0 or interval > 0:
+                signal.setitimer(signal.ITIMER_REAL, remaining, interval)
 
 
 def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Any | None:
@@ -470,6 +521,7 @@ def _run_debate_api(
     auto_select_config: dict[str, Any] | None,
     enable_verticals: bool,
     vertical_id: str | None,
+    timeout_seconds: int,
 ) -> Any:
     """Run a standard debate via API and wait for completion."""
     client = _build_api_client(server_url, api_key)
@@ -478,7 +530,7 @@ def _run_debate_api(
         agents=agents,
         rounds=rounds,
         consensus=consensus,
-        timeout=DEBATE_TIMEOUT_SECONDS,
+        timeout=timeout_seconds,
         context=context,
         auto_select=auto_select,
         auto_select_config=auto_select_config,
@@ -496,6 +548,7 @@ def _run_graph_debate_api(
     max_rounds: int,
     branch_threshold: float,
     max_branches: int,
+    timeout_seconds: int,
     verbose: bool = False,
 ) -> Any:
     """Run a graph debate via API and wait for completion."""
@@ -514,7 +567,7 @@ def _run_graph_debate_api(
     debate_id = response.debate_id
 
     start = time.time()
-    while time.time() - start < DEBATE_TIMEOUT_SECONDS:
+    while time.time() - start < timeout_seconds:
         debate = client.graph_debates.get(debate_id)
         if debate.status in (
             DebateStatus.COMPLETED,
@@ -536,6 +589,7 @@ def _run_matrix_debate_api(
     agents: list[str],
     scenarios: list[dict[str, Any]],
     max_rounds: int,
+    timeout_seconds: int,
     verbose: bool = False,
 ) -> Any:
     """Run a matrix debate via API and wait for completion."""
@@ -553,7 +607,7 @@ def _run_matrix_debate_api(
     matrix_id = response.matrix_id
 
     start = time.time()
-    while time.time() - start < DEBATE_TIMEOUT_SECONDS:
+    while time.time() - start < timeout_seconds:
         debate = client.matrix_debates.get(matrix_id)
         if debate.status in (
             DebateStatus.COMPLETED,
@@ -737,6 +791,25 @@ async def run_debate(
         # Apply mode system prompt if specified (takes precedence)
         if mode_system_prompt:
             agent.system_prompt = mode_system_prompt
+
+        # Lightweight role emphasis for higher-quality team outputs.
+        # Keep this advisory so base model behaviors remain unconstrained.
+        role_hint = ""
+        if role == "critic":
+            role_hint = (
+                "Quality audit focus: identify missing quantitative gates, rollback trigger/action "
+                "gaps, and markdown/JSON consistency defects."
+            )
+        elif role == "synthesizer":
+            role_hint = (
+                "Synthesis focus: preserve diverse model input while producing a structurally "
+                "complete answer with explicit thresholds, rollback triggers, and consistent JSON."
+            )
+        if role_hint:
+            existing_prompt = getattr(agent, "system_prompt", "") or ""
+            if role_hint not in existing_prompt:
+                agent.system_prompt = f"{existing_prompt}\n\n{role_hint}".strip()
+
         agents.append(agent)
 
     if failed_agents:
@@ -970,6 +1043,13 @@ def cmd_ask(args: argparse.Namespace) -> None:
         getattr(args, "enable_verticals", False) or getattr(args, "vertical", None)
     )
     vertical_id = getattr(args, "vertical", None)
+    default_timeout = int(os.environ.get("ARAGORA_ASK_TIMEOUT_SECONDS", "3600"))
+    debate_timeout = int(getattr(args, "timeout", default_timeout) or default_timeout)
+    protocol_overrides.setdefault("timeout_seconds", debate_timeout)
+    protocol_overrides.setdefault(
+        "debate_rounds_timeout_seconds",
+        max(300, min(debate_timeout - 60, debate_timeout)),
+    )
 
     if force_local or offline:
         requested_local = True
@@ -998,6 +1078,61 @@ def cmd_ask(args: argparse.Namespace) -> None:
     di_include_context = bool(getattr(args, "di_include_context", False))
     di_plan_strategy = getattr(args, "di_plan_strategy", "single_task")
     di_execution_mode = getattr(args, "di_execution_mode", None)
+    post_consensus_quality = bool(getattr(args, "post_consensus_quality", True))
+    upgrade_to_good = bool(getattr(args, "upgrade_to_good", True))
+    quality_upgrade_max_loops = max(0, int(getattr(args, "quality_upgrade_max_loops", 2)))
+    quality_min_score = float(getattr(args, "quality_min_score", 9.0))
+    quality_practical_min_score = float(getattr(args, "quality_practical_min_score", 6.0))
+    quality_concretize_max_rounds = max(0, int(getattr(args, "quality_concretize_max_rounds", 1)))
+    quality_extra_assessment_rounds = max(
+        0, int(getattr(args, "quality_extra_assessment_rounds", 2))
+    )
+    quality_fail_closed = bool(getattr(args, "quality_fail_closed", False))
+
+    quality_contract = None
+    if post_consensus_quality:
+        from aragora.debate.output_quality import (
+            build_contract_context_block,
+            derive_output_contract_from_task,
+            load_output_contract_from_file,
+        )
+
+        output_contract_file = getattr(args, "output_contract_file", None)
+        required_sections = getattr(args, "required_sections", None)
+        if isinstance(output_contract_file, str) and output_contract_file.strip():
+            try:
+                quality_contract = load_output_contract_from_file(output_contract_file.strip())
+            except ValueError as e:
+                print(f"Debate configuration invalid: {e}", file=sys.stderr)
+                raise SystemExit(2)
+        elif isinstance(required_sections, str) and required_sections.strip():
+            normalized = ", ".join(
+                p.strip() for p in required_sections.strip().split(",") if p.strip()
+            )
+            quality_contract = derive_output_contract_from_task(f"output sections {normalized}")
+        else:
+            quality_contract = derive_output_contract_from_task(args.task)
+
+        if quality_fail_closed and quality_contract is None:
+            print(
+                "Debate configuration invalid: --quality-fail-closed requires an explicit "
+                "output contract. Add output sections to the task or pass --required-sections "
+                "or --output-contract-file.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+
+        if quality_contract is not None:
+            contract_block = build_contract_context_block(quality_contract)
+            if context:
+                context = f"{context}\n\n--- Deterministic Output Contract ---\n{contract_block}\n"
+            else:
+                context = contract_block
+        elif args.verbose:
+            print(
+                "[quality] contract=none (no explicit output sections detected in task)",
+                file=sys.stderr,
+            )
 
     use_api = requested_api
     if not requested_api and not requested_local:
@@ -1015,6 +1150,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                     max_rounds=args.graph_rounds,
                     branch_threshold=args.branch_threshold,
                     max_branches=args.max_branches,
+                    timeout_seconds=debate_timeout,
                     verbose=args.verbose,
                 )
                 _print_graph_result(result, verbose=args.verbose)
@@ -1030,6 +1166,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                     agents=matrix_agents,
                     scenarios=scenarios,
                     max_rounds=args.matrix_rounds,
+                    timeout_seconds=debate_timeout,
                     verbose=args.verbose,
                 )
                 _print_matrix_result(result, verbose=args.verbose)
@@ -1055,6 +1192,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 auto_select_config=auto_select_config,
                 enable_verticals=enable_verticals,
                 vertical_id=vertical_id,
+                timeout_seconds=debate_timeout,
             )
             _print_debate_result(result, verbose=args.verbose)
             if decision_integrity:
@@ -1108,10 +1246,448 @@ def cmd_ask(args: argparse.Namespace) -> None:
     if getattr(args, "auto_execute", False):
         cli_config_kwargs["enable_auto_execution"] = True
 
-    debate_timeout = getattr(args, "timeout", 300)
+    start_time = time.monotonic()
+
+    def _remaining_global_seconds() -> float:
+        return max(0.0, float(debate_timeout) - (time.monotonic() - start_time))
+
+    def _quality_upgrade_attempt_timeout(
+        *,
+        remaining_global_seconds: float,
+        providers_remaining: int,
+    ) -> int | None:
+        """Compute per-provider upgrade timeout within remaining wall-clock budget."""
+        if remaining_global_seconds <= 0:
+            return None
+        # Reserve tail budget for deterministic repairs/finalization + CLI reporting.
+        reserved_tail_seconds = 60.0
+        usable_seconds = max(0.0, remaining_global_seconds - reserved_tail_seconds)
+        if usable_seconds <= 0:
+            return None
+
+        slots = max(1, providers_remaining)
+        # Keep individual retries bounded; avoid multi-minute single-provider stalls.
+        return max(60, min(360, int(usable_seconds / slots)))
+
+    def _quality_gate_passes(report: Any) -> bool:
+        return bool(
+            report.verdict == "good"
+            and report.quality_score_10 >= quality_min_score
+            and float(getattr(report, "practicality_score_10", 0.0)) >= quality_practical_min_score
+        )
+
+    def _report_rank(report: Any) -> tuple[float, float, float]:
+        quality_score = float(getattr(report, "quality_score_10", 0.0))
+        practicality_score = float(getattr(report, "practicality_score_10", 0.0))
+        defect_penalty = float(len(getattr(report, "defects", []) or []))
+        return (quality_score, practicality_score, -defect_penalty)
+
+    def _is_better_report(candidate: Any, incumbent: Any) -> bool:
+        return _report_rank(candidate) > _report_rank(incumbent)
+
+    def _build_revision_specs(
+        *,
+        preferred_providers: list[str] | None = None,
+    ) -> list[AgentSpec]:
+        ordered_specs: list[AgentSpec] = []
+        specs = parse_agents(agents)
+        if specs:
+            if preferred_providers:
+                chosen: set[int] = set()
+                for provider_name in preferred_providers:
+                    for idx, spec in enumerate(specs):
+                        if idx in chosen:
+                            continue
+                        if spec.provider == provider_name:
+                            ordered_specs.append(spec)
+                            chosen.add(idx)
+                            break
+                for idx, spec in enumerate(specs):
+                    if idx not in chosen:
+                        ordered_specs.append(spec)
+            else:
+                preferred_order = [len(specs) - 1] + [idx for idx in range(len(specs) - 1)]
+                ordered_specs = [specs[idx] for idx in preferred_order if 0 <= idx < len(specs)]
+
+        if preferred_providers:
+            seen = {spec.provider for spec in ordered_specs}
+            for provider_name in preferred_providers:
+                if provider_name in seen:
+                    continue
+                try:
+                    ordered_specs.append(AgentSpec(provider=provider_name, role="synthesizer"))
+                    seen.add(provider_name)
+                except ValueError:
+                    continue
+
+        # Optional OpenRouter fallback for quota/billing/provider outages.
+        if os.environ.get("OPENROUTER_API_KEY") and not any(
+            spec.provider == "openrouter" for spec in ordered_specs
+        ):
+            try:
+                ordered_specs.append(AgentSpec(provider="openrouter", role="synthesizer"))
+            except ValueError:
+                pass
+        return ordered_specs
+
+    async def _attempt_targeted_revision(
+        *,
+        prompt: str,
+        attempt_num: int,
+        stage: str,
+        role_hint: str,
+        preferred_providers: list[str] | None = None,
+    ) -> tuple[str | None, str | None]:
+        ordered_specs = _build_revision_specs(preferred_providers=preferred_providers)
+        if not ordered_specs:
+            return (None, None)
+
+        for idx, spec in enumerate(ordered_specs):
+            provider = spec.provider
+            per_attempt_timeout = _quality_upgrade_attempt_timeout(
+                remaining_global_seconds=_remaining_global_seconds(),
+                providers_remaining=len(ordered_specs) - idx,
+            )
+            if per_attempt_timeout is None:
+                logger.warning(
+                    "%s_budget_exhausted attempt=%s provider=%s",
+                    stage,
+                    attempt_num,
+                    provider,
+                )
+                break
+            try:
+                repair_agent = create_agent(
+                    model_type=cast(AgentType, provider),
+                    name=f"{stage}_{provider}_{attempt_num}",
+                    role="synthesizer",
+                    model=spec.model,
+                )
+                existing = getattr(repair_agent, "system_prompt", "") or ""
+                repair_agent.system_prompt = f"{existing}\n\n{role_hint}".strip()
+                repaired = await asyncio.wait_for(
+                    repair_agent.generate(prompt),
+                    timeout=per_attempt_timeout,
+                )
+                if repaired and repaired.strip():
+                    return (repaired.strip(), provider)
+            except Exception as e:  # noqa: BLE001 - best-effort repair fallback
+                logger.warning("%s_attempt_failed provider=%s error=%s", stage, provider, e)
+                continue
+        return (None, None)
+
+    async def _attempt_quality_upgrade(
+        *,
+        current_answer: str,
+        defects: list[str],
+        attempt_num: int,
+    ) -> tuple[str | None, str | None]:
+        if quality_contract is None:
+            return (None, None)
+
+        from aragora.debate.output_quality import build_upgrade_prompt
+
+        prompt = build_upgrade_prompt(
+            task=task,
+            contract=quality_contract,
+            current_answer=current_answer,
+            defects=defects,
+        )
+        role_hint = (
+            "You are a post-consensus quality upgrader. Keep core ideas, "
+            "fix defects, and preserve required section order."
+        )
+        return await _attempt_targeted_revision(
+            prompt=prompt,
+            attempt_num=attempt_num,
+            stage="quality_upgrade",
+            role_hint=role_hint,
+        )
+
+    async def _post_consensus_quality_pipeline(result: Any) -> Any:
+        if not post_consensus_quality or quality_contract is None:
+            return result
+
+        from aragora.debate.output_quality import (
+            apply_deterministic_quality_repairs,
+            build_concretization_prompt,
+            finalize_json_payload,
+            validate_output_against_contract,
+        )
+
+        repo_root = os.getcwd()
+        metadata = getattr(result, "metadata", None)
+        if not isinstance(metadata, dict):
+            metadata = {}
+            setattr(result, "metadata", metadata)
+
+        initial_report = validate_output_against_contract(
+            result.final_answer,
+            quality_contract,
+            repo_root=repo_root,
+        )
+        best_report = initial_report
+        best_answer = result.final_answer
+        attempts: list[dict[str, Any]] = []
+        loops_used = 0
+        loops_by_stage = {"quality_upgrade": 0, "concretization": 0, "assessment_upgrade": 0}
+        upgraded = False
+
+        if upgrade_to_good and not _quality_gate_passes(initial_report):
+            current_answer = result.final_answer
+            current_report = initial_report
+            for loop_idx in range(1, quality_upgrade_max_loops + 1):
+                loops_by_stage["quality_upgrade"] += 1
+                loops_used = loop_idx
+                repaired, provider = await _attempt_quality_upgrade(
+                    current_answer=current_answer,
+                    defects=current_report.defects,
+                    attempt_num=loop_idx,
+                )
+                if not repaired:
+                    attempts.append(
+                        {
+                            "stage": "quality_upgrade",
+                            "loop": loop_idx,
+                            "provider": provider or "none",
+                            "status": "no_revision",
+                        }
+                    )
+                    continue
+
+                revised_report = validate_output_against_contract(
+                    repaired,
+                    quality_contract,
+                    repo_root=repo_root,
+                )
+                accepted = _is_better_report(revised_report, best_report)
+
+                attempts.append(
+                    {
+                        "stage": "quality_upgrade",
+                        "loop": loop_idx,
+                        "provider": provider or "unknown",
+                        "status": "accepted" if accepted else "rejected",
+                        "quality_score_10": revised_report.quality_score_10,
+                        "practicality_score_10": revised_report.practicality_score_10,
+                        "verdict": revised_report.verdict,
+                        "defect_count": len(revised_report.defects),
+                    }
+                )
+
+                if accepted:
+                    best_answer = repaired
+                    best_report = revised_report
+                    current_answer = repaired
+                    current_report = revised_report
+                    if _quality_gate_passes(revised_report):
+                        upgraded = True
+                        break
+
+        if not _quality_gate_passes(best_report):
+            deterministic_answer = apply_deterministic_quality_repairs(
+                best_answer,
+                quality_contract,
+                best_report,
+            )
+            deterministic_report = validate_output_against_contract(
+                deterministic_answer,
+                quality_contract,
+                repo_root=repo_root,
+            )
+            deterministic_accepted = _is_better_report(deterministic_report, best_report)
+            attempts.append(
+                {
+                    "stage": "deterministic_repair",
+                    "loop": loops_used + 1,
+                    "provider": "deterministic_repair",
+                    "status": "accepted" if deterministic_accepted else "rejected",
+                    "quality_score_10": deterministic_report.quality_score_10,
+                    "practicality_score_10": deterministic_report.practicality_score_10,
+                    "verdict": deterministic_report.verdict,
+                    "defect_count": len(deterministic_report.defects),
+                }
+            )
+            if deterministic_accepted:
+                best_answer = deterministic_answer
+                best_report = deterministic_report
+                upgraded = _quality_gate_passes(deterministic_report) or upgraded
+
+        if quality_contract.require_json_payload:
+            json_finalized_answer = finalize_json_payload(best_answer, quality_contract)
+            json_finalized_report = validate_output_against_contract(
+                json_finalized_answer,
+                quality_contract,
+                repo_root=repo_root,
+            )
+            json_finalized_accepted = _is_better_report(json_finalized_report, best_report)
+            attempts.append(
+                {
+                    "stage": "deterministic_json_finalizer",
+                    "loop": loops_used + 2,
+                    "provider": "deterministic_json_finalizer",
+                    "status": "accepted" if json_finalized_accepted else "rejected",
+                    "quality_score_10": json_finalized_report.quality_score_10,
+                    "practicality_score_10": json_finalized_report.practicality_score_10,
+                    "verdict": json_finalized_report.verdict,
+                    "defect_count": len(json_finalized_report.defects),
+                }
+            )
+            if json_finalized_accepted:
+                best_answer = json_finalized_answer
+                best_report = json_finalized_report
+                upgraded = _quality_gate_passes(json_finalized_report) or upgraded
+
+        if quality_concretize_max_rounds > 0 and not _quality_gate_passes(best_report):
+            for round_idx in range(1, quality_concretize_max_rounds + 1):
+                loops_by_stage["concretization"] += 1
+                loops_used += 1
+                concretize_prompt = build_concretization_prompt(
+                    task=task,
+                    contract=quality_contract,
+                    current_answer=best_answer,
+                    practicality_score_10=best_report.practicality_score_10,
+                    target_practicality_10=quality_practical_min_score,
+                    defects=best_report.defects,
+                )
+                revised, provider = await _attempt_targeted_revision(
+                    prompt=concretize_prompt,
+                    attempt_num=round_idx,
+                    stage="concretization",
+                    role_hint=(
+                        "You are a concretization specialist. Raise execution practicality by "
+                        "turning first-batch tasks into path-grounded, testable actions."
+                    ),
+                )
+                if not revised:
+                    attempts.append(
+                        {
+                            "stage": "concretization",
+                            "loop": round_idx,
+                            "provider": provider or "none",
+                            "status": "no_revision",
+                        }
+                    )
+                    continue
+                revised_report = validate_output_against_contract(
+                    revised,
+                    quality_contract,
+                    repo_root=repo_root,
+                )
+                accepted = _is_better_report(revised_report, best_report)
+                attempts.append(
+                    {
+                        "stage": "concretization",
+                        "loop": round_idx,
+                        "provider": provider or "unknown",
+                        "status": "accepted" if accepted else "rejected",
+                        "quality_score_10": revised_report.quality_score_10,
+                        "practicality_score_10": revised_report.practicality_score_10,
+                        "verdict": revised_report.verdict,
+                        "defect_count": len(revised_report.defects),
+                    }
+                )
+                if accepted:
+                    best_answer = revised
+                    best_report = revised_report
+                    if _quality_gate_passes(revised_report):
+                        upgraded = True
+                        break
+
+        practicality_shortfall = (
+            float(getattr(best_report, "practicality_score_10", 0.0)) < quality_practical_min_score
+        )
+        if quality_extra_assessment_rounds > 0 and practicality_shortfall:
+            for round_idx in range(1, quality_extra_assessment_rounds + 1):
+                loops_by_stage["assessment_upgrade"] += 1
+                loops_used += 1
+                preferred_providers = (
+                    ["claude", "codex"] if (round_idx % 2 == 1) else ["codex", "claude"]
+                )
+                assessment_prompt = build_concretization_prompt(
+                    task=task,
+                    contract=quality_contract,
+                    current_answer=best_answer,
+                    practicality_score_10=best_report.practicality_score_10,
+                    target_practicality_10=quality_practical_min_score,
+                    defects=best_report.defects
+                    + [
+                        f"Raise practicality score to >= {quality_practical_min_score:.2f}.",
+                        "Ground owner paths to existing repository files.",
+                    ],
+                )
+                revised, provider = await _attempt_targeted_revision(
+                    prompt=assessment_prompt,
+                    attempt_num=round_idx,
+                    stage="assessment_upgrade",
+                    role_hint=(
+                        "You are an independent post-consensus assessor. Improve practical value "
+                        "without discarding valid consensus details."
+                    ),
+                    preferred_providers=preferred_providers,
+                )
+                if not revised:
+                    attempts.append(
+                        {
+                            "stage": "assessment_upgrade",
+                            "loop": round_idx,
+                            "provider": provider or "none",
+                            "status": "no_revision",
+                        }
+                    )
+                    continue
+
+                revised_report = validate_output_against_contract(
+                    revised,
+                    quality_contract,
+                    repo_root=repo_root,
+                )
+                accepted = _is_better_report(revised_report, best_report)
+                attempts.append(
+                    {
+                        "stage": "assessment_upgrade",
+                        "loop": round_idx,
+                        "provider": provider or "unknown",
+                        "status": "accepted" if accepted else "rejected",
+                        "quality_score_10": revised_report.quality_score_10,
+                        "practicality_score_10": revised_report.practicality_score_10,
+                        "verdict": revised_report.verdict,
+                        "defect_count": len(revised_report.defects),
+                    }
+                )
+                if accepted:
+                    best_answer = revised
+                    best_report = revised_report
+                    if _quality_gate_passes(revised_report):
+                        upgraded = True
+                        break
+
+        result.final_answer = best_answer
+        metadata["post_consensus_quality"] = {
+            "enabled": True,
+            "contract": quality_contract.to_dict(),
+            "target_quality_score_10": quality_min_score,
+            "target_practicality_score_10": quality_practical_min_score,
+            "initial_report": initial_report.to_dict(),
+            "final_report": best_report.to_dict(),
+            "loops_used": loops_used,
+            "loops_by_stage": loops_by_stage,
+            "upgraded": upgraded,
+            "attempts": attempts,
+        }
+
+        if quality_fail_closed and not _quality_gate_passes(best_report):
+            raise RuntimeError(
+                "Post-consensus quality gate failed after upgrade loops: "
+                + "; ".join(best_report.defects[:3])
+                + f" (quality={best_report.quality_score_10}, "
+                + f"practicality={best_report.practicality_score_10})"
+            )
+
+        return result
 
     async def _run_with_timeout():
-        return await asyncio.wait_for(
+        debate_result = await asyncio.wait_for(
             run_debate(
                 task=task,
                 agents_str=agents,
@@ -1136,17 +1712,52 @@ def cmd_ask(args: argparse.Namespace) -> None:
             ),
             timeout=debate_timeout,
         )
+        return await _post_consensus_quality_pipeline(debate_result)
 
     try:
-        result = asyncio.run(_run_with_timeout())
+        with _strict_wall_clock_timeout(debate_timeout):
+            result = asyncio.run(_run_with_timeout())
+    except _StrictWallClockTimeout:
+        elapsed = time.monotonic() - start_time
+        print(
+            f"Debate timed out after {debate_timeout}s (strict wall-clock; elapsed={elapsed:.2f}s)",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
     except asyncio.TimeoutError:
-        print(f"Debate timed out after {debate_timeout}s", file=sys.stderr)
+        elapsed = time.monotonic() - start_time
+        print(
+            f"Debate timed out after {debate_timeout}s (async wait_for; elapsed={elapsed:.2f}s)",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    except RuntimeError as e:
+        print(f"Debate failed quality gate: {e}", file=sys.stderr)
         raise SystemExit(1)
 
     print("\n" + "=" * 60)
     print("FINAL ANSWER:")
     print("=" * 60)
     print(result.final_answer)
+
+    quality_meta = None
+    if isinstance(getattr(result, "metadata", None), dict):
+        quality_meta = result.metadata.get("post_consensus_quality")
+    if isinstance(quality_meta, dict):
+        final_report = quality_meta.get("final_report", {})
+        print(
+            f"\n[quality] verdict={final_report.get('verdict', 'unknown')} "
+            f"score={final_report.get('quality_score_10', 'n/a')} "
+            f"practicality={final_report.get('practicality_score_10', 'n/a')} "
+            f"loops={quality_meta.get('loops_used', 0)} "
+            f"upgraded={quality_meta.get('upgraded', False)}"
+        )
+        defects = final_report.get("defects") or []
+        if defects and args.verbose:
+            for defect in defects[:5]:
+                print(f"[quality] defect: {defect}")
+    elif post_consensus_quality:
+        print("[quality] skipped=no_contract reason=no_explicit_output_contract_detected")
 
     # Display explanation if --explain was requested
     if explain:

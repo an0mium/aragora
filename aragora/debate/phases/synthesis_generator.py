@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
@@ -22,6 +23,16 @@ if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
+
+_SYNTHESIS_CONTINUATION_ATTEMPTS = max(
+    0, int(os.getenv("ARAGORA_SYNTHESIS_CONTINUATION_ATTEMPTS", "1"))
+)
+_SYNTHESIS_CONTINUATION_TIMEOUT_SECONDS = float(
+    os.getenv("ARAGORA_SYNTHESIS_CONTINUATION_TIMEOUT_SECONDS", "30.0")
+)
+_SYNTHESIS_CONTINUATION_TAIL_CHARS = max(
+    1000, int(os.getenv("ARAGORA_SYNTHESIS_CONTINUATION_TAIL_CHARS", "4000"))
+)
 
 
 class SynthesisGenerator:
@@ -133,6 +144,12 @@ class SynthesisGenerator:
                     synthesizer.generate(synthesis_prompt, ctx.context_messages),
                     timeout=60.0,
                 )
+            synthesis = await self._ensure_complete_synthesis(
+                ctx=ctx,
+                synthesizer=synthesizer,
+                synthesis=synthesis,
+                source="opus",
+            )
             logger.info("synthesis_generated_opus chars=%s", len(synthesis))
 
         except asyncio.TimeoutError:
@@ -160,6 +177,12 @@ class SynthesisGenerator:
                         synthesizer.generate(synthesis_prompt, ctx.context_messages),
                         timeout=30.0,
                     )
+                synthesis = await self._ensure_complete_synthesis(
+                    ctx=ctx,
+                    synthesizer=synthesizer,
+                    synthesis=synthesis,
+                    source="sonnet",
+                )
                 logger.info("synthesis_generated_sonnet chars=%s", len(synthesis))
             except Exception as e:  # noqa: BLE001 - phase isolation: must not crash, fall through to proposal combination
                 logger.warning("synthesis_sonnet_failed error=%s, using proposal combination", e)
@@ -183,6 +206,127 @@ class SynthesisGenerator:
         self._generate_export_links(ctx)
 
         return True
+
+    def _is_likely_truncated(self, synthesis: str) -> bool:
+        """Heuristic check for truncated/incomplete synthesis output."""
+        text = (synthesis or "").rstrip()
+        if not text:
+            return False
+        lower = text.lower()
+        truncation_markers = (
+            "... [truncated]",
+            "[... truncated ...]",
+            "response truncated due to timeout",
+            "[truncated]",
+        )
+        if any(marker in lower for marker in truncation_markers):
+            return True
+        if text.endswith(("...", "…")):
+            return True
+        if text[-1] in {":", ";", ",", "-", "(", "[", "{"}:
+            return True
+        if text.count("```") % 2 == 1:
+            return True
+        if text.count("{") > text.count("}") + 1:
+            return True
+        if text.count("[") > text.count("]") + 1:
+            return True
+        if text.count("(") > text.count(")") + 1:
+            return True
+        return False
+
+    def _build_continuation_prompt(self, ctx: DebateContext, synthesis: str) -> str:
+        """Build continuation prompt to resume a truncated synthesis."""
+        task = ctx.env.task if ctx.env else "Unknown task"
+        tail = synthesis[-_SYNTHESIS_CONTINUATION_TAIL_CHARS:]
+        return (
+            "Your previous synthesis response was cut off.\n\n"
+            "Continue writing from the exact point where it stopped.\n"
+            "Do NOT repeat earlier sections. Do NOT restart the answer.\n"
+            "Finish remaining sections and end cleanly.\n\n"
+            f"Original question:\n{task}\n\n"
+            "Tail of current synthesis:\n"
+            "```text\n"
+            f"{tail}\n"
+            "```"
+        )
+
+    def _merge_continuation(self, existing: str, continuation: str) -> str:
+        """Append continuation while removing common overlap."""
+        base = (existing or "").rstrip()
+        extra = (continuation or "").strip()
+        if not extra:
+            return base
+        if extra in base:
+            return base
+        if base and base in extra:
+            return extra
+
+        max_overlap = min(len(base), len(extra), 800)
+        for overlap in range(max_overlap, 39, -1):
+            if base.endswith(extra[:overlap]):
+                return base + extra[overlap:]
+        return f"{base}\n{extra}" if base else extra
+
+    async def _ensure_complete_synthesis(
+        self,
+        *,
+        ctx: DebateContext,
+        synthesizer: Any,
+        synthesis: str,
+        source: str,
+    ) -> str:
+        """Detect and continue truncated synthesis outputs."""
+        completed = synthesis or ""
+        if not self._is_likely_truncated(completed):
+            return completed
+        if _SYNTHESIS_CONTINUATION_ATTEMPTS <= 0:
+            logger.warning("synthesis_truncation_detected source=%s continuation=disabled", source)
+            return completed
+
+        logger.warning(
+            "synthesis_truncation_detected source=%s attempts=%s",
+            source,
+            _SYNTHESIS_CONTINUATION_ATTEMPTS,
+        )
+
+        for attempt in range(1, _SYNTHESIS_CONTINUATION_ATTEMPTS + 1):
+            continuation_prompt = self._build_continuation_prompt(ctx, completed)
+            try:
+                with streaming_task_context(f"synthesis-agent:{source}_continuation_{attempt}"):
+                    continuation = await asyncio.wait_for(
+                        synthesizer.generate(continuation_prompt, ctx.context_messages),
+                        timeout=_SYNTHESIS_CONTINUATION_TIMEOUT_SECONDS,
+                    )
+            except Exception as e:  # noqa: BLE001 - continuation is best-effort
+                logger.warning(
+                    "synthesis_continuation_failed source=%s attempt=%s error=%s",
+                    source,
+                    attempt,
+                    e,
+                )
+                break
+
+            merged = self._merge_continuation(completed, continuation)
+            if len(merged) <= len(completed):
+                logger.warning(
+                    "synthesis_continuation_no_progress source=%s attempt=%s",
+                    source,
+                    attempt,
+                )
+                break
+
+            completed = merged
+            if not self._is_likely_truncated(completed):
+                logger.info(
+                    "synthesis_continuation_resolved source=%s attempt=%s chars=%s",
+                    source,
+                    attempt,
+                    len(completed),
+                )
+                return completed
+
+        return completed
 
     def _emit_synthesis_events(
         self,

@@ -878,6 +878,56 @@ class TestResearchAndSummarize:
 
 
 # =============================================================================
+# OpenRouter Fallback Tests
+# =============================================================================
+
+
+class TestOpenRouterFallback:
+    """Tests for OpenRouter fallback behavior in research paths."""
+
+    @pytest.mark.asyncio
+    async def test_generate_text_with_fallback_uses_openrouter_on_billing_failure(self):
+        """Billing/API failures should fall back to OpenRouter when available."""
+        from aragora.server.research_phase import PreDebateResearcher
+
+        researcher = PreDebateResearcher()
+        researcher._enable_openrouter_fallback = True
+
+        mock_openrouter = MagicMock()
+        mock_openrouter.generate = AsyncMock(return_value="Fallback summary text")
+
+        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
+            mock_to_thread.side_effect = RuntimeError("credit balance is too low")
+            with patch.object(researcher, "_get_openrouter_agent", return_value=mock_openrouter):
+                text = await researcher._generate_text_with_fallback(
+                    "Summarize this topic",
+                    max_tokens=300,
+                    timeout_seconds=5.0,
+                )
+
+        assert text == "Fallback summary text"
+        mock_openrouter.generate.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_generate_text_with_fallback_raises_when_fallback_unavailable(self):
+        """If fallback is unavailable, the original provider error should surface."""
+        from aragora.server.research_phase import PreDebateResearcher
+
+        researcher = PreDebateResearcher()
+        researcher._enable_openrouter_fallback = True
+
+        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_to_thread:
+            mock_to_thread.side_effect = RuntimeError("credit balance is too low")
+            with patch.object(researcher, "_get_openrouter_agent", return_value=None):
+                with pytest.raises(RuntimeError, match="credit balance is too low"):
+                    await researcher._generate_text_with_fallback(
+                        "Summarize this topic",
+                        max_tokens=300,
+                        timeout_seconds=5.0,
+                    )
+
+
+# =============================================================================
 # Module-Level Function Tests
 # =============================================================================
 
@@ -1145,10 +1195,11 @@ class TestConstants:
             SUMMARIZATION_TIMEOUT,
         )
 
-        assert DEFAULT_TIMEOUT == 30.0
-        assert CLAUDE_SEARCH_TIMEOUT == 120.0
-        assert SUMMARIZATION_TIMEOUT == 60.0
+        assert DEFAULT_TIMEOUT >= 30.0
+        assert SUMMARIZATION_TIMEOUT >= 60.0
+        assert CLAUDE_SEARCH_TIMEOUT >= 120.0
         assert CLAUDE_SEARCH_TIMEOUT > DEFAULT_TIMEOUT
+        assert SUMMARIZATION_TIMEOUT >= DEFAULT_TIMEOUT
 
     def test_research_model(self):
         """Research model constant is set correctly."""

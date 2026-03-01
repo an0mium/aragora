@@ -21,8 +21,12 @@ from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 
+from aragora.agents.errors.classifier import ErrorClassifier
+from aragora.agents.fallback import get_default_fallback_enabled
+
 if TYPE_CHECKING:
     import anthropic
+    from aragora.agents.api_agents import OpenRouterAgent
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +34,16 @@ logger = logging.getLogger(__name__)
 USE_CLAUDE_WEB_SEARCH = True
 
 # Timeouts for research operations (seconds)
-DEFAULT_TIMEOUT = 30.0  # External API requests
-CLAUDE_SEARCH_TIMEOUT = 120.0  # Claude web search (includes search + summarization)
-SUMMARIZATION_TIMEOUT = 60.0  # Claude summarization of search results
+DEFAULT_TIMEOUT = float(os.getenv("ARAGORA_RESEARCH_HTTP_TIMEOUT", "45.0"))
+CLAUDE_SEARCH_TIMEOUT = float(os.getenv("ARAGORA_CLAUDE_SEARCH_TIMEOUT", "240.0"))
+SUMMARIZATION_TIMEOUT = float(os.getenv("ARAGORA_RESEARCH_SUMMARIZATION_TIMEOUT", "120.0"))
 
 # Model for research tasks (Opus 4.5 for best quality)
 RESEARCH_MODEL = "claude-opus-4-5-20251101"
+OPENROUTER_RESEARCH_MODEL = os.getenv(
+    "ARAGORA_RESEARCH_OPENROUTER_MODEL",
+    "anthropic/claude-sonnet-4.6",
+)
 
 
 @dataclass
@@ -112,6 +120,7 @@ class PreDebateResearcher:
         brave_api_key: str | None = None,
         serper_api_key: str | None = None,
         anthropic_client: anthropic.Anthropic | None = None,
+        openrouter_model: str | None = None,
     ):
         """Initialize the researcher.
 
@@ -123,6 +132,9 @@ class PreDebateResearcher:
         self.brave_api_key = brave_api_key or os.getenv("BRAVE_API_KEY")
         self.serper_api_key = serper_api_key or os.getenv("SERPER_API_KEY")
         self._anthropic_client = anthropic_client
+        self._openrouter_model = openrouter_model or OPENROUTER_RESEARCH_MODEL
+        self._enable_openrouter_fallback = get_default_fallback_enabled()
+        self._openrouter_agent: OpenRouterAgent | None = None
 
     @property
     def anthropic_client(self) -> anthropic.Anthropic:
@@ -132,6 +144,68 @@ class PreDebateResearcher:
 
             self._anthropic_client = anthropic.Anthropic()
         return self._anthropic_client
+
+    def _should_try_openrouter_fallback(self, error: Exception) -> bool:
+        """Return True when an error should trigger OpenRouter fallback."""
+        return self._enable_openrouter_fallback and ErrorClassifier.should_fallback(error)
+
+    def _get_openrouter_agent(self) -> OpenRouterAgent | None:
+        """Lazily create the OpenRouter fallback agent for research tasks."""
+        if not self._enable_openrouter_fallback:
+            return None
+        if self._openrouter_agent is not None:
+            return self._openrouter_agent
+        if not os.getenv("OPENROUTER_API_KEY"):
+            return None
+
+        from aragora.agents.api_agents import OpenRouterAgent
+
+        self._openrouter_agent = OpenRouterAgent(
+            name="research_openrouter_fallback",
+            model=self._openrouter_model,
+            role="analyst",
+            timeout=int(max(SUMMARIZATION_TIMEOUT, DEFAULT_TIMEOUT)),
+        )
+        return self._openrouter_agent
+
+    async def _generate_text_with_fallback(
+        self,
+        prompt: str,
+        *,
+        max_tokens: int,
+        timeout_seconds: float = SUMMARIZATION_TIMEOUT,
+    ) -> str:
+        """
+        Generate text with Anthropic first, then OpenRouter fallback on API failures.
+        """
+        try:
+            # Offload sync Anthropic SDK call to thread pool.
+            def _call_anthropic() -> Any:
+                return self.anthropic_client.messages.create(
+                    model=RESEARCH_MODEL,
+                    max_tokens=max_tokens,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+
+            response = await asyncio.wait_for(asyncio.to_thread(_call_anthropic), timeout_seconds)
+            content_block = response.content[0]
+            return str(getattr(content_block, "text", "")).strip()
+        except Exception as e:  # noqa: BLE001 - provider SDK raises many exception types
+            if not self._should_try_openrouter_fallback(e):
+                raise
+
+            fallback_agent = self._get_openrouter_agent()
+            if fallback_agent is None:
+                raise
+
+            logger.warning(
+                "[research] Anthropic generation failed (%s), falling back to OpenRouter",
+                type(e).__name__,
+            )
+            return await asyncio.wait_for(
+                fallback_agent.generate(prompt),
+                timeout_seconds,
+            )
 
     def is_current_event(self, question: str) -> bool:
         """Check if the question relates to current events.
@@ -358,6 +432,12 @@ Focus on facts and cite your sources.""",
                 query=question,
                 is_current_event=self.is_current_event(question),
             )
+        except Exception as e:  # noqa: BLE001 - provider SDK raises typed API errors
+            logger.warning("[claude_web_search] Unexpected API failure: %s", e)
+            return ResearchResult(
+                query=question,
+                is_current_event=self.is_current_event(question),
+            )
 
     def _extract_domain(self, url: str) -> str:
         """Extract domain name from URL for display."""
@@ -474,26 +554,19 @@ Focus on facts and cite your sources.""",
         try:
             snippets = "\n\n".join(f"Source: {r.title}\n{r.snippet}" for r in result.results[:5])
 
-            response = self.anthropic_client.messages.create(
-                model=RESEARCH_MODEL,
-                max_tokens=500,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"""Summarize these search results about: {question}
+            prompt = f"""Summarize these search results about: {question}
 
 {snippets}
 
 Provide a brief, factual summary (2-3 paragraphs) of the current situation.
-Focus on facts, not opinions. Include relevant dates and specifics.""",
-                    }
-                ],
+Focus on facts, not opinions. Include relevant dates and specifics."""
+            result.summary = await self._generate_text_with_fallback(
+                prompt,
+                max_tokens=500,
+                timeout_seconds=SUMMARIZATION_TIMEOUT,
             )
 
-            content_block = response.content[0]
-            result.summary = str(getattr(content_block, "text", ""))
-
-        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
+        except Exception as e:  # noqa: BLE001 - provider SDK + fallback provider errors
             logger.warning("[research] Summary generation failed: %s", e)
 
         return result
@@ -505,33 +578,26 @@ Focus on facts, not opinions. Include relevant dates and specifics.""",
         context, with appropriate caveats about currency.
         """
         try:
-            response = self.anthropic_client.messages.create(
-                model=RESEARCH_MODEL,
-                max_tokens=800,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"""Provide background context for a debate on: {question}
+            prompt = f"""Provide background context for a debate on: {question}
 
 Please share what you know about this topic, including:
 - Key facts and context
 - Different perspectives
 - Important considerations
 
-Note: Clearly indicate if certain information may be outdated or requires verification.""",
-                    }
-                ],
+Note: Clearly indicate if certain information may be outdated or requires verification."""
+            summary = await self._generate_text_with_fallback(
+                prompt,
+                max_tokens=800,
+                timeout_seconds=SUMMARIZATION_TIMEOUT,
             )
-
-            content_block = response.content[0]
-            summary = str(getattr(content_block, "text", ""))
             return ResearchResult(
                 query=question,
                 summary=f"## Background Context (from AI knowledge)\n\n{summary}\n\n*Note: This context is based on AI training data. For the most current information, external verification is recommended.*",
                 is_current_event=False,
             )
 
-        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
+        except Exception as e:  # noqa: BLE001 - provider SDK + fallback provider errors
             logger.warning("[research] Claude knowledge fallback failed: %s", e)
             return ResearchResult(
                 query=question,
@@ -601,6 +667,6 @@ async def research_for_debate(question: str) -> str:
             logger.info("[research] Prepared %s chars of research context", len(context))
         return context
 
-    except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
+    except Exception as e:  # noqa: BLE001 - provider SDK/network errors
         logger.warning("[research] Pre-debate research failed: %s", e)
         return ""

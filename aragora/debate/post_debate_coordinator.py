@@ -23,11 +23,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import threading
 from dataclasses import dataclass, field
 from typing import Any
 
 logger = logging.getLogger(__name__)
+ASYNC_RUN_TIMEOUT_SECONDS = float(os.getenv("ARAGORA_POST_DEBATE_ASYNC_TIMEOUT", "30.0"))
 
 
 @dataclass
@@ -139,10 +141,13 @@ class PostDebateCoordinator:
 
         thread = threading.Thread(target=_runner, daemon=True)
         thread.start()
-        thread.join(timeout=10)
+        thread.join(timeout=ASYNC_RUN_TIMEOUT_SECONDS)
 
         if thread.is_alive():
-            logger.warning("_run_async_callable timed out after 10s")
+            logger.warning(
+                "_run_async_callable timed out after %ss",
+                ASYNC_RUN_TIMEOUT_SECONDS,
+            )
             return None
 
         if "error" in error:

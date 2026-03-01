@@ -615,7 +615,7 @@ class FeedbackPhase:
             try:
                 from aragora.knowledge.mound.adapters.factory import get_adapter
 
-                insight_adapter = get_adapter("insight", self.knowledge_mound)
+                insight_adapter = get_adapter("insights", self.knowledge_mound)
                 if insight_adapter and hasattr(insight_adapter, "store"):
                     insight_adapter.store(
                         {

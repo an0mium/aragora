@@ -50,9 +50,9 @@ WEB_SEARCH_INDICATORS = [
     r"\bwebsite\b",  # Website mentions
     r"\bweb\s*page\b",  # Web page mentions
     r"\bonline\b",  # Online content
-    r"\blatest\b",  # Latest information (might need fresh data)
-    r"\bcurrent\b",  # Current information
-    r"\brecent\b",  # Recent information
+    r"\blatest\s+(news|updates?|release|releases|version|versions)\b",
+    r"\bcurrent\s+(events|status|market|prices?|pricing)\b",
+    r"\brecent\s+(news|developments|changes|updates?|articles?)\b",
     r"\bnews\b",  # News
     r"\barticle\b",  # Articles
 ]

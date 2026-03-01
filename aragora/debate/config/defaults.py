@@ -179,25 +179,25 @@ class DebateDefaults:
     # Timeout values for various debate operations.
     # See: aragora/debate/orchestrator.py, aragora/debate/protocol.py
 
-    agent_timeout_seconds: float = 30.0
+    agent_timeout_seconds: float = 90.0
     """
     Default timeout for a single agent response.
     Individual agents should respond within this time.
     """
 
-    round_timeout_seconds: int = 90
+    round_timeout_seconds: int = 180
     """
     Per-round timeout for all agents to complete.
     Should exceed agent_timeout to allow parallel completion.
     """
 
-    debate_rounds_phase_timeout_seconds: int = 420
+    debate_rounds_phase_timeout_seconds: int = 900
     """
     Total timeout for all debate rounds (7 minutes).
     Covers the entire DebateRoundsPhase execution.
     """
 
-    debate_total_timeout_seconds: int = 1200
+    debate_total_timeout_seconds: int = 1800
     """
     Total timeout for entire debate (20 minutes).
     Maximum time for a complete debate run.
@@ -553,19 +553,19 @@ class DebateDefaults:
     distributed_consensus_threshold: float = 0.67
     """Consensus threshold for distributed debates (higher than local for reliability)."""
 
-    distributed_proposal_timeout_seconds: float = 60.0
+    distributed_proposal_timeout_seconds: float = 120.0
     """Per-proposal timeout in distributed debates."""
 
-    distributed_critique_timeout_seconds: float = 45.0
+    distributed_critique_timeout_seconds: float = 90.0
     """Per-critique timeout in distributed debates."""
 
-    distributed_vote_timeout_seconds: float = 30.0
+    distributed_vote_timeout_seconds: float = 60.0
     """Per-vote timeout in distributed debates."""
 
     distributed_sync_interval_seconds: float = 5.0
     """State sync interval for distributed coordination."""
 
-    distributed_failover_timeout_seconds: float = 30.0
+    distributed_failover_timeout_seconds: float = 45.0
     """Failover timeout for distributed leader election."""
 
     # =========================================================================
@@ -610,8 +610,14 @@ def get_debate_defaults() -> DebateDefaults:
         ARAGORA_DEBATE_CONVERGENCE_THRESHOLD: Override convergence threshold
         ARAGORA_DEBATE_DIVERGENCE_THRESHOLD: Override divergence threshold
         ARAGORA_DEBATE_AGENT_TIMEOUT: Override agent timeout seconds
+        ARAGORA_DEBATE_ROUND_TIMEOUT: Override per-round timeout seconds
+        ARAGORA_DEBATE_ROUNDS_PHASE_TIMEOUT: Override debate rounds phase timeout seconds
         ARAGORA_DEBATE_QUALITY_GATE_THRESHOLD: Override quality gate threshold
         ARAGORA_DEBATE_CONSENSUS_THRESHOLD: Override consensus threshold
+        ARAGORA_DEBATE_DISTRIBUTED_PROPOSAL_TIMEOUT: Override distributed proposal timeout
+        ARAGORA_DEBATE_DISTRIBUTED_CRITIQUE_TIMEOUT: Override distributed critique timeout
+        ARAGORA_DEBATE_DISTRIBUTED_VOTE_TIMEOUT: Override distributed vote timeout
+        ARAGORA_DEBATE_DISTRIBUTED_FAILOVER_TIMEOUT: Override distributed failover timeout
     """
     return DebateDefaults(
         # Apply environment variable overrides for key configurable values
@@ -626,6 +632,14 @@ def get_debate_defaults() -> DebateDefaults:
         agent_timeout_seconds=_get_env_float(
             "ARAGORA_DEBATE_AGENT_TIMEOUT",
             DebateDefaults.agent_timeout_seconds,
+        ),
+        round_timeout_seconds=_get_env_int(
+            "ARAGORA_DEBATE_ROUND_TIMEOUT",
+            DebateDefaults.round_timeout_seconds,
+        ),
+        debate_rounds_phase_timeout_seconds=_get_env_int(
+            "ARAGORA_DEBATE_ROUNDS_PHASE_TIMEOUT",
+            DebateDefaults.debate_rounds_phase_timeout_seconds,
         ),
         quality_gate_threshold=_get_env_float(
             "ARAGORA_DEBATE_QUALITY_GATE_THRESHOLD",
@@ -642,6 +656,22 @@ def get_debate_defaults() -> DebateDefaults:
         rlm_compression_threshold=_get_env_int(
             "ARAGORA_DEBATE_RLM_COMPRESSION_THRESHOLD",
             DebateDefaults.rlm_compression_threshold,
+        ),
+        distributed_proposal_timeout_seconds=_get_env_float(
+            "ARAGORA_DEBATE_DISTRIBUTED_PROPOSAL_TIMEOUT",
+            DebateDefaults.distributed_proposal_timeout_seconds,
+        ),
+        distributed_critique_timeout_seconds=_get_env_float(
+            "ARAGORA_DEBATE_DISTRIBUTED_CRITIQUE_TIMEOUT",
+            DebateDefaults.distributed_critique_timeout_seconds,
+        ),
+        distributed_vote_timeout_seconds=_get_env_float(
+            "ARAGORA_DEBATE_DISTRIBUTED_VOTE_TIMEOUT",
+            DebateDefaults.distributed_vote_timeout_seconds,
+        ),
+        distributed_failover_timeout_seconds=_get_env_float(
+            "ARAGORA_DEBATE_DISTRIBUTED_FAILOVER_TIMEOUT",
+            DebateDefaults.distributed_failover_timeout_seconds,
         ),
     )
 

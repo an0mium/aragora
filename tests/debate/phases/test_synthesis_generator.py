@@ -86,6 +86,57 @@ class TestSynthesisGenerator:
         assert gen._notify_spectator is notify
 
 
+class TestSynthesisContinuationGuards:
+    """Tests for synthesis truncation detection and continuation."""
+
+    def test_is_likely_truncated_detects_common_markers(self):
+        gen = SynthesisGenerator()
+        assert gen._is_likely_truncated("This ended with ellipsis...")
+        assert gen._is_likely_truncated('```json\n{"a": 1}\n')
+        assert gen._is_likely_truncated("Section:\n")
+
+    def test_is_likely_truncated_allows_complete_text(self):
+        gen = SynthesisGenerator()
+        assert gen._is_likely_truncated("Complete sentence.") is False
+
+    @pytest.mark.asyncio
+    async def test_ensure_complete_synthesis_appends_continuation(self):
+        import aragora.debate.phases.synthesis_generator as synth_mod
+
+        gen = SynthesisGenerator()
+        ctx = MockDebateContext()
+        synthesizer = AsyncMock()
+        synthesizer.generate = AsyncMock(return_value="Final recommendation complete.")
+
+        with patch.object(synth_mod, "_SYNTHESIS_CONTINUATION_ATTEMPTS", 1):
+            completed = await gen._ensure_complete_synthesis(
+                ctx=ctx,
+                synthesizer=synthesizer,
+                synthesis="Partial recommendation:",
+                source="opus",
+            )
+
+        assert "Partial recommendation:" in completed
+        assert "Final recommendation complete." in completed
+        synthesizer.generate.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_ensure_complete_synthesis_skips_when_complete(self):
+        gen = SynthesisGenerator()
+        ctx = MockDebateContext()
+        synthesizer = AsyncMock()
+
+        completed = await gen._ensure_complete_synthesis(
+            ctx=ctx,
+            synthesizer=synthesizer,
+            synthesis="Complete output.",
+            source="opus",
+        )
+
+        assert completed == "Complete output."
+        synthesizer.generate.assert_not_called()
+
+
 class TestBuildSynthesisPrompt:
     """Tests for _build_synthesis_prompt method."""
 

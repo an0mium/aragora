@@ -29,7 +29,7 @@ from aragora.agents.cli_agents import (
     MAX_MESSAGE_CHARS,
 )
 from aragora.agents.base import create_agent, list_available_agents
-from aragora.agents.errors.exceptions import CLISubprocessError
+from aragora.agents.errors.exceptions import CLISubprocessError, AgentStreamError
 from aragora.core import Critique, Message
 
 
@@ -1279,6 +1279,30 @@ class TestCLIAgentFallbackIntegration:
                     result = await agent.generate("Test prompt")
 
                     assert result == "Fallback response"
+
+    @pytest.mark.asyncio
+    async def test_retries_openrouter_fallback_after_stream_error(self):
+        """Transient OpenRouter payload/stream errors should be retried once."""
+        agent = ClaudeAgent(name="test", model="test", enable_fallback=True)
+
+        with patch.object(agent, "_run_cli", new_callable=AsyncMock) as mock_cli:
+            mock_cli.side_effect = TimeoutError("timed out")
+
+            with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
+                with patch("aragora.agents.api_agents.OpenRouterAgent") as mock_or:
+                    mock_fallback = MagicMock()
+                    mock_fallback.generate = AsyncMock(
+                        side_effect=[
+                            AgentStreamError("stream interrupted", agent_name="test_fallback"),
+                            "Recovered fallback response",
+                        ]
+                    )
+                    mock_or.return_value = mock_fallback
+
+                    result = await agent.generate("Test prompt")
+
+                    assert result == "Recovered fallback response"
+                    assert mock_fallback.generate.await_count == 2
 
     @pytest.mark.asyncio
     async def test_no_fallback_on_generic_error(self):

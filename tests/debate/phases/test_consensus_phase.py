@@ -891,6 +891,17 @@ class TestExecuteConsensusRouting:
             mock.assert_called_once_with(ctx)
 
     @pytest.mark.asyncio
+    async def test_routes_hybrid_mode_to_judge(self):
+        """Routes 'hybrid' mode to judge-based finalization."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(phase, "_handle_judge_consensus", new_callable=AsyncMock) as mock:
+            await phase._execute_consensus(ctx, "hybrid")
+            mock.assert_called_once_with(ctx)
+
+    @pytest.mark.asyncio
     async def test_routes_byzantine_mode(self):
         """Routes 'byzantine' mode to _handle_byzantine_consensus."""
         ctx, protocol = make_context()

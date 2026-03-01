@@ -55,6 +55,14 @@ class KnowledgeMoundOperations:
         self._notify_callback = notify_callback
         self._metrics = metrics
         self._last_km_item_ids: list[str] = []  # IDs of KM items used in last fetch
+        self._warned_missing_query_capability = False
+
+    def _has_query_capability(self) -> bool:
+        """Check whether the configured KM object supports retrieval operations."""
+        return bool(self.knowledge_mound) and any(
+            hasattr(self.knowledge_mound, method)
+            for method in ("query_semantic", "query_with_visibility")
+        )
 
     async def fetch_knowledge_context(
         self,
@@ -75,6 +83,14 @@ class KnowledgeMoundOperations:
             Formatted string with knowledge context, or None if unavailable
         """
         if not self.knowledge_mound or not self.enable_retrieval:
+            return None
+        if not self._has_query_capability():
+            if not self._warned_missing_query_capability:
+                logger.warning(
+                    "  [knowledge_mound] Retrieval disabled: KM object %s has no query interface",
+                    type(self.knowledge_mound).__name__,
+                )
+                self._warned_missing_query_capability = True
             return None
 
         start_time = time.time()

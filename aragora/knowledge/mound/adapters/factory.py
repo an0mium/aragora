@@ -255,8 +255,11 @@ _ADAPTER_DEFS: list[tuple[str, str, dict[str, Any]]] = [
         {
             "name": "calibration_fusion",
             "required_deps": [],
-            "forward_method": "sync_from_calibration",
-            "reverse_method": "get_calibration_insights",
+            # CalibrationFusionAdapter exposes sync_to_km/search_by_topic.
+            # Registering missing method names causes noisy runtime warnings
+            # and skips adapter wiring during debate context collection.
+            "forward_method": "sync_to_km",
+            "reverse_method": "search_by_topic",
             "priority": 55,
             "config_key": "km_calibration_fusion_adapter",
         },
@@ -849,7 +852,7 @@ class AdapterFactory:
                 )
             elif spec.name == "insights":
                 adapter = adapter_class(
-                    store=deps.get("insight_store"),
+                    insight_store=deps.get("insight_store"),
                     flip_detector=deps.get("flip_detector"),
                     event_callback=self._event_callback,
                 )
@@ -1030,7 +1033,8 @@ class AdapterFactory:
                     return adapter_class()
                 elif spec.name == "insights":
                     return adapter_class(
-                        store=deps.get("insight_store"), flip_detector=deps.get("flip_detector")
+                        insight_store=deps.get("insight_store"),
+                        flip_detector=deps.get("flip_detector"),
                     )
                 elif spec.name == "elo":
                     return adapter_class(elo_system=deps.get("elo_system"))
@@ -1161,6 +1165,43 @@ class AdapterFactory:
         return ADAPTER_SPECS.copy()
 
 
+_ADAPTER_NAME_ALIASES: dict[str, str] = {
+    "insight": "insights",
+}
+
+_MOUND_AWARE_ADAPTERS = frozenset({"culture", "receipt", "outcome", "pipeline", "codebase"})
+
+
+def _extract_mound_dependencies(mound: Any) -> dict[str, Any]:
+    """Extract known adapter dependencies from a KnowledgeMound-like object."""
+    if mound is None:
+        return {}
+
+    deps: dict[str, Any] = {
+        "mound": mound,
+        "continuum_memory": getattr(mound, "_continuum", None),
+        "consensus_memory": getattr(mound, "_consensus", None),
+        "memory": getattr(mound, "_critique", None),
+        "evidence_store": getattr(mound, "_evidence", None),
+        "insight_store": getattr(mound, "_insight_store", None),
+        "flip_detector": getattr(mound, "_flip_detector", None),
+        "elo_system": getattr(mound, "_elo_system", None),
+        "pulse_manager": getattr(mound, "_pulse_manager", None),
+        "cost_tracker": getattr(mound, "_cost_tracker", None),
+        "provenance_store": getattr(mound, "_provenance_store", None),
+    }
+
+    # Backward-compatible attribute fallbacks for alternate mound implementations.
+    if deps["evidence_store"] is None:
+        deps["evidence_store"] = getattr(mound, "evidence_store", None)
+    if deps["insight_store"] is None:
+        deps["insight_store"] = getattr(mound, "insight_store", None)
+    if deps["memory"] is None:
+        deps["memory"] = getattr(mound, "critique_store", None)
+
+    return {key: value for key, value in deps.items() if value is not None}
+
+
 def get_adapter(name: str, mound: Any = None) -> Any | None:
     """Look up an adapter by name and return an instance.
 
@@ -1171,17 +1212,31 @@ def get_adapter(name: str, mound: Any = None) -> Any | None:
     Returns:
         An adapter instance, or ``None`` if the name is not registered.
     """
-    spec = ADAPTER_SPECS.get(name)
+    canonical_name = _ADAPTER_NAME_ALIASES.get(name, name)
+    spec = ADAPTER_SPECS.get(canonical_name)
     if spec is None:
         return None
+
+    deps = _extract_mound_dependencies(mound)
+
+    # If required dependencies are absent, skip creation instead of constructing
+    # a broken adapter (for example EvidenceAdapter(store=<KnowledgeMound>)).
+    missing_required = [dep for dep in spec.required_deps if dep not in deps]
+    if missing_required:
+        return None
+
+    adapter_deps = {dep: deps[dep] for dep in spec.required_deps if dep in deps}
+    if canonical_name in _MOUND_AWARE_ADAPTERS and mound is not None:
+        adapter_deps["mound"] = mound
+    # Optional dependency for InsightsAdapter.
+    if canonical_name == "insights" and "flip_detector" in deps:
+        adapter_deps["flip_detector"] = deps["flip_detector"]
+
     try:
-        return spec.adapter_class(mound)
-    except (TypeError, RuntimeError, ValueError):
-        # Adapter may not accept mound positional arg — try no-arg
-        try:
-            return spec.adapter_class()
-        except (TypeError, RuntimeError, ValueError):
-            return None
+        factory = AdapterFactory()
+        return factory._create_single_adapter(spec, adapter_deps)
+    except (RuntimeError, ValueError, OSError, AttributeError):
+        return None
 
 
 __all__ = [

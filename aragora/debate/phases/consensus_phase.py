@@ -457,6 +457,10 @@ class ConsensusPhase:
 
         if consensus_mode == "weighted":
             normalized = "majority"
+        elif consensus_mode == "hybrid":
+            # "hybrid" combines voting with judge adjudication; consensus phase already
+            # performs vote collection before mode dispatch, so route to judge finalization.
+            normalized = "judge"
         elif consensus_mode == "supermajority":
             normalized = "majority"
             threshold_override = max(getattr(self.protocol, "consensus_threshold", 0.6), 2 / 3)

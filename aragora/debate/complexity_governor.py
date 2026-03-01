@@ -231,7 +231,7 @@ class AdaptiveComplexityGovernor:
         StressLevel.NOMINAL: GovernorConstraints(
             max_context_tokens=8000,
             max_history_messages=20,
-            agent_timeout_seconds=120.0,
+            agent_timeout_seconds=180.0,
             max_agents_per_round=5,
             enable_deep_analysis=True,
             enable_cross_references=True,
@@ -240,7 +240,7 @@ class AdaptiveComplexityGovernor:
         StressLevel.ELEVATED: GovernorConstraints(
             max_context_tokens=6000,
             max_history_messages=15,
-            agent_timeout_seconds=90.0,
+            agent_timeout_seconds=150.0,
             max_agents_per_round=4,
             enable_deep_analysis=True,
             enable_cross_references=True,
@@ -249,7 +249,7 @@ class AdaptiveComplexityGovernor:
         StressLevel.HIGH: GovernorConstraints(
             max_context_tokens=4000,
             max_history_messages=10,
-            agent_timeout_seconds=60.0,
+            agent_timeout_seconds=120.0,
             max_agents_per_round=3,
             enable_deep_analysis=False,
             enable_cross_references=False,
@@ -258,7 +258,7 @@ class AdaptiveComplexityGovernor:
         StressLevel.CRITICAL: GovernorConstraints(
             max_context_tokens=2000,
             max_history_messages=5,
-            agent_timeout_seconds=30.0,
+            agent_timeout_seconds=90.0,
             max_agents_per_round=2,
             enable_deep_analysis=False,
             enable_cross_references=False,

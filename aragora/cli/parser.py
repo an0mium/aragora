@@ -376,8 +376,74 @@ def _add_ask_parser(subparsers) -> None:
     ask_parser.add_argument(
         "--timeout",
         type=int,
-        default=300,
-        help="Maximum debate duration in seconds (default: 300)",
+        default=int(os.environ.get("ARAGORA_ASK_TIMEOUT_SECONDS", "3600")),
+        help="Maximum debate duration in seconds (default: ARAGORA_ASK_TIMEOUT_SECONDS or 3600)",
+    )
+    ask_parser.add_argument(
+        "--no-post-consensus-quality",
+        dest="post_consensus_quality",
+        action="store_false",
+        default=True,
+        help="Disable deterministic post-consensus quality validation",
+    )
+    ask_parser.add_argument(
+        "--no-upgrade-to-good",
+        dest="upgrade_to_good",
+        action="store_false",
+        default=True,
+        help="Disable automatic quality-repair loop when output fails quality checks",
+    )
+    ask_parser.add_argument(
+        "--quality-upgrade-max-loops",
+        type=int,
+        default=2,
+        help="Maximum repair loops after consensus when quality checks fail (default: 2)",
+    )
+    ask_parser.add_argument(
+        "--quality-min-score",
+        type=float,
+        default=9.0,
+        help="Minimum post-consensus quality score target (0-10, default: 9.0)",
+    )
+    ask_parser.add_argument(
+        "--quality-practical-min-score",
+        type=float,
+        default=6.0,
+        help="Minimum practicality score target for execution readiness (0-10, default: 6.0)",
+    )
+    ask_parser.add_argument(
+        "--quality-fail-closed",
+        action="store_true",
+        help="Exit non-zero when post-consensus output still fails quality gates after repair loops",
+    )
+    ask_parser.add_argument(
+        "--quality-concretize-max-rounds",
+        type=int,
+        default=1,
+        help="Max post-consensus concretization rounds when output is not practical enough (default: 1)",
+    )
+    ask_parser.add_argument(
+        "--quality-extra-assessment-rounds",
+        type=int,
+        default=2,
+        help=(
+            "Additional bounded post-consensus assessment rounds (Claude/Codex-preferred) "
+            "when practicality remains below target (default: 2)"
+        ),
+    )
+    ask_parser.add_argument(
+        "--required-sections",
+        help=(
+            "Comma-separated required output section headings for deterministic quality gating "
+            "(overrides task-derived contract)."
+        ),
+    )
+    ask_parser.add_argument(
+        "--output-contract-file",
+        help=(
+            "Path to a JSON output contract file for deterministic quality gating "
+            "(highest precedence over --required-sections and task-derived contracts)."
+        ),
     )
     ask_parser.set_defaults(func=_lazy("aragora.cli.commands.debate", "cmd_ask"))
 
