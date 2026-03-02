@@ -1,0 +1,107 @@
+name: Quality Pipeline Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/debate/output_quality.py'
+      - 'aragora/debate/repo_grounding.py'
+      - 'aragora/cli/commands/debate.py'
+      - 'tests/debate/test_output_quality.py'
+      - 'tests/debate/test_repo_grounding.py'
+      - 'tests/cli/test_offline_golden_path.py'
+      - '.github/workflows/quality-smoke.yml'
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: quality-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      quality: ${{ steps.filter.outputs.quality }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            quality:
+              - 'aragora/debate/output_quality.py'
+              - 'aragora/debate/repo_grounding.py'
+              - 'aragora/cli/commands/debate.py'
+              - 'tests/debate/test_output_quality.py'
+              - 'tests/debate/test_repo_grounding.py'
+              - 'tests/cli/test_offline_golden_path.py'
+              - '.github/workflows/quality-smoke.yml'
+
+  quality-smoke-run:
+    needs: changes
+    if: needs.changes.outputs.quality == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    name: Quality Pipeline Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run output quality tests
+        run: |
+          pytest tests/debate/test_output_quality.py -v --timeout=60 --tb=short
+        env:
+          PYTHONPATH: .
+
+      - name: Run repo grounding tests
+        run: |
+          pytest tests/debate/test_repo_grounding.py -v --timeout=60 --tb=short
+        env:
+          PYTHONPATH: .
+
+      - name: Run offline golden path tests
+        run: |
+          pytest tests/cli/test_offline_golden_path.py -v --timeout=60 --tb=short
+        env:
+          PYTHONPATH: .
+
+      - name: Quality smoke summary
+        if: always()
+        run: |
+          echo "## Quality Pipeline Smoke Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Validates post-consensus quality pipeline WITHOUT real API calls:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`test_output_quality.py\` — output formatting and quality checks" >> $GITHUB_STEP_SUMMARY
+          echo "- \`test_repo_grounding.py\` — repository grounding pipeline" >> $GITHUB_STEP_SUMMARY
+          echo "- \`test_offline_golden_path.py\` — end-to-end offline debate flow" >> $GITHUB_STEP_SUMMARY
+
+  quality-smoke:
+    needs: [changes, quality-smoke-run]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Evaluate quality smoke result
+        run: |
+          if [[ "${{ needs.quality-smoke-run.result }}" == "failure" ]]; then
+            echo "::error::Quality pipeline smoke tests failed"
+            exit 1
+          fi
+          echo "Quality pipeline smoke passed (or skipped — no relevant changes)"

@@ -181,6 +181,57 @@ def _add_ask_parser(subparsers) -> None:
     )
     ask_parser.add_argument("--context", help="Additional context for the task")
     ask_parser.add_argument(
+        "--codebase-context",
+        action="store_true",
+        help=(
+            "Pre-compute a grounded codebase context block before debate start "
+            "(recommended for self-improvement/dogfood runs)"
+        ),
+    )
+    ask_parser.add_argument(
+        "--codebase-context-path",
+        help="Repository path for codebase context engineering (default: current working directory)",
+    )
+    ask_parser.add_argument(
+        "--codebase-context-harnesses",
+        action="store_true",
+        help=(
+            "Use explorer harnesses (Claude/Codex and optionally KiloCode) "
+            "to synthesize existing capabilities"
+        ),
+    )
+    ask_parser.add_argument(
+        "--codebase-context-kilocode",
+        action="store_true",
+        help="Include KiloCode Gemini/Grok explorers when harness mode is enabled",
+    )
+    ask_parser.add_argument(
+        "--codebase-context-rlm",
+        action="store_true",
+        help="Enable full-corpus RLM summary while building codebase context (slower)",
+    )
+    ask_parser.add_argument(
+        "--codebase-context-max-chars",
+        type=int,
+        default=80000,
+        help="Maximum characters to inject from engineered codebase context (default: 80000)",
+    )
+    ask_parser.add_argument(
+        "--codebase-context-timeout",
+        type=int,
+        default=240,
+        help="Timeout in seconds for codebase context engineering (default: 240)",
+    )
+    ask_parser.add_argument(
+        "--codebase-context-out",
+        help="Optional file path to save engineered codebase context before debate execution",
+    )
+    ask_parser.add_argument(
+        "--codebase-context-exclude-tests",
+        action="store_true",
+        help="Exclude test files from codebase context indexing",
+    )
+    ask_parser.add_argument(
         "--no-learn", dest="learn", action="store_false", help="Don't store patterns"
     )
     ask_parser.add_argument(
@@ -408,8 +459,8 @@ def _add_ask_parser(subparsers) -> None:
     ask_parser.add_argument(
         "--quality-practical-min-score",
         type=float,
-        default=6.0,
-        help="Minimum practicality score target for execution readiness (0-10, default: 6.0)",
+        default=5.0,
+        help="Minimum practicality score target for execution readiness (0-10, default: 5.0)",
     )
     ask_parser.add_argument(
         "--quality-fail-closed",

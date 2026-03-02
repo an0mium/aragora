@@ -86,6 +86,7 @@ DEBATE_START_SCHEMA = {
         "item_type": str,
         "required": False,
     },
+    "quality_pipeline": {"type": "object", "required": False},
 }
 
 DEBATE_UPDATE_SCHEMA = {

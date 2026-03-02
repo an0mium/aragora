@@ -164,3 +164,42 @@ class TestCLIPresetChoices:
         parser = build_parser()
         args = parser.parse_args(["ask", "test question"])
         assert args.enable_introspection is True
+
+    def test_codebase_context_flags_parse(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "ask",
+                "improve aragora dogfood",
+                "--codebase-context",
+                "--codebase-context-path",
+                ".",
+                "--codebase-context-harnesses",
+                "--codebase-context-kilocode",
+                "--codebase-context-rlm",
+                "--codebase-context-max-chars",
+                "42000",
+                "--codebase-context-timeout",
+                "180",
+            ]
+        )
+        assert args.codebase_context is True
+        assert args.codebase_context_harnesses is True
+        assert args.codebase_context_kilocode is True
+        assert args.codebase_context_rlm is True
+        assert args.codebase_context_max_chars == 42000
+        assert args.codebase_context_timeout == 180
+
+    def test_codebase_context_defaults(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["ask", "test question"])
+        assert args.codebase_context is False
+        assert args.codebase_context_harnesses is False
+        assert args.codebase_context_kilocode is False
+        assert args.codebase_context_rlm is False
+        assert args.codebase_context_max_chars == 80000
+        assert args.codebase_context_timeout == 240

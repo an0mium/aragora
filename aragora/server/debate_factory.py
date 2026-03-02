@@ -127,6 +127,7 @@ class DebateConfig:
     enable_auto_execution: bool | None = None  # Enable post-debate auto-execution
     enable_settlement_tracking: bool | None = None  # Enable settlement claim extraction
     enable_interventions: bool | None = None  # Enable intervention queue for human-in-the-loop
+    quality_pipeline: dict | None = None  # Post-consensus quality pipeline config
 
     def parse_agent_specs(self) -> list[AgentSpec]:
         """Parse agent specifications from comma-separated string or list.

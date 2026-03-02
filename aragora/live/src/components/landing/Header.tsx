@@ -1,95 +1,63 @@
 'use client';
 
 import Link from 'next/link';
-import { AsciiBannerCompact } from '../AsciiBanner';
-import { ThemeToggle } from '../ThemeToggle';
-import { BackendSelector } from '../BackendSelector';
-import { useSidebar } from '@/context/SidebarContext';
-
-// Core navigation items - consistent with Sidebar.tsx
-const coreNavItems = [
-  { label: 'DEBATE', href: '/debate' },
-  { label: 'DEBATES', href: '/debates' },
-  { label: 'GAUNTLET', href: '/gauntlet' },
-  { label: 'LEADERBOARD', href: '/leaderboard' },
-  { label: 'AGENTS', href: '/agents' },
-];
-
-// Secondary items shown in expanded nav
-const secondaryNavItems = [
-  { label: 'MEMORY', href: '/memory' },
-  { label: 'ANALYTICS', href: '/analytics' },
-  { label: 'DOCS', href: '/developer' },
-];
+import { useTheme } from '@/context/ThemeContext';
+import { ThemeSelector } from './ThemeSelector';
 
 export function Header() {
-  const { toggle } = useSidebar();
+  const { theme } = useTheme();
 
   return (
-    <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          {/* Menu button + Logo */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggle}
-              className="p-2 text-acid-green hover:text-acid-cyan transition-colors"
-              aria-label="Toggle navigation menu"
-            >
-              <span className="font-mono text-lg">☰</span>
-            </button>
-            <AsciiBannerCompact connected={true} />
-          </div>
+    <header
+      className="sticky top-0 z-50 backdrop-blur-sm"
+      style={{
+        backgroundColor: theme === 'dark' ? 'rgba(10,10,10,0.85)' : theme === 'professional' ? 'rgba(255,255,255,0.85)' : 'rgba(250,249,247,0.85)',
+        borderBottom: '1px solid var(--border)',
+        fontFamily: 'var(--font-landing)',
+      }}
+    >
+      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+        {/* Wordmark */}
+        <Link href="/landing" className="flex items-center">
+          <span
+            className="font-bold tracking-wider"
+            style={{
+              color: 'var(--accent)',
+              fontSize: theme === 'dark' ? '14px' : '16px',
+              fontFamily: theme === 'dark' ? "'JetBrains Mono', monospace" : "'Inter', system-ui, sans-serif",
+              letterSpacing: theme === 'dark' ? '0.15em' : '0.08em',
+            }}
+          >
+            {theme === 'dark' ? '> ARAGORA' : 'Aragora'}
+          </span>
+        </Link>
 
-          {/* Desktop Navigation - Core links */}
-          <nav className="hidden md:flex items-center gap-3 overflow-x-auto" aria-label="Main navigation">
-            {coreNavItems.map(item => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors whitespace-nowrap"
-              >
-                [{item.label}]
-              </Link>
-            ))}
-            <span className="text-acid-green/30">|</span>
-            {secondaryNavItems.map(item => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors whitespace-nowrap"
-              >
-                [{item.label}]
-              </Link>
-            ))}
-            <span className="text-acid-green/30">|</span>
-            <Link
-              href="/try"
-              className="text-xs font-mono text-acid-green font-bold hover:text-acid-cyan transition-colors whitespace-nowrap"
+        {/* Nav links + Theme selector */}
+        <div className="flex items-center gap-6">
+          <nav className="hidden sm:flex items-center gap-5">
+            <a
+              href="#how-it-works"
+              className="text-sm transition-colors hover:opacity-80"
+              style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
             >
-              [TRY FREE]
-            </Link>
-            <Link
-              href="/signup"
-              className="text-xs font-mono text-bg bg-acid-green px-2 py-1 font-bold hover:bg-acid-cyan transition-colors whitespace-nowrap"
+              How it works
+            </a>
+            <a
+              href="#pricing"
+              className="text-sm transition-colors hover:opacity-80"
+              style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
             >
-              SIGN UP
+              Pricing
+            </a>
+            <Link
+              href="/login"
+              className="text-sm transition-colors hover:opacity-80"
+              style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
+            >
+              Log in
             </Link>
-            <BackendSelector compact />
-            <ThemeToggle />
           </nav>
-
-          {/* Mobile - Sign up + theme toggle */}
-          <div className="flex md:hidden items-center gap-2">
-            <Link
-              href="/signup"
-              className="text-xs font-mono text-bg bg-acid-green px-2 py-1 font-bold hover:bg-acid-cyan transition-colors whitespace-nowrap"
-            >
-              SIGN UP
-            </Link>
-            <BackendSelector compact />
-            <ThemeToggle />
-          </div>
+          <ThemeSelector />
         </div>
       </div>
     </header>

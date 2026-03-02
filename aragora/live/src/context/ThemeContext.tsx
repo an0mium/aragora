@@ -14,20 +14,25 @@ import {
 // Types
 // ============================================================================
 
-export type ThemePreference = 'dark' | 'light' | 'system';
+export type Theme = 'warm' | 'dark' | 'professional';
+
+/** Legacy type aliases for backward compatibility */
+export type ThemePreference = 'dark' | 'light' | 'system' | Theme;
 export type EffectiveTheme = 'dark' | 'light';
 
 export interface ThemeContextValue {
-  /** User's theme preference (dark, light, or system) */
-  preference: ThemePreference;
-  /** The actual theme being rendered (resolved from system if preference is 'system') */
-  effectiveTheme: EffectiveTheme;
-  /** Set the theme preference */
-  setTheme: (theme: ThemePreference) => void;
-  /** Toggle between dark and light (ignores system, sets explicit preference) */
-  toggleTheme: () => void;
+  /** The current active theme */
+  theme: Theme;
+  /** Set the theme (also accepts legacy 'light'/'system' values) */
+  setTheme: (theme: Theme | 'light' | 'system') => void;
   /** Whether the theme context has initialized */
   isInitialized: boolean;
+  /** @deprecated Legacy compat — maps to theme. 'warm'/'professional' report as theme name */
+  preference: ThemePreference;
+  /** @deprecated Legacy compat — 'dark' for dark theme, 'light' for warm/professional */
+  effectiveTheme: EffectiveTheme;
+  /** @deprecated Legacy compat — toggles between dark and warm */
+  toggleTheme: () => void;
 }
 
 // ============================================================================
@@ -35,8 +40,8 @@ export interface ThemeContextValue {
 // ============================================================================
 
 const STORAGE_KEY = 'aragora-theme';
-const STORAGE_KEY_PREFERENCES = 'aragora_preferences';
 const DATA_ATTRIBUTE = 'data-theme';
+const DEFAULT_THEME: Theme = 'warm';
 
 // ============================================================================
 // Context
@@ -48,82 +53,55 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 // Utilities
 // ============================================================================
 
-function getSystemTheme(): EffectiveTheme {
-  if (typeof window === 'undefined') return 'dark';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+function isValidTheme(value: string): value is Theme {
+  return value === 'warm' || value === 'dark' || value === 'professional';
 }
 
-function resolveEffectiveTheme(preference: ThemePreference): EffectiveTheme {
-  if (preference === 'system') {
-    return getSystemTheme();
-  }
-  return preference;
+function getSystemDefaultTheme(): Theme {
+  if (typeof window === 'undefined') return DEFAULT_THEME;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'warm';
 }
 
-function applyTheme(theme: EffectiveTheme): void {
+function applyTheme(theme: Theme): void {
   if (typeof document === 'undefined') return;
-
-  // Set or remove the data-theme attribute
-  if (theme === 'light') {
-    document.documentElement.setAttribute(DATA_ATTRIBUTE, 'light');
-    document.body.setAttribute(DATA_ATTRIBUTE, 'light');
-  } else {
-    document.documentElement.removeAttribute(DATA_ATTRIBUTE);
-    document.body.removeAttribute(DATA_ATTRIBUTE);
-  }
+  document.documentElement.setAttribute(DATA_ATTRIBUTE, theme);
 
   // Update meta theme-color for mobile browsers
   const metaThemeColor = document.querySelector('meta[name="theme-color"]');
   if (metaThemeColor) {
-    metaThemeColor.setAttribute('content', theme === 'light' ? '#faf9f7' : '#00ff41');
+    const themeColors: Record<Theme, string> = {
+      warm: '#faf9f7',
+      dark: '#0a0a0a',
+      professional: '#ffffff',
+    };
+    metaThemeColor.setAttribute('content', themeColors[theme]);
   }
 }
 
-function getStoredPreference(): ThemePreference | null {
+function getStoredTheme(): Theme | null {
   if (typeof localStorage === 'undefined') return null;
 
-  // Check legacy key first (simple dark/light)
-  const legacyTheme = localStorage.getItem(STORAGE_KEY);
-  if (legacyTheme === 'dark' || legacyTheme === 'light') {
-    return legacyTheme;
-  }
-
-  // Check preferences object
   try {
-    const prefs = localStorage.getItem(STORAGE_KEY_PREFERENCES);
-    if (prefs) {
-      const parsed = JSON.parse(prefs);
-      if (parsed.theme === 'dark' || parsed.theme === 'light' || parsed.theme === 'system') {
-        return parsed.theme;
-      }
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored && isValidTheme(stored)) {
+      return stored;
     }
+    // Legacy compat: map old 'light' to 'warm', 'dark' stays 'dark'
+    if (stored === 'light') return 'warm';
+    if (stored === 'dark') return 'dark';
   } catch {
-    // Ignore parse errors
+    // Ignore storage errors
   }
 
   return null;
 }
 
-function storePreference(preference: ThemePreference): void {
+function storeTheme(theme: Theme): void {
   if (typeof localStorage === 'undefined') return;
-
-  // Store in legacy key for backward compatibility
-  if (preference === 'system') {
-    localStorage.removeItem(STORAGE_KEY);
-  } else {
-    localStorage.setItem(STORAGE_KEY, preference);
-  }
-
-  // Also update preferences object if it exists
   try {
-    const prefs = localStorage.getItem(STORAGE_KEY_PREFERENCES);
-    if (prefs) {
-      const parsed = JSON.parse(prefs);
-      parsed.theme = preference;
-      localStorage.setItem(STORAGE_KEY_PREFERENCES, JSON.stringify(parsed));
-    }
+    localStorage.setItem(STORAGE_KEY, theme);
   } catch {
-    // Ignore errors
+    // Ignore storage errors
   }
 }
 
@@ -133,70 +111,78 @@ function storePreference(preference: ThemePreference): void {
 
 interface ThemeProviderProps {
   children: ReactNode;
-  /** Default preference if none stored. Defaults to 'light' */
-  defaultPreference?: ThemePreference;
+  /** Default theme if none stored. Defaults to 'warm' */
+  defaultTheme?: Theme;
+  /** @deprecated Legacy prop name — use defaultTheme instead */
+  defaultPreference?: string;
 }
 
 export function ThemeProvider({
   children,
-  defaultPreference = 'light',
+  defaultTheme,
+  defaultPreference,
 }: ThemeProviderProps) {
-  const [preference, setPreference] = useState<ThemePreference>(defaultPreference);
-  const [effectiveTheme, setEffectiveTheme] = useState<EffectiveTheme>('light');
+  const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Initialize from storage on mount
   useEffect(() => {
-    const stored = getStoredPreference();
-    const initialPreference = stored ?? defaultPreference;
-    setPreference(initialPreference);
-
-    const resolved = resolveEffectiveTheme(initialPreference);
-    setEffectiveTheme(resolved);
-    applyTheme(resolved);
-
+    const stored = getStoredTheme();
+    // Resolve legacy defaultPreference if defaultTheme not provided
+    let fallback: Theme | undefined = defaultTheme;
+    if (!fallback && defaultPreference) {
+      if (defaultPreference === 'light') fallback = 'warm';
+      else if (defaultPreference === 'dark') fallback = 'dark';
+      else if (isValidTheme(defaultPreference)) fallback = defaultPreference;
+    }
+    const initial = stored ?? fallback ?? getSystemDefaultTheme();
+    setThemeState(initial);
+    applyTheme(initial);
     setIsInitialized(true);
-  }, [defaultPreference]);
+  }, [defaultTheme, defaultPreference]);
 
-  // Listen for system preference changes (when preference is 'system')
+  // Listen for system preference changes (when no explicit choice was stored)
   useEffect(() => {
-    if (preference !== 'system') return;
-
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
     const handleChange = (e: MediaQueryListEvent) => {
-      const newTheme: EffectiveTheme = e.matches ? 'dark' : 'light';
-      setEffectiveTheme(newTheme);
-      applyTheme(newTheme);
+      // Only auto-switch if user hasn't explicitly set a theme
+      const stored = getStoredTheme();
+      if (!stored) {
+        const newTheme: Theme = e.matches ? 'dark' : 'warm';
+        setThemeState(newTheme);
+        applyTheme(newTheme);
+      }
     };
 
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [preference]);
+  }, []);
 
-  // Set theme handler
-  const setTheme = useCallback((newPreference: ThemePreference) => {
-    setPreference(newPreference);
-    storePreference(newPreference);
-
-    const resolved = resolveEffectiveTheme(newPreference);
-    setEffectiveTheme(resolved);
+  // Set theme handler — also accepts legacy 'light'/'system' values
+  const setTheme = useCallback((newTheme: Theme | 'light' | 'system') => {
+    let resolved: Theme;
+    if (newTheme === 'light') {
+      resolved = 'warm';
+    } else if (newTheme === 'system') {
+      resolved = getSystemDefaultTheme();
+    } else {
+      resolved = newTheme;
+    }
+    setThemeState(resolved);
+    storeTheme(resolved);
     applyTheme(resolved);
   }, []);
 
-  // Toggle theme handler
-  const toggleTheme = useCallback(() => {
-    const newTheme: EffectiveTheme = effectiveTheme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
-  }, [effectiveTheme, setTheme]);
-
   const value = useMemo<ThemeContextValue>(() => ({
-    preference,
-    effectiveTheme,
+    theme,
     setTheme,
-    toggleTheme,
     isInitialized,
-  }), [preference, effectiveTheme, setTheme, toggleTheme, isInitialized]);
+    // Legacy compat properties
+    preference: theme,
+    effectiveTheme: theme === 'dark' ? 'dark' : 'light',
+    toggleTheme: () => setTheme(theme === 'dark' ? 'warm' : 'dark'),
+  }), [theme, setTheme, isInitialized]);
 
   return (
     <ThemeContext.Provider value={value}>
@@ -229,22 +215,11 @@ export const themeInitScript = `
 (function() {
   try {
     var theme = localStorage.getItem('aragora-theme');
-    if (!theme) {
-      var prefs = localStorage.getItem('aragora_preferences');
-      if (prefs) {
-        var parsed = JSON.parse(prefs);
-        theme = parsed.theme;
-      }
+    if (theme === 'light') theme = 'warm';
+    if (theme !== 'warm' && theme !== 'dark' && theme !== 'professional') {
+      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'warm';
     }
-    if (theme === 'system') {
-      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    if (!theme) {
-      theme = 'light';
-    }
-    if (theme === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light');
-    }
+    document.documentElement.setAttribute('data-theme', theme);
   } catch (e) {}
 })();
 `;

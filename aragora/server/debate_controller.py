@@ -332,6 +332,7 @@ class DebateRequest:
     enable_auto_execution: bool | None = None  # Enable post-debate auto-execution
     enable_settlement_tracking: bool | None = None  # Enable settlement claim extraction
     enable_interventions: bool | None = None  # Enable intervention queue
+    quality_pipeline: dict | None = None  # Post-consensus quality pipeline config
 
     def __post_init__(self):
         if self.auto_select_config is None:
@@ -448,6 +449,7 @@ class DebateRequest:
             enable_auto_execution=data.get("enable_auto_execution"),
             enable_settlement_tracking=data.get("enable_settlement_tracking"),
             enable_interventions=data.get("enable_interventions"),
+            quality_pipeline=data.get("quality_pipeline"),
         )
 
 
@@ -886,6 +888,7 @@ class DebateController:
             enable_auto_execution=request.enable_auto_execution,
             enable_settlement_tracking=request.enable_settlement_tracking,
             enable_interventions=request.enable_interventions,
+            quality_pipeline=request.quality_pipeline,
         )
 
         # Submit to thread pool
@@ -955,6 +958,38 @@ class DebateController:
 
             result = run_async(run_with_timeout())
 
+            # Post-consensus quality pipeline (deterministic, opt-in)
+            quality_meta: dict[str, Any] | None = None
+            if isinstance(config.quality_pipeline, dict) and config.quality_pipeline.get(
+                "enabled", True
+            ):
+                try:
+                    from aragora.debate.quality_pipeline import (
+                        QualityPipelineConfig,
+                        apply_post_consensus_quality,
+                    )
+
+                    qp_config = QualityPipelineConfig.from_dict(config.quality_pipeline)
+                    qp_result = apply_post_consensus_quality(
+                        answer=result.final_answer or "",
+                        task=config.question,
+                        config=qp_config,
+                    )
+                    result.final_answer = qp_result.answer
+                    quality_meta = qp_result.to_dict()
+                    logger.info(
+                        "[debate] Quality pipeline for %s: passes_gate=%s repaired=%s",
+                        debate_id,
+                        qp_result.passes_gate,
+                        qp_result.repaired,
+                    )
+                except (ImportError, ValueError, TypeError, OSError) as qp_err:
+                    logger.warning(
+                        "[debate] Quality pipeline failed for %s (non-fatal): %s",
+                        debate_id,
+                        qp_err,
+                    )
+
             # Extract explanation summary if available
             explanation_text = ""
             explanation_obj = getattr(result, "explanation", None)
@@ -1006,6 +1041,7 @@ class DebateController:
                     "agent_calibration": agent_calibration,
                     "mode": mode_meta,
                     "settlement": settlement_snapshot,
+                    "quality_pipeline": quality_meta,
                 },
             )
 
