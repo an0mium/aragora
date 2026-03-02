@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 3
     outputs:
       quality: ${{ steps.filter.outputs.quality }}
@@ -45,7 +45,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.quality == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     name: Quality Pipeline Tests
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -95,7 +95,7 @@ jobs:
   quality-smoke:
     needs: [changes, quality-smoke-run]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 2
     steps:
       - name: Evaluate quality smoke result

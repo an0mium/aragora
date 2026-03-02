@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   smoke:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 5
     steps:
       - name: Check backend health

@@ -34,7 +34,7 @@ jobs:
   smoke-tests:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Smoke Test Harness
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -75,7 +75,7 @@ jobs:
   api-contract-sync:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: API Contract Sync
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -105,7 +105,7 @@ jobs:
 
   frontend-build:
     name: Frontend Build
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 12
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'workflow_call')
 
@@ -152,7 +152,7 @@ jobs:
   status-doc-validation:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Status Doc Validation
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 5
 
     steps:
@@ -220,7 +220,7 @@ jobs:
 
   integration-summary:
     name: Integration Gate Summary
-    runs-on: ubuntu-latest
+    runs-on: aragora
     needs: [smoke-tests, api-contract-sync, status-doc-validation, frontend-build]
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always())
     timeout-minutes: 2

@@ -36,7 +36,7 @@ jobs:
   release-readiness:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Release Readiness
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 35
 
     steps:

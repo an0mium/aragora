@@ -372,7 +372,7 @@ jobs:
 
   sync:
     name: Sync Spec (main only)
-    runs-on: ubuntu-latest
+    runs-on: aragora
     needs: generate-run
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
@@ -442,7 +442,7 @@ jobs:
     name: Generate & Validate
     needs: [scope, generate-run]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 2
     steps:
       - name: Evaluate OpenAPI result

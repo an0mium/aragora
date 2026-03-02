@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     defaults:
       run:
         working-directory: docs-site
@@ -55,7 +55,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: aragora
     needs: build
     steps:
       - name: Deploy to GitHub Pages

@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 5
     outputs:
       version: ${{ steps.get-version.outputs.version }}
@@ -50,7 +50,7 @@ jobs:
 
   docs-sync:
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -78,7 +78,7 @@ jobs:
 
   test:
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 35
     strategy:
       fail-fast: false
@@ -120,7 +120,7 @@ jobs:
   # ---------------------------------------------------------------------------
   sdk-parity-gate:
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -180,7 +180,7 @@ jobs:
   # ---------------------------------------------------------------------------
   security-gate:
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -245,7 +245,7 @@ jobs:
   # ---------------------------------------------------------------------------
   frontend-build:
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -277,7 +277,7 @@ jobs:
   # ---------------------------------------------------------------------------
   release-checks:
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -359,7 +359,7 @@ jobs:
   # ---------------------------------------------------------------------------
   integration-smoke:
     needs: [validate, test]
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -420,7 +420,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build:
     needs: [validate, test, docs-sync, sdk-parity-gate, security-gate, integration-smoke, frontend-build, release-checks]
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -456,7 +456,7 @@ jobs:
 
   publish-pypi:
     needs: [validate, build]
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     environment: pypi
 
@@ -476,7 +476,7 @@ jobs:
 
   release:
     needs: [validate, build]
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     permissions:
       contents: write

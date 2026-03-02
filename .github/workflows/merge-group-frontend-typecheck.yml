@@ -12,7 +12,7 @@ concurrency:
 jobs:
   frontend-typecheck:
     name: Frontend TypeScript Type Check
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:

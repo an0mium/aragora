@@ -29,7 +29,7 @@ jobs:
   lighthouse:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Lighthouse Performance Audit
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 20
 
     steps:
@@ -211,7 +211,7 @@ jobs:
   accessibility-audit:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Accessibility Audit
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -290,7 +290,7 @@ jobs:
   mobile-responsiveness:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Mobile Responsiveness Check
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
