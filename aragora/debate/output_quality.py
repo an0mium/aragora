@@ -27,6 +27,31 @@ _THRESHOLD_LINE_RE = re.compile(
 _JSON_BLOCK_RE = re.compile(r"```json\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 _GENERIC_CODE_BLOCK_RE = re.compile(r"```\s*(.*?)```", re.DOTALL)
 
+# Known template strings produced by _default_section_content().
+# Content matching these (after stripping) is filler, not real debate output.
+_TEMPLATE_STRINGS: frozenset[str] = frozenset(
+    {
+        "- Prioritized task list with execution rationale.",
+        "- Break top task into independently testable subtasks.",
+        "- aragora/cli/commands/debate.py\n- tests/debate/test_output_quality.py",
+        "- Run targeted unit tests and one smoke run for validation.",
+        (
+            "If error_rate > 2% for 10m, rollback by disabling the feature flag "
+            "and redeploying the last stable build."
+        ),
+        (
+            "If error_rate > 2% for 10m, rollback by disabling feature flag and "
+            "redeploying last stable build."
+        ),
+        "- p95_latency <= 250ms for 15m\n- error_rate < 1% over 15m",
+        "```json\n{}\n```",
+        "- Fill in section content.",
+    }
+)
+
+# Minimum word count for a section to be considered substantive.
+_MIN_SUBSTANTIVE_WORDS = 10
+
 
 def _normalize_heading(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
@@ -304,6 +329,26 @@ def _find_section_content(sections: list[dict[str, Any]], normalized_title: str)
     return ""
 
 
+def _is_template_content(text: str) -> bool:
+    """Return True if the text matches a known template/filler string."""
+    stripped = text.strip()
+    if stripped in _TEMPLATE_STRINGS:
+        return True
+    # Also check if the content is a single-line platitude
+    for tmpl in _TEMPLATE_STRINGS:
+        if stripped == tmpl.strip():
+            return True
+    return False
+
+
+def _section_word_count(text: str) -> int:
+    """Count meaningful words in a section (excluding markdown syntax)."""
+    # Strip code blocks, bullet markers, and heading markers
+    cleaned = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+    cleaned = re.sub(r"^[#\-*>\s]+", "", cleaned, flags=re.MULTILINE)
+    return len(cleaned.split())
+
+
 def _has_rollback_trigger(text: str) -> bool:
     lowered = text.lower()
     if "rollback" not in lowered:
@@ -367,6 +412,24 @@ def validate_output_against_contract(
         if not content.strip():
             empty_sections.append(original)
             defects.append(f"Empty section content: {original}")
+        elif _is_template_content(content):
+            defects.append(f"Template filler detected in section: {original}")
+        elif _section_word_count(content) < _MIN_SUBSTANTIVE_WORDS:
+            # Skip word-count check for inherently terse sections
+            terse_ok = (
+                "json payload" in normalized or "file paths" in normalized or "owner" in normalized
+            )
+            if not terse_ok:
+                defects.append(
+                    f"Section too brief ({_section_word_count(content)} words): {original}"
+                )
+
+    # Count how many sections are template filler (for score penalty)
+    template_section_count = 0
+    for _orig, norm in zip(contract.required_sections, required_normalized, strict=False):
+        content = _find_section_content(sections, norm)
+        if content.strip() and _is_template_content(content):
+            template_section_count += 1
 
     gate_text = _find_section_content(sections, _normalize_heading("Gate Criteria"))
     if not gate_text:
@@ -413,6 +476,11 @@ def validate_output_against_contract(
     raw_score += 1.0 if has_rollback_trigger else 0.0
     raw_score += 1.0 if has_paths else 0.0
     raw_score += 1.0 if has_valid_json_payload else 0.0
+
+    # Penalize template filler: each template section removes 1 point from raw score.
+    # This prevents deterministic repair from achieving a perfect score with filler.
+    raw_score = max(0.0, raw_score - template_section_count)
+
     quality_score_10 = round(min(10.0, (raw_score / max_score) * 10.0), 2)
 
     verdict: Literal["good", "needs_work"] = "good"
@@ -623,8 +691,20 @@ def apply_deterministic_quality_repairs(
     contract: OutputContract,
     report: OutputQualityReport,
 ) -> str:
-    """Apply deterministic last-mile repairs for common structured-output defects."""
-    sections = _extract_sections(answer or "")
+    """Apply deterministic last-mile repairs for common structured-output defects.
+
+    CRITICAL DESIGN: This function is ADDITIVE, not destructive.
+    - It preserves the entire original answer as the base.
+    - It only APPENDS missing required sections that the debate didn't produce.
+    - It never replaces real debate content with template filler.
+    - For structural fixes (missing gate thresholds, paths, rollback), it
+      appends to existing section content rather than replacing it.
+    """
+    text = (answer or "").rstrip()
+    if not text:
+        return text
+
+    sections = _extract_sections(text)
     section_by_norm: dict[str, str] = {}
     for section in sections:
         section_by_norm[section["normalized"]] = str(section["content"] or "").strip()
@@ -632,13 +712,24 @@ def apply_deterministic_quality_repairs(
     required_names = contract.required_sections
     required_norm = contract.normalized_sections
 
-    content_by_name: dict[str, str] = {}
+    # Identify which required sections are genuinely missing.
+    missing_sections: list[tuple[str, str]] = []
     for name, normalized in zip(required_names, required_norm, strict=False):
-        content = section_by_norm.get(normalized, "").strip()
-        if not content:
-            content = _default_section_content(name)
-        content_by_name[name] = content
+        if normalized not in section_by_norm or not section_by_norm[normalized].strip():
+            missing_sections.append((name, normalized))
 
+    # Only append missing sections — never discard existing content.
+    appended_parts: list[str] = []
+    for name, _normalized in missing_sections:
+        # Skip JSON Payload from missing-section appending; handled separately below.
+        if "json payload" in _normalize_heading(name):
+            continue
+        appended_parts.append(
+            f"\n\n## {name}\n*[Section not produced by debate — requires LLM concretization pass]*"
+        )
+
+    # Structural fixes: append supplemental content to existing sections
+    # without replacing what the debate produced.
     owner_name = next(
         (
             n
@@ -665,59 +756,60 @@ def apply_deterministic_quality_repairs(
         None,
     )
 
+    # For existing sections that lack required structural elements,
+    # find and patch them in-place.
     if owner_name and contract.require_owner_paths:
-        owner_content = content_by_name.get(owner_name, "")
-        if not _PATH_RE.search(owner_content):
-            owner_content = (
-                owner_content.strip()
-                + ("\n" if owner_content.strip() else "")
-                + "- aragora/cli/commands/debate.py\n- tests/debate/test_output_quality.py"
+        owner_norm = _normalize_heading(owner_name)
+        owner_content = section_by_norm.get(owner_norm, "")
+        if owner_content and not _PATH_RE.search(owner_content):
+            # The section exists but has no paths — append a note.
+            text = _append_to_section(
+                text,
+                owner_norm,
+                "\n- *[No repo paths detected — add concrete file paths]*",
             )
-            content_by_name[owner_name] = owner_content.strip()
 
     if gate_name and contract.require_gate_thresholds:
-        gate_content = content_by_name.get(gate_name, "")
-        if len(_THRESHOLD_LINE_RE.findall(gate_content)) < 2:
-            gate_content = (
-                gate_content.strip()
-                + ("\n" if gate_content.strip() else "")
-                + "- p95_latency <= 250ms for 15m\n- error_rate < 1% over 15m"
+        gate_norm = _normalize_heading(gate_name)
+        gate_content = section_by_norm.get(gate_norm, "")
+        if gate_content and len(_THRESHOLD_LINE_RE.findall(gate_content)) < 2:
+            text = _append_to_section(
+                text,
+                gate_norm,
+                "\n- *[Insufficient quantitative thresholds — add measurable gates]*",
             )
-            content_by_name[gate_name] = gate_content.strip()
 
     if rollback_name and contract.require_rollback_triggers:
-        rollback_content = content_by_name.get(rollback_name, "")
-        if not _has_rollback_trigger(rollback_content):
-            rollback_content = (
-                rollback_content.strip()
-                + ("\n" if rollback_content.strip() else "")
-                + "If error_rate > 2% for 10m, rollback by disabling feature flag and "
-                + "redeploying last stable build."
+        rollback_norm = _normalize_heading(rollback_name)
+        rollback_content = section_by_norm.get(rollback_norm, "")
+        if rollback_content and not _has_rollback_trigger(rollback_content):
+            text = _append_to_section(
+                text,
+                rollback_norm,
+                "\n- *[Missing explicit trigger → action mapping]*",
             )
-            content_by_name[rollback_name] = rollback_content.strip()
 
+    # JSON payload: build from actual section content, not templates.
     if json_name and contract.require_json_payload:
-        payload: dict[str, Any] = {}
-        for section_name in required_names:
-            key = _slugify(section_name)
-            if key == _slugify(json_name):
-                continue
-            section_text = content_by_name.get(section_name, "").strip()
-            lines = [line.strip(" -\t") for line in section_text.splitlines() if line.strip()]
-            payload[key] = lines[:3] if lines else section_text[:200]
-        payload["quality_repaired"] = True
-        content_by_name[json_name] = "```json\n" + json.dumps(payload, indent=2) + "\n```"
+        # Re-extract sections from the (possibly amended) text.
+        updated_sections = _extract_sections(text)
+        payload = _build_json_payload_from_answer(text, contract)
+        json_block = "```json\n" + json.dumps(payload, indent=2) + "\n```"
 
-    rendered_sections: list[str] = []
-    for section_name in required_names:
-        content = content_by_name.get(section_name, "").strip()
-        if not content:
-            content = _default_section_content(section_name)
-        rendered_sections.append(f"## {section_name}\n{content}")
+        json_norm = _normalize_heading(json_name)
+        json_present = any(s["normalized"] == json_norm for s in updated_sections)
+        if not json_present:
+            appended_parts.append(f"\n\n## {json_name}\n{json_block}")
 
-    # Preserve original answer as appendix when deterministic repair had to
-    # synthesize missing sections; this keeps traceability for audits.
-    if report.verdict != "good" and answer.strip():
-        rendered_sections.append("## Repair Notes\n- Deterministic quality repair applied.")
+    result = text + "".join(appended_parts)
+    return result.strip() + "\n"
 
-    return "\n\n".join(rendered_sections).strip() + "\n"
+
+def _append_to_section(text: str, section_norm: str, suffix: str) -> str:
+    """Append text to the end of an existing section, before the next section header."""
+    sections = _extract_sections(text)
+    for section in sections:
+        if section["normalized"] == section_norm:
+            insert_pos = section["end"]
+            return text[:insert_pos].rstrip() + suffix + "\n" + text[insert_pos:]
+    return text

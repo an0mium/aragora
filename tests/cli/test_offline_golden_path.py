@@ -351,27 +351,32 @@ def test_cmd_ask_quality_fail_closed_accepts_output_contract_file(monkeypatch, t
         mock_result = MagicMock()
         mock_result.final_answer = """
 ## Ranked High-Level Tasks
-- Task 1
+- Implement settlement tracker integration with ERC-8004 reputation scoring for all debate agents participating in multi-round consensus
+- Add automated data-feed verification for time-delayed claim resolution across consensus outcomes
 
 ## Suggested Subtasks
-- Subtask 1.1
+- Create unit tests for settlement hook dispatch covering extract and settle lifecycle events
+- Validate ERC-8004 Brier score calculation against known calibration datasets for accuracy
 
 ## Owner module / file paths
-- aragora/cli/commands/debate.py
+- aragora/debate/settlement_hooks.py
+- aragora/debate/orchestrator.py
+- tests/debate/test_settlement_hooks.py
 
 ## Test Plan
-- Unit tests
+- Run full settlement hook unit tests with both successful and failed settle paths for comprehensive coverage
+- Execute integration smoke test covering debate creation through receipt persistence to validate end-to-end flow
 
 ## Rollback Plan
-If error_rate > 2% for 10m, rollback by disabling feature flag and redeploying last stable build.
+If settlement hook error rate exceeds 2% over a sustained 10 minute window, rollback by disabling the settlement feature flag in the control plane and redeploying the previous stable build from the artifact registry.
 
 ## Gate Criteria
-- p95_latency <= 250ms for 15m
-- error_rate < 1% over 15m
+- Settlement hook p95 latency <= 200ms measured over a 15 minute steady-state window
+- Overall debate error rate < 0.5% over 15 minutes of production traffic with settlement enabled
 
 ## JSON Payload
 ```json
-{"ok": true}
+{"ranked_high_level_tasks": ["Settlement tracker ERC-8004 integration", "Data-feed verification"]}
 ```
 """
         mock_result.metadata = {}
@@ -397,36 +402,42 @@ def test_cmd_ask_upgrades_output_to_good(monkeypatch, capsys):
 """
     upgraded_answer = """
 ## Ranked High-Level Tasks
-- Task 1
+- Implement settlement tracker integration with ERC-8004 reputation scoring for all debate agents participating in multi-round consensus
+- Add automated data-feed verification for time-delayed claim resolution across consensus outcomes
 
 ## Suggested Subtasks
-- Subtask 1.1
+- Create unit tests for settlement hook dispatch covering extract and settle lifecycle events
+- Validate ERC-8004 Brier score calculation against known calibration datasets for accuracy
+- Add integration smoke test that runs a minimal debate and verifies receipt hash chain integrity
 
 ## Owner module / file paths
-- aragora/cli/commands/debate.py
-- tests/cli/test_offline_golden_path.py
+- aragora/debate/settlement_hooks.py
+- aragora/debate/orchestrator.py
+- tests/debate/test_settlement_hooks.py
 
 ## Test Plan
-- Run deterministic output-quality tests.
+- Run full settlement hook unit tests with both successful and failed settle paths for comprehensive coverage
+- Execute integration smoke test covering debate creation through receipt persistence to validate end-to-end flow
+- Verify ERC-8004 reputation updates are idempotent and handle concurrent writes correctly under load
 
 ## Rollback Plan
-If error_rate > 2% for 10m, rollback by disabling feature flag and redeploying last stable build.
+If settlement hook error rate exceeds 2% over a sustained 10 minute window, rollback by disabling the settlement feature flag in the control plane and redeploying the previous stable build from the artifact registry.
 
 ## Gate Criteria
-- p95_latency <= 250ms for 15m
-- error_rate < 1% over 15m
+- Settlement hook p95 latency <= 200ms measured over a 15 minute steady-state window
+- Overall debate error rate < 0.5% over 15 minutes of production traffic with settlement enabled
 
 ## JSON Payload
 ```json
 {
-  "ranked_high_level_tasks": ["Task 1"],
-  "suggested_subtasks": ["Subtask 1.1"],
-  "owner_module_file_paths": ["aragora/cli/commands/debate.py"],
-  "test_plan": ["Run deterministic output-quality tests."],
-  "rollback_plan": {"trigger": "error_rate > 2% for 10m", "action": "disable feature flag"},
+  "ranked_high_level_tasks": ["Settlement tracker ERC-8004 integration", "Data-feed verification"],
+  "suggested_subtasks": ["Settlement hook tests", "Brier score validation", "Receipt hash smoke test"],
+  "owner_module_file_paths": ["aragora/debate/settlement_hooks.py"],
+  "test_plan": ["Settlement unit tests", "Integration smoke", "ERC-8004 idempotency"],
+  "rollback_plan": {"trigger": "settlement hook error > 2%", "action": "disable settlement flag"},
   "gate_criteria": [
-    {"metric": "p95_latency", "op": "<=", "threshold": 250, "unit": "ms"},
-    {"metric": "error_rate", "op": "<", "threshold": 1, "unit": "%"}
+    {"metric": "settlement_p95_latency", "op": "<=", "threshold": 200, "unit": "ms"},
+    {"metric": "debate_error_rate", "op": "<", "threshold": 0.5, "unit": "%"}
   ]
 }
 ```
@@ -468,7 +479,7 @@ If error_rate > 2% for 10m, rollback by disabling feature flag and redeploying l
         di_include_context=False,
         di_plan_strategy="single_task",
         di_execution_mode=None,
-        timeout=30,
+        timeout=300,
         post_consensus_quality=True,
         upgrade_to_good=True,
         quality_upgrade_max_loops=1,
