@@ -4,7 +4,8 @@ Compliance CLI commands.
 Provides CLI access to EU AI Act compliance tooling and the compliance framework:
 - aragora compliance audit <receipt_file>  -- Generate conformity report
 - aragora compliance classify <description> -- Classify use case by risk level
-- aragora compliance eu-ai-act generate    -- Generate full artifact bundle
+- aragora compliance eu-ai-act generate    -- Generate full artifact bundle (Art. 9, 12-15)
+- aragora compliance --generate-artifacts  -- Shorthand for eu-ai-act generate
 - aragora compliance status                -- Show compliance framework status
 - aragora compliance report                -- Generate a compliance framework report
 - aragora compliance check <content>       -- Run compliance checks against content
@@ -38,6 +39,20 @@ def add_compliance_parser(subparsers: argparse._SubParsersAction) -> None:
             "  eu-ai-act  Generate artifact bundles (Articles 12/13/14)"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    # Top-level convenience flag: aragora compliance --generate-artifacts
+    parser.add_argument(
+        "--generate-artifacts",
+        action="store_true",
+        help=(
+            "Shorthand for 'aragora compliance eu-ai-act generate'. "
+            "Generates a full EU AI Act compliance bundle (Articles 9, 12-15) "
+            "from a receipt or synthetic demo data."
+        ),
+    )
+    parser.add_argument(
+        "--receipt",
+        help="Receipt file to use with --generate-artifacts (optional; uses demo data if omitted)",
     )
     parser.set_defaults(func=cmd_compliance)
     sub = parser.add_subparsers(dest="compliance_command")
@@ -218,6 +233,20 @@ def add_compliance_parser(subparsers: argparse._SubParsersAction) -> None:
 
 def cmd_compliance(args: argparse.Namespace) -> None:
     """Dispatch compliance sub-commands."""
+    # Handle top-level convenience flag
+    if getattr(args, "generate_artifacts", False):
+        # Build a namespace that _cmd_eu_ai_act_generate expects
+        args.receipt_file = getattr(args, "receipt", None)
+        args.output = "./compliance-bundle"
+        args.provider_name = ""
+        args.provider_contact = ""
+        args.eu_representative = ""
+        args.system_name = ""
+        args.system_version = ""
+        args.output_format = "all"
+        _cmd_eu_ai_act_generate(args)
+        return
+
     command = getattr(args, "compliance_command", None)
     if command == "status":
         _cmd_status(args)
