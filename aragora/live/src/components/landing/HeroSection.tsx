@@ -42,6 +42,16 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
+  // All hooks must be called before any early return (Rules of Hooks)
+  const [question, setQuestion] = useState('');
+  const [isRunning, setIsRunning] = useState(false);
+  const [result, setResult] = useState<DebateResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [progressMsg, setProgressMsg] = useState(PROGRESS_MESSAGES[0]);
+  const abortRef = useRef<AbortController | null>(null);
+  const { config: backendConfig } = useBackend();
+  const apiBase = (isDashboardMode ? props.apiBase as string : backendConfig.api) || BACKENDS.production.api;
+
   // Dashboard mode — preserves original behavior from old HeroSection
   if (isDashboardMode) {
     return (
@@ -106,23 +116,6 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   }
 
   // Landing mode — self-contained debate form with tri-theme styling
-
-  // Debate form state — ported from old LandingPage.tsx
-  const [question, setQuestion] = useState('');
-  const [isRunning, setIsRunning] = useState(false);
-  const [result, setResult] = useState<DebateResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [progressMsg, setProgressMsg] = useState(PROGRESS_MESSAGES[0]);
-  const abortRef = useRef<AbortController | null>(null);
-
-  let apiBase: string;
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const { config } = useBackend();
-    apiBase = config.api;
-  } catch {
-    apiBase = BACKENDS.production.api;
-  }
 
   function saveDebateBeforeLogin() {
     if (result) {

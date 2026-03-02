@@ -21,6 +21,12 @@ from aragora.debate.repo_grounding import assess_repo_grounding
 
 _HEADER_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
 _PATH_RE = re.compile(r"(?:^|[\s`])(?:/?[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+(?:$|[\s`])")
+# Supplementary pattern: detect file references by extension even without a
+# full slash-separated path (catches code-block directory trees and inline
+# mentions like ``test_output_sections.py``).
+_FILE_EXT_RE = re.compile(
+    r"\b[A-Za-z0-9_.-]+\.(?:py|ts|tsx|js|jsx|json|yaml|yml|toml|cfg|ini|md|sql|sh|go|rs|java)\b"
+)
 # Broad threshold regex: catches standard operators, Unicode operators, and
 # "threshold: N" / "threshold_value: N" structured formats.  The original
 # regex only matched ``<= 250ms`` style; LLMs frequently use tables, JSON-like
@@ -496,8 +502,9 @@ def _has_quantitative_thresholds(text: str) -> bool:
     nl_patterns = [
         r"\b(?:under|below|less than|at most|no more than|fewer than|maximum|max)\s+\d+",
         r"\b(?:above|over|more than|at least|minimum|min)\s+\d+",
-        r"\bzero\s+(?:blocker|error|failure|timeout|crash)",
-        r"\b(?:0|no)\s+(?:blocker|error|failure|timeout|crash|runtime)",
+        r"\bzero\s+\w+",  # "zero blockers", "zero errors", "zero runtime errors"
+        r"\b(?:0|no)\s+(?:blocker|error|failure|timeout|crash|runtime|duplicate|empty)",
+        r"\b(?:all|every)\s+\d+\s+\w+",  # "All 7 required", "every 3 tests"
     ]
     nl_hits = sum(1 for pat in nl_patterns if re.search(pat, text, re.IGNORECASE))
 
@@ -595,7 +602,11 @@ def validate_output_against_contract(
         owner_text = _find_section_content(sections, _normalize_heading(owner_heading))
         if owner_text:
             break
-    has_paths = bool(owner_text and _PATH_RE.search(owner_text))
+    # Primary: slash-separated paths.  Fallback: file extension references
+    # (catches code-block directory trees like ``tests/\n  smoke/\n  file.py``).
+    has_paths = bool(
+        owner_text and (_PATH_RE.search(owner_text) or _FILE_EXT_RE.search(owner_text))
+    )
 
     # Broad JSON payload detection: try synonyms.
     json_text = ""
@@ -943,7 +954,9 @@ def apply_deterministic_quality_repairs(
     if owner_name and contract.require_owner_paths:
         owner_norm = _normalize_heading(owner_name)
         owner_content = section_by_norm.get(owner_norm, "")
-        if owner_content and not _PATH_RE.search(owner_content):
+        if owner_content and not (
+            _PATH_RE.search(owner_content) or _FILE_EXT_RE.search(owner_content)
+        ):
             # The section exists but has no paths — append a note.
             text = _append_to_section(
                 text,
