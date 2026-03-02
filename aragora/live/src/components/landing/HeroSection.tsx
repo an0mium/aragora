@@ -187,6 +187,11 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         paddingTop: isDark ? '96px' : '80px',
         paddingBottom: isDark ? '96px' : '80px',
         fontFamily: 'var(--font-landing)',
+        background: isDark
+          ? 'radial-gradient(ellipse at 50% 0%, rgba(57,255,20,0.03) 0%, transparent 60%)'
+          : theme === 'professional'
+            ? 'linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%)'
+            : 'linear-gradient(180deg, #faf9f7 0%, #ffffff 100%)',
       }}
     >
       {/* CRT scanline overlay — dark theme only */}
@@ -227,6 +232,10 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             style={{
               color: 'var(--accent)',
               textShadow: isDark ? '0 0 10px var(--accent), 0 0 20px var(--accent)' : 'none',
+              textDecoration: 'underline',
+              textDecorationColor: 'var(--accent-glow)',
+              textUnderlineOffset: '6px',
+              textDecorationThickness: '3px',
             }}
           >
             Make them argue.
@@ -242,8 +251,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             fontFamily: 'var(--font-landing)',
           }}
         >
-          Multiple AI models debate your question, stress-test each answer,
-          and deliver an audit-ready verdict you can defend.
+          Multiple AI models stress-test your question and deliver an audit-ready verdict with evidence chains, confidence scores, and dissenting views.
         </p>
 
         {/* Debate input form */}
@@ -273,19 +281,27 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                 padding: isDark ? '12px 16px 12px 28px' : '12px 16px',
                 boxShadow: isDark ? 'none' : 'var(--shadow-card)',
               }}
+              onFocus={(e) => {
+                e.currentTarget.style.boxShadow = isDark
+                  ? '0 0 0 1px var(--accent), 0 0 15px var(--accent-glow)'
+                  : '0 0 0 2px var(--accent-glow), var(--shadow-card)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.boxShadow = isDark ? 'none' : 'var(--shadow-card)';
+              }}
             />
           </div>
           <button
             type="submit"
             disabled={isRunning || !question.trim()}
-            className="w-full mt-3 text-sm font-bold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full mt-3 text-sm font-bold transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             style={{
               backgroundColor: 'var(--accent)',
               color: 'var(--bg)',
               fontFamily: 'var(--font-landing)',
               borderRadius: 'var(--radius-button)',
-              padding: '12px 32px',
-              boxShadow: isDark ? '0 0 20px var(--accent-glow)' : 'none',
+              padding: '14px 32px',
+              boxShadow: isDark ? '0 0 20px var(--accent-glow)' : '0 2px 8px var(--accent-glow)',
             }}
           >
             {isRunning ? 'Agents debating...' : 'Run a free debate'}
