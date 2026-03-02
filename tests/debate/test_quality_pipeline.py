@@ -151,12 +151,15 @@ class TestApplyPostConsensusQuality:
         assert result.passes_gate is False
         assert result.repaired is False
 
-    def test_no_contract_derivable_returns_original(self):
+    def test_no_contract_derivable_uses_default_contract(self):
         cfg = QualityPipelineConfig()
         result = apply_post_consensus_quality("some answer", "hello world", cfg)
-        # "hello world" has no section hints, so no contract -> passthrough
+        # "hello world" has no section hints, so a minimal default contract is
+        # used (practicality checks only, no required sections).
         assert result.answer == "some answer"
-        assert result.contract_dict is None
+        assert result.contract_dict is not None
+        assert result.contract_dict["required_sections"] == []
+        assert result.contract_dict["require_practicality_checks"] is True
 
     def test_good_answer_passes_gate(self):
         cfg = QualityPipelineConfig(

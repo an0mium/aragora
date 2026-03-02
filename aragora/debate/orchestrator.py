@@ -1068,6 +1068,13 @@ class Arena(ArenaDelegatesMixin):
         if hasattr(self, "context_gatherer") and self.context_gatherer:
             self.context_gatherer.clear_cache()
         self._cleanup_convergence_cache()
+        # Close shared HTTP connector to prevent resource leak warnings
+        try:
+            from aragora.agents.api_agents.common import close_shared_connector
+
+            await close_shared_connector()
+        except (ImportError, RuntimeError, OSError):
+            pass
 
     async def _setup_agent_channels(self, ctx: DebateContext, debate_id: str) -> None:
         await _setup_agent_channels(self, ctx, debate_id)
@@ -1081,23 +1088,34 @@ class Arena(ArenaDelegatesMixin):
 
     async def run(self, correlation_id: str = "") -> DebateResult:
         """Run the full debate and return results."""
-        if self.protocol.timeout_seconds > 0:
+        try:
+            if self.protocol.timeout_seconds > 0:
+                try:
+                    return await asyncio.wait_for(
+                        self._run_inner(correlation_id=correlation_id),
+                        timeout=self.protocol.timeout_seconds,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "debate_timeout timeout_seconds=%s", self.protocol.timeout_seconds
+                    )
+                    return DebateResult(
+                        task=self.env.task,
+                        messages=getattr(self, "_partial_messages", []),
+                        critiques=getattr(self, "_partial_critiques", []),
+                        votes=[],
+                        dissenting_views=[],
+                        rounds_used=getattr(self, "_partial_rounds", 0),
+                    )
+            return await self._run_inner(correlation_id=correlation_id)
+        finally:
+            # Close shared HTTP connector to prevent resource leak warnings
             try:
-                return await asyncio.wait_for(
-                    self._run_inner(correlation_id=correlation_id),
-                    timeout=self.protocol.timeout_seconds,
-                )
-            except asyncio.TimeoutError:
-                logger.warning("debate_timeout timeout_seconds=%s", self.protocol.timeout_seconds)
-                return DebateResult(
-                    task=self.env.task,
-                    messages=getattr(self, "_partial_messages", []),
-                    critiques=getattr(self, "_partial_critiques", []),
-                    votes=[],
-                    dissenting_views=[],
-                    rounds_used=getattr(self, "_partial_rounds", 0),
-                )
-        return await self._run_inner(correlation_id=correlation_id)
+                from aragora.agents.api_agents.common import close_shared_connector
+
+                await close_shared_connector()
+            except (ImportError, RuntimeError, OSError):
+                pass
 
     async def _run_inner(self, correlation_id: str = "") -> DebateResult:
         """Internal debate execution orchestrator coordinating all phases."""
