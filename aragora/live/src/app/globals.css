@@ -110,6 +110,147 @@
   --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
 }
 
+/* ============================================================================
+   Tri-theme system: warm (default), dark, professional
+   These override the base :root and [data-theme="light"] variables above.
+   Landing page and all new components use data-theme attribute set by ThemeContext.
+   ============================================================================ */
+
+/* Warm theme (default for new visitors, maps from old "light") */
+[data-theme="warm"] {
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --surface-elevated: #fbfaf8;
+  --border: #e8e4de;
+  --border-glow: #2d8a4040;
+  --text: #2c2a28;
+  --text-muted: #736f68;
+
+  --acid-green: #1e7033;
+  --acid-cyan: #166a7a;
+  --acid-magenta: #8c3570;
+  --acid-yellow: #7a6318;
+  --matrix-green: #2a7a3c;
+  --terminal-green: #357a45;
+
+  --accent: #1e7033;
+  --accent-glow: rgba(30, 112, 51, 0.15);
+  --success: #1e7033;
+  --warning: #7a6318;
+  --purple: #6b3d8c;
+  --gold: #7a6318;
+  --crimson: #a33b3b;
+  --cyan: #166a7a;
+
+  --terminal-glow: 0 0 8px rgba(30, 112, 51, 0.3);
+  --scanline: none;
+  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+
+  /* Landing page theme tokens */
+  --font-landing: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  --radius-card: 12px;
+  --radius-button: 9999px;
+  --radius-input: 12px;
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.1);
+  --section-padding: 80px;
+  --link-color: #166a7a;
+}
+
+/* Dark theme (terminal/hacker aesthetic) */
+[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface-elevated: #141414;
+  --border: #1a1a1a;
+  --border-glow: #39ff1440;
+  --text: #f0f0f0;
+  --text-muted: #a0a0a0;
+
+  --acid-green: #39ff14;
+  --acid-cyan: #00ffff;
+  --acid-magenta: #ff00ff;
+  --acid-yellow: #ffff00;
+  --matrix-green: #00ff41;
+  --terminal-green: #33ff33;
+
+  --accent: #39ff14;
+  --accent-glow: rgba(57, 255, 20, 0.3);
+  --success: #39ff14;
+  --warning: #ffff00;
+  --purple: #bf00ff;
+  --gold: #ffd700;
+  --crimson: #ff0040;
+  --cyan: #00ffff;
+
+  --terminal-glow: 0 0 10px var(--acid-green), 0 0 20px var(--acid-green);
+  --scanline: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 1px rgba(57, 255, 20, 0.05);
+  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 2px rgba(57, 255, 20, 0.08);
+  --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 4px rgba(57, 255, 20, 0.1);
+
+  /* Landing page theme tokens */
+  --font-landing: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
+  --radius-card: 0px;
+  --radius-button: 0px;
+  --radius-input: 0px;
+  --shadow-card: none;
+  --shadow-card-hover: none;
+  --section-padding: 96px;
+  --link-color: #00cccc;
+}
+
+/* Professional theme (enterprise, Stripe-like) */
+[data-theme="professional"] {
+  --bg: #ffffff;
+  --surface: #f8fafc;
+  --surface-elevated: #f1f5f9;
+  --border: #e2e8f0;
+  --border-glow: #05966940;
+  --text: #0f172a;
+  --text-muted: #64748b;
+
+  --acid-green: #059669;
+  --acid-cyan: #2563eb;
+  --acid-magenta: #7c3aed;
+  --acid-yellow: #d97706;
+  --matrix-green: #059669;
+  --terminal-green: #059669;
+
+  --accent: #059669;
+  --accent-glow: rgba(5, 150, 105, 0.15);
+  --success: #059669;
+  --warning: #d97706;
+  --purple: #7c3aed;
+  --gold: #d97706;
+  --crimson: #dc2626;
+  --cyan: #2563eb;
+
+  --terminal-glow: none;
+  --scanline: none;
+  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-elevated: 0 4px 8px rgba(0, 0, 0, 0.08);
+  --shadow-floating: 0 8px 16px rgba(0, 0, 0, 0.1);
+
+  /* Landing page theme tokens */
+  --font-landing: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  --radius-card: 8px;
+  --radius-button: 8px;
+  --radius-input: 8px;
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-card-hover: 0 4px 8px rgba(0,0,0,0.08);
+  --section-padding: 80px;
+  --link-color: #2563eb;
+}
+
 /* Theme transition animation - smooth color changes */
 .theme-transition,
 .theme-transition *,

@@ -1,71 +1,103 @@
 'use client';
 
-const USE_CASES = [
-  {
-    icon: '🏗️',
-    title: 'Architecture Stress-Test',
-    desc: 'Find the $500K flaw before launch — AI stress-tests your architecture in 30 minutes',
-  },
-  {
-    icon: '🔐',
-    title: 'Security Red-Team',
-    desc: 'Adversarial AI critique catches vulnerabilities before attackers do',
-  },
-  {
-    icon: '📋',
-    title: 'Decision Receipts',
-    desc: 'Audit-ready transcripts with minority views preserved for compliance',
-  },
-];
+import Link from 'next/link';
+import { useTheme } from '@/context/ThemeContext';
 
-const FOOTER_LINKS = [
-  { href: '/playground', label: 'Try a Debate' },
-  { href: '/oracle', label: 'Oracle' },
+const NAV_LINKS = [
   { href: '/about', label: 'About' },
-  { href: '/security', label: 'Security' },
-  { href: '/privacy', label: 'Privacy' },
+  { href: '#pricing', label: 'Pricing' },
+  { href: '/developer', label: 'Docs' },
+  { href: 'mailto:support@aragora.ai', label: 'Support' },
 ];
 
 export function Footer() {
-  return (
-    <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-auto">
-      {/* Use Cases Section */}
-      <div className="text-acid-green/50 mb-4">{'═'.repeat(50)}</div>
-      <p className="text-acid-cyan font-bold mb-4 text-sm">
-        {'>'} USE CASES
-      </p>
-      <div className="max-w-2xl mx-auto px-4 mb-6 space-y-3">
-        {USE_CASES.map((useCase) => (
-          <div key={useCase.title} className="text-left">
-            <span className="text-acid-green">
-              {useCase.icon} {useCase.title}
-            </span>
-            <p className="text-text-muted/60 text-[10px] ml-6 mt-0.5">
-              {useCase.desc}
-            </p>
-          </div>
-        ))}
-      </div>
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
-      {/* Main Footer */}
-      <div className="text-acid-green/50 mb-4">{'═'.repeat(50)}</div>
-      <p className="text-acid-green font-bold mb-1">
-        {'>'} ARAGORA // AI MODELS THAT DEBATE YOUR DECISIONS
-      </p>
-      <p className="text-text-muted/70 text-[11px] italic max-w-md mx-auto mb-4">
-        &quot;Multiple AI perspectives. One clear verdict. Full audit trail.&quot;
-      </p>
-      <div className="flex justify-center gap-4 text-text-muted/50 mb-4">
-        {FOOTER_LINKS.map((link, idx) => (
-          <span key={link.href} className="flex items-center gap-4">
-            {idx > 0 && <span>|</span>}
-            <a href={link.href} className="hover:text-acid-green transition-colors">
+  return (
+    <footer
+      className="px-4"
+      style={{
+        paddingTop: 'var(--section-padding)',
+        paddingBottom: '40px',
+        borderTop: '1px solid var(--border)',
+        fontFamily: 'var(--font-landing)',
+      }}
+    >
+      <div className="max-w-2xl mx-auto text-center">
+        {/* Call to action statement */}
+        <p
+          className="mb-6"
+          style={{
+            fontSize: '14px',
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-landing)',
+          }}
+        >
+          No signup required. First result in under 30 seconds.
+        </p>
+
+        {/* CTA buttons */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="text-sm font-semibold py-3 px-8 transition-opacity hover:opacity-80 cursor-pointer"
+            style={{
+              backgroundColor: 'var(--accent)',
+              color: 'var(--bg)',
+              fontFamily: 'var(--font-landing)',
+              borderRadius: 'var(--radius-button)',
+              boxShadow: isDark ? '0 0 20px var(--accent-glow)' : 'none',
+              border: 'none',
+            }}
+          >
+            Try it now
+          </button>
+          <Link
+            href="/signup"
+            className="text-sm font-semibold py-3 px-8 transition-colors hover:opacity-80"
+            style={{
+              fontFamily: 'var(--font-landing)',
+              borderRadius: 'var(--radius-button)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-muted)',
+              backgroundColor: 'transparent',
+            }}
+          >
+            Create an account
+          </Link>
+        </div>
+
+        {/* Nav links */}
+        <div className="flex items-center justify-center gap-6 mb-6">
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="text-xs transition-colors hover:opacity-80"
+              style={{
+                color: 'var(--text-muted)',
+                opacity: 0.5,
+                fontFamily: 'var(--font-landing)',
+              }}
+            >
               {link.label}
             </a>
-          </span>
-        ))}
+          ))}
+        </div>
+
+        {/* Tagline */}
+        <p
+          className="text-xs"
+          style={{
+            color: 'var(--text-muted)',
+            opacity: 0.4,
+            fontFamily: 'var(--font-landing)',
+          }}
+        >
+          {isDark ? '> AI decisions you can trust.' : 'AI decisions you can trust.'}
+        </p>
       </div>
-      <div className="text-acid-green/50">{'═'.repeat(50)}</div>
     </footer>
   );
 }

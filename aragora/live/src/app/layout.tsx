@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { JetBrains_Mono } from 'next/font/google';
+import { JetBrains_Mono, Inter } from 'next/font/google';
 import './globals.css';
 
 const jetbrainsMono = JetBrains_Mono({
@@ -7,6 +7,13 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ['400', '500', '600', '700'],
   display: 'swap',
   variable: '--font-jetbrains-mono',
+});
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-inter',
 });
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/context/AuthContext';
@@ -79,7 +86,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={jetbrainsMono.variable} suppressHydrationWarning>
+    <html lang="en" className={`${jetbrainsMono.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
         {/* Build SHA for deploy verification */}
         <meta name="aragora-build-sha" content={process.env.NEXT_PUBLIC_BUILD_SHA || 'unknown'} />

@@ -71,7 +71,7 @@ export interface ApiKey {
 }
 
 export interface UserPreferences {
-  theme: 'dark' | 'light' | 'system';
+  theme: 'dark' | 'light' | 'system' | 'warm' | 'professional';
   notifications: {
     email_digest: boolean;
     debate_completed: boolean;

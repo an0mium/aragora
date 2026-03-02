@@ -1,31 +1,32 @@
 'use client';
 
+import { useTheme } from '@/context/ThemeContext';
 import { Header } from './Header';
 import { HeroSection } from './HeroSection';
-import { VerticalCards } from './VerticalCards';
-import { WhyAragoraSection } from './WhyAragoraSection';
-import { DebateProtocolSection } from './DebateProtocolSection';
-import { TemplatePicker } from '../templates/TemplatePicker';
-import { CapabilitiesSection } from './CapabilitiesSection';
-import { TrustSection } from './TrustSection';
+import { ProblemSection } from './ProblemSection';
+import { HowItWorksSection } from './HowItWorksSection';
 import { PricingSection } from './PricingSection';
 import { Footer } from './Footer';
 
 export function LandingPage() {
+  const { theme } = useTheme();
+
   return (
-    <>
-      <main className="min-h-screen bg-bg text-text relative z-10 flex flex-col">
-        <Header />
-        <HeroSection />
-        <VerticalCards />
-        <WhyAragoraSection />
-        <DebateProtocolSection />
-        <TemplatePicker compact compactLimit={2} />
-        <CapabilitiesSection />
-        <TrustSection />
-        <PricingSection />
-        <Footer />
-      </main>
-    </>
+    <div
+      className="min-h-screen"
+      style={{
+        backgroundColor: 'var(--bg)',
+        color: 'var(--text)',
+        fontFamily: 'var(--font-landing)',
+      }}
+      data-landing-theme={theme}
+    >
+      <Header />
+      <HeroSection />
+      <ProblemSection />
+      <HowItWorksSection />
+      <PricingSection />
+      <Footer />
+    </div>
   );
 }

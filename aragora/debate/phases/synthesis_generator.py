@@ -459,6 +459,11 @@ class SynthesisGenerator:
     def _build_synthesis_prompt(self, ctx: DebateContext) -> str:
         """Build prompt for final synthesis generation.
 
+        When a quality output contract is available in the context, the synthesis
+        uses the contract's required sections as the output structure instead of
+        the default generic structure.  This ensures the debate's final answer
+        naturally satisfies the post-consensus quality validator.
+
         Args:
             ctx: The DebateContext with proposals, critiques, and task
 
@@ -485,6 +490,67 @@ class SynthesisGenerator:
                     critique_items.append(f"- {c.agent} on {c.target}: {summary}")
             critiques_text = "\n".join(critique_items)
 
+        # Check if a quality output contract is available in the context.
+        contract_block = self._extract_contract_block(ctx)
+        if contract_block:
+            return self._build_contract_guided_prompt(
+                task, proposals_text, critiques_text, contract_block
+            )
+
+        return self._build_default_synthesis_prompt(task, proposals_text, critiques_text)
+
+    def _extract_contract_block(self, ctx: DebateContext) -> str | None:
+        """Extract output contract instructions from the debate context, if present."""
+        context = getattr(ctx.env, "context", "") if ctx.env else ""
+        if not context:
+            return None
+        marker = "### Output Contract (Deterministic Quality Gates)"
+        if marker in context:
+            idx = context.index(marker)
+            return context[idx:].strip()
+        return None
+
+    def _build_contract_guided_prompt(
+        self,
+        task: str,
+        proposals_text: str,
+        critiques_text: str,
+        contract_block: str,
+    ) -> str:
+        """Build synthesis prompt that uses the quality contract's section structure."""
+        return f"""You are Claude Opus 4.5, tasked with creating the DEFINITIVE synthesis of this multi-agent AI debate.
+
+## ORIGINAL QUESTION
+{task}
+
+## AGENT FINAL PROPOSALS
+{proposals_text}
+
+## KEY CRITIQUES
+{critiques_text if critiques_text else "No critiques recorded."}
+
+## OUTPUT FORMAT REQUIREMENTS (MANDATORY)
+{contract_block}
+
+## YOUR TASK
+Synthesize the debate into a single comprehensive answer that EXACTLY follows the output format above.
+
+Critical rules:
+- Use EXACTLY the required section headings as `## Heading` markdown headers, in the specified order.
+- Each section must have **substantive content** — at least 2-3 specific, actionable items drawn from the debate.
+- For "Ranked High-Level Tasks": prioritize by impact and feasibility, with concrete rationale from the debate.
+- For "Owner module / file paths": reference REAL repository paths discussed in the debate proposals.
+- For "Gate Criteria": include specific, measurable thresholds (operators + numbers + units).
+- For "Rollback Plan": include explicit trigger conditions and rollback actions.
+- For "JSON Payload": produce valid JSON that mirrors the section content.
+- Preserve DISSENT: if agents disagreed, note it in the relevant section.
+- Do NOT use placeholder text. Every item must be specific and substantive.
+
+Write authoritatively. This is the FINAL WORD on this debate."""
+
+    @staticmethod
+    def _build_default_synthesis_prompt(task: str, proposals_text: str, critiques_text: str) -> str:
+        """Build the default synthesis prompt when no output contract is present."""
         return f"""You are Claude Opus 4.5, tasked with creating the DEFINITIVE synthesis of this multi-agent AI debate.
 
 ## ORIGINAL QUESTION

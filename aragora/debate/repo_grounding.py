@@ -28,7 +28,11 @@ _PLACEHOLDER_PATTERNS: dict[str, re.Pattern[str]] = {
 
 
 def _normalize_heading(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+    normalized = re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+    # Strip leading numeric prefixes that LLMs often add (e.g. "3 owner module file paths"
+    # from heading "## 3. Owner module / file paths").
+    normalized = re.sub(r"^\d+\s+", "", normalized)
+    return normalized
 
 
 def _extract_sections(markdown: str) -> list[dict[str, Any]]:

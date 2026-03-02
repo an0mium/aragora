@@ -21,8 +21,24 @@ from aragora.debate.repo_grounding import assess_repo_grounding
 
 _HEADER_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
 _PATH_RE = re.compile(r"(?:^|[\s`])(?:/?[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+(?:$|[\s`])")
+# Broad threshold regex: catches standard operators, Unicode operators, and
+# "threshold: N" / "threshold_value: N" structured formats.  The original
+# regex only matched ``<= 250ms`` style; LLMs frequently use tables, JSON-like
+# values, Unicode ``\u2264`` / ``\u2265``, or ``+N%`` signed percentages.
 _THRESHOLD_LINE_RE = re.compile(
-    r"(?i)(<=|>=|<|>|=|==)\s*\d+(?:\.\d+)?\s*(?:%|ms|s|sec|seconds|m|min|minutes|h|hours|rps|qps|req/s)?"
+    r"(?i)"
+    r"(?:"
+    # Standard comparison operators (<=, >=, <, >, ==, =) followed by optional sign and number
+    r"(?:<=|>=|<|>|==|=)\s*[+\-]?\s*\d+(?:\.\d+)?"
+    r"|"
+    # Unicode comparison operators
+    r"[\u2264\u2265\u2260]\s*[+\-]?\s*\d+(?:\.\d+)?"
+    r"|"
+    # Structured key-value threshold format (threshold: 250, threshold_value: 95)
+    r"threshold(?:_value)?\s*[:=]\s*[+\-]?\s*\d+(?:\.\d+)?"
+    r")"
+    # Optional unit suffix
+    r"\s*(?:%|ms|s|sec|seconds|m|min|minutes|h|hours|rps|qps|req/s)?"
 )
 _JSON_BLOCK_RE = re.compile(r"```json\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 _GENERIC_CODE_BLOCK_RE = re.compile(r"```\s*(.*?)```", re.DOTALL)
@@ -54,7 +70,11 @@ _MIN_SUBSTANTIVE_WORDS = 10
 
 
 def _normalize_heading(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+    normalized = re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+    # Strip leading numeric prefixes that LLMs often add (e.g. "3 owner module file paths"
+    # from heading "## 3. Owner module / file paths").
+    normalized = re.sub(r"^\d+\s+", "", normalized)
+    return normalized
 
 
 def _slugify(text: str) -> str:
@@ -323,8 +343,22 @@ def build_contract_context_block(contract: OutputContract) -> str:
 
 
 def _find_section_content(sections: list[dict[str, Any]], normalized_title: str) -> str:
+    # Exact match first.
     for section in sections:
         if section["normalized"] == normalized_title:
+            return str(section["content"] or "")
+    # Fuzzy fallback: containment match (handles LLM heading variations like
+    # reordered words, extra qualifiers, or synonym prefixes).
+    title_words = set(normalized_title.split())
+    for section in sections:
+        section_norm = section["normalized"]
+        section_words = set(section_norm.split())
+        # Accept if all required title words appear in the section heading
+        # or all section words appear in the required title (handles both
+        # "gate criteria" matching "acceptance gate criteria" and vice versa).
+        if title_words and title_words <= section_words:
+            return str(section["content"] or "")
+        if section_words and section_words <= title_words:
             return str(section["content"] or "")
     return ""
 
@@ -351,11 +385,29 @@ def _section_word_count(text: str) -> int:
 
 def _has_rollback_trigger(text: str) -> bool:
     lowered = text.lower()
-    if "rollback" not in lowered:
-        return False
-    has_trigger = any(token in lowered for token in ("if", "when", "trigger", "condition"))
+    # Check for trigger condition signals.
+    has_trigger = any(
+        token in lowered
+        for token in ("if", "when", "trigger", "condition", "threshold", "exceed", "fail")
+    )
+    # Check for rollback action signals.
     has_action = any(
-        token in lowered for token in ("rollback", "revert", "disable", "restore", "redeploy")
+        token in lowered
+        for token in (
+            "rollback",
+            "revert",
+            "disable",
+            "restore",
+            "redeploy",
+            "roll back",
+            "undo",
+            "feature flag",
+            "downgrade",
+            "previous version",
+            "prior version",
+            "abandon",
+            "drop",
+        )
     )
     return has_trigger and has_action
 
@@ -374,6 +426,83 @@ def _extract_json_payload(text: str) -> tuple[bool, str]:
     if not isinstance(parsed, (dict, list)):
         return (False, "json payload must be object or array")
     return (True, "")
+
+
+def _fuzzy_section_present(
+    normalized: str,
+    heading_counts: dict[str, int],
+) -> bool:
+    """Check if a required section is present using fuzzy matching.
+
+    Handles LLMs numbering their headings (e.g. "3 gate criteria") or adding
+    extra qualifiers (e.g. "detailed gate criteria").
+    """
+    if normalized in heading_counts:
+        return True
+    required_words = set(normalized.split())
+    if not required_words:
+        return False
+    for heading_norm in heading_counts:
+        heading_words = set(heading_norm.split())
+        # Accept if all required words appear in the actual heading
+        # (handles "detailed gate criteria" matching "gate criteria")
+        if required_words <= heading_words:
+            return True
+        # Accept if all heading words appear in the required section
+        # (handles "gate" matching "gate criteria" -- less likely but safe)
+        if heading_words and heading_words <= required_words:
+            return True
+    return False
+
+
+def _fuzzy_heading_count(
+    normalized: str,
+    heading_counts: dict[str, int],
+) -> int:
+    """Count how many times a section appears, using fuzzy matching."""
+    if normalized in heading_counts:
+        return heading_counts[normalized]
+    required_words = set(normalized.split())
+    if not required_words:
+        return 0
+    total = 0
+    for heading_norm, count in heading_counts.items():
+        heading_words = set(heading_norm.split())
+        if required_words <= heading_words or (heading_words and heading_words <= required_words):
+            total += count
+    return total
+
+
+def _has_quantitative_thresholds(text: str) -> bool:
+    """Detect quantitative thresholds in gate/criteria text.
+
+    Broadened beyond just ``_THRESHOLD_LINE_RE`` to also detect:
+    - Percentage expressions like "95% of tests"
+    - Count expressions like "zero blockers", "0 errors"
+    - Natural language thresholds like "under 250ms", "at most 5%"
+    """
+    if not text:
+        return False
+
+    # Primary: regex-based threshold detection (operators with values)
+    regex_hits = len(_THRESHOLD_LINE_RE.findall(text))
+    if regex_hits >= 2:
+        return True
+
+    # Secondary: detect numeric percentage patterns ("95%", "100%")
+    pct_hits = len(re.findall(r"\b\d+(?:\.\d+)?\s*%", text))
+
+    # Tertiary: detect natural language quantitative markers
+    nl_patterns = [
+        r"\b(?:under|below|less than|at most|no more than|fewer than|maximum|max)\s+\d+",
+        r"\b(?:above|over|more than|at least|minimum|min)\s+\d+",
+        r"\bzero\s+(?:blocker|error|failure|timeout|crash)",
+        r"\b(?:0|no)\s+(?:blocker|error|failure|timeout|crash|runtime)",
+    ]
+    nl_hits = sum(1 for pat in nl_patterns if re.search(pat, text, re.IGNORECASE))
+
+    # Accept if we have at least 2 quantitative signals from any combination
+    return (regex_hits + pct_hits + nl_hits) >= 2
 
 
 def validate_output_against_contract(
@@ -398,13 +527,14 @@ def validate_output_against_contract(
     required_normalized = contract.normalized_sections
     for original, normalized in zip(contract.required_sections, required_normalized, strict=False):
         key = _slugify(original)
-        present = normalized in heading_counts
+        present = _fuzzy_section_present(normalized, heading_counts)
         section_hits[key] = present
         if not present:
             defects.append(f"Missing required section: {original}")
             continue
 
-        if heading_counts.get(normalized, 0) > 1:
+        fuzzy_count = _fuzzy_heading_count(normalized, heading_counts)
+        if fuzzy_count > 1:
             duplicate_sections.append(original)
             defects.append(f"Duplicate section heading: {original}")
 
@@ -431,21 +561,54 @@ def validate_output_against_contract(
         if content.strip() and _is_template_content(content):
             template_section_count += 1
 
-    gate_text = _find_section_content(sections, _normalize_heading("Gate Criteria"))
-    if not gate_text:
-        gate_text = _find_section_content(sections, _normalize_heading("Acceptance Criteria"))
-    has_gate_thresholds = bool(gate_text and len(_THRESHOLD_LINE_RE.findall(gate_text)) >= 2)
+    # Broad gate criteria detection: try multiple synonym headings.
+    gate_text = ""
+    for gate_heading in (
+        "Gate Criteria",
+        "Acceptance Criteria",
+        "Success Criteria",
+        "Evaluation Criteria",
+        "Quality Gates",
+    ):
+        gate_text = _find_section_content(sections, _normalize_heading(gate_heading))
+        if gate_text:
+            break
+    has_gate_thresholds = _has_quantitative_thresholds(gate_text)
 
-    rollback_text = _find_section_content(sections, _normalize_heading("Rollback Plan"))
+    # Broad rollback detection: try synonyms.
+    rollback_text = ""
+    for rb_heading in ("Rollback Plan", "Rollback Strategy", "Rollback"):
+        rollback_text = _find_section_content(sections, _normalize_heading(rb_heading))
+        if rollback_text:
+            break
     has_rollback_trigger = _has_rollback_trigger(rollback_text)
 
-    owner_text = _find_section_content(sections, _normalize_heading("Owner module / file paths"))
+    # Broad owner/paths detection: try synonyms.
+    owner_text = ""
+    for owner_heading in (
+        "Owner module / file paths",
+        "Owner module file paths",
+        "File paths",
+        "Owner files",
+        "Affected files",
+    ):
+        owner_text = _find_section_content(sections, _normalize_heading(owner_heading))
+        if owner_text:
+            break
     has_paths = bool(owner_text and _PATH_RE.search(owner_text))
 
-    json_text = _find_section_content(sections, _normalize_heading("JSON Payload"))
+    # Broad JSON payload detection: try synonyms.
+    json_text = ""
+    for json_heading in ("JSON Payload", "JSON Schema", "JSON Output", "Machine-Readable Payload"):
+        json_text = _find_section_content(sections, _normalize_heading(json_heading))
+        if json_text:
+            break
     has_valid_json_payload, json_error = (
         _extract_json_payload(json_text) if json_text else (False, "")
     )
+    # Fallback: if no dedicated JSON section, look for JSON blocks anywhere in the answer
+    if not has_valid_json_payload and contract.require_json_payload:
+        has_valid_json_payload, json_error = _extract_json_payload(answer)
 
     grounding = assess_repo_grounding(
         answer,
@@ -483,8 +646,27 @@ def validate_output_against_contract(
 
     quality_score_10 = round(min(10.0, (raw_score / max_score) * 10.0), 2)
 
+    # Classify defects into hard (contract violations) and soft (quality
+    # suggestions that don't block a "good" verdict at high scores).
+    #
+    # Hard defects: missing/empty/duplicate sections, template filler,
+    #   and *explicit contract requirement* violations (missing thresholds,
+    #   rollback triggers, paths, JSON payload when required by contract).
+    # Soft defects: weak repo grounding, low practicality, brief sections.
+    _SOFT_DEFECT_PREFIXES = (
+        "Owner module / file paths are weakly grounded",
+        "Output practicality is too low",
+        "Section too brief",
+    )
+    hard_defects = [d for d in defects if not d.startswith(_SOFT_DEFECT_PREFIXES)]
+    soft_defect_count = len(defects) - len(hard_defects)
+
     verdict: Literal["good", "needs_work"] = "good"
-    if defects or duplicate_sections or empty_sections:
+    if hard_defects or duplicate_sections or empty_sections:
+        # Hard defects always fail.
+        verdict = "needs_work"
+    elif soft_defect_count > 0 and quality_score_10 < 7.0:
+        # Soft defects only fail if the overall score is low.
         verdict = "needs_work"
 
     return OutputQualityReport(

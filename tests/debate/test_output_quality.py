@@ -470,3 +470,169 @@ def test_repair_preserves_real_debate_content():
     assert "ERC-8004 reputation scoring" in repaired
     # Template filler must NOT appear.
     assert "Prioritized task list with execution rationale" not in repaired
+
+
+def test_numbered_headings_are_matched():
+    """LLMs often prefix headings with numbers (e.g. '## 3. Gate Criteria')."""
+    contract = OutputContract(
+        required_sections=[
+            "Ranked High-Level Tasks",
+            "Suggested Subtasks",
+            "Owner module / file paths",
+            "Test Plan",
+            "Rollback Plan",
+            "Gate Criteria",
+            "JSON Payload",
+        ]
+    )
+    answer = """
+## 1. Ranked High-Level Tasks
+- Implement settlement tracker integration with ERC-8004 reputation scoring for all debate agents
+- Add automated data-feed verification for time-delayed claim resolution across consensus outcomes
+- Wire post-debate receipt generation into the Nomic Loop for self-improvement feedback
+
+## 2. Suggested Subtasks
+- Create unit tests for settlement hook dispatch covering extract and settle lifecycle events
+- Validate ERC-8004 Brier score calculation against known calibration datasets for accuracy
+- Add integration smoke test that runs a minimal debate and verifies receipt integrity
+
+## 3. Owner module / file paths
+- aragora/debate/settlement_hooks.py
+- aragora/debate/orchestrator.py
+- tests/debate/test_settlement_hooks.py
+
+## 4. Test Plan
+- Run full settlement hook unit tests with both successful and failed settle paths
+- Execute integration smoke test covering debate creation through receipt persistence
+- Verify ERC-8004 reputation updates are idempotent and handle concurrent writes correctly
+
+## 5. Rollback Plan
+If error_rate > 2%, rollback by disabling feature flag and redeploy previous image.
+
+## 6. Gate Criteria
+- p95_latency <= 250ms for 10m
+- error_rate < 1% over 15m
+
+## 7. JSON Payload
+```json
+{"tasks": ["settlement tracker", "data-feed verification"], "quality_json_finalized": true}
+```
+"""
+    report = validate_output_against_contract(answer, contract)
+    assert report.section_count == 7, f"Expected 7 sections found, got {report.section_count}"
+    for key, hit in report.section_hits.items():
+        assert hit, f"Section {key} should be present but was missed"
+    assert report.has_gate_thresholds is True
+    assert report.has_rollback_trigger is True
+    assert report.has_paths is True
+    assert report.has_valid_json_payload is True
+    assert report.verdict == "good"
+
+
+def test_broad_threshold_detection():
+    """Gate criteria with table/structured/natural language thresholds should be detected."""
+    from aragora.debate.output_quality import _has_quantitative_thresholds
+
+    # Standard operator format
+    assert _has_quantitative_thresholds("p95_latency <= 250ms\nerror_rate < 1%")
+    # Percentage-only format
+    assert _has_quantitative_thresholds("Pass rate: 95% of tests\nCoverage: 80% minimum")
+    # Natural language quantitative
+    assert _has_quantitative_thresholds("under 250ms latency\nzero blocker errors")
+    # Structured key-value format
+    assert _has_quantitative_thresholds("threshold: 250\nthreshold_value: 95")
+    # Unicode operators
+    assert _has_quantitative_thresholds("latency \u2264 250ms\nerror_rate \u2264 1%")
+    # Pure prose with no numbers should fail
+    assert not _has_quantitative_thresholds("Keep it safe and reliable.")
+    # Single threshold is not enough
+    assert not _has_quantitative_thresholds("p95_latency <= 250ms")
+
+
+def test_soft_defects_dont_block_good_verdict_at_high_score():
+    """Soft defects (weak grounding, low practicality) should not block 'good' at high scores."""
+    contract = OutputContract(
+        required_sections=[
+            "Ranked High-Level Tasks",
+            "Gate Criteria",
+            "JSON Payload",
+        ],
+        require_rollback_triggers=False,
+        require_owner_paths=True,
+        require_repo_path_existence=True,
+        require_practicality_checks=False,
+    )
+    answer = """
+## Ranked High-Level Tasks
+- Implement settlement tracker integration with ERC-8004 reputation scoring for all debate agents
+- Add automated data-feed verification for time-delayed claim resolution across consensus outcomes
+- Wire post-debate receipt generation into the Nomic Loop for self-improvement feedback
+
+## Gate Criteria
+- p95_latency <= 250ms for 10m
+- error_rate < 1% over 15m
+
+## Owner module / file paths
+- aragora/debate/settlement_hooks.py
+- aragora/debate/orchestrator.py
+
+## JSON Payload
+```json
+{"tasks": ["settlement tracker"], "quality_json_finalized": true}
+```
+"""
+    report = validate_output_against_contract(answer, contract)
+    # The answer has all required sections with good content, but owner paths
+    # may not exist on disk -- that's a soft defect.
+    assert report.has_gate_thresholds is True
+    assert report.has_valid_json_payload is True
+    # If section_count covers all 3 required sections, score should be high.
+    assert report.section_count == 3
+
+
+def test_json_fallback_finds_json_block_anywhere():
+    """If no JSON Payload section exists, the validator should still find JSON blocks."""
+    contract = OutputContract(
+        required_sections=["Ranked High-Level Tasks", "JSON Payload"],
+        require_gate_thresholds=False,
+        require_rollback_triggers=False,
+        require_owner_paths=False,
+    )
+    # Answer has JSON in it but not under a "JSON Payload" heading.
+    answer = """
+## Ranked High-Level Tasks
+- Implement settlement tracker integration
+
+## Summary
+Here is the orchestration payload:
+```json
+{"tasks": ["settlement"], "quality_json_finalized": true}
+```
+"""
+    report = validate_output_against_contract(answer, contract)
+    # The JSON Payload section itself is missing (hard defect), but JSON detection
+    # should still succeed via fallback.
+    assert report.has_valid_json_payload is True
+
+
+def test_rollback_trigger_broader_detection():
+    """Rollback trigger detection should handle 'abandon in place', 'feature flag', etc."""
+    from aragora.debate.output_quality import _has_rollback_trigger
+
+    # Standard format
+    assert _has_rollback_trigger("If error_rate > 2%, rollback by disabling feature flag.")
+    # Abandon-in-place strategy
+    assert _has_rollback_trigger(
+        "If canary fails threshold, abandon in place and disable feature flag."
+    )
+    # Previous version rollback
+    assert _has_rollback_trigger(
+        "When health check fails, redeploy previous version from stable tag."
+    )
+    # Feature flag without "rollback" word
+    assert _has_rollback_trigger(
+        "If test failures exceed threshold, disable the feature flag immediately."
+    )
+    # Pure prose without a trigger+action pair should fail
+    assert not _has_rollback_trigger("The system is generally reliable and well-tested.")
+    assert not _has_rollback_trigger("Monitor production metrics closely after deployment.")
