@@ -36,7 +36,11 @@ def test_assess_repo_grounding_penalizes_placeholders_and_missing_paths():
 - aragora/not_real/missing_file.py
 """
     report = assess_repo_grounding(answer)
-    assert report.path_existence_rate == 0.0
+    # aragora/not_real/missing_file.py is a plausible new file proposal
+    # (grandparent aragora/ exists), so it counts as half-grounded
+    assert report.path_existence_rate == 0.5
+    assert "aragora/not_real/missing_file.py" in report.new_paths
+    assert report.missing_paths == []
     assert "new_marker" in report.placeholder_hits
     assert report.placeholder_rate > 0.0
     assert report.practicality_score_10 < 5.0

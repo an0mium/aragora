@@ -92,7 +92,7 @@ def get_recent_changes() -> str:
         return "Unable to read git history"
 
 
-async def phase_debate():
+async def phase_debate(task_override: str | None = None, context_override: str | None = None):
     """Phase 1: Multi-agent debate on improvements."""
     print("\n" + "=" * 70)
     print("PHASE 1: IMPROVEMENT DEBATE")
@@ -101,8 +101,7 @@ async def phase_debate():
     current_features = get_current_features()
     recent_changes = get_recent_changes()
 
-    env = Environment(
-        task=f"""What single improvement would most benefit aragora RIGHT NOW?
+    default_task = f"""What single improvement would most benefit aragora RIGHT NOW?
 
 Consider what would make aragora:
 - More INTERESTING (novel, creative, intellectually stimulating)
@@ -116,8 +115,16 @@ Be concrete: describe what it does, how it works, and why it matters.
 After debate, reach consensus on THE SINGLE BEST improvement to implement.
 
 Recent changes:
-{recent_changes}""",
-        context=f"Current aragora features:\n{current_features}",
+{recent_changes}"""
+
+    task = task_override if task_override is not None else default_task
+    context = f"Current aragora features:\n{current_features}"
+    if context_override:
+        context = f"{context_override}\n\n{context}"
+
+    env = Environment(
+        task=task,
+        context=context,
     )
 
     # Heterogeneous agents: 3 competing visionaries from different AI providers
@@ -632,10 +639,13 @@ async def _persist_cycle_outcome(improvement: str, summary: str) -> None:
 def _collect_metrics_baseline() -> dict | None:
     """Collect baseline metrics before implementation using MetricsCollector."""
     try:
-        from aragora.nomic.metrics_collector import MetricsCollector
+        from aragora.nomic.metrics_collector import MetricsCollector, MetricsCollectorConfig
 
-        collector = MetricsCollector(aragora_path=ARAGORA_PATH)
-        baseline = collector.collect_baseline()
+        config = MetricsCollectorConfig(working_dir=str(ARAGORA_PATH))
+        collector = MetricsCollector(config=config)
+        baseline = asyncio.get_event_loop().run_until_complete(
+            collector.collect_baseline(goal="self-improvement", file_scope=None)
+        )
         print(
             f"  ✓ Baseline metrics: {baseline.tests_passed} tests passing, "
             f"{baseline.lint_errors} lint errors"
@@ -649,8 +659,9 @@ def _collect_metrics_baseline() -> dict | None:
                 "lint_errors": baseline.lint_errors,
             }
         )
-    except (ImportError, RuntimeError, OSError) as e:
+    except (ImportError, RuntimeError, OSError, TypeError, AttributeError) as e:
         logger.debug("MetricsCollector not available: %s", e)
+        print(f"  ⚠ Metrics collection skipped: {e}")
         return None
 
 
@@ -660,13 +671,13 @@ def _collect_metrics_after(baseline_data: dict | None) -> dict | None:
         return None
 
     try:
-        from aragora.nomic.metrics_collector import MetricsCollector
+        from aragora.nomic.metrics_collector import MetricsCollector, MetricsCollectorConfig
 
-        collector = MetricsCollector(aragora_path=ARAGORA_PATH)
-        after = collector.collect_after()
-        delta = collector.compare()
-
-        improvement = getattr(delta, "improvement_score", 0.0)
+        config = MetricsCollectorConfig(working_dir=str(ARAGORA_PATH))
+        collector = MetricsCollector(config=config)
+        after = asyncio.get_event_loop().run_until_complete(collector.collect_baseline())
+        # Delta comparison not available without persistent collector instance
+        improvement = 0.0
         print(
             f"  ✓ After metrics: {after.tests_passed} tests passing, "
             f"{after.lint_errors} lint errors"
@@ -681,7 +692,7 @@ def _collect_metrics_after(baseline_data: dict | None) -> dict | None:
             },
             "improvement_score": improvement,
         }
-    except (ImportError, RuntimeError, OSError) as e:
+    except (ImportError, RuntimeError, OSError, TypeError, AttributeError) as e:
         logger.debug("MetricsCollector comparison failed: %s", e)
         return None
 
@@ -721,7 +732,7 @@ def _run_gauntlet_and_bridge() -> list[dict]:
         return []
 
 
-async def run_all():
+async def run_all(task_override: str | None = None, context_override: str | None = None):
     """Run all phases sequentially: debate → design → implement → verify → commit."""
     print("\n" + "=" * 70)
     print("ARAGORA NOMIC LOOP - FULL CYCLE")
@@ -731,7 +742,7 @@ async def run_all():
     print("\nCollecting baseline metrics...")
     baseline = _collect_metrics_baseline()
 
-    await phase_debate()
+    await phase_debate(task_override=task_override, context_override=context_override)
     await phase_design()
     impl_data = await phase_implement()
 
@@ -826,6 +837,18 @@ Phases:
         help="Path to target repository (default: aragora project root). "
         "Enables running staged phases on external codebases.",
     )
+    parser.add_argument(
+        "--task",
+        type=str,
+        default=None,
+        help="Custom debate task/question (default: built-in improvement question)",
+    )
+    parser.add_argument(
+        "--context",
+        type=str,
+        default=None,
+        help="Additional context to inject into the debate prompt",
+    )
 
     args = parser.parse_args()
 
@@ -836,7 +859,7 @@ Phases:
         DATA_DIR = ARAGORA_PATH / ".nomic"
 
     if args.phase == "debate":
-        await phase_debate()
+        await phase_debate(task_override=args.task, context_override=args.context)
     elif args.phase == "design":
         await phase_design()
     elif args.phase == "implement":
@@ -846,7 +869,7 @@ Phases:
     elif args.phase == "commit":
         await phase_commit()
     elif args.phase == "all":
-        await run_all()
+        await run_all(task_override=args.task, context_override=args.context)
 
 
 if __name__ == "__main__":

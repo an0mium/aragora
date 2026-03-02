@@ -1297,6 +1297,40 @@ class TaskDecomposer:
                 relevant.extend(paths)
         return relevant[:5]
 
+    def _ground_to_codebase(self, goal: str, repo_root: str | None = None) -> str:
+        """Generate live codebase structure from actual filesystem for goal-relevant modules."""
+        from pathlib import Path
+
+        root = Path(repo_root or os.getcwd())
+        relevant_dirs = self._score_codebase_relevance(goal)
+
+        lines = ["CODEBASE STRUCTURE (live scan):"]
+        for rel_dir in relevant_dirs:
+            dir_path = root / rel_dir
+            if not dir_path.is_dir():
+                continue
+            # List top-level .py files in this directory (not recursive to keep it short)
+            py_files = sorted(
+                f.name for f in dir_path.iterdir() if f.suffix == ".py" and f.is_file()
+            )
+            if py_files:
+                lines.append(f"\n{rel_dir}:")
+                for fname in py_files[:20]:  # Cap at 20 files per directory
+                    lines.append(f"  - {fname}")
+                if len(py_files) > 20:
+                    lines.append(f"  ... and {len(py_files) - 20} more")
+
+        if len(lines) == 1:
+            # Fallback if no relevant dirs found
+            lines.append("  (no matching directories found for this goal)")
+
+        lines.append("\nFILE PATH CONVENTIONS:")
+        lines.append("- Python backend: aragora/module/file.py")
+        lines.append("- TypeScript frontend: aragora/live/src/components/, aragora/live/src/app/")
+        lines.append("- Tests: tests/module/test_file.py")
+
+        return "\n".join(lines)
+
     # =========================================================================
     # Vague goal expansion (cross-references templates + track configs)
     # =========================================================================
@@ -1745,24 +1779,8 @@ class TaskDecomposer:
 
     def _build_debate_task(self, goal: str, context: str = "") -> str:
         """Build the debate task prompt for goal decomposition."""
-        # Always include aragora codebase structure
-        codebase_context = """
-CODEBASE STRUCTURE (Aragora project):
-- aragora/workflow/templates/ - Workflow template definitions
-- aragora/workflow/engine.py - Workflow execution engine
-- aragora/workflow/types.py - WorkflowDefinition, StepDefinition types
-- aragora/server/handlers/ - HTTP API handlers
-- aragora/live/ - Next.js frontend (in aragora/live/src/)
-- aragora/nomic/ - Nomic loop and autonomous orchestration
-- tests/ - Test files (tests/workflow/, tests/nomic/, etc.)
-- docs/ - Documentation
-
-FILE PATH CONVENTIONS:
-- Python backend: aragora/module/file.py (NOT src/)
-- TypeScript frontend: aragora/live/src/components/, aragora/live/src/app/
-- Tests: tests/module/test_file.py
-- Workflows: aragora/workflow/templates/category/template.py
-"""
+        # Dynamically scan relevant codebase directories instead of hardcoding
+        codebase_context = self._ground_to_codebase(goal)
         user_context = f"\n\nAdditional Context:\n{context}" if context else ""
 
         return f"""Decompose this high-level goal into 3-5 concrete, actionable subtasks.

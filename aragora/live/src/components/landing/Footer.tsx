@@ -34,7 +34,7 @@ export function Footer() {
             fontFamily: 'var(--font-landing)',
           }}
         >
-          No signup required. First result in under 30 seconds.
+          No signup. No API keys. First verdict within 5 minutes.
         </p>
 
         {/* CTA buttons */}
