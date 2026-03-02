@@ -42,7 +42,7 @@ jobs:
   codeql:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: CodeQL Analysis
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 60
 
     strategy:
@@ -71,7 +71,7 @@ jobs:
   bandit:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Bandit Security Scan
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:
@@ -103,7 +103,7 @@ jobs:
   aragora-security-scan:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Aragora Security Scanner
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -133,7 +133,7 @@ jobs:
   dependency-check:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Dependency Vulnerability Check
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
 
     steps:
@@ -230,7 +230,7 @@ jobs:
   pentest-findings:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: "Security: Pentest Findings Gate"
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 5
 
     steps:
@@ -248,7 +248,7 @@ jobs:
   rbac-coverage:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: RBAC Coverage Check
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 5
 
     steps:
@@ -266,7 +266,7 @@ jobs:
   secret-scanning:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Secret Scanning
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
 
     steps:

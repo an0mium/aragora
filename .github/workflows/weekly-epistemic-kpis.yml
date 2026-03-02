@@ -17,7 +17,7 @@ on:
 
 jobs:
   extract-runtime-kpis:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 10
     permissions:
       contents: read
@@ -77,4 +77,3 @@ jobs:
           name: weekly-epistemic-kpis
           path: artifacts/weekly-epistemic-kpis.*
           if-no-files-found: warn
-

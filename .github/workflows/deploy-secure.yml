@@ -51,7 +51,7 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -79,7 +79,7 @@ jobs:
   deploy-vercel:
     needs: test
     if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'vercel' || github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 20
 
     steps:
@@ -160,7 +160,7 @@ jobs:
   deploy-ec2-staging:
     needs: test
     if: github.event.inputs.environment == 'all' || github.event.inputs.environment == 'ec2-staging' || github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 20
     environment: staging
 
@@ -534,7 +534,7 @@ jobs:
         (github.event.inputs.environment == 'ec2-production') ||
         (needs.deploy-ec2-staging.result == 'success' && (github.event.inputs.environment == 'all' || github.event_name == 'push'))
       )
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 20
     environment:
       name: production
@@ -912,7 +912,7 @@ jobs:
   notify:
     needs: [deploy-vercel, deploy-ec2-staging, deploy-ec2-production]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: aragora
     timeout-minutes: 5
 
     steps:

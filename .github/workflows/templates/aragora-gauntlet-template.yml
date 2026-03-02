@@ -63,7 +63,7 @@ env:
 jobs:
   gauntlet-audit:
     name: Gauntlet Security Audit
-    runs-on: ubuntu-latest
+    runs-on: aragora
 
     # Skip forks
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
