@@ -16,6 +16,7 @@ import sys
 import threading
 import time
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Literal, cast
 
 from aragora.agents.base import AgentType, create_agent
@@ -960,6 +961,76 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 "This task was interpreted from an ambiguous input and requires confirmation."
             )
 
+    codebase_context_requested = bool(getattr(args, "codebase_context", False))
+    codebase_context_repo: Path | None = None
+    if codebase_context_requested:
+        from aragora.debate.context_engineering import (
+            ContextEngineeringConfig,
+            build_debate_context_engineering,
+        )
+
+        repo_raw = getattr(args, "codebase_context_path", None) or os.getcwd()
+        codebase_context_repo = Path(str(repo_raw)).expanduser().resolve()
+        cfg = ContextEngineeringConfig(
+            task=task,
+            repo_path=codebase_context_repo,
+            include_tests=not bool(getattr(args, "codebase_context_exclude_tests", False)),
+            include_rlm_full_corpus=bool(getattr(args, "codebase_context_rlm", False)),
+            include_harness_exploration=bool(getattr(args, "codebase_context_harnesses", False)),
+            include_kilocode=bool(getattr(args, "codebase_context_kilocode", False)),
+            max_output_chars=max(8_000, int(getattr(args, "codebase_context_max_chars", 80_000))),
+            build_timeout_seconds=max(30, int(getattr(args, "codebase_context_timeout", 240))),
+            per_explorer_timeout_seconds=max(
+                15, min(240, int(getattr(args, "codebase_context_timeout", 240)))
+            ),
+        )
+
+        if args.verbose:
+            print(
+                "[context-engineering] building"
+                f" repo={codebase_context_repo}"
+                f" harnesses={'on' if cfg.include_harness_exploration else 'off'}"
+                f" kilocode={'on' if cfg.include_kilocode else 'off'}"
+                f" rlm={'on' if cfg.include_rlm_full_corpus else 'off'}"
+                f" timeout={cfg.build_timeout_seconds}s",
+                file=sys.stderr,
+            )
+
+        try:
+            engineered = asyncio.run(build_debate_context_engineering(cfg))
+        except Exception as e:  # noqa: BLE001 - best-effort pre-debate enrichment
+            print(f"[context-engineering] failed: {e}", file=sys.stderr)
+        else:
+            engineered_context = (engineered.context or "").strip()
+            if engineered_context:
+                if context:
+                    context = f"{context}\n\n{engineered_context}"
+                else:
+                    context = engineered_context
+                if args.verbose:
+                    duration = engineered.metadata.get("duration_seconds", "n/a")
+                    print(
+                        f"[context-engineering] injected chars={len(engineered_context)}"
+                        f" duration={duration}s",
+                        file=sys.stderr,
+                    )
+                output_path_raw = getattr(args, "codebase_context_out", None)
+                if output_path_raw:
+                    output_path = Path(str(output_path_raw)).expanduser().resolve()
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    output_path.write_text(engineered_context, encoding="utf-8")
+                    if args.verbose:
+                        print(
+                            f"[context-engineering] wrote={output_path}",
+                            file=sys.stderr,
+                        )
+            elif args.verbose:
+                reason = engineered.metadata.get("error", "empty_context")
+                print(
+                    f"[context-engineering] no context injected ({reason})",
+                    file=sys.stderr,
+                )
+
     agents = args.agents
     rounds = args.rounds
     learn = args.learn
@@ -1243,6 +1314,10 @@ def cmd_ask(args: argparse.Namespace) -> None:
         cli_config_kwargs["enable_cartographer"] = args.enable_cartographer
     if hasattr(args, "enable_introspection"):
         cli_config_kwargs["enable_introspection"] = args.enable_introspection
+    if codebase_context_requested:
+        cli_config_kwargs["enable_codebase_grounding"] = True
+        if codebase_context_repo is not None:
+            cli_config_kwargs["codebase_path"] = str(codebase_context_repo)
     if getattr(args, "auto_execute", False):
         cli_config_kwargs["enable_auto_execution"] = True
 

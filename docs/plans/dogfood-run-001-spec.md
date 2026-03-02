@@ -371,6 +371,9 @@ The debate engine (Discipline 1: Prompt Craft) works. But Discipline 2 (Context 
 3. Require a "what already exists" section before any "what to build" section
 4. Run `grep`/`glob` verification on all proposed file paths before accepting the plan
 
+Run-002 execution spec: `docs/plans/dogfood-run-002-context-engineering-spec.md`
+Run-002 status (March 2, 2026): partial pass — grounding/path realism improved, but output still failed minimum ranked-task count (3 < 5) and dissent count (1 < 2).
+
 ### Raw Debate Output
 
 The full debate output (synthesized across 2 rounds, 3 models) is preserved at `/tmp/dogfood_debate_output_v3.txt`.
