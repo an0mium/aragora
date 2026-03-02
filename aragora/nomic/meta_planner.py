@@ -130,7 +130,7 @@ class MetaPlanner:
     to best achieve a high-level objective.
     """
 
-    def __init__(self, config: MetaPlannerConfig | None = None):
+    def __init__(self, config: MetaPlannerConfig | None = None) -> None:
         self.config = config or MetaPlannerConfig()
         self._agent: Any | None = None
         self._feedback_loop = None
