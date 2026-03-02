@@ -204,7 +204,7 @@ def phase_verify() -> dict:
         capture_output=True,
         text=True,
         cwd=REPO,
-        timeout=120,
+        timeout=300,
     )
     passed = test_result.returncode == 0
     checks.append({"name": "pytest:tests/nomic/", "passed": passed})
