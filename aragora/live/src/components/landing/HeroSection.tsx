@@ -182,10 +182,9 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
 
   return (
     <section
-      className="relative px-4"
+      className="relative px-4 flex flex-col items-center justify-center"
       style={{
-        paddingTop: isDark ? '96px' : '80px',
-        paddingBottom: isDark ? '96px' : '80px',
+        minHeight: 'calc(100vh - 52px)',
         fontFamily: 'var(--font-landing)',
       }}
     >
@@ -200,11 +199,11 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         />
       )}
 
-      <div className="max-w-2xl mx-auto text-center">
+      <div className="max-w-2xl mx-auto text-center w-full">
         {/* ASCII banner — dark theme only */}
         {isDark && (
           <pre
-            className="text-[6px] sm:text-[7px] text-center mb-8 hidden sm:block leading-tight"
+            className="text-[6px] sm:text-[7px] text-center mb-10 hidden sm:block leading-tight"
             style={{ color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace" }}
           >
             {ASCII_BANNER}
@@ -213,12 +212,13 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
 
         {/* Headline */}
         <h1
-          className="mb-6 leading-tight"
+          className="leading-tight"
           style={{
-            fontSize: isDark ? '42px' : '48px',
+            fontSize: isDark ? '38px' : '44px',
             fontWeight: isDark ? 700 : 600,
             color: 'var(--text)',
             fontFamily: 'var(--font-landing)',
+            marginBottom: '16px',
           }}
         >
           Don&apos;t trust one AI.
@@ -229,29 +229,29 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
               textShadow: isDark ? '0 0 10px var(--accent), 0 0 20px var(--accent)' : 'none',
             }}
           >
-            Make them argue.
+            Make them compete.
           </span>
         </h1>
 
-        {/* Subtitle */}
+        {/* Subtitle — short, one line on desktop */}
         <p
-          className="max-w-lg mx-auto mb-12 leading-relaxed"
+          className="max-w-md mx-auto leading-relaxed"
           style={{
-            fontSize: isDark ? '16px' : '18px',
+            fontSize: isDark ? '15px' : '17px',
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-landing)',
+            marginBottom: '48px',
           }}
         >
-          Multiple AI models debate your question, stress-test each answer,
-          and deliver an audit-ready verdict you can defend.
+          Multiple AI models debate your question and deliver an audit-ready verdict.
         </p>
 
-        {/* Debate input form */}
+        {/* Debate input form — THE CENTERPIECE */}
         <form onSubmit={handleSubmit} className="text-left max-w-xl mx-auto">
           <div className="relative">
             {isDark && (
               <span
-                className="absolute left-3 top-3 text-sm select-none"
+                className="absolute left-4 top-5 text-base select-none"
                 style={{ color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace" }}
               >
                 &gt;
@@ -262,42 +262,56 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="What decision are you facing?"
               disabled={isRunning}
-              rows={2}
-              className="w-full text-sm placeholder:opacity-50 focus:outline-none transition-colors resize-none disabled:opacity-50"
+              rows={3}
+              className="w-full placeholder:opacity-40 focus:outline-none transition-all resize-none disabled:opacity-50"
               style={{
                 backgroundColor: 'var(--surface)',
-                border: '1px solid var(--border)',
+                border: '2px solid var(--border)',
                 color: 'var(--text)',
                 fontFamily: 'var(--font-landing)',
+                fontSize: '16px',
+                lineHeight: '1.6',
                 borderRadius: 'var(--radius-input)',
-                padding: isDark ? '12px 16px 12px 28px' : '12px 16px',
-                boxShadow: isDark ? 'none' : 'var(--shadow-card)',
+                padding: isDark ? '18px 20px 18px 36px' : '18px 20px',
+                boxShadow: isDark ? 'none' : 'var(--shadow-card-hover)',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent)';
+                e.currentTarget.style.boxShadow = isDark
+                  ? '0 0 0 1px var(--accent), 0 0 20px var(--accent-glow)'
+                  : '0 0 0 3px var(--accent-glow), var(--shadow-card-hover)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.boxShadow = isDark ? 'none' : 'var(--shadow-card-hover)';
               }}
             />
           </div>
           <button
             type="submit"
             disabled={isRunning || !question.trim()}
-            className="w-full mt-3 text-sm font-bold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full text-sm font-bold transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             style={{
               backgroundColor: 'var(--accent)',
               color: 'var(--bg)',
               fontFamily: 'var(--font-landing)',
+              fontSize: '15px',
               borderRadius: 'var(--radius-button)',
-              padding: '12px 32px',
-              boxShadow: isDark ? '0 0 20px var(--accent-glow)' : 'none',
+              padding: '16px 32px',
+              marginTop: '12px',
+              boxShadow: isDark ? '0 0 20px var(--accent-glow)' : '0 2px 8px var(--accent-glow)',
             }}
           >
-            {isRunning ? 'Agents debating...' : 'Run a free debate'}
+            {isRunning ? 'Agents debating...' : isDark ? '> Run a free debate' : 'Run a free debate'}
           </button>
         </form>
 
-        {/* Example topics */}
+        {/* Example topics — subtle, below the form */}
         {!result && !isRunning && (
-          <div className="max-w-xl mx-auto mt-5">
+          <div className="max-w-xl mx-auto mt-8">
             <p
-              className="text-xs mb-2 text-center"
-              style={{ color: 'var(--text-muted)', opacity: 0.6, fontFamily: 'var(--font-landing)' }}
+              className="text-xs mb-3 text-center"
+              style={{ color: 'var(--text-muted)', opacity: 0.5, fontFamily: 'var(--font-landing)' }}
             >
               Or try an example:
             </p>

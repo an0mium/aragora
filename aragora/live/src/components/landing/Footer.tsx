@@ -18,8 +18,8 @@ export function Footer() {
     <footer
       className="px-4"
       style={{
-        paddingTop: 'var(--section-padding)',
-        paddingBottom: '40px',
+        paddingTop: '80px',
+        paddingBottom: '60px',
         borderTop: '1px solid var(--border)',
         fontFamily: 'var(--font-landing)',
       }}
