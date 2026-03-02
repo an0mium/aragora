@@ -258,7 +258,7 @@ gateway = []
 enterprise = ["python3-saml>=1.15,<2.0", "prometheus-client>=0.19,<1.0", "sentry-sdk>=2.0,<3.0", "redis>=5.0.0,<8.0"]
 connectors = ["aiokafka>=0.9,<1.0", "aio-pika>=9.0,<10.0", "twilio>=8.0,<10.0", "langchain>=1.0,<2.0", "playwright>=1.40,<2.0"]
 experimental = ["playwright>=1.40,<2.0", "networkx>=3.0,<4.0"]
-obsidian = ["watchdog>=3.0,<6.0"]
+obsidian = ["watchdog>=3.0,<7.0"]
 all = [
     # Expanded inline to avoid self-referential extras during locking.
     "pytest>=7.0,<10.0",
