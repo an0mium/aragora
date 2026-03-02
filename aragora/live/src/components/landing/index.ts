@@ -10,6 +10,9 @@ export { HowItWorksSection } from './HowItWorksSection';
 export { PricingSection } from './PricingSection';
 export { Footer } from './Footer';
 export { ThemeSelector } from './ThemeSelector';
+export { FeatureShowcase } from './FeatureShowcase';
+export { IntegrationsGrid } from './IntegrationsGrid';
+export { LiveDemoSection } from './LiveDemoSection';
 
 export {
   UseCaseSelector,
