@@ -20,6 +20,7 @@ if VERSION_SUFFIX:
     __version__ += VERSION_SUFFIX
 
 # Release date (ISO 8601 format)
+# runner-test: verify 32-core runner picks up jobs
 RELEASE_DATE = "2026-02-16"
 
 # Package metadata
