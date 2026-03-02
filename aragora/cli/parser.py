@@ -459,8 +459,8 @@ def _add_ask_parser(subparsers) -> None:
     ask_parser.add_argument(
         "--quality-practical-min-score",
         type=float,
-        default=6.0,
-        help="Minimum practicality score target for execution readiness (0-10, default: 6.0)",
+        default=5.0,
+        help="Minimum practicality score target for execution readiness (0-10, default: 5.0)",
     )
     ask_parser.add_argument(
         "--quality-fail-closed",

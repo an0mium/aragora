@@ -510,6 +510,43 @@ class SynthesisGenerator:
             return context[idx:].strip()
         return None
 
+    @staticmethod
+    def _get_repo_path_hint() -> str:
+        """Generate a compact listing of real repo paths for grounding.
+
+        Returns a short block of key module paths the synthesizer can reference
+        instead of hallucinating paths.  Kept small to avoid bloating the prompt.
+        """
+        try:
+            from pathlib import Path
+
+            repo_root = Path(os.getcwd())
+            # Key directories agents are likely to reference.
+            key_dirs = [
+                "aragora/debate",
+                "aragora/cli/commands",
+                "aragora/server/handlers",
+                "aragora/pipeline",
+                "aragora/nomic",
+                "aragora/agents",
+                "tests/debate",
+                "tests/cli",
+                "tests/pipeline",
+                "scripts",
+            ]
+            lines: list[str] = []
+            for d in key_dirs:
+                dp = repo_root / d
+                if dp.is_dir():
+                    files = sorted(f.name for f in dp.iterdir() if f.suffix == ".py")[:8]
+                    if files:
+                        lines.append(f"  {d}/: {', '.join(files)}")
+            if lines:
+                return "Key repository paths (use these, not invented paths):\n" + "\n".join(lines)
+        except (OSError, ValueError):
+            pass
+        return ""
+
     def _build_contract_guided_prompt(
         self,
         task: str,
@@ -518,6 +555,9 @@ class SynthesisGenerator:
         contract_block: str,
     ) -> str:
         """Build synthesis prompt that uses the quality contract's section structure."""
+        repo_hint = self._get_repo_path_hint()
+        repo_section = f"\n\n## REPOSITORY FILE REFERENCE\n{repo_hint}" if repo_hint else ""
+
         return f"""You are Claude Opus 4.5, tasked with creating the DEFINITIVE synthesis of this multi-agent AI debate.
 
 ## ORIGINAL QUESTION
@@ -530,7 +570,7 @@ class SynthesisGenerator:
 {critiques_text if critiques_text else "No critiques recorded."}
 
 ## OUTPUT FORMAT REQUIREMENTS (MANDATORY)
-{contract_block}
+{contract_block}{repo_section}
 
 ## YOUR TASK
 Synthesize the debate into a single comprehensive answer that EXACTLY follows the output format above.
@@ -539,7 +579,7 @@ Critical rules:
 - Use EXACTLY the required section headings as `## Heading` markdown headers, in the specified order.
 - Each section must have **substantive content** — at least 2-3 specific, actionable items drawn from the debate.
 - For "Ranked High-Level Tasks": prioritize by impact and feasibility, with concrete rationale from the debate.
-- For "Owner module / file paths": reference REAL repository paths discussed in the debate proposals.
+- For "Owner module / file paths": reference ONLY paths from the REPOSITORY FILE REFERENCE above. Do NOT invent paths.
 - For "Gate Criteria": include specific, measurable thresholds (operators + numbers + units).
 - For "Rollback Plan": include explicit trigger conditions and rollback actions.
 - For "JSON Payload": produce valid JSON that mirrors the section content.

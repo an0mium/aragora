@@ -1153,7 +1153,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
     upgrade_to_good = bool(getattr(args, "upgrade_to_good", True))
     quality_upgrade_max_loops = max(0, int(getattr(args, "quality_upgrade_max_loops", 2)))
     quality_min_score = float(getattr(args, "quality_min_score", 9.0))
-    quality_practical_min_score = float(getattr(args, "quality_practical_min_score", 6.0))
+    quality_practical_min_score = float(getattr(args, "quality_practical_min_score", 5.0))
     quality_concretize_max_rounds = max(0, int(getattr(args, "quality_concretize_max_rounds", 1)))
     quality_extra_assessment_rounds = max(
         0, int(getattr(args, "quality_extra_assessment_rounds", 2))

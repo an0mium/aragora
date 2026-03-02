@@ -68,7 +68,7 @@ class TestQualityPipelineConfig:
         cfg = QualityPipelineConfig()
         assert cfg.enabled is True
         assert cfg.quality_min_score == 9.0
-        assert cfg.practicality_min_score == 6.0
+        assert cfg.practicality_min_score == 5.0
         assert cfg.output_contract_file is None
         assert cfg.required_sections is None
 

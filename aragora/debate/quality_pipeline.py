@@ -46,7 +46,7 @@ class QualityPipelineConfig:
     # Score thresholds -- used only for the ``passes_gate`` flag in the
     # result; the deterministic pipeline always runs.
     quality_min_score: float = 9.0
-    practicality_min_score: float = 6.0
+    practicality_min_score: float = 5.0
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> QualityPipelineConfig:
