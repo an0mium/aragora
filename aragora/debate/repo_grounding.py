@@ -142,6 +142,7 @@ class RepoGroundingReport:
     mentioned_paths: list[str] = field(default_factory=list)
     existing_paths: list[str] = field(default_factory=list)
     missing_paths: list[str] = field(default_factory=list)
+    new_paths: list[str] = field(default_factory=list)
     path_existence_rate: float = 0.0
     placeholder_hits: list[str] = field(default_factory=list)
     placeholder_rate: float = 0.0
@@ -153,6 +154,7 @@ class RepoGroundingReport:
             "mentioned_paths": list(self.mentioned_paths),
             "existing_paths": list(self.existing_paths),
             "missing_paths": list(self.missing_paths),
+            "new_paths": list(self.new_paths),
             "path_existence_rate": self.path_existence_rate,
             "placeholder_hits": list(self.placeholder_hits),
             "placeholder_rate": self.placeholder_rate,
@@ -178,14 +180,29 @@ def assess_repo_grounding(
     root = Path(repo_root or os.getcwd())
     existing_paths: list[str] = []
     missing_paths: list[str] = []
+    new_paths: list[str] = []
+    _NEW_FILE_EXTENSIONS = {".py", ".ts", ".tsx", ".js", ".json", ".yaml", ".yml", ".md"}
     for rel_path in mentioned_paths:
-        if (root / rel_path).exists():
+        full = root / rel_path
+        if full.exists():
             existing_paths.append(rel_path)
+        elif full.suffix in _NEW_FILE_EXTENSIONS:
+            # Path has a valid file extension -- likely a new file proposal.
+            # Check if at least the grandparent directory exists so the
+            # proposal is structurally plausible (e.g. aragora/new_mod/foo.py
+            # is plausible when aragora/ exists).
+            parent = full.parent
+            if parent.exists() or (parent.parent.exists() if parent != root else False):
+                new_paths.append(rel_path)
+            else:
+                missing_paths.append(rel_path)
         else:
             missing_paths.append(rel_path)
 
     if mentioned_paths:
-        path_existence_rate = round(len(existing_paths) / len(mentioned_paths), 4)
+        # New file proposals count as half-grounded (parent/grandparent dir exists)
+        grounded_count = len(existing_paths) + 0.5 * len(new_paths)
+        path_existence_rate = round(grounded_count / len(mentioned_paths), 4)
     else:
         path_existence_rate = 1.0 if not require_owner_paths else 0.0
 
@@ -214,6 +231,7 @@ def assess_repo_grounding(
         mentioned_paths=mentioned_paths,
         existing_paths=existing_paths,
         missing_paths=missing_paths,
+        new_paths=new_paths,
         path_existence_rate=path_existence_rate,
         placeholder_hits=placeholder_hits,
         placeholder_rate=placeholder_rate,
