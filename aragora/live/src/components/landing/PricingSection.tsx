@@ -67,44 +67,59 @@ export function PricingSection() {
       id="pricing"
       className="px-4"
       style={{
-        paddingTop: 'var(--section-padding)',
-        paddingBottom: 'var(--section-padding)',
+        paddingTop: '120px',
+        paddingBottom: '120px',
         borderTop: '1px solid var(--border)',
         fontFamily: 'var(--font-landing)',
       }}
     >
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         {/* Section label */}
         <p
-          className="text-center mb-4 uppercase tracking-widest"
+          className="text-center uppercase tracking-widest"
           style={{
             fontSize: isDark ? '11px' : '12px',
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-landing)',
+            marginBottom: '20px',
           }}
         >
           {isDark ? '> PRICING' : 'PRICING'}
         </p>
 
-        <p
-          className="text-center mb-12 max-w-md mx-auto"
+        <h2
+          className="text-center"
           style={{
-            fontSize: '14px',
-            color: 'var(--text-muted)',
+            fontSize: isDark ? '24px' : '28px',
+            fontWeight: 600,
+            color: 'var(--text)',
             fontFamily: 'var(--font-landing)',
+            marginBottom: '16px',
           }}
         >
-          Start free. Upgrade when you need more agents and audit-ready receipts.
+          Start free. Scale when ready.
+        </h2>
+
+        <p
+          className="text-center max-w-md mx-auto"
+          style={{
+            fontSize: isDark ? '14px' : '16px',
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-landing)',
+            marginBottom: '64px',
+          }}
+        >
+          Bring your own API keys. Aragora never marks up LLM costs.
         </p>
 
         {/* Tier cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {TIERS.map((tier) => {
             const isHighlighted = tier.highlight === true;
             return (
               <div
                 key={tier.name}
-                className="p-6 flex flex-col"
+                className="flex flex-col"
                 style={{
                   backgroundColor: 'var(--surface)',
                   borderRadius: 'var(--radius-card)',
@@ -112,31 +127,33 @@ export function PricingSection() {
                     ? '2px solid var(--accent)'
                     : '1px solid var(--border)',
                   boxShadow: isHighlighted ? 'var(--shadow-card-hover)' : 'var(--shadow-card)',
+                  padding: '32px 28px',
                 }}
               >
                 {/* Tier header */}
-                <div className="mb-4">
+                <div style={{ marginBottom: '24px' }}>
                   <h3
-                    className="text-sm font-semibold mb-1"
+                    className="font-semibold"
                     style={{
+                      fontSize: '14px',
                       color: isHighlighted ? 'var(--accent)' : 'var(--text)',
                       fontFamily: 'var(--font-landing)',
                       textShadow: isDark && isHighlighted ? '0 0 10px var(--accent)' : 'none',
+                      marginBottom: '8px',
                     }}
                   >
                     {isDark ? `[${tier.name.toUpperCase()}]` : tier.name}
                   </h3>
                   <div className="flex items-baseline gap-1">
                     <span
-                      className="text-3xl font-bold"
-                      style={{ color: 'var(--text)', fontFamily: 'var(--font-landing)' }}
+                      className="font-bold"
+                      style={{ fontSize: '36px', color: 'var(--text)', fontFamily: 'var(--font-landing)' }}
                     >
                       {tier.price}
                     </span>
                     {tier.period && (
                       <span
-                        className="text-sm"
-                        style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
+                        style={{ fontSize: '14px', color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
                       >
                         {tier.period}
                       </span>
@@ -145,17 +162,22 @@ export function PricingSection() {
                 </div>
 
                 {/* Features */}
-                <ul className="space-y-2.5 mb-6 flex-1">
+                <ul className="flex-1" style={{ marginBottom: '32px' }}>
                   {tier.features.map((feature) => (
                     <li
                       key={feature}
-                      className="flex items-start gap-2 text-sm"
-                      style={{ fontFamily: 'var(--font-landing)' }}
+                      className="flex items-start gap-3"
+                      style={{
+                        fontFamily: 'var(--font-landing)',
+                        fontSize: isDark ? '13px' : '14px',
+                        paddingTop: '8px',
+                        paddingBottom: '8px',
+                      }}
                     >
-                      <span style={{ color: 'var(--accent)', marginTop: '2px' }}>
+                      <span style={{ color: 'var(--accent)', marginTop: '1px', flexShrink: 0 }}>
                         {isDark ? '+' : '\u2713'}
                       </span>
-                      <span style={{ color: 'var(--text-muted)' }}>{feature}</span>
+                      <span style={{ color: 'var(--text-muted)', lineHeight: '1.5' }}>{feature}</span>
                     </li>
                   ))}
                 </ul>
@@ -163,14 +185,16 @@ export function PricingSection() {
                 {/* CTA */}
                 <Link
                   href={tier.href}
-                  className="block text-center text-sm font-semibold py-2.5 transition-opacity hover:opacity-80"
+                  className="block text-center font-semibold transition-opacity hover:opacity-80"
                   style={{
                     fontFamily: 'var(--font-landing)',
+                    fontSize: '14px',
                     borderRadius: 'var(--radius-button)',
                     backgroundColor: isHighlighted ? 'var(--accent)' : 'transparent',
                     color: isHighlighted ? 'var(--bg)' : 'var(--accent)',
                     border: isHighlighted ? 'none' : '1px solid var(--accent)',
                     boxShadow: isDark && isHighlighted ? '0 0 20px var(--accent-glow)' : 'none',
+                    padding: '14px 24px',
                   }}
                 >
                   {tier.cta}
@@ -179,18 +203,6 @@ export function PricingSection() {
             );
           })}
         </div>
-
-        {/* BYOK note */}
-        <p
-          className="text-center mt-8 text-xs"
-          style={{
-            color: 'var(--text-muted)',
-            opacity: 0.6,
-            fontFamily: 'var(--font-landing)',
-          }}
-        >
-          Bring your own API keys for even lower costs.
-        </p>
       </div>
     </section>
   );
