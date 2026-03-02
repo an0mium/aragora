@@ -289,7 +289,18 @@ def derive_output_contract_from_task(task: str) -> OutputContract | None:
             sections = sorted(present, key=lambda name: task_norm.find(name.lower()))
 
     if not sections:
-        return None
+        # Default fallback: derive a minimal contract for any task so
+        # quality assessment always runs. Callers who truly want no
+        # contract should pass --no-post-consensus-quality instead.
+        return OutputContract(
+            required_sections=[],
+            require_json_payload=False,
+            require_gate_thresholds=False,
+            require_rollback_triggers=False,
+            require_owner_paths=False,
+            require_repo_path_existence=False,
+            require_practicality_checks=True,
+        )
 
     normalized = {_normalize_heading(section) for section in sections}
     return OutputContract(
