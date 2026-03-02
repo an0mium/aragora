@@ -230,7 +230,7 @@ From the honest assessment, these claims are currently scaffolding and must beco
 
 | Claim | Current State | Goal State |
 |-------|--------------|------------|
-| Self-improving platform | Nomic Loop phases work individually; orchestration loop has stubs (~50 LOC gap) | End-to-end autonomous cycles proven in production |
+| Self-improving platform | Nomic Loop fully wired end-to-end (Phase 10C, Jan 2026); 66 E2E tests passing; dogfood benchmark cycles running | Consistent autonomous improvement with 80%+ quality pass rate |
 | Blockchain receipts | SHA-256 hashing, no on-chain storage; ERC-8004 contracts undeployed | Receipts stored on-chain with deployed ERC-8004 contracts |
 | Semantic convergence | difflib text matching only (tier 1) | Embedding-based semantic similarity detection |
 | 43-agent parallel coordination | All exist individually; practical debates use 2-6 | Demonstrated coordination of 10+ agents on a single task |
@@ -315,7 +315,7 @@ The [Evolution Roadmap](../aragora/docs/plans/ARAGORA_EVOLUTION_ROADMAP.md) is t
 | 12 | **FastAPI migration for critical paths** | In Progress | P2 | EXECUTION_PROGRAM |
 | 13 | **Budget controls + per-debate cost estimation** | Partial | P2 | SME_STARTER_PACK |
 | 14 | **Developer onboarding validated at <10 min** | Not Measured | P2 | EXECUTION_PROGRAM |
-| 15 | **Wire Nomic Loop end-to-end** (replace loop.py stubs) | Not Started (~50 LOC) | P5 | HONEST_ASSESSMENT |
+| 15 | ~~**Wire Nomic Loop end-to-end**~~ | **COMPLETE** (Phase 10C, Jan 2026; 66 E2E tests) | P5 | HONEST_ASSESSMENT |
 | 16 | **Real semantic convergence detection** (replace difflib with embeddings) | Not Started | P1 | HONEST_ASSESSMENT |
 | 17 | **Decision-integrity UI workbench** (knowledge search, agent leaderboard, pipeline canvas) | Not Started | P3 | EXECUTION_PROGRAM |
 | 18 | **Deploy ERC-8004 contracts on Ethereum** | Not Started (code exists) | P4, P6 | HONEST_ASSESSMENT |
@@ -413,7 +413,7 @@ Each aragoradocs file serves a specific purpose. Goals are consolidated here.
 
 These claims require qualification in all documents:
 
-1. **"Self-improving platform"** -- Individual Nomic Loop phases work. The main orchestration loop has stub methods (~50 LOC gap). End-to-end autonomous cycles have not been proven in production. The platform grew through a mix of human-directed and AI-assisted development. **Goal: wire end-to-end and demonstrate production cycles (P2 #15).**
+1. **"Self-improving platform"** -- Nomic Loop is fully wired end-to-end with all six phases operational (Phase 10C consolidation, Jan 2026; 66 E2E tests passing). Autonomous cycles demonstrated in production dogfooding. Output quality consistency is the remaining constraint (33-80% pass rate in benchmarks). **Goal: stabilize output quality to 80%+ and demonstrate autonomous improvement beyond internal dogfooding.**
 
 2. **"43-agent parallel coordination"** -- All 43 agent types exist and work individually. Practical debates use 2-6 agents due to provider rate limits. The value is heterogeneity (different models catching different issues), not raw parallelism. **Goal: demonstrate 10+ agent coordination (P4 #37).**
 
