@@ -10,7 +10,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aragora.debate.codebase_context import (
     CodebaseContextConfig,
     CodebaseContextProvider,
+    build_static_inventory,
 )
+from aragora.debate.repo_grounding import RepoGroundingReport, format_path_verification_summary
 
 
 # ---------------------------------------------------------------------------
@@ -198,3 +200,97 @@ class TestGetSummary:
 
         summary = provider.get_summary(max_tokens=50)
         assert len(summary) <= 250  # 50 * 4 + truncation
+
+
+# ---------------------------------------------------------------------------
+# Static Inventory + Path Summary
+# ---------------------------------------------------------------------------
+
+
+def _write_claude_md(root) -> None:
+    from pathlib import Path
+
+    path = Path(root) / "CLAUDE.md"
+    path.write_text(
+        "\n".join(
+            [
+                "## Quick Reference",
+                "",
+                "| What | Where | Key Files |",
+                "|---|---|---|",
+                "| Debate | `aragora/debate/` | `orchestrator.py` |",
+                "| Pipeline | `aragora/pipeline/` | `idea_to_execution.py` |",
+                "",
+                "**Codebase Scale:** 3,000+ Python modules",
+                "",
+                "**Core (stable):**",
+                "- Debate engine",
+                "- Pipeline",
+                "",
+                "**Integrated:**",
+                "- Context engineering",
+                "",
+                "**Enterprise (production-ready):**",
+                "- Audit trails",
+                "",
+                "See `docs/STATUS.md` for feature details.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_build_static_inventory_reads_claude_md(tmp_path):
+    _write_claude_md(tmp_path)
+    (tmp_path / "aragora" / "debate").mkdir(parents=True)
+    (tmp_path / "aragora" / "pipeline").mkdir(parents=True)
+
+    inventory = build_static_inventory(repo_root=str(tmp_path))
+
+    assert "## CODEBASE INVENTORY" in inventory
+    assert "### Quick Reference (Verified)" in inventory
+    assert "### Feature Status" in inventory
+    assert "### Codebase Scale" in inventory
+    assert "[MISSING:" not in inventory
+
+
+def test_build_static_inventory_marks_missing_paths(tmp_path):
+    _write_claude_md(tmp_path)
+    (tmp_path / "aragora" / "debate").mkdir(parents=True)
+    # aragora/pipeline intentionally absent
+
+    inventory = build_static_inventory(repo_root=str(tmp_path))
+
+    assert "[MISSING:" in inventory
+    assert "aragora/pipeline/" in inventory
+
+
+def test_build_static_inventory_respects_max_chars(tmp_path):
+    _write_claude_md(tmp_path)
+    (tmp_path / "aragora" / "debate").mkdir(parents=True)
+
+    inventory = build_static_inventory(repo_root=str(tmp_path), max_chars=160)
+
+    assert len(inventory) <= 180
+    assert inventory.endswith("...[truncated]")
+
+
+def test_build_static_inventory_handles_missing_claude_md(tmp_path):
+    inventory = build_static_inventory(repo_root=str(tmp_path))
+    assert inventory == ""
+
+
+def test_format_path_verification_summary_outputs_counts():
+    report = RepoGroundingReport(
+        mentioned_paths=["aragora/a.py", "aragora/b.py", "aragora/c.py"],
+        existing_paths=["aragora/a.py"],
+        new_paths=["aragora/b.py"],
+        missing_paths=["aragora/c.py"],
+        path_existence_rate=0.5,
+    )
+
+    summary = format_path_verification_summary(report)
+
+    assert "[path-check]" in summary
+    assert "grounded=50%" in summary
+    assert "missing paths: aragora/c.py" in summary
