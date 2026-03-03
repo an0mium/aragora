@@ -235,9 +235,9 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
 
         {/* Subtitle — short, one line on desktop */}
         <p
-          className="max-w-md mx-auto leading-relaxed"
+          className="max-w-2xl mx-auto leading-relaxed"
           style={{
-            fontSize: isDark ? '15px' : '17px',
+            fontSize: '14px',
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-landing)',
             marginBottom: '48px',
@@ -302,41 +302,11 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
               boxShadow: isDark ? '0 0 20px var(--accent-glow)' : '0 2px 8px var(--accent-glow)',
             }}
           >
-            {isRunning ? 'Agents debating...' : isDark ? '> Run a free debate' : 'Run a free debate'}
+            {isRunning ? 'Agents debating...' : isDark ? '> Start Debate' : 'Start Debate'}
           </button>
         </form>
 
-        {/* Example topics — subtle, below the form */}
-        {!result && !isRunning && (
-          <div className="max-w-xl mx-auto mt-8">
-            <p
-              className="text-xs mb-3 text-center"
-              style={{ color: 'var(--text-muted)', opacity: 0.5, fontFamily: 'var(--font-landing)' }}
-            >
-              Or try an example:
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {EXAMPLE_TOPICS.map((topic) => (
-                <button
-                  key={topic}
-                  onClick={() => { setQuestion(topic); runDebate(topic); }}
-                  className="text-xs px-3 py-1.5 transition-colors hover:opacity-80 cursor-pointer"
-                  style={{
-                    fontFamily: 'var(--font-landing)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-button)',
-                    color: 'var(--text-muted)',
-                    backgroundColor: 'transparent',
-                  }}
-                >
-                  {topic}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Loading state */}
+                {/* Loading state */}
         {isRunning && (
           <div className="flex flex-col items-center py-8 gap-3">
             <div className="flex items-center gap-3" style={{ color: 'var(--accent)' }}>

@@ -78,7 +78,7 @@ export function PricingSection() {
         <p
           className="text-center uppercase tracking-widest"
           style={{
-            fontSize: isDark ? '11px' : '12px',
+            fontSize: isDark ? '16px' : '18px',
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-landing)',
             marginBottom: '20px',

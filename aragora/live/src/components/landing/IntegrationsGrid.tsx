@@ -90,7 +90,7 @@ export function IntegrationsGrid() {
       <div className="max-w-3xl mx-auto text-center">
         <p
           className="text-center uppercase tracking-widest"
-          style={{ fontSize: isDark ? '11px' : '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-landing)', marginBottom: '20px' }}
+          style={{ fontSize: isDark ? '16px' : '18px', color: 'var(--text-muted)', fontFamily: 'var(--font-landing)', marginBottom: '20px' }}
         >
           {isDark ? '> INTEGRATIONS' : 'INTEGRATIONS'}
         </p>

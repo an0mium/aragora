@@ -87,7 +87,7 @@ export function FeatureShowcase() {
       <div className="max-w-4xl mx-auto">
         <p
           className="text-center mb-4 uppercase tracking-widest"
-          style={{ fontSize: isDark ? '11px' : '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
+          style={{ fontSize: isDark ? '16px' : '18px', color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
         >
           {isDark ? '> CAPABILITIES' : 'CAPABILITIES'}
         </p>

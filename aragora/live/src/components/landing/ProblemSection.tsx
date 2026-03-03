@@ -45,7 +45,7 @@ export function ProblemSection() {
         <p
           className="text-center uppercase tracking-widest"
           style={{
-            fontSize: isDark ? '11px' : '12px',
+            fontSize: isDark ? '16px' : '18px',
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-landing)',
             marginBottom: '20px',
@@ -58,9 +58,9 @@ export function ProblemSection() {
         <h2
           className="text-center max-w-lg mx-auto leading-snug"
           style={{
-            fontSize: isDark ? '24px' : '28px',
-            fontWeight: 600,
-            color: 'var(--text)',
+            fontSize: isDark ? '14px' : '15px',
+            fontWeight: 500,
+            color: 'var(--text-muted)',
             fontFamily: 'var(--font-landing)',
             marginBottom: '64px',
           }}
