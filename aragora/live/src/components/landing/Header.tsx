@@ -20,15 +20,15 @@ export function Header() {
         {/* Wordmark */}
         <Link href="/landing" className="flex items-center">
           <span
-            className="font-bold tracking-wider"
+            className="font-bold"
             style={{
               color: 'var(--accent)',
-              fontSize: theme === 'dark' ? '14px' : '16px',
-              fontFamily: theme === 'dark' ? "'JetBrains Mono', monospace" : "'Inter', system-ui, sans-serif",
-              letterSpacing: theme === 'dark' ? '0.15em' : '0.08em',
+              fontSize: '14px',
+              fontFamily: "'JetBrains Mono', monospace",
+              letterSpacing: '0.15em',
             }}
           >
-            {theme === 'dark' ? '> ARAGORA' : 'Aragora'}
+            {'> ARAGORA'}
           </span>
         </Link>
 
