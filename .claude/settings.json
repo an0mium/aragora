@@ -9,8 +9,13 @@
   "hooks": {
     "SessionStart": [
       {
-        "type": "command",
-        "command": ".claude/hooks/worktree-guard.sh"
+        "matcher": {},
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/worktree-guard.sh"
+          }
+        ]
       }
     ]
   }
