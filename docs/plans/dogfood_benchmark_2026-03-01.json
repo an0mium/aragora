@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-02T23:59:51.958138+00:00",
+  "generated_at": "2026-03-03T09:02:45.783000+00:00",
   "base_report": "docs/plans/dogfood_timeout3600_single_run_analysis.json",
   "command": [
     "python",
@@ -27,39 +27,16 @@
   "strict_timeout_seconds": 900,
   "runs": [
     {
-      "duration_seconds": 718.69,
-      "exit_code": 0,
+      "duration_seconds": 887.69,
+      "exit_code": 1,
       "timed_out": false,
       "quality": {
         "present": true,
-        "verdict": "good",
-        "score": 10.0,
-        "practicality": 6.27,
-        "loops": 1,
-        "upgraded": true
-      },
-      "runtime_blockers": [],
-      "warning_signals": [
-        "resource_warning",
-        "tracemalloc_hint",
-        "unclosed_connector",
-        "unclosed_transport"
-      ],
-      "warning_only": true,
-      "stdout_excerpt": "[17:28:02] [PIPE_START] pipeline_id=pipe-d02de186 source=debate\n[17:28:02] [STAGE_START] stage=ideation\n[17:28:02] [STAGE_DONE] stage=ideation\n[17:28:02] [STAGE_START] stage=goals\n[17:28:02] [STAGE_DONE] stage=goals\n[17:28:02] [STAGE_START] stage=actions\n[17:28:02] [STAGE_DONE] stage=actions\n[17:28:02] [STAGE_START] stage=orchestration\n[17:28:02] [STAGE_DONE] stage=orchestration\n[17:28:02] [PIPE_DONE] pipeline_id=pipe-d02de186\n\n============================================================\nFINAL ANSWER:\n============================================================\n# 1. Ranked High-Level Tasks\n\n1. **Implement Core Orchestrator Quorum & Fallback Mechanisms:** Develop the multi-model debate orchestrator with a dynamic quorum rule to handle API timeouts, specifically integrating a manual human-in-the-loop fallback for Grok 4.20. Light role guidance: Claude Opus 4.6 (Proposer/Synthesis), Gemini 3.1 Pro Preview (Critic), GPT-5.3 Codex (Technical/Code), and Grok 4.20 (Red-Team).\n2. **Deploy Executable Settlement Hooks & Dissent Schemas:** Implement the `DissentRecord` and `SettlementHook` JSON schemas to enforce minimum reasoning length, evidence references, and machine-executable claims.\n3. **Implement Anti-Collapse & Drift Detection:** Build configurable semantic similarity thresholds to prevent model consensus collapse and goalpost drift during multi-round debates.\n4. **Develop Context Summarization & Cost Management:** Create a sliding-window context truncation and summarization pipeline to bound token growth and enforce the $5.00 USD hard ceiling per debate round.\n5. **Bootstrap Observability & Telemetry Dashboards:** Deploy phased logging for model timeouts, output truncation events, and API failure rates to resolve circular dependencies between orchestration and observability.\n\n# 2. Suggested Subtasks\n\n*   **Task 1 (Quorum & Fallback):** \n    *   Implement `QuorumManager` requiring a minimum of 3 participating models.\n    *   Add a dynamic quorum adjustment (e.g., 2/3 agreement if 1 model times out).\n    *   Build a CLI interrupt/prompt for the Grok 4.20 manual fallback workflow.\n*   **Task 2 (Schemas):** \n    *   Define `DissentRecord` schema with a 50-character minimum reasoning constraint and a `[ROLE_OVERRIDE]` escape clause.\n    *   Define `SettlementHook` schema with a `verification_method` object and `method_type` enum.\n*   **Task 3 (Anti-Collapse):** \n    *   Integrate cosine similarity checks between model outputs.\n    *   Parameterize the convergence threshold (default 80%) and semantic distance drift threshold (default 20%).\n*   **Task 4 (Cost/Context):** \n    *   Implement token counters for Claude ($5/1M in, $25/1M out) and Gemini ($2/1M in, $12/1M out).\n    *   Build a summarization trigger when context exceeds 15,000 input tokens.\n*   **Task 5 (Observability):** \n    *   Set up basic EventBus logging for API latency, truncation flags, and fallback triggers.\n\n# 3. Owner module / file paths\n\n*   `aragora/orchestrator/quorum.py` (Quorum logic, model participation tracking)\n*   `aragora/orchestrator/human_fallback.py` (CLI interface for Grok 4.20 manual fallback)\n*   `aragora/models/clients.py` (API integrations for Claude Opus 4.6, GPT-5.3 Codex, Gemini 3.1 Pro Preview, Grok 4.20)\n*   `aragora/schemas/dissent.json` (Dissent schema definition)\n*   `aragora/schemas/settlement.json` (Settlement hook schema definition)\n*   `aragora/metrics/similarity.py` (Cosine similarity and semantic drift calculators)\n*   `aragora/context/summarizer.py` (Token counting and context window management)\n*   `aragora/observability/telemetry.py` (EventBus and logging bootstrap)\n\n# 4. Test Plan\n\n*   **Quorum Unit Testing:** Mock API timeouts for Grok 4.20 and verify that `QuorumManager` successfully falls back to a 2/3 agreement rule among Claude, Gemini, and Codex.\n*   **Schema Validation Testing:** Generate 100 simulated model responses and assert that responses missing the `verification_method` object or falling under the 50-character reas",
-      "stderr_excerpt": "/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=46, family=2, type=1, proto=0, laddr=('127.0.0.1', 50780)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=49, family=2, type=1, proto=0, laddr=('127.0.0.1', 51020)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=49, family=2, type=1, proto=0, laddr=('127.0.0.1', 51028)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\nsys:1: ResourceWarning: unclosed <ssl.SSLSocket fd=50, family=2, type=1, proto=0, laddr=('10.0.0.50', 51021), raddr=('162.159.140.245', 443)>\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/aiohttp/connector.py:380: ResourceWarning: Unclosed connector <aiohttp.connector.TCPConnector object at 0x138b87b10>\nUnclosed connector\nconnections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x138d979a0>, 273019.464195833)])']\nconnector: <aiohttp.connector.TCPConnector object at 0x138b87b10>\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/sslproto.py:123: ResourceWarning: unclosed transport <asyncio._SSLProtocolTransport object>\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=80>"
-    },
-    {
-      "duration_seconds": 877.79,
-      "exit_code": 1,
-      "timed_out": false,
-      "quality": {
-        "present": false,
-        "verdict": null,
-        "score": null,
-        "practicality": null,
-        "loops": null,
-        "upgraded": null
+        "verdict": "needs_work",
+        "score": 7.27,
+        "practicality": 3.45,
+        "loops": 5,
+        "upgraded": false
       },
       "runtime_blockers": [
         "quality_gate_failure"
@@ -70,67 +47,89 @@
         "unclosed_transport"
       ],
       "warning_only": false,
-      "stdout_excerpt": "[17:37:30] [PIPE_START] pipeline_id=pipe-ac1c8c4c source=debate\n[17:37:30] [STAGE_START] stage=ideation\n[17:37:30] [STAGE_DONE] stage=ideation\n[17:37:30] [STAGE_START] stage=goals\n[17:37:30] [STAGE_DONE] stage=goals\n[17:37:30] [STAGE_START] stage=actions\n[17:37:30] [STAGE_DONE] stage=actions\n[17:37:30] [STAGE_START] stage=orchestration\n[17:37:30] [STAGE_DONE] stage=orchestration\n[17:37:30] [PIPE_DONE] pipeline_id=pipe-ac1c8c4c",
-      "stderr_excerpt": "/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=30, family=2, type=1, proto=0, laddr=('127.0.0.1', 57132)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=33, family=2, type=1, proto=0, laddr=('127.0.0.1', 57189)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=33, family=2, type=1, proto=0, laddr=('127.0.0.1', 57206)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/dataclasses.py:433: ResourceWarning: unclosed <socket.socket fd=78, family=30, type=1, proto=6, laddr=('2601:246:5e83:ff80:513e:4266:9467:d01', 60042, 0, 0), raddr=('2607:6bc0::10', 443, 0, 0)>\n  exec(txt, globals, ns)\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/sslproto.py:123: ResourceWarning: unclosed transport <asyncio._SSLProtocolTransport object>\n  _warnings.warn(\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=78>\n  _warn(f\"unclosed transport {self!r}\", ResourceWarning, source=self)\nResourceWarning: Enable tracemalloc to get the object allocation traceback\nDebate failed quality gate: Post-consensus quality gate failed after upgrade loops: Empty section content: Suggested Subtasks; Empty section content: Test Plan; Owner module / file paths are weakly grounded to existing repo files. (quality=10.0, practicality=3.45)\nsys:1: ResourceWarning: unclosed <ssl.SSLSocket fd=34, family=2, type=1, proto=0, laddr=('10.0.0.50', 57190), raddr=('162.159.140.245', 443)>\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=79>\n  _warn(f\"unclosed transport {self!r}\", ResourceWarning, source=self)\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=41>"
+      "stdout_excerpt": "[02:29:09] [PIPE_START] pipeline_id=pipe-311d7815 source=debate\n[02:29:09] [STAGE_START] stage=ideation\n[02:29:09] [STAGE_DONE] stage=ideation\n[02:29:09] [STAGE_START] stage=goals\n[02:29:09] [STAGE_DONE] stage=goals\n[02:29:09] [STAGE_START] stage=actions\n[02:29:09] [STAGE_DONE] stage=actions\n[02:29:09] [STAGE_START] stage=orchestration\n[02:29:09] [STAGE_DONE] stage=orchestration\n[02:29:09] [PIPE_DONE] pipeline_id=pipe-311d7815\n\n[quality] verdict=needs_work score=7.27 practicality=3.45 loops=5 upgraded=False",
+      "stderr_excerpt": "/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/huggingface_hub/file_download.py:798: UserWarning: Not enough free disk space to download the file. The expected file size is: 567.61 MB. The target location /Users/armand/.cache/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/blobs only has 486.95 MB free disk space.\n  warnings.warn(\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/huggingface_hub/file_download.py:798: UserWarning: Not enough free disk space to download the file. The expected file size is: 567.61 MB. The target location /Users/armand/.cache/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/blobs only has 177.86 MB free disk space.\n  warnings.warn(\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=49, family=2, type=1, proto=0, laddr=('127.0.0.1', 50823)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=52, family=2, type=1, proto=0, laddr=('127.0.0.1', 50855)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=52, family=2, type=1, proto=0, laddr=('127.0.0.1', 50863)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\nDebate failed quality gate: Post-consensus quality gate failed after upgrade loops: Gate Criteria is missing explicit quantitative thresholds.; Rollback Plan is missing explicit trigger -> action mapping.; Owner module / file paths is missing concrete repo paths. (quality=7.27, practicality=3.45)\nsys:1: ResourceWarning: unclosed <ssl.SSLSocket fd=53, family=2, type=1, proto=0, laddr=('10.0.0.50', 50856), raddr=('172.66.0.243', 443)>\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=81>"
     },
     {
-      "duration_seconds": 861.15,
+      "duration_seconds": 843.2,
       "exit_code": 1,
       "timed_out": false,
       "quality": {
-        "present": false,
-        "verdict": null,
-        "score": null,
-        "practicality": null,
-        "loops": null,
-        "upgraded": null
+        "present": true,
+        "verdict": "needs_work",
+        "score": 7.27,
+        "practicality": 3.45,
+        "loops": 5,
+        "upgraded": false
       },
       "runtime_blockers": [
         "quality_gate_failure"
       ],
       "warning_signals": [
         "resource_warning",
-        "tracemalloc_hint",
-        "unclosed_transport"
+        "tracemalloc_hint"
       ],
       "warning_only": false,
-      "stdout_excerpt": "[17:52:59] [PIPE_START] pipeline_id=pipe-d537b105 source=debate\n[17:52:59] [STAGE_START] stage=ideation\n[17:52:59] [STAGE_DONE] stage=ideation\n[17:52:59] [STAGE_START] stage=goals\n[17:52:59] [STAGE_DONE] stage=goals\n[17:52:59] [STAGE_START] stage=actions\n[17:52:59] [STAGE_DONE] stage=actions\n[17:52:59] [STAGE_START] stage=orchestration\n[17:53:00] [STAGE_DONE] stage=orchestration\n[17:53:00] [PIPE_DONE] pipeline_id=pipe-d537b105",
-      "stderr_excerpt": "/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=30, family=2, type=1, proto=0, laddr=('127.0.0.1', 65350)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=33, family=2, type=1, proto=0, laddr=('127.0.0.1', 65360)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=33, family=2, type=1, proto=0, laddr=('127.0.0.1', 65364)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\nDebate failed quality gate: Post-consensus quality gate failed after upgrade loops: Owner module / file paths are weakly grounded to existing repo files.; Output practicality is too low for execution handoff. (quality=10.0, practicality=4.52)\nsys:1: ResourceWarning: unclosed <ssl.SSLSocket fd=34, family=2, type=1, proto=0, laddr=('10.0.0.50', 65361), raddr=('162.159.140.245', 443)>\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/asyncio/selector_events.py:868: ResourceWarning: unclosed transport <_SelectorSocketTransport fd=76>"
+      "stdout_excerpt": "[02:41:36] [PIPE_START] pipeline_id=pipe-50404b8b source=debate\n[02:41:36] [STAGE_START] stage=ideation\n[02:41:36] [STAGE_DONE] stage=ideation\n[02:41:36] [STAGE_START] stage=goals\n[02:41:36] [STAGE_DONE] stage=goals\n[02:41:36] [STAGE_START] stage=actions\n[02:41:36] [STAGE_DONE] stage=actions\n[02:41:36] [STAGE_START] stage=orchestration\n[02:41:36] [STAGE_DONE] stage=orchestration\n[02:41:36] [PIPE_DONE] pipeline_id=pipe-50404b8b\n\n[quality] verdict=needs_work score=7.27 practicality=3.45 loops=5 upgraded=False",
+      "stderr_excerpt": "/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/huggingface_hub/file_download.py:798: UserWarning: Not enough free disk space to download the file. The expected file size is: 567.61 MB. The target location /Users/armand/.cache/huggingface/hub/models--cross-encoder--nli-deberta-v3-small/blobs only has 558.13 MB free disk space.\n  warnings.warn(\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=46, family=2, type=1, proto=0, laddr=('127.0.0.1', 59296)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=49, family=2, type=1, proto=0, laddr=('127.0.0.1', 59375)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=49, family=2, type=1, proto=0, laddr=('127.0.0.1', 59400)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\nDebate failed quality gate: Post-consensus quality gate failed after upgrade loops: Gate Criteria is missing explicit quantitative thresholds.; Rollback Plan is missing explicit trigger -> action mapping.; Owner module / file paths is missing concrete repo paths. (quality=7.27, practicality=3.45)\nsys:1: ResourceWarning: unclosed <ssl.SSLSocket fd=50, family=2, type=1, proto=0, laddr=('10.0.0.50', 59376), raddr=('172.66.0.243', 443)>\nResourceWarning: Enable tracemalloc to get the object allocation traceback"
+    },
+    {
+      "duration_seconds": 886.3,
+      "exit_code": 1,
+      "timed_out": false,
+      "quality": {
+        "present": true,
+        "verdict": "needs_work",
+        "score": 7.27,
+        "practicality": 3.45,
+        "loops": 5,
+        "upgraded": false
+      },
+      "runtime_blockers": [
+        "quality_gate_failure"
+      ],
+      "warning_signals": [
+        "resource_warning",
+        "tracemalloc_hint"
+      ],
+      "warning_only": false,
+      "stdout_excerpt": "[02:55:36] [PIPE_START] pipeline_id=pipe-828ac6a8 source=debate\n[02:55:36] [STAGE_START] stage=ideation\n[02:55:36] [STAGE_DONE] stage=ideation\n[02:55:36] [STAGE_START] stage=goals\n[02:55:36] [STAGE_DONE] stage=goals\n[02:55:36] [STAGE_START] stage=actions\n[02:55:36] [STAGE_DONE] stage=actions\n[02:55:36] [STAGE_START] stage=orchestration\n[02:55:36] [STAGE_DONE] stage=orchestration\n[02:55:36] [PIPE_DONE] pipeline_id=pipe-828ac6a8\n\n[quality] verdict=needs_work score=7.27 practicality=3.45 loops=5 upgraded=False",
+      "stderr_excerpt": "/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=30, family=2, type=1, proto=0, laddr=('127.0.0.1', 64961)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=33, family=2, type=1, proto=0, laddr=('127.0.0.1', 65251)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\n/Users/armand/.pyenv/versions/3.11.11/lib/python3.11/site-packages/rlm/core/lm_handler.py:177: ResourceWarning: unclosed <socket.socket fd=33, family=2, type=1, proto=0, laddr=('127.0.0.1', 65257)>\n  self._server = None\nResourceWarning: Enable tracemalloc to get the object allocation traceback\nDebate failed quality gate: Post-consensus quality gate failed after upgrade loops: Gate Criteria is missing explicit quantitative thresholds.; Rollback Plan is missing explicit trigger -> action mapping.; Owner module / file paths is missing concrete repo paths. (quality=7.27, practicality=3.45)\nsys:1: ResourceWarning: unclosed <ssl.SSLSocket fd=34, family=2, type=1, proto=0, laddr=('10.0.0.50', 65252), raddr=('172.66.0.243', 443)>\nResourceWarning: Enable tracemalloc to get the object allocation traceback"
     }
   ],
   "summary": {
     "total_runs": 3,
     "non_timeout_runs": 3,
-    "successful_runs": 1,
-    "quality_present_runs": 1,
-    "passed_quality_and_practicality_runs": 1,
-    "pass_rate": 0.3333,
+    "successful_runs": 0,
+    "quality_present_runs": 0,
+    "passed_quality_and_practicality_runs": 0,
+    "pass_rate": 0.0,
     "duration_seconds": {
-      "mean": 819.21,
-      "median": 861.15,
-      "min": 718.69,
-      "max": 877.79
+      "mean": 872.397,
+      "median": 886.3,
+      "min": 843.2,
+      "max": 887.69
     },
     "quality_score_10": {
-      "mean": 10.0,
-      "median": 10.0,
-      "min": 10.0,
-      "max": 10.0
+      "mean": null,
+      "median": null,
+      "min": null,
+      "max": null
     },
     "practicality_score_10": {
-      "mean": 6.27,
-      "median": 6.27,
-      "min": 6.27,
-      "max": 6.27
+      "mean": null,
+      "median": null,
+      "min": null,
+      "max": null
     },
     "loops_used": {
-      "mean": 1.0,
-      "median": 1.0,
-      "min": 1.0,
-      "max": 1.0
+      "mean": null,
+      "median": null,
+      "min": null,
+      "max": null
     },
     "runtime_blockers": {
-      "quality_gate_failure": 2
+      "quality_gate_failure": 3
     }
   }
 }
