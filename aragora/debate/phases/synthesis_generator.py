@@ -546,9 +546,7 @@ Required sections:
 
             # 1. Top-level project files
             top_files = [
-                n
-                for n in ("pyproject.toml", "CLAUDE.md", "Makefile")
-                if (repo_root / n).is_file()
+                n for n in ("pyproject.toml", "CLAUDE.md", "Makefile") if (repo_root / n).is_file()
             ]
             if top_files:
                 lines.append(f"  ./: {', '.join(top_files)}")
