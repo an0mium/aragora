@@ -1,41 +1,39 @@
 # Test Skip Burndown
 
-Last updated: 2026-02-24
+Last updated: 2026-03-03
 
 This file tracks intentional test-skip debt reduction so `tests/.skip_baseline`
 stays actionable and does not hide regressions.
 
 ## Current Baseline
 
-- Total skip markers: `112`
+- Total skip markers: `54`
 - Source command: `python scripts/audit_test_skips.py --json`
-- CI baseline file: `tests/.skip_baseline` = `112`
+- CI baseline file: `tests/.skip_baseline` = `54`
 - Marker types:
-  - `pytest.skip`: `73`
-  - `skipif`: `35`
-  - `pytest.importorskip`: `4`
+  - `skipif`: `34`
+  - `pytest.skip`: `18`
+  - `skip`: `2`
 
 ### Category Snapshot
 
 | Category | Count | Weekly target |
 |---|---:|---:|
-| `missing_feature` | 40 | -5 |
+| `missing_feature` | 12 | -2 |
 | `integration_dependency` | 29 | hold |
-| `optional_dependency` | 18 | -3 |
-| `platform_specific` | 13 | hold |
-| `uncategorized` | 7 | -3 |
+| `platform_specific` | 6 | hold |
+| `optional_dependency` | 4 | -1 |
 | `performance` | 3 | hold |
-| `known_bug` | 2 | -1 |
 
 ## Highest-Skip Files
 
 | File | Count |
 |---|---:|
 | `tests/integration/test_knowledge_visibility_sharing.py` | 6 |
-| `tests/server/openapi/test_contract_matrix.py` | 6 |
-| `tests/sdk/test_typescript_exports.py` | 6 |
-| `tests/test_plugin_sandbox.py` | 5 |
-| `tests/sdk/test_openapi_sync.py` | 5 |
+| `tests/test_plugin_sandbox.py` | 4 |
+| `tests/debate/test_voting_engine.py` | 3 |
+| `tests/test_proofs.py` | 2 |
+| `tests/test_broadcast_audio.py` | 2 |
 
 ## Execution Rules
 
