@@ -1182,7 +1182,10 @@ def cmd_ask(args: argparse.Namespace) -> None:
             )
             quality_contract = derive_output_contract_from_task(f"output sections {normalized}")
         else:
-            quality_contract = derive_output_contract_from_task(args.task)
+            quality_contract = derive_output_contract_from_task(
+                args.task,
+                has_context=bool(getattr(args, "context", None)),
+            )
 
         if quality_fail_closed and quality_contract is None:
             print(
