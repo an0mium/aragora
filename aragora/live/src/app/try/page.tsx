@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { TeaserResult } from '@/components/try/TeaserResult';
 import { API_BASE_URL } from '@/config';
@@ -23,7 +24,8 @@ interface DebateResult {
 }
 
 export default function TryPage() {
-  const [question, setQuestion] = useState('');
+  const searchParams = useSearchParams();
+  const [question, setQuestion] = useState(searchParams.get('topic') || '');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<DebateResult | null>(null);
   const [error, setError] = useState<string | null>(null);

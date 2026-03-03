@@ -286,10 +286,10 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
               {copied ? 'LINK COPIED!' : 'SHARE THIS DEBATE'}
             </button>
             <Link
-              href="/try"
+              href={`/try${debate.topic ? `?topic=${encodeURIComponent(debate.topic.slice(0, 200))}` : ''}`}
               className="flex-1 py-3 text-center font-mono font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
             >
-              RUN YOUR OWN DEBATE
+              RUN YOUR OWN DEBATE →
             </Link>
           </div>
 
