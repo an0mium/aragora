@@ -256,10 +256,19 @@ We will monitor the system and respond to issues as they arise with care and att
     # The repair should preserve the original content.
     assert "TBD" in repaired
     assert "We will monitor" in repaired
-    # The repair should add notes about missing structural elements.
-    assert "No repo paths detected" in repaired or "trigger" in repaired.lower()
+    # The repair should inject actual structural content (not just notes).
+    # Gate criteria should get measurable thresholds.
+    assert "250ms" in repaired or "error_rate" in repaired
+    # Rollback should get trigger→action mapping.
+    assert "if" in repaired.lower() and "rollback" in repaired.lower()
     # Original text is not discarded.
     assert "settlement tracker integration" in repaired
+    # Critical: re-validation after repair should clear the structural defects.
+    after = validate_output_against_contract(repaired, contract)
+    structural_defects = [
+        d for d in after.defects if "quantitative thresholds" in d or "trigger -> action" in d
+    ]
+    assert structural_defects == [], f"Repair didn't fix defects: {structural_defects}"
 
 
 def test_output_contract_from_dict_parses_flags():
