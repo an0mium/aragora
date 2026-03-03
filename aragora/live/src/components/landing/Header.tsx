@@ -2,10 +2,13 @@
 
 import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
+import { useLayout } from '@/context/LayoutContext';
+import { Logo } from '@/components/Logo';
 import { ThemeSelector } from './ThemeSelector';
 
 export function Header() {
   const { theme } = useTheme();
+  const { toggleLeftSidebar } = useLayout();
 
   return (
     <header
@@ -17,9 +20,11 @@ export function Header() {
       }}
     >
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Wordmark */}
-        <Link href="/landing" className="flex items-center">
-          <span
+        {/* Logo mark + Wordmark */}
+        <div className="flex items-center gap-3">
+          <Logo size="lg" pixelSize={28} onClick={toggleLeftSidebar} />
+          <Link href="/landing" className="flex items-center">
+            <span
             className="font-bold"
             style={{
               color: 'var(--accent)',
@@ -29,8 +34,9 @@ export function Header() {
             }}
           >
             {'> ARAGORA'}
-          </span>
-        </Link>
+            </span>
+          </Link>
+        </div>
 
         {/* Nav links + Theme selector */}
         <div className="flex items-center gap-6">

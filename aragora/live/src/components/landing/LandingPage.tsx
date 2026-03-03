@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useLayout } from '@/context/LayoutContext';
-import { Logo } from '@/components/Logo';
 import { LeftSidebar } from '@/components/layout/LeftSidebar';
 import { Header } from './Header';
 import { HeroSection } from './HeroSection';
@@ -17,8 +16,7 @@ import { Footer } from './Footer';
 
 export function LandingPage() {
   const { theme } = useTheme();
-  const { leftSidebarOpen, leftSidebarWidth, toggleLeftSidebar, closeLeftSidebar, isMobile } =
-    useLayout();
+  const { leftSidebarOpen, leftSidebarWidth, closeLeftSidebar, isMobile } = useLayout();
 
   // Sidebar starts closed on the landing page.
   // LayoutProvider auto-opens it on desktop; setTimeout ensures our close
@@ -41,11 +39,6 @@ export function LandingPage() {
       }}
       data-landing-theme={theme}
     >
-      {/* Logo mark — fixed upper-left, toggles sidebar */}
-      <div className="fixed top-3 left-3 z-[60]">
-        <Logo size="lg" pixelSize={32} onClick={toggleLeftSidebar} />
-      </div>
-
       {/* Collapsible sidebar — self-hides when closed */}
       <LeftSidebar />
 
