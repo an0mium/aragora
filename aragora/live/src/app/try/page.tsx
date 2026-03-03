@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { TeaserResult } from '@/components/try/TeaserResult';
@@ -23,7 +23,7 @@ interface DebateResult {
   receiptHash?: string;
 }
 
-export default function TryPage() {
+function TryPageInner() {
   const searchParams = useSearchParams();
   const [question, setQuestion] = useState(searchParams.get('topic') || '');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -304,5 +304,13 @@ export default function TryPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function TryPage() {
+  return (
+    <Suspense>
+      <TryPageInner />
+    </Suspense>
   );
 }
