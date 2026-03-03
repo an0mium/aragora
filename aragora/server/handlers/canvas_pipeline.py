@@ -169,6 +169,143 @@ class CanvasPipelineHandler:
     def __init__(self, ctx: dict[str, Any] | None = None) -> None:
         self.ctx = ctx or {}
 
+    @staticmethod
+    def _coerce_bool(value: Any, default: bool = False) -> bool:
+        """Parse booleans from JSON, query params, or env-like strings."""
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on"}:
+                return True
+            if normalized in {"0", "false", "no", "off"}:
+                return False
+        return bool(value)
+
+    @staticmethod
+    def _extract_debate_id(debate_result: Any) -> str | None:
+        """Extract debate_id from a debate result object/dict when available."""
+        if debate_result is None:
+            return None
+
+        for key in ("debate_id", "id"):
+            if isinstance(debate_result, dict):
+                value = debate_result.get(key)
+            else:
+                value = getattr(debate_result, key, None)
+
+            if value:
+                return str(value)
+        return None
+
+    async def _run_unified_orchestrator(
+        self,
+        prompt: str,
+        request_data: dict[str, Any],
+    ) -> tuple[dict[str, Any], str]:
+        """Run UnifiedOrchestrator and return summary + context hint."""
+        from aragora.debate.provider_diversity import ProviderDiversityFilter
+        from aragora.interrogation.researcher import UnifiedResearcher
+        from aragora.pipeline.decision_plan.factory import DecisionPlanFactory
+        from aragora.pipeline.input_extension import InputExtensionEngine
+        from aragora.pipeline.meta_loop import MetaLoopTrigger
+        from aragora.pipeline.outcome_feedback import OutcomeFeedbackRecorder
+        from aragora.pipeline.unified_orchestrator import (
+            OrchestratorConfig,
+            UnifiedOrchestrator,
+        )
+        from aragora.ranking.phase_elo import PhaseELOTracker
+
+        km = None
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            km = get_knowledge_mound()
+        except (ImportError, RuntimeError, OSError, ValueError):
+            km = None
+
+        domain = str(
+            request_data.get("domain")
+            or request_data.get("context")
+            or request_data.get("topic")
+            or ""
+        ).strip()
+        preset_name = str(request_data.get("preset_name") or "cto")
+        autonomy_level = str(request_data.get("autonomy_level") or "propose_and_approve")
+        min_providers = int(request_data.get("min_providers") or 2)
+        execution_mode = str(request_data.get("execution_mode") or "workflow")
+        skip_execution = self._coerce_bool(
+            request_data.get("skip_execution"),
+            default=True,
+        )
+        plan_executor = None
+        if not skip_execution:
+            try:
+                from aragora.pipeline.executor import PlanExecutor
+
+                plan_executor = PlanExecutor(knowledge_mound=km)
+            except (ImportError, RuntimeError, OSError, ValueError) as exc:
+                logger.warning("PlanExecutor unavailable for unified orchestrator: %s", exc)
+
+        config = OrchestratorConfig(
+            preset_name=preset_name,
+            domain=domain,
+            debate_rounds=request_data.get("debate_rounds"),
+            agent_count=request_data.get("agent_count"),
+            consensus_threshold=request_data.get("consensus_threshold"),
+            autonomy_level=autonomy_level,
+            min_providers=min_providers,
+            enable_meta_loop=self._coerce_bool(
+                request_data.get("enable_meta_loop"),
+                default=False,
+            ),
+            execution_mode=execution_mode,
+            skip_execution=skip_execution,
+        )
+
+        researcher = UnifiedResearcher(knowledge_mound=km)
+        orchestrator = UnifiedOrchestrator(
+            input_extension=InputExtensionEngine(knowledge_mound=km, researcher=researcher),
+            researcher=researcher,
+            diversity_filter=ProviderDiversityFilter(min_providers=min_providers),
+            elo_tracker=PhaseELOTracker(),
+            feedback_recorder=OutcomeFeedbackRecorder(knowledge_mound=km),
+            meta_loop=MetaLoopTrigger(knowledge_mound=km),
+            plan_factory=DecisionPlanFactory,
+            plan_executor=plan_executor,
+            knowledge_mound=km,
+        )
+
+        result = await orchestrator.run(prompt, config=config)
+
+        context_block = ""
+        if result.extended_input is not None and hasattr(result.extended_input, "to_context_block"):
+            try:
+                context_block = str(result.extended_input.to_context_block() or "")
+            except (TypeError, ValueError, AttributeError):
+                context_block = ""
+
+        summary: dict[str, Any] = {
+            "enabled": True,
+            "run_id": result.run_id,
+            "succeeded": result.succeeded,
+            "stages_completed": list(result.stages_completed),
+            "stages_skipped": list(result.stages_skipped),
+            "approvals_needed": list(result.approvals_needed),
+            "errors": list(result.errors),
+            "duration_s": result.duration_s,
+            "quality_score": result.quality_score,
+        }
+
+        debate_id = self._extract_debate_id(result.debate_result)
+        if debate_id:
+            summary["debate_id"] = debate_id
+            summary["debate_url"] = f"/debates/{debate_id}"
+
+        return summary, context_block
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
         if path.startswith("/api/v1/canvas/") or path.startswith("/api/canvas/"):
@@ -552,9 +689,31 @@ class CanvasPipelineHandler:
 
         context = request_data.get("context", "")
         auto_advance = request_data.get("auto_advance", True)
+        use_unified_orchestrator = self._coerce_bool(
+            request_data.get("use_unified_orchestrator"),
+            default=False,
+        )
+
+        orchestrator_summary: dict[str, Any] | None = None
+        parser_input = text
+        if use_unified_orchestrator:
+            try:
+                orchestrator_summary, context_block = await self._run_unified_orchestrator(
+                    text,
+                    request_data,
+                )
+                if context_block:
+                    parser_input = f"{text}\n\n{context_block}"
+            except Exception as exc:
+                logger.warning("Unified orchestrator pre-run failed: %s", exc)
+                orchestrator_summary = {
+                    "enabled": True,
+                    "succeeded": False,
+                    "errors": [str(exc)],
+                }
 
         parser = BrainDumpParser()
-        ideas = parser.parse(text)
+        ideas = parser.parse(parser_input)
 
         if not ideas:
             return error_response("Could not extract any ideas from the provided text", 400)
@@ -585,17 +744,25 @@ class CanvasPipelineHandler:
         _pipeline_objects[result.pipeline_id] = result
         _persist_pipeline_to_km(result)
 
-        return json_response(
-            {
-                "pipeline_id": result.pipeline_id,
-                "ideas_parsed": len(ideas),
-                "ideas": ideas,
-                "stage_status": result.stage_status,
-                "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
-                "result": result_dict,
-            },
-            201,
-        )
+        response_data: dict[str, Any] = {
+            "pipeline_id": result.pipeline_id,
+            "ideas_parsed": len(ideas),
+            "ideas": ideas,
+            "stage_status": result.stage_status,
+            "goals_count": len(result.goal_graph.goals) if result.goal_graph else 0,
+            "result": result_dict,
+        }
+        if orchestrator_summary is not None:
+            response_data["unified_orchestrator"] = orchestrator_summary
+            debate_id = orchestrator_summary.get("debate_id")
+            if debate_id:
+                response_data["debate_id"] = debate_id
+                response_data["debate_url"] = orchestrator_summary.get(
+                    "debate_url",
+                    f"/debates/{debate_id}",
+                )
+
+        return json_response(response_data, 201)
 
     @handle_errors("demo pipeline creation")
     async def handle_demo(self, request_data: dict[str, Any]) -> HandlerResult:

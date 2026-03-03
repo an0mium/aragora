@@ -167,6 +167,8 @@ export function usePipeline() {
       const result = await api.post('/api/v1/canvas/pipeline/from-braindump', {
         text,
         context: context ?? '',
+        use_unified_orchestrator: true,
+        skip_execution: true,
       });
       if (result?.result) {
         setPipelineData(result.result);

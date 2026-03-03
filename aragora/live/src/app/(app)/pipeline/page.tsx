@@ -891,7 +891,7 @@ function PipelinePageContent() {
                       <UseCaseWizard
                         onComplete={(id) => {
                           setShowWizard(false);
-                          router.push(`/debate/${id}`);
+                          router.push(`/debates/${id}`);
                         }}
                         onCancel={() => setShowWizard(false)}
                       />
