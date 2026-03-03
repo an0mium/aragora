@@ -10,7 +10,17 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+COMMON_GIT_DIR="$(
+    git -C "${SCRIPT_REPO_ROOT}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true
+)"
+if [[ -n "${COMMON_GIT_DIR}" && "${COMMON_GIT_DIR}" == */.git ]]; then
+    REPO_ROOT="$(cd "${COMMON_GIT_DIR%/.git}" && pwd)"
+else
+    REPO_ROOT="${SCRIPT_REPO_ROOT}"
+fi
+
 AGENT="codex"
 BASE_BRANCH="main"
 RECONCILE=true

@@ -13,7 +13,7 @@ Covers all 31 canvas pipeline v2 endpoints including:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -131,6 +131,64 @@ class TestPipelineCreation:
             json={"text": ""},
         )
         assert resp.status_code == 422  # Validation error: min_length=1
+
+    @pytest.mark.usefixtures("_bypass_auth")
+    def test_from_braindump_with_unified_orchestrator_metadata(
+        self,
+        client,
+        mock_pipeline_store,
+    ):
+        """from-braindump can include unified-orchestrator run metadata."""
+        mock_result = MagicMock()
+        mock_result.pipeline_id = "pipe-mock9999"
+        mock_result.stage_status = {"ideas": "complete", "goals": "pending"}
+        mock_result.ideas_canvas = MagicMock()
+        mock_result.ideas_canvas.nodes = {"n1": {}}
+        mock_result.actions_canvas = None
+        mock_result.orchestration_canvas = None
+        mock_result.universal_graph = None
+        mock_result.to_dict.return_value = {
+            "pipeline_id": "pipe-mock9999",
+            "stage_status": {"ideas": "complete", "goals": "pending"},
+        }
+
+        with (
+            patch(
+                "aragora.pipeline.idea_to_execution.IdeaToExecutionPipeline.from_brain_dump",
+                new=AsyncMock(return_value=mock_result),
+            ) as mock_from_brain_dump,
+            patch(
+                "aragora.server.handlers.canvas_pipeline.CanvasPipelineHandler._run_unified_orchestrator",
+                new=AsyncMock(
+                    return_value=(
+                        {
+                            "enabled": True,
+                            "run_id": "run-fastapi-1",
+                            "succeeded": True,
+                            "debate_id": "deb-fastapi-1",
+                            "debate_url": "/debates/deb-fastapi-1",
+                        },
+                        "extra context",
+                    )
+                ),
+            ) as mock_orchestrator,
+        ):
+            resp = client.post(
+                "/api/v2/canvas/pipeline/from-braindump",
+                json={
+                    "text": "Improve onboarding",
+                    "use_unified_orchestrator": True,
+                },
+            )
+
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["pipeline_id"] == "pipe-mock9999"
+        assert body["unified_orchestrator"]["run_id"] == "run-fastapi-1"
+        assert body["debate_id"] == "deb-fastapi-1"
+        assert body["debate_url"] == "/debates/deb-fastapi-1"
+        mock_orchestrator.assert_awaited_once()
+        mock_from_brain_dump.assert_awaited_once()
 
     @pytest.mark.usefixtures("_bypass_auth")
     def test_from_debate_requires_cartographer_data(self, client):

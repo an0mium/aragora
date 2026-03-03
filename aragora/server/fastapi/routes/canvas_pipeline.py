@@ -230,9 +230,15 @@ class FromBraindumpRequest(BaseModel):
     """Request for creating pipeline from brain dump text."""
 
     text: str = Field(..., min_length=1, max_length=50000)
+    context: str | None = None
     auto_advance: bool = True
     use_ai: bool = False
     use_universal: bool = False
+    use_unified_orchestrator: bool = False
+    skip_execution: bool | None = None
+    preset_name: str | None = None
+    autonomy_level: str | None = None
+    domain: str | None = None
 
 
 class FromTemplateRequest(BaseModel):
@@ -523,14 +529,50 @@ async def create_from_braindump(
 
         pipeline_id = f"pipe-{uuid.uuid4().hex[:8]}"
         event_cb = _get_pipeline_emitter_callback(pipeline_id)
+        brain_dump_text = body.text
+        orchestrator_summary: dict[str, Any] | None = None
+
+        if body.use_unified_orchestrator:
+            from aragora.server.handlers.canvas_pipeline import CanvasPipelineHandler
+
+            try:
+                (
+                    orchestrator_summary,
+                    context_block,
+                ) = await CanvasPipelineHandler()._run_unified_orchestrator(
+                    body.text,
+                    body.model_dump(exclude_none=True),
+                )
+                if context_block:
+                    brain_dump_text = f"{body.text}\n\n{context_block}"
+            except Exception as exc:
+                logger.warning("Unified orchestrator pre-run failed: %s", exc)
+                orchestrator_summary = {
+                    "enabled": True,
+                    "succeeded": False,
+                    "errors": [str(exc)],
+                }
 
         result = await IdeaToExecutionPipeline.from_brain_dump(
-            body.text,
+            brain_dump_text,
             pipeline_id=pipeline_id,
             event_callback=event_cb,
         )
         _store_result(result)
-        return _summarize_result(result)
+        response = _summarize_result(result)
+        if orchestrator_summary is None:
+            return response
+
+        payload = response.model_dump()
+        payload["unified_orchestrator"] = orchestrator_summary
+        debate_id = orchestrator_summary.get("debate_id")
+        if debate_id:
+            payload["debate_id"] = debate_id
+            payload["debate_url"] = orchestrator_summary.get(
+                "debate_url",
+                f"/debates/{debate_id}",
+            )
+        return PipelineCreateResponse(**payload)
 
     except (ImportError, ValueError, TypeError, RuntimeError) as e:
         logger.warning("Pipeline from-braindump failed: %s", e)
