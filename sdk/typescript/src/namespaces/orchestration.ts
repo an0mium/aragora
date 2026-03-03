@@ -8,10 +8,10 @@
  * - Template-based workflows
  *
  * Endpoints:
- *   POST /api/v1/orchestration/deliberate      - Async deliberation
- *   POST /api/v1/orchestration/deliberate/sync - Sync deliberation
- *   GET  /api/v1/orchestration/status/:id      - Get status
- *   GET  /api/v1/orchestration/templates       - List templates
+ *   POST /api/v2/orchestration/deliberate      - Async deliberation
+ *   POST /api/v2/orchestration/deliberate/sync - Sync deliberation
+ *   GET  /api/v2/orchestration/status/:id      - Get status
+ *   GET  /api/v2/orchestration/templates       - List templates
  */
 
 /**
@@ -177,7 +177,7 @@ export class OrchestrationAPI {
   }> {
     const data = this.buildDeliberatePayload(options);
 
-    return this.client.request('POST', '/api/v1/orchestration/deliberate', {
+    return this.client.request('POST', '/api/v2/orchestration/deliberate', {
       json: data,
     });
   }
@@ -193,7 +193,7 @@ export class OrchestrationAPI {
   async deliberateSync(options: DeliberateOptions): Promise<DeliberationResult> {
     const data = this.buildDeliberatePayload(options);
 
-    return this.client.request('POST', '/api/v1/orchestration/deliberate/sync', {
+    return this.client.request('POST', '/api/v2/orchestration/deliberate/sync', {
       json: data,
     });
   }
@@ -243,7 +243,7 @@ export class OrchestrationAPI {
    * @returns Deliberation status and result (if completed)
    */
   async getStatus(requestId: string): Promise<DeliberationResult> {
-    return this.client.request('GET', `/api/v1/orchestration/status/${requestId}`);
+    return this.client.request('GET', `/api/v2/orchestration/status/${requestId}`);
   }
 
   // =========================================================================
@@ -256,6 +256,51 @@ export class OrchestrationAPI {
    * @returns List of templates with count
    */
   async listTemplates(): Promise<{
+    templates: DeliberationTemplate[];
+    count: number;
+  }> {
+    return this.client.request('GET', '/api/v2/orchestration/templates');
+  }
+
+  // =========================================================================
+  // Legacy compatibility (v1 routes)
+  // =========================================================================
+
+  /**
+   * Submit async deliberation using legacy v1 route.
+   */
+  async deliberateV1Compat(options: DeliberateOptions): Promise<{
+    request_id: string;
+    status: DeliberationStatus;
+    message: string;
+  }> {
+    const data = this.buildDeliberatePayload(options);
+    return this.client.request('POST', '/api/v1/orchestration/deliberate', {
+      json: data,
+    });
+  }
+
+  /**
+   * Submit sync deliberation using legacy v1 route.
+   */
+  async deliberateSyncV1Compat(options: DeliberateOptions): Promise<DeliberationResult> {
+    const data = this.buildDeliberatePayload(options);
+    return this.client.request('POST', '/api/v1/orchestration/deliberate/sync', {
+      json: data,
+    });
+  }
+
+  /**
+   * Get deliberation status using legacy v1 route.
+   */
+  async getStatusV1Compat(requestId: string): Promise<DeliberationResult> {
+    return this.client.request('GET', `/api/v1/orchestration/status/${requestId}`);
+  }
+
+  /**
+   * List templates using legacy v1 route.
+   */
+  async listTemplatesV1Compat(): Promise<{
     templates: DeliberationTemplate[];
     count: number;
   }> {

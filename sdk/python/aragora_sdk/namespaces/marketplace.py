@@ -14,7 +14,11 @@ if TYPE_CHECKING:
 
 
 class MarketplaceAPI:
-    """Synchronous marketplace API."""
+    """Synchronous marketplace API.
+
+    Primary methods target FastAPI v2 marketplace routes. Legacy v1-only
+    operations remain on v1 compatibility paths.
+    """
 
     def __init__(self, client: AragoraClient) -> None:
         self._client = client
@@ -38,15 +42,14 @@ class MarketplaceAPI:
         Returns:
             List of templates with pagination
         """
-        params: dict[str, Any] = {
-            "sort_by": sort_by,
-            "limit": limit,
-            "offset": offset,
-        }
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if category:
             params["category"] = category
+        # FastAPI v2 does not currently sort server-side, but accepts query
+        # filtering/pagination. Keep sort_by for call-site compatibility.
+        params["sort_by"] = sort_by
 
-        return self._client.request("GET", "/api/v1/marketplace/templates", params=params)
+        return self._client.request("GET", "/api/v2/marketplace/templates", params=params)
 
     def search_templates(
         self,
@@ -65,8 +68,18 @@ class MarketplaceAPI:
         Returns:
             Matching templates
         """
+        params: dict[str, Any] = {"q": query, "limit": limit, "offset": offset}
+        return self._client.request("GET", "/api/v2/marketplace/templates", params=params)
+
+    def search_templates_v1_compat(
+        self,
+        query: str,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Search templates using legacy compatibility route."""
         params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
-        return self._client.request("GET", "/api/v1/marketplace/templates/search", params=params)
+        return self._client.request("GET", "/api/marketplace/templates/search", params=params)
 
     def get_template(self, template_id: str) -> dict[str, Any]:
         """
@@ -78,7 +91,7 @@ class MarketplaceAPI:
         Returns:
             Template details
         """
-        return self._client.request("GET", f"/api/v1/marketplace/templates/{template_id}")
+        return self._client.request("GET", f"/api/v2/marketplace/templates/{template_id}")
 
     def get_template_reviews(
         self,
@@ -87,19 +100,19 @@ class MarketplaceAPI:
         offset: int = 0,
     ) -> dict[str, Any]:
         """
-        Get reviews for a template.
+        Get ratings for a template.
 
         Args:
             template_id: Template identifier
-            limit: Maximum reviews
+            limit: Maximum ratings
             offset: Pagination offset
 
         Returns:
-            Template reviews
+            Template ratings summary
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         return self._client.request(
-            "GET", f"/api/v1/marketplace/templates/{template_id}/reviews", params=params
+            "GET", f"/api/v2/marketplace/templates/{template_id}/ratings", params=params
         )
 
     def deploy_template(
@@ -148,7 +161,7 @@ class MarketplaceAPI:
         Returns:
             List of categories
         """
-        return self._client.request("GET", "/api/v1/marketplace/categories")
+        return self._client.request("GET", "/api/v2/marketplace/categories")
 
     def get_featured(self) -> dict[str, Any]:
         """
@@ -166,7 +179,7 @@ class MarketplaceAPI:
         comment: str | None = None,
     ) -> dict[str, Any]:
         """
-        Submit a review for a template.
+        Submit a rating for a template.
 
         Args:
             template_id: Template identifier
@@ -174,15 +187,23 @@ class MarketplaceAPI:
             comment: Review comment
 
         Returns:
-            Review submission confirmation
+            Rating submission confirmation
         """
-        data: dict[str, Any] = {"rating": rating}
+        data: dict[str, Any] = {"score": rating}
         if comment:
-            data["comment"] = comment
+            data["review"] = comment
 
         return self._client.request(
-            "POST", f"/api/v1/marketplace/templates/{template_id}/reviews", json=data
+            "POST", f"/api/v2/marketplace/templates/{template_id}/ratings", json=data
         )
+
+    def star_template(self, template_id: str) -> dict[str, Any]:
+        """Star a marketplace template via FastAPI v2."""
+        return self._client.request("POST", f"/api/v2/marketplace/templates/{template_id}/star")
+
+    def export_template(self, template_id: str) -> dict[str, Any]:
+        """Export a marketplace template via FastAPI v2."""
+        return self._client.request("GET", f"/api/v2/marketplace/templates/{template_id}/export")
 
     def list_my_deployments(
         self,
@@ -206,12 +227,12 @@ class MarketplaceAPI:
         """
         Get marketplace status.
 
-        GET /api/v1/marketplace/status
+        GET /api/v2/marketplace/status
 
         Returns:
             Dict with marketplace status information
         """
-        return self._client.request("GET", "/api/v1/marketplace/status")
+        return self._client.request("GET", "/api/v2/marketplace/status")
 
     def get_circuit_breaker(self) -> dict[str, Any]:
         """
@@ -226,7 +247,11 @@ class MarketplaceAPI:
 
 
 class AsyncMarketplaceAPI:
-    """Asynchronous marketplace API."""
+    """Asynchronous marketplace API.
+
+    Primary methods target FastAPI v2 marketplace routes. Legacy v1-only
+    operations remain on v1 compatibility paths.
+    """
 
     def __init__(self, client: AragoraAsyncClient) -> None:
         self._client = client
@@ -239,15 +264,14 @@ class AsyncMarketplaceAPI:
         offset: int = 0,
     ) -> dict[str, Any]:
         """List available marketplace templates."""
-        params: dict[str, Any] = {
-            "sort_by": sort_by,
-            "limit": limit,
-            "offset": offset,
-        }
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if category:
             params["category"] = category
+        # FastAPI v2 does not currently sort server-side, but accepts query
+        # filtering/pagination. Keep sort_by for call-site compatibility.
+        params["sort_by"] = sort_by
 
-        return await self._client.request("GET", "/api/v1/marketplace/templates", params=params)
+        return await self._client.request("GET", "/api/v2/marketplace/templates", params=params)
 
     async def search_templates(
         self,
@@ -256,14 +280,22 @@ class AsyncMarketplaceAPI:
         offset: int = 0,
     ) -> dict[str, Any]:
         """Search marketplace templates."""
+        params: dict[str, Any] = {"q": query, "limit": limit, "offset": offset}
+        return await self._client.request("GET", "/api/v2/marketplace/templates", params=params)
+
+    async def search_templates_v1_compat(
+        self,
+        query: str,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Search templates using legacy compatibility route."""
         params: dict[str, Any] = {"query": query, "limit": limit, "offset": offset}
-        return await self._client.request(
-            "GET", "/api/v1/marketplace/templates/search", params=params
-        )
+        return await self._client.request("GET", "/api/marketplace/templates/search", params=params)
 
     async def get_template(self, template_id: str) -> dict[str, Any]:
         """Get a template by ID."""
-        return await self._client.request("GET", f"/api/v1/marketplace/templates/{template_id}")
+        return await self._client.request("GET", f"/api/v2/marketplace/templates/{template_id}")
 
     async def get_template_reviews(
         self,
@@ -271,11 +303,11 @@ class AsyncMarketplaceAPI:
         limit: int = 20,
         offset: int = 0,
     ) -> dict[str, Any]:
-        """Get reviews for a template."""
+        """Get ratings for a template."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         return await self._client.request(
             "GET",
-            f"/api/v1/marketplace/templates/{template_id}/reviews",
+            f"/api/v2/marketplace/templates/{template_id}/ratings",
             params=params,
         )
 
@@ -302,7 +334,7 @@ class AsyncMarketplaceAPI:
 
     async def list_categories(self) -> dict[str, Any]:
         """List available template categories."""
-        return await self._client.request("GET", "/api/v1/marketplace/categories")
+        return await self._client.request("GET", "/api/v2/marketplace/categories")
 
     async def get_featured(self) -> dict[str, Any]:
         """Get featured templates."""
@@ -314,13 +346,25 @@ class AsyncMarketplaceAPI:
         rating: int,
         comment: str | None = None,
     ) -> dict[str, Any]:
-        """Submit a review for a template."""
-        data: dict[str, Any] = {"rating": rating}
+        """Submit a rating for a template."""
+        data: dict[str, Any] = {"score": rating}
         if comment:
-            data["comment"] = comment
+            data["review"] = comment
 
         return await self._client.request(
-            "POST", f"/api/v1/marketplace/templates/{template_id}/reviews", json=data
+            "POST", f"/api/v2/marketplace/templates/{template_id}/ratings", json=data
+        )
+
+    async def star_template(self, template_id: str) -> dict[str, Any]:
+        """Star a marketplace template via FastAPI v2."""
+        return await self._client.request(
+            "POST", f"/api/v2/marketplace/templates/{template_id}/star"
+        )
+
+    async def export_template(self, template_id: str) -> dict[str, Any]:
+        """Export a marketplace template via FastAPI v2."""
+        return await self._client.request(
+            "GET", f"/api/v2/marketplace/templates/{template_id}/export"
         )
 
     async def list_my_deployments(
@@ -335,8 +379,8 @@ class AsyncMarketplaceAPI:
         )
 
     async def get_marketplace_status(self) -> dict[str, Any]:
-        """Get marketplace status. GET /api/v1/marketplace/status"""
-        return await self._client.request("GET", "/api/v1/marketplace/status")
+        """Get marketplace status. GET /api/v2/marketplace/status"""
+        return await self._client.request("GET", "/api/v2/marketplace/status")
 
     async def get_circuit_breaker(self) -> dict[str, Any]:
         """Get marketplace circuit breaker status. GET /api/v1/marketplace/circuit-breaker"""
