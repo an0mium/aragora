@@ -1,5 +1,4 @@
 import { renderWithProviders, screen, waitFor } from '@/test-utils';
-import DebateViewerPage from '../[[...id]]/page';
 import { DebateViewerWrapper } from '../[[...id]]/DebateViewerWrapper';
 
 // Mock next/link
@@ -131,7 +130,7 @@ function setMockPathname(pathname: string) {
   mockPathname = pathname;
 }
 
-describe('DebateViewerPage', () => {
+describe('DebateViewerPage (via DebateViewerWrapper)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setMockPathname('/debate');
@@ -146,12 +145,12 @@ describe('DebateViewerPage', () => {
   });
 
   describe('initial render', () => {
-    it('renders without crashing', async () => {
-      renderWithProviders(<DebateViewerPage />);
+    it('renders without crashing when no savedDebate', async () => {
+      // The async server component delegates to DebateViewerWrapper.
+      // We test the wrapper directly since async RSCs cannot render in jsdom.
+      renderWithProviders(<DebateViewerWrapper />);
 
-      // Should render successfully
       await waitFor(() => {
-        // Either no-debate message or debate viewer should appear
         const hasContent =
           screen.queryByText(/NO DEBATE ID PROVIDED/i) ||
           screen.queryByTestId('debate-viewer');
@@ -159,10 +158,38 @@ describe('DebateViewerPage', () => {
       });
     });
 
-    it('renders the DebateViewerWrapper component', () => {
-      renderWithProviders(<DebateViewerPage />);
+    it('renders saved debate view when savedDebate prop is provided', async () => {
+      const mockDebate = {
+        id: 'abc123',
+        topic: 'Should we use microservices?',
+        status: 'completed',
+        consensus_reached: true,
+        confidence: 0.85,
+        verdict: 'Yes, with caveats',
+        duration_seconds: 12.5,
+        participants: ['claude', 'gpt-4'],
+        proposals: { claude: 'Microservices offer scalability...', 'gpt-4': 'Monoliths are simpler...' },
+        critiques: [],
+        votes: [
+          { agent: 'claude', choice: 'Yes', confidence: 0.9 },
+          { agent: 'gpt-4', choice: 'Yes', confidence: 0.8 },
+        ],
+        final_answer: 'Adopt microservices incrementally.',
+        receipt_hash: 'sha256:abc123def456',
+      };
 
-      // Page renders the wrapper which handles the logic
+      renderWithProviders(<DebateViewerWrapper savedDebate={mockDebate} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Should we use microservices?')).toBeInTheDocument();
+        expect(screen.getByText('Yes, with caveats')).toBeInTheDocument();
+        expect(screen.getByText('85%')).toBeInTheDocument();
+      });
+    });
+
+    it('renders the DebateViewerWrapper component', () => {
+      renderWithProviders(<DebateViewerWrapper />);
+
       expect(document.body).toBeInTheDocument();
     });
   });

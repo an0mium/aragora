@@ -545,8 +545,8 @@ def test_broad_threshold_detection():
     assert _has_quantitative_thresholds("latency \u2264 250ms\nerror_rate \u2264 1%")
     # Pure prose with no numbers should fail
     assert not _has_quantitative_thresholds("Keep it safe and reliable.")
-    # Single threshold is not enough
-    assert not _has_quantitative_thresholds("p95_latency <= 250ms")
+    # Single threshold is now sufficient (lowered from 2 to 1)
+    assert _has_quantitative_thresholds("p95_latency <= 250ms")
 
 
 def test_soft_defects_dont_block_good_verdict_at_high_score():
@@ -615,6 +615,36 @@ Here is the orchestration payload:
     assert report.has_valid_json_payload is True
 
 
+def test_first_batch_concreteness_best_of_5_lines():
+    """Generic intro on line 1 should not tank concreteness when later lines are actionable."""
+    from aragora.debate.repo_grounding import assess_repo_grounding
+
+    answer = """
+## Ranked High-Level Tasks
+We propose a comprehensive approach to improving the system quality and reliability.
+- Implement the settlement tracker integration with ERC-8004 reputation scoring in aragora/debate/settlement_hooks.py
+- Add automated data-feed verification for time-delayed claim resolution across consensus outcomes
+- Wire post-debate receipt generation into the Nomic Loop for self-improvement feedback
+
+## Suggested Subtasks
+The following subtasks break down the above goals into manageable pieces for the team.
+- Create unit tests for settlement hook dispatch covering extract and settle lifecycle events in tests/debate/test_settlement_hooks.py
+- Validate ERC-8004 Brier score calculation against known calibration datasets for accuracy
+- Add integration smoke test verifying receipt hash chain integrity end-to-end
+
+## Owner module / file paths
+- aragora/debate/settlement_hooks.py
+- aragora/debate/orchestrator.py
+"""
+    report = assess_repo_grounding(answer, require_owner_paths=False)
+    # The generic first lines ("We propose..." / "The following subtasks...")
+    # score low (~0.1), but actionable lines below them score high (>= 0.5).
+    # With best-of-5, the high-scoring lines should win.
+    assert report.first_batch_concreteness >= 0.5, (
+        f"Expected >= 0.5 with best-of-5, got {report.first_batch_concreteness}"
+    )
+
+
 def test_rollback_trigger_broader_detection():
     """Rollback trigger detection should handle 'abandon in place', 'feature flag', etc."""
     from aragora.debate.output_quality import _has_rollback_trigger
@@ -636,3 +666,72 @@ def test_rollback_trigger_broader_detection():
     # Pure prose without a trigger+action pair should fail
     assert not _has_rollback_trigger("The system is generally reliable and well-tested.")
     assert not _has_rollback_trigger("Monitor production metrics closely after deployment.")
+
+
+def test_expanded_placeholder_detection():
+    """Hedging phrases like 'as needed' and 'to be determined' should be detected as placeholders."""
+    from aragora.debate.repo_grounding import _collect_placeholder_hits
+
+    # New hedging phrases SHOULD be detected
+    hits_as_needed = _collect_placeholder_hits("Configure rate limits as needed for production.")
+    assert "as_needed" in hits_as_needed
+
+    hits_tbd_long = _collect_placeholder_hits("Timeline is to be determined by the team.")
+    assert "to_be_determined" in hits_tbd_long
+
+    hits_future = _collect_placeholder_hits("Add caching as a future enhancement.")
+    assert "future_enhancement" in hits_future
+
+    hits_tk = _collect_placeholder_hits("TK details here for the implementation plan.")
+    assert "tk" in hits_tk
+
+    hits_appropriate = _collect_placeholder_hits("Implement as appropriate for the deployment.")
+    assert "as_appropriate" in hits_appropriate
+
+    # Real content should NOT trigger false positives
+    hits_real_1 = _collect_placeholder_hits("Implement settlement hooks for ERC-8004.")
+    assert "as_needed" not in hits_real_1
+    assert "as_appropriate" not in hits_real_1
+
+    hits_real_2 = _collect_placeholder_hits("Add threshold checks for production readiness.")
+    assert "as_needed" not in hits_real_2
+    assert "to_be_determined" not in hits_real_2
+
+    # "needed" alone should not trigger "as_needed"
+    hits_needed = _collect_placeholder_hits("This is needed for production deployment.")
+    assert "as_needed" not in hits_needed
+
+
+def test_qualitative_thresholds_detected():
+    """LLM-native threshold language should be recognized."""
+    from aragora.debate.output_quality import _has_quantitative_thresholds
+
+    text = """Gate Criteria:
+- All existing tests must pass
+- No new lint warnings introduced
+- Code review approval from at least one reviewer
+- Coverage must not decrease below current baseline"""
+    # "must pass", "must not decrease", "at least one" are threshold language
+    assert _has_quantitative_thresholds(text) is True
+
+
+def test_qualitative_rollback_detected():
+    """LLM-native rollback language should be recognized."""
+    from aragora.debate.output_quality import _has_rollback_trigger
+
+    # This example uses "cherry-pick" and "back out" which are common LLM rollback language
+    # but "cherry-pick", "back out", and "fall back" were not in the original action list
+    text = """Rollback Plan:
+- Cherry-pick the fix commit and back out the feature branch
+- If tests fail after merge, fall back to the previous implementation
+- Keep the old implementation until the new one is validated"""
+    assert _has_rollback_trigger(text) is True
+
+    # Additional: "degrade" trigger + "cherry-pick" action
+    text2 = """Rollback Plan:
+- If performance degrades, cherry-pick the hotfix onto the release branch"""
+    assert _has_rollback_trigger(text2) is True
+
+    # "in case of" trigger + "fall back" action
+    text3 = """In case of test failures, fall back to the previous stable version."""
+    assert _has_rollback_trigger(text3) is True

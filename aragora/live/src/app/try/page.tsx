@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { TeaserResult } from '@/components/try/TeaserResult';
 import { API_BASE_URL } from '@/config';
@@ -15,10 +16,16 @@ interface DebateResult {
   verdict: string;
   confidence: number;
   explanation: string;
+  debateId?: string;
+  topic?: string;
+  participants?: string[];
+  proposals?: Record<string, string>;
+  receiptHash?: string;
 }
 
-export default function TryPage() {
-  const [question, setQuestion] = useState('');
+function TryPageInner() {
+  const searchParams = useSearchParams();
+  const [question, setQuestion] = useState(searchParams.get('topic') || '');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<DebateResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +120,11 @@ export default function TryPage() {
                     verdict: r.verdict ?? r.consensus ?? 'Analysis Complete',
                     confidence: r.confidence ?? r.consensus_confidence ?? 0.75,
                     explanation: r.explanation ?? r.summary ?? r.consensus_text ?? '',
+                    debateId: r.id,
+                    topic: r.topic,
+                    participants: r.participants,
+                    proposals: r.proposals,
+                    receiptHash: r.receipt_hash,
                   });
                 }
               } catch {
@@ -139,6 +151,11 @@ export default function TryPage() {
           verdict: r.verdict ?? r.consensus ?? 'Analysis Complete',
           confidence: r.confidence ?? r.consensus_confidence ?? 0.75,
           explanation: r.explanation ?? r.summary ?? r.consensus_text ?? '',
+          debateId: r.id,
+          topic: r.topic,
+          participants: r.participants,
+          proposals: r.proposals,
+          receiptHash: r.receipt_hash,
         });
       }
     } catch (e) {
@@ -247,6 +264,11 @@ export default function TryPage() {
                 verdict={result.verdict}
                 confidence={result.confidence}
                 explanation={result.explanation}
+                debateId={result.debateId}
+                topic={result.topic}
+                participants={result.participants}
+                proposals={result.proposals}
+                receiptHash={result.receiptHash}
               />
 
               {/* Share + Upgrade CTAs */}
@@ -282,5 +304,13 @@ export default function TryPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function TryPage() {
+  return (
+    <Suspense>
+      <TryPageInner />
+    </Suspense>
   );
 }
