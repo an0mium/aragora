@@ -4,6 +4,8 @@ import { CostsNamespace } from '../costs';
 import { DocumentsAPI } from '../documents';
 import { GatewayAPI } from '../gateway';
 import { KnowledgeAPI } from '../knowledge';
+import { MarketplaceAPI } from '../marketplace';
+import { OrchestrationAPI } from '../orchestration';
 import { PipelineNamespace } from '../pipeline';
 
 interface MockClient {
@@ -140,5 +142,87 @@ describe('Cross SDK Python Compatibility Routes', () => {
       params: { limit: 25, offset: 5 },
     });
     expect(mockClient.request).toHaveBeenNthCalledWith(4, 'POST', '/api/v1/documents/doc%2F1/reprocess');
+  });
+
+  it('maps marketplace v2 routes with legacy compatibility preserved', async () => {
+    const api = new MarketplaceAPI(mockClient as any);
+
+    await api.list({ search: 'risk', category: 'ops', limit: 3, offset: 1 });
+    await api.get('tpl/1');
+    await api.getCategories();
+    await api.searchTemplates({ q: 'risk', category: 'ops', tags: ['security'], limit: 2, offset: 0 });
+    await api.publish({
+      template_id: 'tpl-1',
+      name: 'Template 1',
+      description: 'desc',
+      category: 'ops',
+      workflow_definition: { foo: 'bar' },
+    });
+    await api.rate('tpl/1', 5);
+    await api.getMarketplaceStatus();
+    await api.getCircuitBreaker();
+    await api.listMyDeployments({ limit: 5, offset: 0 });
+
+    expect(mockClient.request).toHaveBeenNthCalledWith(1, 'GET', '/api/v2/marketplace/templates', {
+      params: { q: 'risk', category: 'ops', limit: 3, offset: 1 },
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(2, 'GET', '/api/v2/marketplace/templates/tpl%2F1');
+    expect(mockClient.request).toHaveBeenNthCalledWith(3, 'GET', '/api/v2/marketplace/categories');
+    expect(mockClient.request).toHaveBeenNthCalledWith(4, 'GET', '/api/v2/marketplace/templates', {
+      params: { q: 'risk', category: 'ops', tags: 'security', limit: 2, offset: 0 },
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(5, 'POST', '/api/v2/marketplace/templates', {
+      body: {
+        id: 'tpl-1',
+        name: 'Template 1',
+        description: 'desc',
+        category: 'ops',
+        tags: undefined,
+        config: { foo: 'bar' },
+        documentation: undefined,
+      },
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(6, 'POST', '/api/v2/marketplace/templates/tpl%2F1/ratings', {
+      body: { score: 5 },
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(7, 'GET', '/api/v2/marketplace/status', {
+      params: undefined,
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(8, 'GET', '/api/v1/marketplace/circuit-breaker', {
+      params: undefined,
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(9, 'GET', '/api/v1/marketplace/my-deployments', {
+      params: { limit: 5, offset: 0 },
+    });
+  });
+
+  it('maps orchestration v2 routes with legacy compatibility preserved', async () => {
+    const api = new OrchestrationAPI(mockClient as any);
+
+    await api.deliberate({ question: 'Ship?', maxRounds: 3 });
+    await api.deliberateSync({ question: 'Rollback?', maxRounds: 2 });
+    await api.getStatus('req/1');
+    await api.listTemplates();
+    await api.deliberateV1Compat({ question: 'Legacy async' });
+    await api.deliberateSyncV1Compat({ question: 'Legacy sync' });
+    await api.getStatusV1Compat('req/legacy');
+    await api.listTemplatesV1Compat();
+
+    expect(mockClient.request).toHaveBeenNthCalledWith(1, 'POST', '/api/v2/orchestration/deliberate', {
+      json: { question: 'Ship?' },
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(2, 'POST', '/api/v2/orchestration/deliberate/sync', {
+      json: { question: 'Rollback?', max_rounds: 2 },
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(3, 'GET', '/api/v2/orchestration/status/req/1');
+    expect(mockClient.request).toHaveBeenNthCalledWith(4, 'GET', '/api/v2/orchestration/templates');
+    expect(mockClient.request).toHaveBeenNthCalledWith(5, 'POST', '/api/v1/orchestration/deliberate', {
+      json: { question: 'Legacy async' },
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(6, 'POST', '/api/v1/orchestration/deliberate/sync', {
+      json: { question: 'Legacy sync' },
+    });
+    expect(mockClient.request).toHaveBeenNthCalledWith(7, 'GET', '/api/v1/orchestration/status/req/legacy');
+    expect(mockClient.request).toHaveBeenNthCalledWith(8, 'GET', '/api/v1/orchestration/templates');
   });
 });

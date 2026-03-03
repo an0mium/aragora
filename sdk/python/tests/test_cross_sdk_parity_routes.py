@@ -9,6 +9,8 @@ import pytest
 from aragora_sdk.client import AragoraAsyncClient, AragoraClient
 from aragora_sdk.namespaces.audit import AsyncAuditAPI
 from aragora_sdk.namespaces.debates import AsyncDebatesAPI
+from aragora_sdk.namespaces.marketplace import AsyncMarketplaceAPI
+from aragora_sdk.namespaces.orchestration import AsyncOrchestrationAPI
 from aragora_sdk.namespaces.selection import AsyncSelectionAPI
 from aragora_sdk.namespaces.tasks import AsyncTasksAPI
 from aragora_sdk.namespaces.templates import AsyncTemplatesAPI
@@ -33,6 +35,23 @@ class TestSyncParityRoutes:
             client.templates.get_registered("tpl_123")
             client.templates.update_registered("tpl_123", name="Updated")
             client.templates.delete_registered("tpl_123")
+            client.orchestration.deliberate("Should we ship?", max_rounds=3)
+            client.orchestration.deliberate_sync("Should we roll back?", max_rounds=2)
+            client.orchestration.get_status("req_123")
+            client.orchestration.list_templates()
+            client.orchestration.deliberate_v1_compat("Legacy async")
+            client.orchestration.deliberate_sync_v1_compat("Legacy sync")
+            client.orchestration.get_status_v1_compat("req_legacy")
+            client.orchestration.list_templates_v1_compat()
+            client.marketplace.list_templates(category="ops", limit=5, offset=2)
+            client.marketplace.search_templates("risk", limit=3, offset=1)
+            client.marketplace.get_template("tpl_123")
+            client.marketplace.get_template_reviews("tpl_123", limit=10, offset=0)
+            client.marketplace.list_categories()
+            client.marketplace.submit_review("tpl_123", 5, "Great template")
+            client.marketplace.star_template("tpl_123")
+            client.marketplace.export_template("tpl_123")
+            client.marketplace.get_marketplace_status()
 
             expected_calls = [
                 call(
@@ -50,6 +69,51 @@ class TestSyncParityRoutes:
                 call("GET", "/api/v1/templates/registry/tpl_123"),
                 call("PUT", "/api/v1/templates/registry/tpl_123", json={"name": "Updated"}),
                 call("DELETE", "/api/v1/templates/registry/tpl_123"),
+                call(
+                    "POST",
+                    "/api/v2/orchestration/deliberate",
+                    json={"question": "Should we ship?", "max_rounds": 3},
+                ),
+                call(
+                    "POST",
+                    "/api/v2/orchestration/deliberate/sync",
+                    json={"question": "Should we roll back?", "max_rounds": 2},
+                ),
+                call("GET", "/api/v2/orchestration/status/req_123"),
+                call("GET", "/api/v2/orchestration/templates"),
+                call("POST", "/api/v1/orchestration/deliberate", json={"question": "Legacy async"}),
+                call(
+                    "POST",
+                    "/api/v1/orchestration/deliberate/sync",
+                    json={"question": "Legacy sync"},
+                ),
+                call("GET", "/api/v1/orchestration/status/req_legacy"),
+                call("GET", "/api/v1/orchestration/templates"),
+                call(
+                    "GET",
+                    "/api/v2/marketplace/templates",
+                    params={"sort_by": "downloads", "limit": 5, "offset": 2, "category": "ops"},
+                ),
+                call(
+                    "GET",
+                    "/api/v2/marketplace/templates",
+                    params={"q": "risk", "limit": 3, "offset": 1},
+                ),
+                call("GET", "/api/v2/marketplace/templates/tpl_123"),
+                call(
+                    "GET",
+                    "/api/v2/marketplace/templates/tpl_123/ratings",
+                    params={"limit": 10, "offset": 0},
+                ),
+                call("GET", "/api/v2/marketplace/categories"),
+                call(
+                    "POST",
+                    "/api/v2/marketplace/templates/tpl_123/ratings",
+                    json={"score": 5, "review": "Great template"},
+                ),
+                call("POST", "/api/v2/marketplace/templates/tpl_123/star"),
+                call("GET", "/api/v2/marketplace/templates/tpl_123/export"),
+                call("GET", "/api/v2/marketplace/status"),
             ]
             mock_request.assert_has_calls(expected_calls)
             client.close()
@@ -70,6 +134,8 @@ class TestAsyncParityRoutes:
                 debates = AsyncDebatesAPI(client)
                 tasks = AsyncTasksAPI(client)
                 templates = AsyncTemplatesAPI(client)
+                orchestration = AsyncOrchestrationAPI(client)
+                marketplace = AsyncMarketplaceAPI(client)
 
                 await audit.get_resource_history("debate", "deb_123")
                 await selection.get_scorer("elo-scorer")
@@ -82,6 +148,23 @@ class TestAsyncParityRoutes:
                 await templates.get_registered("tpl_123")
                 await templates.update_registered("tpl_123", name="Updated")
                 await templates.delete_registered("tpl_123")
+                await orchestration.deliberate("Should we ship?", max_rounds=3)
+                await orchestration.deliberate_sync("Should we roll back?", max_rounds=2)
+                await orchestration.get_status("req_123")
+                await orchestration.list_templates()
+                await orchestration.deliberate_v1_compat("Legacy async")
+                await orchestration.deliberate_sync_v1_compat("Legacy sync")
+                await orchestration.get_status_v1_compat("req_legacy")
+                await orchestration.list_templates_v1_compat()
+                await marketplace.list_templates(category="ops", limit=5, offset=2)
+                await marketplace.search_templates("risk", limit=3, offset=1)
+                await marketplace.get_template("tpl_123")
+                await marketplace.get_template_reviews("tpl_123", limit=10, offset=0)
+                await marketplace.list_categories()
+                await marketplace.submit_review("tpl_123", 5, "Great template")
+                await marketplace.star_template("tpl_123")
+                await marketplace.export_template("tpl_123")
+                await marketplace.get_marketplace_status()
 
                 expected_calls = [
                     call(
@@ -99,5 +182,54 @@ class TestAsyncParityRoutes:
                     call("GET", "/api/v1/templates/registry/tpl_123"),
                     call("PUT", "/api/v1/templates/registry/tpl_123", json={"name": "Updated"}),
                     call("DELETE", "/api/v1/templates/registry/tpl_123"),
+                    call(
+                        "POST",
+                        "/api/v2/orchestration/deliberate",
+                        json={"question": "Should we ship?", "max_rounds": 3},
+                    ),
+                    call(
+                        "POST",
+                        "/api/v2/orchestration/deliberate/sync",
+                        json={"question": "Should we roll back?", "max_rounds": 2},
+                    ),
+                    call("GET", "/api/v2/orchestration/status/req_123"),
+                    call("GET", "/api/v2/orchestration/templates"),
+                    call(
+                        "POST",
+                        "/api/v1/orchestration/deliberate",
+                        json={"question": "Legacy async"},
+                    ),
+                    call(
+                        "POST",
+                        "/api/v1/orchestration/deliberate/sync",
+                        json={"question": "Legacy sync"},
+                    ),
+                    call("GET", "/api/v1/orchestration/status/req_legacy"),
+                    call("GET", "/api/v1/orchestration/templates"),
+                    call(
+                        "GET",
+                        "/api/v2/marketplace/templates",
+                        params={"sort_by": "downloads", "limit": 5, "offset": 2, "category": "ops"},
+                    ),
+                    call(
+                        "GET",
+                        "/api/v2/marketplace/templates",
+                        params={"q": "risk", "limit": 3, "offset": 1},
+                    ),
+                    call("GET", "/api/v2/marketplace/templates/tpl_123"),
+                    call(
+                        "GET",
+                        "/api/v2/marketplace/templates/tpl_123/ratings",
+                        params={"limit": 10, "offset": 0},
+                    ),
+                    call("GET", "/api/v2/marketplace/categories"),
+                    call(
+                        "POST",
+                        "/api/v2/marketplace/templates/tpl_123/ratings",
+                        json={"score": 5, "review": "Great template"},
+                    ),
+                    call("POST", "/api/v2/marketplace/templates/tpl_123/star"),
+                    call("GET", "/api/v2/marketplace/templates/tpl_123/export"),
+                    call("GET", "/api/v2/marketplace/status"),
                 ]
                 mock_request.assert_has_calls(expected_calls)

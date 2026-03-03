@@ -156,7 +156,20 @@ export class MarketplaceAPI {
    * @returns List of templates matching the criteria
    */
   async list(params?: MarketplaceListParams): Promise<{ templates: MarketplaceTemplate[] }> {
-    return this.client.browseMarketplace(params);
+    const response = await this.client.request<{
+      templates: MarketplaceTemplate[];
+      count?: number;
+      limit?: number;
+      offset?: number;
+    }>('GET', '/api/v2/marketplace/templates', {
+      params: {
+        q: params?.search,
+        category: params?.category,
+        limit: params?.limit,
+        offset: params?.offset,
+      },
+    });
+    return { templates: response.templates };
   }
 
   /**
@@ -166,7 +179,7 @@ export class MarketplaceAPI {
    * @returns The template details
    */
   async get(templateId: string): Promise<MarketplaceTemplate> {
-    return this.client.getMarketplaceTemplate(templateId);
+    return this.client.request<MarketplaceTemplate>('GET', `/api/v2/marketplace/templates/${encodeURIComponent(templateId)}`);
   }
 
   /**
@@ -193,7 +206,7 @@ export class MarketplaceAPI {
    * @returns List of category names
    */
   async getCategories(): Promise<{ categories: string[] }> {
-    return this.client.getMarketplaceCategories();
+    return this.client.request<{ categories: string[] }>('GET', '/api/v2/marketplace/categories');
   }
 
   /**
@@ -241,7 +254,20 @@ export class MarketplaceAPI {
    * @returns List of reviews
    */
   async getReviews(templateId: string, params?: PaginationParams): Promise<{ reviews: TemplateReview[] }> {
-    return this.client.getMarketplaceReviews(templateId, params);
+    const response = await this.client.request<{
+      ratings: Array<{ user_id: string; score: number; review?: string; created_at: string }>;
+    }>('GET', `/api/v2/marketplace/templates/${encodeURIComponent(templateId)}/ratings`, { params });
+    return {
+      reviews: response.ratings.map((rating, index) => ({
+        review_id: `${templateId}-rating-${index + 1}`,
+        template_id: templateId,
+        user_id: rating.user_id,
+        rating: rating.score,
+        title: 'Rating',
+        content: rating.review ?? '',
+        created_at: rating.created_at,
+      })),
+    };
   }
 
   // ===========================================================================
@@ -298,7 +324,18 @@ export class MarketplaceAPI {
     workflow_definition?: Record<string, unknown>;
     documentation?: string;
   }): Promise<{ marketplace_id: string }> {
-    return this.client.publishTemplate(body);
+    const response = await this.client.request<{ id: string; success: boolean }>('POST', '/api/v2/marketplace/templates', {
+      body: {
+        id: body.template_id,
+        name: body.name,
+        description: body.description,
+        category: body.category,
+        tags: body.tags,
+        config: body.workflow_definition ?? {},
+        documentation: body.documentation,
+      },
+    });
+    return { marketplace_id: response.id };
   }
 
   /**
@@ -354,7 +391,10 @@ export class MarketplaceAPI {
    * ```
    */
   async export(templateId: string): Promise<Record<string, unknown>> {
-    return this.client.exportMarketplaceTemplate(templateId);
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      `/api/v2/marketplace/templates/${encodeURIComponent(templateId)}/export`
+    );
   }
 
   // ===========================================================================
@@ -372,7 +412,25 @@ export class MarketplaceAPI {
     if (rating < 1 || rating > 5) {
       throw new Error('Rating must be between 1 and 5');
     }
-    return this.client.rateTemplate(templateId, rating);
+    const response = await this.client.request<{ average_rating: number }>(
+      'POST',
+      `/api/v2/marketplace/templates/${encodeURIComponent(templateId)}/ratings`,
+      { body: { score: rating } }
+    );
+    return { new_rating: response.average_rating };
+  }
+
+  /**
+   * Star a template in the marketplace.
+   *
+   * @param templateId - The template ID
+   * @returns Updated star count
+   */
+  async star(templateId: string): Promise<{ success: boolean; stars: number }> {
+    return this.client.request<{ success: boolean; stars: number }>(
+      'POST',
+      `/api/v2/marketplace/templates/${encodeURIComponent(templateId)}/star`
+    );
   }
 
   /**
@@ -397,7 +455,7 @@ export class MarketplaceAPI {
    * Get marketplace status.
    */
   async getMarketplaceStatus(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('GET', '/api/v1/marketplace/status', { params }) as Promise<Record<string, unknown>>;
+    return this.client.request('GET', '/api/v2/marketplace/status', { params }) as Promise<Record<string, unknown>>;
   }
 
   /**
@@ -410,7 +468,7 @@ export class MarketplaceAPI {
   /**
    * Search marketplace templates.
    *
-   * @route GET /api/v1/marketplace/templates/search
+   * @route GET /api/v2/marketplace/templates
    * @param params - Search parameters (query, category, tags, etc.)
    */
   async searchTemplates(params?: {
@@ -420,7 +478,36 @@ export class MarketplaceAPI {
     limit?: number;
     offset?: number;
   }): Promise<{ results: MarketplaceTemplate[]; total: number }> {
-    return this.client.request('GET', '/api/v1/marketplace/templates/search', { params }) as Promise<{ results: MarketplaceTemplate[]; total: number }>;
+    const response = await this.client.request<{
+      templates: MarketplaceTemplate[];
+      count: number;
+      limit: number;
+      offset: number;
+    }>('GET', '/api/v2/marketplace/templates', {
+      params: {
+        q: params?.q,
+        category: params?.category,
+        tags: params?.tags?.join(','),
+        limit: params?.limit,
+        offset: params?.offset,
+      },
+    });
+    return { results: response.templates, total: response.count };
+  }
+
+  /**
+   * Search marketplace templates via legacy compatibility route.
+   *
+   * @route GET /api/marketplace/templates/search
+   */
+  async searchTemplatesV1Compat(params?: {
+    query?: string;
+    category?: string;
+    tags?: string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<{ results: MarketplaceTemplate[]; total: number }> {
+    return this.client.request('GET', '/api/marketplace/templates/search', { params }) as Promise<{ results: MarketplaceTemplate[]; total: number }>;
   }
 
   /**

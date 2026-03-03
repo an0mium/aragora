@@ -8,10 +8,10 @@ Provides methods for unified multi-agent deliberation orchestration:
 - Template-based workflows
 
 Endpoints:
-    POST /api/v1/orchestration/deliberate      - Async deliberation
-    POST /api/v1/orchestration/deliberate/sync - Sync deliberation
-    GET  /api/v1/orchestration/status/:id      - Get status
-    GET  /api/v1/orchestration/templates       - List templates
+    POST /api/v2/orchestration/deliberate      - Async deliberation
+    POST /api/v2/orchestration/deliberate/sync - Sync deliberation
+    GET  /api/v2/orchestration/status/:id      - Get status
+    GET  /api/v2/orchestration/templates       - List templates
 """
 
 from __future__ import annotations
@@ -29,7 +29,8 @@ class OrchestrationAPI:
     """
     Synchronous Orchestration API.
 
-    Provides methods for unified multi-agent deliberation:
+    Provides methods for unified multi-agent deliberation via the
+    FastAPI v2 orchestration routes:
     - Submit deliberations (async or sync)
     - Check deliberation status
     - List available templates
@@ -64,7 +65,7 @@ class OrchestrationAPI:
             body["knowledge_sources"] = knowledge_sources
         if output_channels:
             body["output_channels"] = output_channels
-        return self._client.request("POST", "/api/v1/orchestration/deliberate", json=body)
+        return self._client.request("POST", "/api/v2/orchestration/deliberate", json=body)
 
     def deliberate_sync(
         self,
@@ -79,14 +80,56 @@ class OrchestrationAPI:
             body["knowledge_sources"] = knowledge_sources
         if output_channels:
             body["output_channels"] = output_channels
-        return self._client.request("POST", "/api/v1/orchestration/deliberate/sync", json=body)
+        return self._client.request("POST", "/api/v2/orchestration/deliberate/sync", json=body)
 
     def get_status(self, request_id: str) -> dict[str, Any]:
         """Get the status of a deliberation request."""
-        return self._client.request("GET", f"/api/v1/orchestration/status/{request_id}")
+        return self._client.request("GET", f"/api/v2/orchestration/status/{request_id}")
 
     def list_templates(self) -> dict[str, Any]:
         """List available orchestration templates."""
+        return self._client.request("GET", "/api/v2/orchestration/templates")
+
+    # -------------------------------------------------------------------------
+    # Legacy compatibility (v1 routes)
+    # -------------------------------------------------------------------------
+
+    def deliberate_v1_compat(
+        self,
+        question: str,
+        knowledge_sources: list[str] | None = None,
+        output_channels: list[str] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Submit async deliberation via legacy v1 route for compatibility."""
+        body: dict[str, Any] = {"question": question, **kwargs}
+        if knowledge_sources:
+            body["knowledge_sources"] = knowledge_sources
+        if output_channels:
+            body["output_channels"] = output_channels
+        return self._client.request("POST", "/api/v1/orchestration/deliberate", json=body)
+
+    def deliberate_sync_v1_compat(
+        self,
+        question: str,
+        knowledge_sources: list[str] | None = None,
+        output_channels: list[str] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Submit sync deliberation via legacy v1 route for compatibility."""
+        body: dict[str, Any] = {"question": question, **kwargs}
+        if knowledge_sources:
+            body["knowledge_sources"] = knowledge_sources
+        if output_channels:
+            body["output_channels"] = output_channels
+        return self._client.request("POST", "/api/v1/orchestration/deliberate/sync", json=body)
+
+    def get_status_v1_compat(self, request_id: str) -> dict[str, Any]:
+        """Get deliberation status via legacy v1 route for compatibility."""
+        return self._client.request("GET", f"/api/v1/orchestration/status/{request_id}")
+
+    def list_templates_v1_compat(self) -> dict[str, Any]:
+        """List orchestration templates via legacy v1 route for compatibility."""
         return self._client.request("GET", "/api/v1/orchestration/templates")
 
 
@@ -113,7 +156,7 @@ class AsyncOrchestrationAPI:
             body["knowledge_sources"] = knowledge_sources
         if output_channels:
             body["output_channels"] = output_channels
-        return await self._client.request("POST", "/api/v1/orchestration/deliberate", json=body)
+        return await self._client.request("POST", "/api/v2/orchestration/deliberate", json=body)
 
     async def deliberate_sync(
         self,
@@ -129,13 +172,57 @@ class AsyncOrchestrationAPI:
         if output_channels:
             body["output_channels"] = output_channels
         return await self._client.request(
-            "POST", "/api/v1/orchestration/deliberate/sync", json=body
+            "POST", "/api/v2/orchestration/deliberate/sync", json=body
         )
 
     async def get_status(self, request_id: str) -> dict[str, Any]:
         """Get the status of a deliberation request."""
-        return await self._client.request("GET", f"/api/v1/orchestration/status/{request_id}")
+        return await self._client.request("GET", f"/api/v2/orchestration/status/{request_id}")
 
     async def list_templates(self) -> dict[str, Any]:
         """List available orchestration templates."""
+        return await self._client.request("GET", "/api/v2/orchestration/templates")
+
+    # -------------------------------------------------------------------------
+    # Legacy compatibility (v1 routes)
+    # -------------------------------------------------------------------------
+
+    async def deliberate_v1_compat(
+        self,
+        question: str,
+        knowledge_sources: list[str] | None = None,
+        output_channels: list[str] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Submit async deliberation via legacy v1 route for compatibility."""
+        body: dict[str, Any] = {"question": question, **kwargs}
+        if knowledge_sources:
+            body["knowledge_sources"] = knowledge_sources
+        if output_channels:
+            body["output_channels"] = output_channels
+        return await self._client.request("POST", "/api/v1/orchestration/deliberate", json=body)
+
+    async def deliberate_sync_v1_compat(
+        self,
+        question: str,
+        knowledge_sources: list[str] | None = None,
+        output_channels: list[str] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Submit sync deliberation via legacy v1 route for compatibility."""
+        body: dict[str, Any] = {"question": question, **kwargs}
+        if knowledge_sources:
+            body["knowledge_sources"] = knowledge_sources
+        if output_channels:
+            body["output_channels"] = output_channels
+        return await self._client.request(
+            "POST", "/api/v1/orchestration/deliberate/sync", json=body
+        )
+
+    async def get_status_v1_compat(self, request_id: str) -> dict[str, Any]:
+        """Get deliberation status via legacy v1 route for compatibility."""
+        return await self._client.request("GET", f"/api/v1/orchestration/status/{request_id}")
+
+    async def list_templates_v1_compat(self) -> dict[str, Any]:
+        """List orchestration templates via legacy v1 route for compatibility."""
         return await self._client.request("GET", "/api/v1/orchestration/templates")
