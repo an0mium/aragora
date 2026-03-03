@@ -252,3 +252,24 @@ def assess_repo_grounding(
         first_batch_concreteness=first_batch_concreteness,
         practicality_score_10=round(min(10.0, max(0.0, practicality_score)), 2),
     )
+
+
+def format_path_verification_summary(report: RepoGroundingReport) -> str:
+    """Format a compact CLI summary for path grounding verification."""
+    total = len(report.mentioned_paths)
+    existing = len(report.existing_paths)
+    new_paths = len(report.new_paths)
+    missing = len(report.missing_paths)
+    rate_pct = int(round(report.path_existence_rate * 100))
+
+    lines = [
+        f"[path-check] grounded={rate_pct}% existing={existing} new={new_paths} missing={missing} total={total}"
+    ]
+
+    if report.missing_paths:
+        preview = ", ".join(report.missing_paths[:5])
+        if len(report.missing_paths) > 5:
+            preview += ", ..."
+        lines.append(f"[path-check] missing paths: {preview}")
+
+    return "\n".join(lines)

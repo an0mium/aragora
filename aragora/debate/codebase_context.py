@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -193,7 +194,123 @@ class CodebaseContextProvider:
             logger.debug("KM sync skipped: %s", e)
 
 
+def build_static_inventory(
+    repo_root: str | None = None,
+    max_chars: int = 20_000,
+) -> str:
+    """Build a compact deterministic codebase inventory from CLAUDE.md.
+
+    This helper is synchronous and intentionally lightweight so it can be used
+    in CLI preflight paths without triggering index builds.
+    """
+    root = Path(repo_root).resolve() if repo_root else Path.cwd().resolve()
+    claude_md = root / "CLAUDE.md"
+    if not claude_md.exists():
+        logger.debug("Static inventory skipped: missing %s", claude_md)
+        return ""
+
+    try:
+        content = claude_md.read_text(encoding="utf-8")
+    except OSError as e:
+        logger.warning("Static inventory read failed: %s", e)
+        return ""
+
+    lines = content.splitlines()
+    quick_reference_table = _extract_quick_reference_table(lines)
+    feature_status = _extract_feature_status(lines)
+    codebase_scale = _extract_codebase_scale(lines)
+
+    sections: list[str] = []
+    if quick_reference_table:
+        verified = _verify_table_paths(quick_reference_table, root)
+        sections.append("### Quick Reference (Verified)\n" + "\n".join(verified))
+    if feature_status:
+        sections.append("### Feature Status\n" + "\n".join(feature_status))
+    if codebase_scale:
+        sections.append("### Codebase Scale\n" + codebase_scale)
+
+    if not sections:
+        return ""
+
+    result = (
+        "## CODEBASE INVENTORY (DO NOT REINVENT EXISTING MODULES)\n"
+        "These modules/features already exist in this repository.\n"
+        "Propose modifications against existing files before proposing new ones.\n\n"
+        + "\n\n".join(sections)
+    )
+    if max_chars > 0 and len(result) > max_chars:
+        return result[:max_chars].rstrip() + "\n...[truncated]"
+    return result
+
+
+def _extract_quick_reference_table(lines: list[str]) -> list[str]:
+    """Extract the markdown table under '## Quick Reference'."""
+    collected: list[str] = []
+    in_section = False
+    for line in lines:
+        if line.strip() == "## Quick Reference":
+            in_section = True
+            continue
+        if not in_section:
+            continue
+        if line.startswith("## "):
+            break
+        if line.lstrip().startswith("|"):
+            collected.append(line)
+        elif collected and not line.strip():
+            break
+    return collected
+
+
+def _extract_feature_status(lines: list[str]) -> list[str]:
+    """Extract Core/Integrated/Enterprise status bullets from CLAUDE.md."""
+    collected: list[str] = []
+    started = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("**Core (stable):**"):
+            started = True
+        if not started:
+            continue
+        collected.append(line)
+        if stripped.startswith("See `docs/STATUS.md`"):
+            break
+    return [line for line in collected if line.strip()]
+
+
+def _extract_codebase_scale(lines: list[str]) -> str:
+    """Extract the first `**Codebase Scale:**` line."""
+    for line in lines:
+        if line.startswith("**Codebase Scale:**"):
+            return line.strip()
+    return ""
+
+
+def _verify_table_paths(table_lines: list[str], repo_root: Path) -> list[str]:
+    """Annotate table rows when referenced paths do not exist."""
+    verified: list[str] = []
+    for line in table_lines:
+        stripped = line.strip()
+        if stripped.startswith("| What ") or stripped.startswith("|---"):
+            verified.append(line)
+            continue
+        missing = []
+        for raw in re.findall(r"`([^`]+)`", line):
+            candidate = raw.strip()
+            if "/" not in candidate:
+                continue
+            candidate = candidate.rstrip(",")
+            if not (repo_root / candidate).exists():
+                missing.append(candidate)
+        if missing:
+            verified.append(f"{line} [MISSING: {', '.join(missing)}]")
+        else:
+            verified.append(line)
+    return verified
+
+
 __all__ = [
     "CodebaseContextConfig",
     "CodebaseContextProvider",
+    "build_static_inventory",
 ]

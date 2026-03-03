@@ -252,6 +252,27 @@ def _append_context_file(context: str, context_file: str) -> str:
     return content
 
 
+def _looks_like_self_improvement_task(task: str) -> bool:
+    """Heuristic detection for codebase self-improvement prompts."""
+    lowered = (task or "").lower()
+    keywords = (
+        "improve",
+        "improvement",
+        "self-improve",
+        "self improvement",
+        "refactor",
+        "codebase",
+        "aragora",
+        "architecture",
+        "module",
+        "component",
+        "dogfood",
+        "pipeline",
+        "orchestration",
+    )
+    return any(token in lowered for token in keywords)
+
+
 def _parse_document_ids(
     document: str | None,
     documents: str | None,
@@ -690,6 +711,8 @@ async def run_debate(
     vertical_id: str | None = None,
     auto_select: bool = False,
     auto_select_config: dict[str, Any] | None = None,
+    codebase_context: bool = False,
+    codebase_context_path: str | None = None,
     offline: bool = False,
     **kwargs: Any,
 ):
@@ -727,6 +750,13 @@ async def run_debate(
                 print(f"[auto-select] Selected agents: {agents_str}")
             else:
                 agents_str = DEFAULT_AGENTS
+
+    if codebase_context and "## CODEBASE INVENTORY" not in context:
+        from aragora.debate.codebase_context import build_static_inventory
+
+        inventory = build_static_inventory(codebase_context_path or os.getcwd())
+        if inventory:
+            context = f"{context}\n\n{inventory}" if context else inventory
 
     # Parse and create agents
     agent_specs = parse_agents(agents_str)
@@ -934,6 +964,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
     """Handle 'ask' command."""
     logger.debug("Initial task: '%s', context: '%s'", args.task, args.context)
     task = args.task
+    raw_task = task
     context = args.context or ""
 
     # Ambiguity handling
@@ -961,9 +992,15 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 "This task was interpreted from an ambiguous input and requires confirmation."
             )
 
-    codebase_context_requested = bool(getattr(args, "codebase_context", False))
+    explicit_codebase_context = bool(getattr(args, "codebase_context", False))
+    mode_name = str(getattr(args, "mode", "") or "").strip().lower()
+    inferred_codebase_context = mode_name == "orchestrator" or _looks_like_self_improvement_task(
+        raw_task
+    )
+    codebase_context_requested = explicit_codebase_context or inferred_codebase_context
     codebase_context_repo: Path | None = None
     if codebase_context_requested:
+        from aragora.debate.codebase_context import build_static_inventory
         from aragora.debate.context_engineering import (
             ContextEngineeringConfig,
             build_debate_context_engineering,
@@ -971,6 +1008,27 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
         repo_raw = getattr(args, "codebase_context_path", None) or os.getcwd()
         codebase_context_repo = Path(str(repo_raw)).expanduser().resolve()
+        if args.verbose and not explicit_codebase_context:
+            print(
+                "[context-engineering] auto-enabled codebase context"
+                f" reason={'mode=orchestrator' if mode_name == 'orchestrator' else 'self-improvement task heuristic'}",
+                file=sys.stderr,
+            )
+
+        static_inventory = build_static_inventory(
+            repo_root=str(codebase_context_repo),
+            max_chars=max(
+                8_000, int(getattr(args, "codebase_context_inventory_max_chars", 20_000))
+            ),
+        )
+        if static_inventory:
+            context = f"{context}\n\n{static_inventory}" if context else static_inventory
+            if args.verbose:
+                print(
+                    f"[context-engineering] static inventory injected chars={len(static_inventory)}",
+                    file=sys.stderr,
+                )
+
         cfg = ContextEngineeringConfig(
             task=task,
             repo_path=codebase_context_repo,
@@ -1171,6 +1229,26 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
         output_contract_file = getattr(args, "output_contract_file", None)
         required_sections = getattr(args, "required_sections", None)
+        task_lower = str(args.task or "").lower()
+        has_explicit_task_contract = (
+            "output sections" in task_lower
+            or "required sections" in task_lower
+            or "section headings" in task_lower
+        )
+        if (
+            quality_fail_closed
+            and not (isinstance(output_contract_file, str) and output_contract_file.strip())
+            and not (isinstance(required_sections, str) and required_sections.strip())
+            and not has_explicit_task_contract
+        ):
+            print(
+                "Debate configuration invalid: --quality-fail-closed requires an explicit "
+                "output contract. Add explicit output sections to the task or pass "
+                "--required-sections/--output-contract-file.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+
         if isinstance(output_contract_file, str) and output_contract_file.strip():
             try:
                 quality_contract = load_output_contract_from_file(output_contract_file.strip())
@@ -1278,6 +1356,21 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 timeout_seconds=debate_timeout,
             )
             _print_debate_result(result, verbose=args.verbose)
+            if codebase_context_requested:
+                from aragora.debate.repo_grounding import (
+                    assess_repo_grounding,
+                    format_path_verification_summary,
+                )
+
+                final_answer = getattr(result, "final_answer", None)
+                if not final_answer:
+                    consensus = getattr(result, "consensus", None)
+                    final_answer = getattr(consensus, "final_answer", "") if consensus else ""
+                report = assess_repo_grounding(
+                    str(final_answer or ""),
+                    repo_root=str(codebase_context_repo or Path.cwd()),
+                )
+                print(format_path_verification_summary(report))
             if decision_integrity:
                 package = _build_decision_integrity_api(
                     server_url=server_url,
@@ -1793,6 +1886,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 vertical_id=vertical_id,
                 auto_select=auto_select,
                 auto_select_config=auto_select_config,
+                codebase_context=codebase_context_requested,
+                codebase_context_path=str(codebase_context_repo) if codebase_context_repo else None,
                 offline=offline or force_local,
                 auto_explain=explain,
                 **preset_kwargs,
@@ -1828,6 +1923,17 @@ def cmd_ask(args: argparse.Namespace) -> None:
     print("FINAL ANSWER:")
     print("=" * 60)
     print(result.final_answer)
+    if codebase_context_requested:
+        from aragora.debate.repo_grounding import (
+            assess_repo_grounding,
+            format_path_verification_summary,
+        )
+
+        report = assess_repo_grounding(
+            str(getattr(result, "final_answer", "") or ""),
+            repo_root=str(codebase_context_repo or Path.cwd()),
+        )
+        print(format_path_verification_summary(report))
 
     quality_meta = None
     if isinstance(getattr(result, "metadata", None), dict):
