@@ -24,6 +24,11 @@ _PLACEHOLDER_PATTERNS: dict[str, re.Pattern[str]] = {
     "todo": re.compile(r"\btodo\b", re.IGNORECASE),
     "placeholder": re.compile(r"\bplaceholder\b", re.IGNORECASE),
     "fill_me": re.compile(r"<\s*fill[^>]*>", re.IGNORECASE),
+    "tk": re.compile(r"\btk\b", re.IGNORECASE),
+    "as_needed": re.compile(r"\bas needed\b", re.IGNORECASE),
+    "to_be_determined": re.compile(r"\bto be determined\b", re.IGNORECASE),
+    "future_enhancement": re.compile(r"\bfuture enhancement\b", re.IGNORECASE),
+    "as_appropriate": re.compile(r"\bas appropriate\b", re.IGNORECASE),
 }
 
 

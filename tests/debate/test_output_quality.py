@@ -666,3 +666,37 @@ def test_rollback_trigger_broader_detection():
     # Pure prose without a trigger+action pair should fail
     assert not _has_rollback_trigger("The system is generally reliable and well-tested.")
     assert not _has_rollback_trigger("Monitor production metrics closely after deployment.")
+
+
+def test_expanded_placeholder_detection():
+    """Hedging phrases like 'as needed' and 'to be determined' should be detected as placeholders."""
+    from aragora.debate.repo_grounding import _collect_placeholder_hits
+
+    # New hedging phrases SHOULD be detected
+    hits_as_needed = _collect_placeholder_hits("Configure rate limits as needed for production.")
+    assert "as_needed" in hits_as_needed
+
+    hits_tbd_long = _collect_placeholder_hits("Timeline is to be determined by the team.")
+    assert "to_be_determined" in hits_tbd_long
+
+    hits_future = _collect_placeholder_hits("Add caching as a future enhancement.")
+    assert "future_enhancement" in hits_future
+
+    hits_tk = _collect_placeholder_hits("TK details here for the implementation plan.")
+    assert "tk" in hits_tk
+
+    hits_appropriate = _collect_placeholder_hits("Implement as appropriate for the deployment.")
+    assert "as_appropriate" in hits_appropriate
+
+    # Real content should NOT trigger false positives
+    hits_real_1 = _collect_placeholder_hits("Implement settlement hooks for ERC-8004.")
+    assert "as_needed" not in hits_real_1
+    assert "as_appropriate" not in hits_real_1
+
+    hits_real_2 = _collect_placeholder_hits("Add threshold checks for production readiness.")
+    assert "as_needed" not in hits_real_2
+    assert "to_be_determined" not in hits_real_2
+
+    # "needed" alone should not trigger "as_needed"
+    hits_needed = _collect_placeholder_hits("This is needed for production deployment.")
+    assert "as_needed" not in hits_needed
