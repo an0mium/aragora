@@ -116,14 +116,14 @@ export function FeatureShowcase() {
                 {feature.icon}
                 <h3
                   className="font-semibold"
-                  style={{ fontSize: '13px', color: 'var(--text)', fontFamily: 'var(--font-landing)' }}
+                  style={{ fontSize: '14px', color: 'var(--text)', fontFamily: 'var(--font-landing)' }}
                 >
                   {feature.title}
                 </h3>
               </div>
               <p
                 className="leading-relaxed"
-                style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-landing)', lineHeight: '1.7' }}
+                style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-landing)', lineHeight: '1.7' }}
               >
                 {feature.description}
               </p>

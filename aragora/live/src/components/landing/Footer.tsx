@@ -16,10 +16,8 @@ export function Footer() {
 
   return (
     <footer
-      className="px-4"
+      className="px-4 pt-12 pb-10 sm:pt-16 sm:pb-12 md:pt-[80px] md:pb-[60px]"
       style={{
-        paddingTop: '80px',
-        paddingBottom: '60px',
         borderTop: '1px solid var(--border)',
         fontFamily: 'var(--font-landing)',
       }}
@@ -49,7 +47,7 @@ export function Footer() {
               borderRadius: 'var(--radius-button)',
               boxShadow: isDark ? '0 0 20px var(--accent-glow)' : 'none',
               border: 'none',
-              padding: '18px 48px',
+              padding: '14px 32px',
             }}
           >
             Try it now
@@ -63,7 +61,7 @@ export function Footer() {
               border: '1px solid var(--border)',
               color: 'var(--text-muted)',
               backgroundColor: 'transparent',
-              padding: '18px 48px',
+              padding: '14px 32px',
             }}
           >
             Create an account

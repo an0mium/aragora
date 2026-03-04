@@ -79,10 +79,8 @@ export function IntegrationsGrid() {
 
   return (
     <section
-      className="px-4"
+      className="px-4 py-16 sm:py-24 md:py-[120px]"
       style={{
-        paddingTop: '120px',
-        paddingBottom: '120px',
         borderTop: '1px solid var(--border)',
         fontFamily: 'var(--font-landing)',
       }}

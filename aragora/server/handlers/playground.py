@@ -1538,6 +1538,9 @@ class PlaygroundHandler(BaseHandler):
         # Raw question (separate from system-prompt-laden topic, e.g. from Oracle)
         question = str(body.get("question", "") or "").strip() or None
 
+        # Source: "oracle" for Oracle page, "landing" for landing page multi-agent demo
+        source = str(body.get("source", "") or "").strip() or "oracle"
+
         # Oracle mode (consult / divine / commune)
         mode = str(body.get("mode", "") or "").strip() or "consult"
 
@@ -1557,7 +1560,13 @@ class PlaygroundHandler(BaseHandler):
         agent_count = max(_MIN_AGENTS, min(agent_count, _MAX_AGENTS))
 
         return self._run_debate(
-            topic, rounds, agent_count, question=question, mode=mode, session_id=session_id
+            topic,
+            rounds,
+            agent_count,
+            question=question,
+            mode=mode,
+            session_id=session_id,
+            source=source,
         )
 
     def _run_debate(
@@ -1568,8 +1577,23 @@ class PlaygroundHandler(BaseHandler):
         question: str | None = None,
         mode: str = "consult",
         session_id: str | None = None,
+        source: str = "oracle",
     ) -> HandlerResult:
         if question:
+            # Landing page: use multi-agent tentacles for a real multi-perspective demo
+            if source == "landing":
+                tentacles_result = _try_oracle_tentacles(
+                    mode=mode,
+                    question=question,
+                    agent_count=agent_count,
+                    topic=topic,
+                    source="landing",
+                    summary_depth="none",
+                )
+                if tentacles_result:
+                    return json_response(tentacles_result)
+                logger.info("Landing tentacles failed — falling back to single oracle")
+
             # Oracle mode: try real LLM response first
             oracle_result = _try_oracle_response(
                 mode=mode, question=question, topic=topic, session_id=session_id

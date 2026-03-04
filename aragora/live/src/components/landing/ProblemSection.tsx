@@ -32,10 +32,8 @@ export function ProblemSection() {
 
   return (
     <section
-      className="px-4"
+      className="px-4 py-16 sm:py-24 md:py-[120px]"
       style={{
-        paddingTop: '120px',
-        paddingBottom: '120px',
         borderTop: '1px solid var(--border)',
         fontFamily: 'var(--font-landing)',
       }}
@@ -62,7 +60,7 @@ export function ProblemSection() {
             fontWeight: 500,
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-landing)',
-            marginBottom: '64px',
+            marginBottom: '40px',
           }}
         >
           A single AI hallucinates, flatters you, and contradicts itself.
