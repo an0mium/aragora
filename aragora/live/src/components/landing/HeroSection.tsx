@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from '../DebateResultPreview';
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
@@ -18,13 +18,20 @@ const ASCII_BANNER = `    \u2584\u2584\u2584       \u2588\u2588\u2580\u2588\u258
      \u2591   \u2592     \u2591\u2591   \u2591   \u2591   \u2592   \u2591 \u2591   \u2591 \u2591 \u2591 \u2591 \u2592    \u2591\u2591   \u2591   \u2591   \u2592
          \u2591  \u2591   \u2591           \u2591  \u2591      \u2591     \u2591 \u2591     \u2591           \u2591  \u2591`;
 
-const PROGRESS_MESSAGES = [
-  'Assembling analyst panel...',
-  'Agents debating your question...',
-  'Analyzing arguments...',
-  'Building consensus...',
-  'Generating verdict...',
+const DEBATE_PHASES = [
+  { label: 'Assembling panel', agents: ['Claude', 'GPT-4', 'Gemini'], duration: 3000 },
+  { label: 'Opening arguments', agents: ['Claude', 'GPT-4', 'Gemini'], duration: 5000 },
+  { label: 'Cross-examination', agents: ['GPT-4', 'Claude'], duration: 4000 },
+  { label: 'Building consensus', agents: ['Gemini', 'Claude', 'GPT-4'], duration: 4000 },
+  { label: 'Rendering verdict', agents: [], duration: 3000 },
 ];
+
+const AGENT_DOT_COLORS: Record<string, string> = {
+  'Claude': 'var(--acid-cyan, #00e5ff)',
+  'GPT-4': 'var(--acid-green, #39ff14)',
+  'Gemini': 'var(--acid-magenta, #ff00ff)',
+  'Mistral': 'var(--acid-yellow, #ffd700)',
+};
 
 /**
  * HeroSection supports two modes:
@@ -41,8 +48,35 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<DebateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [progressMsg, setProgressMsg] = useState(PROGRESS_MESSAGES[0]);
+  const [phaseIndex, setPhaseIndex] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const startTimeRef = useRef<number>(0);
+
+  // Phase progression during debate
+  useEffect(() => {
+    if (!isRunning) {
+      setPhaseIndex(0);
+      setElapsed(0);
+      return;
+    }
+    startTimeRef.current = Date.now();
+    let cumulative = 0;
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+    DEBATE_PHASES.forEach((phase, i) => {
+      if (i > 0) {
+        cumulative += DEBATE_PHASES[i - 1].duration;
+        timeouts.push(setTimeout(() => setPhaseIndex(i), cumulative));
+      }
+    });
+    const ticker = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
+    return () => {
+      timeouts.forEach(clearTimeout);
+      clearInterval(ticker);
+    };
+  }, [isRunning]);
   const { config: backendConfig } = useBackend();
   const apiBase = (isDashboardMode ? props.apiBase as string : backendConfig.api) || BACKENDS.production.api;
 
@@ -124,12 +158,6 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     setError(null);
     setResult(null);
 
-    let progressIdx = 0;
-    const progressInterval = setInterval(() => {
-      progressIdx = (progressIdx + 1) % PROGRESS_MESSAGES.length;
-      setProgressMsg(PROGRESS_MESSAGES[progressIdx]);
-    }, 4000);
-
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -159,7 +187,6 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       if (err instanceof Error && err.name === 'AbortError') return;
       setError('Could not connect to the server. Check your connection and try again.');
     } finally {
-      clearInterval(progressInterval);
       setIsRunning(false);
     }
   }
@@ -300,22 +327,104 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
           </button>
         </form>
 
-        {/* Loading state */}
+        {/* Loading state — phased progress */}
         {isRunning && (
-          <div className="flex flex-col items-center py-8 gap-3">
-            <div className="flex items-center gap-3" style={{ color: 'var(--accent)' }}>
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              <span className="text-sm" style={{ fontFamily: 'var(--font-landing)' }}>{progressMsg}</span>
-            </div>
-            <span
-              className="text-xs"
-              style={{ color: 'var(--text-muted)', opacity: 0.6, fontFamily: 'var(--font-landing)' }}
+          <div className="mt-8 max-w-xl mx-auto">
+            <div
+              className="p-5 text-left"
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-card, 8px)',
+                backgroundColor: 'var(--surface)',
+              }}
             >
-              Usually takes 10-20 seconds
-            </span>
+              {/* Phase steps */}
+              <div className="space-y-3 mb-4">
+                {DEBATE_PHASES.map((phase, i) => {
+                  const isActive = i === phaseIndex;
+                  const isDone = i < phaseIndex;
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 transition-opacity duration-300"
+                      style={{ opacity: isDone ? 0.4 : isActive ? 1 : 0.25 }}
+                    >
+                      {/* Step indicator */}
+                      <div
+                        className="w-6 h-6 flex items-center justify-center shrink-0 text-xs font-bold"
+                        style={{
+                          borderRadius: '50%',
+                          border: `2px solid ${isActive ? 'var(--accent)' : isDone ? 'var(--accent)' : 'var(--border)'}`,
+                          color: isActive || isDone ? 'var(--accent)' : 'var(--text-muted)',
+                          backgroundColor: isDone ? 'var(--accent)' : 'transparent',
+                          ...(isDone ? { color: 'var(--bg)' } : {}),
+                          fontFamily: 'var(--font-landing)',
+                        }}
+                      >
+                        {isDone ? '\u2713' : i + 1}
+                      </div>
+                      {/* Label + agents */}
+                      <div className="flex-1 min-w-0">
+                        <span
+                          className="text-sm font-medium"
+                          style={{
+                            color: isActive ? 'var(--text)' : 'var(--text-muted)',
+                            fontFamily: 'var(--font-landing)',
+                          }}
+                        >
+                          {phase.label}
+                        </span>
+                        {isActive && phase.agents.length > 0 && (
+                          <div className="flex items-center gap-2 mt-1">
+                            {phase.agents.map((agent) => (
+                              <span
+                                key={agent}
+                                className="flex items-center gap-1 text-xs"
+                                style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
+                              >
+                                <span
+                                  className="w-2 h-2 rounded-full inline-block animate-pulse"
+                                  style={{ backgroundColor: AGENT_DOT_COLORS[agent] || 'var(--accent)' }}
+                                />
+                                {agent}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Active spinner */}
+                      {isActive && (
+                        <svg className="animate-spin h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--accent)' }}>
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Progress bar */}
+              <div
+                className="h-1 rounded-full overflow-hidden"
+                style={{ backgroundColor: 'var(--border)' }}
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-1000 ease-out"
+                  style={{
+                    backgroundColor: 'var(--accent)',
+                    width: `${Math.min(((phaseIndex + 1) / DEBATE_PHASES.length) * 100, 100)}%`,
+                    boxShadow: isDark ? '0 0 8px var(--accent-glow)' : 'none',
+                  }}
+                />
+              </div>
+              <div
+                className="flex justify-between mt-2 text-xs"
+                style={{ color: 'var(--text-muted)', opacity: 0.6, fontFamily: 'var(--font-landing)' }}
+              >
+                <span>{elapsed}s elapsed</span>
+                <span>~15s remaining</span>
+              </div>
+            </div>
           </div>
         )}
 
