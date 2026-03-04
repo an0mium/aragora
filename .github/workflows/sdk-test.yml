@@ -30,7 +30,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: ./.github/actions/checkout-integrity
+      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
 
       - name: Detect SDK relevant changes
         id: filter
@@ -61,7 +61,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: ./.github/actions/checkout-integrity
+      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -92,7 +92,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: ./.github/actions/checkout-integrity
+      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -125,7 +125,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: ./.github/actions/checkout-integrity
+      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
 
       - name: Set up Python
         uses: actions/setup-python@v5

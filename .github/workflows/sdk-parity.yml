@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/checkout-integrity
+      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
 
       - uses: dorny/paths-filter@v3
         id: filter
@@ -50,7 +50,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: ./.github/actions/checkout-integrity
+      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
 
       - name: Set up Python
         uses: actions/setup-python@v5
