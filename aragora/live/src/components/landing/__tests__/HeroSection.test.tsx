@@ -2,174 +2,131 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HeroSection } from '../HeroSection';
 
-// Mock DebateInput since it has complex dependencies
-jest.mock('../../DebateInput', () => ({
-  DebateInput: () => <div data-testid="debate-input">MockDebateInput</div>,
+jest.mock('@/context/ThemeContext', () => ({
+  useTheme: () => ({ theme: 'dark', setTheme: jest.fn() }),
 }));
 
-describe('HeroSection', () => {
-  const defaultProps = {
-    error: null,
-    activeDebateId: null,
-    activeQuestion: null,
-    apiBase: 'http://localhost:8080',
-    onDismissError: jest.fn(),
-    onDebateStarted: jest.fn(),
-    onError: jest.fn(),
-  };
+jest.mock('../../BackendSelector', () => ({
+  useBackend: () => ({
+    config: { api: 'http://localhost:8080', ws: 'ws://localhost:8765' },
+  }),
+  BACKENDS: { production: { api: 'http://localhost:8080', ws: 'ws://localhost:8765' } },
+  BackendSelector: () => <div data-testid="backend-selector">Backend</div>,
+}));
 
+jest.mock('react-markdown', () => ({
+  __esModule: true,
+  default: ({ children }: { children: string }) => <div>{children}</div>,
+}));
+
+jest.mock('../../DebateResultPreview', () => ({
+  DebateResultPreview: () => <div data-testid="debate-result">Result</div>,
+  PENDING_DEBATE_KEY: 'aragora_pending_debate',
+  RETURN_URL_KEY: 'aragora_return_url',
+}));
+
+jest.mock('../../DebateInput', () => ({
+  DebateInput: () => <div data-testid="debate-input">DebateInput</div>,
+}));
+
+jest.mock('@/utils/returnUrl', () => ({
+  getCurrentReturnUrl: () => '/landing',
+  normalizeReturnUrl: (url: string) => url,
+  RETURN_URL_STORAGE_KEY: 'aragora_return_url',
+}));
+
+// Suppress unhandled fetch in tests
+beforeAll(() => {
+  global.fetch = jest.fn().mockRejectedValue(new Error('fetch not available'));
+});
+
+describe('HeroSection (landing mode)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe('initial render', () => {
     it('renders the main heading', () => {
-      render(<HeroSection {...defaultProps} />);
+      render(<HeroSection />);
+
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        /Don't trust one AI.*Make them compete/
+      );
+    });
+
+    it('renders the subtitle', () => {
+      render(<HeroSection />);
 
       expect(
-        screen.getByRole('heading', { name: /what decision should ai debate for you/i })
+        screen.getByText(/Pit Claude, GPT, Gemini, and Mistral/i)
       ).toBeInTheDocument();
     });
 
-    it('renders the subheading', () => {
-      render(<HeroSection {...defaultProps} />);
+    it('renders the debate textarea', () => {
+      render(<HeroSection />);
 
-      expect(screen.getByText(/Multiple AI models will argue every angle/i)).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText('What decision are you facing?')
+      ).toBeInTheDocument();
     });
 
-    it('renders the DebateInput component', () => {
-      render(<HeroSection {...defaultProps} />);
+    it('renders the Start Debate button', () => {
+      render(<HeroSection />);
 
-      expect(screen.getByTestId('debate-input')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /start debate/i })
+      ).toBeInTheDocument();
     });
 
-    it('renders ASCII banner on larger screens', () => {
-      render(<HeroSection {...defaultProps} />);
+    it('Start Debate button is disabled when input is empty', () => {
+      render(<HeroSection />);
 
-      // ASCII banner is in a pre element with specific class
-      const banner = document.querySelector('pre.text-acid-green');
-      expect(banner).toBeInTheDocument();
-      // Banner is stylized ASCII art, just verify it has content
-      expect(banner?.textContent?.length).toBeGreaterThan(100);
+      const button = screen.getByRole('button', { name: /start debate/i });
+      expect(button).toBeDisabled();
     });
   });
 
-  describe('error display', () => {
-    it('shows error message when error is present', () => {
-      render(<HeroSection {...defaultProps} error="Something went wrong" />);
+  describe('debate form interaction', () => {
+    it('enables Start Debate button when text is entered', async () => {
+      const user = userEvent.setup();
+      render(<HeroSection />);
+
+      const textarea = screen.getByPlaceholderText('What decision are you facing?');
+      await user.type(textarea, 'Should we use TypeScript?');
+
+      const button = screen.getByRole('button', { name: /start debate/i });
+      expect(button).not.toBeDisabled();
+    });
+  });
+
+  describe('dashboard mode', () => {
+    const dashboardProps = {
+      apiBase: 'http://localhost:8080',
+      error: null,
+      activeDebateId: null,
+      activeQuestion: null,
+      onDismissError: jest.fn(),
+      onDebateStarted: jest.fn(),
+      onError: jest.fn(),
+    };
+
+    it('shows error message when error prop is present', () => {
+      render(<HeroSection {...dashboardProps} error="Something went wrong" />);
 
       expect(screen.getByText('Something went wrong')).toBeInTheDocument();
     });
 
-    it('does not show error section when error is null', () => {
-      render(<HeroSection {...defaultProps} error={null} />);
-
-      expect(screen.queryByText('✕')).not.toBeInTheDocument();
-    });
-
-    it('calls onDismissError when dismiss button is clicked', async () => {
-      const user = userEvent.setup();
-      const onDismissError = jest.fn();
-
+    it('shows active debate indicator when debate is in progress', () => {
       render(
         <HeroSection
-          {...defaultProps}
-          error="Test error"
-          onDismissError={onDismissError}
-        />
-      );
-
-      await user.click(screen.getByRole('button', { name: /dismiss error/i }));
-
-      expect(onDismissError).toHaveBeenCalledTimes(1);
-    });
-
-    it('error dismiss button has accessible label', () => {
-      render(<HeroSection {...defaultProps} error="Test error" />);
-
-      expect(
-        screen.getByRole('button', { name: /dismiss error/i })
-      ).toBeInTheDocument();
-    });
-  });
-
-  describe('active debate indicator', () => {
-    it('shows active debate section when debate is in progress', () => {
-      render(
-        <HeroSection
-          {...defaultProps}
+          {...dashboardProps}
           activeDebateId="debate-123"
           activeQuestion="Is AI beneficial?"
         />
       );
 
       expect(screen.getByText('DECISION IN PROGRESS')).toBeInTheDocument();
-    });
-
-    it('displays the active question', () => {
-      render(
-        <HeroSection
-          {...defaultProps}
-          activeDebateId="debate-123"
-          activeQuestion="Is AI beneficial?"
-        />
-      );
-
       expect(screen.getByText('Is AI beneficial?')).toBeInTheDocument();
-    });
-
-    it('displays the debate ID', () => {
-      render(
-        <HeroSection
-          {...defaultProps}
-          activeDebateId="debate-123"
-          activeQuestion="Is AI beneficial?"
-        />
-      );
-
-      expect(screen.getByText(/ID: debate-123/)).toBeInTheDocument();
-    });
-
-    it('shows WebSocket streaming indicator', () => {
-      render(
-        <HeroSection
-          {...defaultProps}
-          activeDebateId="debate-123"
-          activeQuestion="Is AI beneficial?"
-        />
-      );
-
-      expect(screen.getByText(/Events streaming via WebSocket/)).toBeInTheDocument();
-    });
-
-    it('does not show active debate section when no debate is active', () => {
-      render(<HeroSection {...defaultProps} activeDebateId={null} />);
-
-      expect(
-        screen.queryByText('DECISION IN PROGRESS')
-      ).not.toBeInTheDocument();
-    });
-
-    it('has animated pulse indicator for active debate', () => {
-      render(
-        <HeroSection
-          {...defaultProps}
-          activeDebateId="debate-123"
-          activeQuestion="Test"
-        />
-      );
-
-      const pulseIndicator = document.querySelector('.animate-pulse');
-      expect(pulseIndicator).toBeInTheDocument();
-    });
-  });
-
-  describe('props passing', () => {
-    it('passes apiBase to DebateInput', () => {
-      render(<HeroSection {...defaultProps} apiBase="http://custom:9000" />);
-
-      // DebateInput is mocked, but we can verify the component renders
-      expect(screen.getByTestId('debate-input')).toBeInTheDocument();
     });
   });
 });
