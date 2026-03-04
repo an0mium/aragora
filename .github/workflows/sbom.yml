@@ -179,7 +179,7 @@ jobs:
           for sbom in sboms/*.json; do
             echo "### $(basename $sbom)" >> vulnerability-report.md
             echo '```' >> vulnerability-report.md
-            grype sbom:$sbom --fail-on critical || true
+            grype sbom:$sbom --fail-on critical
             grype sbom:$sbom >> vulnerability-report.md 2>&1 || true
             echo '```' >> vulnerability-report.md
             echo "" >> vulnerability-report.md
