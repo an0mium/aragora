@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Markdown from 'react-markdown';
 import { RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 // ---------------------------------------------------------------------------
@@ -206,9 +207,9 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
               <h4 className={`text-sm font-bold mb-1 font-mono ${agentColor(agent)}`}>
                 {agent}
               </h4>
-              <p className="text-xs text-[var(--text-muted)] whitespace-pre-wrap leading-relaxed">
-                {content}
-              </p>
+              <div className="text-xs text-[var(--text-muted)] leading-relaxed prose-sm prose-invert max-w-none [&_h1]:text-sm [&_h1]:font-bold [&_h1]:text-[var(--text)] [&_h1]:mt-3 [&_h1]:mb-1 [&_h2]:text-xs [&_h2]:font-bold [&_h2]:text-[var(--text)] [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-xs [&_h3]:font-bold [&_h3]:text-[var(--text)] [&_h3]:mt-2 [&_h3]:mb-1 [&_p]:mb-2 [&_strong]:text-[var(--text)] [&_em]:text-[var(--text-muted)] [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_li]:mb-0.5 [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--accent)] [&_blockquote]:pl-3 [&_blockquote]:italic">
+                <Markdown>{content}</Markdown>
+              </div>
             </div>
           ))}
         </div>
@@ -276,18 +277,18 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
           <h3 className="text-sm text-[var(--acid-green)] mb-3 font-bold font-mono">
             Verdict
           </h3>
-          <p className="text-sm text-[var(--text)] whitespace-pre-wrap leading-relaxed font-mono">
-            {result.final_answer}
-          </p>
+          <div className="text-sm text-[var(--text)] leading-relaxed max-w-none [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mt-2 [&_h3]:mb-1 [&_p]:mb-2 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_li]:mb-0.5 [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--accent)] [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-[var(--text-muted)]">
+            <Markdown>{result.final_answer}</Markdown>
+          </div>
           {result.dissenting_views.length > 0 && (
             <div className="mt-3 pt-3 border-t border-[var(--border)]">
               <h4 className="text-xs text-[var(--text-muted)] font-bold font-mono mb-2">
                 Dissenting Views
               </h4>
               {result.dissenting_views.map((view, i) => (
-                <p key={i} className="text-xs text-[var(--text-muted)] whitespace-pre-wrap leading-relaxed mb-1">
-                  {view}
-                </p>
+                <div key={i} className="text-xs text-[var(--text-muted)] leading-relaxed mb-1 [&_p]:mb-1 [&_strong]:text-[var(--text)]">
+                  <Markdown>{view}</Markdown>
+                </div>
               ))}
             </div>
           )}
