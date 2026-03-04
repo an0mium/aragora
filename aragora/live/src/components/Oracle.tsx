@@ -519,6 +519,8 @@ export default function Oracle() {
   const [loading, setLoading] = useState(false);
   const [debating, setDebating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastDebateId, setLastDebateId] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
   const [useDebateStreaming, setUseDebateStreaming] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -1175,6 +1177,8 @@ export default function Oracle() {
     const liveData = await fireDebate(question, mode, 'debate/live', rounds, agents);
 
     if (liveData) {
+      // Capture debate ID for sharing
+      if (liveData.id) setLastDebateId(liveData.id);
       const agents = Object.entries(liveData.proposals);
       for (let i = 0; i < agents.length; i++) {
         const [agentName, proposal] = agents[i];
@@ -1898,6 +1902,62 @@ export default function Oracle() {
               </div>
             )}
           </div>
+
+          {/* Share debate — shows after debate completes with a valid ID */}
+          {lastDebateId && !loading && !debating && messages.some((m) => m.isLive) && (
+            <div
+              className="mt-6 flex items-center gap-3 p-3 rounded-lg prophecy-reveal"
+              style={{
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--surface)',
+              }}
+            >
+              <button
+                onClick={async () => {
+                  const shareUrl = `${window.location.origin}/debate/${lastDebateId}`;
+                  if (typeof navigator.share === 'function') {
+                    try {
+                      await navigator.share({ title: 'Oracle Debate', text: `The Oracle spoke on: "${messages.find((m) => m.role === 'seeker')?.content || 'a question'}"`, url: shareUrl });
+                      return;
+                    } catch { /* user cancelled — fall through */ }
+                  }
+                  try {
+                    await navigator.clipboard.writeText(shareUrl);
+                  } catch {
+                    const ta = document.createElement('textarea');
+                    ta.value = shareUrl;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                  }
+                  setShareCopied(true);
+                  setTimeout(() => setShareCopied(false), 2000);
+                }}
+                className="flex-1 py-2 text-xs font-bold transition-colors rounded-lg"
+                style={{
+                  border: '1px solid var(--acid-green)',
+                  color: 'var(--acid-green)',
+                  backgroundColor: 'transparent',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(57,255,20,0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+              >
+                {shareCopied ? 'LINK COPIED!' : 'SHARE THIS CONSULTATION'}
+              </button>
+              <a
+                href={`/debate/${lastDebateId}`}
+                className="text-xs transition-colors whitespace-nowrap"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--acid-green)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+              >
+                View full debate &rarr;
+              </a>
+            </div>
+          )}
 
           {/* EU AI Act Compliance CTA — shows after debate completes */}
           {messages.length > 0 && !loading && !debating && messages.some((m) => m.isLive) && (
