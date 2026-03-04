@@ -112,11 +112,16 @@ class SpecBuilder:
 
         research_text = ""
         if research:
+            current = str(research.current_state)[:500] if research.current_state else ""
+            recs = ", ".join(str(r) for r in (research.recommendations or [])[:5])
+            competitive = (
+                str(research.competitive_analysis)[:300] if research.competitive_analysis else ""
+            )
             research_text = (
                 f"Research findings:\n"
-                f"Current state: {research.current_state[:500]}\n"
-                f"Recommendations: {', '.join(research.recommendations[:5])}\n"
-                f"Competitive: {research.competitive_analysis[:300]}"
+                f"Current state: {current}\n"
+                f"Recommendations: {recs}\n"
+                f"Competitive: {competitive}"
             )
 
         prompt = _SPEC_PROMPT.format(
@@ -215,7 +220,8 @@ class SpecBuilder:
         """Try multiple strategies to extract JSON from LLM response."""
         # Strategy 1: direct parse
         try:
-            return json.loads(text)
+            data = json.loads(text)
+            return SpecBuilder._unwrap_nested(data)
         except (json.JSONDecodeError, ValueError):
             pass
 
@@ -246,7 +252,8 @@ class SpecBuilder:
                 depth -= 1
                 if depth == 0:
                     try:
-                        return json.loads(text[start : i + 1])
+                        data = json.loads(text[start : i + 1])
+                        return SpecBuilder._unwrap_nested(data)
                     except (json.JSONDecodeError, ValueError):
                         return None
 
@@ -254,9 +261,52 @@ class SpecBuilder:
         end = text.rfind("}") + 1
         if start >= 0 and end > start:
             try:
-                return json.loads(text[start:end])
+                data = json.loads(text[start:end])
+                return SpecBuilder._unwrap_nested(data)
             except (json.JSONDecodeError, ValueError):
                 pass
+
+        # Strategy 4: repair truncated JSON by closing open structures
+        repaired = SpecBuilder._repair_truncated_json(text[start:])
+        if repaired is not None:
+            return SpecBuilder._unwrap_nested(repaired)
+
+        return None
+
+    @staticmethod
+    def _unwrap_nested(data: dict[str, Any]) -> dict[str, Any]:
+        """Unwrap LLM responses that nest the spec inside a wrapper key."""
+        if not isinstance(data, dict):
+            return data
+        # If the dict has a single key containing a nested dict with spec fields, unwrap
+        if len(data) == 1:
+            key = next(iter(data))
+            inner = data[key]
+            if isinstance(inner, dict) and ("title" in inner or "problem_statement" in inner):
+                return inner
+        return data
+
+    @staticmethod
+    def _repair_truncated_json(text: str) -> dict[str, Any] | None:
+        """Attempt to repair truncated JSON by closing open structures."""
+        if not text or not text.lstrip().startswith("{"):
+            return None
+
+        # Find the last valid position by trying progressively shorter substrings
+        # ending at the last complete value boundary
+        last_good = text.rfind("}")
+        while last_good > 0:
+            candidate = text[: last_good + 1]
+            # Close any remaining open braces
+            open_braces = candidate.count("{") - candidate.count("}")
+            open_brackets = candidate.count("[") - candidate.count("]")
+            if open_braces >= 0 and open_brackets >= 0:
+                repaired = candidate + "]" * open_brackets + "}" * open_braces
+                try:
+                    return json.loads(repaired)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            last_good = text.rfind("}", 0, last_good)
 
         return None
 
