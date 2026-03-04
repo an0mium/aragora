@@ -12,7 +12,7 @@ Aragora orchestrates 43 AI agents to adversarially vet decisions through structu
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**New here?** Start with the [Getting Started Guide](docs/START_HERE.md) -- you'll have a working demo in 30 seconds.
+**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll have a working debate in under a minute. For a deeper overview, see [Start Here](docs/START_HERE.md).
 
 | I want to... | Install |
 |--------------|---------|

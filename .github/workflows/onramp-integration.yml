@@ -1,0 +1,56 @@
+name: Developer Onramp Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "docs/quickstart.md"
+      - "examples/quickstart.*"
+      - "aragora/live/src/app/**/playground/**"
+      - "aragora/live/src/app/**/docs/**"
+      - "sdk/**"
+
+jobs:
+  time-to-first-debate:
+    runs-on: aragora
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/checkout-integrity
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install and run quickstart
+        run: |
+          pip install -e .
+          timeout 300 python examples/quickstart.py
+        env:
+          ARAGORA_OFFLINE: "1"
+
+  playground-build:
+    runs-on: aragora
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/checkout-integrity
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build frontend with playground
+        working-directory: aragora/live
+        run: |
+          npm ci
+          npx next build --webpack
+
+  sdk-parity:
+    runs-on: aragora
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/checkout-integrity
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check SDK parity
+        run: python scripts/sdk_parity_check.py
