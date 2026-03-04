@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -35,6 +36,14 @@ class _FakeAgent:
 
     async def generate(self, prompt: str, context=None):  # noqa: ANN001
         return f"{self.name} analyzed prompt length={len(prompt)}"
+
+
+class _SlowAgent:
+    """Agent stub that blocks long enough to trigger timeout enforcement."""
+
+    async def generate(self, prompt: str, context=None):  # noqa: ANN001
+        await asyncio.sleep(5.0)
+        return "late output"
 
 
 @pytest.mark.asyncio
@@ -120,3 +129,32 @@ async def test_build_context_engineering_missing_repo(tmp_path):
     result = await build_debate_context_engineering(cfg)
     assert result.context == ""
     assert "does not exist" in str(result.metadata.get("error", ""))
+
+
+@pytest.mark.asyncio
+async def test_explorer_timeout_triggers_cleanup_and_error(monkeypatch, caplog):
+    """Timed-out explorer calls should force CLI cleanup and emit explicit logs."""
+    from aragora.debate import context_engineering as ce
+
+    cleanup_calls: list[float] = []
+
+    def _fake_cleanup(grace_seconds: float = 0.2) -> dict[str, int]:
+        cleanup_calls.append(grace_seconds)
+        return {"tracked": 1, "terminated": 1, "killed": 0, "remaining": 0}
+
+    monkeypatch.setattr("aragora.agents.cli_agents.terminate_tracked_cli_processes", _fake_cleanup)
+    caplog.set_level("WARNING")
+
+    result = await ce._run_single_explorer(  # type: ignore[attr-defined]
+        name="slow-agent",
+        agent=_SlowAgent(),
+        prompt="audit",
+        timeout_seconds=1,
+        max_chars=500,
+    )
+
+    assert result.success is False
+    assert "timeout after 1s" in str(result.error)
+    assert "cleanup:" in str(result.error)
+    assert cleanup_calls, "expected timeout path to invoke CLI cleanup"
+    assert any("context_engineering_explorer_timeout" in rec.message for rec in caplog.records)

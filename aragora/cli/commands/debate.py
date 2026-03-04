@@ -1106,6 +1106,24 @@ def cmd_ask(args: argparse.Namespace) -> None:
             print(f"[context-engineering] failed: {e}", file=sys.stderr)
         else:
             engineered_context = (engineered.context or "").strip()
+            harness_meta = (
+                engineered.metadata.get("harnesses", {})
+                if isinstance(engineered.metadata, dict)
+                else {}
+            )
+            harness_errors = (
+                harness_meta.get("errors", []) if isinstance(harness_meta, dict) else []
+            )
+            timeout_errors = [
+                str(err) for err in harness_errors if "timeout after" in str(err).lower()
+            ]
+            if timeout_errors:
+                print(
+                    f"[context-engineering] explorer timeouts={len(timeout_errors)} "
+                    f"(per_explorer_timeout={cfg.per_explorer_timeout_seconds}s)",
+                    file=sys.stderr,
+                )
+
             if engineered_context:
                 if context:
                     context = f"{context}\n\n{engineered_context}"
@@ -1497,6 +1515,13 @@ def cmd_ask(args: argparse.Namespace) -> None:
         cli_config_kwargs["enable_codebase_grounding"] = True
         if codebase_context_repo is not None:
             cli_config_kwargs["codebase_path"] = str(codebase_context_repo)
+    if bool(getattr(args, "no_context_init_rlm", False)):
+        cli_config_kwargs["use_rlm_limiter"] = False
+        if args.verbose:
+            print(
+                "[context-init] disabled RLM limiter via --no-context-init-rlm",
+                file=sys.stderr,
+            )
     if getattr(args, "auto_execute", False):
         cli_config_kwargs["enable_auto_execution"] = True
 

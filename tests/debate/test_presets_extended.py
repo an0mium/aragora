@@ -201,8 +201,16 @@ class TestCLIPresetChoices:
         assert args.codebase_context_harnesses is False
         assert args.codebase_context_kilocode is False
         assert args.codebase_context_rlm is False
+        assert args.no_context_init_rlm is False
         assert args.codebase_context_max_chars == 80000
         assert args.codebase_context_timeout == 240
+
+    def test_no_context_init_rlm_flag_parse(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["ask", "test question", "--no-context-init-rlm"])
+        assert args.no_context_init_rlm is True
 
     def test_grounding_gate_flags_parse(self):
         from aragora.cli.parser import build_parser

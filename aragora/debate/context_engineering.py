@@ -10,6 +10,7 @@ Builds a grounded codebase context block for debates by combining:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import shutil
 import time
@@ -216,11 +217,53 @@ async def _run_single_explorer(
 ) -> SimpleNamespace:
     """Execute one explorer with timeout and output trimming."""
     started = time.monotonic()
+    run_task: asyncio.Task[Any] = asyncio.create_task(agent.generate(prompt, context=[]))
     try:
-        output = await asyncio.wait_for(
-            agent.generate(prompt, context=[]),
+        done, pending = await asyncio.wait(
+            {run_task},
             timeout=max(1, timeout_seconds),
+            return_when=asyncio.FIRST_COMPLETED,
         )
+        if pending:
+            run_task.cancel()
+            run_task.add_done_callback(_consume_task_exception)
+            cleanup: dict[str, int] | None = None
+            cleanup_error: str | None = None
+            try:
+                from aragora.agents.cli_agents import terminate_tracked_cli_processes
+
+                cleanup = terminate_tracked_cli_processes()
+            except Exception as exc:  # noqa: BLE001 - best-effort cleanup only
+                cleanup_error = f"{type(exc).__name__}: {exc}"
+
+            logger.warning(
+                "context_engineering_explorer_timeout "
+                "name=%s timeout=%ss cleanup=%s cleanup_error=%s",
+                name,
+                timeout_seconds,
+                cleanup,
+                cleanup_error,
+            )
+            error = f"timeout after {timeout_seconds}s"
+            if cleanup:
+                error += (
+                    " (cleanup:"
+                    f" terminated={cleanup.get('terminated', 0)}"
+                    f" killed={cleanup.get('killed', 0)}"
+                    f" remaining={cleanup.get('remaining', 0)})"
+                )
+            if cleanup_error:
+                error += f" (cleanup_error={cleanup_error})"
+            return SimpleNamespace(
+                name=name,
+                success=False,
+                output="",
+                truncated=False,
+                error=error,
+                duration_seconds=round(time.monotonic() - started, 2),
+            )
+
+        output = run_task.result()
         output = output or ""
         trimmed, truncated = _trim_text(output.strip(), max_chars=max_chars)
         return SimpleNamespace(
@@ -232,6 +275,7 @@ async def _run_single_explorer(
             duration_seconds=round(time.monotonic() - started, 2),
         )
     except Exception as exc:  # noqa: BLE001 - best-effort optional path
+        logger.warning("context_engineering_explorer_failed name=%s error=%s", name, exc)
         return SimpleNamespace(
             name=name,
             success=False,
@@ -240,6 +284,16 @@ async def _run_single_explorer(
             error=f"{type(exc).__name__}: {exc}",
             duration_seconds=round(time.monotonic() - started, 2),
         )
+    finally:
+        if not run_task.done():
+            run_task.cancel()
+            run_task.add_done_callback(_consume_task_exception)
+
+
+def _consume_task_exception(task: asyncio.Task[Any]) -> None:
+    """Drain task exception in callbacks to avoid unhandled-task warnings."""
+    with contextlib.suppress(BaseException):
+        task.result()
 
 
 async def _build_base_map(config: ContextEngineeringConfig) -> tuple[str, dict[str, Any]]:

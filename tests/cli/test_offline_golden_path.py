@@ -242,6 +242,41 @@ def test_cmd_ask_async_timeout_emits_machine_payload(monkeypatch, capsys):
     assert payload["final_answer"] == ""
 
 
+def test_cmd_ask_no_context_init_rlm_sets_use_rlm_limiter_false(monkeypatch):
+    """Explicit CLI flag should disable context-init RLM limiter in local debates."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.cli.parser import build_parser
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "ask",
+            "review timeout behavior",
+            "--local",
+            "--agents",
+            "demo,demo",
+            "--rounds",
+            "1",
+            "--no-context-init-rlm",
+        ]
+    )
+    args.learn = False
+    args.db = ":memory:"
+    args.demo = False
+
+    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock) as mock_run_debate:
+        mock_result = MagicMock()
+        mock_result.final_answer = "ok"
+        mock_result.dissenting_views = []
+        mock_result.consensus = MagicMock(final_answer="ok")
+        mock_run_debate.return_value = mock_result
+
+        debate_cmd.cmd_ask(args)
+
+        call_kwargs = mock_run_debate.call_args.kwargs
+        assert call_kwargs["use_rlm_limiter"] is False
+
+
 def test_cmd_ask_grounding_fail_closed_rejects_ungrounded_output(monkeypatch, capsys):
     """Grounding fail-closed should reject outputs without verifiable repo paths."""
     from aragora.cli.commands import debate as debate_cmd

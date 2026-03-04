@@ -227,6 +227,14 @@ def _add_ask_parser(subparsers) -> None:
         help="Optional file path to save engineered codebase context before debate execution",
     )
     ask_parser.add_argument(
+        "--no-context-init-rlm",
+        action="store_true",
+        help=(
+            "Disable RLM context compression during debate context initialization "
+            "(faster and more predictable runtime)"
+        ),
+    )
+    ask_parser.add_argument(
         "--codebase-context-exclude-tests",
         action="store_true",
         help="Exclude test files from codebase context indexing",
