@@ -8,6 +8,7 @@ import { HowItWorksSection } from './HowItWorksSection';
 import { ProblemSection } from './ProblemSection';
 import { FeatureShowcase } from './FeatureShowcase';
 import { IntegrationsGrid } from './IntegrationsGrid';
+import { OracleSection } from './OracleSection';
 import { LiveDemoSection } from './LiveDemoSection';
 import { DeveloperSection } from './DeveloperSection';
 import { PricingSection } from './PricingSection';
@@ -33,6 +34,7 @@ export function LandingPage() {
       <ProblemSection />
       <FeatureShowcase />
       <IntegrationsGrid />
+      <OracleSection />
       <LiveDemoSection />
       <DeveloperSection />
       <PricingSection />

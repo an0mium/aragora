@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: '#how-it-works', label: 'How it works', anchor: true },
   { href: '/quickstart', label: 'Quickstart', anchor: false },
   { href: '/docs', label: 'Docs', anchor: false },
+  { href: '/oracle', label: 'Oracle', anchor: false },
   { href: '/pricing', label: 'Pricing', anchor: false },
   { href: '/login', label: 'Log in', anchor: false },
 ];
