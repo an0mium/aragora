@@ -15,7 +15,10 @@ _THRESHOLD_RE = re.compile(
     r"(?i)(<=|>=|<|>|=|==)\s*\d+(?:\.\d+)?\s*(?:%|ms|s|sec|seconds|m|min|minutes|h|hours|rps|qps|req/s)?"
 )
 _ACTION_VERB_RE = re.compile(
-    r"(?i)\b(add|create|implement|update|refactor|remove|wire|integrate|validate|test|harden|instrument|enforce|ship)\b"
+    r"(?i)\b(add|create|implement|update|refactor|remove|wire|integrate|validate|test|harden|instrument|enforce|ship"
+    r"|build|deploy|configure|construct|establish|develop|provision|run|execute|design|migrate|setup|parse|route"
+    r"|initialize|instantiate|enable|monitor|track|define|connect|aggregate|extract|detect|optimize|fix|resolve"
+    r"|extend|introduce|scaffold|verify|ensure|check)\b"
 )
 _PLACEHOLDER_PATTERNS: dict[str, re.Pattern[str]] = {
     "new_marker": re.compile(r"\[new\]", re.IGNORECASE),
@@ -148,6 +151,12 @@ def _first_nonempty_line(text: str) -> str:
 
 
 _FILE_EXT_RE = re.compile(r"\b\w+\.(py|ts|tsx|js|jsx|yaml|yml|toml|json|md)\b")
+_SUBHEADER_RE = re.compile(r"^\s*\*\*[^*]+\*\*:?\s*$")
+
+
+def _is_subheader_line(line: str) -> bool:
+    """Return True for bold-only sub-header lines like '**Task 1 Subtasks:**'."""
+    return bool(_SUBHEADER_RE.match(line))
 
 
 def _line_concreteness(line: str) -> float:
@@ -278,17 +287,29 @@ def assess_repo_grounding(
     placeholder_hits = _collect_placeholder_hits(text)
     placeholder_rate = _estimate_placeholder_rate(text, placeholder_hits)
 
-    ranked_text = _find_section_content(sections, _normalize_heading("Ranked High-Level Tasks"))
-    subtasks_text = _find_section_content(sections, _normalize_heading("Suggested Subtasks"))
-    # Score best of top 5 lines per section, take max across sections.
+    _CONCRETENESS_SECTIONS = [
+        "Ranked High-Level Tasks",
+        "Suggested Subtasks",
+        "Test Plan",
+        "Rollback Plan",
+        "Gate Criteria",
+    ]
+    # Score best of top 8 lines per section, take max across sections.
     # LLMs often write a generic intro on the first line and put actionable
     # content on subsequent lines, so first-only scoring is too pessimistic.
+    # Scanning 5 sections (including Test Plan, Rollback Plan, Gate Criteria)
+    # captures lines with thresholds and test filenames that reliably score high.
     section_best_scores: list[float] = []
-    for section_text in [ranked_text, subtasks_text]:
+    for heading in _CONCRETENESS_SECTIONS:
+        section_text = _find_section_content(sections, _normalize_heading(heading))
         if not section_text:
             continue
-        lines = [l.strip() for l in section_text.split("\n") if l.strip()]
-        per_line = [_line_concreteness(l) for l in lines[:5]]
+        lines = [
+            l.strip()
+            for l in section_text.split("\n")
+            if l.strip() and not _is_subheader_line(l.strip())
+        ]
+        per_line = [_line_concreteness(l) for l in lines[:8]]
         if per_line:
             section_best_scores.append(max(per_line))
     if section_best_scores:
