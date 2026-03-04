@@ -50,11 +50,15 @@ jobs:
       - name: Checkout PR
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Checkout main for baseline
         uses: actions/checkout@v4
         with:
           ref: main
           path: main-branch
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5

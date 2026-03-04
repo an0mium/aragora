@@ -30,6 +30,8 @@ jobs:
             scripts/extract_weekly_epistemic_kpis.py
           sparse-checkout-cone-mode: false
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:

@@ -35,6 +35,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Validate Docker Compose
         run: |
           docker compose -f deploy/uptime-kuma/docker-compose.yml config
@@ -96,6 +98,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Deploy to staging
         run: |
           echo "Staging deployment would run here"
@@ -112,6 +116,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Check deployment secrets
         id: deploy_secrets
@@ -234,6 +240,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python
         uses: actions/setup-python@v5

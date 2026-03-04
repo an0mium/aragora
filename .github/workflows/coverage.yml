@@ -29,6 +29,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -154,11 +156,15 @@ jobs:
       - name: Checkout PR
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Checkout base branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.base_ref }}
           path: base
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python
         uses: actions/setup-python@v5

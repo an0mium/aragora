@@ -54,6 +54,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -120,6 +122,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Configure AWS credentials via OIDC
         if: ${{ vars.AWS_CI_ENABLED == 'true' }}
@@ -241,6 +245,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Create additional databases
         run: |
@@ -370,6 +376,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Configure AWS credentials via OIDC
         if: ${{ vars.AWS_CI_ENABLED == 'true' }}

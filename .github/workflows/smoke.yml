@@ -32,22 +32,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify checkout integrity
-        run: |
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
-            git sparse-checkout disable || true
-            git reset --hard HEAD || true
-            git clean -ffd || true
-          fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
-            echo "PWD=$(pwd)"
-            git rev-parse --show-toplevel || true
-            ls -la
-            find . -maxdepth 3 -name pyproject.toml -print || true
-            exit 1
-          fi
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -88,22 +73,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify checkout integrity
-        run: |
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
-            git sparse-checkout disable || true
-            git reset --hard HEAD || true
-            git clean -ffd || true
-          fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
-            echo "PWD=$(pwd)"
-            git rev-parse --show-toplevel || true
-            ls -la
-            find . -maxdepth 3 -name pyproject.toml -print || true
-            exit 1
-          fi
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -135,22 +105,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify checkout integrity
-        run: |
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
-            git sparse-checkout disable || true
-            git reset --hard HEAD || true
-            git clean -ffd || true
-          fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
-            echo "PWD=$(pwd)"
-            git rev-parse --show-toplevel || true
-            ls -la
-            find . -maxdepth 3 -name pyproject.toml -print || true
-            exit 1
-          fi
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -191,22 +146,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify checkout integrity
-        run: |
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
-            git sparse-checkout disable || true
-            git reset --hard HEAD || true
-            git clean -ffd || true
-          fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
-            echo "PWD=$(pwd)"
-            git rev-parse --show-toplevel || true
-            ls -la
-            find . -maxdepth 3 -name pyproject.toml -print || true
-            exit 1
-          fi
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5

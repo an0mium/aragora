@@ -33,6 +33,8 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

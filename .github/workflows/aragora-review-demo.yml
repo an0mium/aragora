@@ -18,6 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Aragora Multi-Agent Code Review
         uses: ./.github/actions/aragora-code-review
         with:

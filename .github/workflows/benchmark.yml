@@ -60,6 +60,8 @@ jobs:
         with:
           fetch-depth: 0  # Full history for benchmark comparison
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -128,6 +130,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -156,11 +160,15 @@ jobs:
       - name: Checkout PR
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Checkout main for comparison
         uses: actions/checkout@v4
         with:
           ref: main
           path: main-branch
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -230,6 +238,8 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -266,6 +276,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5

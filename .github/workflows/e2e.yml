@@ -48,6 +48,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -201,6 +203,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -240,6 +244,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

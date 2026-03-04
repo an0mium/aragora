@@ -49,6 +49,8 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:

@@ -36,6 +36,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -218,6 +220,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -296,6 +300,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

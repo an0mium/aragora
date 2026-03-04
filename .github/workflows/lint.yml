@@ -30,6 +30,9 @@ jobs:
       python: ${{ steps.filter.outputs.python }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
+
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -56,22 +59,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify checkout integrity
-        run: |
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
-            git sparse-checkout disable || true
-            git reset --hard HEAD || true
-            git clean -ffd || true
-          fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
-            echo "PWD=$(pwd)"
-            git rev-parse --show-toplevel || true
-            ls -la
-            find . -maxdepth 3 -name pyproject.toml -print || true
-            exit 1
-          fi
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -126,6 +114,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -148,6 +138,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -182,22 +174,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify checkout integrity
-        run: |
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
-            git sparse-checkout disable || true
-            git reset --hard HEAD || true
-            git clean -ffd || true
-          fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
-            echo "PWD=$(pwd)"
-            git rev-parse --show-toplevel || true
-            ls -la
-            find . -maxdepth 3 -name pyproject.toml -print || true
-            exit 1
-          fi
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -238,6 +215,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -322,6 +301,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -348,6 +329,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -387,6 +370,8 @@ jobs:
         with:
           fetch-depth: 0  # Full history for comprehensive scanning
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Skip Gitleaks when license is missing
         if: env.GITLEAKS_LICENSE == ''
         run: |
@@ -409,6 +394,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -500,6 +487,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/checkout-integrity
+
       - name: Count TODOs and enforce baseline
         run: |
           CURRENT=$(grep -rn "TODO\|FIXME\|HACK\|XXX" aragora/ --include="*.py" 2>/dev/null | wc -l | tr -d ' ')
@@ -536,6 +525,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - uses: ./.github/actions/checkout-integrity
 
       - name: Set up Python
         uses: actions/setup-python@v5
