@@ -20,9 +20,9 @@ const TIERS: Tier[] = [
     period: '/month',
     features: [
       '10 debates per month',
-      '3 agents per debate',
-      'Markdown receipts',
-      'Demo mode',
+      '3 AI models per debate',
+      'Exportable verdicts',
+      'No signup required',
     ],
     cta: 'Try it now',
     href: '/playground',
@@ -34,11 +34,11 @@ const TIERS: Tier[] = [
     highlight: true,
     features: [
       'Unlimited debates',
-      '10 agents per debate',
-      'All export formats',
-      'CI/CD integration',
-      'Slack, Teams, Email delivery',
-      'Cross-debate memory',
+      '10 AI models per debate',
+      'All export formats (PDF, JSON, Markdown)',
+      'Slack, Teams, and Email delivery',
+      'Learns from past decisions',
+      'API and CI/CD integration',
     ],
     cta: 'Start free trial',
     href: '/signup?plan=pro',
@@ -109,7 +109,7 @@ export function PricingSection() {
             marginBottom: '64px',
           }}
         >
-          Bring your own API keys. Aragora never marks up LLM costs.
+          Use your own API keys — we never mark up LLM costs. Pay only for orchestration.
         </p>
 
         {/* Tier cards */}

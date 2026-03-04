@@ -20,8 +20,8 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: 'Decision Receipts',
-    description: 'Audit-ready verdicts with confidence scores, evidence chains, and minority opinions preserved.',
+    title: 'Auditable Verdicts',
+    description: 'Every decision includes confidence scores, supporting evidence, and dissenting opinions — ready for your board or compliance team.',
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
@@ -41,8 +41,8 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: '43 Analyst Types',
-    description: "Devil's advocate, risk assessor, implementation expert — specialized roles for every domain.",
+    title: 'Specialized Analysts',
+    description: "Devil's advocate, risk assessor, implementation expert — 43 roles that cover every angle of your decision.",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -51,8 +51,8 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: 'Self-Improvement',
-    description: 'The system debates its own improvements via the Nomic Loop. It gets better autonomously.',
+    title: 'Gets Smarter Over Time',
+    description: 'The system learns from every debate across your organization. Quality improves automatically.',
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" />

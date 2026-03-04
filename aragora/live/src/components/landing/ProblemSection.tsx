@@ -12,17 +12,17 @@ const PROBLEMS: ProblemCard[] = [
   {
     icon: '\u26A0\uFE0F',
     title: 'Hallucination',
-    description: 'Cross-model verification catches fabrications before they reach you.',
+    description: 'When multiple AI models check each other, made-up facts get caught before they reach you.',
   },
   {
     icon: '\uD83E\uDD1D',
     title: 'Sycophancy',
-    description: 'Agents are structurally incentivized to disagree and find flaws.',
+    description: 'AI agents are rewarded for poking holes, not for telling you what you want to hear.',
   },
   {
     icon: '\uD83D\uDD00',
     title: 'Inconsistency',
-    description: 'Debate convergence produces stable, defensible positions.',
+    description: 'Multiple rounds of structured debate produce positions that hold up under scrutiny.',
   },
 ];
 

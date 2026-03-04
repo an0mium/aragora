@@ -237,7 +237,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             marginBottom: '48px',
           }}
         >
-          Multiple AI models debate your question and deliver an audit-ready verdict.
+          Pit Claude, GPT, Gemini, and Mistral against each other. Get a verdict you can defend to your board.
         </p>
 
         {/* Debate input form — THE CENTERPIECE */}
