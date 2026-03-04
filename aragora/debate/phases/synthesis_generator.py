@@ -549,8 +549,8 @@ Required sections:
 
             repo_root = Path(os.getcwd())
             lines: list[str] = []
-            max_lines = 24
-            max_chars = 1800
+            max_lines = 150
+            max_chars = 12000
 
             # 1. Top-level project files
             top_files = [
@@ -578,7 +578,7 @@ Required sections:
                         f.name
                         for f in dp.iterdir()
                         if f.is_file() and f.suffix in suffixes and f.name != "__init__.py"
-                    )[:3]
+                    )[:12]
                     if files:
                         lines.append(f"  {subdir}/: {', '.join(files)}")
                         if sum(len(line) + 1 for line in lines) >= max_chars:
@@ -590,7 +590,7 @@ Required sections:
                     break
                 dp = repo_root / d
                 if dp.is_dir():
-                    files = sorted(f.name for f in dp.iterdir() if f.suffix == ".py")[:3]
+                    files = sorted(f.name for f in dp.iterdir() if f.suffix == ".py")[:12]
                     if files:
                         lines.append(f"  {d}/: {', '.join(files)}")
                         if sum(len(line) + 1 for line in lines) >= max_chars:
