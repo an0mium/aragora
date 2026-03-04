@@ -10,6 +10,7 @@ on:
     paths:
       - 'aragora/**'
       - 'pyproject.toml'
+      - 'uv.lock'
       - 'requirements*.txt'
       - 'aragora/live/package.json'
       - 'aragora/live/package-lock.json'
@@ -71,6 +72,14 @@ jobs:
         run: |
           pip-audit --strict --vulnerability-service osv \
             --ignore-vuln CVE-2025-14009
+
+      # ---------------------------------------------------------------
+      # Lockfile freshness: ensure uv.lock matches pyproject.toml
+      # ---------------------------------------------------------------
+      - name: "BLOCKING: Verify Python lockfile freshness"
+        run: |
+          pip install uv
+          uv lock --check || { echo "::error::uv.lock is stale. Run 'uv lock' locally."; exit 1; }
 
       # ---------------------------------------------------------------
       # Hardcoded secrets pattern scan

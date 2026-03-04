@@ -47,7 +47,7 @@ export function Header() {
               How it works
             </a>
             <a
-              href="#pricing"
+              href="/pricing"
               className="text-sm transition-colors hover:opacity-80"
               style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
             >

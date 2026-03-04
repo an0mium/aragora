@@ -5,7 +5,7 @@ import { useTheme } from '@/context/ThemeContext';
 
 const NAV_LINKS = [
   { href: '/about', label: 'About' },
-  { href: '#pricing', label: 'Pricing' },
+  { href: '/pricing', label: 'Pricing' },
   { href: '/developer', label: 'Docs' },
   { href: 'mailto:support@aragora.ai', label: 'Support' },
 ];
