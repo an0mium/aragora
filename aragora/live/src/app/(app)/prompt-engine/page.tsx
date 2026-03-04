@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   usePromptEngine,
   type PipelineStage,
@@ -9,19 +10,21 @@ import {
   type ValidationResult,
   type RiskItem,
 } from '@/hooks/usePromptEngine';
+import { API_BASE_URL } from '@/config';
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-const STAGES: { key: PipelineStage; label: string }[] = [
+const STAGES: { key: string; label: string }[] = [
   { key: 'decompose', label: 'Decompose' },
   { key: 'interrogate', label: 'Interrogate' },
   { key: 'research', label: 'Research' },
   { key: 'specify', label: 'Specify' },
+  { key: 'execute', label: 'Execute' },
 ];
 
-function PipelineProgress({ current, completed }: { current: PipelineStage; completed: string[] }) {
+function PipelineProgress({ current, completed }: { current: string; completed: string[] }) {
   return (
     <div className="flex items-center gap-1 font-mono text-xs">
       {STAGES.map((s, i) => {
@@ -225,11 +228,52 @@ const PROFILES: { key: ProfileKey; label: string }[] = [
   { key: 'team', label: 'Team' },
 ];
 
+/** Format a Specification into structured text for the pipeline brain dump API. */
+function specToBrainDump(spec: Specification): string {
+  const lines: string[] = [];
+  lines.push(`# ${spec.title}`);
+  lines.push('');
+  lines.push(`## Problem`);
+  lines.push(spec.problem_statement);
+  lines.push('');
+  lines.push(`## Solution`);
+  lines.push(spec.proposed_solution);
+  lines.push('');
+  if (spec.implementation_plan.length > 0) {
+    lines.push(`## Implementation Steps`);
+    spec.implementation_plan.forEach((step, i) => {
+      lines.push(`${i + 1}. ${typeof step === 'string' ? step : JSON.stringify(step)}`);
+    });
+    lines.push('');
+  }
+  if (spec.success_criteria.length > 0) {
+    lines.push(`## Success Criteria`);
+    spec.success_criteria.forEach((c) => {
+      lines.push(`- ${typeof c === 'string' ? c : (c as { description: string }).description}`);
+    });
+    lines.push('');
+  }
+  if (spec.risk_register.length > 0) {
+    lines.push(`## Risks`);
+    spec.risk_register.forEach((r) => {
+      lines.push(`- [${r.likelihood}/${r.impact}] ${r.description}${r.mitigation ? ` → ${r.mitigation}` : ''}`);
+    });
+    lines.push('');
+  }
+  if (spec.estimated_effort) {
+    lines.push(`Estimated effort: ${spec.estimated_effort}`);
+  }
+  return lines.join('\n');
+}
+
 export default function PromptEnginePage() {
   const engine = usePromptEngine();
+  const router = useRouter();
   const [prompt, setPrompt] = useState('');
   const [profile, setProfile] = useState<ProfileKey>('founder');
   const [useStreaming, setUseStreaming] = useState(true);
+  const [executing, setExecuting] = useState(false);
+  const [executeError, setExecuteError] = useState<string | null>(null);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -246,6 +290,46 @@ export default function PromptEnginePage() {
     },
     [engine],
   );
+
+  const handleExecute = useCallback(async () => {
+    if (!engine.specification) return;
+    setExecuting(true);
+    setExecuteError(null);
+    try {
+      const text = specToBrainDump(engine.specification);
+      const context = engine.research?.summary || '';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('aragora_tokens') : null;
+      if (stored) {
+        try {
+          const token = (JSON.parse(stored) as { access_token?: string }).access_token;
+          if (token) headers.Authorization = `Bearer ${token}`;
+        } catch { /* ignore */ }
+      }
+      const res = await fetch(`${API_BASE_URL}/api/v1/canvas/pipeline/from-braindump`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          text,
+          context,
+          use_unified_orchestrator: true,
+          skip_execution: true,
+        }),
+      });
+      if (!res.ok) throw new Error(`Pipeline creation failed: ${res.status}`);
+      const data = await res.json();
+      const pipelineId = data.pipeline_id || data.result?.pipeline_id;
+      if (pipelineId) {
+        router.push(`/pipeline?from=spec&id=${pipelineId}`);
+      } else {
+        router.push('/pipeline');
+      }
+    } catch (err) {
+      setExecuteError(err instanceof Error ? err.message : 'Failed to create pipeline');
+    } finally {
+      setExecuting(false);
+    }
+  }, [engine.specification, engine.research, router]);
 
   return (
     <div className="min-h-screen bg-bg p-4 md:p-8">
@@ -315,7 +399,10 @@ export default function PromptEnginePage() {
 
         {/* Pipeline progress */}
         {engine.currentStage !== 'idle' && (
-          <PipelineProgress current={engine.currentStage} completed={engine.stagesCompleted} />
+          <PipelineProgress
+            current={executing ? 'execute' : engine.currentStage}
+            completed={engine.currentStage === 'complete' ? [...engine.stagesCompleted, 'specify'] : engine.stagesCompleted}
+          />
         )}
 
         {/* Error */}
@@ -366,6 +453,34 @@ export default function PromptEnginePage() {
         {/* Specification */}
         {engine.specification && (
           <SpecificationView spec={engine.specification} validation={engine.validation} />
+        )}
+
+        {/* Execute — bridge spec to pipeline */}
+        {engine.specification && engine.currentStage === 'complete' && (
+          <div className="border border-acid-green/30 rounded p-4 space-y-3">
+            <h3 className="text-acid-cyan font-mono text-sm uppercase tracking-wider">
+              Ready to Execute
+            </h3>
+            <p className="text-acid-green/60 text-sm font-mono">
+              Send this specification to the Idea-to-Execution pipeline for agent orchestration,
+              task decomposition, and automated execution.
+            </p>
+            {executeError && (
+              <p className="text-crimson font-mono text-sm">{'\u2717'} {executeError}</p>
+            )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExecute}
+                disabled={executing}
+                className="px-5 py-2.5 bg-acid-green/20 border border-acid-green/50 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {executing ? 'Creating Pipeline...' : 'Create Execution Plan \u2192'}
+              </button>
+              <span className="text-acid-green/40 text-xs font-mono">
+                Confidence: {Math.round(engine.specification.confidence * 100)}%
+              </span>
+            </div>
+          </div>
         )}
       </div>
     </div>
