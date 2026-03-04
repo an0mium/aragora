@@ -221,10 +221,9 @@ def test_cmd_ask_quality_fail_closed_requires_contract(monkeypatch, capsys):
     with pytest.raises(SystemExit) as exc_info:
         debate_cmd.cmd_ask(args)
 
-    # Exit code 2 = argparse-level validation error (no contract provided).
     assert exc_info.value.code == 2
     err = capsys.readouterr().err
-    assert "quality-fail-closed" in err.lower() or "contract" in err.lower()
+    assert "--quality-fail-closed requires an explicit output contract" in err
 
 
 def test_cmd_ask_quality_fail_closed_invalid_output_contract_file(monkeypatch, capsys):
