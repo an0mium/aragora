@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, type ReactNode } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAragoraClient } from '@/hooks/useAragoraClient';
 import { useAsyncData } from '@/hooks/useAsyncData';
 
@@ -468,6 +469,7 @@ export default function AnalyticsPage() {
   ];
 
   return (
+    <ProtectedRoute>
     <>
       <Scanlines opacity={0.02} />
       <CRTVignette />
@@ -981,5 +983,6 @@ export default function AnalyticsPage() {
         </footer>
       </main>
     </>
+    </ProtectedRoute>
   );
 }
