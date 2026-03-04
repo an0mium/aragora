@@ -26,10 +26,8 @@ export function LiveDemoSection() {
 
   return (
     <section
-      className="px-4"
+      className="px-4 py-16 sm:py-24 md:py-[120px]"
       style={{
-        paddingTop: '120px',
-        paddingBottom: '120px',
         borderTop: '1px solid var(--border)',
         fontFamily: 'var(--font-landing)',
       }}
@@ -57,7 +55,7 @@ export function LiveDemoSection() {
             borderTopWidth: '3px',
             boxShadow: 'var(--shadow-card)',
             overflow: 'hidden',
-            margin: '0 24px',
+            margin: '0',
           }}
         >
           <div
@@ -132,7 +130,7 @@ export function LiveDemoSection() {
               color: 'var(--accent)',
               backgroundColor: 'transparent',
               fontFamily: 'var(--font-landing)',
-              padding: '18px 48px',
+              padding: '14px 32px',
             }}
           >
             Run your own debate

@@ -206,9 +206,8 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
 
         {/* Headline */}
         <h1
-          className="leading-tight"
+          className="leading-tight text-[28px] sm:text-[38px] md:text-[44px]"
           style={{
-            fontSize: isDark ? '38px' : '44px',
             fontWeight: isDark ? 700 : 600,
             color: 'var(--text)',
             fontFamily: 'var(--font-landing)',
@@ -234,7 +233,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             fontSize: '14px',
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-landing)',
-            marginBottom: '48px',
+            marginBottom: '32px',
           }}
         >
           Pit Claude, GPT, Gemini, and Mistral against each other. Get a verdict you can defend to your board.
