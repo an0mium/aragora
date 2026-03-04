@@ -17,6 +17,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/worktree-transcript-link.sh"
+          }
+        ]
+      }
     ]
   }
 }
