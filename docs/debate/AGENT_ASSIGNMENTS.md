@@ -7,7 +7,7 @@
 Use these rules before reading track-level assignments:
 
 1. One active ready PR at a time per stream. All other PRs in that stream must stay draft with auto-merge disabled.
-2. Admission controller is authoritative: `.github/workflows/pr-admission-controller.yml` and `scripts/pr_admission_controller.py` enforce ready-lane policy.
+2. Admission controller is advisory-only: `.github/workflows/pr-admission-controller.yml` and `scripts/pr_admission_controller.py` signal overload risk but do not block merges by default.
 3. Stale-run GC is mandatory before retriggers: run `python3 scripts/pr_stale_run_gc.py --repo synaptent/aragora --max-runs 500` (with `GITHUB_TOKEN`) to clear stale queued runs.
 4. Before starting work, post ownership in this file (branch, PR number, touched paths, owner handle, timestamp).
 5. If repo state changes unexpectedly (detached HEAD, unknown edits, disappearing worktree), stop and move to a fresh worktree from `origin/main` before continuing.

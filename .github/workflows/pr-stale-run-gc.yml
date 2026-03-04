@@ -40,6 +40,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Run stale-run GC
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -57,7 +62,7 @@ jobs:
             fi
           fi
 
-          python scripts/pr_stale_run_gc.py \
+          python3 scripts/pr_stale_run_gc.py \
             --repo "${GITHUB_REPOSITORY}" \
             --max-runs "${MAX_RUNS}" \
             ${EXTRA_ARGS}

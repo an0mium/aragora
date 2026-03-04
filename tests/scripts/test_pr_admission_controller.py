@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from scripts.pr_admission_controller import (
     classify_stream_from_files,
+    evaluate_admission,
     extract_stream_from_labels,
     select_admitted_pr_numbers,
 )
@@ -50,3 +51,42 @@ def test_select_admitted_pr_numbers_oldest_first() -> None:
         max_ready_per_stream=1,
     )
     assert admitted == {200}
+
+
+def test_evaluate_admission_advisory_mode_is_non_blocking() -> None:
+    class FakeClient:
+        def get_pull(self, number: int) -> dict[str, object]:
+            return {
+                "number": number,
+                "state": "open",
+                "draft": False,
+                "base": {"ref": "main"},
+                "labels": [{"name": "lane:ci"}],
+            }
+
+        def list_open_pulls(self, _base_branch: str) -> list[dict[str, object]]:
+            return [
+                {
+                    "number": 100,
+                    "draft": False,
+                    "created_at": "2026-03-04T01:00:00Z",
+                    "labels": [{"name": "lane:ci"}],
+                },
+                {
+                    "number": 101,
+                    "draft": False,
+                    "created_at": "2026-03-04T01:01:00Z",
+                    "labels": [{"name": "lane:ci"}],
+                },
+            ]
+
+        def list_pull_files(self, _number: int) -> list[str]:
+            return []
+
+    rc = evaluate_admission(
+        client=FakeClient(),  # type: ignore[arg-type]
+        current_pr_number=101,
+        max_ready_per_stream=1,
+        enforce=False,
+    )
+    assert rc == 0

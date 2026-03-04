@@ -300,3 +300,80 @@ def test_cmd_cleanup_reports_failed_branch_deletions(
     assert payload["failed_worktree_removals"] == 0
     assert payload["failed_branch_deletions"] == 1
     assert saved_state["sessions"] == []
+
+
+def test_has_active_session_detects_codex_lock_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    (worktree / ".codex_session_active").write_text("pid=1234\n", encoding="utf-8")
+
+    def _fake_kill(pid: int, sig: int) -> None:
+        if pid == 1234:
+            return
+        raise ProcessLookupError
+
+    monkeypatch.setattr(mod.os, "kill", _fake_kill)
+    assert mod._has_active_session(worktree) is True
+
+
+def test_cmd_reconcile_skips_active_session_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    active_path = tmp_path / "active-wt"
+    active_path.mkdir()
+    state = {
+        "sessions": [
+            {
+                "session_id": "s1",
+                "agent": "codex",
+                "branch": "codex/s1",
+                "path": str(active_path),
+                "created_at": "2026-02-01T00:00:00+00:00",
+            }
+        ]
+    }
+    saved_state: dict[str, object] = {}
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(
+        mod,
+        "_get_worktree_entries",
+        lambda _repo: [mod.WorktreeEntry(path=active_path, branch="codex/s1")],
+    )
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(mod, "_has_active_session", lambda _path: True)
+    monkeypatch.setattr(
+        mod,
+        "_integrate_worktree",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not reconcile")),
+    )
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        base="main",
+        strategy="ff-only",
+        all=True,
+        path=None,
+        json=True,
+    )
+    rc = mod.cmd_reconcile(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is True
+    assert payload["count"] == 1
+    assert payload["skipped_active_session"] == 1
+    assert payload["results"][0]["status"] == "skipped_active_session"
+    assert saved_state["sessions"][0]["reconcile_status"] == "skipped_active_session"

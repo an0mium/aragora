@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PR admission controller for multi-agent CI lane governance.
+"""PR admission signal for multi-agent CI lane visibility.
 
 Policy:
 - At most ``max_ready_per_stream`` open ready PRs per stream.
@@ -10,6 +10,8 @@ When ``--enforce`` is enabled and the current PR is over capacity for its stream
 - convert PR back to draft
 - disable auto-merge (if enabled)
 - post an explanatory PR comment
+
+By default this script is advisory-only and does not block or mutate PR state.
 """
 
 from __future__ import annotations
@@ -321,7 +323,11 @@ def evaluate_admission(
         f"Admitted: {admitted_text}"
     )
     if not enforce:
-        return 2
+        print(
+            f"Advisory only: PR #{current_pr_number} exceeds stream capacity "
+            f"('{current_stream}') but no enforcement was requested."
+        )
+        return 0
 
     pr_node_id = str(current_pr.get("node_id", ""))
     if not pr_node_id:

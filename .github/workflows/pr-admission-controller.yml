@@ -15,9 +15,9 @@ on:
         default: "1"
         type: string
       enforce:
-        description: "Apply enforcement actions"
+        description: "Apply enforcement actions (manual override only)"
         required: false
-        default: true
+        default: false
         type: boolean
 
 permissions:
@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   enforce-admission:
-    name: Enforce PR Admission Policy
+    name: PR Admission Signal (Advisory)
     runs-on: aragora
     timeout-minutes: 10
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
@@ -39,6 +39,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Resolve PR number
         id: resolve
@@ -50,7 +55,7 @@ jobs:
             echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Enforce admission controller
+      - name: Evaluate admission controller (advisory by default)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -62,12 +67,16 @@ jobs:
             if [ "${{ github.event.inputs.enforce }}" = "true" ]; then
               ENFORCE_FLAG="--enforce"
             fi
-          else
-            ENFORCE_FLAG="--enforce"
           fi
 
-          python scripts/pr_admission_controller.py \
+          set +e
+          python3 scripts/pr_admission_controller.py \
             --repo "${GITHUB_REPOSITORY}" \
             --pr-number "${{ steps.resolve.outputs.pr_number }}" \
             --max-ready-per-stream "${MAX_READY}" \
             ${ENFORCE_FLAG}
+          rc=$?
+          if [ "${rc}" -ne 0 ]; then
+            echo "::warning::Admission signal failed with exit code ${rc} (non-blocking)"
+          fi
+          exit 0

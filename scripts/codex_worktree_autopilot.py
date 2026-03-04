@@ -353,12 +353,16 @@ def cmd_ensure(args: argparse.Namespace) -> int:
     else:
         session["last_seen_at"] = _utc_now().isoformat()
         if args.reconcile:
-            ok, status = _integrate_worktree(
-                repo_root,
-                Path(session["path"]),
-                args.base,
-                args.strategy,
-            )
+            session_path = Path(session["path"])
+            if session_path.exists() and _has_active_session(session_path):
+                ok, status = True, "skipped_active_session"
+            else:
+                ok, status = _integrate_worktree(
+                    repo_root,
+                    session_path,
+                    args.base,
+                    args.strategy,
+                )
             session["reconcile_status"] = status
             if not ok:
                 # Fallback: auto-create replacement worktree if integration fails.
@@ -429,10 +433,15 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
 
     sessions = _iter_target_sessions(state, active_paths=active_paths, target_path=target_path)
     results: list[dict[str, Any]] = []
+    skipped_active_session = 0
 
     for session in sessions:
         path = Path(session["path"])
-        ok, status = _integrate_worktree(repo_root, path, args.base, args.strategy)
+        if path.exists() and _has_active_session(path):
+            ok, status = True, "skipped_active_session"
+            skipped_active_session += 1
+        else:
+            ok, status = _integrate_worktree(repo_root, path, args.base, args.strategy)
         session["last_seen_at"] = _utc_now().isoformat()
         session["reconcile_status"] = status
         results.append(
@@ -448,7 +457,12 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     _save_state(state_file, state)
 
     failed = [r for r in results if not r["ok"]]
-    payload = {"ok": not failed, "count": len(results), "results": results}
+    payload = {
+        "ok": not failed,
+        "count": len(results),
+        "skipped_active_session": skipped_active_session,
+        "results": results,
+    }
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
@@ -480,33 +494,75 @@ def _branch_ahead_count(repo_root: Path, base: str, branch: str) -> int:
     return int(out) if out.isdigit() else 0
 
 
-def _has_active_session(worktree_path: Path) -> bool:
-    """Check if a worktree has an active Claude session via lock file.
-
-    The lock file (.claude-session-active) is created by the SessionStart hook
-    and removed by the Stop hook. If the file exists and the recorded PID is
-    still running, the session is active and the worktree must not be deleted.
-    """
-    lock_file = worktree_path / ".claude-session-active"
-    if not lock_file.exists():
+def _pid_alive(pid: int) -> bool:
+    if pid <= 0:
         return False
     try:
-        data = json.loads(lock_file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        os.kill(pid, 0)  # Signal 0 = existence check, no actual signal
+        return True
+    except ProcessLookupError:
         return False
-    # Check if the parent PID (Claude Code process) is still running
-    ppid = data.get("ppid", 0)
-    pid = data.get("pid", 0)
-    for check_pid in (ppid, pid):
-        if check_pid and check_pid > 0:
-            try:
-                os.kill(check_pid, 0)  # Signal 0 = existence check, no actual signal
-                return True  # Process is alive
-            except ProcessLookupError:
-                continue  # Process is dead, check next
-            except PermissionError:
-                return True  # Process exists but owned by another user
-    # Both PIDs are dead — stale lock file, safe to clean up
+    except PermissionError:
+        return True  # Process exists but owned by another user
+
+
+def _parse_lock_pids(lock_file: Path) -> list[int]:
+    raw = lock_file.read_text(encoding="utf-8").strip()
+    if not raw:
+        return []
+
+    # Claude hooks write JSON lock payloads.
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        data = None
+    if isinstance(data, dict):
+        pids: list[int] = []
+        for key in ("ppid", "pid"):
+            value = data.get(key)
+            if isinstance(value, int):
+                pids.append(value)
+            elif isinstance(value, str) and value.isdigit():
+                pids.append(int(value))
+        return pids
+
+    # codex_session.sh writes key=value lock payloads.
+    pids = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key.strip() not in {"pid", "ppid"}:
+            continue
+        value = value.strip()
+        if value.isdigit():
+            pids.append(int(value))
+    return pids
+
+
+def _has_active_session(worktree_path: Path) -> bool:
+    """Check if a worktree has an active Claude/Codex session via lock files.
+
+    If any known session lock exists and has a live PID, the worktree is active.
+    Conservative behavior: unreadable or unparseable lock files are treated as
+    active to avoid destructive cleanup/reconcile on in-progress sessions.
+    """
+    lock_names = (".claude-session-active", ".codex_session_active")
+    for lock_name in lock_names:
+        lock_file = worktree_path / lock_name
+        if not lock_file.exists():
+            continue
+        try:
+            pids = _parse_lock_pids(lock_file)
+        except OSError:
+            return True
+        if not pids:
+            return True
+        for pid in pids:
+            if _pid_alive(pid):
+                return True
+    # Locks missing or all recorded PIDs dead — safe to proceed.
     return False
 
 
@@ -554,9 +610,8 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
             kept.append(session)
             continue
 
-        # CRITICAL: Never delete a worktree with an active Claude session.
-        # The .claude-session-active lock file is created at session start
-        # and removed at session end. If the PID is still alive, skip.
+        # CRITICAL: Never delete a worktree with an active Claude/Codex session.
+        # Session locks are checked via PID liveness; active sessions are skipped.
         if path.exists() and _has_active_session(path):
             kept.append(session)
             skipped_active_session += 1
