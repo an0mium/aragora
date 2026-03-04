@@ -15,7 +15,7 @@ on:
         default: "1"
         type: string
       enforce:
-        description: "Apply enforcement actions (manual override only)"
+        description: "Apply enforcement actions (manual override; non-blocking policy default)"
         required: false
         default: false
         type: boolean
