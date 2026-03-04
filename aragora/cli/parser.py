@@ -232,6 +232,23 @@ def _add_ask_parser(subparsers) -> None:
         help="Exclude test files from codebase context indexing",
     )
     ask_parser.add_argument(
+        "--grounding-fail-closed",
+        action="store_true",
+        help=(
+            "Exit non-zero when final output is weakly grounded to existing repository paths "
+            "(requires path-check to meet --grounding-min-verified-paths)"
+        ),
+    )
+    ask_parser.add_argument(
+        "--grounding-min-verified-paths",
+        type=float,
+        default=0.8,
+        help=(
+            "Minimum ratio (0.0-1.0) of existing repo paths required when "
+            "--grounding-fail-closed is enabled (default: 0.8)"
+        ),
+    )
+    ask_parser.add_argument(
         "--no-learn", dest="learn", action="store_false", help="Don't store patterns"
     )
     ask_parser.add_argument(

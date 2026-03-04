@@ -242,6 +242,123 @@ def test_cmd_ask_async_timeout_emits_machine_payload(monkeypatch, capsys):
     assert payload["final_answer"] == ""
 
 
+def test_cmd_ask_grounding_fail_closed_rejects_ungrounded_output(monkeypatch, capsys):
+    """Grounding fail-closed should reject outputs without verifiable repo paths."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    args = argparse.Namespace(
+        task="Grounding gate test",
+        agents="claude,openai",
+        rounds=1,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=False,
+        api=False,
+        local=True,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        timeout=30,
+        post_consensus_quality=False,
+        grounding_fail_closed=True,
+        grounding_min_verified_paths=0.8,
+    )
+
+    result = DebateResult(
+        task=args.task, final_answer="No concrete file paths are listed.", metadata={}
+    )
+
+    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock, return_value=result):
+        with pytest.raises(SystemExit) as exc_info:
+            debate_cmd.cmd_ask(args)
+
+    assert exc_info.value.code == 1
+    assert "Debate failed grounding gate" in capsys.readouterr().err
+
+
+def test_cmd_ask_grounding_fail_closed_accepts_grounded_output(monkeypatch, capsys):
+    """Grounding fail-closed should pass when existing repo path ratio meets threshold."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.core import DebateResult
+
+    monkeypatch.delenv("ARAGORA_OFFLINE", raising=False)
+
+    args = argparse.Namespace(
+        task="Grounding gate pass test",
+        agents="claude,openai",
+        rounds=1,
+        consensus="judge",
+        context="",
+        learn=True,
+        db=":memory:",
+        demo=False,
+        api=False,
+        local=True,
+        graph=False,
+        matrix=False,
+        decision_integrity=False,
+        auto_select=False,
+        auto_select_config=None,
+        enable_verticals=False,
+        vertical=None,
+        calibration=True,
+        evidence_weighting=True,
+        trending=True,
+        mode=None,
+        api_url="http://localhost:8080",
+        api_key=None,
+        verbose=False,
+        graph_rounds=3,
+        branch_threshold=0.7,
+        max_branches=3,
+        scenario=None,
+        matrix_rounds=3,
+        di_include_context=False,
+        di_plan_strategy="single_task",
+        di_execution_mode=None,
+        timeout=30,
+        post_consensus_quality=False,
+        grounding_fail_closed=True,
+        grounding_min_verified_paths=0.5,
+    )
+
+    result = DebateResult(
+        task=args.task,
+        final_answer="Update aragora/cli/commands/debate.py and tests/cli/test_offline_golden_path.py.",
+        metadata={},
+    )
+
+    with patch.object(debate_cmd, "run_debate", new_callable=AsyncMock, return_value=result):
+        debate_cmd.cmd_ask(args)
+
+    out = capsys.readouterr().out
+    assert "[path-check] grounded=" in out
+
+
 def test_cmd_ask_quality_fail_closed_requires_contract(monkeypatch, capsys):
     """Fail-closed quality mode should reject runs without an explicit contract."""
     from aragora.cli.commands import debate as debate_cmd
