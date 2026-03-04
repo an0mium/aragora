@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     images: [{ url: '/aragora-logo.png', width: 512, height: 512, alt: 'Aragora' }],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'ARAGORA // LIVE',
     description: 'Multiple AI models debate your decisions. Confidence scores, minority opinions, and full audit trails.',
     images: ['/aragora-logo.png'],
@@ -72,8 +72,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },

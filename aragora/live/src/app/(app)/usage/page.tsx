@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { UsageBreakdown } from '@/components/dashboard/UsageBreakdown';
 import { BudgetStatus } from '@/components/dashboard/BudgetStatus';
 import { ROIMetrics } from '@/components/dashboard/ROIMetrics';
@@ -39,6 +40,7 @@ export default function UsagePage() {
   };
 
   return (
+    <ProtectedRoute>
     <>
       <Scanlines opacity={0.02} />
       <CRTVignette />
@@ -139,5 +141,6 @@ export default function UsagePage() {
         </div>
       </main>
     </>
+    </ProtectedRoute>
   );
 }

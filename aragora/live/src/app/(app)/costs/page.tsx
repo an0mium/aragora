@@ -2,6 +2,7 @@
 
 import { Suspense } from 'react';
 import { CostDashboard } from '@/components/costs/CostDashboard';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 function LoadingFallback() {
   return (
@@ -19,10 +20,12 @@ function LoadingFallback() {
 
 export default function CostsPage() {
   return (
+    <ProtectedRoute>
     <div className="container mx-auto px-4 py-6 max-w-6xl">
       <Suspense fallback={<LoadingFallback />}>
         <CostDashboard />
       </Suspense>
     </div>
+    </ProtectedRoute>
   );
 }

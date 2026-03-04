@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useSWRFetch, invalidateCachePattern } from '@/hooks/useSWRFetch';
 import { API_BASE_URL } from '@/config';
 
@@ -630,6 +631,7 @@ export default function SettingsPage() {
   ];
 
   return (
+    <ProtectedRoute>
     <>
       <Scanlines opacity={0.02} />
       <CRTVignette />
@@ -798,5 +800,6 @@ export default function SettingsPage() {
         />
       )}
     </>
+    </ProtectedRoute>
   );
 }
