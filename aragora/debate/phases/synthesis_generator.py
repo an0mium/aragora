@@ -640,7 +640,8 @@ Critical rules:
   - Include a test command to verify (e.g., "pytest tests/debate/test_X.py::test_name")
 - For "Suggested Subtasks": Each must be independently testable with a specific pytest command.
 - For "Owner module / file paths": reference ONLY paths from the REPOSITORY FILE REFERENCE above. Do NOT invent paths. For new modules, clearly mark them with "NEW:" prefix.
-- For "Gate Criteria": include specific, measurable thresholds (operators + numbers + units, e.g., "p95 < 250ms", "coverage >= 80%").
+- For "Test Plan": each test item must reference a specific test file (e.g., "Run pytest tests/debate/test_output_quality.py to verify scoring"). Do NOT use generic phrases like "run unit tests".
+- For "Gate Criteria": include specific, measurable thresholds with comparison operators + numbers + units (e.g., "p95 < 250ms", "coverage >= 80%", "error_rate < 1%"). Every criterion MUST contain a comparison operator (>=, <=, >, <, ==).
 - For "Rollback Plan": include explicit trigger conditions AND rollback actions (e.g., "If error_rate > 2% for 10m, revert commit abc123").
 - For "JSON Payload": produce valid JSON that mirrors the section content.
 - Preserve DISSENT: if agents disagreed, note it in the relevant section.

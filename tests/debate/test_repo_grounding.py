@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from aragora.debate.repo_grounding import assess_repo_grounding
+from aragora.debate.repo_grounding import (
+    _is_subheader_line,
+    _line_concreteness,
+    assess_repo_grounding,
+)
 
 
 def test_assess_repo_grounding_with_existing_paths():
@@ -92,8 +96,6 @@ def test_fuzzy_path_matching_finds_close_matches():
 
 def test_line_concreteness_bare_filename_gets_partial_credit():
     """Bare filenames like output_quality.py score via _FILE_EXT_RE."""
-    from aragora.debate.repo_grounding import _line_concreteness
-
     # Bare filename without path separator - no _PATH_RE match but _FILE_EXT_RE hits
     score_bare = _line_concreteness("Update output_quality.py to add validation")
     assert score_bare >= 0.55  # action_verb(0.35) + file_ext(0.2)
@@ -102,3 +104,112 @@ def test_line_concreteness_bare_filename_gets_partial_credit():
     score_full = _line_concreteness("Update aragora/debate/output_quality.py to add validation")
     assert score_full >= 0.7  # action_verb(0.35) + path(0.35)
     assert score_full > score_bare
+
+
+def test_expanded_verb_coverage():
+    """New verbs (build, deploy, initialize, etc.) score concreteness."""
+    for verb in ["build", "deploy", "configure", "initialize", "monitor", "scaffold", "verify"]:
+        score = _line_concreteness(
+            f"{verb.capitalize()} the authentication module for production readiness"
+        )
+        assert score >= 0.44, f"Verb '{verb}' scored {score}, expected >= 0.44"
+
+
+def test_multi_section_concreteness_test_plan():
+    """Test Plan section with test file references lifts concreteness."""
+    answer = """
+## Ranked High-Level Tasks
+- Improve overall system performance
+
+## Suggested Subtasks
+- General improvements needed
+
+## Test Plan
+- Run pytest tests/debate/test_output_quality.py to verify scoring accuracy
+- Run pytest tests/debate/test_repo_grounding.py::test_assess to validate grounding
+
+## Gate Criteria
+- coverage >= 80%
+- p95_latency < 250ms
+- error_rate < 1% over 15 minutes
+"""
+    report = assess_repo_grounding(answer)
+    # Test Plan and Gate Criteria lines should push concreteness above 0.5
+    assert report.first_batch_concreteness >= 0.55
+
+
+def test_multi_section_concreteness_rollback_plan():
+    """Rollback Plan with thresholds contributes to concreteness."""
+    answer = """
+## Ranked High-Level Tasks
+- General improvements
+
+## Rollback Plan
+- If error_rate > 2% for 10 minutes, revert to previous deployment via aragora/ops/deploy.py
+- Execute rollback script at scripts/rollback.sh within 5 minutes of detection
+"""
+    report = assess_repo_grounding(answer)
+    assert report.first_batch_concreteness >= 0.55
+
+
+def test_subheader_filtering():
+    """Bold sub-header lines should be skipped, not scored."""
+    assert _is_subheader_line("**Task 1 Subtasks:**") is True
+    assert _is_subheader_line("**Task 1 Subtasks (Debate Engine):**") is True
+    assert _is_subheader_line("  **Section Header**  ") is True
+    # Not sub-headers:
+    assert _is_subheader_line("- Implement **bold** feature in module") is False
+    assert _is_subheader_line("Regular line of text") is False
+
+
+def test_subheader_lines_excluded_from_scoring():
+    """Sub-headers consuming line slots should not reduce concreteness."""
+    answer = """
+## Ranked High-Level Tasks
+**Task 1 Subtasks:**
+**Task 2 Subtasks:**
+**Task 3 Subtasks:**
+- Build authentication module in aragora/auth/handler.py with OAuth2 support
+- Deploy monitoring dashboard to track p95_latency < 200ms
+"""
+    report = assess_repo_grounding(answer)
+    # Without filtering, the 3 sub-headers would push actionable lines beyond the window.
+    # With filtering, the actionable lines should be scored.
+    assert report.first_batch_concreteness >= 0.55
+
+
+def test_realistic_benchmark_output_scores_above_threshold():
+    """Regression test: realistic benchmark output must score >= 6.0 practicality."""
+    answer = """
+## Ranked High-Level Tasks
+- Implement rate limiting middleware in aragora/server/middleware/rate_limit.py with sliding window algorithm
+- Add circuit breaker pattern to aragora/resilience/circuit_breaker.py for external API calls
+
+## Suggested Subtasks
+- Create unit tests in tests/server/test_rate_limit.py for window boundary conditions
+- Wire rate limiter into aragora/server/unified_server.py request pipeline
+
+## Owner module / file paths
+- aragora/server/middleware/rate_limit.py
+- aragora/resilience/circuit_breaker.py
+- tests/server/test_rate_limit.py
+
+## Test Plan
+- Run pytest tests/server/test_rate_limit.py -v to verify window logic
+- Run pytest tests/resilience/test_circuit_breaker.py to validate state transitions
+- Execute integration smoke test via scripts/smoke_test.sh
+
+## Rollback Plan
+- If error_rate > 2% for 10 minutes, disable rate limiter via feature flag in aragora/config/flags.py
+- Revert to previous deployment if p99_latency > 500ms persists for 5 minutes
+
+## Gate Criteria
+- p95_latency <= 250ms under load for 15 minutes
+- error_rate < 1% over rolling 15 minute window
+- test coverage >= 80% for new modules
+"""
+    report = assess_repo_grounding(answer)
+    assert report.first_batch_concreteness >= 0.55
+    assert report.practicality_score_10 >= 6.0, (
+        f"Practicality {report.practicality_score_10} < 6.0 threshold"
+    )
