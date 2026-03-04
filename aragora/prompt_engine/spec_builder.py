@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 from aragora.prompt_engine.decomposer import PromptDecomposer
@@ -147,25 +148,21 @@ class SpecBuilder:
     def _parse_spec(self, response: str) -> Specification:
         """Parse LLM response into a Specification."""
         text = response.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
 
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            start = text.find("{")
-            end = text.rfind("}") + 1
-            if start >= 0 and end > start:
-                try:
-                    data = json.loads(text[start:end])
-                except json.JSONDecodeError:
-                    logger.warning("Could not parse spec response")
-                    return self._fallback_spec(text)
-            else:
-                return self._fallback_spec(text)
+        # Strip markdown code fences (```json ... ``` or ``` ... ```)
+        fence_match = re.search(r"```(?:json)?\s*\n(.*?)```", text, re.DOTALL)
+        if fence_match:
+            text = fence_match.group(1).strip()
+        else:
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+            text = text.strip()
+
+        data = self._extract_json(text)
+        if data is None:
+            return self._fallback_spec(text)
 
         try:
             file_changes = [
@@ -212,6 +209,56 @@ class SpecBuilder:
         except (KeyError, TypeError, ValueError) as e:
             logger.warning("Error building Specification: %s", e)
             return self._fallback_spec(text)
+
+    @staticmethod
+    def _extract_json(text: str) -> dict[str, Any] | None:
+        """Try multiple strategies to extract JSON from LLM response."""
+        # Strategy 1: direct parse
+        try:
+            return json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # Strategy 2: find outermost { ... } using brace balancing
+        start = text.find("{")
+        if start < 0:
+            return None
+
+        depth = 0
+        in_string = False
+        escape_next = False
+        for i in range(start, len(text)):
+            c = text[i]
+            if escape_next:
+                escape_next = False
+                continue
+            if c == "\\":
+                escape_next = True
+                continue
+            if c == '"' and not escape_next:
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[start : i + 1])
+                    except (json.JSONDecodeError, ValueError):
+                        return None
+
+        # Strategy 3: fallback to rfind
+        end = text.rfind("}") + 1
+        if start >= 0 and end > start:
+            try:
+                return json.loads(text[start:end])
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        return None
 
     @staticmethod
     def _fallback_spec(raw_text: str) -> Specification:
