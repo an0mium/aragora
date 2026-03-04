@@ -31,7 +31,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - uses: dorny/paths-filter@v3
         id: filter
@@ -59,7 +78,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -114,7 +152,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -139,7 +196,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -174,7 +250,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -216,7 +311,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -301,7 +415,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -330,7 +463,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -370,7 +522,26 @@ jobs:
         with:
           fetch-depth: 0  # Full history for comprehensive scanning
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - name: Skip Gitleaks when license is missing
         if: env.GITLEAKS_LICENSE == ''
@@ -395,7 +566,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -487,7 +677,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - name: Count TODOs and enforce baseline
         run: |
@@ -526,7 +735,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: synaptent/aragora/.github/actions/checkout-integrity@4d3079de617f46ee854c4bd7c2973ecfd4a2e4bc
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
+            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
+              git reset --hard FETCH_HEAD
+            else
+              git reset --hard HEAD
+            fi
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
