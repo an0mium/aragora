@@ -18,6 +18,13 @@ const ASCII_BANNER = `    \u2584\u2584\u2584       \u2588\u2588\u2580\u2588\u258
      \u2591   \u2592     \u2591\u2591   \u2591   \u2591   \u2592   \u2591 \u2591   \u2591 \u2591 \u2591 \u2591 \u2592    \u2591\u2591   \u2591   \u2591   \u2592
          \u2591  \u2591   \u2591           \u2591  \u2591      \u2591     \u2591 \u2591     \u2591           \u2591  \u2591`;
 
+const EXAMPLE_TOPICS = [
+  'Should we adopt microservices?',
+  'Build vs buy our auth system',
+  'Is remote-first the right policy?',
+  'Should we raise a Series A now?',
+];
+
 const PROGRESS_MESSAGES = [
   'Assembling analyst panel...',
   'Agents debating your question...',

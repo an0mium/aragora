@@ -56,7 +56,7 @@ export function Header() {
               Pricing
             </a>
             <Link
-              href="/compliance"
+              href="/eu-ai-act"
               className="text-sm transition-colors hover:opacity-80"
               style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
             >
