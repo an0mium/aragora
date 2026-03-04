@@ -3,6 +3,7 @@
 import { useTheme } from '@/context/ThemeContext';
 import { Header } from './Header';
 import { HeroSection } from './HeroSection';
+import { SocialProofStrip } from './SocialProofStrip';
 import { HowItWorksSection } from './HowItWorksSection';
 import { ProblemSection } from './ProblemSection';
 import { FeatureShowcase } from './FeatureShowcase';
@@ -27,6 +28,7 @@ export function LandingPage() {
     >
       <Header />
       <HeroSection />
+      <SocialProofStrip />
       <HowItWorksSection />
       <ProblemSection />
       <FeatureShowcase />
