@@ -640,9 +640,14 @@ Required sections:
     ) -> str:
         """Build synthesis prompt that uses the quality contract's section structure."""
         repo_hint = self._get_repo_path_hint()
-        repo_section = f"\n\n## REPOSITORY FILE REFERENCE\n{repo_hint}" if repo_hint else ""
+        repo_section = (
+            f"\n\n## REPOSITORY FILE REFERENCE (USE THESE PATHS — DO NOT INVENT PATHS)\n{repo_hint}"
+            if repo_hint
+            else ""
+        )
 
         return f"""You are Claude Opus 4.5, tasked with creating the DEFINITIVE synthesis of this multi-agent AI debate.
+{repo_section}
 
 ## ORIGINAL QUESTION
 {task}
@@ -654,7 +659,24 @@ Required sections:
 {critiques_text if critiques_text else "No critiques recorded."}
 
 ## OUTPUT FORMAT REQUIREMENTS (MANDATORY)
-{contract_block}{repo_section}
+{contract_block}
+
+## CONCRETE EXAMPLE (follow this style exactly)
+
+## Ranked High-Level Tasks
+1. **Refactor `aragora/debate/orchestrator.py:Arena.run()` to emit phase-transition events** — Add `self._emit("phase_change", phase=name)` calls at each phase boundary. Verify: `pytest tests/debate/test_orchestrator.py::test_phase_events -v`
+2. **Update `aragora/debate/phases/synthesis_generator.py:SynthesisGenerator._build_synthesis_prompt()` to include repo path context** — Verify: `pytest tests/debate/test_output_quality.py -v`
+
+## Suggested Subtasks
+- Add `PhaseEvent` dataclass to `aragora/events/schema.py` — Verify: `pytest tests/events/test_schema.py::test_phase_event`
+- Wire event emission in `aragora/debate/phases/consensus_phase.py:ConsensusPhase.run()` — Verify: `pytest tests/debate/test_consensus.py -v`
+
+## Owner module / file paths
+- `aragora/debate/orchestrator.py` (Arena class, run method)
+- `aragora/events/schema.py` (PhaseEvent dataclass)
+- `tests/debate/test_orchestrator.py` (new test_phase_events test)
+
+(end of example — your output must follow this pattern with REAL paths from the REPOSITORY FILE REFERENCE above)
 
 ## YOUR TASK
 Synthesize the debate into a single comprehensive answer that EXACTLY follows the output format above.
@@ -662,19 +684,19 @@ Synthesize the debate into a single comprehensive answer that EXACTLY follows th
 Critical rules:
 - Use EXACTLY the required section headings as `## Heading` markdown headers, in the specified order.
 - Each section must have **substantive content** — at least 2-3 specific, actionable items drawn from the debate.
-- For "Ranked High-Level Tasks": The FIRST task must be immediately executable:
-  - Start with an action verb (add, create, implement, update, refactor, wire, test)
-  - Reference an EXISTING file path from the REPOSITORY FILE REFERENCE (not a new file)
-  - Include a specific method/class/function name to modify
-  - Include a test command to verify (e.g., "pytest tests/debate/test_X.py::test_name")
+- **PATH GROUNDING (CRITICAL)**: Every file path you mention MUST come from the REPOSITORY FILE REFERENCE at the top. Do NOT invent paths like `src/aragora/core/...` or `aragora/protocols/...` — these directories do not exist. The actual codebase uses `aragora/debate/`, `aragora/agents/`, `aragora/pipeline/`, etc. If you need a new file, mark it `NEW: aragora/existing_dir/new_file.py`.
+- For "Ranked High-Level Tasks": EVERY task must include:
+  - An action verb (add, create, implement, update, refactor, wire, test)
+  - A real file path + class/function name (e.g., `aragora/debate/orchestrator.py:Arena.run()`)
+  - A pytest command to verify (e.g., `pytest tests/debate/test_X.py::test_name -v`)
 - For "Suggested Subtasks": Each must be independently testable with a specific pytest command.
-- For "Owner module / file paths": reference ONLY paths from the REPOSITORY FILE REFERENCE above. Do NOT invent paths. For new modules, clearly mark them with "NEW:" prefix.
-- For "Test Plan": each test item must reference a specific test file (e.g., "Run pytest tests/debate/test_output_quality.py to verify scoring"). Do NOT use generic phrases like "run unit tests".
-- For "Gate Criteria": include specific, measurable thresholds with comparison operators + numbers + units (e.g., "p95 < 250ms", "coverage >= 80%", "error_rate < 1%"). Every criterion MUST contain a comparison operator (>=, <=, >, <, ==).
-- For "Rollback Plan": include explicit trigger conditions AND rollback actions (e.g., "If error_rate > 2% for 10m, revert commit abc123").
+- For "Owner module / file paths": reference ONLY paths from the REPOSITORY FILE REFERENCE above.
+- For "Test Plan": each test item must reference a specific test file. Do NOT use generic phrases like "run unit tests".
+- For "Gate Criteria": include specific thresholds with comparison operators + numbers (e.g., "coverage >= 80%", "error_rate < 1%"). Every criterion MUST contain a comparison operator.
+- For "Rollback Plan": include explicit trigger conditions AND rollback actions.
 - For "JSON Payload": produce valid JSON that mirrors the section content.
 - Preserve DISSENT: if agents disagreed, note it in the relevant section.
-- Do NOT use placeholder text like TBD, TODO, [NEW], "as needed", or "to be determined". Every item must be specific and substantive.
+- Do NOT use placeholder text like TBD, TODO, "as needed", or "to be determined".
 
 Write authoritatively. This is the FINAL WORD on this debate."""
 
