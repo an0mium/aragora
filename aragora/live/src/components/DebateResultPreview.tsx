@@ -75,16 +75,44 @@ export interface DebateResponse {
 // Agent color mapping
 // ---------------------------------------------------------------------------
 
-const AGENT_COLORS: Record<string, string> = {
-  analyst: 'text-[var(--acid-cyan)]',
-  critic: 'text-[var(--crimson)]',
-  moderator: 'text-[var(--acid-green)]',
-  contrarian: 'text-[var(--acid-yellow)]',
-  synthesizer: 'text-[var(--acid-magenta)]',
+const AGENT_STYLES: Record<string, { text: string; dot: string }> = {
+  analyst: { text: 'text-[var(--acid-cyan)]', dot: 'var(--acid-cyan, #00e5ff)' },
+  critic: { text: 'text-[var(--crimson)]', dot: 'var(--crimson, #ff0040)' },
+  moderator: { text: 'text-[var(--acid-green)]', dot: 'var(--acid-green, #39ff14)' },
+  contrarian: { text: 'text-[var(--acid-yellow)]', dot: 'var(--acid-yellow, #ffd700)' },
+  synthesizer: { text: 'text-[var(--acid-magenta)]', dot: 'var(--acid-magenta, #ff00ff)' },
 };
 
 function agentColor(name: string): string {
-  return AGENT_COLORS[name] || 'text-[var(--acid-cyan)]';
+  return AGENT_STYLES[name]?.text || 'text-[var(--acid-cyan)]';
+}
+
+function agentDot(name: string): string {
+  return AGENT_STYLES[name]?.dot || 'var(--acid-cyan, #00e5ff)';
+}
+
+function ConfidenceGauge({ value }: { value: number }) {
+  const pct = Math.round(value * 100);
+  const hue = value > 0.7 ? 120 : value > 0.4 ? 50 : 0; // green → yellow → red
+  return (
+    <div className="flex items-center gap-2">
+      <div
+        className="h-2 flex-1 rounded-full overflow-hidden"
+        style={{ backgroundColor: 'var(--border)', maxWidth: '120px' }}
+      >
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${pct}%`,
+            backgroundColor: `hsl(${hue}, 80%, 50%)`,
+          }}
+        />
+      </div>
+      <span className="text-xs font-mono" style={{ color: `hsl(${hue}, 80%, 50%)` }}>
+        {pct}%
+      </span>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -172,28 +200,46 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
       )}
 
       {/* Summary bar */}
-      <div className="border border-[var(--border)] p-4 flex flex-wrap gap-4 items-center text-sm font-mono">
-        <span
-          className={
-            result.consensus_reached
-              ? 'text-[var(--acid-green)]'
-              : 'text-[var(--warning)]'
-          }
-        >
-          {result.consensus_reached ? 'Consensus Reached' : 'No Consensus'}
-        </span>
-        <span className="text-[var(--text-muted)]">|</span>
-        <span className="text-[var(--text-muted)]">
-          Confidence: {(result.confidence * 100).toFixed(0)}%
-        </span>
-        <span className="text-[var(--text-muted)]">|</span>
-        <span className="text-[var(--text-muted)]">
-          {result.rounds_used} round{result.rounds_used !== 1 ? 's' : ''}
-        </span>
-        <span className="text-[var(--text-muted)]">|</span>
-        <span className="text-[var(--text-muted)]">
-          {result.duration_seconds}s
-        </span>
+      <div className="border border-[var(--border)] p-4 space-y-3">
+        <div className="flex flex-wrap gap-4 items-center text-sm font-mono">
+          <span
+            className={
+              result.consensus_reached
+                ? 'text-[var(--acid-green)]'
+                : 'text-[var(--warning)]'
+            }
+          >
+            {result.consensus_reached ? 'Consensus Reached' : 'No Consensus'}
+          </span>
+          <span className="text-[var(--text-muted)]">|</span>
+          <span className="text-[var(--text-muted)]">
+            {result.rounds_used} round{result.rounds_used !== 1 ? 's' : ''}
+          </span>
+          <span className="text-[var(--text-muted)]">|</span>
+          <span className="text-[var(--text-muted)]">
+            {result.duration_seconds}s
+          </span>
+        </div>
+        {/* Confidence gauge */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono text-[var(--text-muted)] shrink-0">Confidence</span>
+          <ConfidenceGauge value={result.confidence} />
+        </div>
+        {/* Participating agents */}
+        {result.participants.length > 0 && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-xs font-mono text-[var(--text-muted)]">Agents:</span>
+            {result.participants.map((name) => (
+              <span key={name} className="flex items-center gap-1 text-xs font-mono">
+                <span
+                  className="w-2 h-2 rounded-full inline-block"
+                  style={{ backgroundColor: agentDot(name) }}
+                />
+                <span className={agentColor(name)}>{name}</span>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Proposals */}
@@ -204,7 +250,11 @@ export function DebateResultPreview({ result }: DebateResultPreviewProps) {
         <div className="space-y-4">
           {Object.entries(result.proposals).map(([agent, content]) => (
             <div key={agent}>
-              <h4 className={`text-sm font-bold mb-1 font-mono ${agentColor(agent)}`}>
+              <h4 className={`text-sm font-bold mb-1 font-mono flex items-center gap-2 ${agentColor(agent)}`}>
+                <span
+                  className="w-2.5 h-2.5 rounded-full inline-block shrink-0"
+                  style={{ backgroundColor: agentDot(agent) }}
+                />
                 {agent}
               </h4>
               <div className="text-xs text-[var(--text-muted)] leading-relaxed prose-sm prose-invert max-w-none [&_h1]:text-sm [&_h1]:font-bold [&_h1]:text-[var(--text)] [&_h1]:mt-3 [&_h1]:mb-1 [&_h2]:text-xs [&_h2]:font-bold [&_h2]:text-[var(--text)] [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-xs [&_h3]:font-bold [&_h3]:text-[var(--text)] [&_h3]:mt-2 [&_h3]:mb-1 [&_p]:mb-2 [&_strong]:text-[var(--text)] [&_em]:text-[var(--text-muted)] [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_li]:mb-0.5 [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--accent)] [&_blockquote]:pl-3 [&_blockquote]:italic">
