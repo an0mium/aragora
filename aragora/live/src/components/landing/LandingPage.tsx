@@ -4,13 +4,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { Header } from './Header';
 import { HeroSection } from './HeroSection';
 import { SocialProofStrip } from './SocialProofStrip';
-import { HowItWorksSection } from './HowItWorksSection';
 import { ProblemSection } from './ProblemSection';
-import { FeatureShowcase } from './FeatureShowcase';
-import { IntegrationsGrid } from './IntegrationsGrid';
+import { HowItWorksSection } from './HowItWorksSection';
 import { OracleSection } from './OracleSection';
-import { LiveDemoSection } from './LiveDemoSection';
-import { DeveloperSection } from './DeveloperSection';
 import { PricingSection } from './PricingSection';
 import { Footer } from './Footer';
 
@@ -30,13 +26,9 @@ export function LandingPage() {
       <Header />
       <HeroSection />
       <SocialProofStrip />
-      <HowItWorksSection />
       <ProblemSection />
-      <FeatureShowcase />
-      <IntegrationsGrid />
+      <HowItWorksSection />
       <OracleSection />
-      <LiveDemoSection />
-      <DeveloperSection />
       <PricingSection />
       <Footer />
     </div>
