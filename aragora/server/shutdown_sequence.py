@@ -580,7 +580,7 @@ class ShutdownPhaseBuilder:
                 cache = get_rbac_cache()
                 if cache:
                     cache.stop()
-                    reset_rbac_cache()  # Clear singleton for clean restart
+                    reset_rbac_cache(clear_distributed=False)  # Clear singleton for clean restart
                     logger.debug("RBAC distributed cache stopped")
             except ImportError:
                 pass  # RBAC module not available

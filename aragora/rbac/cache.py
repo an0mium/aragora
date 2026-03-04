@@ -710,10 +710,21 @@ def set_rbac_cache(cache: RBACDistributedCache) -> None:
     _rbac_cache = cache
 
 
-def reset_rbac_cache() -> None:
-    """Reset the global RBAC cache (for testing)."""
+def reset_rbac_cache(clear_distributed: bool = True) -> None:
+    """Reset the global RBAC cache instance.
+
+    Args:
+        clear_distributed: When True, also clear distributed Redis cache keys
+            via ``invalidate_all()`` before stopping the singleton.
+    """
     global _rbac_cache
     if _rbac_cache:
+        if clear_distributed:
+            try:
+                _rbac_cache.invalidate_all()
+            except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
+                # Reset should remain best-effort and never block cleanup.
+                logger.debug("RBAC cache distributed reset skipped: %s", e)
         _rbac_cache.stop()
     _rbac_cache = None
 
