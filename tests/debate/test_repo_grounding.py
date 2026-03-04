@@ -70,3 +70,21 @@ def test_assess_repo_grounding_handles_markdown_link_absolute_paths():
 """
     report = assess_repo_grounding(answer, repo_root=str(repo_root))
     assert "aragora/debate/orchestrator.py" in report.existing_paths
+
+
+def test_fuzzy_path_matching_finds_close_matches():
+    """LLM agents hallucinate shortened file names — fuzzy matching should recover."""
+    answer = """
+## Ranked High-Level Tasks
+- Fix quality validation in aragora/debate/quality.py with threshold p95 <= 200ms.
+
+## Owner module / file paths
+- aragora/debate/quality.py
+- aragora/debate/grounding.py
+"""
+    report = assess_repo_grounding(answer)
+    # "quality.py" fuzzy-matches "output_quality.py" in aragora/debate/
+    # "grounding.py" fuzzy-matches "repo_grounding.py" in aragora/debate/
+    assert "aragora/debate/quality.py" in report.existing_paths
+    assert "aragora/debate/grounding.py" in report.existing_paths
+    assert report.path_existence_rate == 1.0
