@@ -229,14 +229,15 @@ export default function PromptEnginePage() {
   const engine = usePromptEngine();
   const [prompt, setPrompt] = useState('');
   const [profile, setProfile] = useState<ProfileKey>('founder');
+  const [useStreaming, setUseStreaming] = useState(true);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
       if (!prompt.trim() || engine.isRunning) return;
-      engine.runPipeline(prompt.trim(), { profile });
+      engine.runPipeline(prompt.trim(), { profile, useWebSocket: useStreaming });
     },
-    [prompt, profile, engine],
+    [prompt, profile, engine, useStreaming],
   );
 
   const handleAnswer = useCallback(
@@ -292,6 +293,16 @@ export default function PromptEnginePage() {
                 ))}
               </select>
             </div>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useStreaming}
+                onChange={(e) => setUseStreaming(e.target.checked)}
+                disabled={engine.isRunning}
+                className="accent-acid-cyan"
+              />
+              <span className="text-acid-green/60 font-mono text-xs">Stream</span>
+            </label>
             <button
               type="submit"
               disabled={!prompt.trim() || engine.isRunning}

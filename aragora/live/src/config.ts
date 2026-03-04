@@ -149,6 +149,9 @@ export const NOMIC_LOOP_WS_URL = resolveWsUrl(
 // Oracle real-time streaming WebSocket — derives from WS_URL base
 export const ORACLE_WS_URL = WS_URL.replace(/\/ws\/?$/, '') + '/ws/oracle';
 
+// Prompt engine pipeline streaming WebSocket
+export const PROMPT_ENGINE_WS_URL = WS_URL.replace(/\/ws\/?$/, '') + '/ws/prompt-engine';
+
 // Helper to detect dev/localhost mode (useful for conditional behavior)
 export const IS_DEV_MODE = !_API_BASE_URL || API_BASE_URL.includes('localhost');
 export const IS_PRODUCTION = _isProductionBuild || (typeof window !== 'undefined' && isProductionEnvironment());

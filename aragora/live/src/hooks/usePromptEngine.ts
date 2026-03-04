@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
-import { API_BASE_URL } from '@/config';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { API_BASE_URL, PROMPT_ENGINE_WS_URL } from '@/config';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -151,9 +151,14 @@ export function usePromptEngine(): UsePromptEngineReturn {
   const [error, setError] = useState<string | null>(null);
   const [stagesCompleted, setStagesCompleted] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
+    if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) {
+      wsRef.current.close();
+    }
+    wsRef.current = null;
     setIsRunning(false);
     setCurrentStage('idle');
     setIntent(null);
@@ -182,7 +187,7 @@ export function usePromptEngine(): UsePromptEngineReturn {
     );
   }, []);
 
-  const runPipeline = useCallback(async (prompt: string, options?: PipelineOptions) => {
+  const runPipelineRest = useCallback(async (prompt: string, options?: PipelineOptions) => {
     reset();
     setIsRunning(true);
     setCurrentStage('decompose');
@@ -221,6 +226,104 @@ export function usePromptEngine(): UsePromptEngineReturn {
       setIsRunning(false);
     }
   }, [reset]);
+
+  const runPipelineWs = useCallback((prompt: string, options?: PipelineOptions) => {
+    reset();
+    setIsRunning(true);
+    setCurrentStage('decompose');
+
+    const ws = new WebSocket(PROMPT_ENGINE_WS_URL);
+    wsRef.current = ws;
+    const completed: string[] = [];
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        action: 'run',
+        prompt,
+        profile: options?.profile ?? 'founder',
+        context: null,
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+
+        switch (msg.type) {
+          case 'prompt_engine_stage':
+            setCurrentStage(msg.stage as PipelineStage);
+            if (!completed.includes(msg.stage)) {
+              completed.push(msg.stage);
+              setStagesCompleted([...completed]);
+            }
+            break;
+
+          case 'prompt_engine_intent':
+            setIntent(msg.intent as PromptIntent);
+            break;
+
+          case 'prompt_engine_questions':
+            setQuestions((msg.questions as ClarifyingQuestion[]) ?? []);
+            break;
+
+          case 'prompt_engine_research':
+            setResearch(msg.research as ResearchReport);
+            break;
+
+          case 'prompt_engine_spec':
+            setSpecification(msg.specification as Specification);
+            break;
+
+          case 'prompt_engine_validation':
+            setValidation(msg.validation as ValidationResult);
+            break;
+
+          case 'prompt_engine_complete':
+            setStagesCompleted(msg.stages_completed ?? completed);
+            setCurrentStage('complete');
+            setIsRunning(false);
+            ws.close();
+            break;
+
+          case 'prompt_engine_error':
+            setError(msg.error ?? 'Pipeline failed');
+            setCurrentStage('error');
+            setIsRunning(false);
+            ws.close();
+            break;
+        }
+      } catch {
+        // Ignore malformed messages
+      }
+    };
+
+    ws.onerror = () => {
+      setError('WebSocket connection failed');
+      setCurrentStage('error');
+      setIsRunning(false);
+    };
+
+    ws.onclose = () => {
+      wsRef.current = null;
+    };
+  }, [reset]);
+
+  const runPipeline = useCallback(async (prompt: string, options?: PipelineOptions) => {
+    if (options?.useWebSocket) {
+      runPipelineWs(prompt, options);
+    } else {
+      await runPipelineRest(prompt, options);
+    }
+  }, [runPipelineRest, runPipelineWs]);
+
+  // Clean up WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) {
+        wsRef.current.close();
+      }
+    };
+  }, []);
 
   return {
     isRunning,
