@@ -203,3 +203,27 @@ class TestCLIPresetChoices:
         assert args.codebase_context_rlm is False
         assert args.codebase_context_max_chars == 80000
         assert args.codebase_context_timeout == 240
+
+    def test_grounding_gate_flags_parse(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "ask",
+                "test question",
+                "--grounding-fail-closed",
+                "--grounding-min-verified-paths",
+                "0.9",
+            ]
+        )
+        assert args.grounding_fail_closed is True
+        assert args.grounding_min_verified_paths == 0.9
+
+    def test_grounding_gate_defaults(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["ask", "test question"])
+        assert args.grounding_fail_closed is False
+        assert args.grounding_min_verified_paths == 0.8

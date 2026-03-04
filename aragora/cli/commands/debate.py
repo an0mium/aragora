@@ -1263,6 +1263,43 @@ def cmd_ask(args: argparse.Namespace) -> None:
         0, int(getattr(args, "quality_extra_assessment_rounds", 2))
     )
     quality_fail_closed = bool(getattr(args, "quality_fail_closed", False))
+    grounding_fail_closed = bool(getattr(args, "grounding_fail_closed", False))
+    grounding_min_verified_paths = float(getattr(args, "grounding_min_verified_paths", 0.8))
+    if not 0.0 <= grounding_min_verified_paths <= 1.0:
+        print(
+            "Invalid --grounding-min-verified-paths: expected value in [0.0, 1.0].",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
+    def _assess_and_enforce_grounding(final_answer_text: str) -> None:
+        from aragora.debate.repo_grounding import (
+            assess_repo_grounding,
+            format_path_verification_summary,
+        )
+
+        report = assess_repo_grounding(
+            str(final_answer_text or ""),
+            repo_root=str(codebase_context_repo or Path.cwd()),
+        )
+        print(format_path_verification_summary(report))
+
+        if not grounding_fail_closed:
+            return
+
+        total = len(report.mentioned_paths)
+        verified_existing = len(report.existing_paths)
+        verified_ratio = (verified_existing / total) if total else 0.0
+        if total == 0 or verified_ratio < grounding_min_verified_paths:
+            print(
+                (
+                    "Debate failed grounding gate: verified existing path ratio "
+                    f"{verified_ratio:.2f} is below required "
+                    f"{grounding_min_verified_paths:.2f} (existing={verified_existing}, total={total})."
+                ),
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
 
     quality_contract = None
     quality_contract_source = "none"
@@ -1402,21 +1439,12 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 timeout_seconds=debate_timeout,
             )
             _print_debate_result(result, verbose=args.verbose)
-            if codebase_context_requested:
-                from aragora.debate.repo_grounding import (
-                    assess_repo_grounding,
-                    format_path_verification_summary,
-                )
-
+            if codebase_context_requested or grounding_fail_closed:
                 final_answer = getattr(result, "final_answer", None)
                 if not final_answer:
                     consensus = getattr(result, "consensus", None)
                     final_answer = getattr(consensus, "final_answer", "") if consensus else ""
-                report = assess_repo_grounding(
-                    str(final_answer or ""),
-                    repo_root=str(codebase_context_repo or Path.cwd()),
-                )
-                print(format_path_verification_summary(report))
+                _assess_and_enforce_grounding(str(final_answer or ""))
             if decision_integrity:
                 package = _build_decision_integrity_api(
                     server_url=server_url,
@@ -1989,17 +2017,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
     print("FINAL ANSWER:")
     print("=" * 60)
     print(result.final_answer)
-    if codebase_context_requested:
-        from aragora.debate.repo_grounding import (
-            assess_repo_grounding,
-            format_path_verification_summary,
-        )
-
-        report = assess_repo_grounding(
-            str(getattr(result, "final_answer", "") or ""),
-            repo_root=str(codebase_context_repo or Path.cwd()),
-        )
-        print(format_path_verification_summary(report))
+    if codebase_context_requested or grounding_fail_closed:
+        _assess_and_enforce_grounding(str(getattr(result, "final_answer", "") or ""))
 
     quality_meta = None
     if isinstance(getattr(result, "metadata", None), dict):

@@ -10,6 +10,7 @@ on:
       - 'pyproject.toml'
       - 'requirements.txt'
       - 'scripts/ci_core_suites.sh'
+      - 'scripts/ci_install_project.sh'
       - '.github/workflows/core-suites.yml'
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - 'pyproject.toml'
       - 'requirements.txt'
       - 'scripts/ci_core_suites.sh'
+      - 'scripts/ci_install_project.sh'
       - '.github/workflows/core-suites.yml'
   workflow_dispatch:
 
@@ -45,7 +47,7 @@ jobs:
       - name: Install (dev)
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          bash scripts/ci_install_project.sh --extras dev
 
       - name: Run core suites
         run: bash scripts/ci_core_suites.sh
@@ -68,7 +70,7 @@ jobs:
       - name: Install (dev)
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          bash scripts/ci_install_project.sh --extras dev
 
       - name: Run OpenClaw + auth/RBAC security boundary suites
         run: |

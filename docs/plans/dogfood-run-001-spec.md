@@ -433,3 +433,54 @@ This dissent is wrong in the specific case (the tasks duplicate existing work) b
 2. Ensure post-timeout behavior emits a deterministic failure payload (not empty stdout) so scoring harness can distinguish infra failure from low-quality output.
 3. Add a focused regression test around strict timeout + child subprocess cleanup for CLI agent runs.
 4. Re-run A/B benchmark only after timeout regression is fixed.
+
+---
+
+## Dogfood Run 004 Results (Timeout-Hardened A/B)
+
+### Date
+- 2026-03-03
+
+### Goal
+- Re-run baseline vs enhanced comparison after timeout hardening to ensure non-empty machine-readable failure artifacts and objective scoring.
+
+### Benchmark Configuration
+- **Baseline**:
+  - `aragora ask <task> --agents openrouter(claude/gpt/gemini) --rounds 1 --consensus majority --timeout 240 --local --no-post-consensus-quality`
+- **Enhanced**:
+  - same command + `--mode orchestrator --codebase-context --codebase-context-harnesses --codebase-context-kilocode --codebase-context-rlm --codebase-context-timeout 180 --codebase-context-max-chars 100000`
+
+### Objective Score (via `scripts/dogfood_score.py`)
+
+| Metric | Baseline | Enhanced |
+|---|---:|---:|
+| Exit code | 1 | 1 |
+| Timeout | Yes | Yes |
+| Timeout seconds | 240 | 300 |
+| Final answer payload chars | 0 | 0 |
+| Composite score | 0.0 | 0.0 |
+| Winner | tie | tie |
+
+### Key Findings
+1. **Timeout artifact reliability is fixed**: both runs emitted deterministic `ARAGORA_TIMEOUT_JSON` payloads and wrote timeout report files.
+2. **A/B quality comparison still blocked**: both variants timed out before producing a final answer payload.
+3. **Enhanced context path executes further**: orchestrator lifecycle stages (`PIPE_START` through `PIPE_DONE`) are now consistently visible before timeout.
+4. **Residual runtime issue remains**: async cancellation/cleanup still surfaces resource warnings and occasional context teardown errors under strict timeout pressure.
+
+### Artifacts
+- `/tmp/dogfood_run004/baseline_stdout.txt`
+- `/tmp/dogfood_run004/baseline_stderr.txt`
+- `/tmp/dogfood_run004/baseline_timeout_report.json`
+- `/tmp/dogfood_run004/enhanced_stdout.txt`
+- `/tmp/dogfood_run004/enhanced_stderr.txt`
+- `/tmp/dogfood_run004/enhanced_timeout_report.json`
+- `/tmp/dogfood_run004/score.json`
+- `/tmp/dogfood_run004/score.md`
+
+### Gate Decision
+- **NO-GO for quality delta** (again): benchmark can now classify failures deterministically, but still cannot compare output quality without at least one completed final answer.
+
+### Run 005 Preconditions
+1. Add grounding fail-closed guardrails (`--grounding-fail-closed`, min verified path ratio) so completed runs can be auto-gated for practical utility.
+2. Keep timeout report emission as mandatory benchmark artifact.
+3. Raise per-run timeout and/or reduce agent/round load until at least one run completes with final answer text.
