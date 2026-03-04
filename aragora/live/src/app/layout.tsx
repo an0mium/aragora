@@ -26,6 +26,7 @@ import { LayoutProvider } from '@/context/LayoutContext';
 import { RightSidebarProvider } from '@/context/RightSidebarContext';
 import { SidebarProvider } from '@/context/SidebarContext';
 import { ConfigHealthBanner } from '@/components/ConfigHealthBanner';
+import { ConnectionStatusBanner } from '@/components/ConnectionStatusBanner';
 import { CommandPaletteProvider } from '@/context/CommandPaletteContext';
 import { CommandPalette } from '@/components/command-palette';
 import { KeyboardShortcutsProvider } from '@/context/KeyboardShortcutsContext';
@@ -97,6 +98,7 @@ export default function RootLayout({
       <body className="theme-transition">
         {/* Configuration health banner - shows warnings for missing env vars */}
         <ConfigHealthBanner />
+        <ConnectionStatusBanner />
         {/* Skip to main content link for keyboard/screen reader users */}
         <a
           href="#main-content"
