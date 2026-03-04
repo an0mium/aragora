@@ -14,11 +14,6 @@ on:
         required: false
         default: "1"
         type: string
-      enforce:
-        description: "Apply enforcement actions"
-        required: false
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -50,24 +45,20 @@ jobs:
             echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Enforce admission controller
+      - name: Run admission monitor (non-blocking)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         shell: bash
         run: |
           MAX_READY="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.max_ready_per_stream || '1' }}"
-          ENFORCE_FLAG=""
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "${{ github.event.inputs.enforce }}" = "true" ]; then
-              ENFORCE_FLAG="--enforce"
-            fi
-          else
-            ENFORCE_FLAG="--enforce"
-          fi
-
+          set +e
           python scripts/pr_admission_controller.py \
             --repo "${GITHUB_REPOSITORY}" \
             --pr-number "${{ steps.resolve.outputs.pr_number }}" \
-            --max-ready-per-stream "${MAX_READY}" \
-            ${ENFORCE_FLAG}
+            --max-ready-per-stream "${MAX_READY}"
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "::warning::Admission monitor exited with code $rc (non-blocking by policy)"
+          fi

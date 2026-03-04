@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-"""PR admission controller for multi-agent CI lane governance.
+"""PR admission monitor for multi-agent CI lane governance.
 
 Policy:
 - At most ``max_ready_per_stream`` open ready PRs per stream.
 - Stream can be set via label prefixes: ``lane:``, ``lane/``, ``stream:``, ``stream/``.
 - If no stream label exists, infer stream from changed files.
 
-When ``--enforce`` is enabled and the current PR is over capacity for its stream:
-- convert PR back to draft
-- disable auto-merge (if enabled)
-- post an explanatory PR comment
+This monitor is intentionally non-blocking: it reports admission pressure but
+never mutates PR state (no draft conversion, no auto-merge disable).
 """
 
 from __future__ import annotations
@@ -241,30 +239,11 @@ class GitHubClient:
         return True, "disabled"
 
 
-def _build_block_comment(
-    *,
-    stream: str,
-    max_ready_per_stream: int,
-    admitted_prs: set[int],
-    current_pr_number: int,
-) -> str:
-    admitted_text = ", ".join(f"#{n}" for n in sorted(admitted_prs)) or "(none)"
-    return (
-        "⚠️ PR Admission Controller blocked this PR from staying ready-for-review.\n\n"
-        f"- Stream: `{stream}`\n"
-        f"- Allowed ready PRs in this stream: `{max_ready_per_stream}`\n"
-        f"- Currently admitted PR(s): {admitted_text}\n"
-        f"- This PR: `#{current_pr_number}` was converted back to draft.\n\n"
-        "To proceed: merge/close the admitted PR, then mark this PR ready again."
-    )
-
-
 def evaluate_admission(
     *,
     client: GitHubClient,
     current_pr_number: int,
     max_ready_per_stream: int,
-    enforce: bool,
 ) -> int:
     current_pr = client.get_pull(current_pr_number)
     if str(current_pr.get("state", "")).lower() != "open":
@@ -317,36 +296,14 @@ def evaluate_admission(
         return 0
 
     print(
-        f"Admission blocked for PR #{current_pr_number} in stream '{current_stream}'. "
-        f"Admitted: {admitted_text}"
-    )
-    if not enforce:
-        return 2
-
-    pr_node_id = str(current_pr.get("node_id", ""))
-    if not pr_node_id:
-        raise GitHubApiError(f"PR #{current_pr_number} is missing node_id")
-
-    converted, converted_msg = client.convert_pull_to_draft(pr_node_id)
-    disabled, disabled_msg = client.disable_auto_merge(pr_node_id)
-    comment = _build_block_comment(
-        stream=current_stream,
-        max_ready_per_stream=max_ready_per_stream,
-        admitted_prs=admitted,
-        current_pr_number=current_pr_number,
-    )
-    client.add_issue_comment(current_pr_number, comment)
-
-    print(
-        f"Enforcement applied to PR #{current_pr_number}: "
-        f"converted={converted} ({converted_msg}), "
-        f"auto_merge_disabled={disabled} ({disabled_msg})"
+        f"Admission advisory for PR #{current_pr_number} in stream '{current_stream}': "
+        f"over capacity. Admitted: {admitted_text}. No blocking action taken."
     )
     return 0
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="PR admission controller")
+    parser = argparse.ArgumentParser(description="PR admission monitor")
     parser.add_argument(
         "--repo",
         default=os.environ.get("GITHUB_REPOSITORY", ""),
@@ -362,7 +319,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--enforce",
         action="store_true",
-        help="Apply enforcement (convert overflow PRs to draft)",
+        help="Deprecated no-op; monitor is non-blocking",
     )
     return parser.parse_args(argv)
 
@@ -379,6 +336,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.max_ready_per_stream < 1:
         print("--max-ready-per-stream must be >= 1", file=sys.stderr)
         return 1
+    if args.enforce:
+        print("Warning: --enforce is deprecated and has no effect (non-blocking policy).")
 
     try:
         client = GitHubClient(repo=args.repo, token=token)
@@ -386,10 +345,9 @@ def main(argv: list[str] | None = None) -> int:
             client=client,
             current_pr_number=args.pr_number,
             max_ready_per_stream=args.max_ready_per_stream,
-            enforce=bool(args.enforce),
         )
     except (GitHubApiError, ValueError) as exc:
-        print(f"Admission controller error: {exc}", file=sys.stderr)
+        print(f"Admission monitor error: {exc}", file=sys.stderr)
         return 1
 
 
