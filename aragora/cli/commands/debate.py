@@ -1716,6 +1716,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
         current_answer: str,
         defects: list[str],
         attempt_num: int,
+        repo_hint: str = "",
     ) -> tuple[str | None, str | None]:
         if quality_contract is None:
             return (None, None)
@@ -1727,10 +1728,11 @@ def cmd_ask(args: argparse.Namespace) -> None:
             contract=quality_contract,
             current_answer=current_answer,
             defects=defects,
+            repo_hint=repo_hint,
         )
         role_hint = (
-            "You are a post-consensus quality upgrader. Keep core ideas, "
-            "fix defects, and preserve required section order."
+            "You are a structured action plan writer. Convert analysis into "
+            "concrete, path-grounded action items. Never reproduce essays."
         )
         return await _attempt_targeted_revision(
             prompt=prompt,
@@ -1751,6 +1753,12 @@ def cmd_ask(args: argparse.Namespace) -> None:
         )
 
         repo_root = os.getcwd()
+        # Generate repo path hint once for all repair prompts so the LLM
+        # can ground file references to real repository paths.
+        from aragora.debate.phases.synthesis_generator import SynthesisGenerator
+
+        _repo_hint = SynthesisGenerator._get_repo_path_hint()
+
         metadata = getattr(result, "metadata", None)
         if not isinstance(metadata, dict):
             metadata = {}
@@ -1778,6 +1786,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                     current_answer=current_answer,
                     defects=current_report.defects,
                     attempt_num=loop_idx,
+                    repo_hint=_repo_hint,
                 )
                 if not repaired:
                     attempts.append(
@@ -1885,6 +1894,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                     practicality_score_10=best_report.practicality_score_10,
                     target_practicality_10=quality_practical_min_score,
                     defects=best_report.defects,
+                    repo_hint=_repo_hint,
                 )
                 revised, provider = await _attempt_targeted_revision(
                     prompt=concretize_prompt,
@@ -1951,6 +1961,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
                         f"Raise practicality score to >= {quality_practical_min_score:.2f}.",
                         "Ground owner paths to existing repository files.",
                     ],
+                    repo_hint=_repo_hint,
                 )
                 revised, provider = await _attempt_targeted_revision(
                     prompt=assessment_prompt,
