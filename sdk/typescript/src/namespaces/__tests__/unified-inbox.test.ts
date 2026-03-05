@@ -24,4 +24,23 @@ describe('UnifiedInboxAPI', () => {
       '/api/v1/inbox/messages/msg%2F1/debate'
     );
   });
+
+  it('calls debateMessage without json body when request is empty', async () => {
+    await api.debateMessage('msg/1', {});
+
+    expect(mockClient.request).toHaveBeenCalledWith(
+      'POST',
+      '/api/v1/inbox/messages/msg%2F1/debate'
+    );
+  });
+
+  it('calls debateMessage with json body when options are provided', async () => {
+    await api.debateMessage('msg/1', { rounds: 4, consensus: 'majority' });
+
+    expect(mockClient.request).toHaveBeenCalledWith(
+      'POST',
+      '/api/v1/inbox/messages/msg%2F1/debate',
+      { json: { rounds: 4, consensus: 'majority' } }
+    );
+  });
 });
