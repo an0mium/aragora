@@ -38,10 +38,10 @@ export function Footer() {
         </p>
 
         {/* CTA buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4" style={{ marginBottom: '48px' }}>
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="text-sm font-semibold transition-opacity hover:opacity-80 cursor-pointer"
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
+          <Link
+            href="/playground"
+            className="text-sm font-semibold transition-opacity hover:opacity-80 cursor-pointer inline-block"
             style={{
               backgroundColor: 'var(--accent)',
               color: 'var(--bg)',
