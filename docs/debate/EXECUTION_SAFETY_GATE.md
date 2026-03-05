@@ -131,3 +131,12 @@ CI enforces secure defaults and fallback values for execution-gate policy knobs:
 ```bash
 python scripts/check_execution_gate_defaults.py
 ```
+
+CI also enforces policy-version/change-control metadata with checksum/signature validation:
+
+```bash
+python scripts/check_execution_gate_policy_control.py
+```
+
+Policy document:
+- `security/policies/execution_gate_defaults_policy.json`

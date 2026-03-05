@@ -11,6 +11,7 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/**'
       - 'deploy/**'
+      - 'security/policies/**'
       - 'aragora-operator/**'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -74,6 +75,7 @@ jobs:
               - 'requirements*.txt'
               - '.github/workflows/**'
               - 'deploy/**'
+              - 'security/policies/**'
               - 'aragora-operator/**'
 
   lint-run:
@@ -141,6 +143,9 @@ jobs:
 
       - name: Enforce execution-gate default hardening policy
         run: python scripts/check_execution_gate_defaults.py
+
+      - name: Enforce execution-gate policy change-control metadata
+        run: python scripts/check_execution_gate_policy_control.py
 
       - name: Validate Prometheus rule syntax with promtool
         run: python scripts/check_prometheus_rules.py
