@@ -10,18 +10,6 @@ name: Benchmarks
 # --------------------------------------------------------------------------
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'tests/benchmark/**'
-      - 'tests/benchmarks/**'
-      - 'tests/memory/test_benchmark.py'
-      - 'tests/rlm/test_benchmark.py'
-      - 'scripts/check_benchmark_regression.py'
-      - 'scripts/ci_install_project.sh'
-      - 'pyproject.toml'
-      - '.github/workflows/benchmark.yml'
   schedule:
     # Run daily at 2 AM UTC to track performance trends
     - cron: '0 2 * * *'

@@ -1,11 +1,9 @@
 name: Status Page Deployment
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'deploy/uptime-kuma/**'
-      - '.github/workflows/status-page.yml'
+  schedule:
+    # Nightly at 1:20 UTC
+    - cron: '20 1 * * *'
   workflow_dispatch:
     inputs:
       environment:

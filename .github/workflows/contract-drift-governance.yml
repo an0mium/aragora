@@ -1,18 +1,6 @@
 name: Contract Drift Governance
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/server/handlers/**'
-      - 'sdk/**'
-      - 'docs/api/openapi*.json'
-      - 'scripts/check_contract_drift_ratchet.py'
-      - 'scripts/contract_drift_report.py'
-      - 'scripts/generate_contract_drift_backlog.py'
-      - 'scripts/generate_contract_drift_issue_plan.py'
-      - 'scripts/baselines/**'
-      - '.github/workflows/contract-drift-governance.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]

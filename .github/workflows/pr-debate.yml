@@ -5,6 +5,38 @@ name: Aragora PR Review
 # - Full AI review remains available via manual workflow_dispatch.
 
 on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review'
+        required: true
+        type: string
+      review_depth:
+        description: 'Review depth'
+        required: false
+        default: 'standard'
+        type: choice
+        options:
+          - quick
+          - standard
+          - deep
+      agents:
+        description: 'Agent list (comma-separated or "all")'
+        required: false
+        default: 'anthropic-api,openai-api'
+        type: string
+      rounds:
+        description: 'Number of review rounds'
+        required: false
+        default: '2'
+        type: string
+      focus:
+        description: 'Review focus areas'
+        required: false
+        default: 'security,performance,quality'
+        type: string
 
 concurrency:
   group: pr-debate-${{ github.event.pull_request.number || github.run_id }}

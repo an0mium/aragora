@@ -1,11 +1,9 @@
 name: Multi-Region Deployment
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'deploy/**'
+  schedule:
+    # Nightly at 3:45 UTC
+    - cron: '45 3 * * *'
   workflow_dispatch:
     inputs:
       environment:
