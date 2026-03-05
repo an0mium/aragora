@@ -429,6 +429,8 @@ class AutonomousOrchestrator:
         Returns:
             OrchestrationResult with completion status
         """
+        self.assert_production_gate()
+
         self._orchestration_id = f"orch_{uuid.uuid4().hex[:12]}"
         start_time = datetime.now(timezone.utc)
         context = context or {}

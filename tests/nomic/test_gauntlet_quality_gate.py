@@ -137,9 +137,9 @@ class TestApproveChangesGauntletGate:
         ):
             result = await planner.approve_changes(changes="def foo(): pass")
 
-        # Without a baseline, low scores should still be flagged
-        assert "approved" in result
-        assert "gauntlet_score" in result
+        # Score 0.50 equals the default absolute baseline of 0.50; threshold is 0.45, so approved
+        assert result["approved"] is True
+        assert result["gauntlet_score"] == 0.50
 
     @pytest.mark.asyncio
     async def test_approve_changes_gauntlet_unavailable_defaults_to_approved(self):

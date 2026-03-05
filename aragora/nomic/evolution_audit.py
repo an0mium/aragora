@@ -83,7 +83,7 @@ class EvolutionAudit:
             "reason": reason,
         }
         if extra:
-            entry.update(extra)
+            entry["extra"] = extra  # namespace under dedicated key to preserve required fields
 
         log_path = self._log_path
         log_path.parent.mkdir(parents=True, exist_ok=True)
