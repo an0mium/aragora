@@ -1,6 +1,7 @@
 'use client';
 
 import { useTheme } from '@/context/ThemeContext';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
 
 interface Step {
   number: string;
@@ -29,11 +30,13 @@ const STEPS: Step[] = [
 export function HowItWorksSection() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const sectionRef = useScrollReveal<HTMLElement>();
 
   return (
     <section
+      ref={sectionRef}
       id="how-it-works"
-      className="px-4"
+      className="px-4 animate-on-scroll"
       style={{
         paddingTop: '120px',
         paddingBottom: '120px',

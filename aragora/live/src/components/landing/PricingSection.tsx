@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
 
 interface Tier {
   name: string;
@@ -61,11 +62,13 @@ const TIERS: Tier[] = [
 export function PricingSection() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const sectionRef = useScrollReveal<HTMLElement>();
 
   return (
     <section
+      ref={sectionRef}
       id="pricing"
-      className="px-4"
+      className="px-4 animate-on-scroll"
       style={{
         paddingTop: '120px',
         paddingBottom: '120px',
@@ -91,10 +94,11 @@ export function PricingSection() {
           className="text-center"
           style={{
             fontSize: isDark ? '24px' : '28px',
-            fontWeight: 600,
+            fontWeight: isDark ? 600 : 400,
             color: 'var(--text)',
-            fontFamily: 'var(--font-landing)',
+            fontFamily: 'var(--font-display, var(--font-landing))',
             marginBottom: '16px',
+            letterSpacing: isDark ? '0' : '-0.02em',
           }}
         >
           Start free. Scale when ready.

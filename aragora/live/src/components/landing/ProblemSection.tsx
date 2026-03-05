@@ -1,6 +1,7 @@
 'use client';
 
 import { useTheme } from '@/context/ThemeContext';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
 
 interface ProblemCard {
   icon: string;
@@ -29,10 +30,12 @@ const PROBLEMS: ProblemCard[] = [
 export function ProblemSection() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const sectionRef = useScrollReveal<HTMLElement>();
 
   return (
     <section
-      className="px-4"
+      ref={sectionRef}
+      className="px-4 animate-on-scroll"
       style={{
         paddingTop: '120px',
         paddingBottom: '120px',

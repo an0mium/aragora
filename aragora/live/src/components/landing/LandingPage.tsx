@@ -5,10 +5,6 @@ import { Header } from './Header';
 import { HeroSection } from './HeroSection';
 import { HowItWorksSection } from './HowItWorksSection';
 import { ProblemSection } from './ProblemSection';
-import { FeatureShowcase } from './FeatureShowcase';
-import { IntegrationsGrid } from './IntegrationsGrid';
-import { LiveDemoSection } from './LiveDemoSection';
-import { DeveloperSection } from './DeveloperSection';
 import { PricingSection } from './PricingSection';
 import { Footer } from './Footer';
 
@@ -29,10 +25,6 @@ export function LandingPage() {
       <HeroSection />
       <HowItWorksSection />
       <ProblemSection />
-      <FeatureShowcase />
-      <IntegrationsGrid />
-      <LiveDemoSection />
-      <DeveloperSection />
       <PricingSection />
       <Footer />
     </div>

@@ -116,8 +116,9 @@
    Landing page and all new components use data-theme attribute set by ThemeContext.
    ============================================================================ */
 
-/* Warm theme (default for new visitors, maps from old "light") */
+/* Warm theme (default for new visitors, maps from old "light") — organic, inviting */
 [data-theme="warm"] {
+  --font-display: var(--font-dm-serif), 'DM Serif Display', Georgia, serif;
   --bg: #faf9f7;
   --surface: #ffffff;
   --surface-elevated: #fbfaf8;
@@ -150,17 +151,18 @@
 
   /* Landing page theme tokens */
   --font-landing: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
-  --radius-card: 12px;
+  --radius-card: 14px;
   --radius-button: 9999px;
-  --radius-input: 12px;
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
-  --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.1);
+  --radius-input: 14px;
+  --shadow-card: 0 1px 3px rgba(44,42,40,0.06), 0 1px 2px rgba(44,42,40,0.04);
+  --shadow-card-hover: 0 6px 16px rgba(44,42,40,0.1);
   --section-padding: 80px;
   --link-color: #166a7a;
 }
 
 /* Dark theme (terminal/hacker aesthetic) */
 [data-theme="dark"] {
+  --font-display: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
   --bg: #0a0a0a;
   --surface: #111111;
   --surface-elevated: #141414;
@@ -208,25 +210,26 @@
   --link-color: #00cccc;
 }
 
-/* Professional theme (enterprise, Stripe-like) */
+/* Professional theme — cool, precise, Stripe/Linear inspired */
 [data-theme="professional"] {
-  --bg: #ffffff;
-  --surface: #f8fafc;
-  --surface-elevated: #f1f5f9;
-  --border: #e2e8f0;
-  --border-glow: #05966940;
-  --text: #0f172a;
-  --text-muted: #64748b;
+  --font-display: var(--font-inter), 'Inter', system-ui, sans-serif;
+  --bg: #fafbfc;
+  --surface: #ffffff;
+  --surface-elevated: #f4f6f8;
+  --border: #d8dde4;
+  --border-glow: #3b6ce740;
+  --text: #111827;
+  --text-muted: #5b6574;
 
-  --acid-green: #059669;
+  --acid-green: #3b6ce7;
   --acid-cyan: #2563eb;
   --acid-magenta: #7c3aed;
   --acid-yellow: #d97706;
-  --matrix-green: #059669;
-  --terminal-green: #059669;
+  --matrix-green: #3b6ce7;
+  --terminal-green: #3b6ce7;
 
-  --accent: #059669;
-  --accent-glow: rgba(5, 150, 105, 0.15);
+  --accent: #3b6ce7;
+  --accent-glow: rgba(59, 108, 231, 0.12);
   --success: #059669;
   --warning: #d97706;
   --purple: #7c3aed;
@@ -236,19 +239,19 @@
 
   --terminal-glow: none;
   --scanline: none;
-  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-elevated: 0 4px 8px rgba(0, 0, 0, 0.08);
-  --shadow-floating: 0 8px 16px rgba(0, 0, 0, 0.1);
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-elevated: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-floating: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
 
   /* Landing page theme tokens */
   --font-landing: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
-  --radius-card: 8px;
-  --radius-button: 8px;
-  --radius-input: 8px;
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.06);
-  --shadow-card-hover: 0 4px 8px rgba(0,0,0,0.08);
+  --radius-card: 6px;
+  --radius-button: 6px;
+  --radius-input: 6px;
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03);
+  --shadow-card-hover: 0 2px 8px rgba(59,108,231,0.1), 0 0 0 1px rgba(59,108,231,0.15);
   --section-padding: 80px;
-  --link-color: #2563eb;
+  --link-color: #3b6ce7;
 }
 
 /* Theme transition animation - smooth color changes */
@@ -1150,6 +1153,46 @@ input:focus, textarea:focus {
 
 .safe-area-right {
   padding-right: max(0.5rem, env(safe-area-inset-right));
+}
+
+/* ========================================
+   Scroll-triggered entrance animations
+   ======================================== */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.animate-on-scroll.is-visible {
+  animation: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Staggered delays for child elements */
+.stagger-1 { animation-delay: 0ms; }
+.stagger-2 { animation-delay: 80ms; }
+.stagger-3 { animation-delay: 160ms; }
+.stagger-4 { animation-delay: 240ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-on-scroll {
+    opacity: 1;
+    transform: none;
+  }
+  .animate-on-scroll.is-visible {
+    animation: none;
+  }
 }
 
 /* Smooth anchor scrolling for landing page nav links */

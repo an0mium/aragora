@@ -3,10 +3,8 @@
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useAuth } from '@/context/AuthContext';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
-import { TopBar } from '@/components/layout/TopBar';
 import { normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 function LoginForm() {
@@ -48,11 +46,29 @@ function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md">
-      <div className="border border-acid-green/30 bg-surface/50 p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-mono text-acid-green mb-2">WELCOME BACK</h1>
-          <p className="text-text-muted text-sm font-mono">
+    <div className="w-full" style={{ maxWidth: '380px' }}>
+      <div
+        style={{
+          border: '1px solid var(--border)',
+          backgroundColor: 'var(--surface)',
+          borderRadius: 'var(--radius-card, 0)',
+          padding: '40px 32px',
+          boxShadow: 'var(--shadow-card)',
+        }}
+      >
+        <div className="text-center" style={{ marginBottom: '32px' }}>
+          <h1
+            style={{
+              fontFamily: 'var(--font-display, var(--font-landing))',
+              fontSize: '22px',
+              fontWeight: 600,
+              color: 'var(--text)',
+              marginBottom: '8px',
+            }}
+          >
+            Welcome back
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', fontFamily: 'var(--font-landing)' }}>
             Sign in to your account
           </p>
         </div>
@@ -60,22 +76,43 @@ function LoginForm() {
         {error && (
           <div
             role="alert"
-            className="mb-6 p-3 border border-warning/50 bg-warning/10 text-warning text-sm font-mono"
+            style={{
+              marginBottom: '24px',
+              padding: '12px',
+              border: '1px solid var(--warning, #e67700)',
+              backgroundColor: 'color-mix(in srgb, var(--warning, #e67700) 10%, transparent)',
+              color: 'var(--warning, #e67700)',
+              fontSize: '13px',
+              fontFamily: 'var(--font-landing)',
+              borderRadius: 'var(--radius-button, 0)',
+            }}
           >
             <p>{error}</p>
             {(error.toLowerCase().includes('invalid') ||
               error.toLowerCase().includes('failed')) && (
-              <p className="mt-2 text-text-muted text-xs">
+              <p style={{ marginTop: '8px', color: 'var(--text-muted)', fontSize: '12px' }}>
                 Tip: Try signing in with Google or GitHub below
               </p>
             )}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="email" className="block text-xs font-mono text-acid-cyan mb-2">
-              EMAIL ADDRESS
+            <label
+              htmlFor="email"
+              style={{
+                display: 'block',
+                fontSize: '12px',
+                fontFamily: 'var(--font-landing)',
+                fontWeight: 600,
+                color: 'var(--text-muted)',
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              Email address
             </label>
             <input
               id="email"
@@ -86,14 +123,36 @@ function LoginForm() {
               disabled={isLoading || authLoading}
               autoComplete="email"
               aria-describedby={error ? 'login-error' : undefined}
-              className="w-full px-4 py-3 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green placeholder-text-muted/50 disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="user@example.com"
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                backgroundColor: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-button, 0)',
+                color: 'var(--text)',
+                fontFamily: 'var(--font-landing)',
+                fontSize: '14px',
+                outline: 'none',
+              }}
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-xs font-mono text-acid-cyan mb-2">
-              PASSWORD
+            <label
+              htmlFor="password"
+              style={{
+                display: 'block',
+                fontSize: '12px',
+                fontFamily: 'var(--font-landing)',
+                fontWeight: 600,
+                color: 'var(--text-muted)',
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              Password
             </label>
             <input
               id="password"
@@ -104,35 +163,68 @@ function LoginForm() {
               disabled={isLoading || authLoading}
               autoComplete="current-password"
               aria-describedby={error ? 'login-error' : undefined}
-              className="w-full px-4 py-3 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green placeholder-text-muted/50 disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="********"
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                backgroundColor: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-button, 0)',
+                color: 'var(--text)',
+                fontFamily: 'var(--font-landing)',
+                fontSize: '14px',
+                outline: 'none',
+              }}
             />
           </div>
 
           <button
             type="submit"
             disabled={isLoading || authLoading}
-            className="w-full py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="transition-opacity hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              width: '100%',
+              padding: '12px',
+              backgroundColor: 'var(--accent)',
+              color: 'var(--bg)',
+              fontFamily: 'var(--font-landing)',
+              fontWeight: 700,
+              fontSize: '14px',
+              border: 'none',
+              borderRadius: 'var(--radius-button, 0)',
+              cursor: 'pointer',
+            }}
           >
-            {isLoading ? 'AUTHENTICATING...' : 'LOGIN'}
+            {isLoading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
 
         <SocialLoginButtons mode="login" />
 
-        <div className="mt-6 text-center">
+        <div className="text-center" style={{ marginTop: '24px' }}>
           <Link
             href="/signup"
-            className="text-sm font-mono text-acid-cyan hover:text-acid-green transition-colors"
+            className="transition-opacity hover:opacity-70"
+            style={{
+              fontSize: '14px',
+              fontFamily: 'var(--font-landing)',
+              color: 'var(--accent)',
+            }}
           >
             No account? Sign up free
           </Link>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-acid-green/20">
-          <div className="text-xs font-mono text-text-muted text-center">
-            <p>Free tier: 10 debates/month with real AI models</p>
-          </div>
+        <div
+          style={{
+            marginTop: '32px',
+            paddingTop: '24px',
+            borderTop: '1px solid var(--border)',
+          }}
+        >
+          <p style={{ fontSize: '12px', fontFamily: 'var(--font-landing)', color: 'var(--text-muted)', textAlign: 'center' }}>
+            Free tier: 10 debates/month with real AI models
+          </p>
         </div>
       </div>
     </div>
@@ -146,22 +238,52 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      <TopBar />
-      <main className="pt-12">
-        <Scanlines opacity={0.02} />
-        <CRTVignette />
-
-        <div className="min-h-screen bg-bg text-text relative z-10 flex flex-col">
-          <div className="flex-1 flex items-center justify-center px-4 py-16">
-            <Suspense fallback={
-              <div className="text-[var(--acid-green)] font-mono animate-pulse">
-                {'>'} LOADING...
-              </div>
-            }>
-              <LoginForm />
-            </Suspense>
-          </div>
+      {/* Minimal nav — links back to landing */}
+      <nav
+        className="border-b sticky top-0 z-50 backdrop-blur-sm"
+        style={{
+          borderColor: 'var(--border)',
+          backgroundColor: 'color-mix(in srgb, var(--surface) 80%, transparent)',
+        }}
+      >
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <Link
+            href="/landing"
+            style={{
+              fontFamily: 'var(--font-landing)',
+              fontWeight: 700,
+              fontSize: '14px',
+              letterSpacing: '0.05em',
+              color: 'var(--accent)',
+            }}
+          >
+            ARAGORA
+          </Link>
+          <Link
+            href="/signup"
+            style={{
+              fontFamily: 'var(--font-landing)',
+              fontSize: '13px',
+              fontWeight: 600,
+              padding: '6px 16px',
+              backgroundColor: 'var(--accent)',
+              color: 'var(--bg)',
+              borderRadius: 'var(--radius-button, 0)',
+            }}
+          >
+            Sign up free
+          </Link>
         </div>
+      </nav>
+
+      <main className="flex-1 flex items-center justify-center px-4 py-16" style={{ minHeight: 'calc(100vh - 49px)' }}>
+        <Suspense fallback={
+          <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-landing)' }} className="animate-pulse">
+            Loading...
+          </div>
+        }>
+          <LoginForm />
+        </Suspense>
       </main>
     </div>
   );

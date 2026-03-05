@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, type FormEvent } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from '../DebateResultPreview';
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
@@ -77,6 +77,26 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       clearInterval(ticker);
     };
   }, [isRunning]);
+  // Cycling placeholder examples
+  const PLACEHOLDER_EXAMPLES = [
+    'Should we migrate to microservices or keep our monolith?',
+    'Is this contract clause a liability risk?',
+    'Should we raise prices 15% or expand to a new market?',
+    'What are the security risks in our OAuth implementation?',
+    'Should we build or buy our analytics platform?',
+  ];
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  const cycleTimer = useRef<ReturnType<typeof setInterval>>(null);
+  const cyclePlaceholder = useCallback(() => {
+    setPlaceholderIdx((i) => (i + 1) % PLACEHOLDER_EXAMPLES.length);
+  }, [PLACEHOLDER_EXAMPLES.length]);
+
+  useEffect(() => {
+    if (question || isRunning) return; // stop cycling when user types
+    cycleTimer.current = setInterval(cyclePlaceholder, 3500);
+    return () => { if (cycleTimer.current) clearInterval(cycleTimer.current); };
+  }, [question, isRunning, cyclePlaceholder]);
+
   const { config: backendConfig } = useBackend();
   const apiBase = (isDashboardMode ? props.apiBase as string : backendConfig.api) || BACKENDS.production.api;
 
@@ -236,10 +256,11 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
           className="leading-tight"
           style={{
             fontSize: isDark ? '38px' : '44px',
-            fontWeight: isDark ? 700 : 600,
+            fontWeight: isDark ? 700 : 400,
             color: 'var(--text)',
-            fontFamily: 'var(--font-landing)',
+            fontFamily: 'var(--font-display, var(--font-landing))',
             marginBottom: '16px',
+            letterSpacing: isDark ? '0' : '-0.02em',
           }}
         >
           Don&apos;t trust one AI.
@@ -281,7 +302,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             <textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="What decision are you facing?"
+              placeholder={PLACEHOLDER_EXAMPLES[placeholderIdx]}
               disabled={isRunning}
               rows={3}
               className="w-full placeholder:opacity-40 focus:outline-none transition-all resize-none disabled:opacity-50"
