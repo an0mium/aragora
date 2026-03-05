@@ -313,6 +313,12 @@ jobs:
           assert spec.get('openapi') == '3.1.0'
           "
 
+      - name: Fix npm cache ownership
+        run: |
+          if [[ -d "$HOME/.npm" ]]; then
+            sudo chown -R "$(id -u):$(id -g)" "$HOME/.npm" 2>/dev/null || true
+          fi
+
       - name: Generate TypeScript SDK types
         run: python scripts/generate_sdk_types.py --openapi docs/api/openapi_generated.json
 
