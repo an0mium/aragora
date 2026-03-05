@@ -20,6 +20,11 @@ from aragora.server.handlers.idea_canvas import IdeaCanvasHandler
 from aragora.server.handlers.goal_canvas import GoalCanvasHandler
 from aragora.server.handlers.action_canvas import ActionCanvasHandler
 from aragora.server.handlers.orchestration_canvas import OrchestrationCanvasHandler
+from aragora.pipeline.unified_orchestrator import (
+    UnifiedOrchestrator,
+    OrchestratorConfig,
+    OrchestratorResult,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -339,3 +344,61 @@ class TestProvenanceChain:
         assert d["from_stage"] == "actions"
         assert d["to_stage"] == "orchestration"
         assert d["status"] == "approved"
+
+
+# ---------------------------------------------------------------------------
+# Unified Orchestrator golden path
+# ---------------------------------------------------------------------------
+
+
+class TestUnifiedOrchestratorGoldenPath:
+    """E2E: prompt → debate → plan → (skip execution) → result."""
+
+    @pytest.mark.asyncio
+    async def test_debate_to_plan_with_mocked_arena(self):
+        """Run unified orchestrator with mocked debate and verify stages fire."""
+        mock_debate_result = MagicMock()
+        mock_debate_result.final_answer = (
+            "## Ranked High-Level Tasks\n1. Improve test coverage\n## Test Plan\nRun pytest"
+        )
+        mock_debate_result.consensus_reached = True
+
+        async def arena_factory(prompt, **kwargs):
+            return mock_debate_result
+
+        mock_plan = MagicMock()
+        mock_plan.id = "plan-golden"
+        mock_plan.task = "Improve test coverage"
+        mock_plan_factory = MagicMock()
+        mock_plan_factory.from_debate_result.return_value = mock_plan
+
+        orch = UnifiedOrchestrator(
+            arena_factory=arena_factory,
+            plan_factory=mock_plan_factory,
+        )
+        config = OrchestratorConfig(skip_execution=True)
+        result = await orch.run("Improve test coverage", config=config)
+
+        assert isinstance(result, OrchestratorResult)
+        assert "debate" in result.stages_completed
+        assert "plan" in result.stages_completed
+        assert "execute" not in result.stages_completed  # skip_execution=True
+        assert result.debate_result is mock_debate_result
+        assert result.decision_plan is mock_plan
+        assert result.succeeded
+
+    @pytest.mark.asyncio
+    async def test_graceful_degradation_without_components(self):
+        """Orchestrator completes even when optional components are missing."""
+        mock_result = MagicMock(final_answer="Answer", consensus_reached=True)
+
+        async def arena_factory(prompt, **kwargs):
+            return mock_result
+
+        orch = UnifiedOrchestrator(arena_factory=arena_factory)
+        result = await orch.run("Test prompt")
+
+        assert "debate" in result.stages_completed
+        # No plan_factory → plan stage skipped
+        assert result.decision_plan is None
+        assert result.succeeded
