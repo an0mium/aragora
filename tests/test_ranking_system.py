@@ -465,8 +465,8 @@ class TestCalibrationEngine:
             confidence=0.75,
         )
 
-        # Verify prediction was recorded by checking history
-        history = calibration_engine.get_prediction_history("tourney-1")
+        # Verify prediction was recorded by checking agent history
+        history = calibration_engine.get_agent_history("predictor")
         assert len(history) >= 1
 
     def test_confidence_clamping(self, calibration_engine):
@@ -488,10 +488,8 @@ class TestCalibrationEngine:
         )
 
         # Verify both predictions were recorded despite out-of-range confidence values
-        history1 = calibration_engine.get_prediction_history("tourney-clamp-1")
-        history2 = calibration_engine.get_prediction_history("tourney-clamp-2")
-        assert len(history1) >= 1
-        assert len(history2) >= 1
+        history = calibration_engine.get_agent_history("predictor")
+        assert len(history) >= 2
 
     def test_resolve_tournament_correct_prediction(self, calibration_engine):
         """Test resolving tournament with correct prediction."""

@@ -460,7 +460,15 @@ class TestQuotaFallbackMixin:
 
         agent = TestAgent()
 
-        with patch.dict("os.environ", {}, clear=True):
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "aragora.config.get_api_key",
+                side_effect=KeyError("OPENROUTER_API_KEY"),
+            ),
+        ):
+            # Clear cached fallback agent so it re-checks the key
+            agent._fallback_agent = None
             result = await agent.fallback_generate("Test prompt")
             assert result is None
 
