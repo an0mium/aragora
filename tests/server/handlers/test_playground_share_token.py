@@ -88,6 +88,6 @@ class TestShareTokenInResponse:
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body.decode("utf-8"))
-        assert "share_token" in body or "share_url" in body, (
-            f"Missing share_token/share_url in POST /debate response. Keys: {list(body.keys())}"
+        assert "share_token" in body, (
+            f"Missing share_token in POST /debate response. Keys: {list(body.keys())}"
         )
