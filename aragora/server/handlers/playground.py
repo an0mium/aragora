@@ -1541,6 +1541,9 @@ class PlaygroundHandler(BaseHandler):
         # Oracle mode (consult / divine / commune)
         mode = str(body.get("mode", "") or "").strip() or "consult"
 
+        # Source: "oracle" for Oracle page, "landing" for main site, etc.
+        source = str(body.get("source", "") or "").strip() or "oracle"
+
         # Session ID for follow-up conversation memory
         session_id = str(body.get("session_id", "") or "").strip() or None
 
@@ -1557,7 +1560,13 @@ class PlaygroundHandler(BaseHandler):
         agent_count = max(_MIN_AGENTS, min(agent_count, _MAX_AGENTS))
 
         return self._run_debate(
-            topic, rounds, agent_count, question=question, mode=mode, session_id=session_id
+            topic,
+            rounds,
+            agent_count,
+            question=question,
+            mode=mode,
+            session_id=session_id,
+            source=source,
         )
 
     def _run_debate(
@@ -1568,18 +1577,43 @@ class PlaygroundHandler(BaseHandler):
         question: str | None = None,
         mode: str = "consult",
         session_id: str | None = None,
+        source: str = "oracle",
     ) -> HandlerResult:
         if question:
-            # Oracle mode: try real LLM response first
-            oracle_result = _try_oracle_response(
-                mode=mode, question=question, topic=topic, session_id=session_id
-            )
+            if source == "oracle":
+                # Oracle mode: try real LLM response first (Shoggoth language)
+                oracle_result = _try_oracle_response(
+                    mode=mode, question=question, topic=topic, session_id=session_id
+                )
+            else:
+                # Landing/other source: use multi-perspective tentacles with
+                # professional language (no Shoggoth/Oracle branding)
+                oracle_result = _try_oracle_tentacles(
+                    mode=mode,
+                    question=question,
+                    agent_count=agent_count,
+                    topic=topic,
+                    source=source,
+                    summary_depth="none",
+                )
             if oracle_result:
-                return json_response(oracle_result)
-            logger.info("Oracle LLM call failed — returning placeholder instead of irrelevant mock")
-            # Return an Oracle-themed placeholder instead of a generic mock debate
-            # (the generic mock talks about microservices which is nonsensical for Oracle)
+                return self._persist_and_respond(
+                    json_response(oracle_result),
+                    topic,
+                    source,
+                )
+            logger.info("LLM call failed — returning placeholder instead of irrelevant mock")
             debate_id = uuid.uuid4().hex[:16]
+            if source == "oracle":
+                placeholder_name = "oracle"
+                placeholder_text = (
+                    "The Oracle is gathering its thoughts... The tentacles will speak momentarily."
+                )
+            else:
+                placeholder_name = "analyst"
+                placeholder_text = (
+                    "The analysis is being prepared. Our AI panel will respond momentarily."
+                )
             return json_response(
                 {
                     "id": debate_id,
@@ -1590,14 +1624,12 @@ class PlaygroundHandler(BaseHandler):
                     "confidence": 0.5,
                     "verdict": "pending",
                     "duration_seconds": 0.1,
-                    "participants": ["oracle"],
-                    "proposals": {
-                        "oracle": "The Oracle is gathering its thoughts... The tentacles will speak momentarily."
-                    },
+                    "participants": [placeholder_name],
+                    "proposals": {placeholder_name: placeholder_text},
                     "critiques": [],
                     "votes": [],
                     "dissenting_views": [],
-                    "final_answer": "The Oracle is gathering its thoughts... The tentacles will speak momentarily.",
+                    "final_answer": placeholder_text,
                     "receipt_hash": None,
                 }
             )
@@ -1868,7 +1900,13 @@ class PlaygroundHandler(BaseHandler):
         if not has_api_keys:
             # Fall back to mock debate with a note
             result = self._run_debate(
-                topic, rounds, agent_count, question=question, mode=mode, session_id=session_id
+                topic,
+                rounds,
+                agent_count,
+                question=question,
+                mode=mode,
+                session_id=session_id,
+                source=source,
             )
             if result is None:
                 return error_response("Playground unavailable", 503)
@@ -1895,7 +1933,11 @@ class PlaygroundHandler(BaseHandler):
             )
             if tentacle_result:
                 tentacle_result["upgrade_cta"] = _build_upgrade_cta()
-                return json_response(tentacle_result)
+                return self._persist_and_respond(
+                    json_response(tentacle_result),
+                    topic,
+                    source,
+                )
             logger.info("Oracle tentacles failed, trying live debate factory")
 
         # Try live debate — fall back to mock if it fails
@@ -1906,7 +1948,13 @@ class PlaygroundHandler(BaseHandler):
                 live_result.status_code,
             )
             mock_result = self._run_debate(
-                topic, rounds, agent_count, question=question, mode=mode, session_id=session_id
+                topic,
+                rounds,
+                agent_count,
+                question=question,
+                mode=mode,
+                session_id=session_id,
+                source=source,
             )
             if mock_result is not None:
                 import json as _json
