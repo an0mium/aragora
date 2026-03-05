@@ -81,9 +81,25 @@ jobs:
           fi
 
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+        continue-on-error: true
+
+      - name: Fallback to system Python
+        if: steps.setup-python.outcome == 'failure'
+        run: |
+          echo "actions/setup-python failed, using system Python"
+          for cmd in python3.11 python3; do
+            if command -v "$cmd" &>/dev/null; then
+              echo "Found $cmd: $("$cmd" --version)"
+              sudo ln -sf "$(command -v "$cmd")" /usr/local/bin/python
+              sudo ln -sf "$(command -v "$cmd")" /usr/local/bin/python3
+              break
+            fi
+          done
+          python --version
 
       - name: Install dependencies
         run: |
