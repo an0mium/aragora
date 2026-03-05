@@ -411,4 +411,14 @@ export class UnifiedInboxAPI {
       json: request,
     });
   }
+
+  /**
+   * Trigger a debate workflow for a specific inbox message.
+   */
+  async autoDebate(messageId: string): Promise<{ message_id: string; debate_id: string }> {
+    return this.client.request(
+      'POST',
+      `/api/v1/inbox/messages/${encodeURIComponent(messageId)}/debate`
+    );
+  }
 }
