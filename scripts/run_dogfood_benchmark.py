@@ -56,7 +56,22 @@ def _override_timeout(command: list[str], timeout_seconds: int) -> list[str]:
             raise ValueError("Malformed command: --timeout flag has no value")
         cmd[idx + 1] = str(timeout_seconds)
         return cmd
-    cmd.extend(["--timeout", str(timeout_seconds)])
+
+    # Only append --timeout when command targets `aragora ... ask`.
+    # Other subcommands (for example `pipeline self-improve`) may not
+    # accept a timeout flag.
+    subcommand = None
+    if "aragora.cli.main" in cmd:
+        module_idx = cmd.index("aragora.cli.main")
+        if module_idx + 1 < len(cmd):
+            subcommand = cmd[module_idx + 1]
+    elif "aragora" in cmd:
+        cli_idx = cmd.index("aragora")
+        if cli_idx + 1 < len(cmd):
+            subcommand = cmd[cli_idx + 1]
+
+    if subcommand == "ask":
+        cmd.extend(["--timeout", str(timeout_seconds)])
     return cmd
 
 
@@ -156,8 +171,17 @@ def _run_once(command: list[str], timeout_seconds: int) -> dict[str, Any]:
     except subprocess.TimeoutExpired as exc:
         timed_out = True
         exit_code = 124
-        stdout = exc.stdout or ""
-        stderr = (exc.stderr or "") + f"\nDebate timed out after {timeout_seconds}s"
+        stdout_raw = exc.stdout or ""
+        stderr_raw = exc.stderr or ""
+        if isinstance(stdout_raw, bytes):
+            stdout = stdout_raw.decode("utf-8", errors="replace")
+        else:
+            stdout = stdout_raw
+        if isinstance(stderr_raw, bytes):
+            stderr = stderr_raw.decode("utf-8", errors="replace")
+        else:
+            stderr = stderr_raw
+        stderr = stderr + f"\nDebate timed out after {timeout_seconds}s"
     ended = time.monotonic()
 
     quality = _extract_quality(stdout)
@@ -323,6 +347,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             "(execution_path/live, quality gate pass, top-track class, clone check)."
         ),
     )
+    parser.add_argument(
+        "--require-pipeline-hard-checks-presence",
+        action="store_true",
+        help=(
+            "When enforcing hard checks, also fail if no run emitted pipeline hard-check signals."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -375,6 +406,12 @@ def main(argv: list[str] | None = None) -> int:
         checks = payload["summary"].get("pipeline_hard_checks", {})
         present_runs = int(checks.get("present_runs") or 0)
         pass_runs = int(checks.get("hard_check_pass_runs") or 0)
+        if args.require_pipeline_hard_checks_presence and present_runs == 0:
+            print(
+                "[dogfood-benchmark] enforce-pipeline-hard-checks failed: no pipeline checks present",
+                flush=True,
+            )
+            return 1
         if present_runs > 0 and pass_runs < present_runs:
             print(
                 "[dogfood-benchmark] enforce-pipeline-hard-checks failed: "
