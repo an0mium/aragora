@@ -68,6 +68,31 @@ class TestGauntletRunnerInit:
 class TestGauntletRunnerRun:
     """Tests for GauntletRunner.run() method."""
 
+    @pytest.fixture(autouse=True)
+    def _mock_gauntlet_phases(self):
+        """Mock API-calling phases to prevent real API calls and hangs."""
+        with (
+            patch.object(
+                GauntletRunner,
+                "_run_red_team",
+                new_callable=AsyncMock,
+                return_value=AttackSummary(),
+            ),
+            patch.object(
+                GauntletRunner,
+                "_run_probes",
+                new_callable=AsyncMock,
+                return_value=ProbeSummary(),
+            ),
+            patch.object(
+                GauntletRunner,
+                "_run_scenarios",
+                new_callable=AsyncMock,
+                return_value=ScenarioSummary(),
+            ),
+        ):
+            yield
+
     @pytest.mark.asyncio
     async def test_run_returns_gauntlet_result(self):
         """Run returns a GauntletResult with correct structure."""
@@ -187,8 +212,8 @@ class TestGauntletRunnerRun:
         """Run handles exceptions and sets error reasoning."""
         runner = GauntletRunner()
 
-        # Patch _run_red_team to raise an exception
-        with patch.object(runner, "_run_red_team", side_effect=Exception("Test error")):
+        # Patch _run_red_team to raise an exception (must be a type caught by run())
+        with patch.object(runner, "_run_red_team", side_effect=RuntimeError("Test error")):
             result = await runner.run("Test input")
 
         assert "Error during validation" in result.verdict_reasoning
@@ -297,7 +322,14 @@ class TestRunScenarios:
             started_at=datetime.now().isoformat(),
         )
 
-        summary = await runner._run_scenarios("Test input", "", result, lambda *a: None)
+        # Mock ScenarioMatrix to return empty scenarios to prevent real Arena creation
+        mock_matrix = MagicMock()
+        mock_matrix.scenarios = []
+        with patch(
+            "aragora.debate.scenarios.ScenarioMatrix.from_presets",
+            return_value=mock_matrix,
+        ):
+            summary = await runner._run_scenarios("Test input", "", result, lambda *a: None)
 
         assert isinstance(summary, ScenarioSummary)
 
@@ -467,17 +499,17 @@ class TestDefaultRunAgent:
     """Tests for GauntletRunner._default_run_agent() method."""
 
     @pytest.mark.asyncio
-    async def test_default_run_agent_calls_run_method(self):
-        """_default_run_agent calls agent.run() if available."""
+    async def test_default_run_agent_calls_generate_method(self):
+        """_default_run_agent calls agent.generate() if available (preferred over run)."""
         runner = GauntletRunner()
 
         agent = MagicMock()
-        agent.run = AsyncMock(return_value="Agent response")
+        agent.generate = AsyncMock(return_value="Agent response")
 
         response = await runner._default_run_agent(agent, "Test prompt")
 
         assert response == "Agent response"
-        agent.run.assert_called_once_with("Test prompt")
+        agent.generate.assert_called_once_with("Test prompt", [])
 
     @pytest.mark.asyncio
     async def test_default_run_agent_without_run_method(self):
@@ -493,6 +525,31 @@ class TestDefaultRunAgent:
 
 class TestRunGauntletConvenience:
     """Tests for run_gauntlet() convenience function."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_gauntlet_phases(self):
+        """Mock API-calling phases to prevent real API calls and hangs."""
+        with (
+            patch.object(
+                GauntletRunner,
+                "_run_red_team",
+                new_callable=AsyncMock,
+                return_value=AttackSummary(),
+            ),
+            patch.object(
+                GauntletRunner,
+                "_run_probes",
+                new_callable=AsyncMock,
+                return_value=ProbeSummary(),
+            ),
+            patch.object(
+                GauntletRunner,
+                "_run_scenarios",
+                new_callable=AsyncMock,
+                return_value=ScenarioSummary(),
+            ),
+        ):
+            yield
 
     @pytest.mark.asyncio
     async def test_run_gauntlet_basic(self):
@@ -523,6 +580,31 @@ class TestRunGauntletConvenience:
 
 class TestIntegration:
     """Integration tests for complete gauntlet runs."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_gauntlet_phases(self):
+        """Mock API-calling phases to prevent real API calls and hangs."""
+        with (
+            patch.object(
+                GauntletRunner,
+                "_run_red_team",
+                new_callable=AsyncMock,
+                return_value=AttackSummary(),
+            ),
+            patch.object(
+                GauntletRunner,
+                "_run_probes",
+                new_callable=AsyncMock,
+                return_value=ProbeSummary(),
+            ),
+            patch.object(
+                GauntletRunner,
+                "_run_scenarios",
+                new_callable=AsyncMock,
+                return_value=ScenarioSummary(),
+            ),
+        ):
+            yield
 
     @pytest.mark.asyncio
     async def test_full_run_quick_config(self):

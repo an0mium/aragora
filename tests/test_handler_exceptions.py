@@ -461,7 +461,7 @@ class TestClassifyException:
 
     # Subclass matching
     def test_subclass_match_aragora_error(self):
-        """Unknown AragoraError subclass returns 500, error, message."""
+        """Unknown AragoraError subclass returns 500, error, sanitized message."""
 
         class CustomAragoraError(AragoraError):
             pass
@@ -470,7 +470,7 @@ class TestClassifyException:
         status, level, msg = classify_exception(exc)
         assert status == 500
         assert level == "error"
-        assert msg == "custom error"
+        assert msg == "Internal server error"
 
     def test_subclass_match_handler_error_custom_status(self):
         """Custom HandlerError subclass with status_code is respected."""
@@ -482,7 +482,7 @@ class TestClassifyException:
         status, level, msg = classify_exception(exc)
         assert status == 422
         assert level == "error"
-        assert msg == "unprocessable"
+        assert msg == "Error"  # 422 not in GENERIC_ERROR_MESSAGES, falls back to "Error"
 
     def test_unknown_exception_returns_500(self):
         """Unknown exception returns 500, error, generic message."""

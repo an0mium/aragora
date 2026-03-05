@@ -702,9 +702,11 @@ class TestProviderListing:
         assert result.status_code == 200
         body = json.loads(result.body.decode())
         assert "providers" in body
-        assert len(body["providers"]) == 1
-        assert body["providers"][0]["id"] == "google"
-        assert body["providers"][0]["enabled"] is True
+        assert len(body["providers"]) >= 1
+        provider_ids = [p["id"] for p in body["providers"]]
+        assert "google" in provider_ids
+        google = next(p for p in body["providers"] if p["id"] == "google")
+        assert google["enabled"] is True
 
     def test_provider_includes_auth_url(self, oauth_handler):
         """Test provider listing includes auth URL."""

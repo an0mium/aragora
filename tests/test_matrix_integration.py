@@ -87,6 +87,7 @@ def sample_debate_result():
     result.total_rounds = 4
     result.consensus_confidence = 0.90
     result.participating_agents = ["claude", "gpt-4", "gemini", "mistral"]
+    result.participants = ["claude", "gpt-4", "gemini", "mistral"]
     return result
 
 
@@ -550,6 +551,7 @@ class TestMatrixDebateSummary:
     ):
         """Test that more than 5 agents shows '+X more'."""
         sample_debate_result.participating_agents = ["a1", "a2", "a3", "a4", "a5", "a6", "a7"]
+        sample_debate_result.participants = ["a1", "a2", "a3", "a4", "a5", "a6", "a7"]
         await matrix_integration.post_debate_summary(sample_debate_result)
 
         call_args = mock_aiohttp_session.put.call_args
