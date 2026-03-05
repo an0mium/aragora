@@ -1,13 +1,10 @@
-name: Deploy to Lightsail
+name: Deploy to Lightsail (Legacy)
+
+# NOTE: Auto-trigger disabled 2026-03-05. Production deploys now go through
+# deploy-secure.yml (OIDC → SSM → EC2). Keep workflow_dispatch for manual use
+# if the Lightsail instance is still needed for testing or migration.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'pyproject.toml'
-      - 'setup.py'
-      - 'requirements*.txt'
   workflow_dispatch:
     inputs:
       skip_tests:
