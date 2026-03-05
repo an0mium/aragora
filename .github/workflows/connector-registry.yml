@@ -10,15 +10,9 @@ on:
       - 'scripts/update_connector_registry.py'
       - 'aragora/connectors/registry.py'
       - '.github/workflows/connector-registry.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/connectors/**'
-      - 'docs/connectors/**'
-      - 'scripts/update_connector_registry.py'
-      - 'aragora/connectors/registry.py'
-      - '.github/workflows/connector-registry.yml'
-
+  schedule:
+    # Nightly at 1:50 UTC
+    - cron: '50 1 * * *'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false

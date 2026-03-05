@@ -1,10 +1,10 @@
 name: Developer Onramp Integration
 
 on:
+  schedule:
+    # Nightly at 1:25 UTC
+    - cron: '25 1 * * *'
   workflow_dispatch:
-  push:
-    branches: [main]
-
 jobs:
   time-to-first-debate:
     runs-on: aragora

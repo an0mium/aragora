@@ -8,13 +8,9 @@ on:
       - '.github/workflows/live-deploy-mode-gate.yml'
       - '.github/workflows/deploy-frontend.yml'
       - '.github/workflows/deploy-secure.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/live/**'
-      - '.github/workflows/live-deploy-mode-gate.yml'
-      - '.github/workflows/deploy-frontend.yml'
-      - '.github/workflows/deploy-secure.yml'
+  schedule:
+    # Nightly at 1:55 UTC
+    - cron: '55 1 * * *'
   workflow_dispatch:
 
 permissions:

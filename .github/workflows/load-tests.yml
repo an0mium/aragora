@@ -1,11 +1,6 @@
 name: Load Tests
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'tests/load/**'
   schedule:
     # Run nightly at 3am UTC
     - cron: '0 3 * * *'

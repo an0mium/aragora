@@ -12,16 +12,9 @@ on:
       - 'scripts/ci_core_suites.sh'
       - 'scripts/ci_install_project.sh'
       - '.github/workflows/core-suites.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'tests/**'
-      - 'pyproject.toml'
-      - 'requirements.txt'
-      - 'scripts/ci_core_suites.sh'
-      - 'scripts/ci_install_project.sh'
-      - '.github/workflows/core-suites.yml'
+  schedule:
+    # Nightly at 2:50 UTC
+    - cron: '50 2 * * *'
   workflow_dispatch:
 
 concurrency:

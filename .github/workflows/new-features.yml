@@ -1,16 +1,9 @@
 name: New Features CI
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/server/handlers/marketplace.py'
-      - 'aragora/server/handlers/webhooks.py'
-      - 'aragora/server/handlers/explainability.py'
-      - 'aragora/queue/**'
-      - 'aragora/migrations/**'
-      - 'tests/e2e/test_new_features_e2e.py'
-      - '.github/workflows/new-features.yml'
+  schedule:
+    # Nightly at 1:40 UTC
+    - cron: '40 1 * * *'
   workflow_dispatch:
 
 concurrency:

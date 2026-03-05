@@ -417,7 +417,7 @@ See `docs/reference/ENVIRONMENT.md` for full reference.
 
 **Integrated:**
 - Knowledge Mound - STABLE Phase A2 (100% integrated, 4,300+ tests passing)
-  - 41 adapters (Continuum, Consensus, Critique, Evidence, Belief, Insights, ELO, Performance, Pulse, Cost, Provenance, Fabric, Workspace, ComputerUse, Gateway, CalibrationFusion, ControlPlane, Culture, Receipt, DecisionPlan, Outcome, Supermemory, RLM, RLMContext, Trickster, ERC8004, Obsidian, Debate, Workflow, Compliance, LangExtract, Codebase, IdeaCanvas, GoalCanvas, ClaudeMem, Genesis, Pipeline, Explainability, Email, Jira, Confluence)
+  - 41 adapters (Belief, CalibrationFusion, ClaudeMem, Codebase, Compliance, ComputerUse, Confluence, Consensus, Continuum, ControlPlane, Cost, Critique, Culture, Debate, DecisionPlan, ELO, Email, ERC8004, Evidence, Explainability, Fabric, Gateway, Genesis, GoalCanvas, IdeaCanvas, Insights, Jira, LangExtract, Obsidian, Outcome, Performance, Pipeline, Provenance, Pulse, Receipt, RLM, RLMContext, Supermemory, Trickster, Workflow, Workspace)
   - Visibility, sharing, federation, global knowledge
   - Semantic search, validation feedback, cross-debate learning
   - SLO alerting with Prometheus metrics

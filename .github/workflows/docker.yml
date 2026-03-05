@@ -2,25 +2,14 @@ name: Docker Build & Push
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'aragora-operator/**'
-      - 'Dockerfile'
-      - 'deploy/Dockerfile.*'
-      - 'deploy/docker-compose.yml'
-      - 'docker-compose*.yml'
-      - '.github/workflows/docker.yml'
     tags:
       - 'v*'
+  schedule:
+    # Nightly at 3:15 UTC
+    - cron: '15 3 * * *'
   workflow_dispatch:
     inputs:
       push:
-        description: 'Push images to registry'
-        required: true
-        default: false
-        type: boolean
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false

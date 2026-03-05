@@ -14,18 +14,9 @@ on:
       - 'tests/test_migration_patterns.py'
       - 'pyproject.toml'
       - '.github/workflows/migration-tests.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/migrations/**'
-      - 'aragora/persistence/migrations/**'
-      - 'aragora/storage/**'
-      - 'tests/migrations/**'
-      - 'tests/persistence/test_migration*'
-      - 'tests/test_migrations.py'
-      - 'tests/test_migration_patterns.py'
-      - 'pyproject.toml'
-      - '.github/workflows/migration-tests.yml'
+  schedule:
+    # Nightly at 2:45 UTC
+    - cron: '45 2 * * *'
   workflow_dispatch:
 
 concurrency:

@@ -1,28 +1,6 @@
 name: Tests
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'aragora-debate/**'
-      - 'tests/**'
-      - 'pyproject.toml'
-      - 'requirements.txt'
-      - 'scripts/capability_gap_report.py'
-      - 'scripts/generate_capability_matrix.py'
-      - 'scripts/check_capability_matrix_sync.py'
-      - 'scripts/check_legacy_entrypoints.py'
-      - 'scripts/check_legacy_collab_flags.py'
-      - 'scripts/capability_matrix_delta.py'
-      - 'scripts/generate_cli_reference.py'
-      - 'aragora/capabilities.yaml'
-      - 'aragora/capability_surfaces.yaml'
-      - 'docs/CAPABILITY_MATRIX.md'
-      - 'docs/reference/CLI_REFERENCE.md'
-      - 'docs-site/docs/contributing/capability-matrix.md'
-      - 'docs-site/docs/api/cli.md'
-      - '.github/workflows/test.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]

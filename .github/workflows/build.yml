@@ -2,15 +2,10 @@ name: Build & Publish Docker
 
 on:
   push:
-    branches: [main]
     tags: ['v*']
-    paths:
-      - 'aragora/**'
-      - 'Dockerfile*'
-      - 'docker-compose*.yml'
-      - 'requirements.txt'
-      - 'pyproject.toml'
-      - '.github/workflows/build.yml'
+  schedule:
+    # Nightly at 3:00 UTC
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 concurrency:

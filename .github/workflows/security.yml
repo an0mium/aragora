@@ -1,18 +1,6 @@
 name: "Security: Pentest Findings Gate"
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'aragora/server/**'
-      - 'security/**'
-      - 'tests/**'
-      - 'pyproject.toml'
-      - 'package*.json'
-      - 'scripts/check_pentest_findings.py'
-      - 'security/pentest/findings.json'
-      - '.github/workflows/security.yml'
   schedule:
     # Run weekly on Sundays at midnight UTC
     - cron: '0 0 * * 0'

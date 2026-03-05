@@ -1,22 +1,6 @@
 name: Capability Surface Report
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/capabilities.yaml'
-      - 'aragora/capability_surfaces.yaml'
-      - 'scripts/capability_gap_report.py'
-      - 'scripts/generate_capability_matrix.py'
-      - 'scripts/check_capability_matrix_sync.py'
-      - 'scripts/check_legacy_entrypoints.py'
-      - 'scripts/capability_matrix_delta.py'
-      - 'scripts/generate_cli_reference.py'
-      - 'docs/CAPABILITY_MATRIX.md'
-      - 'docs/reference/CLI_REFERENCE.md'
-      - 'docs-site/docs/contributing/capability-matrix.md'
-      - 'docs-site/docs/api/cli.md'
-      - '.github/workflows/capability-gap.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
@@ -34,6 +18,9 @@ on:
       - 'docs-site/docs/contributing/capability-matrix.md'
       - 'docs-site/docs/api/cli.md'
       - '.github/workflows/capability-gap.yml'
+  schedule:
+    # Nightly at 1:00 UTC
+    - cron: '0 1 * * *'
   workflow_dispatch:
 
 concurrency:

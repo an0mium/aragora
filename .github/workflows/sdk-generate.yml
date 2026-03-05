@@ -1,22 +1,15 @@
 name: Generate SDK Types
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'docs/api/openapi.json'
-      - 'docs/api/openapi.yaml'
-      - 'aragora/server/openapi/**'
-      - 'scripts/generate_typescript_sdk.py'
-      - 'sdk/typescript/src/**/*.ts'
-      - 'sdk/typescript/package.json'
-      - 'sdk/typescript/tsconfig.json'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'sdk/typescript/src/**/*.ts'
       - 'sdk/typescript/package.json'
       - 'sdk/typescript/tsconfig.json'
+  schedule:
+    # Nightly at 1:15 UTC
+    - cron: '15 1 * * *'
   workflow_dispatch:
     inputs:
       force_regenerate:

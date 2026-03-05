@@ -1,11 +1,9 @@
 name: Lighthouse CI
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/live/**'
-      - '.github/workflows/lighthouse.yml'
+  schedule:
+    # Nightly at 3:30 UTC
+    - cron: '30 3 * * *'
   workflow_dispatch:
 
 concurrency:

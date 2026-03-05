@@ -1,19 +1,9 @@
 name: Integration Tests
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/**'
-      - 'tests/**'
-      - 'scripts/check_self_host_compose.py'
-      - 'scripts/check_self_host_runtime.py'
-      - 'docker-compose.production.yml'
-      - '.env.production.example'
-      - 'docs/SELF_HOSTING.md'
-      - '.github/workflows/integration.yml'
-      - 'pyproject.toml'
-      - 'setup.py'
+  schedule:
+    # Nightly at 2:40 UTC
+    - cron: '40 2 * * *'
   workflow_dispatch:
 
 concurrency:

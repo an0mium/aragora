@@ -1,19 +1,12 @@
 name: Quality Pipeline Smoke
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'aragora/debate/output_quality.py'
-      - 'aragora/debate/repo_grounding.py'
-      - 'aragora/cli/commands/debate.py'
-      - 'tests/debate/test_output_quality.py'
-      - 'tests/debate/test_repo_grounding.py'
-      - 'tests/cli/test_offline_golden_path.py'
-      - '.github/workflows/quality-smoke.yml'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
+  schedule:
+    # Nightly at 1:30 UTC
+    - cron: '30 1 * * *'
   workflow_dispatch:
 
 concurrency:
