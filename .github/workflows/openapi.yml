@@ -151,11 +151,11 @@ jobs:
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
           if ! command -v pip >/dev/null 2>&1; then
-            python -m ensurepip --upgrade || true
+            "$PY_BIN" -m ensurepip --upgrade || true
           fi
 
-          python --version
-          pip --version || python -m pip --version
+          "$PY_BIN" --version
+          pip --version || "$PY_BIN" -m pip --version
 
       - name: Set up Node 20
         uses: actions/setup-node@v4
