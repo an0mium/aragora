@@ -193,6 +193,17 @@ class SynthesisGenerator:
             synthesis = self._combine_proposals_as_synthesis(ctx)
             logger.info("synthesis_generated_combined chars=%s", len(synthesis))
 
+        # Post-process: concretize vague lines with real repo paths
+        repo_hint = self._get_repo_path_hint()
+        if repo_hint and synthesis:
+            before_len = len(synthesis)
+            synthesis = self.concretize_output(synthesis, repo_hint)
+            if len(synthesis) != before_len:
+                logger.info(
+                    "synthesis_concretized delta_chars=%s",
+                    len(synthesis) - before_len,
+                )
+
         # Store synthesis in result
         ctx.result.synthesis = synthesis
         # Only set final_answer if the consensus phase didn't already set one
@@ -679,7 +690,19 @@ Required sections:
 (end of example — your output must follow this pattern with REAL paths from the REPOSITORY FILE REFERENCE above)
 
 ## YOUR TASK
-Synthesize the debate into a single comprehensive answer that EXACTLY follows the output format above.
+Synthesize the debate into a single comprehensive answer.
+
+STRUCTURAL REQUIREMENT (NON-NEGOTIABLE):
+Your output MUST start with `## Ranked High-Level Tasks` and use ONLY these 7 section headers as `## Heading` markdown:
+1. `## Ranked High-Level Tasks`
+2. `## Suggested Subtasks`
+3. `## Owner module / file paths`
+4. `## Test Plan`
+5. `## Rollback Plan`
+6. `## Gate Criteria`
+7. `## JSON Payload`
+
+Do NOT add any other `##` headers. Do NOT write an executive summary, diagnosis, or architecture section before the first required header. Your FIRST line of content must be `## Ranked High-Level Tasks`.
 
 Critical rules:
 - Use EXACTLY the required section headings as `## Heading` markdown headers, in the specified order.
@@ -696,6 +719,17 @@ Critical rules:
 - For "Rollback Plan": include explicit trigger conditions AND rollback actions.
 - For "JSON Payload": produce valid JSON that mirrors the section content.
 - Preserve DISSENT: if agents disagreed, note it in the relevant section.
+
+## BAD vs GOOD (do NOT produce lines like the BAD examples)
+
+BAD: "Improve the consensus detection system"
+GOOD: "Update `aragora/debate/consensus.py:detect_consensus()` to emit convergence events — Verify: `pytest tests/debate/test_consensus.py -v`"
+
+BAD: "Enhance error handling across the codebase"
+GOOD: "Add circuit-breaker fallback in `aragora/resilience/circuit_breaker.py:CircuitBreaker.call()` with threshold >= 3 failures in 60s — Verify: `pytest tests/resilience/test_circuit_breaker.py -v`"
+
+BAD: "Consider implementing better monitoring"
+GOOD: "Wire `aragora/observability/metrics.py:emit_debate_metrics()` into `aragora/debate/orchestrator.py:Arena.run()` post-consensus — p95 latency <= 250ms — Verify: `pytest tests/observability/test_metrics.py -v`"
 - Do NOT use placeholder text like TBD, TODO, "as needed", or "to be determined".
 
 Write authoritatively. This is the FINAL WORD on this debate."""
@@ -731,6 +765,72 @@ Create a comprehensive synthesis of **approximately 1200 words** (minimum 1000, 
 
 Write authoritatively. This is the FINAL WORD on this debate.
 Your response MUST be approximately 1200 words to provide comprehensive coverage."""
+
+    @staticmethod
+    def concretize_output(synthesis: str, repo_hint: str) -> str:
+        """Post-process synthesis to add pytest verify commands to lines that have paths.
+
+        Only adds pytest commands to lines that already contain a file path but
+        lack a test command.  Does NOT inject paths into lines that don't have
+        them — that would be fabricating specificity the LLM didn't produce.
+        """
+        import re as _re
+
+        if not synthesis or not repo_hint:
+            return synthesis
+
+        _TASK_SECTION_RE = _re.compile(
+            r"(?i)^##\s+(?:ranked\s+high.level\s+tasks|suggested\s+subtasks|test\s+plan)",
+        )
+        _PATH_IN_LINE = _re.compile(r"(?:/?[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+")
+        _PYTEST_IN_LINE = _re.compile(r"(?i)\bpytest\b")
+        _NUMBERED_ITEM = _re.compile(r"^(\s*(?:\d+\.\s+|\-\s+|\*\s+))")
+
+        lines = synthesis.split("\n")
+        in_target_section = False
+        result_lines: list[str] = []
+
+        for line in lines:
+            if line.startswith("##"):
+                in_target_section = bool(_TASK_SECTION_RE.match(line))
+                result_lines.append(line)
+                continue
+
+            if not in_target_section:
+                result_lines.append(line)
+                continue
+
+            stripped = line.strip()
+            if not stripped or not _NUMBERED_ITEM.match(stripped):
+                result_lines.append(line)
+                continue
+
+            has_path = bool(_PATH_IN_LINE.search(stripped))
+            has_pytest = bool(_PYTEST_IN_LINE.search(stripped))
+
+            # Only add pytest command if line already has a path but lacks one
+            if has_path and not has_pytest:
+                path_match = _PATH_IN_LINE.search(stripped)
+                if path_match:
+                    found_path = path_match.group(0)
+                    test_path = None
+                    if "tests/" in found_path:
+                        test_path = found_path
+                    elif found_path.endswith(".py"):
+                        parts = found_path.split("/")
+                        if len(parts) >= 2:
+                            module = parts[-2] if parts[-1] != "__init__.py" else parts[-3]
+                            fname = parts[-1]
+                            test_path = f"tests/{module}/test_{fname}"
+
+                    if test_path:
+                        indent = line[: line.index(stripped)]
+                        result_lines.append(f"{indent}{stripped} — Verify: `pytest {test_path} -v`")
+                        continue
+
+            result_lines.append(line)
+
+        return "\n".join(result_lines)
 
 
 __all__ = ["SynthesisGenerator"]
