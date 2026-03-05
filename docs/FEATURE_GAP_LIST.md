@@ -30,7 +30,7 @@
 | 3 beta users with `aragora review` | Not started | Need real PRs reviewed end-to-end via Aragora |
 | GitHub Actions pre-merge gate | Not started | AI code review integration for CI pipelines |
 | Public demo at aragora.ai/demo | Not started | Live shareable debate demo with persistence |
-| EU AI Act compliance package | Partial | Articles 9, 12-15 artifact bundles. CLI export works; documentation and customer playbook needed. **Deadline: Aug 2, 2026.** |
+| EU AI Act compliance package | Partial | Artifact bundles generated for Art. 12, 13, 14. Art. 9 conformity checking included in the report; dedicated Art. 9 artifact bundle is planned (see P2). CLI export works; documentation and customer playbook needed. **Deadline: Aug 2, 2026.** |
 | First 2 enterprise pilot engagements | Not started | Closed partnerships — target fintech + healthcare |
 | Developer onboarding <10 min | Not measured | No validated onboarding flow; needs user testing |
 
@@ -46,6 +46,7 @@
 | Decision-Integrity UI Workbench | Not started | No frontend for knowledge search, agent leaderboard, pipeline canvas. Backend APIs complete. |
 | SOC 2 Type II audit engagement | Not started | 98% controls implemented; formal audit vendor not engaged. |
 | Smart provider routing | Not started | Cost/quality-optimized routing across Claude/GPT/Mistral/DeepSeek. |
+| Article 9 dedicated artifact bundle | Not started | `ComplianceArtifactGenerator` currently produces Art. 12/13/14 bundles only. Art. 9 (Risk Management) conformity is checked via `ConformityReportGenerator` but has no dedicated `article_9_risk_management.json` output file. Needs `Article9Artifact` dataclass + generator method + CLI export. |
 
 ---
 
