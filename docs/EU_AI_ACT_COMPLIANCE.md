@@ -69,7 +69,7 @@ obligations.
 
 | EU AI Act Requirement | Article | Aragora Feature | Module | Status |
 |---|---|---|---|---|
-| Risk management system | Art. 9 | Gauntlet adversarial stress-testing: 3-phase red team attacks, capability probes, scenario matrix. ELO + Brier score calibration tracks per-agent reliability. | `aragora/gauntlet/` | Ready |
+| Risk management system | Art. 9 | Gauntlet adversarial stress-testing: 3-phase red team attacks, capability probes, scenario matrix. ELO + Brier score calibration tracks per-agent reliability. Art. 9 conformity checking is included in the `ConformityReportGenerator` output. **No dedicated Art. 9 artifact file is generated** — a dedicated artifact bundle is planned (see roadmap). | `aragora/gauntlet/`, `aragora/compliance/eu_ai_act.py` | Conformity checking ✓ / Dedicated artifact: planned |
 | Data governance | Art. 10 | Knowledge Mound with 41 adapters, provenance tracking, validation feedback, contradiction detection, and confidence decay. | `aragora/knowledge/mound/` | Ready |
 | Technical documentation | Art. 11 | Decision receipts capture full system configuration: agents, protocol, consensus thresholds, Annex IV sections auto-populated. | `aragora/export/decision_receipt.py` | Ready |
 | Record-keeping / logging | Art. 12 | `Article12Artifact`: provenance chain event log, Annex IV tech doc summary, reference databases, retention policy (6-month minimum per Art. 26(6)). | `aragora/compliance/eu_ai_act.py` | Ready |
