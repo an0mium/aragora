@@ -110,7 +110,7 @@ jobs:
 
       - name: Run quick tests
         run: |
-          pytest tests/test_handlers_debates.py tests/test_api_handler.py \
+          python -m pytest tests/test_handlers_debates.py tests/test_api_handler.py \
             --timeout=60 -x --tb=short
         env:
           PYTHONPATH: .
