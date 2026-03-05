@@ -124,7 +124,7 @@ const CATEGORIES: FeatureCategory[] = [
     features: [
       { name: 'Decision Integrity', description: 'End-to-end decision quality assurance with provenance tracking', status: 'active', href: '/decision-integrity' },
       { name: 'Dashboard', description: 'Agent registry, task scheduler, health monitoring, and policy governance', status: 'active', href: '/control-plane' },
-      { name: 'RBAC v2', description: '50+ fine-grained permissions with role hierarchy and middleware', status: 'active', href: '/control-plane' },
+      { name: 'RBAC v2', description: '360+ fine-grained permissions with role hierarchy and middleware', status: 'active', href: '/control-plane' },
       { name: 'Multi-Tenancy', description: 'Tenant isolation, resource quotas, and usage metering', status: 'active', href: '/admin/tenants' },
       { name: 'Moderation', description: 'Spam filtering and content validation for debates', status: 'active', href: '/moderation' },
       { name: 'Vertical Specialists', description: 'Healthcare (HIPAA), Financial (SOX), Legal vertical guides', status: 'active', href: '/verticals' },
