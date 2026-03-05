@@ -100,14 +100,9 @@ def test_landing_debate_produces_shareable_result(playground_handler):
     assert "id" in body or "debate_id" in body, f"No debate ID in response: {list(body.keys())}"
     assert "status" in body
 
-    # Share capability
-    assert "share_token" in body or "share_url" in body, (
-        f"Missing share_token/share_url in response: {list(body.keys())}"
-    )
-    if "share_token" in body:
-        assert body["share_token"], "share_token must be non-empty"
-    if "share_url" in body:
-        assert body["share_url"], "share_url must be non-empty"
+    # Share capability — share_token is required (share_url is also expected alongside it)
+    assert "share_token" in body, f"Missing share_token in response: {list(body.keys())}"
+    assert body["share_token"], "share_token must be non-empty"
 
 
 def test_landing_debate_consensus_fields(playground_handler):
@@ -196,7 +191,7 @@ def test_mock_debate_source_landing_sets_share_fields(playground_handler):
     assert result.status_code == 200
     body = json.loads(result.body.decode("utf-8"))
 
-    # Even for mock debates, share_token should be present
-    assert "share_token" in body or "share_url" in body, (
-        f"Mock landing debate missing share fields. Keys: {list(body.keys())}"
+    # Even for mock debates, share_token must be present
+    assert "share_token" in body, (
+        f"Mock landing debate missing share_token. Keys: {list(body.keys())}"
     )

@@ -1685,8 +1685,13 @@ class PlaygroundHandler(BaseHandler):
                 data["share_url"] = f"/debate/{debate_id}"
                 data["share_token"] = debate_id
                 data.setdefault("source", source)
-                store = get_debate_store()
-                store.save(debate_id, topic, data, source=source)
+                try:
+                    store = get_debate_store()
+                    store.save(debate_id, topic, data, source=source)
+                except (ImportError, RuntimeError, OSError):
+                    logger.debug("Debate store unavailable, debate not persisted", exc_info=True)
+                except Exception:  # noqa: BLE001
+                    logger.warning("Unexpected store error, debate not persisted", exc_info=True)
                 return json_response(data)
         except (ImportError, RuntimeError, OSError, json.JSONDecodeError, UnicodeDecodeError):
             logger.warning("Debate persistence unavailable", exc_info=True)
