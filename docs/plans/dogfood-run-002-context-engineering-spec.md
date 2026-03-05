@@ -122,3 +122,74 @@ Run 002 shows clear improvement in codebase grounding and path realism, but stil
 Add explicit deterministic output constraints to force:
 1. exactly 5-7 ranked tasks,
 2. a dedicated `Dissenting Positions` section with at least two numbered dissent entries.
+
+## Run 003 Results (March 4, 2026)
+
+### Executed Command Profile
+- Mode: local debate
+- Agents: OpenRouter Claude Sonnet 4 (proposer), OpenRouter GPT-4o (critic), OpenRouter Gemini 2.0 Flash (synthesizer)
+- Rounds: 2
+- Context engineering: static inventory (11K chars) + full CE (36K chars), no harness explorers
+- Timeout: 600s
+- Post-consensus quality: disabled (speed)
+- Date: 2026-03-04
+
+### Context Engineering Metrics
+- Static inventory: 11,039 chars (~2,760 tokens) from CLAUDE.md
+- Full CE context: 35,966 chars (~9,000 tokens) from RLM CodebaseContextBuilder
+- Total injected: ~47K chars (~12K tokens)
+- Build time: 0.17s (deterministic only, no harness exploration)
+
+### Path Grounding Analysis
+- **Raw**: grounded=46% (existing=8, new=5, missing=10, total=23)
+- **Filtered** (excluding false-positive regex matches like "P0/P1", "CI/CD", "I/O"): ~93% (13/14 real paths are valid)
+- **Zero `/src/` paths**: All proposals use correct `aragora/` directory structure
+
+Existing paths correctly referenced (8):
+- `aragora/analytics/debate_analytics.py`
+- `aragora/observability/metrics.py`
+- `scripts/nomic_loop.py`
+- `aragora/debate/orchestrator.py`
+- `aragora/pipeline/`
+- `aragora/workflow/engine.py`
+- `aragora/gauntlet/runner.py`
+- `aragora/audit/codebase_auditor.py`
+
+New files proposed in valid directories (5):
+- `aragora/analytics/quality_baseline.py`
+- `tests/analytics/test_quality_baseline.py`
+- `aragora/server/debate_origin.py` (already exists — false "new")
+- `aragora/pipeline/stages/implementation_stage.py`
+- `aragora/audit/auditor_config.py`
+
+### Scorecard
+
+| Criterion | Run 001 | Run 002 | Run 003 | Trend |
+|---|---|---|---|---|
+| Path validity (filtered) | 0% | 93% | ~93% | Fixed |
+| No `/src/` paths | FAIL | PASS | PASS | Fixed |
+| Duplicate recreation ratio | 70% | 0% | ~15% | Improved |
+| ≥5 ranked tasks | YES (5) | FAIL (3) | FAIL (4) | Improving |
+| ≥2 dissenting positions | FAIL (1) | FAIL (1) | FAIL (1) | No change |
+| Owner paths correct | FAIL | PASS | PASS | Fixed |
+| Acceptance criteria | 0.8 | PASS | 0.9 | Improved |
+| Rollback plans | 0.9 | PASS | 0.9 | Stable |
+
+### Key Improvements Over Run 001
+1. **Context engineering works**: Agents now reference real modules and correct directory structure
+2. **No reinvention**: Tasks propose modifications to existing files, not creating from scratch
+3. **Quantified criteria**: Acceptance criteria include Pearson coefficients, latency targets, percentages
+4. **Atomic subtasks**: Each P0/P1 task broken into 4-6 subtasks with specific file/function targets
+
+### Remaining Failures
+1. **Task count**: 4 tasks, not 5 — output was truncated (5th task cut off by response length)
+2. **Dissent**: Only addresses critic objections, doesn't preserve genuine minority positions
+3. **Line number hallucination**: Agents cite specific line numbers (e.g., "line 89-156") that are fabricated
+4. **Evidence claims**: "94% success rate across 847 debates" and "23 P0/P1 opportunities" are fabricated statistics not from the inventory
+
+### Next Steps for Run 004
+1. **Force structure**: Add `--required-sections` with explicit task count requirement
+2. **Require dissent**: Add "Dissenting Positions (minimum 2)" to required sections
+3. **Ban hallucinated stats**: Add guardrail "Do not cite statistics unless they appear verbatim in the context"
+4. **Increase timeout**: 600s was sufficient but cutting it close
+5. **Enable harnesses**: Compare with/without Claude+Codex explorer synthesis
