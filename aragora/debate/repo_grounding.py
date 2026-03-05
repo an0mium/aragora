@@ -197,6 +197,28 @@ def _first_nonempty_line(text: str) -> str:
 _FILE_EXT_RE = re.compile(r"\b\w+\.(py|ts|tsx|js|jsx|yaml|yml|toml|json|md)\b")
 _SUBHEADER_RE = re.compile(r"^\s*\*\*[^*]+\*\*:?\s*$")
 
+# Qualitative gate-criteria patterns: express pass/fail conditions without
+# numeric operators.  Lines like "all tests must pass", "no regressions",
+# "100% of smoke tests must pass" are legitimate gate criteria that deserve
+# concreteness credit even though they lack file paths or numeric thresholds.
+_QUALITATIVE_GATE_RE = re.compile(
+    r"(?i)"
+    r"(?:"
+    r"\bmust\s+(?:pass|succeed|complete|not\s+(?:fail|decrease|increase|exceed|regress|break))\b"
+    r"|\bshould\s+not\s+(?:fail|decrease|increase|exceed|regress|break)\b"
+    r"|\b(?:all|every)\s+(?:existing\s+)?tests?\s+(?:must\s+)?pass\b"
+    r"|\bno\s+(?:new\s+)?(?:regression|failure|warning|error|lint)s?\b"
+    r"|\b(?:100%|full)\s+(?:success|pass|compliance)\b"
+    r"|\bzero\s+(?:blocker|error|failure|timeout|crash)s?\b"
+    r"|\b(?:0|no)\s+(?:blocker|error|failure|timeout|crash|regression|duplicate|empty)\w*\b"
+    r"|\bci\s+(?:must\s+)?(?:be\s+)?green\b"
+    r"|\bbranch\s+(?:must\s+)?(?:be\s+)?(?:green|clean|passing)\b"
+    r"|\bgit\s+revert\b"
+    r"|\bfeature\s+flag\b"
+    r"|\b(?:revert|rollback|roll\s+back)\s+(?:the\s+)?(?:commit|merge|deploy|change)\b"
+    r")"
+)
+
 
 def _is_subheader_line(line: str) -> bool:
     """Return True for bold-only sub-header lines like '**Task 1 Subtasks:**'."""
@@ -226,6 +248,11 @@ def _line_concreteness(line: str) -> float:
         score += 0.2
     if _THRESHOLD_RE.search(line):
         score += 0.2
+    elif _QUALITATIVE_GATE_RE.search(line):
+        # Qualitative gate criteria (e.g. "all tests must pass", "no regressions",
+        # "CI must be green") are practical content that deserves credit even
+        # without numeric operators.  Weighted lower than numeric thresholds.
+        score += 0.15
     if len(line.split()) >= 6:
         score += 0.1
     raw = min(1.0, score)
