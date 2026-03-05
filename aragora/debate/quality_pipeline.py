@@ -72,7 +72,7 @@ class QualityPipelineConfig:
             repo_root=data.get("repo_root"),
             has_context=bool(data.get("has_context", False)),
             quality_min_score=float(data.get("quality_min_score", 9.0)),
-            practicality_min_score=float(data.get("practicality_min_score", 6.0)),
+            practicality_min_score=float(data.get("practicality_min_score", 5.0)),
         )
 
 

@@ -144,7 +144,7 @@ def _summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
         for run in quality_present
         if run["quality"]["verdict"] == "good"
         and (run["quality"]["score"] or 0) >= 9.0
-        and (run["quality"]["practicality"] or 0) >= 6.0
+        and (run["quality"]["practicality"] or 0) >= 5.0
     ]
 
     durations = [float(run["duration_seconds"]) for run in runs]
