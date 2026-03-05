@@ -1,6 +1,6 @@
 # .github/actions/aragora-code-review/action.yml
 name: Aragora Code Review
-description: Multi-agent AI code review using aragora review CLI
+description: Multi-agent AI code review using aragora review CLI. Requires pull-requests write permission to post comments.
 
 inputs:
   anthropic-api-key:
@@ -42,13 +42,26 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         GITHUB_TOKEN: ${{ github.token }}
         PR_URL: ${{ github.event.pull_request.html_url }}
+        INPUT_ROUNDS: ${{ inputs.rounds }}
+        INPUT_FOCUS: ${{ inputs.focus }}
+        INPUT_OUTPUT_FORMAT: ${{ inputs.output-format }}
+        INPUT_POST_COMMENT: ${{ inputs.post-comment }}
+        INPUT_API_KEY: ${{ inputs.anthropic-api-key }}
       run: |
-        ARGS="--output-format ${{ inputs.output-format }} --rounds ${{ inputs.rounds }} --focus ${{ inputs.focus }}"
-        if [[ "${{ inputs.post-comment }}" == "true" ]]; then
-          ARGS="$ARGS --post-comment"
+        if [[ -z "$PR_URL" ]]; then
+          echo "::notice::No PR URL available — skipping aragora review"
+          exit 0
         fi
-        if [[ -z "${{ inputs.anthropic-api-key }}" ]]; then
+        ARGS=("--output-format" "$INPUT_OUTPUT_FORMAT" "--rounds" "$INPUT_ROUNDS" "--focus" "$INPUT_FOCUS")
+        if [[ "$INPUT_POST_COMMENT" == "true" ]]; then
+          ARGS+=("--post-comment")
+        fi
+        if [[ -z "$INPUT_API_KEY" ]]; then
           echo "No API key provided — running in demo mode"
-          ARGS="$ARGS --demo"
+          ARGS+=("--demo")
         fi
-        aragora review "$PR_URL" $ARGS || true
+        aragora review "$PR_URL" "${ARGS[@]}" || {
+          EXIT=$?
+          echo "::warning::aragora review exited with code $EXIT — review may be incomplete"
+          true
+        }
