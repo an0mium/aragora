@@ -1644,7 +1644,7 @@ class PlaygroundHandler(BaseHandler):
                 result = self._run_debate_with_package(
                     topic, rounds, agent_count, question=question
                 )
-                return self._persist_and_respond(result, topic, "playground")
+                return self._persist_and_respond(result, topic, source)
             except ImportError:
                 logger.info("aragora-debate not installed, using inline mock debate")
             except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
@@ -1656,7 +1656,7 @@ class PlaygroundHandler(BaseHandler):
             return self._persist_and_respond(
                 json_response(mock_result),
                 topic,
-                "mock",
+                source,
             )
         except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, OSError):
             logger.exception("Inline mock debate failed")
@@ -1680,9 +1680,13 @@ class PlaygroundHandler(BaseHandler):
             data = json.loads(body_bytes.decode("utf-8"))
             debate_id = data.get("id", "")
             if debate_id:
+                # Inject share fields and source into data BEFORE persisting
+                # so the public viewer's _is_shareable() check passes.
+                data["share_url"] = f"/debate/{debate_id}"
+                data["share_token"] = debate_id
+                data.setdefault("source", source)
                 store = get_debate_store()
                 store.save(debate_id, topic, data, source=source)
-                data["share_url"] = f"/debate/{debate_id}"
                 return json_response(data)
         except (ImportError, RuntimeError, OSError, json.JSONDecodeError, UnicodeDecodeError):
             logger.warning("Debate persistence unavailable", exc_info=True)
