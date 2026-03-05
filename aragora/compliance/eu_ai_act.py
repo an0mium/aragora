@@ -907,6 +907,47 @@ class Article9Artifact:
 
 
 @dataclass
+class Article15Artifact:
+    """EU AI Act Article 15 — Accuracy, Robustness, Cybersecurity artifact."""
+
+    artifact_id: str
+    receipt_id: str
+    generated_at: str
+
+    # Accuracy
+    accuracy_metrics: dict  # {consensus_confidence, agreement_ratio, agent_count}
+
+    # Robustness
+    robustness_score: float
+    adversarial_testing: dict  # {dissent_detected, dissent_count, hollow_consensus_checked}
+
+    # Cybersecurity
+    cryptographic_controls: dict  # {signing_algorithm, hash_algorithm, integrity_hash_present}
+
+    # Error analysis
+    error_indicators: list[str]
+
+    # Monitoring
+    continuous_monitoring: str
+
+    integrity_hash: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "artifact_id": self.artifact_id,
+            "receipt_id": self.receipt_id,
+            "generated_at": self.generated_at,
+            "accuracy_metrics": self.accuracy_metrics,
+            "robustness_score": self.robustness_score,
+            "adversarial_testing": self.adversarial_testing,
+            "cryptographic_controls": self.cryptographic_controls,
+            "error_indicators": self.error_indicators,
+            "continuous_monitoring": self.continuous_monitoring,
+            "integrity_hash": self.integrity_hash,
+        }
+
+
+@dataclass
 class ComplianceArtifactBundle:
     """Complete EU AI Act compliance artifact bundle.
 
@@ -923,6 +964,7 @@ class ComplianceArtifactBundle:
     article_13: Article13Artifact
     article_14: Article14Artifact
     article_9: "Article9Artifact | None" = None
+    article_15: "Article15Artifact | None" = None
     integrity_hash: str = ""
 
     def __post_init__(self):
@@ -954,6 +996,9 @@ class ComplianceArtifactBundle:
             "article_12_record_keeping": self.article_12.to_dict(),
             "article_13_transparency": self.article_13.to_dict(),
             "article_14_human_oversight": self.article_14.to_dict(),
+            "article_15_accuracy_robustness": self.article_15.to_dict()
+            if self.article_15
+            else None,
             "integrity_hash": self.integrity_hash,
         }
 
@@ -1004,6 +1049,7 @@ class ComplianceArtifactGenerator:
             article_13=self._generate_art13(receipt, receipt_id, timestamp, classification),
             article_14=self._generate_art14(receipt, receipt_id, timestamp),
             article_9=self._generate_art9(receipt, receipt_id, timestamp),
+            article_15=self._generate_art15(receipt, receipt_id, timestamp),
         )
 
     # -- Article 12: Record-Keeping --
@@ -1394,6 +1440,85 @@ class ComplianceArtifactGenerator:
             integrity_hash=integrity_hash,
         )
 
+    def _generate_art15(
+        self,
+        receipt: dict[str, Any],
+        receipt_id: str,
+        timestamp: str,
+    ) -> Article15Artifact:
+        """Generate Article 15 (Accuracy, Robustness, Cybersecurity) artifact."""
+        artifact_id = f"ART15-{uuid.uuid4().hex[:8]}"
+
+        votes = receipt.get("votes", [])
+        participants = receipt.get("participants", [])
+        dissenting = receipt.get("dissenting_agents", [])
+        confidence = receipt.get("confidence", 0.0)
+        robustness = receipt.get("robustness_score", 0.0)
+        artifact_hash = receipt.get("artifact_hash", "")
+        signature = receipt.get("signature", "")
+        sig_algo = receipt.get("signature_algorithm", "")
+
+        # Accuracy metrics
+        agreement_ratio = (
+            (len(participants) - len(dissenting)) / len(participants) if participants else 1.0
+        )
+        accuracy_metrics = {
+            "consensus_confidence": round(confidence, 4),
+            "agreement_ratio": round(agreement_ratio, 4),
+            "agent_count": len(participants),
+            "vote_confidence_mean": (
+                round(sum(v.get("confidence", 0) for v in votes) / len(votes), 4) if votes else 0.0
+            ),
+        }
+
+        # Adversarial testing (what the debate structure provides)
+        adversarial_testing = {
+            "dissent_detected": len(dissenting) > 0,
+            "dissent_count": len(dissenting),
+            "hollow_consensus_checked": True,  # Trickster always active
+            "rhetorical_device_scoring": True,  # RhetoricalObserver active
+            "multi_round_critique": True,
+        }
+
+        # Cryptographic controls
+        cryptographic_controls = {
+            "integrity_hash_algorithm": "SHA-256",
+            "integrity_hash_present": bool(artifact_hash),
+            "signature_present": bool(signature),
+            "signing_algorithm": sig_algo or "not-signed",
+        }
+
+        # Error indicators from debate dissent
+        error_indicators = []
+        if dissenting:
+            error_indicators.append(
+                f"Minority dissent from {len(dissenting)} agent(s): {', '.join(dissenting)}"
+            )
+        if confidence < 0.7:
+            error_indicators.append(f"Low consensus confidence: {confidence:.0%}")
+        if robustness < 0.5:
+            error_indicators.append(f"Below-threshold robustness score: {robustness:.2f}")
+
+        integrity_input = f"{artifact_id}:{receipt_id}:{robustness}"
+        integrity_hash = hashlib.sha256(integrity_input.encode()).hexdigest()
+
+        return Article15Artifact(
+            artifact_id=artifact_id,
+            receipt_id=receipt_id,
+            generated_at=timestamp,
+            accuracy_metrics=accuracy_metrics,
+            robustness_score=robustness,
+            adversarial_testing=adversarial_testing,
+            cryptographic_controls=cryptographic_controls,
+            error_indicators=error_indicators,
+            continuous_monitoring=(
+                "ELO-based model performance tracking updated after each debate. "
+                "Brier calibration scores updated after settlement resolution. "
+                "SettlementTracker monitors claim accuracy over review_horizon_days."
+            ),
+            integrity_hash=integrity_hash,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Bundle generator with SQLite-backed storage
@@ -1584,6 +1709,8 @@ __all__ = [
     "Article12Artifact",
     "Article13Artifact",
     "Article14Artifact",
+    "Article9Artifact",
+    "Article15Artifact",
     "ComplianceArtifactBundle",
     "ComplianceArtifactGenerator",
     "EUAIActBundleGenerator",
