@@ -144,9 +144,36 @@ jobs:
           fi
 
       - name: Set up Python 3.11
+        id: setup-python
+        continue-on-error: true
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Ensure python toolchain is available
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PY_BIN="$(command -v python || true)"
+          if [[ -z "$PY_BIN" ]]; then
+            PY_BIN="$(command -v python3 || true)"
+          fi
+          if [[ -z "$PY_BIN" ]]; then
+            echo "::error::No python interpreter found on runner"
+            exit 1
+          fi
+
+          mkdir -p "$RUNNER_TEMP/bin"
+          ln -sf "$PY_BIN" "$RUNNER_TEMP/bin/python"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+          if ! command -v pip >/dev/null 2>&1; then
+            python -m ensurepip --upgrade || true
+          fi
+
+          python --version
+          pip --version || python -m pip --version
 
       - name: Set up Node 20
         uses: actions/setup-node@v4
