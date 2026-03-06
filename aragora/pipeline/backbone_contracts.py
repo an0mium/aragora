@@ -398,6 +398,69 @@ class DeliberationBundle:
 
 
 @dataclass
+class ExecutionAttemptRecord:
+    """Stable handoff artifact for a single execution attempt.
+
+    Normalizes outputs from plan execution and task execution into a compatible
+    shape so that receipt generation, outcome feedback, and verification replay
+    can consume results without depending on specific executor internals.
+    """
+
+    attempt_id: str
+    plan_id: str = ""
+    status: str = "unknown"  # "succeeded", "failed", "blocked", "unknown"
+    tests_passed: int = 0
+    tests_failed: int = 0
+    files_changed: int = 0
+    diff_summary: str = ""
+    artifacts: list[str] = field(default_factory=list)
+    policy_decision: dict[str, Any] = field(default_factory=dict)
+    taint_flags: list[str] = field(default_factory=list)
+    duration_s: float = 0.0
+    error_message: str = ""
+    extras: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_plan_outcome(
+        cls,
+        outcome: Any,
+        *,
+        attempt_id: str,
+        plan_id: str = "",
+        policy_decision: dict[str, Any] | None = None,
+        taint_flags: list[str] | None = None,
+        artifacts: list[str] | None = None,
+        diff_summary: str = "",
+    ) -> ExecutionAttemptRecord:
+        """Normalize a PipelineOutcome (or duck-typed equivalent) into a stable attempt record."""
+        succeeded = bool(getattr(outcome, "execution_succeeded", False))
+        status = "succeeded" if succeeded else "failed"
+
+        return cls(
+            attempt_id=attempt_id,
+            plan_id=plan_id or str(getattr(outcome, "pipeline_id", "") or ""),
+            status=status,
+            tests_passed=int(getattr(outcome, "tests_passed", 0) or 0),
+            tests_failed=int(getattr(outcome, "tests_failed", 0) or 0),
+            files_changed=int(getattr(outcome, "files_changed", 0) or 0),
+            diff_summary=diff_summary,
+            artifacts=list(artifacts or []),
+            policy_decision=dict(policy_decision or {}),
+            taint_flags=list(taint_flags or []),
+            duration_s=float(getattr(outcome, "total_duration_s", 0.0) or 0.0),
+            error_message=str(getattr(outcome, "error_message", "") or ""),
+            extras={
+                "run_type": str(getattr(outcome, "run_type", "") or ""),
+                "domain": str(getattr(outcome, "domain", "") or ""),
+                "spec_completeness": float(getattr(outcome, "spec_completeness", 0.0) or 0.0),
+            },
+        )
+
+
+@dataclass
 class OutcomeFeedbackRecord:
     receipt_ref: str
     pipeline_id: str
