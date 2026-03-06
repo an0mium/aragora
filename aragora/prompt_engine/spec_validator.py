@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from aragora.pipeline.backbone_contracts import SpecBundle
 from aragora.prompt_engine.types import Specification
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,7 @@ class SpecValidator:
         """Structural validation without LLM calls."""
         issues: list[str] = []
         role_results: dict[ValidatorRole, dict[str, Any]] = {}
+        execution_bundle = SpecBundle.from_prompt_spec(spec)
 
         # Devil's advocate: completeness
         da_issues: list[str] = []
@@ -69,6 +71,8 @@ class SpecValidator:
             da_issues.append("Missing problem statement")
         if not solution:
             da_issues.append("Missing proposed solution")
+        for field_name in execution_bundle.missing_required_fields:
+            da_issues.append(f"Missing execution-grade field: {field_name}")
         da_passed = not da_issues
         role_results[ValidatorRole.DEVILS_ADVOCATE] = {
             "passed": da_passed,
@@ -115,6 +119,8 @@ class SpecValidator:
         ux_issues: list[str] = []
         if not criteria:
             ux_issues.append("No success criteria defined")
+        if not execution_bundle.verification_plan:
+            ux_issues.append("No verification plan defined")
         ux_passed = not ux_issues
         role_results[ValidatorRole.UX_ADVOCATE] = {
             "passed": ux_passed,
@@ -130,6 +136,10 @@ class SpecValidator:
             mitigation = getattr(risk, "mitigation", "") or ""
             if not mitigation:
                 td_issues.append(f"Unmitigated risk: {desc}")
+        if not execution_bundle.rollback_plan:
+            td_issues.append("No rollback plan defined")
+        if not execution_bundle.owner_file_scopes:
+            td_issues.append("No owner file scopes defined")
         td_passed = not td_issues
         role_results[ValidatorRole.TECH_DEBT_AUDITOR] = {
             "passed": td_passed,

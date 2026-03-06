@@ -30,6 +30,8 @@ from aragora.pipeline.decision_plan import (
     record_plan_outcome,
 )
 from aragora.pipeline.risk_register import RiskLevel
+from aragora.prompt_engine.spec_validator import ValidationResult, ValidatorRole
+from aragora.prompt_engine.types import RiskItem, Specification, SpecFile
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +179,88 @@ class TestDecisionPlanFactory:
 
         assert len(plan.implement_plan.tasks) == 1
         assert plan.implement_plan.tasks[0].complexity == "complex"
+
+    def test_validate_execution_grade_specification_fail_closed(self):
+        spec = Specification(
+            title="Incomplete spec",
+            problem_statement="Problem",
+            proposed_solution="Solution",
+            success_criteria=["Criterion"],
+        )
+
+        with pytest.raises(ValueError, match="execution-grade"):
+            DecisionPlanFactory.validate_execution_grade_specification(spec, fail_closed=True)
+
+    def test_from_debate_result_blocks_incomplete_spec_for_never_mode(self):
+        spec = Specification(
+            title="Incomplete spec",
+            problem_statement="Problem",
+            proposed_solution="Solution",
+            success_criteria=["Criterion"],
+        )
+
+        with pytest.raises(ValueError, match="owner_file_scopes"):
+            DecisionPlanFactory.from_debate_result(
+                _make_result(),
+                approval_mode=ApprovalMode.NEVER,
+                specification=spec,
+            )
+
+    def test_from_debate_result_records_missing_spec_fields_for_manual_lane(self):
+        spec = Specification(
+            title="Incomplete spec",
+            problem_statement="Problem",
+            proposed_solution="Solution",
+            success_criteria=["Criterion"],
+        )
+
+        plan = DecisionPlanFactory.from_debate_result(
+            _make_result(),
+            approval_mode=ApprovalMode.ALWAYS,
+            specification=spec,
+        )
+
+        assert "spec_bundle" in plan.metadata
+        assert sorted(plan.metadata["spec_bundle_missing_fields"]) == [
+            "constraints",
+            "owner_file_scopes",
+            "rollback_plan",
+        ]
+
+    def test_from_debate_result_accepts_execution_grade_spec_in_auto_lane(self):
+        spec = Specification(
+            title="Execution-grade spec",
+            problem_statement="Problem",
+            proposed_solution="Solution",
+            success_criteria=["Criterion"],
+            file_changes=[
+                SpecFile(path="aragora/pipeline/example.py", action="modify", description="Change")
+            ],
+            risks=[
+                RiskItem(
+                    description="Regression risk",
+                    likelihood="medium",
+                    impact="medium",
+                    mitigation="Use staged rollback",
+                )
+            ],
+        )
+        spec.constraints = ["Keep existing API contract stable"]
+        validation = ValidationResult(
+            role_results={ValidatorRole.DEVILS_ADVOCATE: {"passed": True, "confidence": 0.9}},
+            overall_confidence=0.9,
+            passed=True,
+        )
+
+        plan = DecisionPlanFactory.from_debate_result(
+            _make_result(),
+            approval_mode=ApprovalMode.NEVER,
+            specification=spec,
+            validation_result=validation,
+        )
+
+        assert plan.metadata["spec_bundle"]["title"] == "Execution-grade spec"
+        assert "spec_bundle_missing_fields" not in plan.metadata
 
 
 # ---------------------------------------------------------------------------

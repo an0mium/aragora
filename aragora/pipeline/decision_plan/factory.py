@@ -9,10 +9,11 @@ from __future__ import annotations
 import hashlib
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.core_types import DebateResult
 from aragora.implement.types import ImplementPlan, ImplementTask
+from aragora.pipeline.backbone_contracts import SpecBundle
 from aragora.pipeline.decision_plan.core import (
     ApprovalMode,
     BudgetAllocation,
@@ -27,6 +28,9 @@ from aragora.pipeline.verification_plan import (
     VerificationPlan,
     VerificationType,
 )
+
+if TYPE_CHECKING:
+    from aragora.prompt_engine.spec_validator import ValidationResult
 
 _EXECUTION_MODE_ALIASES = {
     "execute_workflow": "workflow",
@@ -77,6 +81,9 @@ class DecisionPlanFactory:
         metadata: dict[str, Any] | None = None,
         implement_plan: ImplementPlan | None = None,
         implementation_profile: ImplementationProfile | dict[str, Any] | None = None,
+        specification: Any | None = None,
+        validation_result: ValidationResult | Any | None = None,
+        fail_closed_spec_validation: bool | None = None,
     ) -> DecisionPlan:
         """Create a DecisionPlan from a DebateResult.
 
@@ -136,6 +143,35 @@ class DecisionPlanFactory:
             if profile.thread_id_by_platform and "thread_id_by_platform" not in merged_metadata:
                 merged_metadata["thread_id_by_platform"] = profile.thread_id_by_platform
 
+        if specification is not None:
+            spec_bundle = DecisionPlanFactory.validate_execution_grade_specification(
+                specification,
+                validation_result=validation_result,
+                fail_closed=(
+                    approval_mode == ApprovalMode.NEVER
+                    if fail_closed_spec_validation is None
+                    else fail_closed_spec_validation
+                ),
+            )
+            merged_metadata["spec_bundle"] = {
+                "title": spec_bundle.title,
+                "problem_statement": spec_bundle.problem_statement,
+                "objectives": spec_bundle.objectives,
+                "constraints": spec_bundle.constraints,
+                "acceptance_criteria": spec_bundle.acceptance_criteria,
+                "verification_plan": spec_bundle.verification_plan,
+                "rollback_plan": spec_bundle.rollback_plan,
+                "owner_file_scopes": spec_bundle.owner_file_scopes,
+                "open_questions": spec_bundle.open_questions,
+                "confidence": spec_bundle.confidence,
+                "source_kind": spec_bundle.source_kind,
+                "taint_flags": spec_bundle.taint_flags,
+            }
+            if spec_bundle.missing_required_fields:
+                merged_metadata["spec_bundle_missing_fields"] = list(
+                    spec_bundle.missing_required_fields
+                )
+
         plan = DecisionPlan(
             debate_id=result.debate_id,
             task=result.task,
@@ -172,6 +208,24 @@ class DecisionPlanFactory:
             plan.status = PlanStatus.APPROVED
 
         return plan
+
+    @staticmethod
+    def validate_execution_grade_specification(
+        specification: Any,
+        *,
+        validation_result: ValidationResult | Any | None = None,
+        fail_closed: bool = False,
+    ) -> SpecBundle:
+        """Normalize a prompt/interrogation specification to the canonical spec bundle.
+
+        When ``fail_closed`` is true, incomplete execution-grade specifications raise
+        ``ValueError`` so automated lanes cannot proceed silently.
+        """
+        bundle = SpecBundle.from_prompt_spec(specification, validation=validation_result)
+        if fail_closed and bundle.missing_required_fields:
+            missing = ", ".join(bundle.missing_required_fields)
+            raise ValueError(f"Specification is not execution-grade: missing {missing}")
+        return bundle
 
     @staticmethod
     def from_implement_plan(
