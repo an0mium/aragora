@@ -241,7 +241,12 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       )}
 
       <div className="max-w-xl mx-auto text-center w-full">
-        {/* ASCII banner — dark theme only */}
+        {/* Mobile-only brand text (ASCII banner is hidden on small screens) */}
+        <div className="block sm:hidden text-center mb-4">
+          <span className="text-[var(--acid-green)] font-mono font-bold text-2xl tracking-[0.3em]">ARAGORA</span>
+        </div>
+
+        {/* ASCII banner — dark theme only, desktop */}
         {isDark && (
           <pre
             className="text-[6px] sm:text-[7px] text-center mb-10 hidden sm:block leading-tight"
