@@ -133,6 +133,7 @@ Examples:
     _add_consensus_parser(subparsers)
     _add_ideacloud_parser(subparsers)
     _add_signing_parser(subparsers)
+    _add_triage_parser(subparsers)
 
     return parser
 
@@ -2021,6 +2022,13 @@ def _add_signing_parser(subparsers) -> None:
     from aragora.cli.commands.signing import add_signing_parser
 
     add_signing_parser(subparsers)
+
+
+def _add_triage_parser(subparsers) -> None:
+    """Add the 'triage' subcommand for inbox trust wedge."""
+    from aragora.cli.commands.triage import add_triage_parser
+
+    add_triage_parser(subparsers)
 
 
 def _add_swarm_parser(subparsers) -> None:
