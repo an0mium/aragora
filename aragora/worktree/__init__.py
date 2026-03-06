@@ -18,6 +18,11 @@ from aragora.worktree.fleet import (
     build_fleet_rows,
     infer_orchestration_pattern,
 )
+from aragora.worktree.integration_worker import (
+    FleetIntegrationOutcome,
+    FleetIntegrationWorker,
+    FleetIntegrationWorkerConfig,
+)
 
 __all__ = [
     "AUTOPILOT_ACTIONS",
@@ -32,4 +37,7 @@ __all__ = [
     "FleetCoordinationStore",
     "build_fleet_rows",
     "infer_orchestration_pattern",
+    "FleetIntegrationOutcome",
+    "FleetIntegrationWorker",
+    "FleetIntegrationWorkerConfig",
 ]

@@ -6,7 +6,7 @@ import json
 import sqlite3
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -22,6 +22,7 @@ from aragora.coordination.cross_workspace import (
     SharingScope,
 )
 from aragora.server.handlers.control_plane import ControlPlaneHandler
+from aragora.worktree.integration_worker import FleetIntegrationOutcome
 
 
 # ============================================================================
@@ -524,6 +525,44 @@ class TestFleetStatus:
         assert listing.status_code == 200
         listing_data = json.loads(listing.body)
         assert listing_data["total"] == 1
+
+    @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")
+    @patch("aragora.server.handlers.control_plane.coordination.FleetIntegrationWorker")
+    def test_fleet_merge_process_next(
+        self, mock_worker_cls, mock_resolve, handler: ControlPlaneHandler
+    ):
+        mock_resolve.return_value = Path("/tmp/repo")
+        worker = MagicMock()
+        worker.process_next = AsyncMock(
+            return_value=FleetIntegrationOutcome(
+                queue_item_id="mq-1",
+                branch="codex/x",
+                queue_status="needs_human",
+                action="validated",
+                dry_run_success=True,
+            )
+        )
+        mock_worker_cls.return_value = worker
+
+        result = handler._handle_fleet_merge_process_next(
+            {
+                "worker_session_id": "integrator-1",
+                "target_branch": "main",
+                "execute": False,
+                "test_gate": False,
+            }
+        )
+
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["queue_item_id"] == "mq-1"
+        assert data["action"] == "validated"
+
+    def test_fleet_merge_process_next_requires_worker_session_id(
+        self, handler: ControlPlaneHandler
+    ):
+        result = handler._handle_fleet_merge_process_next({})
+        assert result.status_code == 400
 
 
 # ============================================================================

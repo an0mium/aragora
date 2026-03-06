@@ -11,6 +11,7 @@ Provides REST API endpoints for:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import sqlite3
 from pathlib import Path
@@ -31,6 +32,10 @@ from aragora.worktree.fleet import (
     FleetCoordinationStore,
     build_fleet_rows,
     resolve_repo_root,
+)
+from aragora.worktree.integration_worker import (
+    FleetIntegrationWorker,
+    FleetIntegrationWorkerConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -762,6 +767,39 @@ class CoordinationHandlerMixin:
         )
         status_code = 200 if result.get("duplicate") else 201
         return json_response(result, status=status_code)
+
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/coordination/fleet/merge-queue/process-next",
+        summary="Validate or integrate the next merge queue item",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:workspaces.write")
+    def _handle_fleet_merge_process_next(self, body: dict[str, Any]) -> HandlerResult:
+        """Process one queued merge item using the fleet integration worker."""
+        worker_session_id = str(body.get("worker_session_id", "")).strip()
+        if not worker_session_id:
+            return error_response("worker_session_id is required", 400)
+
+        repo_root = self._fleet_repo_root()
+        target_branch = str(body.get("target_branch", "main")).strip() or "main"
+        execute = bool(body.get("execute", False))
+        test_gate = bool(body.get("test_gate", False))
+
+        worker = FleetIntegrationWorker(
+            repo_path=repo_root,
+            config=FleetIntegrationWorkerConfig(
+                target_branch=target_branch,
+                execute_with_test_gate=test_gate,
+            ),
+        )
+        outcome = asyncio.run(
+            worker.process_next(
+                worker_session_id=worker_session_id,
+                execute=execute,
+            )
+        )
+        return json_response(outcome.to_dict())
 
 
 __all__ = ["CoordinationHandlerMixin"]

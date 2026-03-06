@@ -23,6 +23,8 @@ from pathlib import Path
 
 from aragora.worktree import (
     AutopilotRequest,
+    FleetIntegrationWorker,
+    FleetIntegrationWorkerConfig,
     resolve_repo_root,
     run_autopilot,
 )
@@ -154,6 +156,32 @@ Workflow:
     queue_list_p.add_argument("--status", default="", help="Filter by queue status")
     queue_list_p.add_argument("--json", action="store_true", help="Emit JSON output")
 
+    queue_process_p = wt_sub.add_parser(
+        "fleet-queue-process-next",
+        help="Validate or integrate the next merge queue item",
+    )
+    queue_process_p.add_argument(
+        "--worker-session-id",
+        required=True,
+        help="Integrator worker session ID",
+    )
+    queue_process_p.add_argument(
+        "--target-branch",
+        default="main",
+        help="Target branch to validate/merge into (default: main)",
+    )
+    queue_process_p.add_argument(
+        "--execute",
+        action="store_true",
+        help="Attempt the actual merge after validation",
+    )
+    queue_process_p.add_argument(
+        "--test-gate",
+        action="store_true",
+        help="Use BranchCoordinator's test-gated merge path when executing",
+    )
+    queue_process_p.add_argument("--json", action="store_true", help="Emit JSON output")
+
     # autopilot
     auto_p = wt_sub.add_parser(
         "autopilot",
@@ -220,7 +248,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
     if not action:
         print(
             "Usage: aragora worktree "
-            "{create|list|merge|merge-all|conflicts|cleanup|fleet-status|fleet-claims|fleet-claim|fleet-release|fleet-queue-add|fleet-queue-list|autopilot}"
+            "{create|list|merge|merge-all|conflicts|cleanup|fleet-status|fleet-claims|fleet-claim|fleet-release|fleet-queue-add|fleet-queue-list|fleet-queue-process-next|autopilot}"
         )
         print("Run 'aragora worktree --help' for details.")
         return
@@ -250,6 +278,9 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         return
     if action == "fleet-queue-list":
         _cmd_worktree_fleet_queue_list(args, repo_path=repo_root)
+        return
+    if action == "fleet-queue-process-next":
+        _cmd_worktree_fleet_queue_process_next(args, repo_path=repo_root)
         return
 
     from aragora.nomic.branch_coordinator import (
@@ -574,6 +605,38 @@ def _cmd_worktree_fleet_queue_list(args: argparse.Namespace, *, repo_path: Path)
             f"p{item.get('priority', 0)} {item.get('branch', '')} "
             f"(session={item.get('session_id', '')})"
         )
+
+
+def _cmd_worktree_fleet_queue_process_next(args: argparse.Namespace, *, repo_path: Path) -> None:
+    """Process the next queued merge item with the fleet integration worker."""
+    worker = FleetIntegrationWorker(
+        repo_path=repo_path,
+        config=FleetIntegrationWorkerConfig(
+            target_branch=str(getattr(args, "target_branch", "main")),
+            execute_with_test_gate=bool(getattr(args, "test_gate", False)),
+        ),
+    )
+    outcome = asyncio.run(
+        worker.process_next(
+            worker_session_id=str(args.worker_session_id),
+            execute=bool(getattr(args, "execute", False)),
+        )
+    )
+    payload = outcome.to_dict()
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2))
+        return
+    branch = payload.get("branch") or "(none)"
+    item_id = payload.get("queue_item_id") or "-"
+    print(
+        f"{payload.get('action', 'processed')}: {branch} [{item_id}] "
+        f"status={payload.get('queue_status', '')}"
+    )
+    if payload.get("error"):
+        print(f"  error: {payload['error']}")
+    conflicts = payload.get("conflicts") or []
+    if conflicts:
+        print(f"  conflicts({len(conflicts)}): {', '.join(str(item) for item in conflicts)}")
 
 
 def _cmd_worktree_autopilot(args: argparse.Namespace, *, repo_path: Path, base_branch: str) -> None:
