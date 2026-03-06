@@ -83,16 +83,16 @@ jobs:
       - name: "BLOCKING: Bandit security scan (HIGH severity)"
         run: |
           echo "--- Full report (informational) ---"
-          bandit -r aragora/ -c pyproject.toml -f json -o bandit-report.json || true
+          python -m bandit -r aragora/ -c pyproject.toml -f json -o bandit-report.json || true
           echo "--- Blocking check: HIGH severity findings ---"
-          bandit -r aragora/ -c pyproject.toml -lll
+          python -m bandit -r aragora/ -c pyproject.toml -lll
 
       # ---------------------------------------------------------------
       # pip-audit: check installed Python packages for known CVEs
       # ---------------------------------------------------------------
       - name: "BLOCKING: Python dependency audit (pip-audit)"
         run: |
-          pip-audit --strict --vulnerability-service osv \
+          python -m pip_audit --strict --vulnerability-service osv \
             --ignore-vuln CVE-2025-14009
 
       # ---------------------------------------------------------------

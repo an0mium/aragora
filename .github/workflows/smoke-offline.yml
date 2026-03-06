@@ -58,7 +58,7 @@ jobs:
       - name: Install aragora in isolated environment
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,test]"
+          python -m pip install -e ".[dev]"
 
       - name: Run offline golden-path unit tests
         run: |
