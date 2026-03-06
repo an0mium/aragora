@@ -156,4 +156,59 @@ Store bundles in a system with access controls and tamper detection. Options inc
 
 ---
 
+## Appendix: Your Obligations for Articles 10, 11, 43, and 49
+
+Aragora generates artifacts for Articles 9, 12, 13, 14, and 15. The following articles require action from your organization. This appendix provides actionable checklists.
+
+### Article 10 — Training Data Governance
+
+Aragora does not train models; it orchestrates pre-trained models from external providers. Article 10 obligations fall on model providers (Anthropic, OpenAI, Google, Mistral, etc.).
+
+**Your checklist:**
+- [ ] Include AI provider DPA (Data Processing Agreement) requirements in procurement contracts
+- [ ] Request training data documentation from each provider you configure in Aragora
+- [ ] Document which providers are used and for which decision categories
+- [ ] Run Aragora's Gauntlet fairness probes (`aragora gauntlet run --fairness`) to test for demographic bias across configured agents
+- [ ] Record multi-model consensus as a bias mitigation measure (Art. 10(2)(f))
+
+**Aragora's mitigation:** Multi-agent consensus across 4+ heterogeneous models reduces single-provider training bias. Gauntlet probes test demographic parity across gender, age, and ethnicity dimensions. Decision receipts record dissenting opinions, surfacing disagreement.
+
+### Article 11 — Technical Documentation (Annex IV)
+
+Aragora generates supporting content for Annex IV Sections 1, 2, and 5 via the Article 12 artifact. Your organization must maintain the overall technical file.
+
+**Your checklist:**
+- [ ] **Section 3** (Training/validation/testing): Obtain from model providers; document your validation approach for Aragora outputs
+- [ ] **Section 4** (Human oversight): Document your internal procedures for reviewing AI decisions, escalation paths, and who has override authority. Aragora's Art. 14 artifact provides the technical capabilities; you document the organizational procedures.
+- [ ] **Section 6** (Post-market monitoring): Establish a monitoring plan. Use `aragora compliance audit` on a schedule (weekly/monthly) to track decision quality trends.
+- [ ] **Section 7** (Conformity assessment): Document which assessment procedure applies to your system (Art. 43(1) internal control or Art. 43(1) notified body).
+
+**Template:** Integrate Aragora's generated Art. 12 `technical_documentation` field with your Annex IV file. The generated content covers system architecture, development process, consensus method, and risk management measures.
+
+### Article 43 — Conformity Assessment
+
+Aragora bundles provide the evidence package for conformity assessment. The assessment itself is a legal procedure performed by your organization or a notified body.
+
+**Your checklist:**
+- [ ] Determine if your system requires notified-body assessment (Art. 43(1)) or qualifies for internal control (Annex VI)
+- [ ] If notified body required: identify bodies certified for your Annex III category at [EU NANDO database](https://ec.europa.eu/growth/tools-databases/nando/)
+- [ ] Compile Aragora compliance bundles + your Annex IV technical file into a submission package
+- [ ] Schedule assessment engagement (typical timeline: 4-8 weeks with a notified body)
+- [ ] After assessment: obtain and retain the EU declaration of conformity (Art. 47)
+
+### Article 49 — EU Database Registration
+
+Before placing your AI system on the EU market, you must register it in the EU AI Office database.
+
+**Your checklist:**
+- [ ] Monitor the EU AI Office for database availability (expected Q2-Q3 2026)
+- [ ] Prepare registration information: provider name, system description, intended purpose, risk classification, conformity assessment reference
+- [ ] Use `aragora compliance classify` output as input for the risk classification field
+- [ ] Submit registration before market placement or putting into service
+- [ ] Update registration when the system undergoes substantial modification
+
+**Aragora's support:** The conformity report and risk classification output from `aragora compliance classify` provide the required information fields. Registration itself is a manual process in the EU database portal.
+
+---
+
 *For the full technical reference, see [EU AI Act Compliance Guide](./EU_AI_ACT_GUIDE.md). For the interactive demo, run `./scripts/demo_compliance.sh`.*
