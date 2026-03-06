@@ -12,6 +12,25 @@ from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Any
 
 
+def propagate_taint(
+    source_taint: list[str],
+    new_taint: list[str] | None = None,
+) -> list[str]:
+    """Merge taint flags from upstream stages, deduplicating while preserving order.
+
+    This is the canonical way to carry taint forward through pipeline stages.
+    Upstream flags come first, followed by any newly-discovered flags.
+    """
+    seen: set[str] = set()
+    merged: list[str] = []
+    for flag in list(source_taint) + list(new_taint or []):
+        normalized = flag.strip()
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            merged.append(normalized)
+    return merged
+
+
 def _string_list(values: Any) -> list[str]:
     if values is None:
         return []
@@ -565,3 +584,63 @@ class OutcomeFeedbackRecord:
             next_action_recommendation=next_action_recommendation,
             extras={"total_duration_s": float(getattr(outcome, "total_duration_s", 0.0) or 0.0)},
         )
+
+
+class TaintChecker:
+    """Utility for inspecting taint across backbone bundles.
+
+    Provides a single place to ask "is anything tainted?" and to aggregate
+    a taint summary suitable for inclusion in a ReceiptEnvelope.
+    """
+
+    @staticmethod
+    def has_taint(bundle: Any) -> bool:
+        """Return True if *bundle* carries non-empty taint_flags."""
+        flags = getattr(bundle, "taint_flags", None)
+        if flags is None:
+            return False
+        return bool(flags)
+
+    @staticmethod
+    def collect_taint_summary(
+        intake: IntakeBundle | None = None,
+        spec: SpecBundle | None = None,
+        deliberation: DeliberationBundle | None = None,
+        execution: ExecutionAttemptRecord | None = None,
+        verification: ReceiptEnvelope | None = None,
+    ) -> dict[str, Any]:
+        """Aggregate taint information across all pipeline stages.
+
+        Returns a dict suitable for ``ReceiptEnvelope.taint_summary``.
+        """
+        per_stage: dict[str, list[str]] = {}
+        all_flags: list[str] = []
+
+        stages: list[tuple[str, Any]] = [
+            ("intake", intake),
+            ("spec", spec),
+            ("deliberation", deliberation),
+            ("execution", execution),
+            ("verification", verification),
+        ]
+
+        for name, bundle in stages:
+            if bundle is None:
+                continue
+            flags = list(getattr(bundle, "taint_flags", []) or [])
+            if not flags:
+                # ReceiptEnvelope stores taint in taint_summary, not taint_flags
+                ts = getattr(bundle, "taint_summary", None)
+                if isinstance(ts, dict):
+                    flags = list(ts.get("flags", []) or [])
+            if flags:
+                per_stage[name] = flags
+                all_flags.extend(flags)
+
+        unique_flags = list(dict.fromkeys(all_flags))
+
+        return {
+            "tainted": bool(unique_flags),
+            "flags": unique_flags,
+            "per_stage": per_stage,
+        }
