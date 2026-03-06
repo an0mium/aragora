@@ -154,8 +154,17 @@ def _run_command(
         return int(proc.returncode), proc.stdout, proc.stderr, elapsed, False
     except subprocess.TimeoutExpired as exc:
         elapsed = round(time.monotonic() - started, 3)
-        stdout = exc.stdout or ""
-        stderr = (exc.stderr or "") + f"\nDebate timed out after {timeout_seconds}s"
+        stdout_raw = exc.stdout or ""
+        stderr_raw = exc.stderr or ""
+        if isinstance(stdout_raw, bytes):
+            stdout = stdout_raw.decode("utf-8", errors="replace")
+        else:
+            stdout = stdout_raw
+        if isinstance(stderr_raw, bytes):
+            stderr = stderr_raw.decode("utf-8", errors="replace")
+        else:
+            stderr = stderr_raw
+        stderr = stderr + f"\nDebate timed out after {timeout_seconds}s"
         return 124, stdout, stderr, elapsed, True
 
 

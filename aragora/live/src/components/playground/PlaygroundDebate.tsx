@@ -332,7 +332,12 @@ type Phase = 'idle' | 'topic' | 'proposals' | 'critiques' | 'votes' | 'receipt';
 
 const PHASE_ORDER: Phase[] = ['topic', 'proposals', 'critiques', 'votes', 'receipt'];
 
-export function PlaygroundDebate() {
+export interface PlaygroundDebateProps {
+  /** Called when the debate completes and the receipt is shown */
+  onDebateComplete?: (info: { debateId: string; shareUrl: string }) => void;
+}
+
+export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {}) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [proposalIndex, setProposalIndex] = useState(-1);
   const [critiqueIndex, setCritiqueIndex] = useState(-1);
@@ -343,6 +348,7 @@ export function PlaygroundDebate() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [shareUrl, setShareUrl] = useState('');
+  const [debateId, setDebateId] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Live API result state
@@ -422,6 +428,7 @@ export function PlaygroundDebate() {
       setLiveReceipt(display.receipt);
       setLiveFinalAnswer(display.finalAnswer);
       if (data.share_url) setShareUrl(data.share_url);
+      setDebateId(data.id ?? display.receipt.receipt_id);
 
       setLoading(false);
       setStarted(true);
@@ -466,6 +473,14 @@ export function PlaygroundDebate() {
     return () => timers.forEach(clearTimeout);
   }, [started, agents.length, critiques.length, votes.length, isLive]);
 
+  // Notify parent when debate completes (receipt shown)
+  useEffect(() => {
+    if (showReceipt && onDebateComplete) {
+      const id = debateId || DEMO_RECEIPT.receipt_id;
+      onDebateComplete({ debateId: id, shareUrl });
+    }
+  }, [showReceipt, onDebateComplete, debateId, shareUrl]);
+
   // Scroll on phase/content changes
   useEffect(() => { scrollToBottom(); }, [phase, proposalIndex, critiqueIndex, voteIndex, showReceipt, p0, p1, p2, scrollToBottom]);
 
@@ -481,6 +496,7 @@ export function PlaygroundDebate() {
     setIsLive(false);
     setError('');
     setShareUrl('');
+    setDebateId('');
     setLiveAgents([]);
     setLiveCritiques([]);
     setLiveVotes([]);

@@ -30,6 +30,8 @@
     "test:visual": "playwright test --project=visual-regression",
     "test:visual:update": "playwright test --project=visual-regression --update-snapshots",
     "test:e2e:integration": "playwright test e2e/integration/",
+    "test:mobile-audit": "playwright test --project=mobile-audit",
+    "test:mobile-audit:prod": "PLAYWRIGHT_BASE_URL=https://aragora.ai playwright test --project=mobile-audit",
     "test:e2e:prod": "PLAYWRIGHT_INCLUDE_PROD=1 playwright test --project=production",
     "test:e2e:prod:smoke": "PLAYWRIGHT_INCLUDE_PROD=1 playwright test --project=production e2e/production/smoke.prod.spec.ts",
     "test:e2e:prod:auth": "PLAYWRIGHT_INCLUDE_PROD=1 playwright test --project=production e2e/production/auth-flow*.prod.spec.ts",

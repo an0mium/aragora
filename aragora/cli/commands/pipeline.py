@@ -564,6 +564,9 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
         ideas = [goal]
 
     pipeline_result = None
+    execution_path = "unknown"
+    live_stages_completed = 0
+    provider_calls_detected = False
     try:
         from aragora.pipeline.idea_to_execution import (
             IdeaToExecutionPipeline,
@@ -582,7 +585,6 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
         ideas_text = "\n".join(ideas)
 
         result = None
-        execution_path = "unknown"
 
         if pipeline_mode == "live":
             # Live mode: async pipeline with debate/API stages
@@ -802,6 +804,18 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
     if quality_gate_failed and not plan_quality_fail_closed:
         print("[QUALITY GATE] Continuing in warn-only mode.")
 
+    avg_fidelity = sum(fidelity_scores) / len(fidelity_scores) if fidelity_scores else -1.0
+    print(
+        "[self-improve-metrics] "
+        f"execution_path={execution_path} "
+        f"live_stages_completed={live_stages_completed} "
+        f"provider_calls_detected={provider_calls_detected} "
+        f"quality_verdict={quality_verdict} "
+        f"quality_score_10={quality_score_10:.2f} "
+        f"practicality_score_10={practicality_score_10:.2f} "
+        f"avg_objective_fidelity={avg_fidelity:.2f}"
+    )
+
     # Enqueue pipeline results to improvement queue for bidirectional handoff
     if pipeline_result is not None:
         try:
@@ -811,7 +825,6 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
             )
 
             queue = get_improvement_queue()
-            avg_fidelity = sum(fidelity_scores) / len(fidelity_scores) if fidelity_scores else -1.0
             file_hints: list[str] = []
             goal_graph = getattr(pipeline_result, "goal_graph", None)
             if goal_graph is not None and hasattr(goal_graph, "goals"):
