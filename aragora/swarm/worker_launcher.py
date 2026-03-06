@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -181,8 +182,16 @@ class WorkerLauncher:
                 timeout=effective_timeout,
             )
             worker.exit_code = proc.returncode
-            worker.stdout = stdout_bytes.decode(errors="replace")
-            worker.stderr = stderr_bytes.decode(errors="replace")
+            # In detached mode, stdout/stderr are file handles, not PIPE —
+            # communicate() returns (None, None).
+            if stdout_bytes is not None:
+                worker.stdout = stdout_bytes.decode(errors="replace")
+            else:
+                worker.stdout = self._read_log_file(worker.worktree_path, "stdout")
+            if stderr_bytes is not None:
+                worker.stderr = stderr_bytes.decode(errors="replace")
+            else:
+                worker.stderr = self._read_log_file(worker.worktree_path, "stderr")
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
@@ -366,8 +375,11 @@ class WorkerLauncher:
             parts.append(f"Constraints:\n{constraints_text}")
 
         parts.append(
-            "After completing the task, run the tests listed above to verify "
-            "your changes work correctly. Commit your changes with a descriptive message."
+            "IMPORTANT: After completing the task, you MUST:\n"
+            "1. Run the tests listed above to verify your changes work correctly.\n"
+            "2. Stage all changed files with `git add -A`.\n"
+            '3. Commit with a descriptive message using `git commit -m "..."`. '
+            "Do NOT skip the commit step."
         )
 
         return "\n\n".join(parts)
@@ -436,6 +448,84 @@ class WorkerLauncher:
             if path:
                 changed.add(path)
         return sorted(changed)
+
+    @classmethod
+    async def collect_detached_result(
+        cls,
+        *,
+        work_order_id: str,
+        agent: str,
+        worktree_path: str,
+        branch: str,
+        pid: int | None = None,
+        initial_head: str = "",
+        auto_commit: bool = True,
+    ) -> WorkerProcess | None:
+        """Collect results from a detached worker by checking PID and worktree state.
+
+        Returns None if the worker is still running (PID alive).
+        Returns a WorkerProcess with collected results if finished.
+        """
+        if pid is not None and cls._is_pid_running(pid):
+            return None
+
+        worker = WorkerProcess(
+            work_order_id=work_order_id,
+            agent=agent,
+            worktree_path=worktree_path,
+            branch=branch,
+            pid=pid,
+            initial_head=initial_head,
+        )
+
+        worker.stdout = cls._read_log_file(worktree_path, "stdout")
+        worker.stderr = cls._read_log_file(worktree_path, "stderr")
+        worker.exit_code = 0
+        worker.completed_at = datetime.now(UTC).isoformat()
+        worker.diff = await cls._collect_diff(worktree_path)
+
+        if auto_commit and worker.diff:
+            await cls._auto_commit(worker)
+
+        worker.head_sha = await cls._git_output(worktree_path, "rev-parse", "HEAD")
+        worker.commit_shas = await cls._collect_commit_shas(
+            worktree_path,
+            initial_head=initial_head,
+            head_sha=worker.head_sha,
+        )
+        worker.changed_paths = await cls._collect_changed_paths(
+            worktree_path,
+            initial_head=initial_head,
+            head_sha=worker.head_sha,
+        )
+
+        logger.info(
+            "Collected detached worker %s: commits=%d changed_paths=%d",
+            work_order_id,
+            len(worker.commit_shas),
+            len(worker.changed_paths),
+        )
+        return worker
+
+    @staticmethod
+    def _is_pid_running(pid: int) -> bool:
+        """Check if a process with the given PID is still alive."""
+        try:
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+        except OSError:
+            return False
+
+    @staticmethod
+    def _read_log_file(worktree_path: str, stream: str) -> str:
+        """Read a detached worker's log file (stdout or stderr)."""
+        log_path = Path(worktree_path) / f".swarm_worker_{stream}.log"
+        try:
+            return log_path.read_text(errors="replace")
+        except (FileNotFoundError, OSError):
+            return ""
 
     @staticmethod
     async def _auto_commit(worker: WorkerProcess) -> None:
