@@ -141,6 +141,10 @@ These items were planned and are now shipped:
 | Dogfood backbone profile script | Mar 2026 |
 | PR watch daemon fleet (3 Mac machines, 30 reviews/hour) | Mar 2026 |
 | Dev swarm coordination layer (lease-aware) | Mar 2026 |
+| Swarm supervisor + worker launcher + reconciler (PRs #744-746) | Mar 2026 |
+| Inbox trust wedge — receipt-gated email actions (PRs #731-742) | Mar 2026 |
+| Session circuit-breaker — auth-state pinning (PRs #736, #740) | Mar 2026 |
+| Gmail OAuth setup helper (PR #741) | Mar 2026 |
 | Semantic convergence — 5 modules migrated to embeddings (PR #723) | Mar 2026 |
 | Smart provider routing Phase 1 — Pareto optimizer + 8-model pricing (PR #724) | Mar 2026 |
 | EU AI Act playbook GTM polish + Art. 10/11/43/49 appendix (PR #725) | Mar 2026 |

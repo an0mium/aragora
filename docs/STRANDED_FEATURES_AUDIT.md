@@ -1,7 +1,7 @@
 # Stranded Features Audit
 
 **Date:** 2026-02-24
-**Scope:** Full audit of 220+ features to identify stranded (built but disconnected) capabilities and wire the highest-value ones into the live product.
+**Scope:** Full audit of 230+ features to identify stranded (built but disconnected) capabilities and wire the highest-value ones into the live product.
 
 ## Methodology
 
