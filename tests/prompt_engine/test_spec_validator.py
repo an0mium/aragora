@@ -21,12 +21,21 @@ class _FakeRisk:
 
 
 @dataclass
+class _FakeFile:
+    path: str
+
+
+@dataclass
 class _FakeSpec:
+    title: str = ""
     problem_statement: str = ""
     proposed_solution: str = ""
     implementation_plan: list = field(default_factory=list)
     risks: list = field(default_factory=list)
     success_criteria: list = field(default_factory=list)
+    constraints: list = field(default_factory=list)
+    file_changes: list = field(default_factory=list)
+    confidence: float = 0.0
 
 
 class TestValidatorRole:
@@ -73,11 +82,14 @@ class TestSpecValidatorHeuristic:
 
     def test_complete_spec_passes(self):
         spec = _FakeSpec(
+            title="Settings search",
             problem_statement="Users can't find settings",
             proposed_solution="Add settings search",
             implementation_plan=["step1", "step2"],
+            constraints=["Keep existing navigation stable"],
             risks=[_FakeRisk(description="Complexity", mitigation="Incremental rollout")],
             success_criteria=["Users find settings 50% faster"],
+            file_changes=[_FakeFile(path="aragora/live/src/app/settings/page.tsx")],
         )
         result = self.validator.validate_heuristic(spec)
         assert result.passed is True
@@ -94,6 +106,7 @@ class TestSpecValidatorHeuristic:
         da = result.role_results[ValidatorRole.DEVILS_ADVOCATE]
         assert da["passed"] is False
         assert any("Missing problem statement" in i for i in da["issues"])
+        assert any("Missing execution-grade field: constraints" in i for i in da["issues"])
 
     def test_missing_proposed_solution(self):
         spec = _FakeSpec(
@@ -157,11 +170,14 @@ class TestSpecValidatorHeuristic:
         spec = _FakeSpec(
             problem_statement="Problem",
             proposed_solution="Solution",
+            constraints=["Keep scope narrow"],
+            file_changes=[_FakeFile(path="aragora/server/handlers/example.py")],
         )
         result = self.validator.validate_heuristic(spec)
         ux = result.role_results[ValidatorRole.UX_ADVOCATE]
         assert ux["passed"] is False
         assert any("No success criteria" in i for i in ux["issues"])
+        assert any("No verification plan" in i for i in ux["issues"])
 
     def test_unmitigated_risk_flagged_by_tech_debt(self):
         spec = _FakeSpec(
@@ -169,17 +185,36 @@ class TestSpecValidatorHeuristic:
             proposed_solution="Solution",
             risks=[_FakeRisk(description="Performance regression", mitigation="")],
             success_criteria=["criterion"],
+            constraints=["Do not add new dependencies"],
+            file_changes=[_FakeFile(path="aragora/pipeline/example.py")],
         )
         result = self.validator.validate_heuristic(spec)
         td = result.role_results[ValidatorRole.TECH_DEBT_AUDITOR]
         assert td["passed"] is False
         assert any("Unmitigated risk" in i for i in td["issues"])
+        assert any("No rollback plan defined" in i for i in td["issues"])
+
+    def test_missing_owner_file_scopes_fails_execution_grade(self):
+        spec = _FakeSpec(
+            problem_statement="Problem",
+            proposed_solution="Solution",
+            success_criteria=["criterion"],
+            constraints=["Constraint"],
+            risks=[_FakeRisk(description="Regression", mitigation="Use staged rollout")],
+        )
+        result = self.validator.validate_heuristic(spec)
+        td = result.role_results[ValidatorRole.TECH_DEBT_AUDITOR]
+        assert td["passed"] is False
+        assert any("No owner file scopes defined" in i for i in td["issues"])
 
     def test_all_roles_present_in_results(self):
         spec = _FakeSpec(
             problem_statement="Problem",
             proposed_solution="Solution",
             success_criteria=["criterion"],
+            constraints=["Constraint"],
+            risks=[_FakeRisk(description="Regression", mitigation="Rollback")],
+            file_changes=[_FakeFile(path="aragora/example.py")],
         )
         result = self.validator.validate_heuristic(spec)
         for role in ValidatorRole:
@@ -190,6 +225,9 @@ class TestSpecValidatorHeuristic:
             problem_statement="Problem",
             proposed_solution="Solution",
             success_criteria=["criterion"],
+            constraints=["Constraint"],
+            risks=[_FakeRisk(description="Regression", mitigation="Rollback")],
+            file_changes=[_FakeFile(path="aragora/example.py")],
         )
         result = self.validator.validate_heuristic(spec)
         confidences = [r["confidence"] for r in result.role_results.values()]
@@ -204,6 +242,9 @@ class TestSpecValidatorAsync:
             problem_statement="Problem",
             proposed_solution="Solution",
             success_criteria=["criterion"],
+            constraints=["Constraint"],
+            risks=[_FakeRisk(description="Regression", mitigation="Rollback")],
+            file_changes=[_FakeFile(path="aragora/example.py")],
         )
         result = asyncio.run(validator.validate(spec))
         assert isinstance(result, ValidationResult)

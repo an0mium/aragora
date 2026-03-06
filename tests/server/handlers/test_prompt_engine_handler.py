@@ -171,9 +171,24 @@ class TestValidate:
                     "title": "Test Spec",
                     "problem_statement": "A problem",
                     "proposed_solution": "A solution",
+                    "constraints": ["Keep the API stable"],
                     "success_criteria": ["It works"],
                     "implementation_plan": ["Step 1", "Step 2"],
-                    "risks": [],
+                    "file_changes": [
+                        {
+                            "path": "aragora/server/handlers/example.py",
+                            "action": "modify",
+                            "description": "Update handler",
+                        }
+                    ],
+                    "risks": [
+                        {
+                            "description": "Regression",
+                            "likelihood": "medium",
+                            "impact": "medium",
+                            "mitigation": "Rollback quickly",
+                        }
+                    ],
                     "risk_register": [],
                     "confidence": 0.9,
                 }
@@ -185,6 +200,7 @@ class TestValidate:
 
         assert parsed["status"] == 200
         assert parsed["data"]["validation"]["passed"] is True
+        assert parsed["data"]["spec_bundle"]["missing_required_fields"] == []
 
     def test_validate_fails_without_problem(self, handler: PromptEngineHandler) -> None:
         req = _make_handler_request(
@@ -207,6 +223,7 @@ class TestValidate:
 
         assert parsed["status"] == 200
         assert parsed["data"]["validation"]["passed"] is False
+        assert "constraints" in parsed["data"]["spec_bundle"]["missing_required_fields"]
 
     def test_validate_missing_spec_returns_400(self, handler: PromptEngineHandler) -> None:
         req = _make_handler_request({})
@@ -265,6 +282,7 @@ class TestRunPipeline:
 
         assert parsed["status"] == 200
         assert parsed["data"]["specification"]["title"] == "Test"
+        assert "spec_bundle" in parsed["data"]
         assert parsed["data"]["validation"]["passed"] is True
         assert "stages_completed" in parsed["data"]
 

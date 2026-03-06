@@ -11,6 +11,7 @@ from typing import Any
 from aiohttp import web
 
 from aragora.interrogation.engine import InterrogationEngine
+from aragora.pipeline.backbone_contracts import SpecBundle
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
@@ -298,6 +299,10 @@ class InterrogationHandler:
             return web.json_response({"error": "Session not found"}, status=404)
 
         spec = await self._crystallize_spec(state)
+        spec_bundle = SpecBundle.from_interrogation_spec(
+            spec,
+            open_questions=[q.text for q in state.unanswered],
+        )
 
         return web.json_response(
             {
@@ -318,6 +323,7 @@ class InterrogationHandler:
                         "risks": spec.risks,
                         "context_summary": spec.context_summary,
                     },
+                    "spec_bundle": spec_bundle.to_dict(),
                     "goal_text": spec.to_goal_text(),
                 }
             }

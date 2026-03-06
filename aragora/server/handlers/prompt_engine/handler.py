@@ -15,6 +15,8 @@ import json
 import logging
 from typing import Any
 
+from aragora.pipeline.backbone_contracts import SpecBundle
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -130,10 +132,12 @@ class PromptEngineHandler(SecureHandler):
 
         validator = SpecValidator()
         validation = validator.validate_heuristic(result.specification)
+        spec_bundle = SpecBundle.from_prompt_spec(result.specification, validation=validation)
 
         return json_response(
             {
                 "specification": result.specification.to_dict(),
+                "spec_bundle": spec_bundle.to_dict(),
                 "intent": result.intent.to_dict(),
                 "questions": [q.to_dict() for q in result.questions],
                 "research": result.research.to_dict() if result.research else None,
@@ -291,8 +295,11 @@ class PromptEngineHandler(SecureHandler):
         builder = SpecBuilder()
         context = data.get("context")
         spec = asyncio.run(builder.build(intent, questions, research, context))
+        spec_bundle = SpecBundle.from_prompt_spec(spec)
 
-        return json_response({"specification": spec.to_dict()})
+        return json_response(
+            {"specification": spec.to_dict(), "spec_bundle": spec_bundle.to_dict()}
+        )
 
     def _handle_validate(self, handler: Any) -> HandlerResult:
         """Validate a specification via SpecValidator."""
@@ -305,7 +312,7 @@ class PromptEngineHandler(SecureHandler):
             return error_response("specification is required", 400)
 
         from aragora.prompt_engine import SpecValidator
-        from aragora.prompt_engine.types import RiskItem, Specification
+        from aragora.prompt_engine.types import RiskItem, SpecFile, Specification
 
         risks = []
         for r in spec_data.get("risks", []) + spec_data.get("risk_register", []):
@@ -318,6 +325,17 @@ class PromptEngineHandler(SecureHandler):
                         mitigation=r.get("mitigation", ""),
                     )
                 )
+        file_changes = []
+        for item in spec_data.get("file_changes", []):
+            if isinstance(item, dict):
+                file_changes.append(
+                    SpecFile(
+                        path=item.get("path", ""),
+                        action=item.get("action", "modify"),
+                        description=item.get("description", ""),
+                        estimated_lines=int(item.get("estimated_lines", 0) or 0),
+                    )
+                )
 
         spec = Specification(
             title=spec_data.get("title", ""),
@@ -326,11 +344,14 @@ class PromptEngineHandler(SecureHandler):
             implementation_plan=spec_data.get("implementation_plan", []),
             success_criteria=spec_data.get("success_criteria", []),
             estimated_effort=spec_data.get("estimated_effort", ""),
+            file_changes=file_changes,
             risks=risks,
             confidence=spec_data.get("confidence", 0.0),
         )
+        spec.constraints = spec_data.get("constraints", [])
 
         validator = SpecValidator()
         result = validator.validate_heuristic(spec)
+        spec_bundle = SpecBundle.from_prompt_spec(spec, validation=result)
 
-        return json_response({"validation": result.to_dict()})
+        return json_response({"validation": result.to_dict(), "spec_bundle": spec_bundle.to_dict()})

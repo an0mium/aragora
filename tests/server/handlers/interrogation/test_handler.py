@@ -228,6 +228,7 @@ class TestInterrogationHandler:
         data = json.loads(response.body)["data"]
         assert data["session_id"] == session_id
         assert "spec" in data
+        assert "spec_bundle" in data
         spec = data["spec"]
         assert "problem_statement" in spec
         assert "requirements" in spec
@@ -235,6 +236,8 @@ class TestInterrogationHandler:
         assert "success_criteria" in spec
         assert "risks" in spec
         assert "context_summary" in spec
+        assert data["spec_bundle"]["source_kind"] == "interrogation_spec"
+        assert "owner_file_scopes" in data["spec_bundle"]["missing_required_fields"]
         assert "goal_text" in data
 
     @pytest.mark.asyncio
