@@ -1425,46 +1425,54 @@ class DebateController:
                 user_id = config.metadata.get("user_id") if config.metadata else None
                 org_id = config.metadata.get("organization_id") if config.metadata else None
                 flow_id = config.metadata.get("flow_id") if config.metadata else None
-                if user_id:
+                tracked_user_id = user_id if isinstance(user_id, str) and user_id else None
+                tracked_org_id = org_id if isinstance(org_id, str) and org_id else None
+                if not isinstance(flow_id, str):
+                    flow_id = None
+                if tracked_user_id:
                     try:
                         from aragora.storage.repositories.onboarding import (
                             get_onboarding_repository,
                         )
 
                         repo = get_onboarding_repository()
-                        flow = repo.get_flow(user_id, org_id)
-                        if flow:
-                            flow_id = flow.get("id") or flow_id
+                        flow = repo.get_flow(tracked_user_id, tracked_org_id)
+                        if flow and isinstance(flow.get("id"), str):
+                            flow_id = flow["id"]
+                            flow_metadata = flow.get("metadata", {})
+                            if not isinstance(flow_metadata, dict):
+                                flow_metadata = {}
                             repo.update_flow(
                                 flow["id"],
                                 {
                                     "metadata": {
-                                        **flow.get("metadata", {}),
+                                        **flow_metadata,
                                         "receipt_id": receipt_id,
                                     }
                                 },
                             )
-                        try:
-                            from aragora.server.handlers.onboarding import _track_event
-
-                            _track_event(
-                                "first_receipt_generated",
-                                str(user_id),
-                                str(org_id) if org_id is not None else None,
-                                {
-                                    "flow_id": flow_id,
-                                    "debate_id": debate_id,
-                                    "receipt_id": receipt_id,
-                                },
-                            )
-                        except (ImportError, AttributeError, TypeError, ValueError) as e:
-                            logger.debug("Could not track onboarding receipt event: %s", e)
                     except (ImportError, KeyError, TypeError, OSError) as e:
                         # ImportError: onboarding repository not available
                         # KeyError: missing flow data
                         # TypeError: unexpected flow structure
                         # OSError: database access errors
                         logger.debug("Could not update onboarding flow with receipt: %s", e)
+                    if isinstance(flow_id, str):
+                        try:
+                            from aragora.server.handlers.onboarding import _track_event
+
+                            _track_event(
+                                "first_receipt_generated",
+                                tracked_user_id,
+                                tracked_org_id,
+                                {
+                                    "flow_id": flow_id,
+                                    "debate_id": debate_id,
+                                    "receipt_id": receipt_id,
+                                },
+                            )
+                        except (ImportError, AttributeError, TypeError, ValueError, OSError) as e:
+                            logger.debug("Could not track onboarding receipt event: %s", e)
 
         except (ImportError, ValueError, TypeError, OSError, KeyError) as e:
             # ImportError: receipt store module not available

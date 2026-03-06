@@ -1058,6 +1058,36 @@ class TestQuickDebate:
             event = next(e for e in _analytics_events if e["event_type"] == "quick_debate_started")
             assert event["data"]["flow_id"] == "onb_test123"
 
+    @pytest.mark.asyncio
+    async def test_quick_debate_recovers_repo_flow_id_when_memory_missing(
+        self, handler, _mock_repo
+    ):
+        _mock_repo.get_flow.return_value = {"id": "onb_repo_123", "metadata": {}}
+        with (
+            patch("aragora.server.stream.SyncEventEmitter", return_value=MagicMock()),
+            patch("aragora.server.debate_factory.DebateFactory", return_value=MagicMock()),
+            patch("aragora.server.debate_controller.DebateController") as mock_controller_cls,
+        ):
+            mock_controller = mock_controller_cls.return_value
+            mock_response = MagicMock()
+            mock_response.success = True
+            mock_response.debate_id = "debate_quick_123"
+            mock_response.error = None
+            mock_response.status_code = 200
+            mock_controller.start_debate.return_value = mock_response
+
+            result = await handler.handle(
+                "/api/v1/onboarding/quick-debate",
+                method="POST",
+                data={"profile": "developer", "topic": "Quick debate topic"},
+                user_id="test-user-001",
+            )
+
+        assert _status(result) == 200
+        with _analytics_lock:
+            event = next(e for e in _analytics_events if e["event_type"] == "quick_debate_started")
+            assert event["data"]["flow_id"] == "onb_repo_123"
+
 
 # ============================================================================
 # GET /api/v1/onboarding/analytics

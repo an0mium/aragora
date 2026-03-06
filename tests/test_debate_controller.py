@@ -801,6 +801,53 @@ class TestDebateControllerRunDebate:
         assert payload["debate_id"] == "test_123"
         assert payload["receipt_id"]
 
+    @patch("aragora.server.handlers.onboarding._track_event")
+    @patch("aragora.storage.repositories.onboarding.get_onboarding_repository")
+    @patch("aragora.storage.receipt_store.get_receipt_store")
+    @patch("aragora.server.debate_controller.update_debate_status")
+    def test_run_debate_tracks_onboarding_receipt_event_when_repo_update_fails(
+        self,
+        mock_update,
+        mock_get_receipt_store,
+        mock_get_onboarding_repo,
+        mock_track_event,
+    ):
+        """Receipt analytics should still be emitted if the repo update path fails."""
+        from aragora.server.debate_factory import DebateConfig
+
+        mock_store = Mock()
+        mock_get_receipt_store.return_value = mock_store
+
+        onboarding_repo = Mock()
+        onboarding_repo.get_flow.return_value = {"id": "onb_flow_1", "metadata": {}}
+        onboarding_repo.update_flow.side_effect = OSError("database locked")
+        mock_get_onboarding_repo.return_value = onboarding_repo
+
+        controller = DebateController(factory=self.factory, emitter=self.emitter)
+        config = DebateConfig(
+            question="Should we adopt this architecture?",
+            agents_str="agent1",
+            rounds=1,
+            debate_id="test_123",
+            metadata={
+                "is_onboarding": True,
+                "user_id": "user_1",
+                "organization_id": "org_1",
+                "flow_id": "flow_fallback",
+            },
+        )
+
+        controller._run_debate(config, "test_123")
+
+        mock_track_event.assert_called_once()
+        event_type, user_id, org_id, payload = mock_track_event.call_args[0]
+        assert event_type == "first_receipt_generated"
+        assert user_id == "user_1"
+        assert org_id == "org_1"
+        assert payload["flow_id"] == "onb_flow_1"
+        assert payload["debate_id"] == "test_123"
+        assert payload["receipt_id"]
+
     @patch("aragora.server.debate_controller.update_debate_status")
     def test_run_debate_handles_validation_error(self, mock_update):
         """Should handle ValueError gracefully."""
