@@ -127,7 +127,7 @@ jobs:
 
       - name: Run hard-check test suites
         run: |
-          pytest -q \
+          python -m pytest -q \
             tests/cli/test_pipeline_command.py \
             tests/nomic/test_meta_planner.py \
             tests/nomic/test_improvement_queue.py \
