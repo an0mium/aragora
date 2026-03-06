@@ -304,6 +304,15 @@ class TestCostQualityOptimizer:
         frontier_names = {m.provider_name for m in optimizer.get_pareto_frontier()}
         assert result in frontier_names
 
+    def test_exclude_providers_filters_candidates(self) -> None:
+        store = self._make_store()
+        optimizer = CostQualityOptimizer(store)
+        result = optimizer.select_provider(
+            SelectionStrategy.QUALITY_OPTIMIZED,
+            exclude_providers={"quality"},
+        )
+        assert result in {"balanced", "cheap"}
+
     def test_get_pareto_frontier(self) -> None:
         store = self._make_store()
         optimizer = CostQualityOptimizer(store)
@@ -405,6 +414,8 @@ class TestProviderRouter:
         assert len(providers) == 2
         # With quality optimization, anthropic should be preferred
         assert "anthropic" in providers
+        # Distinct providers should be preferred when alternatives exist
+        assert len(set(providers)) == 2
 
     def test_record_outcome_delegates(self) -> None:
         router = ProviderRouter()

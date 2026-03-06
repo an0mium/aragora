@@ -102,20 +102,22 @@ class ProviderRouter:
         if not candidates:
             return self._round_robin_selection(num_agents)
 
+        excluded: set[str] = set()
         for _ in range(num_agents):
             provider = self._optimizer.select_provider(
                 strategy=strategy,
                 budget_remaining=per_agent_budget,
                 min_quality=min_quality,
+                exclude_providers=excluded,
             )
             if provider is None:
                 break
 
             selected.append(provider)
+            excluded.add(provider)
 
-            # For diversity, prefer different providers when possible.
-            # We don't remove from the store, but if we've already picked
-            # this one, nudge the budget down to favor variety.
+            # Relax the remaining budget slightly after each pick so later
+            # selections still reflect the original budget pressure.
             if per_agent_budget is not None and provider in all_metrics:
                 cost = all_metrics[provider].avg_cost_per_debate
                 per_agent_budget = max(0.0, per_agent_budget - cost * 0.1)

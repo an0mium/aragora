@@ -89,6 +89,7 @@ class CostQualityOptimizer:
         strategy: SelectionStrategy = SelectionStrategy.BALANCED,
         budget_remaining: float | None = None,
         min_quality: float = 0.0,
+        exclude_providers: set[str] | None = None,
     ) -> str | None:
         """Select the best provider given constraints.
 
@@ -97,6 +98,7 @@ class CostQualityOptimizer:
             budget_remaining: Optional remaining budget in USD.
                 Providers whose avg_cost_per_debate exceeds this are excluded.
             min_quality: Minimum acceptable quality score (0-1).
+            exclude_providers: Optional set of provider names to exclude.
 
         Returns:
             Provider name, or None if no provider meets the constraints.
@@ -109,6 +111,9 @@ class CostQualityOptimizer:
         candidates = [
             m for m in all_metrics if m.avg_quality_score >= min_quality and m.failure_rate < 1.0
         ]
+
+        if exclude_providers:
+            candidates = [m for m in candidates if m.provider_name not in exclude_providers]
 
         if budget_remaining is not None:
             candidates = [m for m in candidates if m.avg_cost_per_debate <= budget_remaining]
