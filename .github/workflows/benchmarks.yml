@@ -33,7 +33,7 @@ jobs:
   regression-gate:
     if: github.event_name == 'merge_group' || github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Regression Gate
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
@@ -130,9 +130,9 @@ jobs:
         run: |
           python -m venv /tmp/main-venv
           source /tmp/main-venv/bin/activate
-          pip install --upgrade pip
-          pip install -e "main-branch/[test]"
-          pip install pytest-benchmark
+          python -m pip install --upgrade pip
+          python -m pip install -e "main-branch/[test]"
+          python -m pip install pytest-benchmark
           cd main-branch
           pytest tests/benchmarks/test_performance.py \
             --benchmark-only \

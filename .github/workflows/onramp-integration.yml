@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 jobs:
   time-to-first-debate:
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -38,13 +38,13 @@ jobs:
           python-version: "3.11"
       - name: Install and run quickstart
         run: |
-          pip install -e .
+          python -m pip install -e .
           timeout 300 python examples/quickstart.py
         env:
           ARAGORA_OFFLINE: "1"
 
   playground-build:
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -79,7 +79,7 @@ jobs:
           npx next build --webpack
 
   sdk-parity:
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4

@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   targeted-tests:
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -45,8 +45,8 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: |
-          pip install -e ".[dev,test]"
-          pip install pytest-timeout
+          python -m pip install -e ".[dev,test]"
+          python -m pip install pytest-timeout
       - name: Determine changed files
         id: changes
         run: |
