@@ -19,6 +19,7 @@ from aragora.nomic.dev_coordination import DevCoordinationStore, LeaseConflictEr
 from aragora.nomic.pipeline_bridge import BoundedWorkOrder, NomicPipelineBridge
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposer
 from aragora.swarm.spec import SwarmSpec
+from aragora.swarm.worker_launcher import WorkerLauncher, WorkerProcess
 from aragora.worktree.lifecycle import WorktreeLifecycleService
 
 UTC = timezone.utc
@@ -122,6 +123,7 @@ class SwarmSupervisor:
         bridge: NomicPipelineBridge | None = None,
         decomposer: TaskDecomposer | None = None,
         approval_policy: ApprovalPolicy | None = None,
+        launcher: WorkerLauncher | None = None,
     ) -> None:
         self.repo_root = (repo_root or Path.cwd()).resolve()
         self.store = store or DevCoordinationStore(repo_root=self.repo_root)
@@ -129,6 +131,7 @@ class SwarmSupervisor:
         self.bridge = bridge or NomicPipelineBridge(repo_path=self.repo_root)
         self.decomposer = decomposer or TaskDecomposer()
         self.approval_policy = approval_policy or ApprovalPolicy()
+        self.launcher = launcher or WorkerLauncher()
 
     def start_run(
         self,
@@ -260,6 +263,106 @@ class SwarmSupervisor:
             "coordination": coordination,
         }
 
+    async def dispatch_workers(self, run_id: str) -> list[WorkerProcess]:
+        """Launch worker processes for all leased work orders in a run.
+
+        Call this after start_run() to actually spawn the CLI processes.
+        Only launches workers for orders in 'leased' status that have a
+        worktree_path assigned.
+
+        Returns:
+            List of WorkerProcess objects for launched workers.
+        """
+        record = self.store.get_supervisor_run(run_id)
+        if record is None:
+            raise KeyError(f"Unknown supervisor run: {run_id}")
+
+        work_orders = [dict(item) for item in record.get("work_orders", [])]
+        launched: list[WorkerProcess] = []
+
+        for item in work_orders:
+            if str(item.get("status", "")) != "leased":
+                continue
+            worktree_path = str(item.get("worktree_path", "")).strip()
+            branch = str(item.get("branch", "main")).strip()
+            if not worktree_path:
+                continue
+
+            try:
+                worker = await self.launcher.launch(
+                    item,
+                    worktree_path=worktree_path,
+                    branch=branch,
+                )
+                item["status"] = "dispatched"
+                item["pid"] = worker.pid
+                launched.append(worker)
+            except (FileNotFoundError, RuntimeError, OSError) as exc:
+                item["status"] = "dispatch_failed"
+                item["dispatch_error"] = str(exc)
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Failed to dispatch %s: %s",
+                    item.get("work_order_id"),
+                    exc,
+                )
+
+        self.store.update_supervisor_run(
+            run_id,
+            status=self._derive_status(work_orders),
+            work_orders=work_orders,
+        )
+        return launched
+
+    async def collect_results(
+        self,
+        run_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> list[WorkerProcess]:
+        """Wait for all dispatched workers to complete and update the run.
+
+        Returns:
+            List of completed WorkerProcess objects.
+        """
+        record = self.store.get_supervisor_run(run_id)
+        if record is None:
+            raise KeyError(f"Unknown supervisor run: {run_id}")
+
+        work_orders = [dict(item) for item in record.get("work_orders", [])]
+        completed: list[WorkerProcess] = []
+
+        for item in work_orders:
+            if str(item.get("status", "")) != "dispatched":
+                continue
+            work_order_id = str(item.get("work_order_id", ""))
+            worker = self.launcher.get_worker(work_order_id)
+            if worker is None:
+                continue
+
+            result = await self.launcher.wait(work_order_id, timeout=timeout)
+            completed.append(result)
+
+            if result.exit_code == 0:
+                item["status"] = "completed"
+                item["diff_lines"] = result.diff.count("\n")
+            elif result.exit_code == -1:
+                item["status"] = "timed_out"
+            else:
+                item["status"] = "failed"
+                item["exit_code"] = result.exit_code
+
+            item["completed_at"] = result.completed_at
+            item.pop("pid", None)
+
+        self.store.update_supervisor_run(
+            run_id,
+            status=self._derive_status(work_orders),
+            work_orders=work_orders,
+        )
+        return completed
+
     def _build_supervised_work_orders(self, spec: SwarmSpec) -> list[BoundedWorkOrder]:
         goal = spec.refined_goal or spec.raw_goal
         decomposition = self.decomposer.analyze(self._task_prompt(spec))
@@ -355,9 +458,12 @@ class SwarmSupervisor:
         statuses = {str(item.get("status", "")).strip() for item in work_orders if item}
         if not statuses:
             return SupervisorRunStatus.PLANNED.value
-        if statuses <= {"merged", "discarded", "salvage"}:
+        terminal = {"merged", "discarded", "salvage", "completed", "failed", "timed_out"}
+        if statuses <= terminal:
             return SupervisorRunStatus.COMPLETED.value
         if "needs_human" in statuses or "changes_requested" in statuses:
+            return SupervisorRunStatus.NEEDS_HUMAN.value
+        if "dispatch_failed" in statuses:
             return SupervisorRunStatus.NEEDS_HUMAN.value
         return SupervisorRunStatus.ACTIVE.value
 
