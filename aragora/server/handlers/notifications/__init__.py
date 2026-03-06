@@ -2,10 +2,10 @@
 
 from .history import NotificationHistoryHandler
 from .preferences import NotificationPreferencesHandler
-from .templates import NotificationTemplateHandler
+from .templates import NotificationTemplatesHandler
 
 __all__ = [
     "NotificationHistoryHandler",
     "NotificationPreferencesHandler",
-    "NotificationTemplateHandler",
+    "NotificationTemplatesHandler",
 ]

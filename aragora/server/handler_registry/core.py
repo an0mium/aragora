@@ -137,6 +137,7 @@ HANDLER_TIERS: dict[str, str] = {
     "_feedback_hub_handler": "extended",
     "_notification_history_handler": "extended",
     "_notification_preferences_handler": "extended",
+    "_notification_templates_handler": "extended",
     "_spend_analytics_handler": "extended",
     "_feature_flags_handler": "extended",
     "_workflow_builder_handler": "extended",
