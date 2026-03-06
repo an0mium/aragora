@@ -5,18 +5,20 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.cli.commands.worktree import (
     _cmd_worktree_fleet_claim,
     _cmd_worktree_fleet_queue_add,
     _cmd_worktree_fleet_queue_list,
+    _cmd_worktree_fleet_queue_process_next,
     _cmd_worktree_fleet_release,
     _cmd_worktree_fleet_status,
     _cmd_worktree_autopilot,
     add_worktree_parser,
     cmd_worktree,
 )
+from aragora.worktree.integration_worker import FleetIntegrationOutcome
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -138,6 +140,27 @@ class TestWorktreeParser:
         assert args.session_id == "s-1"
         assert args.paths == ["a.py", "b.py"]
         assert args.mode == "shared"
+
+    def test_fleet_queue_process_next_parse(self):
+        args = _parser().parse_args(
+            [
+                "worktree",
+                "fleet-queue-process-next",
+                "--worker-session-id",
+                "integrator-1",
+                "--target-branch",
+                "release",
+                "--execute",
+                "--test-gate",
+                "--json",
+            ]
+        )
+        assert args.wt_action == "fleet-queue-process-next"
+        assert args.worker_session_id == "integrator-1"
+        assert args.target_branch == "release"
+        assert args.execute is True
+        assert args.test_gate is True
+        assert args.json is True
 
 
 class TestWorktreeDispatch:
@@ -392,3 +415,28 @@ class TestWorktreeFleetOwnership:
         _cmd_worktree_fleet_queue_list(list_args, repo_path=tmp_path)
         out = capsys.readouterr().out
         assert "Merge queue: 1" in out
+
+    @patch("aragora.cli.commands.worktree.FleetIntegrationWorker")
+    def test_fleet_queue_process_next_cli(self, mock_worker_cls, capsys, tmp_path: Path):
+        worker = MagicMock()
+        worker.process_next = AsyncMock(
+            return_value=FleetIntegrationOutcome(
+                queue_item_id="mq-1",
+                branch="codex/x",
+                queue_status="needs_human",
+                action="validated",
+                dry_run_success=True,
+            )
+        )
+        mock_worker_cls.return_value = worker
+
+        args = argparse.Namespace(
+            worker_session_id="integrator-1",
+            target_branch="main",
+            execute=False,
+            test_gate=False,
+            json=False,
+        )
+        _cmd_worktree_fleet_queue_process_next(args, repo_path=tmp_path)
+        out = capsys.readouterr().out
+        assert "validated: codex/x [mq-1] status=needs_human" in out
