@@ -205,6 +205,33 @@ class TestExecute:
         result = handler._handle_execute({"operation": "read_knowledge"})
         assert result.status_code == 400
 
+
+class TestSwarmRun:
+    @patch("aragora.swarm.SwarmSupervisor")
+    @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")
+    def test_swarm_run_from_goal(
+        self,
+        mock_resolve,
+        mock_supervisor_cls,
+        handler: ControlPlaneHandler,
+    ):
+        mock_resolve.return_value = Path("/tmp/repo")
+        fake_run = MagicMock()
+        fake_run.to_dict.return_value = {"run_id": "run-123", "status": "active"}
+        mock_supervisor_cls.return_value.start_run.return_value = fake_run
+
+        result = handler._handle_swarm_run(
+            {
+                "goal": "Ship the supervisor lane",
+                "target_branch": "main",
+                "concurrency_cap": 4,
+            }
+        )
+
+        assert result.status_code == 201
+        data = json.loads(result.body)
+        assert data["run_id"] == "run-123"
+
     def test_execute_workspace_not_found(self, handler: ControlPlaneHandler):
         result = handler._handle_execute(
             {
@@ -618,6 +645,23 @@ class TestRouteDispatch:
         mock_http_handler.path = "/api/v1/coordination/fleet/status"
         result = handler.handle("/api/v1/coordination/fleet/status", {}, mock_http_handler)
         assert result is not None
+        assert result.status_code == 200
+
+    @patch("aragora.swarm.SwarmSupervisor")
+    @patch("aragora.server.handlers.control_plane.coordination.resolve_repo_root")
+    def test_get_coordination_swarm_status(
+        self,
+        mock_resolve,
+        mock_supervisor_cls,
+        handler: ControlPlaneHandler,
+    ):
+        mock_resolve.return_value = Path("/tmp/repo")
+        mock_supervisor_cls.return_value.status_summary.return_value = {
+            "runs": [],
+            "counts": {"runs": 0},
+            "coordination": {},
+        }
+        result = handler._handle_swarm_status({})
         assert result.status_code == 200
 
     @patch("aragora.server.handlers.control_plane.coordination.FleetCoordinationStore")

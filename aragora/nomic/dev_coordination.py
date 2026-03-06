@@ -36,6 +36,7 @@ UTC = timezone.utc
 _ACTIVE_LEASE_STATUSES = {"active"}
 _PENDING_INTEGRATION_DECISIONS = {"pending_review"}
 _OPEN_SALVAGE_STATUSES = {"detected", "claimed"}
+_OPEN_SUPERVISOR_RUN_STATUSES = {"planned", "active", "needs_human"}
 
 
 class LeaseConflictError(ValueError):
@@ -477,6 +478,21 @@ class DevCoordinationStore:
                 );
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_salvage_source ON salvage_candidates(source_kind, source_ref);
                 CREATE INDEX IF NOT EXISTS idx_salvage_status ON salvage_candidates(status, updated_at);
+
+                CREATE TABLE IF NOT EXISTS supervisor_runs (
+                    run_id TEXT PRIMARY KEY,
+                    goal TEXT NOT NULL,
+                    target_branch TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    supervisor_agents_json TEXT NOT NULL,
+                    approval_policy_json TEXT NOT NULL,
+                    spec_json TEXT NOT NULL,
+                    work_orders_json TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_supervisor_runs_status ON supervisor_runs(status, updated_at);
                 """
             )
             conn.commit()
@@ -487,20 +503,138 @@ class DevCoordinationStore:
         active_leases = self.list_active_leases()
         pending_integrations = self.list_integration_decisions(only_pending=True)
         salvage = self.list_salvage_candidates(statuses=sorted(_OPEN_SALVAGE_STATUSES))
+        supervisor_runs = self.list_supervisor_runs(statuses=sorted(_OPEN_SUPERVISOR_RUN_STATUSES))
         return {
             "db_path": str(self.db_path),
             "fleet_path": str(self.fleet_store.path),
             "active_leases": [item.to_dict() for item in active_leases],
             "pending_integrations": [item.to_dict() for item in pending_integrations],
             "open_salvage_candidates": [item.to_dict() for item in salvage],
+            "supervisor_runs": supervisor_runs,
             "counts": {
                 "active_leases": len(active_leases),
                 "pending_integrations": len(pending_integrations),
                 "open_salvage_candidates": len(salvage),
+                "supervisor_runs": len(supervisor_runs),
                 "fleet_claims": len(self.fleet_store.list_claims()),
                 "fleet_merge_queue": len(self.fleet_store.list_merge_queue()),
             },
         }
+
+    def create_supervisor_run(
+        self,
+        *,
+        goal: str,
+        target_branch: str,
+        supervisor_agents: dict[str, Any],
+        approval_policy: dict[str, Any],
+        spec: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+        status: str = "planned",
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        now = _utcnow().isoformat()
+        record = {
+            "run_id": str(uuid.uuid4())[:12],
+            "goal": goal,
+            "target_branch": target_branch,
+            "status": status,
+            "supervisor_agents": dict(supervisor_agents),
+            "approval_policy": dict(approval_policy),
+            "spec": dict(spec),
+            "work_orders": [dict(item) for item in work_orders],
+            "metadata": dict(metadata or {}),
+            "created_at": now,
+            "updated_at": now,
+        }
+        conn = self._connect()
+        try:
+            conn.execute(
+                """
+                INSERT INTO supervisor_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record["run_id"],
+                    record["goal"],
+                    record["target_branch"],
+                    record["status"],
+                    _json_dump(record["supervisor_agents"]),
+                    _json_dump(record["approval_policy"]),
+                    _json_dump(record["spec"]),
+                    _json_dump(record["work_orders"]),
+                    _json_dump(record["metadata"]),
+                    record["created_at"],
+                    record["updated_at"],
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return record
+
+    def get_supervisor_run(self, run_id: str) -> dict[str, Any] | None:
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT * FROM supervisor_runs WHERE run_id = ?",
+                (run_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        return None if row is None else self._supervisor_run_from_row(row)
+
+    def list_supervisor_runs(
+        self,
+        *,
+        statuses: list[str] | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                "SELECT * FROM supervisor_runs ORDER BY updated_at DESC LIMIT ?",
+                (max(1, int(limit)),),
+            ).fetchall()
+        finally:
+            conn.close()
+        runs = [self._supervisor_run_from_row(row) for row in rows]
+        if statuses is None:
+            return runs
+        allowed = set(statuses)
+        return [item for item in runs if str(item.get("status", "")) in allowed]
+
+    def update_supervisor_run(
+        self,
+        run_id: str,
+        *,
+        status: str | None = None,
+        work_orders: list[dict[str, Any]] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT * FROM supervisor_runs WHERE run_id = ?",
+                (run_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"Unknown supervisor run: {run_id}")
+            record = self._supervisor_run_from_row(row)
+            if status is not None:
+                record["status"] = status
+            if work_orders is not None:
+                record["work_orders"] = [dict(item) for item in work_orders]
+            if metadata:
+                record["metadata"] = {
+                    **dict(record.get("metadata") or {}),
+                    **dict(metadata),
+                }
+            record["updated_at"] = _utcnow().isoformat()
+            self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return record
 
     def list_active_leases(self) -> list[WorkLease]:
         now = _utcnow()
@@ -768,6 +902,18 @@ class DevCoordinationStore:
                 branch=lease.branch,
                 mode="exclusive",
             )
+        self._sync_supervisor_run_from_lease(
+            lease.metadata,
+            update={
+                "status": "leased",
+                "lease_id": lease.lease_id,
+                "owner_session_id": lease.owner_session_id,
+                "branch": lease.branch,
+                "worktree_path": lease.worktree_path,
+                "target_agent": lease.owner_agent,
+                "expected_tests": list(lease.expected_tests),
+            },
+        )
         return lease
 
     def _find_conflicting_leases_locked(
@@ -1036,6 +1182,17 @@ class DevCoordinationStore:
                 "artifact_hash": receipt.artifact_hash,
             },
         )
+        self._sync_supervisor_run_from_lease(
+            lease.metadata,
+            update={
+                "status": "completed",
+                "receipt_id": receipt.receipt_id,
+                "changed_paths": list(receipt.changed_paths),
+                "tests_run": list(receipt.tests_run),
+                "confidence": receipt.confidence,
+                "review_status": "pending_heterogeneous_review",
+            },
+        )
         return receipt
 
     def record_integration_decision(
@@ -1128,6 +1285,31 @@ class DevCoordinationStore:
                         "followups": decision_row.followups,
                     },
                 )
+        conn = self._connect()
+        try:
+            lease_row = conn.execute(
+                "SELECT metadata_json FROM leases WHERE lease_id = ?",
+                (decision_row.lease_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        lease_metadata = _json_loads(lease_row["metadata_json"], {}) if lease_row else {}
+        self._sync_supervisor_run_from_lease(
+            lease_metadata,
+            update={
+                "integration_decision": decision_row.decision,
+                "integration_decision_id": decision_row.decision_id,
+                "integration_followups": list(decision_row.followups),
+                "status": {
+                    IntegrationDecisionType.PENDING_REVIEW.value: "needs_human",
+                    IntegrationDecisionType.MERGE.value: "integrating",
+                    IntegrationDecisionType.CHERRY_PICK.value: "integrating",
+                    IntegrationDecisionType.REQUEST_CHANGES.value: "changes_requested",
+                    IntegrationDecisionType.DISCARD.value: "discarded",
+                    IntegrationDecisionType.SALVAGE.value: "salvage",
+                }.get(decision_row.decision, "needs_human"),
+            },
+        )
         return decision_row
 
     def upsert_salvage_candidate(
@@ -1439,6 +1621,125 @@ class DevCoordinationStore:
             if isinstance(metadata, dict) and str(metadata.get("receipt_id", "")) == receipt_id:
                 return item
         return None
+
+    def mark_supervisor_run_merged(
+        self,
+        *,
+        receipt_id: str,
+        merge_commit_sha: str | None = None,
+    ) -> None:
+        conn = self._connect()
+        try:
+            receipt_row = conn.execute(
+                "SELECT lease_id FROM completion_receipts WHERE receipt_id = ?",
+                (receipt_id,),
+            ).fetchone()
+            if receipt_row is None:
+                return
+            lease_row = conn.execute(
+                "SELECT metadata_json FROM leases WHERE lease_id = ?",
+                (receipt_row["lease_id"],),
+            ).fetchone()
+        finally:
+            conn.close()
+        lease_metadata = _json_loads(lease_row["metadata_json"], {}) if lease_row else {}
+        update = {"status": "merged"}
+        if merge_commit_sha:
+            update["merge_commit_sha"] = merge_commit_sha
+        self._sync_supervisor_run_from_lease(lease_metadata, update=update)
+
+    @staticmethod
+    def _supervisor_run_from_row(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "run_id": row["run_id"],
+            "goal": row["goal"],
+            "target_branch": row["target_branch"],
+            "status": row["status"],
+            "supervisor_agents": _json_loads(row["supervisor_agents_json"], {}),
+            "approval_policy": _json_loads(row["approval_policy_json"], {}),
+            "spec": _json_loads(row["spec_json"], {}),
+            "work_orders": _json_loads(row["work_orders_json"], []),
+            "metadata": _json_loads(row["metadata_json"], {}),
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
+    @staticmethod
+    def _derive_supervisor_run_status(work_orders: list[dict[str, Any]]) -> str:
+        statuses = {str(item.get("status", "")).strip() for item in work_orders if item}
+        if not statuses:
+            return "planned"
+        if statuses <= {"merged", "discarded", "salvage"}:
+            return "completed"
+        if "changes_requested" in statuses or "needs_human" in statuses:
+            return "needs_human"
+        if "queued" in statuses or "leased" in statuses or "completed" in statuses:
+            return "active"
+        return "active"
+
+    def _persist_supervisor_run(
+        self,
+        conn: sqlite3.Connection,
+        record: dict[str, Any],
+    ) -> None:
+        conn.execute(
+            """
+            UPDATE supervisor_runs
+            SET goal = ?, target_branch = ?, status = ?, supervisor_agents_json = ?,
+                approval_policy_json = ?, spec_json = ?, work_orders_json = ?,
+                metadata_json = ?, updated_at = ?
+            WHERE run_id = ?
+            """,
+            (
+                record["goal"],
+                record["target_branch"],
+                record["status"],
+                _json_dump(record.get("supervisor_agents", {})),
+                _json_dump(record.get("approval_policy", {})),
+                _json_dump(record.get("spec", {})),
+                _json_dump(record.get("work_orders", [])),
+                _json_dump(record.get("metadata", {})),
+                record["updated_at"],
+                record["run_id"],
+            ),
+        )
+
+    def _sync_supervisor_run_from_lease(
+        self,
+        lease_metadata: dict[str, Any] | None,
+        *,
+        update: dict[str, Any],
+    ) -> None:
+        if not lease_metadata:
+            return
+        run_id = str(lease_metadata.get("supervisor_run_id", "")).strip()
+        work_order_id = str(lease_metadata.get("work_order_id", "")).strip()
+        if not run_id or not work_order_id:
+            return
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT * FROM supervisor_runs WHERE run_id = ?",
+                (run_id,),
+            ).fetchone()
+            if row is None:
+                return
+            record = self._supervisor_run_from_row(row)
+            changed = False
+            for item in record["work_orders"]:
+                if str(item.get("work_order_id", "")).strip() != work_order_id:
+                    continue
+                item.update(update)
+                changed = True
+                break
+            if not changed:
+                return
+            record["status"] = self._derive_supervisor_run_status(record["work_orders"])
+            record["updated_at"] = _utcnow().isoformat()
+            self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
 
 
 def _utcnow() -> datetime:

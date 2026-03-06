@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -167,7 +167,12 @@ async def test_process_next_validates_without_execute(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_process_next_executes_merge_successfully(tmp_path: Path) -> None:
     store = FleetCoordinationStore(tmp_path)
-    store.enqueue_merge(session_id="session-a", branch="codex/ready", priority=60)
+    store.enqueue_merge(
+        session_id="session-a",
+        branch="codex/ready",
+        priority=60,
+        metadata={"receipt_id": "receipt-123"},
+    )
     branch_coordinator = MagicMock()
     branch_coordinator.safe_merge = AsyncMock(
         side_effect=[
@@ -192,12 +197,17 @@ async def test_process_next_executes_merge_successfully(tmp_path: Path) -> None:
         reconciler=reconciler,
     )
 
-    outcome = await worker.process_next(worker_session_id="integrator-1", execute=True)
+    with patch("aragora.nomic.dev_coordination.DevCoordinationStore") as store_cls:
+        outcome = await worker.process_next(worker_session_id="integrator-1", execute=True)
 
     assert outcome.action == "merged"
     assert outcome.queue_status == "merged"
     assert outcome.merge_commit_sha == "abc123"
     assert store.list_merge_queue()[0]["metadata"]["merge_commit_sha"] == "abc123"
+    store_cls.return_value.mark_supervisor_run_merged.assert_called_once_with(
+        receipt_id="receipt-123",
+        merge_commit_sha="abc123",
+    )
 
 
 @pytest.mark.asyncio

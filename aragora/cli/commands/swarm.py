@@ -18,27 +18,65 @@ from __future__ import annotations
 import argparse
 import asyncio
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 from uuid import uuid4
 
 
+def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | None]:
+    first = getattr(args, "swarm_action_or_goal", None)
+    second = getattr(args, "swarm_goal", None)
+    if first in {"run", "status"}:
+        return str(first), second
+    return "run", first
+
+
+def _print_supervisor_run(run: dict[str, object]) -> None:
+    work_orders = (
+        list(run.get("work_orders", [])) if isinstance(run.get("work_orders"), list) else []
+    )
+    counts: dict[str, int] = {}
+    for item in work_orders:
+        if not isinstance(item, dict):
+            continue
+        status = str(item.get("status", "unknown"))
+        counts[status] = counts.get(status, 0) + 1
+    counts_text = ", ".join(f"{key}={value}" for key, value in sorted(counts.items())) or "none"
+    print(f"run_id={run.get('run_id', '')}")
+    print(f"status={run.get('status', '')} target_branch={run.get('target_branch', '')}")
+    print(f"goal={run.get('goal', '')}")
+    print(f"work_orders={len(work_orders)} [{counts_text}]")
+
+
 def cmd_swarm(args: argparse.Namespace) -> None:
     """Handle 'swarm' command."""
-    from aragora.swarm import SwarmCommander, SwarmCommanderConfig, SwarmSpec
+    from aragora.swarm import (
+        SwarmApprovalPolicy,
+        SwarmCommander,
+        SwarmCommanderConfig,
+        SwarmSpec,
+        SwarmSupervisor,
+    )
     from aragora.swarm.config import (
         AutonomyLevel,
         InterrogatorConfig,
         UserProfile,
     )
 
-    goal = getattr(args, "goal", None)
+    action, goal = _resolve_swarm_action_goal(args)
     spec_file = getattr(args, "spec", None)
     skip_interrogation = getattr(args, "skip_interrogation", False)
     dry_run = getattr(args, "dry_run", False)
     budget_limit = getattr(args, "budget_limit", 50.0)
     require_approval = getattr(args, "require_approval", False)
     max_parallel = getattr(args, "max_parallel", 20)
+    concurrency_cap = min(max(1, int(getattr(args, "concurrency_cap", 8))), 8)
     no_loop = getattr(args, "no_loop", False)
+    target_branch = getattr(args, "target_branch", "main")
+    managed_dir_pattern = getattr(args, "managed_dir_pattern", ".worktrees/{agent}-auto")
+    as_json = bool(getattr(args, "json", False))
+    run_id = getattr(args, "run_id", None)
+    refresh_scaling = bool(getattr(args, "refresh_scaling", False))
 
     # Phase 2: User profile
     profile_str = getattr(args, "profile", "ceo")
@@ -65,9 +103,33 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     }
     autonomy_level = autonomy_map.get(autonomy_str, AutonomyLevel.PROPOSE_APPROVE)
 
+    if action == "status":
+        supervisor = SwarmSupervisor(repo_root=Path.cwd())
+        payload = supervisor.status_summary(
+            run_id=run_id,
+            limit=int(getattr(args, "status_limit", 20)),
+            refresh_scaling=refresh_scaling,
+        )
+        if as_json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(
+                "runs={runs} queued={queued} leased={leased} completed={completed}".format(
+                    runs=payload["counts"].get("runs", 0),
+                    queued=payload["counts"].get("queued_work_orders", 0),
+                    leased=payload["counts"].get("leased_work_orders", 0),
+                    completed=payload["counts"].get("completed_work_orders", 0),
+                )
+            )
+            for run in payload.get("runs", []):
+                if isinstance(run, dict):
+                    print("---")
+                    _print_supervisor_run(run)
+        return
+
     if not goal and not spec_file and not from_obsidian:
         print("Error: provide a goal or --spec file (or --from-obsidian vault)")
-        print('Usage: aragora swarm "your goal here"')
+        print('Usage: aragora swarm run "your goal here"')
         return
 
     config = SwarmCommanderConfig(
@@ -82,6 +144,10 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         autonomy_level=autonomy_level,
     )
     commander = SwarmCommander(config=config)
+    approval_policy = SwarmApprovalPolicy(
+        require_merge_approval=True,
+        require_external_action_approval=True,
+    )
 
     # Phase 4: Load goals from Obsidian
     if from_obsidian and not goal:
@@ -101,7 +167,20 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         spec = SwarmSpec.from_yaml(spec_path.read_text())
         print(f"\nLoaded spec from {spec_file}")
         print(spec.summary())
-        asyncio.run(commander.run_from_spec(spec))
+        run = asyncio.run(
+            commander.run_supervised_from_spec(
+                spec,
+                repo_path=Path.cwd(),
+                target_branch=target_branch,
+                max_concurrency=concurrency_cap,
+                managed_dir_pattern=managed_dir_pattern,
+                approval_policy=approval_policy,
+            )
+        )
+        if as_json:
+            print(json.dumps(run.to_dict(), indent=2))
+        else:
+            _print_supervisor_run(run.to_dict())
     elif dry_run:
         spec = asyncio.run(commander.dry_run(goal))
         save_path = getattr(args, "save_spec", None)
@@ -121,8 +200,32 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         )
         print("\nSkipping interrogation (developer mode)")
         print(spec.summary())
-        asyncio.run(commander.run_from_spec(spec))
-    elif config.iterative_mode:
-        asyncio.run(commander.run_iterative(goal))
+        run = asyncio.run(
+            commander.run_supervised_from_spec(
+                spec,
+                repo_path=Path.cwd(),
+                target_branch=target_branch,
+                max_concurrency=concurrency_cap,
+                managed_dir_pattern=managed_dir_pattern,
+                approval_policy=approval_policy,
+            )
+        )
+        if as_json:
+            print(json.dumps(run.to_dict(), indent=2))
+        else:
+            _print_supervisor_run(run.to_dict())
     else:
-        asyncio.run(commander.run(goal))
+        run = asyncio.run(
+            commander.run_supervised(
+                goal,
+                repo_path=Path.cwd(),
+                target_branch=target_branch,
+                max_concurrency=concurrency_cap,
+                managed_dir_pattern=managed_dir_pattern,
+                approval_policy=approval_policy,
+            )
+        )
+        if as_json:
+            print(json.dumps(run.to_dict(), indent=2))
+        else:
+            _print_supervisor_run(run.to_dict())

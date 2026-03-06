@@ -251,6 +251,14 @@ class FleetIntegrationWorker:
             )
 
         if merge_result.success:
+            receipt_id = str(metadata.get("receipt_id", "")).strip()
+            if receipt_id:
+                from aragora.nomic.dev_coordination import DevCoordinationStore
+
+                DevCoordinationStore(repo_root=self.repo_path).mark_supervisor_run_merged(
+                    receipt_id=receipt_id,
+                    merge_commit_sha=merge_result.commit_sha,
+                )
             updated = self.fleet_store.update_merge_queue_item(
                 item_id=item_id,
                 status="merged",

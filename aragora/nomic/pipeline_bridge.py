@@ -34,6 +34,7 @@ import hashlib
 import logging
 import uuid
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -44,6 +45,13 @@ if TYPE_CHECKING:
     from aragora.pipeline.universal_node import UniversalGraph
 
 logger = logging.getLogger(__name__)
+
+
+class ExecutionTarget(str, Enum):
+    """First-class agent targets for bounded work execution."""
+
+    CODEX = "codex"
+    CLAUDE = "claude"
 
 
 @dataclass
@@ -62,7 +70,12 @@ class BoundedWorkOrder:
     file_scope: list[str] = field(default_factory=list)
     dependency_ids: list[str] = field(default_factory=list)
     success_criteria: dict[str, Any] = field(default_factory=dict)
+    expected_tests: list[str] = field(default_factory=list)
     estimated_complexity: str = "medium"
+    risk_level: str = "review"
+    target_agent: str = ExecutionTarget.CODEX.value
+    reviewer_agent: str = ExecutionTarget.CLAUDE.value
+    approval_required: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -74,9 +87,41 @@ class BoundedWorkOrder:
             "file_scope": list(self.file_scope),
             "dependency_ids": list(self.dependency_ids),
             "success_criteria": dict(self.success_criteria),
+            "expected_tests": list(self.expected_tests),
             "estimated_complexity": self.estimated_complexity,
+            "risk_level": self.risk_level,
+            "target_agent": self.target_agent,
+            "reviewer_agent": self.reviewer_agent,
+            "approval_required": self.approval_required,
             "metadata": dict(self.metadata),
         }
+
+
+def _extract_expected_tests(success_criteria: dict[str, Any]) -> list[str]:
+    """Extract normalized test commands from success criteria."""
+    tests_value = success_criteria.get("tests")
+    if isinstance(tests_value, str) and tests_value.strip():
+        return [tests_value.strip()]
+    if isinstance(tests_value, list):
+        return [str(item).strip() for item in tests_value if str(item).strip()]
+    return []
+
+
+def _risk_level_for_complexity(complexity: str) -> str:
+    """Map estimated complexity into a coarse approval risk tier."""
+    level = str(complexity).strip().lower()
+    if level == "high":
+        return "critical"
+    if level == "low":
+        return "info"
+    return "review"
+
+
+def _target_pair_for_index(index: int) -> tuple[str, str]:
+    """Alternate primary/reviewer targets across Codex and Claude."""
+    if index % 2 == 0:
+        return ExecutionTarget.CODEX.value, ExecutionTarget.CLAUDE.value
+    return ExecutionTarget.CLAUDE.value, ExecutionTarget.CODEX.value
 
 
 def _subtask_to_implement_task(
@@ -219,6 +264,8 @@ class NomicPipelineBridge:
         pipeline_id_by_subtask = {st.id: f"task-{i + 1}" for i, st in enumerate(subtasks)}
         work_orders: list[BoundedWorkOrder] = []
         for i, subtask in enumerate(subtasks, 1):
+            target_agent, reviewer_agent = _target_pair_for_index(i - 1)
+            risk_level = _risk_level_for_complexity(subtask.estimated_complexity)
             work_orders.append(
                 BoundedWorkOrder(
                     work_order_id=subtask.id,
@@ -232,7 +279,12 @@ class NomicPipelineBridge:
                         if dep_id in pipeline_id_by_subtask
                     ],
                     success_criteria=dict(subtask.success_criteria),
+                    expected_tests=_extract_expected_tests(subtask.success_criteria),
                     estimated_complexity=subtask.estimated_complexity,
+                    risk_level=risk_level,
+                    target_agent=target_agent,
+                    reviewer_agent=reviewer_agent,
+                    approval_required=risk_level == "critical",
                     metadata={
                         "source": "nomic_subtask",
                         "depth": subtask.depth,

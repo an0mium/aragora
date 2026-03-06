@@ -2063,9 +2063,14 @@ def _add_swarm_parser(subparsers) -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     swarm_parser.add_argument(
-        "goal",
+        "swarm_action_or_goal",
         nargs="?",
-        help="Your goal in plain language",
+        help="Action (run/status) or your goal in plain language",
+    )
+    swarm_parser.add_argument(
+        "swarm_goal",
+        nargs="?",
+        help="Goal when using the explicit 'run' action",
     )
     swarm_parser.add_argument(
         "--spec",
@@ -2133,6 +2138,43 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "--save-spec",
         help="Save the produced spec to a YAML file",
+    )
+    swarm_parser.add_argument(
+        "--target-branch",
+        default="main",
+        help="Branch to integrate toward (default: main)",
+    )
+    swarm_parser.add_argument(
+        "--concurrency-cap",
+        type=int,
+        default=8,
+        help="Supervisor worker cap, clamped to 8 (default: 8)",
+    )
+    swarm_parser.add_argument(
+        "--managed-dir-pattern",
+        default=".worktrees/{agent}-auto",
+        help="Managed worktree directory pattern (default: .worktrees/{agent}-auto)",
+    )
+    swarm_parser.add_argument(
+        "--run-id",
+        default=None,
+        help="Specific supervisor run ID for 'status'",
+    )
+    swarm_parser.add_argument(
+        "--status-limit",
+        type=int,
+        default=20,
+        help="Maximum runs to show in 'status' (default: 20)",
+    )
+    swarm_parser.add_argument(
+        "--refresh-scaling",
+        action="store_true",
+        help="Top up queued work orders when showing status",
+    )
+    swarm_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON output",
     )
     swarm_parser.set_defaults(
         func=lambda args: __import__(
