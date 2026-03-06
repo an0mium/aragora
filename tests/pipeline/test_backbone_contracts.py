@@ -4,6 +4,7 @@ from aragora.interrogation.crystallizer import CrystallizedSpec, MoSCoWItem
 from aragora.interrogation.engine import InterrogationResult, PrioritizedQuestion
 from aragora.pipeline.backbone_contracts import (
     DeliberationBundle,
+    ExecutionAttemptRecord,
     IntakeBundle,
     OutcomeFeedbackRecord,
     ReceiptEnvelope,
@@ -265,3 +266,79 @@ def test_outcome_feedback_record_from_pipeline_outcome_derives_next_action() -> 
     assert record.objective_fidelity == outcome.overall_quality_score
     assert record.execution_outcome["tests_failed"] == 2
     assert record.next_action_recommendation == "run_bug_fix_loop"
+
+
+def test_execution_attempt_record_from_plan_outcome_captures_stable_shape() -> None:
+    outcome = PipelineOutcome(
+        pipeline_id="pipe-002",
+        run_type="automated",
+        domain="infrastructure",
+        spec_completeness=0.9,
+        execution_succeeded=True,
+        tests_passed=10,
+        tests_failed=0,
+        files_changed=3,
+        total_duration_s=18.5,
+    )
+
+    record = ExecutionAttemptRecord.from_plan_outcome(
+        outcome,
+        attempt_id="attempt-001",
+        plan_id="plan-abc",
+        policy_decision={"allowed": True, "reason": "within budget"},
+        taint_flags=["external_dependency"],
+        artifacts=["dist/output.tar.gz", "reports/test-results.xml"],
+        diff_summary="3 files changed, 42 insertions, 5 deletions",
+    )
+
+    assert record.attempt_id == "attempt-001"
+    assert record.plan_id == "plan-abc"
+    assert record.status == "succeeded"
+    assert record.tests_passed == 10
+    assert record.tests_failed == 0
+    assert record.files_changed == 3
+    assert record.policy_decision == {"allowed": True, "reason": "within budget"}
+    assert record.taint_flags == ["external_dependency"]
+    assert record.artifacts == ["dist/output.tar.gz", "reports/test-results.xml"]
+    assert record.diff_summary == "3 files changed, 42 insertions, 5 deletions"
+
+
+def test_execution_attempt_record_from_plan_outcome_failed_sets_status_failed() -> None:
+    outcome = PipelineOutcome(
+        pipeline_id="pipe-003",
+        run_type="automated",
+        domain="backend",
+        spec_completeness=0.5,
+        execution_succeeded=False,
+        tests_passed=2,
+        tests_failed=5,
+        files_changed=1,
+        total_duration_s=5.0,
+    )
+
+    record = ExecutionAttemptRecord.from_plan_outcome(outcome, attempt_id="attempt-002")
+
+    assert record.status == "failed"
+    assert record.tests_failed == 5
+
+
+def test_execution_attempt_record_to_dict_is_serializable() -> None:
+    outcome = PipelineOutcome(
+        pipeline_id="pipe-004",
+        run_type="manual",
+        domain="frontend",
+        execution_succeeded=True,
+        tests_passed=5,
+        tests_failed=0,
+        files_changed=2,
+        total_duration_s=8.0,
+    )
+
+    record = ExecutionAttemptRecord.from_plan_outcome(outcome, attempt_id="a3")
+    d = record.to_dict()
+
+    assert isinstance(d, dict)
+    assert d["attempt_id"] == "a3"
+    assert d["status"] == "succeeded"
+    assert "policy_decision" in d
+    assert "artifacts" in d
