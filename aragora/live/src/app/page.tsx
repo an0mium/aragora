@@ -19,7 +19,7 @@ export default function RootPage() {
       if (raw) {
         const tokens = JSON.parse(raw);
         if (tokens?.access_token) {
-          router.replace('/demo');
+          router.replace('/arena');
           return;
         }
       }

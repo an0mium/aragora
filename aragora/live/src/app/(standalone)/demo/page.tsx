@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 
 // ---------------------------------------------------------------------------
-// Cached Demo Debate Data
+// Demo Debate Data
 // ---------------------------------------------------------------------------
 
 interface DemoEvent {
@@ -290,7 +289,7 @@ function AgentRoster({ agents }: { agents: string[] }) {
 // Page
 // ---------------------------------------------------------------------------
 
-export default function InstantDemoPage() {
+export default function PublicDemoPage() {
   const [visibleCount, setVisibleCount] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showVerdict, setShowVerdict] = useState(false);
@@ -323,7 +322,6 @@ export default function InstantDemoPage() {
   }, [events.length]);
 
   useEffect(() => {
-    // Auto-play on mount after a brief pause
     const t = setTimeout(play, 800);
     return () => {
       clearTimeout(t);
@@ -332,145 +330,159 @@ export default function InstantDemoPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <>
-      <Scanlines opacity={0.02} />
-      <CRTVignette />
-      <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
-        <div className="container mx-auto px-4 py-6 max-w-4xl">
-          {/* Header */}
-          <div className="mb-6 text-center">
-            <h1 className="text-2xl font-mono text-[var(--acid-green)] mb-2">
-              MULTI-AGENT DECISION VETTING
-            </h1>
-            <p className="text-sm font-mono text-[var(--text-muted)] max-w-2xl mx-auto">
-              Watch 5 AI models from different providers debate a real decision.
-              Each agent proposes, critiques, and votes independently.
-              Consensus is measured, not assumed.
+    <main className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
+      {/* Top nav */}
+      <nav className="border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
+        <Link href="/landing" className="font-mono text-sm text-[var(--acid-green)] hover:opacity-80 transition-opacity">
+          ARAGORA
+        </Link>
+        <Link
+          href="/signup"
+          className="px-4 py-1.5 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
+        >
+          GET STARTED FREE
+        </Link>
+      </nav>
+
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase tracking-widest mb-2">
+            Live Demo — No Account Required
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-mono text-[var(--acid-green)] mb-3">
+            MULTI-AGENT DECISION VETTING
+          </h1>
+          <p className="text-sm font-mono text-[var(--text-muted)] max-w-2xl mx-auto">
+            Watch 5 AI models from different providers debate a real decision.
+            Each agent proposes, critiques, and votes independently.
+            Consensus is measured, not assumed.
+          </p>
+        </div>
+
+        {/* Topic */}
+        <div className="mb-6 p-4 bg-[var(--surface)] border border-[var(--acid-green)]/30">
+          <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase mb-1">
+            Decision Question
+          </div>
+          <div className="text-sm font-mono text-[var(--text)]">
+            {DEMO_DEBATE.topic}
+          </div>
+        </div>
+
+        {/* Agent Roster */}
+        <AgentRoster agents={DEMO_DEBATE.agents} />
+
+        {/* Controls */}
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={play}
+            disabled={isPlaying}
+            className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+          >
+            {isPlaying ? 'PLAYING...' : '\u25B6 REPLAY'}
+          </button>
+          <button
+            onClick={showAll}
+            className="px-4 py-2 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
+          >
+            SHOW ALL
+          </button>
+          <span className="text-[10px] font-mono text-[var(--text-muted)] ml-auto">
+            {visibleCount}/{events.length} events | Round{' '}
+            {visibleCount > 0
+              ? events[Math.min(visibleCount - 1, events.length - 1)].round
+              : 1}
+            /{DEMO_DEBATE.rounds}
+          </span>
+        </div>
+
+        {/* Events */}
+        <div className="mb-6">
+          {events.map((event, i) => (
+            <EventCard
+              key={`${event.agent}-${event.timestamp}`}
+              event={event}
+              isVisible={i < visibleCount}
+              index={i}
+            />
+          ))}
+        </div>
+
+        {/* Consensus Bar */}
+        {visibleCount > 0 && <ConsensusBar confidence={DEMO_DEBATE.confidence} />}
+
+        {/* Verdict */}
+        {showVerdict && (
+          <div className="mb-8 p-4 bg-[var(--acid-green)]/5 border border-[var(--acid-green)]/40 transition-all duration-700">
+            <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase mb-2">
+              Consensus Verdict
+            </div>
+            <p className="text-sm font-mono text-[var(--text)] leading-relaxed mb-3">
+              {DEMO_DEBATE.verdict}
+            </p>
+            <div className="flex items-center gap-4 text-[10px] font-mono text-[var(--text-muted)]">
+              <span>Receipt: {DEMO_DEBATE.receipt_hash}</span>
+              <span>Agents: {DEMO_DEBATE.agents.length}</span>
+              <span>Rounds: {DEMO_DEBATE.rounds}</span>
+              <span>Confidence: {Math.round(DEMO_DEBATE.confidence * 100)}%</span>
+            </div>
+          </div>
+        )}
+
+        {/* What makes this different */}
+        <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
+            <div className="text-sm font-mono text-purple-400 mb-2">\u2726 Multi-Model</div>
+            <p className="text-xs font-mono text-[var(--text-muted)]">
+              5 different AI models from 5 providers. No single point of failure or bias.
             </p>
           </div>
-
-          {/* Topic */}
-          <div className="mb-6 p-4 bg-[var(--surface)] border border-[var(--acid-green)]/30">
-            <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase mb-1">
-              Decision Question
-            </div>
-            <div className="text-sm font-mono text-[var(--text)]">
-              {DEMO_DEBATE.topic}
-            </div>
+          <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
+            <div className="text-sm font-mono text-red-400 mb-2">\u2694 Adversarial</div>
+            <p className="text-xs font-mono text-[var(--text-muted)]">
+              Agents critique each other. Weak arguments get challenged. Consensus is earned.
+            </p>
           </div>
-
-          {/* Agent Roster */}
-          <AgentRoster agents={DEMO_DEBATE.agents} />
-
-          {/* Controls */}
-          <div className="flex items-center gap-3 mb-6">
-            <button
-              onClick={play}
-              disabled={isPlaying}
-              className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
-              {isPlaying ? 'PLAYING...' : '\u25B6 REPLAY'}
-            </button>
-            <button
-              onClick={showAll}
-              className="px-4 py-2 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
-            >
-              SHOW ALL
-            </button>
-            <span className="text-[10px] font-mono text-[var(--text-muted)] ml-auto">
-              {visibleCount}/{events.length} events | Round{' '}
-              {visibleCount > 0
-                ? events[Math.min(visibleCount - 1, events.length - 1)].round
-                : 1}
-              /{DEMO_DEBATE.rounds}
-            </span>
+          <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
+            <div className="text-sm font-mono text-[var(--acid-green)] mb-2">$ Auditable</div>
+            <p className="text-xs font-mono text-[var(--text-muted)]">
+              Every decision gets a cryptographic receipt. Full provenance trail. Audit-ready.
+            </p>
           </div>
+        </div>
 
-          {/* Events */}
-          <div className="mb-6">
-            {events.map((event, i) => (
-              <EventCard
-                key={`${event.agent}-${event.timestamp}`}
-                event={event}
-                isVisible={i < visibleCount}
-                index={i}
-              />
-            ))}
-          </div>
-
-          {/* Consensus Bar */}
-          {visibleCount > 0 && <ConsensusBar confidence={DEMO_DEBATE.confidence} />}
-
-          {/* Verdict */}
-          {showVerdict && (
-            <div className="mb-8 p-4 bg-[var(--acid-green)]/5 border border-[var(--acid-green)]/40 transition-all duration-700">
-              <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase mb-2">
-                Consensus Verdict
-              </div>
-              <p className="text-sm font-mono text-[var(--text)] leading-relaxed mb-3">
-                {DEMO_DEBATE.verdict}
-              </p>
-              <div className="flex items-center gap-4 text-[10px] font-mono text-[var(--text-muted)]">
-                <span>Receipt: {DEMO_DEBATE.receipt_hash}</span>
-                <span>Agents: {DEMO_DEBATE.agents.length}</span>
-                <span>Rounds: {DEMO_DEBATE.rounds}</span>
-                <span>Confidence: {Math.round(DEMO_DEBATE.confidence * 100)}%</span>
-              </div>
-            </div>
-          )}
-
-          {/* What makes this different */}
-          <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-              <div className="text-sm font-mono text-purple-400 mb-2">\u2726 Multi-Model</div>
-              <p className="text-xs font-mono text-[var(--text-muted)]">
-                5 different AI models from 5 providers. No single point of failure or bias.
-              </p>
-            </div>
-            <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-              <div className="text-sm font-mono text-red-400 mb-2">\u2694 Adversarial</div>
-              <p className="text-xs font-mono text-[var(--text-muted)]">
-                Agents critique each other. Weak arguments get challenged. Consensus is earned.
-              </p>
-            </div>
-            <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-              <div className="text-sm font-mono text-[var(--acid-green)] mb-2">$ Auditable</div>
-              <p className="text-xs font-mono text-[var(--text-muted)]">
-                Every decision gets a cryptographic receipt. Full provenance trail. Audit-ready.
-              </p>
-            </div>
-          </div>
-
-          {/* CTAs */}
-          <div className="flex flex-wrap gap-4 justify-center mb-8">
+        {/* Sign-up CTA */}
+        <div className="border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/5 p-8 text-center mb-8">
+          <h2 className="text-lg font-mono text-[var(--acid-green)] mb-2">
+            Run debates on your own decisions
+          </h2>
+          <p className="text-sm font-mono text-[var(--text-muted)] mb-6 max-w-md mx-auto">
+            Free tier includes 10 debates/month. No credit card required. First verdict in under 5 minutes.
+          </p>
+          <div className="flex flex-wrap gap-3 justify-center">
             <Link
-              href="/arena"
+              href="/signup"
               className="px-6 py-3 text-sm font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
             >
-              START YOUR OWN DEBATE
+              GET STARTED FREE
             </Link>
             <Link
-              href="/oracle"
-              className="px-6 py-3 text-sm font-mono border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 transition-colors"
-            >
-              ASK THE ORACLE
-            </Link>
-            <Link
-              href="/demo/pipeline"
+              href="/landing"
               className="px-6 py-3 text-sm font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
             >
-              PIPELINE DEMO
+              LEARN MORE
             </Link>
           </div>
-
-          {/* Footer */}
-          <footer className="text-center text-xs font-mono py-4 border-t border-[var(--acid-green)]/20">
-            <p className="text-[var(--text-muted)]">
-              {'>'} ARAGORA // DECISION INTEGRITY PLATFORM // NOT ANOTHER CHATGPT WRAPPER
-            </p>
-          </footer>
         </div>
-      </main>
-    </>
+
+        {/* Footer */}
+        <footer className="text-center text-xs font-mono py-4 border-t border-[var(--acid-green)]/20">
+          <p className="text-[var(--text-muted)]">
+            {'>'} ARAGORA // DECISION INTEGRITY PLATFORM // NOT ANOTHER CHATGPT WRAPPER
+          </p>
+        </footer>
+      </div>
+    </main>
   );
 }
