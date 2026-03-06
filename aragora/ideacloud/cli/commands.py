@@ -333,6 +333,7 @@ def _cmd_link(cloud: Any, args: argparse.Namespace) -> int:
     new_edges = cloud.auto_link(
         node_id=args.node,
         min_similarity=args.min_similarity,
+        inject_wiki_links=not getattr(args, "no_wiki_links", False),
     )
     print(f"Created {len(new_edges)} new connections")
     for edge in new_edges[:20]:

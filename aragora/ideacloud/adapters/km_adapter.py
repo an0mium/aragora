@@ -49,6 +49,25 @@ class IdeaCloudAdapter(KnowledgeMoundAdapter):
 
             try:
                 async with self._resilient_call("sync_to_km"):
+                    # Create KM-compatible record and ingest
+                    await self.km.ingest(
+                        {
+                            "source_type": "ideacloud",
+                            "source_id": node.id,
+                            "node_type": node.node_type,
+                            "content": f"{node.title}\n\n{node.body}",
+                            "confidence": node.confidence,
+                            "tags": node.tags,
+                            "metadata": {
+                                "source_url": node.source_url,
+                                "source_author": node.source_author,
+                                "cluster_id": node.cluster_id,
+                                "pipeline_status": node.pipeline_status,
+                                "relevance_score": node.relevance_score,
+                            },
+                        }
+                    )
+
                     self._emit_event(
                         "ideacloud_sync",
                         {
