@@ -238,6 +238,40 @@ class TestReceiptLinkage:
         assert updated.extras["execution_outcome"]["tests_failed"] == 3
         assert "action_bundle" not in updated.extras
 
+    def test_update_receipt_hash_covers_provenance_and_taint(self) -> None:
+        from aragora.pipeline.backbone_contracts import ReceiptEnvelope
+        from aragora.pipeline.receipt_generator import update_receipt_with_execution
+
+        outcome = {
+            "status": "succeeded",
+            "tests_passed": 1,
+            "tests_failed": 0,
+            "files_changed": 1,
+            "duration_s": 1.0,
+        }
+
+        base = ReceiptEnvelope(
+            receipt_id="receipt-hash-001",
+            artifact_hash="oldhash",
+            verdict="unknown",
+            confidence=0.8,
+            provenance_chain=[{"stage": "ideas", "id": "n1"}],
+            taint_summary={"blocked": False},
+        )
+        changed = ReceiptEnvelope(
+            receipt_id="receipt-hash-001",
+            artifact_hash="oldhash",
+            verdict="unknown",
+            confidence=0.8,
+            provenance_chain=[{"stage": "ideas", "id": "n1"}, {"stage": "actions", "id": "n2"}],
+            taint_summary={"blocked": True},
+        )
+
+        hash_base = update_receipt_with_execution(base, outcome).artifact_hash
+        hash_changed = update_receipt_with_execution(changed, outcome).artifact_hash
+
+        assert hash_base != hash_changed
+
 
 class TestCodeImplementationTask:
     """Test the CodeImplementationTask workflow node with mocked harness."""

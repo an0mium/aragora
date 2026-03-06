@@ -7,6 +7,7 @@ provenance chain: ideas -> goals -> actions -> orchestration results.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -153,9 +154,13 @@ def update_receipt_with_execution(
     if action_bundle:
         receipt_envelope.extras["action_bundle"] = action_bundle
 
-    # Re-hash for integrity
-    content_str = (
-        f"{receipt_envelope.receipt_id}:{receipt_envelope.verdict}:{receipt_envelope.extras}"
+    # Re-hash the full normalized envelope for integrity.
+    envelope_payload = receipt_envelope.to_dict()
+    envelope_payload["artifact_hash"] = ""
+    content_str = json.dumps(
+        envelope_payload,
+        sort_keys=True,
+        separators=(",", ":"),
     )
     receipt_envelope.artifact_hash = hashlib.sha256(content_str.encode()).hexdigest()
 
