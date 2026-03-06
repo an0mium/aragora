@@ -11,7 +11,7 @@
 - [Core Workflows](#core-workflows)
 - [Architecture](#architecture)
 - [Programmatic Usage](#programmatic-usage)
-- [Implemented Features (3,000+ Modules)](#implemented-features-3000-modules)
+- [Implemented Features (3,700+ Modules)](#implemented-features-3700-modules)
 - [Prerequisites](#prerequisites)
 - [Deployment](#deployment)
 - [API Endpoints](#api-endpoints)
@@ -477,7 +477,7 @@ See [SDK_COMPARISON.md](SDK_COMPARISON.md) for detailed feature comparison.
 
 ---
 
-## Implemented Features (3,000+ Modules)
+## Implemented Features (3,700+ Modules)
 
 Aragora has evolved through 21+ phases of self-improvement, with the Nomic Loop debating and implementing each feature.
 
