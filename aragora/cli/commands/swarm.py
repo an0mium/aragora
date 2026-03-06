@@ -83,6 +83,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     interval_seconds = float(getattr(args, "interval_seconds", 5.0) or 5.0)
     max_ticks = getattr(args, "max_ticks", None)
     all_runs = bool(getattr(args, "all_runs", False))
+    dispatch_only = bool(getattr(args, "dispatch_only", False))
+    no_wait = bool(getattr(args, "no_wait", False))
+    dispatch_workers = not (no_dispatch or dispatch_only)
 
     # Phase 2: User profile
     profile_str = getattr(args, "profile", "ceo")
@@ -214,8 +217,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 max_concurrency=concurrency_cap,
                 managed_dir_pattern=managed_dir_pattern,
                 approval_policy=approval_policy,
-                dispatch_workers=not no_dispatch,
-                watch=watch,
+                dispatch=dispatch_workers,
+                wait=not no_wait,
                 interval_seconds=interval_seconds,
                 max_ticks=max_ticks,
             )
@@ -225,7 +228,21 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         else:
             _print_supervisor_run(run.to_dict())
     elif dry_run:
-        spec = asyncio.run(commander.dry_run(goal))
+        if skip_interrogation:
+            spec = SwarmSpec(
+                id=str(uuid4()),
+                created_at=datetime.now(timezone.utc),
+                raw_goal=goal,
+                refined_goal=goal,
+                budget_limit_usd=budget_limit,
+                requires_approval=require_approval,
+                interrogation_turns=0,
+                user_expertise="developer",
+            )
+            print("\n[DRY RUN] Skipping interrogation and building a direct spec.\n")
+            print(spec.to_json(indent=2))
+        else:
+            spec = asyncio.run(commander.dry_run(goal))
         save_path = getattr(args, "save_spec", None)
         if save_path:
             Path(save_path).write_text(spec.to_yaml())
@@ -251,8 +268,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 max_concurrency=concurrency_cap,
                 managed_dir_pattern=managed_dir_pattern,
                 approval_policy=approval_policy,
-                dispatch_workers=not no_dispatch,
-                watch=watch,
+                dispatch=dispatch_workers,
+                wait=not no_wait,
                 interval_seconds=interval_seconds,
                 max_ticks=max_ticks,
             )
@@ -270,8 +287,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 max_concurrency=concurrency_cap,
                 managed_dir_pattern=managed_dir_pattern,
                 approval_policy=approval_policy,
-                dispatch_workers=not no_dispatch,
-                watch=watch,
+                dispatch=dispatch_workers,
+                wait=not no_wait,
                 interval_seconds=interval_seconds,
                 max_ticks=max_ticks,
             )

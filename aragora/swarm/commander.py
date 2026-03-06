@@ -185,8 +185,8 @@ class SwarmCommander:
         max_concurrency: int = 8,
         managed_dir_pattern: str = ".worktrees/{agent}-auto",
         approval_policy: SwarmApprovalPolicy | None = None,
-        dispatch_workers: bool = False,
-        watch: bool = False,
+        dispatch: bool = True,
+        wait: bool = True,
         interval_seconds: float = 5.0,
         max_ticks: int | None = None,
         input_fn: Any | None = None,
@@ -205,8 +205,8 @@ class SwarmCommander:
             max_concurrency=max_concurrency,
             managed_dir_pattern=managed_dir_pattern,
             approval_policy=approval_policy,
-            dispatch_workers=dispatch_workers,
-            watch=watch,
+            dispatch=dispatch,
+            wait=wait,
             interval_seconds=interval_seconds,
             max_ticks=max_ticks,
         )
@@ -220,12 +220,17 @@ class SwarmCommander:
         max_concurrency: int = 8,
         managed_dir_pattern: str = ".worktrees/{agent}-auto",
         approval_policy: SwarmApprovalPolicy | None = None,
-        dispatch_workers: bool = False,
-        watch: bool = False,
+        dispatch: bool = True,
+        wait: bool = True,
         interval_seconds: float = 5.0,
         max_ticks: int | None = None,
     ) -> SupervisorRun:
-        """Dispatch a spec through the supervisor-backed Codex/Claude worker pool."""
+        """Dispatch a spec through the supervisor-backed Codex/Claude worker pool.
+
+        Args:
+            dispatch: If True, spawn CLI worker processes after provisioning.
+            wait: If True, reconcile until the run reaches a stable stop condition.
+        """
         self._spec = spec
         supervisor = SwarmSupervisor(repo_root=repo_path or Path.cwd())
         run = supervisor.start_run(
@@ -235,19 +240,18 @@ class SwarmCommander:
             managed_dir_pattern=managed_dir_pattern,
             approval_policy=approval_policy,
         )
-        if dispatch_workers:
-            await supervisor.dispatch_workers(run.run_id)
-            record = supervisor.store.get_supervisor_run(run.run_id)
-            if record is not None:
-                run = SupervisorRun.from_record(record)
-        if watch:
-            reconciler = SwarmReconciler(supervisor=supervisor)
-            run = await reconciler.watch_run(
-                run.run_id,
-                interval_seconds=interval_seconds,
-                max_ticks=max_ticks,
-            )
-        return run
+        if dispatch:
+            launched = await supervisor.dispatch_workers(run.run_id)
+            if wait and launched:
+                reconciler = SwarmReconciler(supervisor=supervisor)
+                return await reconciler.watch_run(
+                    run.run_id,
+                    interval_seconds=interval_seconds,
+                    max_ticks=max_ticks,
+                )
+            return supervisor.refresh_run(run.run_id)
+
+        return supervisor.refresh_run(run.run_id)
 
     async def _dispatch(self, spec: SwarmSpec) -> Any:
         """Dispatch the swarm using HardenedOrchestrator.
