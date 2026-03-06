@@ -25,12 +25,20 @@ from aragora.swarm.commander import SwarmCommander
 from aragora.swarm.config import InterrogatorConfig, SwarmCommanderConfig
 from aragora.swarm.reporter import SwarmReport, SwarmReporter
 from aragora.swarm.spec import SwarmSpec
+from aragora.swarm.supervisor import SupervisorRun, SwarmApprovalPolicy, SwarmSupervisor
+from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
 
 __all__ = [
     "InterrogatorConfig",
+    "LaunchConfig",
     "SwarmCommander",
     "SwarmCommanderConfig",
+    "SupervisorRun",
     "SwarmReport",
     "SwarmReporter",
+    "SwarmApprovalPolicy",
     "SwarmSpec",
+    "SwarmSupervisor",
+    "WorkerLauncher",
+    "WorkerProcess",
 ]

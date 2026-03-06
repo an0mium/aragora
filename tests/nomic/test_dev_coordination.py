@@ -162,6 +162,72 @@ def test_record_completion_creates_pending_integration(store: DevCoordinationSto
     assert merge_queue[0]["metadata"]["receipt_id"] == receipt.receipt_id
 
 
+def test_supervisor_run_tracks_lease_completion_and_decision(store: DevCoordinationStore) -> None:
+    run = store.create_supervisor_run(
+        goal="Ship bounded swarm lane",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={
+            "require_merge_approval": True,
+            "require_external_action_approval": True,
+        },
+        spec={"raw_goal": "Ship bounded swarm lane", "refined_goal": "Ship bounded swarm lane"},
+        work_orders=[
+            {
+                "work_order_id": "wo-1",
+                "title": "Implement lane",
+                "file_scope": ["aragora/swarm/commander.py"],
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            }
+        ],
+    )
+
+    lease = store.claim_lease(
+        task_id="wo-1",
+        title="Implement lane",
+        owner_agent="codex",
+        owner_session_id="sess-swarm",
+        branch="codex/swarm-lane",
+        worktree_path="/tmp/wt-swarm",
+        claimed_paths=["aragora/swarm/commander.py"],
+        metadata={"supervisor_run_id": run["run_id"], "work_order_id": "wo-1"},
+    )
+    refreshed = store.get_supervisor_run(run["run_id"])
+    assert refreshed is not None
+    assert refreshed["work_orders"][0]["status"] == "leased"
+    assert refreshed["work_orders"][0]["lease_id"] == lease.lease_id
+
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="codex",
+        owner_session_id="sess-swarm",
+        branch="codex/swarm-lane",
+        worktree_path="/tmp/wt-swarm",
+        commit_shas=["abc12345"],
+        changed_paths=["aragora/swarm/commander.py"],
+        tests_run=["python -m pytest tests/swarm/test_commander.py -q"],
+        confidence=0.9,
+    )
+    refreshed = store.get_supervisor_run(run["run_id"])
+    assert refreshed is not None
+    assert refreshed["work_orders"][0]["status"] == "completed"
+    assert refreshed["work_orders"][0]["receipt_id"] == receipt.receipt_id
+    assert refreshed["status"] == "active"
+
+    store.record_integration_decision(
+        receipt_id=receipt.receipt_id,
+        decision=IntegrationDecisionType.REQUEST_CHANGES,
+        decided_by="claude-review",
+        rationale="Need heterogeneous review follow-up",
+    )
+    refreshed = store.get_supervisor_run(run["run_id"])
+    assert refreshed is not None
+    assert refreshed["work_orders"][0]["status"] == "changes_requested"
+    assert refreshed["status"] == "needs_human"
+
+
 def test_record_integration_decision_updates_queue(store: DevCoordinationStore) -> None:
     lease = store.claim_lease(
         task_id="clb-5",

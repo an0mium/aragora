@@ -552,6 +552,84 @@ class CoordinationHandlerMixin:
         return FleetCoordinationStore(repo_root)
 
     @api_endpoint(
+        method="POST",
+        path="/api/v1/coordination/swarm/run",
+        summary="Start a supervisor-backed Codex/Claude swarm run",
+        tags=["Coordination"],
+    )
+    @handle_errors("coordination swarm run")
+    @require_permission("coordination:workspaces.write")
+    def _handle_swarm_run(self, body: dict[str, Any]) -> HandlerResult:
+        """Create a supervisor-backed swarm run from a goal or spec."""
+        from aragora.swarm import SwarmApprovalPolicy, SwarmSpec, SwarmSupervisor
+
+        goal = str(body.get("goal", "")).strip()
+        spec_body = body.get("spec")
+        if isinstance(spec_body, dict):
+            spec = SwarmSpec.from_dict(spec_body)
+        elif goal:
+            spec = SwarmSpec(
+                raw_goal=goal,
+                refined_goal=goal,
+                acceptance_criteria=[str(item) for item in body.get("acceptance_criteria", [])],
+                constraints=[str(item) for item in body.get("constraints", [])],
+                file_scope_hints=[str(item) for item in body.get("file_scope_hints", [])],
+                requires_approval=bool(body.get("require_approval", True)),
+                user_expertise="developer",
+            )
+        else:
+            return error_response("goal or spec is required", 400)
+
+        repo_root = self._fleet_repo_root()
+        supervisor = SwarmSupervisor(repo_root=repo_root)
+        policy = SwarmApprovalPolicy(
+            require_merge_approval=bool(body.get("require_merge_approval", True)),
+            require_external_action_approval=bool(
+                body.get("require_external_action_approval", True)
+            ),
+            protected_patterns=[
+                str(item) for item in body.get("protected_patterns", []) if str(item).strip()
+            ],
+        )
+        run = supervisor.start_run(
+            spec=spec,
+            target_branch=str(body.get("target_branch", "main")).strip() or "main",
+            max_concurrency=int(body.get("concurrency_cap", 8) or 8),
+            managed_dir_pattern=str(
+                body.get("managed_dir_pattern", ".worktrees/{agent}-auto")
+            ).strip()
+            or ".worktrees/{agent}-auto",
+            approval_policy=policy,
+            refresh_scaling=True,
+        )
+        return json_response(run.to_dict(), status=201)
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/coordination/swarm/status",
+        summary="Get supervisor-backed swarm run status",
+        tags=["Coordination"],
+    )
+    @require_permission("coordination:stats.read")
+    def _handle_swarm_status(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Return persisted supervisor run status and queue counts."""
+        from aragora.swarm import SwarmSupervisor
+
+        repo_root = self._fleet_repo_root()
+        supervisor = SwarmSupervisor(repo_root=repo_root)
+        run_id = str(query_params.get("run_id", "")).strip() or None
+        try:
+            limit = int(query_params.get("limit", 20))
+        except (TypeError, ValueError):
+            limit = 20
+        payload = supervisor.status_summary(
+            run_id=run_id,
+            limit=max(1, min(limit, 100)),
+            refresh_scaling=bool(query_params.get("refresh", False)),
+        )
+        return json_response(payload)
+
+    @api_endpoint(
         method="GET",
         path="/api/v1/coordination/fleet/status",
         summary="Get worktree session fleet status",

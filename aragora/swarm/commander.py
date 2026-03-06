@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 from typing import Any
 
 from aragora.swarm.config import SwarmCommanderConfig
 from aragora.swarm.interrogator import SwarmInterrogator
 from aragora.swarm.reporter import SwarmReport, SwarmReporter
 from aragora.swarm.spec import SwarmSpec
+from aragora.swarm.supervisor import SupervisorRun, SwarmApprovalPolicy, SwarmSupervisor
 
 logger = logging.getLogger(__name__)
 
@@ -60,16 +62,11 @@ class SwarmCommander:
         """
         _print = print_fn or print
 
-        # Phase 1: Interrogation
-        _print("\n[Phase 1/3] Gathering requirements...\n")
-        self._spec = await self._interrogator.interrogate(
-            initial_goal, input_fn=input_fn, print_fn=print_fn
+        self._spec = await self.prepare_spec(
+            initial_goal,
+            input_fn=input_fn,
+            print_fn=print_fn,
         )
-
-        # Phase 1.5: Research enrichment
-        if self.config.enable_research_pipeline:
-            _print("\n[Phase 1.5/4] Researching and enriching spec...\n")
-            self._spec = await self._research(self._spec)
 
         # Phase 2: Dispatch
         _print("\n[Phase 2/4] Dispatching agents...\n")
@@ -95,6 +92,24 @@ class SwarmCommander:
         await self._write_receipt_to_obsidian(report)
 
         return report
+
+    async def prepare_spec(
+        self,
+        initial_goal: str,
+        input_fn: Any | None = None,
+        print_fn: Any | None = None,
+    ) -> SwarmSpec:
+        """Build a SwarmSpec from a raw goal without dispatching workers."""
+        _print = print_fn or print
+        _print("\n[Phase 1/3] Gathering requirements...\n")
+        spec = await self._interrogator.interrogate(
+            initial_goal, input_fn=input_fn, print_fn=print_fn
+        )
+        if self.config.enable_research_pipeline:
+            _print("\n[Phase 1.5/4] Researching and enriching spec...\n")
+            spec = await self._research(spec)
+        self._spec = spec
+        return spec
 
     async def run_from_spec(
         self,
@@ -145,10 +160,11 @@ class SwarmCommander:
             The produced SwarmSpec (no execution).
         """
         _print = print_fn or print
-
         _print("\n[DRY RUN] Gathering requirements only (no agents will be dispatched)...\n")
-        spec = await self._interrogator.interrogate(
-            initial_goal, input_fn=input_fn, print_fn=print_fn
+        spec = await self.prepare_spec(
+            initial_goal,
+            input_fn=input_fn,
+            print_fn=print_fn,
         )
 
         _print("\n" + "=" * 60)
@@ -158,6 +174,54 @@ class SwarmCommander:
         _print("")
 
         return spec
+
+    async def run_supervised(
+        self,
+        initial_goal: str,
+        *,
+        repo_path: Path | None = None,
+        target_branch: str = "main",
+        max_concurrency: int = 8,
+        managed_dir_pattern: str = ".worktrees/{agent}-auto",
+        approval_policy: SwarmApprovalPolicy | None = None,
+        input_fn: Any | None = None,
+        print_fn: Any | None = None,
+    ) -> SupervisorRun:
+        """Prepare a spec, then dispatch it through the Codex/Claude supervisor path."""
+        spec = await self.prepare_spec(
+            initial_goal,
+            input_fn=input_fn,
+            print_fn=print_fn,
+        )
+        return await self.run_supervised_from_spec(
+            spec,
+            repo_path=repo_path,
+            target_branch=target_branch,
+            max_concurrency=max_concurrency,
+            managed_dir_pattern=managed_dir_pattern,
+            approval_policy=approval_policy,
+        )
+
+    async def run_supervised_from_spec(
+        self,
+        spec: SwarmSpec,
+        *,
+        repo_path: Path | None = None,
+        target_branch: str = "main",
+        max_concurrency: int = 8,
+        managed_dir_pattern: str = ".worktrees/{agent}-auto",
+        approval_policy: SwarmApprovalPolicy | None = None,
+    ) -> SupervisorRun:
+        """Dispatch a spec through the supervisor-backed Codex/Claude worker pool."""
+        self._spec = spec
+        supervisor = SwarmSupervisor(repo_root=repo_path or Path.cwd())
+        return supervisor.start_run(
+            spec=spec,
+            target_branch=target_branch,
+            max_concurrency=max_concurrency,
+            managed_dir_pattern=managed_dir_pattern,
+            approval_policy=approval_policy,
+        )
 
     async def _dispatch(self, spec: SwarmSpec) -> Any:
         """Dispatch the swarm using HardenedOrchestrator.

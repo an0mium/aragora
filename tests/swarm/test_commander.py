@@ -73,6 +73,19 @@ class TestSwarmCommanderRunFromSpec:
 
         assert commander.spec is spec
 
+    @pytest.mark.asyncio
+    async def test_run_supervised_from_spec_uses_supervisor(self):
+        spec = SwarmSpec(raw_goal="Test goal", refined_goal="Test goal refined")
+        commander = SwarmCommander()
+        fake_run = MagicMock()
+
+        with patch("aragora.swarm.commander.SwarmSupervisor") as mock_supervisor_cls:
+            mock_supervisor_cls.return_value.start_run.return_value = fake_run
+            result = await commander.run_supervised_from_spec(spec)
+
+        assert result is fake_run
+        mock_supervisor_cls.return_value.start_run.assert_called_once()
+
 
 class TestSwarmCommanderDryRun:
     """Test SwarmCommander.dry_run."""
@@ -134,7 +147,7 @@ class TestSwarmCommanderIterative:
     async def test_iterative_loop_exits_on_done(self):
         """Typing 'done' should exit the loop."""
         output: list[str] = []
-        inputs = iter(["answer"] * 6 + ["done"])
+        inputs = iter(["done"])
         commander = SwarmCommander()
 
         with patch.object(

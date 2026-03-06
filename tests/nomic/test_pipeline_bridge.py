@@ -126,7 +126,11 @@ class TestBoundedWorkOrders:
         assert len(work_orders) == 2
         assert work_orders[0].pipeline_task_id == "task-1"
         assert work_orders[0].file_scope == ["aragora/server/auth_checks.py"]
+        assert work_orders[0].target_agent in {"codex", "claude"}
+        assert work_orders[0].reviewer_agent in {"codex", "claude"}
+        assert work_orders[0].target_agent != work_orders[0].reviewer_agent
         assert work_orders[1].dependency_ids == ["task-1"]
+        assert work_orders[1].risk_level in {"info", "review", "critical"}
 
     def test_build_plan_metadata_includes_protocol_and_orders(self):
         bridge = NomicPipelineBridge()
@@ -144,6 +148,25 @@ class TestBoundedWorkOrders:
         assert metadata["work_order_protocol"] == "bounded-work-order/v1"
         assert metadata["subtask_count"] == 1
         assert metadata["bounded_work_orders"][0]["work_order_id"] == "sub-1"
+
+    def test_build_work_orders_extracts_tests_and_approval_flag(self):
+        bridge = NomicPipelineBridge()
+        subtasks = [
+            SubTask(
+                id="sub-1",
+                title="Harden CI workflow",
+                description="Touch workflow policy files",
+                file_scope=[".github/workflows/test.yml"],
+                estimated_complexity="high",
+                success_criteria={"tests": ["python -m pytest tests/scripts -q"]},
+            )
+        ]
+
+        work_order = bridge.build_work_orders(subtasks)[0]
+
+        assert work_order.expected_tests == ["python -m pytest tests/scripts -q"]
+        assert work_order.risk_level == "critical"
+        assert work_order.approval_required is True
 
 
 class TestCreatePipelineFromCycle:
