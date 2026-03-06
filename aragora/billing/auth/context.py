@@ -79,7 +79,7 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
     )
 
     if handler is None:
-        logger.info("[AUTH_DEBUG] extract_user_from_request: handler is None")
+        logger.debug("extract_user_from_request: handler is None")
         return context
 
     # Get authorization header
@@ -89,30 +89,30 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
 
     # Ensure auth_header is a string (handles MagicMock in tests)
     if not isinstance(auth_header, str) or not auth_header:
-        logger.info("[AUTH_DEBUG] extract_user_from_request: No Authorization header")
+        logger.debug("extract_user_from_request: no Authorization header")
         return context
 
     # Check for Bearer token (JWT)
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
         token_fingerprint = hashlib.sha256(token.encode()).hexdigest()[:8]
-        logger.info(
-            "[AUTH_DEBUG] extract_user_from_request: Bearer token found, length=%s, fingerprint=%s",
+        logger.debug(
+            "extract_user_from_request: Bearer token found, length=%s, fingerprint=%s",
             len(token),
             token_fingerprint,
         )
 
         # Check if it's an API key
         if token.startswith("ara_"):
-            logger.info("[AUTH_DEBUG] Token is API key")
+            logger.debug("token is API key")
             return _validate_api_key(token, context, user_store)
 
         # Validate as JWT
-        logger.info("[AUTH_DEBUG] Validating as JWT...")
+        logger.debug("validating as JWT")
         payload = validate_access_token(token)
         if payload:
-            logger.info(
-                "[AUTH_DEBUG] JWT validated successfully: user_id=%s, email=%s",
+            logger.debug(
+                "JWT validated: user_id=%s, email=%s",
                 payload.user_id,
                 payload.email,
             )
@@ -123,9 +123,7 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
             context.role = payload.role
             context.token_type = "access"  # noqa: S105 -- token category label
         else:
-            logger.warning(
-                "[AUTH_DEBUG] JWT validation FAILED - validate_access_token returned None"
-            )
+            logger.warning("JWT validation failed: validate_access_token returned None")
             context.error_reason = "JWT validation failed"
 
     return context
