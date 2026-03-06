@@ -391,6 +391,9 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
     if (!topicText) {
       // Demo mode — use pre-scripted animation
       setIsLive(false);
+      const demoId = `demo-${Date.now()}`;
+      setDebateId(demoId);
+      setShareUrl(`/debate/${demoId}`);
       setStarted(true);
       return;
     }
@@ -427,8 +430,9 @@ export function PlaygroundDebate({ onDebateComplete }: PlaygroundDebateProps = {
       setLiveVotes(display.votes);
       setLiveReceipt(display.receipt);
       setLiveFinalAnswer(display.finalAnswer);
-      if (data.share_url) setShareUrl(data.share_url);
-      setDebateId(data.id ?? display.receipt.receipt_id);
+      const resolvedId = data.id ?? display.receipt.receipt_id;
+      setDebateId(resolvedId);
+      setShareUrl(data.share_url || `/debate/${resolvedId}`);
 
       setLoading(false);
       setStarted(true);
