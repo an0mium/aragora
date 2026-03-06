@@ -1210,6 +1210,13 @@ async def handle_quick_debate(
             existing_flow = _onboarding_flows.get(flow_key)
             if existing_flow:
                 flow_id = existing_flow.id
+        if flow_id is None:
+            try:
+                repo_flow = get_onboarding_repository().get_flow(user_id, organization_id)
+                if repo_flow and isinstance(repo_flow.get("id"), str):
+                    flow_id = repo_flow["id"]
+            except (KeyError, TypeError, AttributeError, OSError):
+                flow_id = None
 
         # Find template
         template = next(
