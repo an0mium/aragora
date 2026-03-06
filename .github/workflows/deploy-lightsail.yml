@@ -50,13 +50,14 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: ./.github/actions/setup-python-safe
         with:
           python-version: "3.11"
       - name: Install and test
         run: |
-          pip install -e ".[dev]" pytest-timeout httpx
-          pytest tests/test_handlers_debates.py tests/test_api_handler.py \
+          python -m pip install -e ".[dev]" pytest-timeout httpx
+          python -m pytest tests/test_handlers_debates.py tests/test_api_handler.py \
             --timeout=60 -x --tb=short
         env:
           PYTHONPATH: .

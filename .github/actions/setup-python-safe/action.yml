@@ -1,0 +1,67 @@
+name: "Setup Python (Runner-Safe)"
+description: >
+  Wraps actions/setup-python with automatic fallback to system Python
+  for self-hosted runners that lack the Python tool cache.
+
+inputs:
+  python-version:
+    description: "Python version to install"
+    required: false
+    default: "3.11"
+  cache:
+    description: "Package manager to cache (pip, pipenv, poetry)"
+    required: false
+    default: ""
+  cache-dependency-path:
+    description: "Path to dependency file(s) for caching"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python ${{ inputs.python-version }}
+      id: setup-python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: ${{ inputs.cache || '' }}
+        cache-dependency-path: ${{ inputs.cache-dependency-path || '' }}
+      continue-on-error: true
+
+    - name: Fallback to system Python
+      if: steps.setup-python.outcome == 'failure'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::warning::actions/setup-python failed — falling back to system Python"
+        PY_BIN=""
+        for cmd in python${{ inputs.python-version }} python3 python; do
+          if command -v "$cmd" &>/dev/null; then
+            echo "Found $cmd: $("$cmd" --version)"
+            PY_BIN="$(command -v "$cmd")"
+            break
+          fi
+        done
+        if [[ -z "${PY_BIN}" ]]; then
+          echo "::error::No Python interpreter found"
+          exit 1
+        fi
+
+        sudo ln -sf "${PY_BIN}" /usr/local/bin/python
+        sudo ln -sf "${PY_BIN}" /usr/local/bin/python3
+
+        # Make pip reliably available on self-hosted runners even when
+        # actions/setup-python fails and no pip shim is on PATH.
+        /usr/local/bin/python -m ensurepip --upgrade || true
+        /usr/local/bin/python -m pip --version
+
+        cat <<'EOF' | sudo tee /usr/local/bin/pip >/dev/null
+        #!/usr/bin/env bash
+        exec /usr/local/bin/python -m pip "$@"
+        EOF
+        sudo chmod +x /usr/local/bin/pip
+        sudo ln -sf /usr/local/bin/pip /usr/local/bin/pip3
+
+        python --version
+        pip --version || /usr/local/bin/python -m pip --version
