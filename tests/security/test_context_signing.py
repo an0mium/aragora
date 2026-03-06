@@ -116,6 +116,19 @@ class TestCreateAndVerifyManifest:
         assert result.manifest_missing is True
         assert result.ok is True
 
+    def test_verify_with_key_fails_when_entry_has_no_hmac(self, tmp_path):
+        """When verifying with key but entry was signed without key, result is not ok."""
+        f = tmp_path / "ctx.md"
+        f.write_text("hello")
+        manifest_path = tmp_path / ".aragora" / "context_manifest.json"
+        # Sign WITHOUT key
+        create_manifest([f], key=None, manifest_path=manifest_path)
+        # Verify WITH key
+        key = b"test-secret-key-32-bytes-padding"
+        result = verify_manifest(manifest_path, key=key)
+        assert not result.ok
+        assert len(result.unsigned_files) == 1
+
 
 class TestGetSigningKey:
     def test_returns_none_when_env_absent(self, monkeypatch):

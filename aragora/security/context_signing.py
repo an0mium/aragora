@@ -188,18 +188,21 @@ def verify_manifest(
             result.ok = False
             continue
 
-        # Verify HMAC when key is provided and entry was signed with HMAC
-        if key is not None and entry.hmac_sha256 is not None:
+        if key is not None:
+            if entry.hmac_sha256 is None:
+                # Signed without key, now verifying with key — treat as failure
+                result.unsigned_files.append(entry.path)
+                result.violations.append(f"{entry.path}: HMAC signature missing")
+                result.ok = False
+                continue
             expected_msg = f"{entry.sha256}:{entry.path}:{entry.signed_at}".encode()
             expected_hmac = hmac.new(key, expected_msg, hashlib.sha256).hexdigest()
             if not hmac.compare_digest(expected_hmac, entry.hmac_sha256):
                 result.violations.append(f"{entry.path}: HMAC invalid")
                 result.ok = False
                 continue
-        elif key is not None and entry.hmac_sha256 is None:
-            result.unsigned_files.append(entry.path)
 
-        if entry.path not in [v.split(":")[0] for v in result.violations]:
-            result.verified_files.append(entry.path)
+        # Only reach here if all checks passed
+        result.verified_files.append(entry.path)
 
     return result
