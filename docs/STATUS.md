@@ -23,10 +23,24 @@
 - **Comms Hub completion** (PR #726): Template persistence, router event wiring, E2E tests (Epic #293 closed)
 - **OpenClaw E2E core loop** (PR #727): CodeImplementationTask, SpecExtractor, ComputerUseActionBundle
 
-### Inbox Trust Wedge (Active Development)
-- Contracts: AllowedAction enum, TriageDecision, CLIReviewLoop, AutoApprovalPolicy, InboxTriageRunner
-- Attestation fix: receipt persisted BEFORE execution gate, DurableFileSigner
-- Demo fallback removal: SharedInboxView, TriageRulesPanel stripped of silent fallbacks
+### Inbox Trust Wedge — All Blocking Gaps Closed
+- **Trust Wedge Core**: Gmail → adversarial debate → signed receipt → CLI approval → gmail.modify
+- **Contracts**: AllowedAction enum (ARCHIVE/STAR/LABEL/IGNORE), TriageDecision, ReceiptState lifecycle (CREATED→APPROVED→EXECUTED→EXPIRED)
+- **Attestation**: Receipt persisted BEFORE execution gate, DurableFileSigner at `~/.aragora/signing.key`
+- **Demo fallback removal**: SharedInboxView, TriageRulesPanel stripped of silent fallbacks (fail-closed)
+- **Session circuit-breaker** (PR #736, #740): Auth-state pinning on 401/403, QuotaFallbackMixin wired
+- **Gmail OAuth setup** (PR #741): One-time credential setup via `scripts/gmail_oauth_setup.py`
+- **CLI**: `aragora triage run --batch 5 [--auto-approve]`, `aragora triage status`
+- **PRs merged**: #730, #731→#742, #732, #733→#742, #736, #740, #741
+
+### Swarm System — Supervisor-Backed Orchestration
+- **Supervisor** (PR #744): SupervisorRun lifecycle (PLANNED→ACTIVE→COMPLETED), bounded work orders, lease coordination
+- **Worker Launcher** (PR #744): Spawns `claude -p` / `codex exec --full-auto` in managed worktrees
+- **E2E Dispatch** (PR #745): `run_supervised_from_spec()` chains dispatch + collect after start_run
+- **Reconciler** (PR #746): Periodic loop — top up leases, dispatch ready workers, collect finished results
+- **Dev Coordination** (PR #744): WorkLease, CompletionReceipt, IntegrationDecision, SalvageCandidate
+- **CLI**: `aragora swarm run "goal"`, `aragora swarm status [--json]`, `aragora swarm reconcile --all-runs`
+- **98 tests** (89 swarm + 9 reconciler)
 
 ### Codebase Metrics (March 6, 2026)
 - **Python modules**: 3,700+

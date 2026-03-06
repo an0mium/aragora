@@ -496,20 +496,54 @@ aragora skills list
 
 ### `aragora swarm`
 
-**Purpose:** Launch the full swarm lifecycle: interrogate a goal → generate a spec → dispatch to agents → report results.
+**Purpose:** Launch the full swarm lifecycle: interrogate a goal → generate a spec → dispatch to agents → report results. Supervisor-backed with lease coordination, managed worktrees, and periodic reconciliation.
 
-**Usage:** `aragora swarm "<goal>" [options]`
+**Usage:** `aragora swarm [run|status|reconcile] "<goal>" [options]`
+
+**Subcommands:**
+- `run "<goal>"` — decompose goal, provision worktrees, dispatch workers (default)
+- `status [--run-id <id>] [--json]` — show active/recent supervisor runs
+- `reconcile [--run-id <id> | --all-runs]` — top up leases, dispatch ready workers, collect results
 
 **Key options:**
 - `--skip-interrogation` — bypass the clarification phase
-- `--spec <file>` — load a pre-written YAML spec
+- `--spec <file>` — load a pre-written SwarmSpec YAML file
 - `--budget-limit <usd>`, `--dry-run`, `--profile <cto|...>`
 - `--from-obsidian <vault>` — load goals from an Obsidian vault
+- `--dispatch-only` — provision worktrees without waiting for results
+- `--no-wait` — fire-and-forget dispatch
 
 **Examples:**
 ```bash
 aragora swarm "Make the dashboard faster"
-aragora swarm "Add auth" --budget-limit 10 --dry-run
+aragora swarm run "Add auth" --budget-limit 10 --dry-run
+aragora swarm status --json
+aragora swarm reconcile --all-runs
+```
+
+---
+
+### `aragora triage`
+
+**Purpose:** Inbox triage via adversarial debate with receipt-gated actions. The trust wedge entry point: fetch Gmail → debate → signed receipt → CLI approval → execute.
+
+**Usage:** `aragora triage [run|status] [options]`
+
+**Subcommands:**
+- `run` — fetch and triage unread emails
+- `status` — show triage session status
+
+**Key options (run):**
+- `--batch <n>` — number of emails to process (default: 5)
+- `--auto-approve` — use narrow auto-approval policy (ARCHIVE/STAR/LABEL/IGNORE only)
+- `--provider <name>` — LLM provider for triage debate
+- `--rounds <n>` — number of debate rounds
+
+**Examples:**
+```bash
+aragora triage run --batch 5
+aragora triage run --batch 10 --auto-approve
+aragora triage status
 ```
 
 ---

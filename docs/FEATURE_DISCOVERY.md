@@ -1,6 +1,6 @@
 # Aragora Feature Discovery Guide
 
-*Complete catalog of 220+ features for developers exploring Aragora capabilities*
+*Complete catalog of 230+ features for developers exploring Aragora capabilities*
 
 This document provides a comprehensive inventory of Aragora's features organized by domain. Use this guide to discover what Aragora can do and find the relevant modules for your use case.
 
@@ -22,7 +22,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | [Developer Tools](#8-developer-tools) | 35+ | Stable |
 | [Self-Improvement](#9-self-improvement--nomic-loop) | 18+ | Stable |
 
-**Total**: 220+ features | 3,700+ Python modules | 208,000+ tests | 3,000+ API operations
+**Total**: 230+ features | 3,700+ Python modules | 208,000+ tests | 3,000+ API operations
 
 ---
 
@@ -97,6 +97,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | **Agent Spec** | Stable | Unified specification parsing (`provider\|model\|persona\|role`) | `aragora/agents/spec.py` |
 | **Airlock Proxy** | Stable | Agent resilience with circuit breaker via `use_airlock` | `aragora/agents/airlock.py` |
 | **Fallback Chain** | Stable | Automatic OpenRouter fallback on 429 errors | `aragora/agents/fallback.py` |
+| **Session Circuit-Breaker** | Stable | Auth-state pinning (401/403), provider rotation after failures | `aragora/routing/session_circuit_breaker.py` |
 | **Rate Limiter** | Stable | Per-provider rate limiting | `aragora/agents/api_agents/rate_limiter.py` |
 | **Personas** | Stable | Configurable agent personalities | `aragora/agents/personas.py` |
 | **Calibration** | Stable | Agent performance calibration tracking | `aragora/agents/calibration.py` |
@@ -502,6 +503,20 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **Prompt Engine** | Stable | Transforms vague prompts into validated specifications via debate | `aragora/prompt_engine/conductor.py`, `aragora/prompt_engine/spec_builder.py` |
 | **Interrogation Engine** | Stable | Debate-driven prompt clarification with prioritized questions | `aragora/interrogation/engine.py`, `aragora/interrogation/crystallizer.py` |
 | **Swarm Orchestrator** | Stable | End-to-end user flow: interrogate → spec → dispatch → merge → report | `aragora/swarm/commander.py`, `aragora/swarm/reporter.py` |
+| **Swarm Supervisor** | Stable | Bounded work orders, managed worktrees, lease-based coordination | `aragora/swarm/supervisor.py` |
+| **Worker Launcher** | Stable | Spawns Claude Code / Codex CLI processes in isolated worktrees | `aragora/swarm/worker_launcher.py` |
+| **Swarm Reconciler** | Stable | Periodic lease renewal, dispatch, result collection | `aragora/swarm/reconciler.py` |
+
+### Inbox Trust Wedge
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **Trust Wedge Core** | Stable | Receipt-gated email actions: Gmail → debate → signed receipt → execute | `aragora/inbox/trust_wedge.py` |
+| **Triage Runner** | Stable | Batch email triage with adversarial debate decisions | `aragora/inbox/triage_runner.py` |
+| **Receipt-Gated Executor** | Stable | Only executes actions with previously persisted approved receipts | `aragora/inbox/receipt_gated_executor.py` |
+| **CLI Review Loop** | Stable | Interactive CLI approval for triage decisions | `aragora/inbox/cli_review.py` |
+| **Auto-Approval Policy** | Stable | Narrow auto-approval rules (ARCHIVE/STAR/LABEL/IGNORE only) | `aragora/inbox/auto_approval.py` |
+| **Gmail OAuth Setup** | Stable | One-time OAuth credential setup for Gmail integration | `scripts/gmail_oauth_setup.py` |
 
 ### Gauntlet (Compliance Testing)
 
@@ -582,6 +597,15 @@ Used in: audit pipeline (`aragora/audit/`), bug detection (`aragora/audit/bug_de
 | 2 | Design | Architecture planning |
 | 3 | Implement | Code generation (Codex/Claude) |
 | 4 | Verify | Tests and checks |
+
+### Development Coordination
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **DevCoordinationStore** | Stable | Work leases, completion receipts, integration decisions | `aragora/nomic/dev_coordination.py` |
+| **NomicPipelineBridge** | Stable | Bounded work orders bridging pipeline specs to worktree tasks | `aragora/nomic/pipeline_bridge.py` |
+| **Fleet Integration Worker** | Stable | Automated integration target workspace management | `aragora/worktree/integration_worker.py` |
+| **Salvage Queue** | Stable | Recovery of dirty worktrees and stashed work | `aragora/coordination/salvage.py` |
 
 ### Autonomous Operations
 

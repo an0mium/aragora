@@ -138,7 +138,7 @@ repo — editing files in the main directory causes concurrent overwrites.
 | Scheduler | `aragora/scheduler/` | Automated scheduling for audits, access reviews, DR drills |
 | Services | `aragora/services/` | ServiceRegistry pattern with email prioritization |
 | Streaming | `aragora/streaming/` | WebSocket/Kafka/RabbitMQ connection hardening |
-| Swarm | `aragora/swarm/` | User-facing orchestration: interrogate → spec → dispatch → merge |
+| Swarm | `aragora/swarm/` | Supervisor-backed orchestration: interrogate → spec → dispatch → reconcile |
 | Sync | `aragora/sync/` | Directory sync with incremental change detection |
 | Tasks | `aragora/tasks/` | Task management and tracking |
 | Telemetry | `aragora/telemetry/` | Convenience re-export of observability subsystem |
@@ -458,6 +458,13 @@ See `docs/reference/ENVIRONMENT.md` for full reference.
 - Active Introspection - per-round agent performance tracking via `enable_introspection` (proposals, critiques, influence)
 - Argument Verification - structural soundness checking via `auto_verify_arguments` in PostDebateConfig
 - Outcome Feedback - systematic error detection → Nomic Loop goals via `auto_outcome_feedback` in PostDebateConfig
+- Swarm Supervisor - bounded work orders, managed worktrees, lease-based worker coordination
+- Worker Launcher - spawns Claude Code / Codex CLI processes in isolated worktrees
+- Swarm Reconciler - periodic lease renewal, dispatch, result collection
+- Dev Coordination - work leases, completion receipts, integration decisions, salvage queue
+- Session Circuit-Breaker - auth-state pinning (401/403), provider rotation after failures
+- Inbox Trust Wedge - receipt-gated email actions: Gmail → debate → signed receipt → execute
+- Smart Provider Routing - Pareto optimizer for cost/quality/latency tradeoffs
 
 **Enterprise (production-ready):**
 - Authentication - OIDC/SAML SSO, MFA (TOTP/HOTP), API key management, SCIM 2.0 provisioning
@@ -512,7 +519,7 @@ See `docs/STATUS.md` for 74+ detailed feature statuses.
 | `docs/verticals/FINANCIAL.md` | Financial services vertical guide (risk, SOX, audit) |
 | `docs/verticals/LEGAL.md` | Legal vertical guide (contracts, due diligence, litigation) |
 | `docs/resilience/RESILIENCE_PATTERNS.md` | Circuit breakers, retry, timeout, health monitoring |
-| `docs/CLI_REFERENCE.md` | Complete reference for all 35 CLI commands with examples |
+| `docs/CLI_REFERENCE.md` | Complete reference for all 40+ CLI commands with examples |
 | `docs/FEATURE_GAP_LIST.md` | Feature backlog: planned, partial, and scaffolded features by priority |
 | `docs/guides/PIPELINE_GUIDE.md` | 4-stage Idea-to-Execution pipeline usage guide |
 | `docs/guides/MODES_GUIDE.md` | Operational modes guide (standard + advanced: RedTeam, DeepAudit, Probing) |
