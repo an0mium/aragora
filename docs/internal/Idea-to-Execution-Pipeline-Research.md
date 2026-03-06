@@ -141,7 +141,7 @@ Aragora's existing architecture maps remarkably well to all four stages:
 - `aragora/visualization/exporter.py` — Exports argument graphs to JSON, GraphML, SVG
 
 **Stage 2 (Goals & Principles):**
-- `aragora/knowledge/` — Knowledge Mound with 41 adapters, semantic search, cross-debate learning
+- `aragora/knowledge/` — Knowledge Mound with 45 adapters, semantic search, cross-debate learning
 - `aragora/knowledge/bridges.py` — MetaLearnerBridge, EvidenceBridge, PatternBridge
 - `aragora/workspace/bead.py` + `convoy.py` — Atomic work units with lifecycle tracking
 
@@ -153,7 +153,7 @@ Aragora's existing architecture maps remarkably well to all four stages:
 - `aragora/pipeline/` — Decision-to-PR generation pipeline
 
 **Stage 4 (Multi-Agent Orchestration):**
-- `aragora/debate/orchestrator.py` — Arena class orchestrating 42 agent types
+- `aragora/debate/orchestrator.py` — Arena class orchestrating 43 agent types
 - `aragora/agents/` — Heterogeneous agents (Claude, GPT, Mistral, Grok, Llama, etc.)
 - `aragora/control_plane/` — Agent registry, task scheduler, health monitoring
 - Real-time WebSocket streaming with 190+ event types
@@ -223,7 +223,7 @@ Aragora's existing architecture maps remarkably well to all four stages:
 │ grapher  │  tor     │  (existing)  │  (existing)              │
 │(existing)│  (new)   │              │                           │
 ├──────────┴──────────┴──────────────┴───────────────────────────┤
-│              Knowledge Mound (41 adapters - existing)           │
+│              Knowledge Mound (45 adapters - existing)           │
 ├─────────────────────────────────────────────────────────────────┤
 │         Provenance Chain (Gauntlet Receipts - existing)         │
 │         SHA-256 cryptographic audit trail                       │
@@ -238,9 +238,9 @@ Aragora's existing architecture maps remarkably well to all four stages:
 
 Aragora's unique advantage is that it already has **stages 1, 3, and 4 substantially built** in the backend. The missing pieces (goal extraction, stage transitions, visual UI) are additive rather than foundational. No competitor has:
 
-- Multi-agent *adversarial* debate for idea vetting (Arena with 42 agent types)
+- Multi-agent *adversarial* debate for idea vetting (Arena with 43 agent types)
 - Cryptographic decision receipts linking ideas to executed outcomes (Gauntlet)
-- 34-adapter knowledge management for cross-session learning
+- 45-adapter knowledge management for cross-session learning
 - Built-in heterogeneous model consensus (not just one AI provider)
 
 ### Tagline Possibility

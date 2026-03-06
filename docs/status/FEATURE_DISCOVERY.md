@@ -1,10 +1,10 @@
 # Aragora Feature Discovery Guide
 
-*Complete catalog of 215+ features for developers exploring Aragora capabilities*
+*Complete catalog of 220+ features for developers exploring Aragora capabilities*
 
 This document provides a comprehensive inventory of Aragora's features organized by domain. Use this guide to discover what Aragora can do and find the relevant modules for your use case.
 
-> **Quick Links**: [STATUS.md](STATUS.md) for implementation status | [ENTERPRISE_FEATURES.md](../ENTERPRISE_FEATURES.md) for enterprise details | [API_REFERENCE.md](../api/API_REFERENCE.md) for endpoints
+> **Quick Links**: [STATUS.md](STATUS.md) for implementation status | [ENTERPRISE_FEATURES.md](ENTERPRISE_FEATURES.md) for enterprise details | [API_REFERENCE.md](./api/API_REFERENCE.md) for endpoints
 
 ---
 
@@ -14,15 +14,15 @@ This document provides a comprehensive inventory of Aragora's features organized
 |----------|---------------|----------------|
 | [Core Debate Features](#1-core-debate-features) | 25+ | Stable |
 | [Agent System](#2-agent-system) | 20+ | Stable |
-| [Memory & Learning](#3-memory--learning) | 20+ | Stable |
+| [Memory & Learning](#3-memory--learning) | 25+ | Stable |
 | [Knowledge Management](#4-knowledge-management) | 30+ | Stable |
-| [Enterprise Features](#5-enterprise-features) | 40+ | Production-Ready |
+| [Enterprise Features](#5-enterprise-features) | 45+ | Production-Ready |
 | [Integrations & Connectors](#6-integrations--connectors) | 50+ | Stable |
 | [Observability & Monitoring](#7-observability--monitoring) | 15+ | Stable |
-| [Developer Tools](#8-developer-tools) | 25+ | Stable |
-| [Self-Improvement](#9-self-improvement--nomic-loop) | 12+ | Stable |
+| [Developer Tools](#8-developer-tools) | 35+ | Stable |
+| [Self-Improvement](#9-self-improvement--nomic-loop) | 18+ | Stable |
 
-**Total**: 215+ features | 3,000+ Python modules | 208,000+ tests | 3,000+ API operations
+**Total**: 220+ features | 3,700+ Python modules | 208,000+ tests | 3,000+ API operations
 
 ---
 
@@ -32,8 +32,8 @@ This document provides a comprehensive inventory of Aragora's features organized
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Arena** | Stable | Main debate engine orchestrating multi-agent discussions | `aragora/debate/orchestrator.py` | [DEBATE_PHASES.md](../debate/DEBATE_PHASES.md) |
-| **Debate Phases** | Stable | Structured phases (propose, critique, revise, vote) | `aragora/debate/phases/` | [DEBATE_PHASES.md](../debate/DEBATE_PHASES.md) |
+| **Arena** | Stable | Main debate engine orchestrating multi-agent discussions | `aragora/debate/orchestrator.py` | [DEBATE_PHASES.md](./debate/DEBATE_PHASES.md) |
+| **Debate Phases** | Stable | Structured phases (propose, critique, revise, vote) | `aragora/debate/phases/` | [DEBATE_PHASES.md](./debate/DEBATE_PHASES.md) |
 | **Consensus Detection** | Stable | Multi-strategy consensus (majority, unanimous, weighted) | `aragora/debate/consensus.py` | |
 | **Convergence Detection** | Stable | Semantic similarity tracking with ANN backend | `aragora/debate/convergence.py` | |
 | **Team Selection** | Stable | ELO-based agent team composition with calibration | `aragora/debate/team_selector.py` | |
@@ -45,13 +45,13 @@ This document provides a comprehensive inventory of Aragora's features organized
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Trickster** | Stable | Hollow consensus detection (devil's advocate) | `aragora/debate/trickster.py` | [TRICKSTER.md](../debate/TRICKSTER.md) |
+| **Trickster** | Stable | Hollow consensus detection (devil's advocate) | `aragora/debate/trickster.py` | [TRICKSTER.md](./debate/TRICKSTER.md) |
 | **Rhetorical Observer** | Stable | Argument quality analysis and scoring | `aragora/debate/rhetorical_observer.py` | |
 | **Security Barrier** | Stable | Telemetry redaction and content protection | `aragora/debate/security_barrier.py` | |
 | **Calibration Tracker** | Stable | Agent confidence calibration via `enable_calibration` | `aragora/debate/calibration.py` | |
 | **Performance Monitor** | Stable | Debate performance metrics via Arena and AutonomicExecutor | `aragora/debate/performance.py` | |
-| **Graph Debates** | Stable | Graph-structured argument topology | `aragora/debate/topology.py` | [GRAPH_DEBATES.md](../debate/GRAPH_DEBATES.md) |
-| **Matrix Debates** | Stable | Multi-dimensional debate analysis | `aragora/debate/matrix.py` | [MATRIX_DEBATES.md](../debate/MATRIX_DEBATES.md) |
+| **Graph Debates** | Stable | Graph-structured argument topology | `aragora/debate/topology.py` | [GRAPH_DEBATES.md](./debate/GRAPH_DEBATES.md) |
+| **Matrix Debates** | Stable | Multi-dimensional debate analysis | `aragora/debate/matrix.py` | [MATRIX_DEBATES.md](./debate/MATRIX_DEBATES.md) |
 | **Debate Breakpoints** | Stable | Pause/resume debate execution | `aragora/debate/breakpoints.py` | |
 | **Hybrid Debates** | Stable | External + internal agent debates | `aragora/server/handlers/hybrid_debate.py` | |
 
@@ -69,14 +69,14 @@ This document provides a comprehensive inventory of Aragora's features organized
 | Feature | Status | Description | Key Files |
 |---------|--------|-------------|-----------|
 | **ArenaConfig** | Stable | Centralized debate configuration with 40+ options | `aragora/debate/arena_config.py` |
-| **DebateProtocol** | Stable | Protocol parameters (rounds, consensus, concurrency) | `aragora/debate/protocol.py` |
+| **DebateProtocol** | Stable | Protocol parameters (rounds, consensus, concurrency) | `aragora/core.py` |
 | **Orchestrator Hooks** | Stable | Extension points for custom logic | `aragora/debate/orchestrator_hooks.py` |
 
 ---
 
 ## 2. Agent System
 
-### Supported Providers (40+ agent types)
+### Supported Providers (43 agent types)
 
 | Provider | Type | Models | Key Files |
 |----------|------|--------|-----------|
@@ -129,6 +129,17 @@ This document provides a comprehensive inventory of Aragora's features organized
 | **Progressive Memory Search** | Stable | Staged retrieval (index → timeline → entries) | `aragora/server/handlers/memory/memory.py` | |
 | **Memory Viewer** | Stable | HTML viewer for memory inspection | `aragora/server/handlers/memory/memory.py` | |
 | **Tool Usage Capture** | Optional | Opt-in tool usage capture into FAST tier | `aragora/memory/capture.py` | |
+| **Unified Memory Gateway** | Integrated | Fan-out query across ContinuumMemory, KM, Supermemory, claude-mem via `enable_unified_memory` (150 tests) | `aragora/memory/gateway/` | |
+| **ClaudeMemAdapter** | Integrated | KM adapter wrapping claude-mem MCP connector (one of 45 adapters) | `aragora/knowledge/mound/adapters/claude_mem_adapter.py` | |
+
+### Unified Memory Gateway Components
+
+| Component | Status | Description | Key Files |
+|-----------|--------|-------------|-----------|
+| **MemoryGateway** | Integrated | Unified fan-out query interface across all memory systems | `aragora/memory/gateway/core.py` |
+| **RetentionGate** | Integrated | Titans/MIRAS surprise-driven retain/demote/forget/consolidate decisions | `aragora/memory/gateway/retention.py` |
+| **CrossSystemDedupEngine** | Integrated | SHA-256 exact + Jaccard near-duplicate detection across memory systems | `aragora/memory/gateway/dedup.py` |
+| **RLMMemoryNavigator** | Integrated | REPL helpers for programmatic cross-system memory exploration | `aragora/memory/gateway/rlm_navigator.py` |
 
 ### Memory Tiers
 
@@ -156,7 +167,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **RLM Factory** | Stable | RLM context management factory | `aragora/rlm/factory.py` | [RLM_GUIDE.md](../guides/RLM_GUIDE.md) |
+| **RLM Factory** | Stable | RLM context management factory | `aragora/rlm/factory.py` | [RLM_GUIDE.md](./guides/RLM_GUIDE.md) |
 | **RLM Bridge** | Stable | Integration bridge for RLM | `aragora/rlm/bridge.py` | |
 | **RLM Handler** | Stable | Request handling | `aragora/rlm/handler.py` | |
 | **Streaming RLM** | Stable | Progressive context loading (top-down, bottom-up, targeted) | `aragora/rlm/streaming.py` | |
@@ -171,7 +182,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Core Storage** | Stable | Unified knowledge storage | `aragora/knowledge/mound/core.py` | [KNOWLEDGE_MOUND.md](../knowledge/KNOWLEDGE_MOUND.md) |
+| **Core Storage** | Stable | Unified knowledge storage | `aragora/knowledge/mound/core.py` | [KNOWLEDGE_MOUND.md](./knowledge/KNOWLEDGE_MOUND.md) |
 | **Semantic Store** | Stable | Vector embedding-based search | `aragora/knowledge/mound/semantic.py` | |
 | **Graph Store** | Stable | Relationship and lineage tracking | `aragora/knowledge/mound/graph.py` | |
 | **Domain Taxonomy** | Stable | Hierarchical knowledge organization | `aragora/knowledge/mound/taxonomy.py` | |
@@ -188,7 +199,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **KM Resilience** | Stable | ResilientPostgresStore with retry, health, cache invalidation | `aragora/knowledge/mound/resilience.py` | |
 | **SLO Alerting** | Stable | Adapter performance monitoring with Prometheus | `aragora/config/performance_slos.py` | |
 
-### Knowledge Adapters (41 Total)
+### Knowledge Adapters (45 Total)
 
 | Adapter | Purpose | Key Files |
 |---------|---------|-----------|
@@ -232,7 +243,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Belief Network** | Stable | Claim provenance tracking with cruxes | `aragora/reasoning/belief.py` | [REASONING.md](../workflow/REASONING.md) |
+| **Belief Network** | Stable | Claim provenance tracking with cruxes | `aragora/reasoning/belief.py` | [REASONING.md](./workflow/REASONING.md) |
 | **Provenance Tracking** | Stable | Decision lineage and audit trails | `aragora/reasoning/provenance.py` | |
 | **Claims System** | Stable | Structured claim management | `aragora/reasoning/claims.py` | |
 
@@ -244,11 +255,11 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **OIDC Integration** | Production | OpenID Connect SSO with JWK verification | `aragora/auth/oidc.py` | [SSO_SETUP.md](../enterprise/SSO_SETUP.md) |
+| **OIDC Integration** | Production | OpenID Connect SSO with JWK verification | `aragora/auth/oidc.py` | [SSO_SETUP.md](./enterprise/SSO_SETUP.md) |
 | **SAML Support** | Production | SAML 2.0 enterprise IdP integration | `aragora/auth/saml.py` | |
 | **MFA (TOTP/HOTP)** | Production | Multi-factor via authenticator apps | `aragora/server/middleware/mfa.py` | |
 | **API Key Management** | Production | Scoped keys with rotation and usage tracking | `aragora/server/handlers/auth/` | |
-| **Session Management** | Production | Token versioning, lockout tracking, cleanup | `aragora/server/session_store.py` | [SESSION_MANAGEMENT.md](../enterprise/SESSION_MANAGEMENT.md) |
+| **Session Management** | Production | Token versioning, lockout tracking, cleanup | `aragora/server/session_store.py` | [SESSION_MANAGEMENT.md](./enterprise/SESSION_MANAGEMENT.md) |
 | **SCIM 2.0** | Production | Automated user/group provisioning (Okta, Azure AD, OneLogin) | `aragora/auth/scim/` | |
 | **Account Lockout** | Production | Progressive delays, IP/user tracking | `aragora/auth/lockout.py` | |
 
@@ -276,13 +287,13 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **AES-256-GCM Encryption** | Production | Field-level encryption with key derivation | `aragora/security/encryption.py` | [SECRETS.md](../enterprise/SECRETS.md) |
+| **AES-256-GCM Encryption** | Production | Field-level encryption with key derivation | `aragora/security/encryption.py` | [SECRETS.md](./enterprise/SECRETS.md) |
 | **Cloud KMS** | Production | AWS KMS, Azure Key Vault, GCP Cloud KMS | `aragora/security/kms_provider.py` | |
 | **Key Rotation** | Production | Automatic key rotation with versioning | `aragora/security/key_rotation.py` | |
 | **Encrypted Fields** | Production | OAuth tokens, API keys, secrets auto-encrypted | `aragora/storage/encrypted_fields.py` | |
 | **Anomaly Detection** | Production | Security anomaly detection | `aragora/security/anomaly_detection.py` | |
 | **SSRF Protection** | Production | Server-side request forgery protection | `aragora/security/ssrf_protection.py` | |
-| **Rate Limiting** | Production | Multi-layer (IP, token, endpoint) with Redis backend | `aragora/server/rate_limit.py` | [RATE_LIMITING.md](../api/RATE_LIMITING.md) |
+| **Rate Limiting** | Production | Multi-layer (IP, token, endpoint) with Redis backend | `aragora/server/rate_limit.py` | [RATE_LIMITING.md](./api/RATE_LIMITING.md) |
 | **Circuit Breaker** | Production | Per-provider thresholds, recovery timeout | `aragora/resilience.py` | |
 | **Security Headers** | Production | CSP, HSTS, X-Frame-Options | `aragora/server/middleware/security_headers.py` | |
 
@@ -292,7 +303,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 |---------|--------|-------------|-----------|------|
 | **Audit Trail** | Production | Tamper-evident logging with hash chains | `aragora/audit/` | |
 | **SOC 2 Controls** | Production | SOC 2 Type II compliance controls | `aragora/compliance/soc2.py` | |
-| **GDPR Support** | Production | DSAR workflow, right to erasure, portability | `aragora/privacy/` | [DSAR_WORKFLOW.md](../enterprise/DSAR_WORKFLOW.md) |
+| **GDPR Support** | Production | DSAR workflow, right to erasure, portability | `aragora/privacy/` | [DSAR_WORKFLOW.md](./enterprise/DSAR_WORKFLOW.md) |
 | **Consent Management** | Production | User consent tracking | `aragora/privacy/consent.py` | |
 | **Data Retention** | Production | Configurable retention policies | `aragora/privacy/retention.py` | |
 | **Deletion Coordinator** | Production | Unified GDPR deletion across systems | `aragora/deletion_coordinator.py` | |
@@ -306,9 +317,32 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **DR Drills** | Production | Disaster recovery testing | `aragora/backup/dr_drill.py` |
 | **PostgreSQL Backends** | Production | Full horizontal scaling for 11 storage modules | `aragora/storage/postgres_store.py` |
 
+### Onboarding
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **Setup Wizard** | Stable | Guided onboarding with SSO/RBAC integration | `aragora/onboarding/wizard.py` |
+
+### Coordination System
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **CrossWorkspaceCoordinator** | Production | Cross-workspace data sharing and federated execution | `aragora/coordination/coordinator.py` |
+| **WorktreeManager** | Production | Isolated git worktrees for concurrent agent work | `aragora/coordination/worktree_manager.py` |
+| **ConflictResolver** | Production | Debate-based conflict resolution for concurrent changes | `aragora/coordination/conflict_resolver.py` |
+| **GitReconciler** | Production | Automated merge strategy execution across worktrees | `aragora/coordination/git_reconciler.py` |
+| **SessionRegistry** | Production | Active session tracking with lock mechanism | `aragora/coordination/session_registry.py` |
+| **HealthWatchdog** | Production | Liveness probes for coordination infrastructure | `aragora/coordination/health_watchdog.py` |
+
 ---
 
 ## 6. Integrations & Connectors
+
+### Bot Framework
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **Unified Bot Framework** | Stable | Platform-agnostic bot base for Slack, Discord, Teams, Zoom | `aragora/bots/base.py`, `aragora/bots/commands.py` |
 
 ### Chat Platforms
 
@@ -410,7 +444,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
 | **Structured Logging** | Stable | JSON logs with correlation IDs, PII redaction | `aragora/observability/logging.py` | |
-| **Alert Runbooks** | Stable | Automated alert responses | `docs/ALERT_RUNBOOKS.md` | [ALERT_RUNBOOKS.md](../deployment/ALERT_RUNBOOKS.md) |
+| **Alert Runbooks** | Stable | Automated alert responses | `docs/ALERT_RUNBOOKS.md` | [ALERT_RUNBOOKS.md](./deployment/ALERT_RUNBOOKS.md) |
 
 ### Health Monitoring
 
@@ -429,7 +463,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Unified Server** | Stable | 3,000+ API operations | `aragora/server/unified_server.py` | [API_REFERENCE.md](../api/API_REFERENCE.md) |
+| **Unified Server** | Stable | 3,000+ API operations | `aragora/server/unified_server.py` | [API_REFERENCE.md](./api/API_REFERENCE.md) |
 | **Handler Registry** | Stable | O(1) route lookup with LRU caching | `aragora/server/handler_registry.py` | |
 | **GraphQL API** | Stable | Schema for debates, agents, memory | `aragora/server/graphql/` | |
 | **WebSocket Streaming** | Stable | 26 stream modules for real-time events | `aragora/server/stream/` | |
@@ -455,17 +489,25 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Workflow Engine** | Stable | DAG-based automation | `aragora/workflow/engine.py` | [WORKFLOWS.md](../workflow/WORKFLOWS.md) |
+| **Workflow Engine** | Stable | DAG-based automation | `aragora/workflow/engine.py` | [WORKFLOWS.md](./workflow/WORKFLOWS.md) |
 | **Workflow Nodes** | Stable | Reusable node types | `aragora/workflow/nodes/` | |
 | **Workflow Patterns** | Stable | Hive-mind, map-reduce, review-cycle factories | `aragora/workflow/patterns/` | |
 | **Workflow Templates** | Stable | 50+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
 | **Post-Debate Workflows** | Stable | Automated processing via `enable_post_debate_workflow` | `aragora/workflow/triggers.py` | |
 
+### Prompt Engine & Interrogation
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **Prompt Engine** | Stable | Transforms vague prompts into validated specifications via debate | `aragora/prompt_engine/conductor.py`, `aragora/prompt_engine/spec_builder.py` |
+| **Interrogation Engine** | Stable | Debate-driven prompt clarification with prioritized questions | `aragora/interrogation/engine.py`, `aragora/interrogation/crystallizer.py` |
+| **Swarm Orchestrator** | Stable | End-to-end user flow: interrogate → spec → dispatch → merge → report | `aragora/swarm/commander.py`, `aragora/swarm/reporter.py` |
+
 ### Gauntlet (Compliance Testing)
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Gauntlet Runner** | Stable | Compliance test execution | `aragora/gauntlet/runner.py` | [GAUNTLET.md](../debate/GAUNTLET.md) |
+| **Gauntlet Runner** | Stable | Compliance test execution | `aragora/gauntlet/runner.py` | [GAUNTLET.md](./debate/GAUNTLET.md) |
 | **Decision Receipts** | Stable | SHA-256 cryptographic audit trails | `aragora/gauntlet/receipts.py` | |
 | **Findings** | Stable | Compliance findings management | `aragora/gauntlet/findings.py` | |
 | **Gauntlet Defense** | Stable | Attack/defend cycles via `proposer_agent` | `aragora/gauntlet/defense.py` | |
@@ -483,15 +525,37 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **MCP Server** | Stable | Context protocol server | `aragora/mcp/server.py` | [MCP_INTEGRATION.md](../integrations/MCP_INTEGRATION.md) |
-| **MCP Tools** | Stable | Tool definitions | `aragora/mcp/tools.py` | [MCP_ADVANCED.md](../integrations/MCP_ADVANCED.md) |
+| **MCP Server** | Stable | Context protocol server | `aragora/mcp/server.py` | [MCP_INTEGRATION.md](./integrations/MCP_INTEGRATION.md) |
+| **MCP Tools** | Stable | Tool definitions | `aragora/mcp/tools.py` | [MCP_ADVANCED.md](./integrations/MCP_ADVANCED.md) |
 
 ### Agent Marketplace
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Template Registry** | Stable | Agent, debate, workflow templates | `aragora/marketplace/` | [MARKETPLACE.md](../workflow/MARKETPLACE.md) |
+| **Template Registry** | Stable | Agent, debate, workflow templates | `aragora/marketplace/` | [MARKETPLACE.md](./workflow/MARKETPLACE.md) |
 | **Built-in Templates** | Stable | Devil's Advocate, Code Reviewer, Research Analyst | `aragora/marketplace/templates/` | |
+
+### Skills Marketplace
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **SkillRegistry** | Integrated | Discover and load skills by name or tag | `aragora/skills/registry.py` |
+| **SkillMarketplace** | Integrated | Publish, search, and install from marketplace catalog | `aragora/skills/marketplace.py` |
+| **Skill Installer** | Integrated | Manifest-based dependency management and install | `aragora/skills/installer.py` |
+| **Built-in Skills** | Integrated | Bundled skills for common patterns | `aragora/skills/builtin/` |
+| **LLM Function Calling** | Integrated | Pluggable skills exposed as LLM tool calls | `aragora/skills/base.py` |
+
+Install skills via CLI: `aragora skills install <skill-name>`
+
+### Harnesses
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **Claude Code Harness** | Integrated | Invoke Claude Code analysis on codebases | `aragora/harnesses/claude_code.py` |
+| **Codex Harness** | Integrated | Invoke OpenAI Codex for code analysis and generation | `aragora/harnesses/codex.py` |
+| **HarnessResultAdapter** | Integrated | Normalize harness output for audit workflows | `aragora/harnesses/result_adapter.py` |
+
+Used in: audit pipeline (`aragora/audit/`), bug detection (`aragora/audit/bug_detector.py`), and the Nomic Loop self-improvement cycle.
 
 ---
 
@@ -530,6 +594,16 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **Code Verifier** | Stable | AST syntax validation and test execution | `aragora/autonomous/loop_enhancement.py` |
 | **Rollback Manager** | Stable | File backup, restore, cleanup | `aragora/autonomous/loop_enhancement.py` |
 
+### Genesis / Agent Evolution
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **FractalOrchestrator** | Integrated | Recursive sub-debates for complex decisions | `aragora/genesis/fractal.py` |
+| **GenomeBreeder** | Integrated | Evolutionary agent improvement via crossover and mutation | `aragora/genesis/breeder.py` |
+| **GenesisLedger** | Integrated | Cryptographic provenance for agent lineage | `aragora/genesis/ledger.py` |
+| **AgentGenome** | Integrated | Parameter encoding for evolutionary selection | `aragora/genesis/genome.py` |
+| **Argonaut Ledger** | Integrated | Agent identity and evolution registry | `aragora/genesis/argonaut_ledger.py` |
+
 ---
 
 ## 10. Control Plane (1,500+ tests)
@@ -566,7 +640,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 
 | Feature | Status | Description | Key Files | Docs |
 |---------|--------|-------------|-----------|------|
-| **Pulse Ingestor** | Stable | Topic ingestion pipeline | `aragora/pulse/ingestor.py` | [PULSE.md](../resilience/PULSE.md) |
+| **Pulse Ingestor** | Stable | Topic ingestion pipeline | `aragora/pulse/ingestor.py` | [PULSE.md](./resilience/PULSE.md) |
 | **Quality Filtering** | Stable | Clickbait/spam detection | `aragora/pulse/quality.py` | |
 | **Freshness Scoring** | Stable | Configurable decay curves | `aragora/pulse/freshness.py` | |
 | **Source Weighting** | Stable | Credibility scores | `aragora/pulse/weighting.py` | |
@@ -583,6 +657,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **Voice Streaming** | Stable | Voice session management | `aragora/server/stream/voice_stream.py` |
 | **Twilio Voice** | Stable | Phone-triggered debates | `aragora/integrations/twilio_voice.py` |
 | **Speech Recognition** | Stable | Whisper transcription backends | `aragora/transcription/` |
+| **Broadcast/Podcast** | Stable | Post-debate podcast engine with TTS and audio mixing | `aragora/broadcast/pipeline.py` |
 
 ---
 
@@ -689,15 +764,15 @@ grep -r "event_type=" aragora/ --include="*.py"
 |----------|---------|
 | [CLAUDE.md](../CLAUDE.md) | Development guide for AI assistants |
 | [STATUS.md](STATUS.md) | Release status and changelog |
-| [ENTERPRISE_FEATURES.md](../ENTERPRISE_FEATURES.md) | Enterprise capability deep-dive |
-| [EXTENDED_README.md](../EXTENDED_README.md) | Comprehensive technical reference |
+| [ENTERPRISE_FEATURES.md](ENTERPRISE_FEATURES.md) | Enterprise capability deep-dive |
+| [EXTENDED_README.md](EXTENDED_README.md) | Comprehensive technical reference |
 | [COMMERCIAL_OVERVIEW.md](COMMERCIAL_OVERVIEW.md) | Commercial positioning |
-| [API_REFERENCE.md](../api/API_REFERENCE.md) | REST API documentation |
-| [WORKFLOWS.md](../workflow/WORKFLOWS.md) | Workflow engine guide |
-| [GAUNTLET.md](../debate/GAUNTLET.md) | Compliance testing guide |
-| [PULSE.md](../resilience/PULSE.md) | Trending topics guide |
-| [RLM_GUIDE.md](../guides/RLM_GUIDE.md) | Recursive Language Models guide |
+| [API_REFERENCE.md](./api/API_REFERENCE.md) | REST API documentation |
+| [WORKFLOWS.md](./workflow/WORKFLOWS.md) | Workflow engine guide |
+| [GAUNTLET.md](./debate/GAUNTLET.md) | Compliance testing guide |
+| [PULSE.md](./resilience/PULSE.md) | Trending topics guide |
+| [RLM_GUIDE.md](./guides/RLM_GUIDE.md) | Recursive Language Models guide |
 
 ---
 
-*Last updated: February 2026*
+*Last updated: March 2026*

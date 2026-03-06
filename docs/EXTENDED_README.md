@@ -11,7 +11,7 @@
 - [Core Workflows](#core-workflows)
 - [Architecture](#architecture)
 - [Programmatic Usage](#programmatic-usage)
-- [Implemented Features (3,000+ Modules)](#implemented-features-3000-modules)
+- [Implemented Features (3,700+ Modules)](#implemented-features-3700-modules)
 - [Prerequisites](#prerequisites)
 - [Deployment](#deployment)
 - [API Endpoints](#api-endpoints)
@@ -31,7 +31,7 @@ Aragora works for a 5-person startup on day one and scales to regulated enterpri
 
 ### 2. Leading-Edge Memory and Context
 
-Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 41 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
+Single agents lose context. Aragora's 4-tier Continuum Memory (fast / medium / slow / glacial) and Knowledge Mound with 45 registered adapters give every debate access to institutional history, cross-session learning, and evidence provenance. The RLM (Recursive Language Models) system compresses and structures context to reduce prompt bloat, enabling debates that sustain coherence across long multi-round sessions and large document sets where individual models would degrade.
 
 ### 3. Extensible and Modular
 
@@ -230,7 +230,7 @@ print(f"Consensus: {result.consensus_reached} ({result.confidence:.0%})")
 │  │  • Belief networks with Bayesian propagation              │   │
 │  │  • Claims kernel with typed relationships                 │   │
 │  │  • Evidence provenance with hash chains                   │   │
-│  │  • Knowledge Mound (41 registered adapters) + Semantic search  │   │
+│  │  • Knowledge Mound (45 registered adapters) + Semantic search  │   │
 │  └───────────────────────────┬──────────────────────────────┘   │
 │                               ▼                                  │
 │  ┌──────────────────────────────────────────────────────────┐   │
@@ -285,7 +285,7 @@ aragora/
 │   └── embeddings.py       # Semantic embedding for retrieval
 ├── knowledge/        # Unified knowledge management
 │   ├── bridges.py          # KnowledgeBridgeHub, MetaLearner, Evidence bridges
-│   └── mound/              # KnowledgeMound (41 registered adapters, 4,300+ tests)
+│   └── mound/              # KnowledgeMound (45 registered adapters, 4,300+ tests)
 │       ├── adapters/       # Belief, Consensus, ELO, Evidence, OpenClaw, etc.
 │       ├── semantic.py     # Vector embedding-based search
 │       ├── federation.py   # Multi-region sync
@@ -336,7 +336,7 @@ aragora/
 └── cli/              # Command-line interface
 ```
 
-**Scale:** 3,000+ Python modules | 208,000+ tests across 4,000+ test files | 184 Python / 183 TypeScript SDK namespaces
+**Scale:** 3,700+ Python modules | 208,000+ tests across 5,000+ test files | 185 Python / 183 TypeScript SDK namespaces
 
 ---
 
@@ -477,7 +477,7 @@ See [SDK_COMPARISON.md](SDK_COMPARISON.md) for detailed feature comparison.
 
 ---
 
-## Implemented Features (3,000+ Modules)
+## Implemented Features (3,700+ Modules)
 
 Aragora has evolved through 21+ phases of self-improvement, with the Nomic Loop debating and implementing each feature.
 

@@ -1,6 +1,6 @@
 # Aragora Feature Discovery Guide
 
-*Complete catalog of 215+ features for developers exploring Aragora capabilities*
+*Complete catalog of 220+ features for developers exploring Aragora capabilities*
 
 This document provides a comprehensive inventory of Aragora's features organized by domain. Use this guide to discover what Aragora can do and find the relevant modules for your use case.
 
@@ -22,7 +22,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | [Developer Tools](#8-developer-tools) | 35+ | Stable |
 | [Self-Improvement](#9-self-improvement--nomic-loop) | 18+ | Stable |
 
-**Total**: 215+ features | 3,000+ Python modules | 208,000+ tests | 3,000+ API operations
+**Total**: 220+ features | 3,700+ Python modules | 208,000+ tests | 3,000+ API operations
 
 ---
 
@@ -130,7 +130,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | **Memory Viewer** | Stable | HTML viewer for memory inspection | `aragora/server/handlers/memory/memory.py` | |
 | **Tool Usage Capture** | Optional | Opt-in tool usage capture into FAST tier | `aragora/memory/capture.py` | |
 | **Unified Memory Gateway** | Integrated | Fan-out query across ContinuumMemory, KM, Supermemory, claude-mem via `enable_unified_memory` (150 tests) | `aragora/memory/gateway/` | |
-| **ClaudeMemAdapter** | Integrated | 34th→41st KM adapter wrapping claude-mem MCP connector | `aragora/knowledge/mound/adapters/claude_mem_adapter.py` | |
+| **ClaudeMemAdapter** | Integrated | KM adapter wrapping claude-mem MCP connector (one of 45 adapters) | `aragora/knowledge/mound/adapters/claude_mem_adapter.py` | |
 
 ### Unified Memory Gateway Components
 
@@ -199,7 +199,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **KM Resilience** | Stable | ResilientPostgresStore with retry, health, cache invalidation | `aragora/knowledge/mound/resilience.py` | |
 | **SLO Alerting** | Stable | Adapter performance monitoring with Prometheus | `aragora/config/performance_slos.py` | |
 
-### Knowledge Adapters (25 Total)
+### Knowledge Adapters (45 Total)
 
 | Adapter | Purpose | Key Files |
 |---------|---------|-----------|
@@ -317,6 +317,12 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **DR Drills** | Production | Disaster recovery testing | `aragora/backup/dr_drill.py` |
 | **PostgreSQL Backends** | Production | Full horizontal scaling for 11 storage modules | `aragora/storage/postgres_store.py` |
 
+### Onboarding
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **Setup Wizard** | Stable | Guided onboarding with SSO/RBAC integration | `aragora/onboarding/wizard.py` |
+
 ### Coordination System
 
 | Feature | Status | Description | Key Files |
@@ -331,6 +337,12 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 ---
 
 ## 6. Integrations & Connectors
+
+### Bot Framework
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **Unified Bot Framework** | Stable | Platform-agnostic bot base for Slack, Discord, Teams, Zoom | `aragora/bots/base.py`, `aragora/bots/commands.py` |
 
 ### Chat Platforms
 
@@ -480,8 +492,16 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **Workflow Engine** | Stable | DAG-based automation | `aragora/workflow/engine.py` | [WORKFLOWS.md](./workflow/WORKFLOWS.md) |
 | **Workflow Nodes** | Stable | Reusable node types | `aragora/workflow/nodes/` | |
 | **Workflow Patterns** | Stable | Hive-mind, map-reduce, review-cycle factories | `aragora/workflow/patterns/` | |
-| **Workflow Templates** | Stable | 60+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
+| **Workflow Templates** | Stable | 50+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
 | **Post-Debate Workflows** | Stable | Automated processing via `enable_post_debate_workflow` | `aragora/workflow/triggers.py` | |
+
+### Prompt Engine & Interrogation
+
+| Feature | Status | Description | Key Files |
+|---------|--------|-------------|-----------|
+| **Prompt Engine** | Stable | Transforms vague prompts into validated specifications via debate | `aragora/prompt_engine/conductor.py`, `aragora/prompt_engine/spec_builder.py` |
+| **Interrogation Engine** | Stable | Debate-driven prompt clarification with prioritized questions | `aragora/interrogation/engine.py`, `aragora/interrogation/crystallizer.py` |
+| **Swarm Orchestrator** | Stable | End-to-end user flow: interrogate → spec → dispatch → merge → report | `aragora/swarm/commander.py`, `aragora/swarm/reporter.py` |
 
 ### Gauntlet (Compliance Testing)
 
@@ -637,6 +657,7 @@ Used in: audit pipeline (`aragora/audit/`), bug detection (`aragora/audit/bug_de
 | **Voice Streaming** | Stable | Voice session management | `aragora/server/stream/voice_stream.py` |
 | **Twilio Voice** | Stable | Phone-triggered debates | `aragora/integrations/twilio_voice.py` |
 | **Speech Recognition** | Stable | Whisper transcription backends | `aragora/transcription/` |
+| **Broadcast/Podcast** | Stable | Post-debate podcast engine with TTS and audio mixing | `aragora/broadcast/pipeline.py` |
 
 ---
 
@@ -754,4 +775,4 @@ grep -r "event_type=" aragora/ --include="*.py"
 
 ---
 
-*Last updated: February 2026*
+*Last updated: March 2026*

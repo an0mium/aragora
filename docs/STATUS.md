@@ -1,8 +1,44 @@
 # Aragora Project Status
 
-*Last updated: March 5, 2026*
+*Last updated: March 6, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
+
+## March 2026 Sprint — Closed-Loop Backbone, Trust Wedge & Infrastructure
+
+### Closed-Loop Backbone (CLB) — 14/14 Issues Complete
+- `backbone_contracts.py`: IntakeBundle, SpecBundle, DeliberationBundle, ExecutionAttemptRecord, ReceiptEnvelope, OutcomeFeedbackRecord, ComputerUseActionBundle
+- Pipeline receipt normalization, outcome feedback automation, external verifier gate
+- Golden-path backbone test validating end-to-end contract flow
+
+### Infrastructure & CI
+- **Runner fleet**: 12 total (3 Hetzner + 6 EC2 + 3 local Macs), all self-hosted GitHub Actions
+- **CI hardening**: `setup-python-safe` composite action, main-branch workflow reduction (35→6), `cancel-in-progress: false` on all non-required workflows
+- **EC2 production fix**: crash-loop resolved (strict=False secret hydration, sqlite single-instance mode)
+
+### Feature Delivery
+- **Semantic convergence** (PR #723): 5 modules migrated from difflib to embedding-based similarity
+- **Smart provider routing Phase 1** (PR #724): Pareto optimizer, 8-model pricing database, ProviderRouter
+- **EU AI Act playbook** (PR #725): GTM polish, customer compliance playbook
+- **Comms Hub completion** (PR #726): Template persistence, router event wiring, E2E tests (Epic #293 closed)
+- **OpenClaw E2E core loop** (PR #727): CodeImplementationTask, SpecExtractor, ComputerUseActionBundle
+
+### Inbox Trust Wedge (Active Development)
+- Contracts: AllowedAction enum, TriageDecision, CLIReviewLoop, AutoApprovalPolicy, InboxTriageRunner
+- Attestation fix: receipt persisted BEFORE execution gate, DurableFileSigner
+- Demo fallback removal: SharedInboxView, TriageRulesPanel stripped of silent fallbacks
+
+### Codebase Metrics (March 6, 2026)
+- **Python modules**: 3,700+
+- **Tests**: 208,000+ across 5,000+ test files
+- **HTTP handlers**: 700+
+- **KM adapters**: 45
+- **Agent types**: 43
+- **API operations**: 3,000+ across 2,900+ paths
+- **RBAC permissions**: 360+
+- **Version**: v2.8.0
+
+---
 
 ## Production Hardening & Test Expansion (February 18-23, 2026)
 
@@ -404,7 +440,7 @@ Independent verification of production readiness found the project is **98% GA-r
 
 ## Current Release
 
-Current released version is **v2.6.3**.
+Current released version is **v2.8.0**.
 
 ### v2.5.0 - Type Safety & SDK Expansion (January 2026)
 
