@@ -300,6 +300,7 @@ class SwarmSupervisor:
                 )
                 item["status"] = "dispatched"
                 item["pid"] = worker.pid
+                item["initial_head"] = worker.initial_head
                 launched.append(worker)
             except (FileNotFoundError, RuntimeError, OSError) as exc:
                 item["status"] = "dispatch_failed"
@@ -357,7 +358,12 @@ class SwarmSupervisor:
         return completed
 
     async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
-        """Collect only workers that have already finished."""
+        """Collect only workers that have already finished.
+
+        Tries in-memory process collection first (same-process workers).
+        Falls back to detached PID-based collection for workers spawned
+        by a previous process (e.g. --dispatch-only mode).
+        """
         record = self.store.get_supervisor_run(run_id)
         if record is None:
             raise KeyError(f"Unknown supervisor run: {run_id}")
@@ -368,7 +374,34 @@ class SwarmSupervisor:
             for item in work_orders
             if str(item.get("status", "")) == "dispatched"
         ]
+
+        # Try in-memory collection first (same process that launched workers)
         finished = await self.launcher.collect_finished(work_order_ids=dispatched_ids)
+
+        # Fall back to detached collection for workers not in memory
+        # (parent process restarted, or --dispatch-only mode)
+        finished_ids = {w.work_order_id for w in finished}
+        for item in work_orders:
+            woid = str(item.get("work_order_id", "")).strip()
+            if str(item.get("status", "")) != "dispatched":
+                continue
+            if woid in finished_ids:
+                continue
+            worktree_path = str(item.get("worktree_path", "")).strip()
+            if not worktree_path:
+                continue
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id=woid,
+                agent=str(item.get("target_agent", "codex")),
+                worktree_path=worktree_path,
+                branch=str(item.get("branch", "main")),
+                pid=item.get("pid"),
+                initial_head=str(item.get("initial_head", "")),
+                auto_commit=self.launcher.config.auto_commit,
+            )
+            if result is not None:
+                finished.append(result)
+
         if not finished:
             return []
 

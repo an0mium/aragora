@@ -85,11 +85,11 @@ class TestBuildPrompt:
         assert "race condition" in prompt
         assert "aragora/auth/oidc.py" in prompt
         assert "python -m pytest tests/auth/ -q" in prompt
-        assert "Commit your changes" in prompt
+        assert "git commit" in prompt
 
     def test_empty_work_order(self):
         prompt = WorkerLauncher._build_prompt({})
-        assert "Commit your changes" in prompt
+        assert "git commit" in prompt
 
     def test_metadata_acceptance_criteria(self):
         wo = {
@@ -270,6 +270,120 @@ class TestLaunchAndWait:
 
         assert result.exit_code == 0
         assert result.stdout == "done"
+
+
+class TestWaitDetached:
+    @pytest.mark.asyncio
+    async def test_wait_handles_none_stdout_stderr(self):
+        """wait() should not crash when communicate() returns (None, None) in detached mode."""
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False, detach=True))
+
+        worker = WorkerProcess(
+            work_order_id="wo-detach",
+            agent="codex",
+            worktree_path="/tmp/wt",
+            branch="main",
+            pid=100,
+        )
+        launcher._workers["wo-detach"] = worker
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(None, None))
+        mock_proc.returncode = 0
+        launcher._processes["wo-detach"] = mock_proc
+
+        with (
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="log output"),
+        ):
+            result = await launcher.wait("wo-detach")
+
+        assert result.exit_code == 0
+        assert result.stdout == "log output"
+        assert result.stderr == "log output"
+        assert result.completed_at is not None
+
+
+class TestCollectDetachedResult:
+    @pytest.mark.asyncio
+    async def test_returns_none_if_pid_running(self):
+        with patch.object(WorkerLauncher, "_is_pid_running", return_value=True):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-1",
+                agent="codex",
+                worktree_path="/tmp/wt",
+                branch="main",
+                pid=12345,
+            )
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_collects_results_when_pid_dead(self):
+        with (
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_auto_commit", new_callable=AsyncMock),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-2",
+                agent="codex",
+                worktree_path="/tmp/wt",
+                branch="main",
+                pid=99999,
+                initial_head="def456",
+            )
+
+        assert result is not None
+        assert result.exit_code == 0
+        assert result.head_sha == "abc123"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.stdout == "some output"
+
+    @pytest.mark.asyncio
+    async def test_collects_without_pid(self):
+        """When no PID is stored, always collect (assume finished)."""
+        with (
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-3",
+                agent="claude",
+                worktree_path="/tmp/wt",
+                branch="main",
+            )
+
+        assert result is not None
+        assert result.exit_code == 0
+
+
+class TestIsPidRunning:
+    def test_current_process_is_running(self):
+        import os
+
+        assert WorkerLauncher._is_pid_running(os.getpid()) is True
+
+    def test_nonexistent_pid(self):
+        # PID 4000000 is very unlikely to exist
+        assert WorkerLauncher._is_pid_running(4000000) is False
+
+
+class TestReadLogFile:
+    def test_reads_existing_log(self, tmp_path: Path):
+        log_file = tmp_path / ".swarm_worker_stdout.log"
+        log_file.write_text("hello world")
+        assert WorkerLauncher._read_log_file(str(tmp_path), "stdout") == "hello world"
+
+    def test_returns_empty_for_missing(self, tmp_path: Path):
+        assert WorkerLauncher._read_log_file(str(tmp_path), "stdout") == ""
 
 
 class TestActiveWorkers:
