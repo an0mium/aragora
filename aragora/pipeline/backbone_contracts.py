@@ -343,13 +343,21 @@ class DeliberationBundle:
     participant_count: int = 0
     diversity_scores: dict[str, float] = field(default_factory=dict)
     provenance_refs: list[dict[str, Any]] = field(default_factory=list)
+    trust_tier: str = ""
+    taint_flags: list[str] = field(default_factory=list)
     extras: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_debate_result(cls, result: Any) -> DeliberationBundle:
+    def from_debate_result(
+        cls,
+        result: Any,
+        *,
+        trust_tier: str = "",
+        taint_flags: list[str] | None = None,
+    ) -> DeliberationBundle:
         """Normalize a DebateResult (or duck-typed equivalent) into a DeliberationBundle."""
         confidence = float(getattr(result, "confidence", 0.0) or 0.0)
         consensus_reached = bool(getattr(result, "consensus_reached", False))
@@ -389,6 +397,8 @@ class DeliberationBundle:
             participant_count=len(participants),
             diversity_scores=diversity_scores,
             provenance_refs=provenance_refs,
+            trust_tier=str(trust_tier or ""),
+            taint_flags=list(taint_flags or []),
             extras={
                 "task": str(getattr(result, "task", "") or ""),
                 "convergence_status": str(getattr(result, "convergence_status", "") or ""),
@@ -476,6 +486,41 @@ class OutcomeFeedbackRecord:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+    def to_nomic_goal(self) -> dict[str, str]:
+        """Return a MetaLoopTarget-compatible dict for Nomic Loop reprioritization.
+
+        All values are strings so the goal can be consumed directly by MetaPlanner
+        without further transformation.
+        """
+        action = self.next_action_recommendation or "review_manually"
+
+        if action == "run_bug_fix_loop":
+            failed = self.execution_outcome.get("tests_failed", 0)
+            description = f"Fix {failed} failing test(s) and restore pipeline health"
+            priority = "high"
+        elif action == "promote_or_settle":
+            description = "Verify and promote successful pipeline execution to settlement"
+            priority = "low"
+        else:
+            description = "Review pipeline execution manually and determine next steps"
+            priority = "medium"
+
+        fidelity = self.objective_fidelity
+        risk = "high" if fidelity < 0.5 else "medium" if fidelity < 0.8 else "low"
+
+        rationale = (
+            f"Pipeline {self.pipeline_id!r} completed with fidelity={fidelity:.2f}. "
+            f"Receipt: {self.receipt_ref!r}. Recommended action: {action!r}."
+        )
+
+        return {
+            "module": self.domain or self.run_type or "unknown",
+            "description": description,
+            "priority": priority,
+            "risk": risk,
+            "rationale": rationale,
+        }
 
     @classmethod
     def from_pipeline_outcome(

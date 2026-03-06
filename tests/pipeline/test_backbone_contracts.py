@@ -413,3 +413,171 @@ def test_execution_attempt_record_to_dict_is_serializable() -> None:
     assert d["status"] == "succeeded"
     assert "policy_decision" in d
     assert "artifacts" in d
+
+
+# ---------------------------------------------------------------------------
+# CLB-010: OutcomeFeedbackRecord.to_nomic_goal()
+# ---------------------------------------------------------------------------
+
+
+def test_outcome_feedback_record_to_nomic_goal_bug_fix_loop() -> None:
+    """CLB-010: Failed execution with test failures produces Nomic goal for bug-fix loop."""
+    outcome = PipelineOutcome(
+        pipeline_id="pipe-010",
+        run_type="automated",
+        domain="backend",
+        spec_completeness=0.6,
+        execution_succeeded=False,
+        tests_passed=4,
+        tests_failed=3,
+        files_changed=2,
+        total_duration_s=30.0,
+    )
+    record = OutcomeFeedbackRecord.from_pipeline_outcome(outcome, receipt_ref="r-010")
+
+    goal = record.to_nomic_goal()
+
+    assert isinstance(goal, dict)
+    assert goal["module"] == "backend"
+    assert "bug" in goal["description"].lower() or "fix" in goal["description"].lower()
+    assert goal["priority"] in {"high", "medium", "low"}
+    assert "rationale" in goal
+    assert "receipt_ref" in goal["rationale"] or "r-010" in goal["rationale"]
+
+
+def test_outcome_feedback_record_to_nomic_goal_promote_or_settle() -> None:
+    """CLB-010: Successful execution produces a low-priority verification goal."""
+    outcome = PipelineOutcome(
+        pipeline_id="pipe-011",
+        run_type="automated",
+        domain="frontend",
+        spec_completeness=0.95,
+        execution_succeeded=True,
+        tests_passed=20,
+        tests_failed=0,
+        files_changed=5,
+        total_duration_s=12.0,
+    )
+    record = OutcomeFeedbackRecord.from_pipeline_outcome(outcome, receipt_ref="r-011")
+
+    goal = record.to_nomic_goal()
+
+    assert goal["priority"] == "low"
+    assert (
+        "promote" in goal["description"].lower()
+        or "settle" in goal["description"].lower()
+        or "verify" in goal["description"].lower()
+    )
+
+
+def test_outcome_feedback_record_to_nomic_goal_is_serializable() -> None:
+    """CLB-010: to_nomic_goal() output is a plain dict with only string values."""
+    outcome = PipelineOutcome(
+        pipeline_id="pipe-012",
+        run_type="manual",
+        domain="infra",
+        execution_succeeded=False,
+        tests_passed=0,
+        tests_failed=0,
+        files_changed=0,
+        total_duration_s=5.0,
+    )
+    record = OutcomeFeedbackRecord.from_pipeline_outcome(outcome, receipt_ref="r-012")
+
+    goal = record.to_nomic_goal()
+
+    # All values must be strings so MetaLoopTarget can consume them directly
+    for key, value in goal.items():
+        assert isinstance(value, str), f"Key {key!r} has non-string value: {value!r}"
+
+
+# ---------------------------------------------------------------------------
+# CLB-011: trust_tier and taint_flags on DeliberationBundle
+# ---------------------------------------------------------------------------
+
+
+def test_deliberation_bundle_has_trust_tier_and_taint_flags_defaults() -> None:
+    """CLB-011: DeliberationBundle has trust_tier and taint_flags with safe defaults."""
+    from types import SimpleNamespace
+
+    result = SimpleNamespace(
+        debate_id="d-defaults",
+        task="t",
+        final_answer="a",
+        confidence=0.7,
+        consensus_reached=True,
+        consensus_strength="strong",
+        consensus_variance=0.2,
+        dissenting_views=[],
+        participants=["x"],
+        per_agent_similarity={},
+        convergence_status="converged",
+        debate_cruxes=[],
+        metadata={},
+    )
+
+    bundle = DeliberationBundle.from_debate_result(result)
+
+    assert bundle.trust_tier == ""
+    assert bundle.taint_flags == []
+
+
+def test_deliberation_bundle_propagates_trust_tier_and_taint_flags() -> None:
+    """CLB-011: from_debate_result accepts trust_tier and taint_flags and propagates them."""
+    from types import SimpleNamespace
+
+    result = SimpleNamespace(
+        debate_id="d-trust",
+        task="t",
+        final_answer="adopt microservices",
+        confidence=0.75,
+        consensus_reached=True,
+        consensus_strength="medium",
+        consensus_variance=0.8,
+        dissenting_views=["Scale not proven"],
+        participants=["a", "b"],
+        per_agent_similarity={"a": 0.8, "b": 0.6},
+        convergence_status="converged",
+        debate_cruxes=[],
+        metadata={"pipeline_id": "pipe-trust"},
+    )
+
+    bundle = DeliberationBundle.from_debate_result(
+        result,
+        trust_tier="operator-reviewed",
+        taint_flags=["external_note", "unverified_source"],
+    )
+
+    assert bundle.trust_tier == "operator-reviewed"
+    assert bundle.taint_flags == ["external_note", "unverified_source"]
+
+
+def test_deliberation_bundle_taint_flags_appear_in_to_dict() -> None:
+    """CLB-011: taint_flags and trust_tier are serialized by to_dict()."""
+    from types import SimpleNamespace
+
+    result = SimpleNamespace(
+        debate_id="d-serial",
+        task="t",
+        final_answer="a",
+        confidence=0.8,
+        consensus_reached=True,
+        consensus_strength="strong",
+        consensus_variance=0.1,
+        dissenting_views=[],
+        participants=["x"],
+        per_agent_similarity={},
+        convergence_status="converged",
+        debate_cruxes=[],
+        metadata={},
+    )
+
+    bundle = DeliberationBundle.from_debate_result(
+        result,
+        trust_tier="internal",
+        taint_flags=["flag-a"],
+    )
+    d = bundle.to_dict()
+
+    assert d["trust_tier"] == "internal"
+    assert d["taint_flags"] == ["flag-a"]
