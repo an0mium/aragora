@@ -97,8 +97,8 @@ jobs:
         run: |
           python -m ensurepip --upgrade || true
           python -m pip install --upgrade pip
-          pip install -e ".[dev,test]"
-          pip install pytest-timeout
+          python -m pip install -e ".[dev,test]"
+          python -m pip install pytest-timeout
 
       - name: Run hard-check test suites
         run: |
@@ -125,7 +125,21 @@ jobs:
         shell: bash
         run: |
           if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}"
+            git reset --hard FETCH_HEAD
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::Standard recovery failed; attempting archive restore"
+            find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            git archive "${GITHUB_SHA:-HEAD}" | tar -x || git archive HEAD | tar -x
+          fi
+          if [[ ! -f pyproject.toml ]]; then
             echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
             exit 1
           fi
 
@@ -165,7 +179,7 @@ jobs:
         run: |
           python -m ensurepip --upgrade || true
           python -m pip install --upgrade pip
-          pip install -e ".[dev,test]"
+          python -m pip install -e ".[dev,test]"
 
       - name: Validate provider secrets
         env:
