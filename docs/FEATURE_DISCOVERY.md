@@ -199,7 +199,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **KM Resilience** | Stable | ResilientPostgresStore with retry, health, cache invalidation | `aragora/knowledge/mound/resilience.py` | |
 | **SLO Alerting** | Stable | Adapter performance monitoring with Prometheus | `aragora/config/performance_slos.py` | |
 
-### Knowledge Adapters (25 Total)
+### Knowledge Adapters (41 Total)
 
 | Adapter | Purpose | Key Files |
 |---------|---------|-----------|
@@ -480,7 +480,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | **Workflow Engine** | Stable | DAG-based automation | `aragora/workflow/engine.py` | [WORKFLOWS.md](./workflow/WORKFLOWS.md) |
 | **Workflow Nodes** | Stable | Reusable node types | `aragora/workflow/nodes/` | |
 | **Workflow Patterns** | Stable | Hive-mind, map-reduce, review-cycle factories | `aragora/workflow/patterns/` | |
-| **Workflow Templates** | Stable | 60+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
+| **Workflow Templates** | Stable | 50+ pre-built templates across 6 categories | `aragora/workflow/templates/` | |
 | **Post-Debate Workflows** | Stable | Automated processing via `enable_post_debate_workflow` | `aragora/workflow/triggers.py` | |
 
 ### Gauntlet (Compliance Testing)
@@ -754,4 +754,4 @@ grep -r "event_type=" aragora/ --include="*.py"
 
 ---
 
-*Last updated: February 2026*
+*Last updated: March 2026*
