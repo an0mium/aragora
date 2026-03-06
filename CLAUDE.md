@@ -97,6 +97,59 @@ repo — editing files in the main directory causes concurrent overwrites.
 | IdeaCloud | `aragora/ideacloud/` | Idea cloud workspace and KM adapter |
 | Inbox | `aragora/inbox/` | Inbox trust wedge — triage, review loop, auto-approval |
 | Routing | `aragora/routing/` | Smart provider routing with Pareto optimizer |
+| Analysis | `aragora/analysis/` | Natural language document querying and summarization |
+| Approvals | `aragora/approvals/` | Cross-channel human approval utilities and action tokens |
+| Autonomous | `aragora/autonomous/` | Self-improving autonomous loop enhancements |
+| Bots | `aragora/bots/` | Unified bot framework (Slack, Discord, Teams, Zoom) |
+| Broadcast | `aragora/broadcast/` | Post-debate podcast engine with TTS and audio mixing |
+| Caching | `aragora/caching/` | Result caching decorators with TTL and LRU eviction |
+| Channels | `aragora/channels/` | Channel formatters and unified dock for multi-platform delivery |
+| Client | `aragora/client/` | Type-safe Python SDK client for Aragora API |
+| Config | `aragora/config/` | Pydantic settings, feature flags, and stability config |
+| Core | `aragora/core/` | Core types, embeddings service, decision routing rules |
+| DB | `aragora/db/` | Database abstraction (SQLite dev, PostgreSQL prod) |
+| Documents | `aragora/documents/` | Document ingestion, chunking, and semantic indexing |
+| Evaluation | `aragora/evaluation/` | LLM-as-Judge evaluation across 8 quality dimensions |
+| Evidence | `aragora/evidence/` | Evidence collection, quality scoring, attribution chains |
+| Evolution | `aragora/evolution/` | Prompt evolution based on successful debate patterns |
+| Export | `aragora/export/` | Multi-format debate export (HTML, JSON, Markdown, DOT, CSV) |
+| Extensions | `aragora/extensions/` | Extension layers: gastown (dev orchestration), moltbot (consumer) |
+| Fabric | `aragora/fabric/` | High-scale agent orchestration substrate with policy and budgeting |
+| Goals | `aragora/goals/` | Transforms organized ideas into actionable goals |
+| Hooks | `aragora/hooks/` | Declarative YAML-based event hooks with conditions |
+| Implement | `aragora/implement/` | Hybrid multi-model implementation with plan-first workflow |
+| Insights | `aragora/insights/` | Extract and aggregate learnings from completed debates |
+| Interrogation | `aragora/interrogation/` | Debate-driven prompt clarification with prioritized questions |
+| Live | `aragora/live/` | Next.js frontend control plane for live debates |
+| Migrations | `aragora/migrations/` | Schema migration system with zero-downtime and rollback |
+| ML | `aragora/ml/` | Local ML: embeddings, quality scoring, consensus prediction |
+| Monitoring | `aragora/monitoring/` | Runtime health monitoring |
+| Onboarding | `aragora/onboarding/` | Guided setup wizard with SSO/RBAC integration |
+| Performance | `aragora/performance/` | Batch loading, lazy evaluation, adaptive caching |
+| Persistence | `aragora/persistence/` | Database config and artifact storage for nomic loop |
+| Playbooks | `aragora/playbooks/` | Operational playbook definitions |
+| Plugins | `aragora/plugins/` | Manifest-based extensible plugin architecture |
+| Policy | `aragora/policy/` | Per-tool/task policy enforcement with risk budgeting |
+| Prompt Engine | `aragora/prompt_engine/` | Transforms vague prompts into validated specs via debate |
+| Protocols | `aragora/protocols/` | Protocol definitions for agents, storage, memory, A2A |
+| Queue | `aragora/queue/` | Redis Streams job queue for async debate processing |
+| Replay | `aragora/replay/` | Record and replay debates for testing and analysis |
+| Reports | `aragora/reports/` | Report generation (PDF, Markdown, JSON, HTML) |
+| Scheduler | `aragora/scheduler/` | Automated scheduling for audits, access reviews, DR drills |
+| Services | `aragora/services/` | ServiceRegistry pattern with email prioritization |
+| Streaming | `aragora/streaming/` | WebSocket/Kafka/RabbitMQ connection hardening |
+| Swarm | `aragora/swarm/` | User-facing orchestration: interrogate → spec → dispatch → merge |
+| Sync | `aragora/sync/` | Directory sync with incremental change detection |
+| Tasks | `aragora/tasks/` | Task management and tracking |
+| Telemetry | `aragora/telemetry/` | Convenience re-export of observability subsystem |
+| Templates | `aragora/templates/` | Domain-specific debate templates (code review, incidents) |
+| Tools | `aragora/tools/` | Code reading/writing capabilities for agents |
+| Tournaments | `aragora/tournaments/` | Structured competitions with ELO tracking |
+| Training | `aragora/training/` | Fine-tuning integration (SFT, DPO, adversarial training) |
+| Transcription | `aragora/transcription/` | Speech-to-text with Whisper backends |
+| Verticals | `aragora/verticals/` | Domain specialists (software, legal, healthcare, accounting) |
+| Webhooks | `aragora/webhooks/` | Reliable webhook delivery with retry and dead-letter |
+| Worktree | `aragora/worktree/` | Git worktree integration for fleet coordination |
 
 ## Canonical Storage Paths
 
