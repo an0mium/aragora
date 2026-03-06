@@ -117,6 +117,9 @@ NotificationHistoryHandler = _safe_import(
 NotificationPreferencesHandler = _safe_import(
     "aragora.server.handlers.notifications.preferences", "NotificationPreferencesHandler"
 )
+NotificationTemplatesHandler = _safe_import(
+    "aragora.server.handlers.notifications.templates", "NotificationTemplatesHandler"
+)
 
 # =============================================================================
 # Social Handler Registry Entries
@@ -171,9 +174,10 @@ SOCIAL_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_email_triage_handler", EmailTriageHandler),
     # Feedback hub
     ("_feedback_hub_handler", FeedbackHubHandler),
-    # Notification history and preferences
+    # Notification history, preferences, and templates
     ("_notification_history_handler", NotificationHistoryHandler),
     ("_notification_preferences_handler", NotificationPreferencesHandler),
+    ("_notification_templates_handler", NotificationTemplatesHandler),
 ]
 
 __all__ = [
@@ -217,6 +221,9 @@ __all__ = [
     "UnifiedInboxHandler",
     "InboxCommandHandler",
     "SharedInboxHandler",
+    "NotificationHistoryHandler",
+    "NotificationPreferencesHandler",
+    "NotificationTemplatesHandler",
     # Registry
     "SOCIAL_HANDLER_REGISTRY",
 ]
