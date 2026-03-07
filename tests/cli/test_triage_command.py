@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -66,3 +67,26 @@ def test_print_decisions_formats_enum_values(capsys):
     out = capsys.readouterr().out
     assert "ignore" in out
     assert "InboxWedgeAction" not in out
+
+
+def test_get_gmail_connector_loads_refresh_token_from_home_file(tmp_path, monkeypatch):
+    class _FakeConnector:
+        def __init__(self):
+            self._refresh_token = None
+
+    token_dir = Path(tmp_path) / ".aragora"
+    token_dir.mkdir()
+    (token_dir / "gmail_refresh_token").write_text("refresh-from-file\n")
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("GMAIL_CLIENT_ID", "client-id")
+    monkeypatch.delenv("GMAIL_REFRESH_TOKEN", raising=False)
+
+    with patch(
+        "aragora.connectors.enterprise.communication.gmail.GmailConnector",
+        _FakeConnector,
+    ):
+        connector = triage_cmd._get_gmail_connector()
+
+    assert connector is not None
+    assert connector._refresh_token == "refresh-from-file"

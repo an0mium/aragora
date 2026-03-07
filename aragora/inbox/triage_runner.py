@@ -167,13 +167,18 @@ def _normalize_debate_outcome(debate_result: Any) -> _NormalizedDebateOutcome:
 
 
 def _create_triage_agents() -> list[Any]:
-    """Create the smallest useful remote debate for inbox triage."""
+    """Create agents for triage debates.
+
+    Prefers cheap, fast models:
+      - Anthropic Haiku as proposer
+      - OpenRouter/DeepSeek as critic
+    Falls back to OpenAI if keys are missing.
+    """
     import os
 
     from aragora.agents.base import create_agent
 
     agents: list[Any] = []
-
     if os.environ.get("ANTHROPIC_API_KEY"):
         try:
             agents.append(
@@ -185,7 +190,7 @@ def _create_triage_agents() -> list[Any]:
                 )
             )
         except (ImportError, RuntimeError, ValueError, OSError):
-            logger.debug("Anthropic triage proposer unavailable", exc_info=True)
+            pass
 
     if os.environ.get("OPENROUTER_API_KEY"):
         try:
@@ -198,14 +203,15 @@ def _create_triage_agents() -> list[Any]:
                 )
             )
         except (ImportError, RuntimeError, ValueError, OSError):
-            logger.debug("OpenRouter triage critic unavailable", exc_info=True)
+            pass
 
+    # Fallback: try OpenAI if still short
     if len(agents) < 2 and os.environ.get("OPENAI_API_KEY"):
         role = "critic" if agents else "proposer"
         try:
             agents.append(create_agent("openai-api", name=f"triage-{role}", role=role))
         except (ImportError, RuntimeError, ValueError, OSError):
-            logger.debug("OpenAI triage fallback unavailable", exc_info=True)
+            logger.debug("OpenAI triage fallback unavailable")
 
     return agents
 
