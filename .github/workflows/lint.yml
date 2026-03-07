@@ -528,9 +528,10 @@ jobs:
 
       - name: Verify checkout integrity
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+          if [[ ! -f pyproject.toml ]] || [[ ! -f aragora/live/package.json ]]; then
+            echo "::warning::Frontend checkout incomplete after checkout; attempting recovery"
             git reset --hard || true
             git clean -ffdx || true
             git sparse-checkout disable || true
@@ -543,17 +544,18 @@ jobs:
             fi
             git clean -ffdx || true
           fi
-          if [[ ! -f pyproject.toml ]]; then
+          if [[ ! -f pyproject.toml ]] || [[ ! -f aragora/live/package.json ]]; then
             echo "::warning::Sparse-checkout recovery incomplete; attempting archive restore"
             find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
             if ! git archive "${GITHUB_SHA:-HEAD}" | tar -x; then
               git archive HEAD | tar -x
             fi
           fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+          if [[ ! -f pyproject.toml ]] || [[ ! -f aragora/live/package.json ]]; then
+            echo "::error::Repository checkout is incomplete (missing pyproject.toml or aragora/live/package.json)"
             echo "PWD=$(pwd)"
             ls -la
+            ls -la aragora/live || true
             exit 1
           fi
 
