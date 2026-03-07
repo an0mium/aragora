@@ -1,37 +1,20 @@
-import { render, screen } from '@testing-library/react';
+import { renderWithProviders, screen } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import { Header } from '../Header';
-import { SidebarProvider } from '@/context/SidebarContext';
 
-// Helper to render Header with required providers
-const renderHeader = () => {
-  return render(
-    <SidebarProvider>
-      <Header />
-    </SidebarProvider>
-  );
-};
-
-// Mock child components with simpler dependencies
-jest.mock('../../AsciiBanner', () => ({
-  AsciiBannerCompact: ({ connected }: { connected: boolean }) => (
-    <div data-testid="ascii-banner" data-connected={connected}>
-      ARAGORA
-    </div>
-  ),
+jest.mock('next/navigation', () => ({
+  usePathname: () => '/landing',
 }));
 
-jest.mock('../../ThemeToggle', () => ({
-  ThemeToggle: () => <button data-testid="theme-toggle">Theme</button>,
+jest.mock('@/components/Logo', () => ({
+  Logo: () => <div data-testid="logo">Logo</div>,
 }));
 
-jest.mock('../../BackendSelector', () => ({
-  BackendSelector: ({ compact }: { compact?: boolean }) => (
-    <div data-testid="backend-selector" data-compact={compact}>
-      Backend
-    </div>
-  ),
+jest.mock('../ThemeSelector', () => ({
+  ThemeSelector: () => <div data-testid="theme-selector">Theme selector</div>,
 }));
+
+const renderHeader = () => renderWithProviders(<Header />);
 
 describe('Header', () => {
   beforeEach(() => {
@@ -39,114 +22,69 @@ describe('Header', () => {
   });
 
   describe('initial render', () => {
-    it('renders the ASCII banner', () => {
+    it('renders the logo, wordmark, and theme selector', () => {
       renderHeader();
 
-      expect(screen.getByTestId('ascii-banner')).toBeInTheDocument();
-    });
-
-    it('renders the theme toggle', () => {
-      renderHeader();
-
-      // Multiple theme toggles (desktop + mobile)
-      const toggles = screen.getAllByTestId('theme-toggle');
-      expect(toggles.length).toBeGreaterThan(0);
-    });
-
-    it('renders backend selectors', () => {
-      renderHeader();
-
-      // Backend selector in both desktop and mobile views
-      const selectors = screen.getAllByTestId('backend-selector');
-      expect(selectors.length).toBe(2);
+      expect(screen.getByTestId('logo')).toBeInTheDocument();
+      expect(screen.getByText('> ARAGORA')).toBeInTheDocument();
+      expect(screen.getByTestId('theme-selector')).toBeInTheDocument();
     });
   });
 
-  describe('desktop navigation', () => {
-    it('renders core navigation links', () => {
+  describe('navigation', () => {
+    it('renders the current landing navigation links', () => {
       renderHeader();
 
-      expect(screen.getByRole('link', { name: /\[debate\]/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /\[debates\]/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /\[gauntlet\]/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /\[leaderboard\]/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /\[agents\]/i })).toBeInTheDocument();
+      expect(screen.getAllByRole('link', { name: /how it works/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('link', { name: /quickstart/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('link', { name: /docs/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('link', { name: /pricing/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('link', { name: /log in/i }).length).toBeGreaterThan(0);
     });
 
-    it('renders secondary navigation links', () => {
+    it('uses the current href targets', () => {
       renderHeader();
 
-      expect(screen.getByRole('link', { name: /memory/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /analytics/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /docs/i })).toBeInTheDocument();
-    });
-
-    it('debates link points to /debates', () => {
-      renderHeader();
-
-      const link = screen.getByRole('link', { name: /\[debates\]/i });
-      expect(link).toHaveAttribute('href', '/debates');
-    });
-
-    it('agents link points to /agents', () => {
-      renderHeader();
-
-      const link = screen.getByRole('link', { name: /\[agents\]/i });
-      expect(link).toHaveAttribute('href', '/agents');
-    });
-
-    it('has proper aria-label for navigation', () => {
-      renderHeader();
-
-      expect(
-        screen.getByRole('navigation', { name: /main navigation/i })
-      ).toBeInTheDocument();
+      expect(screen.getAllByRole('link', { name: /quickstart/i })[0]).toHaveAttribute(
+        'href',
+        '/quickstart',
+      );
+      expect(screen.getAllByRole('link', { name: /docs/i })[0]).toHaveAttribute('href', '/docs');
+      expect(screen.getAllByRole('link', { name: /pricing/i })[0]).toHaveAttribute(
+        'href',
+        '/pricing',
+      );
+      expect(screen.getAllByRole('link', { name: /log in/i })[0]).toHaveAttribute(
+        'href',
+        '/login',
+      );
     });
   });
 
-  describe('sidebar toggle', () => {
-    it('renders sidebar toggle button', () => {
+  describe('mobile menu', () => {
+    it('renders the mobile menu toggle button', () => {
       renderHeader();
 
-      expect(
-        screen.getByRole('button', { name: /toggle navigation menu/i })
-      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /open menu/i })).toBeInTheDocument();
     });
 
-    it('toggle button shows hamburger icon', () => {
-      renderHeader();
-
-      const button = screen.getByRole('button', { name: /toggle navigation menu/i });
-      expect(button.textContent).toContain('☰');
-    });
-
-    it('calls toggle when button is clicked', async () => {
+    it('opens the mobile panel and shows the signup CTA', async () => {
       const user = userEvent.setup();
       renderHeader();
 
-      const button = screen.getByRole('button', { name: /toggle navigation menu/i });
-
-      // Click should not throw
+      const button = screen.getByRole('button', { name: /open menu/i });
+      expect(button).toHaveAttribute('aria-expanded', 'false');
       await user.click(button);
 
-      // Button should still be present after click
-      expect(button).toBeInTheDocument();
-    });
-  });
-
-  describe('accessibility', () => {
-    it('sidebar toggle button has aria-label', () => {
-      renderHeader();
-
-      const button = screen.getByRole('button', { name: /toggle navigation menu/i });
-      expect(button).toHaveAttribute('aria-label', 'Toggle navigation menu');
-    });
-
-    it('navigation has aria-label', () => {
-      renderHeader();
-
-      const nav = screen.getByRole('navigation', { name: /main navigation/i });
-      expect(nav).toHaveAttribute('aria-label', 'Main navigation');
+      expect(screen.getByRole('button', { name: /close menu/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /close menu/i })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+      expect(screen.getByRole('link', { name: /sign up free/i })).toHaveAttribute(
+        'href',
+        '/signup',
+      );
     });
   });
 });

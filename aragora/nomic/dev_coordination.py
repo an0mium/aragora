@@ -1328,7 +1328,10 @@ class DevCoordinationStore:
         metadata: dict[str, Any] | None = None,
     ) -> SalvageCandidate:
         now = _utcnow().isoformat()
-        candidate_id = hashlib.sha1(f"{source_kind}:{source_ref}".encode()).hexdigest()[:12]
+        candidate_id = hashlib.sha1(
+            f"{source_kind}:{source_ref}".encode(),
+            usedforsecurity=False,
+        ).hexdigest()[:12]
         candidate = SalvageCandidate(
             candidate_id=candidate_id,
             source_kind=source_kind,
