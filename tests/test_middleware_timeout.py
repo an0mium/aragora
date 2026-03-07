@@ -36,13 +36,14 @@ from aragora.server.middleware.timeout import (
 
 @pytest.fixture(autouse=True)
 def reset_timeout_config():
-    """Reset timeout configuration after each test."""
+    """Reset timeout globals after each test to avoid cross-test pollution."""
     import aragora.server.middleware.timeout as timeout_module
 
-    original = timeout_module._timeout_config
+    timeout_module.shutdown_executor()
     timeout_module._timeout_config = None
     yield
-    timeout_module._timeout_config = original
+    timeout_module.shutdown_executor()
+    timeout_module._timeout_config = None
 
 
 @pytest.fixture
@@ -329,19 +330,36 @@ class TestTimeoutContext:
             result = 1 + 1
         assert result == 2
 
-    @pytest.mark.skipif(
-        __import__("platform").system() == "Windows",
-        reason="signal.alarm not available on Windows",
-    )
-    @pytest.mark.skipif(
-        __import__("os").environ.get("PYTEST_TIMEOUT") is not None,
-        reason="signal.alarm conflicts with pytest-timeout plugin",
-    )
     def test_context_timeout_raises(self):
-        """Test context manager raises on timeout (Unix only)."""
-        with pytest.raises(RequestTimeoutError):
-            with timeout_context(1, "/api/test"):
-                time.sleep(5)
+        """Test timeout_context installs and restores signal handlers deterministically."""
+        handler_holder = {}
+        old_handler = object()
+        alarms = []
+
+        def fake_signal(sig, handler):
+            if callable(handler):
+                handler_holder["handler"] = handler
+                return old_handler
+            handler_holder["restored"] = handler
+            return old_handler
+
+        def fake_alarm(seconds):
+            alarms.append(seconds)
+            return 0
+
+        with (
+            patch("platform.system", return_value="Darwin"),
+            patch("signal.signal", side_effect=fake_signal),
+            patch("signal.alarm", side_effect=fake_alarm),
+        ):
+            with pytest.raises(RequestTimeoutError) as exc_info:
+                with timeout_context(0.2, "/api/test"):
+                    handler_holder["handler"](None, None)
+
+        assert exc_info.value.timeout == 0.2
+        assert exc_info.value.path == "/api/test"
+        assert alarms == [1, 0]
+        assert handler_holder["restored"] is old_handler
 
 
 # ============================================================================
