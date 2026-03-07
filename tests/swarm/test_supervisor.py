@@ -440,11 +440,12 @@ async def test_dispatch_handles_missing_cli(repo: Path, store: DevCoordinationSt
 
     updated = store.get_supervisor_run(run_id)
     wo = updated["work_orders"][0]
-    assert wo["status"] == "queued"
+    assert wo["status"] == "leased"
     assert wo["target_agent"] == "codex"
     assert wo["reviewer_agent"] == "claude"
     assert wo["metadata"]["last_failure_reason"] == "agent_unavailable"
     assert "CLI not found" in wo["metadata"]["last_failure_detail"]
+    assert wo.get("lease_id") is None
 
 
 @pytest.mark.asyncio
@@ -516,9 +517,10 @@ async def test_collect_finished_results_requeues_capacity_failure_to_fallback_ag
     refreshed = store.get_supervisor_run(run.run_id)
     assert refreshed is not None
     work_order = refreshed["work_orders"][0]
-    assert work_order["status"] == "queued"
+    assert work_order["status"] == "leased"
     assert work_order["target_agent"] == "codex"
     assert work_order["reviewer_agent"] == "claude"
     assert work_order["metadata"]["last_failure_reason"] == "agent_capacity"
     assert work_order["metadata"]["attempted_agents"] == ["claude"]
-    assert store.status_summary()["counts"]["active_leases"] == 0
+    assert work_order["lease_id"] == run.work_orders[0]["lease_id"]
+    assert store.status_summary()["counts"]["active_leases"] == 1

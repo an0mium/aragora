@@ -633,10 +633,6 @@ class SwarmSupervisor:
         if fallback_agent in attempted_agents:
             return False
 
-        lease_id = str(item.get("lease_id", "")).strip()
-        if lease_id:
-            self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
-
         fallback_history = list(metadata.get("fallback_history", []))
         fallback_history.append(
             {
@@ -658,21 +654,18 @@ class SwarmSupervisor:
                 "fallback_history": fallback_history,
                 "last_failure_reason": reason,
                 "last_failure_detail": detail[:1000],
+                "reuse_existing_worktree": True,
             }
         )
 
         item.update(
             {
-                "status": "queued",
+                "status": "leased",
                 "target_agent": fallback_agent,
                 "reviewer_agent": self._alternate_agent(fallback_agent)
                 or str(item.get("reviewer_agent", "")),
                 "metadata": metadata,
                 "review_status": "pending",
-                "lease_id": None,
-                "owner_session_id": None,
-                "worktree_path": None,
-                "branch": None,
                 "receipt_id": None,
                 "dispatch_error": None,
                 "exit_code": None,
