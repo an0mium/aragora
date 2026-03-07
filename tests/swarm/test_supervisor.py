@@ -280,6 +280,61 @@ def test_refresh_run_marks_resource_wait_on_disk_full(
     assert "No space left on device" in work_order["resource_error"]
 
 
+def test_start_run_prefers_explicit_spec_work_orders(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session_path = repo / "wt-explicit"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-explicit",
+        agent="codex",
+        branch="codex/swarm-explicit",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    decomposer = MagicMock()
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    spec = SwarmSpec(
+        raw_goal="Dogfood the supervised swarm",
+        refined_goal="Dogfood the supervised swarm",
+        acceptance_criteria=["python -m pytest tests/swarm/test_commander.py -q"],
+        work_orders=[
+            {
+                "work_order_id": "docs-lane",
+                "title": "Write operator guide",
+                "description": "Add the operator guide.",
+                "file_scope": ["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+                "expected_tests": [],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {"lane": "docs"},
+            }
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, max_concurrency=1)
+
+    decomposer.analyze.assert_not_called()
+    assert run.status == "active"
+    assert len(run.work_orders) == 1
+    work_order = run.work_orders[0]
+    assert work_order["work_order_id"] == "docs-lane"
+    assert work_order["target_agent"] == "codex"
+    assert work_order["reviewer_agent"] == "claude"
+    assert work_order["file_scope"] == ["docs/guides/SWARM_DOGFOOD_OPERATOR.md"]
+    assert work_order["metadata"]["lane"] == "docs"
+    assert work_order["metadata"]["source"] == "explicit_spec_work_order"
+
+
 # ---------- dispatch_workers / collect_results tests ----------
 
 from unittest.mock import AsyncMock, patch

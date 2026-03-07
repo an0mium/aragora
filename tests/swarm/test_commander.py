@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -90,6 +91,117 @@ class TestSwarmCommanderRunFromSpec:
         mock_sup.start_run.assert_called_once()
         mock_sup.dispatch_workers.assert_called_once_with(fake_run.run_id)
         mock_sup.refresh_run.assert_called_once_with(fake_run.run_id)
+
+    @pytest.mark.asyncio
+    async def test_run_supervised_from_spec_wait_false_returns_refreshed_run(self):
+        spec = SwarmSpec(raw_goal="Test goal", refined_goal="Test goal refined")
+        commander = SwarmCommander()
+        fake_run = MagicMock()
+        fake_run.run_id = "test-run-id"
+        refreshed_run = MagicMock()
+        refreshed_run.run_id = fake_run.run_id
+
+        with (
+            patch("aragora.swarm.commander.SwarmSupervisor") as mock_supervisor_cls,
+            patch("aragora.swarm.commander.SwarmReconciler") as mock_reconciler_cls,
+        ):
+            mock_sup = mock_supervisor_cls.return_value
+            mock_sup.start_run.return_value = fake_run
+            mock_sup.dispatch_workers = AsyncMock(return_value=[MagicMock()])
+            mock_sup.refresh_run.return_value = refreshed_run
+
+            result = await commander.run_supervised_from_spec(spec, wait=False)
+
+        assert result is refreshed_run
+        mock_sup.dispatch_workers.assert_awaited_once_with(fake_run.run_id)
+        mock_sup.refresh_run.assert_called_once_with(fake_run.run_id)
+        mock_reconciler_cls.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_run_supervised_from_spec_watches_when_workers_launch(self):
+        spec = SwarmSpec(
+            raw_goal="Dogfood the swarm with explicit work orders",
+            refined_goal="Dogfood the swarm with explicit work orders",
+            work_orders=[
+                {
+                    "work_order_id": "docs-lane",
+                    "title": "Write operator guide",
+                    "file_scope": ["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+                    "expected_tests": [],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                }
+            ],
+        )
+        commander = SwarmCommander()
+        fake_run = MagicMock()
+        fake_run.run_id = "test-run-id"
+        watched_run = MagicMock()
+        watched_run.run_id = fake_run.run_id
+
+        with (
+            patch("aragora.swarm.commander.SwarmSupervisor") as mock_supervisor_cls,
+            patch("aragora.swarm.commander.SwarmReconciler") as mock_reconciler_cls,
+        ):
+            mock_sup = mock_supervisor_cls.return_value
+            mock_sup.start_run.return_value = fake_run
+            mock_sup.dispatch_workers = AsyncMock(return_value=[MagicMock()])
+            mock_reconciler_cls.return_value.watch_run = AsyncMock(return_value=watched_run)
+
+            result = await commander.run_supervised_from_spec(
+                spec,
+                interval_seconds=1.5,
+                max_ticks=4,
+            )
+
+        assert result is watched_run
+        assert mock_sup.start_run.call_args.kwargs["spec"] is spec
+        mock_sup.dispatch_workers.assert_awaited_once_with(fake_run.run_id)
+        mock_reconciler_cls.assert_called_once_with(supervisor=mock_sup)
+        mock_reconciler_cls.return_value.watch_run.assert_awaited_once_with(
+            fake_run.run_id,
+            interval_seconds=1.5,
+            max_ticks=4,
+        )
+
+    @pytest.mark.asyncio
+    async def test_run_supervised_from_spec_no_dispatch_skips_launcher(self):
+        spec = SwarmSpec(
+            raw_goal="Dogfood the swarm with explicit work orders",
+            refined_goal="Dogfood the swarm with explicit work orders",
+            work_orders=[
+                {
+                    "work_order_id": "tests-lane",
+                    "title": "Add regression coverage",
+                    "file_scope": ["tests/swarm/test_commander.py"],
+                    "expected_tests": ["python -m pytest tests/swarm/test_commander.py -q"],
+                    "target_agent": "claude",
+                    "reviewer_agent": "codex",
+                }
+            ],
+        )
+        commander = SwarmCommander()
+        fake_run = MagicMock()
+        fake_run.run_id = "test-run-id"
+        refreshed_run = MagicMock()
+        refreshed_run.run_id = fake_run.run_id
+
+        with (
+            patch("aragora.swarm.commander.SwarmSupervisor") as mock_supervisor_cls,
+            patch("aragora.swarm.commander.SwarmReconciler") as mock_reconciler_cls,
+        ):
+            mock_sup = mock_supervisor_cls.return_value
+            mock_sup.start_run.return_value = fake_run
+            mock_sup.dispatch_workers = AsyncMock()
+            mock_sup.refresh_run.return_value = refreshed_run
+
+            result = await commander.run_supervised_from_spec(spec, dispatch=False)
+
+        assert result is refreshed_run
+        assert mock_sup.start_run.call_args.kwargs["spec"].work_orders == spec.work_orders
+        mock_sup.dispatch_workers.assert_not_awaited()
+        mock_sup.refresh_run.assert_called_once_with(fake_run.run_id)
+        mock_reconciler_cls.assert_not_called()
 
 
 class TestSwarmCommanderDryRun:

@@ -35,6 +35,7 @@ class SwarmSpec:
     # Hints for decomposition
     track_hints: list[str] = field(default_factory=list)
     file_scope_hints: list[str] = field(default_factory=list)
+    work_orders: list[dict[str, Any]] = field(default_factory=list)
 
     # Risk assessment
     estimated_complexity: str = "medium"
@@ -69,6 +70,10 @@ class SwarmSpec:
         data = dict(data)
         if isinstance(data.get("created_at"), str):
             data["created_at"] = datetime.fromisoformat(data["created_at"])
+        if "work_orders" in data and isinstance(data["work_orders"], list):
+            data["work_orders"] = [
+                dict(item) for item in data["work_orders"] if isinstance(item, dict)
+            ]
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
     def to_json(self, indent: int = 2) -> str:
@@ -117,4 +122,6 @@ class SwarmSpec:
             lines.append(f"Tracks: {', '.join(self.track_hints)}")
         if self.file_scope_hints:
             lines.append(f"File scope: {', '.join(self.file_scope_hints[:5])}")
+        if self.work_orders:
+            lines.append(f"Explicit work orders: {len(self.work_orders)}")
         return "\n".join(lines)
