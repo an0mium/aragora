@@ -138,6 +138,8 @@ class UnifiedOrchestrator:
         # Wave 5: OpenClaw execution
         spec_extractor: Any | None = None,
         code_task_factory: Any | None = None,
+        # Provider routing
+        provider_router: Any | None = None,
     ) -> None:
         self._input_extension = input_extension
         self._researcher = researcher
@@ -154,6 +156,7 @@ class UnifiedOrchestrator:
         self._km = knowledge_mound
         self._spec_extractor = spec_extractor
         self._code_task_factory = code_task_factory
+        self._provider_router = provider_router
 
     async def run(
         self,
@@ -225,18 +228,43 @@ class UnifiedOrchestrator:
                 debate_agents, report = self._diversity_filter.enforce(debate_agents)
                 result.diversity_report = report
 
+            # Select providers via router if available
+            provider_hints = None
+            if self._provider_router is not None:
+                try:
+                    provider_hints = self._provider_router.select_providers_for_debate(
+                        num_agents=agent_count,
+                    )
+                except Exception:
+                    logger.warning("Provider routing failed, using default selection")
+
             result.debate_result = await self._do_debate(
                 debate_prompt,
                 debate_agents,
                 rounds=debate_rounds,
                 agent_count=agent_count,
                 consensus_threshold=consensus_threshold,
+                provider_hints=provider_hints,
             )
             result.stages_completed.append("debate")
 
             # Update phase ELO from debate
             if self._elo_tracker is not None and result.debate_result is not None:
                 self._update_phase_elo(result.debate_result, cfg.domain)
+
+            # Record provider outcomes
+            if self._provider_router is not None and result.debate_result is not None:
+                try:
+                    participants = getattr(result.debate_result, "participants", [])
+                    for p in participants:
+                        name = p if isinstance(p, str) else str(p)
+                        self._provider_router.record_outcome(
+                            name,
+                            consensus_reached=hasattr(result.debate_result, "consensus")
+                            and bool(result.debate_result.consensus),
+                        )
+                except Exception:
+                    logger.debug("Failed to record provider outcomes")
 
         except Exception as exc:
             logger.error("Debate stage failed: %s", exc)
@@ -426,6 +454,7 @@ class UnifiedOrchestrator:
         rounds: int,
         agent_count: int,
         consensus_threshold: float,
+        provider_hints: list[str] | None = None,
     ) -> Any:
         """Run debate phase."""
         if self._arena_factory is not None:
@@ -435,6 +464,7 @@ class UnifiedOrchestrator:
                 rounds=rounds,
                 agent_count=agent_count,
                 consensus_threshold=consensus_threshold,
+                provider_hints=provider_hints,
             )
         return None
 
