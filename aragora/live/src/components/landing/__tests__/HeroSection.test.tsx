@@ -2,6 +2,21 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HeroSection } from '../HeroSection';
 
+jest.mock('@/context/ThemeContext', () => ({
+  useTheme: () => ({ theme: 'dark' }),
+}));
+
+jest.mock('../../DebateResultPreview', () => ({
+  DebateResultPreview: () => <div data-testid="debate-result-preview">Debate result</div>,
+  RETURN_URL_KEY: 'return_url',
+  PENDING_DEBATE_KEY: 'pending_debate',
+}));
+
+jest.mock('../../BackendSelector', () => ({
+  useBackend: () => ({ config: { api: 'http://localhost:8080' } }),
+  BACKENDS: { production: { api: 'http://localhost:8080' } },
+}));
+
 // Mock DebateInput since it has complex dependencies
 jest.mock('../../DebateInput', () => ({
   DebateInput: () => <div data-testid="debate-input">MockDebateInput</div>,
