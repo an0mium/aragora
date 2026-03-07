@@ -19,6 +19,7 @@ from aragora.resilience_config import CircuitBreakerConfig
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+EntityT = TypeVar("EntityT")
 
 # Metrics callback - set by metrics module
 _metrics_callback: Callable[[str, int], None] | None = None
@@ -380,15 +381,15 @@ class CircuitBreaker:
             return "half-open"
         return "open"
 
-    def filter_available_entities(self, entities: list) -> list:
+    def filter_available_entities(self, entities: list[EntityT]) -> list[EntityT]:
         """Return only entities with closed or half-open circuits."""
         return [e for e in entities if self.is_available(getattr(e, "name", str(e)))]
 
-    def filter_available_agents(self, agents: list) -> list:
+    def filter_available_agents(self, agents: list[EntityT]) -> list[EntityT]:
         """Alias for filter_available_entities (backward compatibility)."""
         return self.filter_available_entities(agents)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dict for persistence/debugging."""
         now = time.time()
         return {
@@ -435,7 +436,7 @@ class CircuitBreaker:
             self._half_open_calls.pop(entity, None)
             logger.info("Circuit breaker reset state for %s", entity)
 
-    def get_all_status(self) -> dict[str, dict]:
+    def get_all_status(self) -> dict[str, dict[str, str | int]]:
         """Get status for all tracked entities."""
         all_entities = set(self._failures.keys()) | set(self._circuit_open_at.keys())
         return {
