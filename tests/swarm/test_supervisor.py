@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -186,10 +187,105 @@ def test_refresh_run_scales_queued_work_after_completion(
     assert counter["value"] >= 2
 
 
+def test_refresh_run_releases_orphaned_conflicts_and_retries(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    missing_path = repo / "missing-docs-worktree"
+    orphaned = store.claim_lease(
+        task_id="old-docs-lane",
+        title="Old docs lane",
+        owner_agent="codex",
+        owner_session_id="stale-session",
+        branch="codex/stale-docs",
+        worktree_path=str(missing_path),
+        claimed_paths=["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+    )
+
+    lifecycle = MagicMock()
+    session_path = repo / "wt-docs"
+    session_path.mkdir()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="fresh-docs",
+        agent="codex",
+        branch="codex/fresh-docs",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="docs-lane",
+                title="Write operator guide",
+                description="Add operator guide.",
+                file_scope=["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+            )
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    run = supervisor.start_run(spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"))
+
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "leased"
+    assert work_order["lease_id"]
+    active_lease_ids = {lease.lease_id for lease in store.list_active_leases()}
+    assert orphaned.lease_id not in active_lease_ids
+
+
+def test_refresh_run_marks_resource_wait_on_disk_full(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.side_effect = RuntimeError("No space left on device")
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="cli-tests-lane",
+                title="Run CLI coverage",
+                description="Add CLI coverage.",
+                file_scope=["tests/cli/test_swarm_command.py"],
+            )
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    run = supervisor.start_run(spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"))
+
+    assert run.status == "active"
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "waiting_resource"
+    assert "No space left on device" in work_order["resource_error"]
+
+
 # ---------- dispatch_workers / collect_results tests ----------
 
 from unittest.mock import AsyncMock, patch
 from aragora.swarm.worker_launcher import WorkerLauncher, WorkerProcess
+
+UTC = timezone.utc
 
 
 @pytest.mark.asyncio
@@ -320,7 +416,7 @@ async def test_collect_results_updates_work_orders(repo: Path, store: DevCoordin
 
 @pytest.mark.asyncio
 async def test_dispatch_handles_missing_cli(repo: Path, store: DevCoordinationStore) -> None:
-    """dispatch_workers should mark orders as dispatch_failed when CLI is missing."""
+    """dispatch_workers should requeue onto the fallback agent when one CLI is unavailable."""
     run_record = store.create_supervisor_run(
         goal="missing cli test",
         target_branch="main",
@@ -354,5 +450,263 @@ async def test_dispatch_handles_missing_cli(repo: Path, store: DevCoordinationSt
 
     updated = store.get_supervisor_run(run_id)
     wo = updated["work_orders"][0]
-    assert wo["status"] == "dispatch_failed"
-    assert "CLI not found" in wo["dispatch_error"]
+    assert wo["status"] == "leased"
+    assert wo["target_agent"] == "codex"
+    assert wo["reviewer_agent"] == "claude"
+    assert wo["metadata"]["last_failure_reason"] == "agent_unavailable"
+    assert "CLI not found" in wo["metadata"]["last_failure_detail"]
+    assert wo.get("lease_id") is None
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_requeues_capacity_failure_to_fallback_agent(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        path=repo,
+        branch="swarm-fallback-1",
+        session_id="dispatch-sess-fallback",
+        agent="claude",
+        created=True,
+        reconcile_status=None,
+        payload={},
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(
+        return_value=[
+            WorkerProcess(
+                work_order_id="fallback-task",
+                agent="claude",
+                worktree_path=str(repo),
+                branch="swarm-fallback-1",
+                pid=777,
+                session_id="dispatch-sess-fallback",
+                lease_id="lease-1",
+                exit_code=1,
+                completed_at="2026-03-06T00:00:00+00:00",
+                stdout="Credit balance is too low\n",
+                stderr="",
+            )
+        ]
+    )
+    mock_launcher.collect_detached_finished = AsyncMock(return_value=None)
+
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="fallback-task",
+                title="Fallback test",
+                description="Test capacity fallback",
+                file_scope=["tests/swarm/test_commander.py"],
+            )
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        launcher=mock_launcher,
+        decomposer=decomposer,
+    )
+    run = supervisor.start_run(spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"))
+    run.work_orders[0]["status"] = "dispatched"
+    run.work_orders[0]["target_agent"] = "claude"
+    run.work_orders[0]["reviewer_agent"] = "codex"
+    run.work_orders[0]["pid"] = 777
+    store.update_supervisor_run(run.run_id, work_orders=run.work_orders, status="active")
+
+    completed = await supervisor.collect_finished_results(run.run_id)
+
+    assert len(completed) == 1
+    refreshed = store.get_supervisor_run(run.run_id)
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "leased"
+    assert work_order["target_agent"] == "codex"
+    assert work_order["reviewer_agent"] == "claude"
+    assert work_order["metadata"]["last_failure_reason"] == "agent_capacity"
+    assert work_order["metadata"]["attempted_agents"] == ["claude"]
+    assert work_order["lease_id"] == run.work_orders[0]["lease_id"]
+    assert store.status_summary()["counts"]["active_leases"] == 1
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_updates_progress_heartbeat(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    old_progress = "2026-03-06T00:00:00+00:00"
+    run_record = store.create_supervisor_run(
+        goal="progress heartbeat",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "progress heartbeat"},
+        work_orders=[
+            {
+                "work_order_id": "wo-progress",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "pid": 321,
+                "initial_head": "abc123",
+                "dispatched_at": old_progress,
+                "last_progress_at": old_progress,
+                "progress_fingerprint": {
+                    "head_sha": "abc123",
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                },
+            }
+        ],
+        status="active",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[])
+    mock_launcher.snapshot_progress = AsyncMock(
+        return_value={
+            "pid_alive": True,
+            "head_sha": "def456",
+            "changed_paths": ["aragora/swarm/supervisor.py"],
+            "diff_lines": 12,
+        }
+    )
+    mock_launcher.config = SimpleNamespace(auto_commit=True, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    with patch.object(WorkerLauncher, "collect_detached_result", new=AsyncMock(return_value=None)):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert completed == []
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "dispatched"
+    assert work_order["last_progress_at"] != old_progress
+    assert work_order["head_sha"] == "def456"
+    assert work_order["changed_paths"] == ["aragora/swarm/supervisor.py"]
+    assert work_order["diff_lines"] == 12
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_marks_dead_dispatched_worker_needs_human(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="dead worker",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "dead worker"},
+        work_orders=[
+            {
+                "work_order_id": "wo-dead",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "pid": 9999,
+                "initial_head": "abc123",
+                "dispatched_at": "2026-03-06T00:00:00+00:00",
+                "last_progress_at": "2026-03-06T00:00:00+00:00",
+                "progress_fingerprint": {
+                    "head_sha": "abc123",
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                },
+            }
+        ],
+        status="active",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[])
+    mock_launcher.snapshot_progress = AsyncMock(
+        return_value={
+            "pid_alive": False,
+            "head_sha": "abc123",
+            "changed_paths": [],
+            "diff_lines": 0,
+        }
+    )
+    mock_launcher.config = SimpleNamespace(auto_commit=True, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    with patch.object(WorkerLauncher, "collect_detached_result", new=AsyncMock(return_value=None)):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert completed == []
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "needs_human"
+    assert "without receipt or exit marker" in work_order["dispatch_error"]
+    assert "pid" not in work_order
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    stale_time = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
+    run_record = store.create_supervisor_run(
+        goal="no progress timeout",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "no progress timeout"},
+        work_orders=[
+            {
+                "work_order_id": "wo-stalled",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "pid": 4242,
+                "initial_head": "abc123",
+                "dispatched_at": stale_time,
+                "last_progress_at": stale_time,
+                "progress_fingerprint": {
+                    "head_sha": "abc123",
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                },
+            }
+        ],
+        status="active",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[])
+    mock_launcher.snapshot_progress = AsyncMock(
+        return_value={
+            "pid_alive": True,
+            "head_sha": "abc123",
+            "changed_paths": [],
+            "diff_lines": 0,
+        }
+    )
+    mock_launcher.config = SimpleNamespace(auto_commit=True, no_progress_timeout_seconds=60.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    with patch.object(WorkerLauncher, "collect_detached_result", new=AsyncMock(return_value=None)):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert completed == []
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "needs_human"
+    assert "no-progress timeout" in work_order["dispatch_error"]

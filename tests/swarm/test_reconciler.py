@@ -58,3 +58,9 @@ async def test_watch_run_stops_when_completed() -> None:
 
     assert result.status == "completed"
     assert reconciler.tick_run.await_count == 2
+
+
+def test_should_not_stop_for_waiting_resource() -> None:
+    run = _run("active", ["waiting_resource"])
+
+    assert SwarmReconciler._should_stop(run) is False

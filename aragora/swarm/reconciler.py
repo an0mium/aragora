@@ -96,5 +96,5 @@ class SwarmReconciler:
             return True
         if run.status == "needs_human":
             return True
-        active_statuses = {"queued", "waiting_conflict", "leased", "dispatched"}
+        active_statuses = {"queued", "waiting_conflict", "waiting_resource", "leased", "dispatched"}
         return not (statuses & active_statuses)

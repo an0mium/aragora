@@ -204,11 +204,31 @@ class SwarmSupervisor:
                     )
                     active_count += 1
                 except LeaseConflictError as exc:
+                    released = self._release_orphaned_conflict_leases(exc.conflicts)
+                    if released:
+                        try:
+                            self._lease_work_order(
+                                run_id=run_id,
+                                target_branch=str(record.get("target_branch", "main")),
+                                work_order=item,
+                                managed_dir_pattern=managed_dir_pattern,
+                                approval_policy=SwarmApprovalPolicy.from_dict(
+                                    record.get("approval_policy")
+                                ),
+                            )
+                            active_count += 1
+                            continue
+                        except LeaseConflictError as retry_exc:
+                            exc = retry_exc
                     item["status"] = "waiting_conflict"
                     item["conflicts"] = list(exc.conflicts)
                 except RuntimeError as exc:
-                    item["status"] = "needs_human"
-                    item["dispatch_error"] = str(exc)
+                    if self._is_resource_constraint_error(exc):
+                        item["status"] = "waiting_resource"
+                        item["resource_error"] = str(exc)
+                    else:
+                        item["status"] = "needs_human"
+                        item["dispatch_error"] = str(exc)
                     break
 
         refreshed = self.store.update_supervisor_run(
@@ -298,13 +318,24 @@ class SwarmSupervisor:
                     worktree_path=worktree_path,
                     branch=branch,
                 )
+                dispatch_time = datetime.now(UTC).isoformat()
                 item["status"] = "dispatched"
                 item["pid"] = worker.pid
                 item["initial_head"] = worker.initial_head
+                item["dispatched_at"] = dispatch_time
+                item["last_observed_at"] = dispatch_time
+                item["last_progress_at"] = dispatch_time
+                item["progress_fingerprint"] = {
+                    "head_sha": worker.initial_head,
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                }
                 launched.append(worker)
             except (FileNotFoundError, RuntimeError, OSError) as exc:
-                item["status"] = "dispatch_failed"
-                item["dispatch_error"] = str(exc)
+                fallback_requeued = self._requeue_after_dispatch_error(item, exc)
+                if not fallback_requeued:
+                    item["status"] = "dispatch_failed"
+                    item["dispatch_error"] = str(exc)
                 import logging
 
                 logging.getLogger(__name__).warning(
@@ -377,6 +408,7 @@ class SwarmSupervisor:
 
         # Try in-memory collection first (same process that launched workers)
         finished = await self.launcher.collect_finished(work_order_ids=dispatched_ids)
+        changed = False
 
         # Fall back to detached collection for workers not in memory
         # (parent process restarted, or --dispatch-only mode)
@@ -401,8 +433,42 @@ class SwarmSupervisor:
             )
             if result is not None:
                 finished.append(result)
+                finished_ids.add(woid)
+                continue
 
-        if not finished:
+            progress = await self.launcher.snapshot_progress(item)
+            observed_at = datetime.now(UTC).isoformat()
+            item["last_observed_at"] = observed_at
+            progress_fingerprint = self._progress_fingerprint(progress)
+            if progress_fingerprint != self._progress_fingerprint(item.get("progress_fingerprint")):
+                item["progress_fingerprint"] = progress_fingerprint
+                item["last_progress_at"] = observed_at
+                if progress_fingerprint["head_sha"]:
+                    item["head_sha"] = progress_fingerprint["head_sha"]
+                item["changed_paths"] = list(progress_fingerprint["changed_paths"])
+                item["diff_lines"] = int(progress_fingerprint["diff_lines"])
+                changed = True
+                continue
+
+            if not bool(progress.get("pid_alive")):
+                self._mark_needs_human(
+                    item,
+                    "worker process exited without receipt or exit marker",
+                )
+                changed = True
+                continue
+
+            if self._exceeded_no_progress_timeout(item):
+                self._mark_needs_human(
+                    item,
+                    (
+                        "worker exceeded no-progress timeout "
+                        f"({int(self._no_progress_timeout_seconds())}s)"
+                    ),
+                )
+                changed = True
+
+        if not finished and not changed:
             return []
 
         finished_by_id = {worker.work_order_id: worker for worker in finished}
@@ -541,12 +607,151 @@ class SwarmSupervisor:
             item["review_status"] = "pending_heterogeneous_review"
             return
 
+        if self._requeue_after_worker_failure(item, result):
+            return
+
         if lease_id:
             self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
         item["status"] = "timed_out" if result.exit_code == -1 else "failed"
         item["exit_code"] = result.exit_code
         if result.stderr.strip():
             item["blockers"] = [result.stderr.strip()]
+
+    def _requeue_after_dispatch_error(self, item: dict[str, Any], exc: Exception) -> bool:
+        message = str(exc).strip()
+        lowered = message.lower()
+        if "cli not found" not in lowered and "not found" not in lowered:
+            return False
+        return self._requeue_with_fallback(
+            item,
+            reason="agent_unavailable",
+            detail=message,
+        )
+
+    def _requeue_after_worker_failure(
+        self,
+        item: dict[str, Any],
+        result: WorkerProcess,
+    ) -> bool:
+        combined = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
+        lowered = combined.lower()
+        capacity_patterns = (
+            "credit balance is too low",
+            "insufficient credit",
+            "insufficient balance",
+            "out of credits",
+            "quota exceeded",
+            "usage limit reached",
+            "rate limit exceeded",
+            "billing",
+            "payment required",
+        )
+        if not any(pattern in lowered for pattern in capacity_patterns):
+            return False
+        return self._requeue_with_fallback(
+            item,
+            reason="agent_capacity",
+            detail=combined or f"{result.agent} worker failed",
+        )
+
+    def _requeue_with_fallback(
+        self,
+        item: dict[str, Any],
+        *,
+        reason: str,
+        detail: str,
+    ) -> bool:
+        current_agent = str(item.get("target_agent", "")).strip().lower()
+        fallback_agent = self._alternate_agent(current_agent)
+        if not fallback_agent:
+            return False
+
+        metadata = dict(item.get("metadata") or {})
+        attempted_agents = [
+            str(agent).strip().lower()
+            for agent in metadata.get("attempted_agents", [])
+            if str(agent).strip()
+        ]
+        if current_agent and current_agent not in attempted_agents:
+            attempted_agents.append(current_agent)
+        if fallback_agent in attempted_agents:
+            return False
+
+        fallback_history = list(metadata.get("fallback_history", []))
+        fallback_history.append(
+            {
+                "from_agent": current_agent,
+                "to_agent": fallback_agent,
+                "reason": reason,
+                "detail": detail[:500],
+                "at": datetime.now(UTC).isoformat(),
+            }
+        )
+        metadata.update(
+            {
+                "requested_target_agent": metadata.get("requested_target_agent", current_agent),
+                "requested_reviewer_agent": metadata.get(
+                    "requested_reviewer_agent",
+                    str(item.get("reviewer_agent", "")).strip().lower(),
+                ),
+                "attempted_agents": attempted_agents,
+                "fallback_history": fallback_history,
+                "last_failure_reason": reason,
+                "last_failure_detail": detail[:1000],
+                "reuse_existing_worktree": True,
+            }
+        )
+
+        item.update(
+            {
+                "status": "leased",
+                "target_agent": fallback_agent,
+                "reviewer_agent": self._alternate_agent(fallback_agent)
+                or str(item.get("reviewer_agent", "")),
+                "metadata": metadata,
+                "review_status": "pending",
+                "receipt_id": None,
+                "dispatch_error": None,
+                "exit_code": None,
+                "completed_at": None,
+            }
+        )
+        item.pop("pid", None)
+        item.pop("blockers", None)
+        item.pop("dispatched_at", None)
+        item.pop("last_observed_at", None)
+        item.pop("last_progress_at", None)
+        item.pop("progress_fingerprint", None)
+        return True
+
+    def _release_orphaned_conflict_leases(self, conflicts: list[dict[str, Any]]) -> int:
+        released = 0
+        for conflict in conflicts:
+            if str(conflict.get("source", "lease")).strip() not in {"lease", ""}:
+                continue
+            lease_id = str(conflict.get("lease_id", "")).strip()
+            worktree_path = str(conflict.get("worktree_path", "")).strip()
+            if not lease_id or not worktree_path:
+                continue
+            if Path(worktree_path).exists():
+                continue
+            self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
+            released += 1
+        return released
+
+    @staticmethod
+    def _is_resource_constraint_error(exc: Exception) -> bool:
+        lowered = str(exc).lower()
+        return "no space left on device" in lowered or "disk full" in lowered
+
+    @staticmethod
+    def _alternate_agent(agent: str | None) -> str | None:
+        value = str(agent or "").strip().lower()
+        if value == "claude":
+            return "codex"
+        if value == "codex":
+            return "claude"
+        return None
 
     @staticmethod
     def _completion_confidence(item: dict[str, Any], result: WorkerProcess) -> float:
@@ -558,6 +763,56 @@ class SwarmSupervisor:
         if result.commit_shas or result.changed_paths:
             return 0.6
         return 0.4
+
+    @staticmethod
+    def _progress_fingerprint(source: Any) -> dict[str, Any]:
+        payload = dict(source or {})
+        return {
+            "head_sha": str(payload.get("head_sha", "")).strip(),
+            "changed_paths": sorted(
+                str(path).strip() for path in payload.get("changed_paths", []) if str(path).strip()
+            ),
+            "diff_lines": int(payload.get("diff_lines", 0) or 0),
+        }
+
+    def _no_progress_timeout_seconds(self) -> float:
+        raw = getattr(self.launcher.config, "no_progress_timeout_seconds", 120.0)
+        try:
+            return max(1.0, float(raw))
+        except (TypeError, ValueError):
+            return 120.0
+
+    def _exceeded_no_progress_timeout(self, item: dict[str, Any]) -> bool:
+        since = self._parse_timestamp(item.get("last_progress_at")) or self._parse_timestamp(
+            item.get("dispatched_at")
+        )
+        if since is None:
+            return False
+        elapsed = (datetime.now(UTC) - since).total_seconds()
+        return elapsed >= self._no_progress_timeout_seconds()
+
+    @staticmethod
+    def _parse_timestamp(value: Any) -> datetime | None:
+        text = str(value or "").strip()
+        if not text:
+            return None
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=UTC)
+        return parsed
+
+    @staticmethod
+    def _mark_needs_human(item: dict[str, Any], reason: str) -> None:
+        item["status"] = "needs_human"
+        item["dispatch_error"] = reason
+        blockers = [str(value).strip() for value in item.get("blockers", []) if str(value).strip()]
+        if reason not in blockers:
+            blockers.append(reason)
+        item["blockers"] = blockers
+        item.pop("pid", None)
 
     @staticmethod
     def _derive_status(work_orders: list[dict[str, Any]]) -> str:
