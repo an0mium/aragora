@@ -212,7 +212,7 @@ class PreflightHealthCheck:
                 name="api_keys",
                 status=CheckStatus.FAILED,
                 message="No API keys found. Set at least one of: "
-                "ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY",
+                "ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY",
                 latency_ms=latency,
             )
 

@@ -35,23 +35,25 @@ logger = logging.getLogger(__name__)
 # Provider configuration
 # ---------------------------------------------------------------------------
 
-# (env_var, default_model) – default_model is the value we report when the
+# (env_vars, default_model) – default_model is the value we report when the
 # key is present.  We intentionally do NOT import agent modules here to keep
 # the handler lightweight and free of heavy dependencies.
-_PROVIDER_CONFIG: dict[str, tuple[str, str]] = {
-    "anthropic": ("ANTHROPIC_API_KEY", "claude-opus-4-5-20251101"),
-    "openai": ("OPENAI_API_KEY", "gpt-5.3"),
-    "openrouter": ("OPENROUTER_API_KEY", "deepseek/deepseek-chat-v3-0324"),
-    "mistral": ("MISTRAL_API_KEY", "mistral-large-2512"),
-    "gemini": ("GEMINI_API_KEY", "gemini-2.5-pro"),
-    "xai": ("XAI_API_KEY", "grok-4-latest"),
+_PROVIDER_CONFIG: dict[str, tuple[tuple[str, ...], str]] = {
+    "anthropic": (("ANTHROPIC_API_KEY",), "claude-opus-4-6"),
+    "openai": (("OPENAI_API_KEY",), "gpt-5.3"),
+    "openrouter": (("OPENROUTER_API_KEY",), "deepseek/deepseek-chat"),
+    "mistral": (("MISTRAL_API_KEY",), "mistral-large-2512"),
+    "gemini": (("GEMINI_API_KEY", "GOOGLE_API_KEY"), "gemini-3.1-pro-preview"),
+    "xai": (("XAI_API_KEY", "GROK_API_KEY"), "grok-4-latest"),
 }
 
-# A debate requires *at least one* of these providers.
-_REQUIRED_PROVIDERS = {"anthropic", "openai"}
+# A debate requires at least one of these core providers. OpenRouter counts as
+# core because direct API agents can degrade to it when primary provider keys
+# are unfunded or exhausted.
+_REQUIRED_PROVIDERS = {"anthropic", "openai", "openrouter"}
 
 # The rest are optional (nice-to-have for heterogeneous consensus).
-_OPTIONAL_PROVIDERS = {"openrouter", "mistral", "gemini", "xai"}
+_OPTIONAL_PROVIDERS = {"mistral", "gemini", "xai"}
 
 # ---------------------------------------------------------------------------
 # Feature detection helpers
@@ -60,12 +62,23 @@ _OPTIONAL_PROVIDERS = {"openrouter", "mistral", "gemini", "xai"}
 
 def _check_provider(name: str) -> dict[str, Any]:
     """Return availability info for a single AI provider."""
-    env_var, default_model = _PROVIDER_CONFIG[name]
-    key = os.environ.get(env_var)
-    available = key is not None and len(key) > 10
+    env_vars, default_model = _PROVIDER_CONFIG[name]
+    configured_var = next(
+        (
+            env_var
+            for env_var in env_vars
+            if (key := os.environ.get(env_var)) is not None and len(key) > 10
+        ),
+        None,
+    )
+    available = configured_var is not None
     if available:
         return {"available": True, "model": default_model}
-    return {"available": False, "reason": f"{env_var} not set"}
+    if len(env_vars) == 1:
+        env_hint = env_vars[0]
+    else:
+        env_hint = " or ".join(env_vars)
+    return {"available": False, "reason": f"{env_hint} not set"}
 
 
 def _detect_storage() -> dict[str, Any]:
@@ -151,20 +164,19 @@ class ReadinessCheckHandler(BaseHandler):
             providers[name] = _check_provider(name)
 
         # -- Missing keys --
+        any_required_available = any(providers[name]["available"] for name in _REQUIRED_PROVIDERS)
+
         missing_required: list[str] = []
-        for name in _REQUIRED_PROVIDERS:
-            if not providers[name]["available"]:
-                env_var = _PROVIDER_CONFIG[name][0]
-                missing_required.append(env_var)
+        if not any_required_available:
+            for name in _REQUIRED_PROVIDERS:
+                missing_required.extend(_PROVIDER_CONFIG[name][0])
 
         missing_optional: list[str] = []
         for name in _OPTIONAL_PROVIDERS:
             if not providers[name]["available"]:
-                env_var = _PROVIDER_CONFIG[name][0]
-                missing_optional.append(env_var)
+                missing_optional.extend(_PROVIDER_CONFIG[name][0])
 
-        # ready_to_debate = at least one required provider is configured
-        any_required_available = any(providers[name]["available"] for name in _REQUIRED_PROVIDERS)
+        # ready_to_debate = at least one core provider is configured
         ready_to_debate = any_required_available
 
         # -- Storage --

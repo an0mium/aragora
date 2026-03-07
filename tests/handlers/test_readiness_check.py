@@ -64,7 +64,9 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "OPENROUTER_API_KEY",
         "MISTRAL_API_KEY",
         "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
         "XAI_API_KEY",
+        "GROK_API_KEY",
         "DATABASE_URL",
         "ARAGORA_POSTGRES_DSN",
         "SUPABASE_POSTGRES_DSN",
@@ -234,6 +236,19 @@ class TestReadyToDebate:
         assert body["ready_to_debate"] is True
         assert body["missing_required"] == []
 
+    def test_ready_when_only_openrouter_set(
+        self,
+        handler: ReadinessCheckHandler,
+        mock_http_handler: MagicMock,
+        clean_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-XXXXXXXXXXXX")
+        result = handler.handle("/api/v1/readiness", {}, mock_http_handler)
+        body = parse_body(result)
+        assert body["ready_to_debate"] is True
+        assert body["missing_required"] == []
+
     def test_not_ready_when_no_required_providers(
         self,
         handler: ReadinessCheckHandler,
@@ -251,7 +266,6 @@ class TestReadyToDebate:
         clean_env: None,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-XXXXXXXXXXXX")
         monkeypatch.setenv("MISTRAL_API_KEY", "XXXXXXXXXXXXXXXXXXXX")
         result = handler.handle("/api/v1/readiness", {}, mock_http_handler)
         body = parse_body(result)
@@ -290,6 +304,7 @@ class TestMissingKeys:
         body = parse_body(result)
         assert "ANTHROPIC_API_KEY" in body["missing_required"]
         assert "OPENAI_API_KEY" in body["missing_required"]
+        assert "OPENROUTER_API_KEY" in body["missing_required"]
 
     def test_optional_missing_when_clean(
         self,
@@ -299,10 +314,11 @@ class TestMissingKeys:
     ) -> None:
         result = handler.handle("/api/v1/readiness", {}, mock_http_handler)
         body = parse_body(result)
-        assert "OPENROUTER_API_KEY" in body["missing_optional"]
         assert "MISTRAL_API_KEY" in body["missing_optional"]
         assert "GEMINI_API_KEY" in body["missing_optional"]
+        assert "GOOGLE_API_KEY" in body["missing_optional"]
         assert "XAI_API_KEY" in body["missing_optional"]
+        assert "GROK_API_KEY" in body["missing_optional"]
 
     def test_missing_required_sorted(
         self,
@@ -346,7 +362,7 @@ class TestMissingKeys:
         monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-XXXXXXXXXXXX")
         result = handler.handle("/api/v1/readiness", {}, mock_http_handler)
         body = parse_body(result)
-        assert "OPENROUTER_API_KEY" not in body["missing_optional"]
+        assert "OPENROUTER_API_KEY" not in body["missing_required"]
 
 
 # ============================================================================
@@ -384,6 +400,26 @@ class TestProviderDetails:
         for name in _PROVIDER_CONFIG:
             result = _check_provider(name)
             assert "available" in result
+
+    def test_gemini_google_api_key_counts_as_available(
+        self,
+        clean_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("GOOGLE_API_KEY", "AIza-test-key-12345")
+        result = _check_provider("gemini")
+        assert result["available"] is True
+        assert result["model"] == "gemini-3.1-pro-preview"
+
+    def test_xai_grok_api_key_alias_counts_as_available(
+        self,
+        clean_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("GROK_API_KEY", "xai-test-key-12345")
+        result = _check_provider("xai")
+        assert result["available"] is True
+        assert result["model"] == "grok-4-latest"
 
 
 # ============================================================================
