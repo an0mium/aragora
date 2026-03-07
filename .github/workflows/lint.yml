@@ -34,32 +34,25 @@ jobs:
 
       - name: Verify checkout integrity
         shell: bash
+        working-directory: .
         run: |
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
-            git reset --hard || true
-            git clean -ffdx || true
+          if [[ ! -f pyproject.toml ]] || [[ ! -f aragora/live/package.json ]]; then
+            echo "::warning::Frontend checkout incomplete after checkout; attempting recovery"
             git sparse-checkout disable || true
-            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}" || true
-            git checkout -f "${GITHUB_SHA:-HEAD}" || true
-            if git rev-parse --verify FETCH_HEAD >/dev/null 2>&1; then
-              git reset --hard FETCH_HEAD
-            else
-              git reset --hard HEAD
-            fi
-            git clean -ffdx || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}"
+            git reset --hard FETCH_HEAD
+            git clean -ffd || true
           fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::Sparse-checkout recovery incomplete; attempting archive restore"
+          if [[ ! -f pyproject.toml ]] || [[ ! -f aragora/live/package.json ]]; then
+            echo "::warning::Standard recovery incomplete; attempting archive restore"
             find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-            if ! git archive "${GITHUB_SHA:-HEAD}" | tar -x; then
-              git archive HEAD | tar -x
-            fi
+            git archive "${GITHUB_SHA:-HEAD}" | tar -x || git archive HEAD | tar -x
           fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+          if [[ ! -f pyproject.toml ]] || [[ ! -f aragora/live/package.json ]]; then
+            echo "::error::Repository checkout is incomplete (missing pyproject.toml or aragora/live/package.json)"
             echo "PWD=$(pwd)"
             ls -la
+            ls -la aragora/live || true
             exit 1
           fi
 
@@ -866,7 +859,23 @@ jobs:
 
       - name: Count TODOs and enforce baseline
         run: |
-          CURRENT=$(grep -rn "TODO\|FIXME\|HACK\|XXX" aragora/ --include="*.py" 2>/dev/null | wc -l | tr -d ' ')
+          CURRENT=$(python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path("aragora")
+          pattern = re.compile(r"^\s*#\s*(TODO|FIXME|HACK|XXX)\b", re.IGNORECASE)
+          count = 0
+          for path in root.rglob("*.py"):
+              try:
+                  for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+                      if pattern.search(line):
+                          count += 1
+              except OSError:
+                  pass
+          print(count)
+          PY
+          )
           BASELINE=$(cat aragora/.todo_baseline 2>/dev/null || echo 50)
           THRESHOLD=1  # Allow only 1 new TODO (tightened Feb 2026)
 
@@ -879,7 +888,24 @@ jobs:
             echo "::error::Exceeds threshold of $THRESHOLD new TODOs"
             echo ""
             echo "New TODOs found:"
-            grep -rn "TODO\|FIXME\|HACK\|XXX" aragora/ --include="*.py" | head -20
+            python3 - <<'PY'
+            from pathlib import Path
+            import re
+
+            root = Path("aragora")
+            pattern = re.compile(r"^\s*#\s*(TODO|FIXME|HACK|XXX)\b", re.IGNORECASE)
+            shown = 0
+            for path in sorted(root.rglob("*.py")):
+                try:
+                    for idx, line in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+                        if pattern.search(line):
+                            print(f"{path}:{idx}:{line.strip()}")
+                            shown += 1
+                            if shown >= 20:
+                                raise SystemExit
+                except OSError:
+                    continue
+            PY
             echo ""
             echo "Please resolve existing TODOs before adding new ones,"
             echo "or update aragora/.todo_baseline if increase is intentional."
