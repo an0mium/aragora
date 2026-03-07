@@ -16,6 +16,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -32,10 +33,19 @@ from aragora.inbox.trust_wedge import (
 logger = logging.getLogger(__name__)
 
 
+_ACTION_PATTERNS: dict[str, re.Pattern] = {
+    AllowedAction.ARCHIVE.value: re.compile(r"\barchiv(?:e|ed|ing)\b", re.IGNORECASE),
+    AllowedAction.STAR.value: re.compile(r"\bstarr?(?:ed|ing)?\b", re.IGNORECASE),
+    AllowedAction.LABEL.value: re.compile(r"\blabell?(?:ed|ing)?\b", re.IGNORECASE),
+    AllowedAction.IGNORE.value: re.compile(r"\bignor(?:e|ed|ing)?\b", re.IGNORECASE),
+}
+
+
 def _extract_action(debate_result: Any) -> str:
     """Extract an AllowedAction value from a debate result.
 
     Falls back to IGNORE if the debate output cannot be mapped.
+    Uses regex word-form matching (e.g. "archiving" → archive).
     """
     answer = ""
     if hasattr(debate_result, "final_answer"):
@@ -43,10 +53,9 @@ def _extract_action(debate_result: Any) -> str:
     elif isinstance(debate_result, dict):
         answer = str(debate_result.get("final_answer", ""))
 
-    answer_lower = answer.lower()
-    for action in AllowedAction:
-        if action.value in answer_lower:
-            return action.value
+    for action_value, pattern in _ACTION_PATTERNS.items():
+        if pattern.search(answer):
+            return action_value
 
     return AllowedAction.IGNORE.value
 
@@ -193,7 +202,7 @@ class InboxTriageRunner:
     async def _triage_message(self, msg: dict[str, Any]) -> TriageDecision:
         """Run debate and build a TriageDecision for a single message."""
         message_id = msg.get("id", str(uuid.uuid4()))
-        body = msg.get("body", msg.get("snippet", ""))
+        body = msg.get("body_text", msg.get("body", msg.get("snippet", "")))
         content_hash = compute_content_hash(body)
 
         debate_result = await self._run_debate(msg)
@@ -226,7 +235,7 @@ class InboxTriageRunner:
         )
         # Attach email metadata for CLI display (private attrs)
         intent._subject = msg.get("subject", "(no subject)")  # type: ignore[attr-defined]
-        intent._sender = msg.get("sender", msg.get("from", "(unknown)"))  # type: ignore[attr-defined]
+        intent._sender = msg.get("from_address", msg.get("sender", "(unknown)"))  # type: ignore[attr-defined]
         intent._snippet = msg.get("snippet", body[:120])  # type: ignore[attr-defined]
 
         decision = TriageDecision(
@@ -246,23 +255,50 @@ class InboxTriageRunner:
         Attempts to use the Arena. Falls back to a stub result if the
         debate engine is unavailable.
         """
-        subject = msg.get("subject", "")
-        body = msg.get("body", msg.get("snippet", ""))
-        question = (
-            f"Triage this email and recommend an action "
-            f"(archive, star, label, or ignore).\n\n"
-            f"Subject: {subject}\n"
-            f"Body: {body[:2000]}"
-        )
-
         try:
             from aragora.core import Environment
             from aragora.debate.protocol import DebateProtocol
             from aragora.debate.orchestrator import Arena
+            from aragora.agents.registry import AgentRegistry
+
+            subject = msg.get("subject", "(no subject)")
+            sender = msg.get("from_address", "(unknown)")
+            body = msg.get("body_text", msg.get("body", msg.get("snippet", "")))
+            question = (
+                "Triage this email and recommend exactly ONE action: "
+                "archive, star, label, or ignore.\n\n"
+                f"From: {sender}\n"
+                f"Subject: {subject}\n"
+                f"Body: {body[:2000]}\n\n"
+                "Your final answer MUST begin with the action word "
+                "(archive, star, label, or ignore) followed by your reasoning."
+            )
 
             env = Environment(task=question)
-            protocol = DebateProtocol(rounds=2, consensus="majority")
-            arena = Arena(env, agents=[], protocol=protocol)
+            protocol = DebateProtocol(rounds=1, consensus="majority")
+
+            agent_configs = [
+                ("anthropic-api", "proposer"),
+                ("openai-api", "critic"),
+                ("grok", "synthesizer"),
+            ]
+            agents = []
+            for model_type, role in agent_configs:
+                try:
+                    agent = AgentRegistry.create(model_type, name=f"triage-{role}", role=role)
+                    agents.append(agent)
+                except (ImportError, KeyError, RuntimeError, ValueError) as exc:
+                    logger.debug("Skipping agent %s: %s", model_type, exc)
+
+            if not agents:
+                logger.warning("No agents available for debate; using stub result")
+                return {
+                    "final_answer": "ignore",
+                    "confidence": 0.0,
+                    "debate_id": f"no-agents-{uuid.uuid4().hex[:8]}",
+                }
+
+            arena = Arena(env, agents=agents, protocol=protocol)
             return await arena.run()
         except ImportError:
             logger.debug("Debate engine not available; using stub result")
