@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.cli.commands.swarm import cmd_swarm
+from aragora.swarm.spec import SwarmSpec
 
 
 class _FakeSpec:
@@ -16,6 +17,59 @@ class _FakeSpec:
 
     def to_yaml(self) -> str:
         return self._yaml_text
+
+
+def _swarm_args(**overrides: object) -> argparse.Namespace:
+    defaults: dict[str, object] = {
+        "swarm_action_or_goal": "run",
+        "swarm_goal": None,
+        "spec": None,
+        "skip_interrogation": False,
+        "dry_run": False,
+        "budget_limit": 9.0,
+        "require_approval": False,
+        "save_spec": None,
+        "from_obsidian": None,
+        "obsidian_vault": None,
+        "no_obsidian_receipts": False,
+        "profile": "developer",
+        "autonomy": "propose",
+        "max_parallel": 20,
+        "no_loop": False,
+        "target_branch": "main",
+        "concurrency_cap": 8,
+        "managed_dir_pattern": ".worktrees/{agent}-auto",
+        "json": False,
+        "run_id": None,
+        "status_limit": 20,
+        "refresh_scaling": False,
+        "no_dispatch": False,
+        "watch": False,
+        "interval_seconds": 5.0,
+        "max_ticks": None,
+        "all_runs": False,
+        "dispatch_only": False,
+        "no_wait": False,
+    }
+    defaults.update(overrides)
+    return argparse.Namespace(**defaults)
+
+
+def _fake_supervisor_run(
+    *,
+    run_id: str = "run-123",
+    status: str = "active",
+    work_orders: list[dict[str, object]] | None = None,
+) -> MagicMock:
+    fake_run = MagicMock()
+    fake_run.to_dict.return_value = {
+        "run_id": run_id,
+        "status": status,
+        "target_branch": "main",
+        "goal": "goal",
+        "work_orders": work_orders or [],
+    }
+    return fake_run
 
 
 class TestSwarmParser:
@@ -77,6 +131,20 @@ class TestSwarmParser:
         assert args.run_id == "run-123"
         assert args.watch is True
         assert args.interval_seconds == 1.5
+
+    def test_swarm_parser_accepts_spec_dispatch_options(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            ["swarm", "--spec", "swarm-spec.yaml", "--dispatch-only", "--no-wait", "--json"]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal is None
+        assert args.spec == "swarm-spec.yaml"
+        assert args.dispatch_only is True
+        assert args.no_wait is True
+        assert args.json is True
 
 
 class TestSwarmCommand:
@@ -254,44 +322,12 @@ class TestSwarmCommand:
         assert "runs=1 queued=2 leased=1 completed=0" in out
 
     def test_cmd_swarm_reconcile_uses_reconciler(self, capsys):
-        args = argparse.Namespace(
+        args = _swarm_args(
             swarm_action_or_goal="reconcile",
-            swarm_goal=None,
-            spec=None,
-            skip_interrogation=False,
-            dry_run=False,
-            budget_limit=9.0,
-            require_approval=True,
-            save_spec=None,
-            from_obsidian=None,
-            obsidian_vault=None,
-            no_obsidian_receipts=False,
-            profile="developer",
-            autonomy="propose",
-            max_parallel=20,
-            no_loop=False,
-            target_branch="main",
-            concurrency_cap=8,
-            managed_dir_pattern=".worktrees/{agent}-auto",
-            json=False,
             run_id="run-123",
-            status_limit=20,
-            refresh_scaling=False,
-            no_dispatch=False,
-            watch=False,
-            interval_seconds=5.0,
-            max_ticks=None,
-            all_runs=False,
         )
 
-        fake_run = MagicMock()
-        fake_run.to_dict.return_value = {
-            "run_id": "run-123",
-            "status": "active",
-            "target_branch": "main",
-            "goal": "goal",
-            "work_orders": [],
-        }
+        fake_run = _fake_supervisor_run()
 
         with patch("aragora.swarm.SwarmReconciler") as reconciler_cls:
             reconciler_cls.return_value.tick_run = AsyncMock(return_value=fake_run)
@@ -299,3 +335,98 @@ class TestSwarmCommand:
 
         out = capsys.readouterr().out
         assert "run_id=run-123" in out
+
+    def test_cmd_swarm_spec_no_dispatch_preserves_explicit_work_orders(self, tmp_path: Path):
+        spec_path = tmp_path / "swarm-spec.yaml"
+        spec = SwarmSpec(
+            raw_goal="Dogfood the supervised swarm",
+            refined_goal="Dogfood the supervised swarm",
+            work_orders=[
+                {
+                    "work_order_id": "docs-lane",
+                    "title": "Add operator guide",
+                    "file_scope": ["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+                    "expected_tests": [],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                }
+            ],
+        )
+        spec_path.write_text(spec.to_yaml())
+        mock_commander = SimpleNamespace(
+            run_supervised_from_spec=AsyncMock(return_value=_fake_supervisor_run())
+        )
+        args = _swarm_args(spec=str(spec_path), no_dispatch=True)
+
+        with patch("aragora.swarm.SwarmCommander", return_value=mock_commander):
+            cmd_swarm(args)
+
+        mock_commander.run_supervised_from_spec.assert_awaited_once()
+        call = mock_commander.run_supervised_from_spec.await_args
+        passed_spec = call.args[0]
+        assert passed_spec.work_orders[0]["work_order_id"] == "docs-lane"
+        assert passed_spec.work_orders[0]["file_scope"] == ["docs/guides/SWARM_DOGFOOD_OPERATOR.md"]
+        assert call.kwargs["dispatch"] is False
+        assert call.kwargs["wait"] is True
+
+    def test_cmd_swarm_spec_dispatch_only_runs_fire_and_forget(
+        self, tmp_path: Path, capsys
+    ) -> None:
+        spec_path = tmp_path / "swarm-spec.yaml"
+        spec = SwarmSpec(
+            raw_goal="Dogfood the supervised swarm",
+            refined_goal="Dogfood the supervised swarm",
+            work_orders=[
+                {
+                    "work_order_id": "tests-lane",
+                    "title": "Add regressions",
+                    "file_scope": ["tests/swarm/test_commander.py"],
+                    "expected_tests": ["python -m pytest tests/swarm/test_commander.py -q"],
+                    "target_agent": "claude",
+                    "reviewer_agent": "codex",
+                }
+            ],
+        )
+        spec_path.write_text(spec.to_yaml())
+        fake_run = _fake_supervisor_run(
+            work_orders=[{"work_order_id": "tests-lane", "status": "dispatched"}]
+        )
+        mock_commander = SimpleNamespace(run_supervised_from_spec=AsyncMock(return_value=fake_run))
+        args = _swarm_args(spec=str(spec_path), dispatch_only=True, json=True)
+
+        with patch("aragora.swarm.SwarmCommander", return_value=mock_commander):
+            cmd_swarm(args)
+
+        call = mock_commander.run_supervised_from_spec.await_args
+        assert call.kwargs["dispatch"] is True
+        assert call.kwargs["wait"] is False
+        out = capsys.readouterr().out
+        assert '"run_id": "run-123"' in out
+        assert '"status": "active"' in out
+
+    def test_cmd_swarm_reconcile_watch_uses_watch_run(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="reconcile",
+            run_id="run-123",
+            watch=True,
+            interval_seconds=1.5,
+            max_ticks=4,
+        )
+        fake_run = _fake_supervisor_run(
+            work_orders=[{"work_order_id": "tests-lane", "status": "completed"}]
+        )
+
+        with patch("aragora.swarm.SwarmReconciler") as reconciler_cls:
+            reconciler = reconciler_cls.return_value
+            reconciler.watch_run = AsyncMock(return_value=fake_run)
+            reconciler.tick_run = AsyncMock()
+            cmd_swarm(args)
+
+        reconciler.watch_run.assert_awaited_once_with(
+            "run-123",
+            interval_seconds=1.5,
+            max_ticks=4,
+        )
+        reconciler.tick_run.assert_not_called()
+        out = capsys.readouterr().out
+        assert "work_orders=1 [completed=1]" in out

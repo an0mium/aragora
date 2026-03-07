@@ -486,6 +486,10 @@ class SwarmSupervisor:
         return finished
 
     def _build_supervised_work_orders(self, spec: SwarmSpec) -> list[BoundedWorkOrder]:
+        explicit = self._explicit_work_orders_from_spec(spec)
+        if explicit:
+            return explicit
+
         goal = spec.refined_goal or spec.raw_goal
         decomposition = self.decomposer.analyze(self._task_prompt(spec))
         subtasks = list(decomposition.subtasks)
@@ -515,6 +519,104 @@ class SwarmSupervisor:
                 "acceptance_criteria": list(spec.acceptance_criteria),
                 "constraints": list(spec.constraints),
             }
+        return work_orders
+
+    def _explicit_work_orders_from_spec(self, spec: SwarmSpec) -> list[BoundedWorkOrder]:
+        if not spec.work_orders:
+            return []
+
+        work_orders: list[BoundedWorkOrder] = []
+        pipeline_id_by_work_order: dict[str, str] = {}
+        normalized_payloads = [
+            dict(payload) for payload in spec.work_orders if isinstance(payload, dict)
+        ]
+        explicit_ids: list[str] = []
+
+        for index, payload in enumerate(normalized_payloads, start=1):
+            work_order_id = str(payload.get("work_order_id", "")).strip() or f"work-{index}"
+            explicit_ids.append(work_order_id)
+            pipeline_id_by_work_order[work_order_id] = (
+                str(payload.get("pipeline_task_id", "")).strip() or f"task-{index}"
+            )
+
+        for index, payload in enumerate(normalized_payloads, start=1):
+            work_order_id = explicit_ids[index - 1]
+            pipeline_task_id = pipeline_id_by_work_order[work_order_id]
+            target_agent = str(payload.get("target_agent", "")).strip()
+            reviewer_agent = str(payload.get("reviewer_agent", "")).strip()
+            if not target_agent:
+                target_agent = "codex" if (index - 1) % 2 == 0 else "claude"
+            if not reviewer_agent:
+                reviewer_agent = "claude" if target_agent == "codex" else "codex"
+
+            success_criteria = dict(payload.get("success_criteria") or {})
+            expected_tests = [
+                str(item).strip() for item in payload.get("expected_tests", []) if str(item).strip()
+            ]
+            if expected_tests and "tests" not in success_criteria:
+                success_criteria["tests"] = list(expected_tests)
+
+            estimated_complexity = (
+                str(payload.get("estimated_complexity", "medium")).strip() or "medium"
+            )
+            risk_level = str(payload.get("risk_level", "")).strip() or self._risk_level_for_scope(
+                [str(item) for item in payload.get("file_scope", []) if str(item).strip()]
+            )
+
+            dependency_ids = [
+                str(dep).strip() for dep in payload.get("dependency_ids", []) if str(dep).strip()
+            ]
+            if not dependency_ids:
+                dependency_ids = [
+                    pipeline_id_by_work_order.get(str(dep).strip(), str(dep).strip())
+                    for dep in payload.get("dependencies", [])
+                    if str(dep).strip()
+                ]
+
+            work_orders.append(
+                BoundedWorkOrder(
+                    work_order_id=work_order_id,
+                    pipeline_task_id=pipeline_task_id,
+                    title=str(payload.get("title", "")).strip() or work_order_id,
+                    description=str(payload.get("description", "")).strip()
+                    or str(payload.get("title", "")).strip()
+                    or spec.refined_goal
+                    or spec.raw_goal,
+                    file_scope=[
+                        str(item).strip()
+                        for item in payload.get("file_scope", [])
+                        if str(item).strip()
+                    ],
+                    dependency_ids=dependency_ids,
+                    success_criteria=success_criteria,
+                    expected_tests=expected_tests,
+                    estimated_complexity=estimated_complexity,
+                    risk_level=risk_level,
+                    target_agent=target_agent,
+                    reviewer_agent=reviewer_agent,
+                    approval_required=bool(payload.get("approval_required", False)),
+                    metadata={
+                        **dict(payload.get("metadata") or {}),
+                        "source": "explicit_spec_work_order",
+                    },
+                )
+            )
+
+        for item in work_orders:
+            item.expected_tests = self._default_tests(item, spec)
+            item.risk_level = str(item.risk_level).strip() or self._risk_level_for_scope(
+                item.file_scope
+            )
+            item.approval_required = item.approval_required or item.risk_level in {
+                "critical",
+                "review",
+            }
+            item.metadata = {
+                **dict(item.metadata),
+                "acceptance_criteria": list(spec.acceptance_criteria),
+                "constraints": list(spec.constraints),
+            }
+
         return work_orders
 
     def _lease_work_order(

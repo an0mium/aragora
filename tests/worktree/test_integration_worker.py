@@ -165,6 +165,68 @@ async def test_process_next_validates_without_execute(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_process_next_preserves_dogfood_receipt_metadata_during_validation(
+    tmp_path: Path,
+) -> None:
+    store = FleetCoordinationStore(tmp_path)
+    queued = store.enqueue_merge(
+        session_id="session-a",
+        branch="codex/dogfood",
+        priority=60,
+        metadata={
+            "receipt_id": "receipt-123",
+            "tests_run": ["python -m pytest tests/swarm/test_reconciler.py -q"],
+            "changed_paths": ["tests/swarm/test_reconciler.py"],
+            "confidence": 0.91,
+        },
+    )
+    branch_coordinator = MagicMock()
+    branch_coordinator.safe_merge = AsyncMock(
+        return_value=MergeResult(
+            source_branch="codex/dogfood",
+            target_branch="main",
+            success=True,
+        )
+    )
+    reconciler = MagicMock()
+    reconciler.get_changed_files.return_value = [
+        "tests/swarm/test_reconciler.py",
+        "tests/worktree/test_integration_worker.py",
+    ]
+    reconciler.get_commits_ahead.return_value = 2
+    reconciler.detect_conflicts.return_value = []
+
+    worker = FleetIntegrationWorker(
+        repo_path=tmp_path,
+        fleet_store=store,
+        branch_coordinator=branch_coordinator,
+        reconciler=reconciler,
+    )
+
+    outcome = await worker.process_next(worker_session_id="integrator-1")
+
+    assert outcome.action == "validated"
+    assert outcome.queue_status == "needs_human"
+    assert outcome.queue_item_id == queued["item"]["id"]
+    assert outcome.metadata["receipt_id"] == "receipt-123"
+    assert outcome.metadata["tests_run"] == ["python -m pytest tests/swarm/test_reconciler.py -q"]
+    assert outcome.metadata["changed_paths"] == ["tests/swarm/test_reconciler.py"]
+    assert outcome.metadata["confidence"] == 0.91
+    assert outcome.metadata["worker_session_id"] == "integrator-1"
+    assert outcome.metadata["validated_by"] == "integrator-1"
+    assert outcome.metadata["changed_files"] == [
+        "tests/swarm/test_reconciler.py",
+        "tests/worktree/test_integration_worker.py",
+    ]
+    assert outcome.metadata["commits_ahead"] == 2
+    assert outcome.metadata["dry_run_success"] is True
+    assert outcome.metadata["dry_run_conflicts"] == []
+    assert outcome.metadata["reconciler_conflicts"] == []
+    assert outcome.metadata["validated_only"] is True
+    assert outcome.metadata["integration_workspace_path"] == str(tmp_path)
+
+
+@pytest.mark.asyncio
 async def test_process_next_executes_merge_successfully(tmp_path: Path) -> None:
     store = FleetCoordinationStore(tmp_path)
     store.enqueue_merge(
@@ -245,6 +307,52 @@ async def test_process_next_marks_execution_conflicts_blocked(tmp_path: Path) ->
     assert outcome.queue_status == "blocked"
     assert outcome.conflicts == ["aragora/x.py"]
     assert store.list_merge_queue()[0]["status"] == "blocked"
+
+
+@pytest.mark.asyncio
+async def test_process_next_marks_non_conflict_execution_errors_failed(tmp_path: Path) -> None:
+    store = FleetCoordinationStore(tmp_path)
+    store.enqueue_merge(
+        session_id="session-a",
+        branch="codex/ready",
+        priority=60,
+        metadata={"receipt_id": "receipt-456"},
+    )
+    branch_coordinator = MagicMock()
+    branch_coordinator.safe_merge = AsyncMock(
+        side_effect=[
+            MergeResult(source_branch="codex/ready", target_branch="main", success=True),
+            MergeResult(
+                source_branch="codex/ready",
+                target_branch="main",
+                success=False,
+                error="remote rejected update",
+            ),
+        ]
+    )
+    reconciler = MagicMock()
+    reconciler.get_changed_files.return_value = ["aragora/x.py"]
+    reconciler.get_commits_ahead.return_value = 3
+    reconciler.detect_conflicts.return_value = []
+
+    worker = FleetIntegrationWorker(
+        repo_path=tmp_path,
+        fleet_store=store,
+        branch_coordinator=branch_coordinator,
+        reconciler=reconciler,
+    )
+
+    with patch("aragora.nomic.dev_coordination.DevCoordinationStore") as store_cls:
+        outcome = await worker.process_next(worker_session_id="integrator-1", execute=True)
+
+    assert outcome.action == "failed"
+    assert outcome.queue_status == "failed"
+    assert outcome.error == "remote rejected update"
+    assert outcome.conflicts == []
+    assert store.list_merge_queue()[0]["status"] == "failed"
+    assert store.list_merge_queue()[0]["metadata"]["merge_error"] == "remote rejected update"
+    assert store.list_merge_queue()[0]["metadata"]["merge_conflicts"] == []
+    store_cls.assert_not_called()
 
 
 @pytest.mark.asyncio

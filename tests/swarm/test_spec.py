@@ -25,6 +25,7 @@ class TestSwarmSpecCreation:
         assert spec.constraints == []
         assert spec.track_hints == []
         assert spec.file_scope_hints == []
+        assert spec.work_orders == []
 
     def test_creation_with_values(self):
         spec = SwarmSpec(
@@ -34,6 +35,7 @@ class TestSwarmSpecCreation:
             constraints=["Don't modify the API"],
             budget_limit_usd=10.0,
             track_hints=["sme", "core"],
+            work_orders=[{"work_order_id": "wo-1", "title": "lane"}],
             estimated_complexity="high",
             requires_approval=True,
             user_expertise="developer",
@@ -43,6 +45,7 @@ class TestSwarmSpecCreation:
         assert len(spec.acceptance_criteria) == 1
         assert spec.budget_limit_usd == 10.0
         assert spec.track_hints == ["sme", "core"]
+        assert spec.work_orders == [{"work_order_id": "wo-1", "title": "lane"}]
         assert spec.estimated_complexity == "high"
         assert spec.requires_approval is True
 
@@ -58,6 +61,14 @@ class TestSwarmSpecSerialization:
             constraints=["No breaking changes"],
             budget_limit_usd=7.50,
             track_hints=["qa"],
+            work_orders=[
+                {
+                    "work_order_id": "docs-lane",
+                    "title": "Write operator guide",
+                    "file_scope": ["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+                    "expected_tests": [],
+                }
+            ],
         )
         data = spec.to_dict()
         restored = SwarmSpec.from_dict(data)
@@ -68,6 +79,7 @@ class TestSwarmSpecSerialization:
         assert restored.constraints == spec.constraints
         assert restored.budget_limit_usd == spec.budget_limit_usd
         assert restored.track_hints == spec.track_hints
+        assert restored.work_orders == spec.work_orders
         assert restored.id == spec.id
 
     def test_to_json_and_back(self):
@@ -134,3 +146,8 @@ class TestSwarmSpecSummary:
         summary = spec.summary()
         assert "qa" in summary
         assert "core" in summary
+
+    def test_summary_includes_explicit_work_order_count(self):
+        spec = SwarmSpec(work_orders=[{"work_order_id": "docs-lane"}])
+        summary = spec.summary()
+        assert "Explicit work orders: 1" in summary
