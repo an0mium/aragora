@@ -243,8 +243,8 @@ class InboxTriageRunner:
     async def _run_debate(self, msg: dict[str, Any]) -> Any:
         """Run an adversarial debate on a message.
 
-        Attempts to use the Arena. Falls back to a stub result if the
-        debate engine is unavailable.
+        Attempts to use the Arena with API agents. Falls back to a stub
+        result if the debate engine or agents are unavailable.
         """
         subject = msg.get("subject", "")
         body = msg.get("body", msg.get("snippet", ""))
@@ -256,13 +256,34 @@ class InboxTriageRunner:
         )
 
         try:
+            from aragora.agents.base import create_agent
             from aragora.core import Environment
-            from aragora.debate.protocol import DebateProtocol
             from aragora.debate.orchestrator import Arena
+            from aragora.debate.protocol import DebateProtocol
+
+            agents = []
+            for model_type, role in [
+                ("anthropic-api", "proposer"),
+                ("openai-api", "critic"),
+            ]:
+                try:
+                    agents.append(
+                        create_agent(model_type=model_type, name=f"triage-{role}", role=role)
+                    )
+                except (ImportError, RuntimeError, ValueError, OSError):
+                    pass
+
+            if len(agents) < 2:
+                logger.warning("Fewer than 2 agents available; using stub debate")
+                return {
+                    "final_answer": "ignore",
+                    "confidence": 0.3,
+                    "debate_id": f"no-agents-{uuid.uuid4().hex[:8]}",
+                }
 
             env = Environment(task=question)
             protocol = DebateProtocol(rounds=2, consensus="majority")
-            arena = Arena(env, agents=[], protocol=protocol)
+            arena = Arena(env, agents=agents, protocol=protocol)
             return await arena.run()
         except ImportError:
             logger.debug("Debate engine not available; using stub result")
