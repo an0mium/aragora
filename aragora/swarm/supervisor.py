@@ -303,8 +303,10 @@ class SwarmSupervisor:
                 item["initial_head"] = worker.initial_head
                 launched.append(worker)
             except (FileNotFoundError, RuntimeError, OSError) as exc:
-                item["status"] = "dispatch_failed"
-                item["dispatch_error"] = str(exc)
+                fallback_requeued = self._requeue_after_dispatch_error(item, exc)
+                if not fallback_requeued:
+                    item["status"] = "dispatch_failed"
+                    item["dispatch_error"] = str(exc)
                 import logging
 
                 logging.getLogger(__name__).warning(
@@ -541,12 +543,134 @@ class SwarmSupervisor:
             item["review_status"] = "pending_heterogeneous_review"
             return
 
+        if self._requeue_after_worker_failure(item, result):
+            return
+
         if lease_id:
             self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
         item["status"] = "timed_out" if result.exit_code == -1 else "failed"
         item["exit_code"] = result.exit_code
         if result.stderr.strip():
             item["blockers"] = [result.stderr.strip()]
+
+    def _requeue_after_dispatch_error(self, item: dict[str, Any], exc: Exception) -> bool:
+        message = str(exc).strip()
+        lowered = message.lower()
+        if "cli not found" not in lowered and "not found" not in lowered:
+            return False
+        return self._requeue_with_fallback(
+            item,
+            reason="agent_unavailable",
+            detail=message,
+        )
+
+    def _requeue_after_worker_failure(
+        self,
+        item: dict[str, Any],
+        result: WorkerProcess,
+    ) -> bool:
+        combined = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
+        lowered = combined.lower()
+        capacity_patterns = (
+            "credit balance is too low",
+            "insufficient credit",
+            "insufficient balance",
+            "out of credits",
+            "quota exceeded",
+            "usage limit reached",
+            "rate limit exceeded",
+            "billing",
+            "payment required",
+        )
+        if not any(pattern in lowered for pattern in capacity_patterns):
+            return False
+        return self._requeue_with_fallback(
+            item,
+            reason="agent_capacity",
+            detail=combined or f"{result.agent} worker failed",
+        )
+
+    def _requeue_with_fallback(
+        self,
+        item: dict[str, Any],
+        *,
+        reason: str,
+        detail: str,
+    ) -> bool:
+        current_agent = str(item.get("target_agent", "")).strip().lower()
+        fallback_agent = self._alternate_agent(current_agent)
+        if not fallback_agent:
+            return False
+
+        metadata = dict(item.get("metadata") or {})
+        attempted_agents = [
+            str(agent).strip().lower()
+            for agent in metadata.get("attempted_agents", [])
+            if str(agent).strip()
+        ]
+        if current_agent and current_agent not in attempted_agents:
+            attempted_agents.append(current_agent)
+        if fallback_agent in attempted_agents:
+            return False
+
+        lease_id = str(item.get("lease_id", "")).strip()
+        if lease_id:
+            self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
+
+        fallback_history = list(metadata.get("fallback_history", []))
+        fallback_history.append(
+            {
+                "from_agent": current_agent,
+                "to_agent": fallback_agent,
+                "reason": reason,
+                "detail": detail[:500],
+                "at": datetime.now(UTC).isoformat(),
+            }
+        )
+        metadata.update(
+            {
+                "requested_target_agent": metadata.get("requested_target_agent", current_agent),
+                "requested_reviewer_agent": metadata.get(
+                    "requested_reviewer_agent",
+                    str(item.get("reviewer_agent", "")).strip().lower(),
+                ),
+                "attempted_agents": attempted_agents,
+                "fallback_history": fallback_history,
+                "last_failure_reason": reason,
+                "last_failure_detail": detail[:1000],
+            }
+        )
+
+        item.update(
+            {
+                "status": "queued",
+                "target_agent": fallback_agent,
+                "reviewer_agent": self._alternate_agent(fallback_agent)
+                or str(item.get("reviewer_agent", "")),
+                "metadata": metadata,
+                "review_status": "pending",
+                "lease_id": None,
+                "owner_session_id": None,
+                "worktree_path": None,
+                "branch": None,
+                "receipt_id": None,
+                "dispatch_error": None,
+                "exit_code": None,
+                "completed_at": None,
+            }
+        )
+        item.pop("pid", None)
+        item.pop("blockers", None)
+        return True
+
+    @staticmethod
+    def _alternate_agent(agent: str | None) -> str | None:
+        value = str(agent or "").strip().lower()
+        if value == "claude":
+            return "codex"
+        if value == "codex":
+            return "claude"
+        return None
 
     @staticmethod
     def _completion_confidence(item: dict[str, Any], result: WorkerProcess) -> float:

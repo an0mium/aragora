@@ -320,7 +320,7 @@ async def test_collect_results_updates_work_orders(repo: Path, store: DevCoordin
 
 @pytest.mark.asyncio
 async def test_dispatch_handles_missing_cli(repo: Path, store: DevCoordinationStore) -> None:
-    """dispatch_workers should mark orders as dispatch_failed when CLI is missing."""
+    """dispatch_workers should requeue onto the fallback agent when one CLI is unavailable."""
     run_record = store.create_supervisor_run(
         goal="missing cli test",
         target_branch="main",
@@ -354,5 +354,85 @@ async def test_dispatch_handles_missing_cli(repo: Path, store: DevCoordinationSt
 
     updated = store.get_supervisor_run(run_id)
     wo = updated["work_orders"][0]
-    assert wo["status"] == "dispatch_failed"
-    assert "CLI not found" in wo["dispatch_error"]
+    assert wo["status"] == "queued"
+    assert wo["target_agent"] == "codex"
+    assert wo["reviewer_agent"] == "claude"
+    assert wo["metadata"]["last_failure_reason"] == "agent_unavailable"
+    assert "CLI not found" in wo["metadata"]["last_failure_detail"]
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_requeues_capacity_failure_to_fallback_agent(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        path=repo,
+        branch="swarm-fallback-1",
+        session_id="dispatch-sess-fallback",
+        agent="claude",
+        created=True,
+        reconcile_status=None,
+        payload={},
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(
+        return_value=[
+            WorkerProcess(
+                work_order_id="fallback-task",
+                agent="claude",
+                worktree_path=str(repo),
+                branch="swarm-fallback-1",
+                pid=777,
+                session_id="dispatch-sess-fallback",
+                lease_id="lease-1",
+                exit_code=1,
+                completed_at="2026-03-06T00:00:00+00:00",
+                stdout="Credit balance is too low\n",
+                stderr="",
+            )
+        ]
+    )
+    mock_launcher.collect_detached_finished = AsyncMock(return_value=None)
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        launcher=mock_launcher,
+    )
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Goal",
+            refined_goal="Goal",
+            work_orders=[
+                {
+                    "work_order_id": "fallback-task",
+                    "title": "Fallback test",
+                    "description": "Test capacity fallback",
+                    "file_scope": ["tests/swarm/test_commander.py"],
+                    "expected_tests": ["python -m pytest tests/swarm/test_commander.py -q"],
+                    "target_agent": "claude",
+                    "reviewer_agent": "codex",
+                    "risk_level": "review",
+                }
+            ],
+        )
+    )
+    run.work_orders[0]["status"] = "dispatched"
+    run.work_orders[0]["pid"] = 777
+    store.update_supervisor_run(run.run_id, work_orders=run.work_orders, status="active")
+
+    completed = await supervisor.collect_finished_results(run.run_id)
+
+    assert len(completed) == 1
+    refreshed = store.get_supervisor_run(run.run_id)
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "queued"
+    assert work_order["target_agent"] == "codex"
+    assert work_order["reviewer_agent"] == "claude"
+    assert work_order["metadata"]["last_failure_reason"] == "agent_capacity"
+    assert work_order["metadata"]["attempted_agents"] == ["claude"]
+    assert store.status_summary()["counts"]["active_leases"] == 0
