@@ -213,7 +213,7 @@ class Decision:
     # Metadata
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.decision_id:
             self.decision_id = self._generate_id()
 

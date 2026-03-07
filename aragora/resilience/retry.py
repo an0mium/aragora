@@ -587,7 +587,7 @@ def calculate_backoff_delay(
         delay = random.random() * delay  # noqa: S311 -- retry jitter
     # NONE: no jitter applied
 
-    return max(0, delay)
+    return float(max(0.0, delay))
 
 
 def _fibonacci(n: int) -> int:

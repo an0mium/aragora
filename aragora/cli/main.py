@@ -106,7 +106,7 @@ _LAZY_REEXPORTS: dict[str, tuple[str, str]] = {
 }
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     if name in _LAZY_REEXPORTS:
         module_path, attr_name = _LAZY_REEXPORTS[name]
         import importlib
