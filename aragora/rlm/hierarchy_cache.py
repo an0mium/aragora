@@ -190,7 +190,7 @@ class RLMHierarchyCache:
             except (RuntimeError, ValueError, ConnectionError, TimeoutError, OSError) as e:
                 logger.debug("[RLMHierarchyCache] Mound storage failed: %s", e)
 
-    def _serialize_compression(self, compression: CompressionResult) -> dict:
+    def _serialize_compression(self, compression: CompressionResult) -> dict[str, Any]:
         """Serialize compression result for storage."""
         # Serialize key topics and level summaries
         level_data = {}
@@ -214,7 +214,7 @@ class RLMHierarchyCache:
             "levels": level_data,
         }
 
-    def _deserialize_compression(self, data: dict) -> CompressionResult | None:
+    def _deserialize_compression(self, data: dict[str, Any]) -> CompressionResult | None:
         """Deserialize compression result from storage."""
         try:
             # Rebuild context
@@ -279,7 +279,7 @@ class RLMHierarchyCache:
             return None
 
     @property
-    def stats(self) -> dict:
+    def stats(self) -> dict[str, int | float]:
         """Get cache statistics."""
         total = self._cache_hits + self._cache_misses
         return {
