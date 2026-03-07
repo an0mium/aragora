@@ -73,6 +73,7 @@ class LaunchConfig:
     claude_path: str = "claude"
     codex_path: str = "codex"
     timeout_seconds: float = 600.0
+    no_progress_timeout_seconds: float = 120.0
     claude_model: str | None = None
     codex_model: str | None = None
     auto_commit: bool = True
@@ -251,6 +252,41 @@ class WorkerLauncher:
             if finished:
                 completed.append(await self.wait(work_order_id, timeout=max(poll_timeout, 0.1)))
         return completed
+
+    async def snapshot_progress(self, work_order: dict[str, Any]) -> dict[str, Any]:
+        """Capture lightweight progress state for a dispatched worker."""
+        worktree_path = str(work_order.get("worktree_path", "")).strip()
+        initial_head = str(work_order.get("initial_head", "")).strip()
+        raw_pid = work_order.get("pid")
+        try:
+            pid = int(raw_pid) if raw_pid is not None else None
+        except (TypeError, ValueError):
+            pid = None
+
+        snapshot: dict[str, Any] = {
+            "pid_alive": self._is_pid_running(pid) if pid is not None else False,
+            "head_sha": "",
+            "changed_paths": [],
+            "diff_lines": 0,
+        }
+        if not worktree_path:
+            return snapshot
+
+        head_sha = await self._git_output(worktree_path, "rev-parse", "HEAD")
+        diff = await self._collect_diff(worktree_path)
+        changed_paths = await self._collect_changed_paths(
+            worktree_path,
+            initial_head=initial_head,
+            head_sha=head_sha,
+        )
+        snapshot.update(
+            {
+                "head_sha": head_sha,
+                "changed_paths": list(changed_paths),
+                "diff_lines": diff.count("\n") if diff else 0,
+            }
+        )
+        return snapshot
 
     async def launch_and_wait(
         self,

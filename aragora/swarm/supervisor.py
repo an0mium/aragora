@@ -318,9 +318,18 @@ class SwarmSupervisor:
                     worktree_path=worktree_path,
                     branch=branch,
                 )
+                dispatch_time = datetime.now(UTC).isoformat()
                 item["status"] = "dispatched"
                 item["pid"] = worker.pid
                 item["initial_head"] = worker.initial_head
+                item["dispatched_at"] = dispatch_time
+                item["last_observed_at"] = dispatch_time
+                item["last_progress_at"] = dispatch_time
+                item["progress_fingerprint"] = {
+                    "head_sha": worker.initial_head,
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                }
                 launched.append(worker)
             except (FileNotFoundError, RuntimeError, OSError) as exc:
                 fallback_requeued = self._requeue_after_dispatch_error(item, exc)
@@ -399,6 +408,7 @@ class SwarmSupervisor:
 
         # Try in-memory collection first (same process that launched workers)
         finished = await self.launcher.collect_finished(work_order_ids=dispatched_ids)
+        changed = False
 
         # Fall back to detached collection for workers not in memory
         # (parent process restarted, or --dispatch-only mode)
@@ -423,8 +433,42 @@ class SwarmSupervisor:
             )
             if result is not None:
                 finished.append(result)
+                finished_ids.add(woid)
+                continue
 
-        if not finished:
+            progress = await self.launcher.snapshot_progress(item)
+            observed_at = datetime.now(UTC).isoformat()
+            item["last_observed_at"] = observed_at
+            progress_fingerprint = self._progress_fingerprint(progress)
+            if progress_fingerprint != self._progress_fingerprint(item.get("progress_fingerprint")):
+                item["progress_fingerprint"] = progress_fingerprint
+                item["last_progress_at"] = observed_at
+                if progress_fingerprint["head_sha"]:
+                    item["head_sha"] = progress_fingerprint["head_sha"]
+                item["changed_paths"] = list(progress_fingerprint["changed_paths"])
+                item["diff_lines"] = int(progress_fingerprint["diff_lines"])
+                changed = True
+                continue
+
+            if not bool(progress.get("pid_alive")):
+                self._mark_needs_human(
+                    item,
+                    "worker process exited without receipt or exit marker",
+                )
+                changed = True
+                continue
+
+            if self._exceeded_no_progress_timeout(item):
+                self._mark_needs_human(
+                    item,
+                    (
+                        "worker exceeded no-progress timeout "
+                        f"({int(self._no_progress_timeout_seconds())}s)"
+                    ),
+                )
+                changed = True
+
+        if not finished and not changed:
             return []
 
         finished_by_id = {worker.work_order_id: worker for worker in finished}
@@ -674,6 +718,10 @@ class SwarmSupervisor:
         )
         item.pop("pid", None)
         item.pop("blockers", None)
+        item.pop("dispatched_at", None)
+        item.pop("last_observed_at", None)
+        item.pop("last_progress_at", None)
+        item.pop("progress_fingerprint", None)
         return True
 
     def _release_orphaned_conflict_leases(self, conflicts: list[dict[str, Any]]) -> int:
@@ -715,6 +763,56 @@ class SwarmSupervisor:
         if result.commit_shas or result.changed_paths:
             return 0.6
         return 0.4
+
+    @staticmethod
+    def _progress_fingerprint(source: Any) -> dict[str, Any]:
+        payload = dict(source or {})
+        return {
+            "head_sha": str(payload.get("head_sha", "")).strip(),
+            "changed_paths": sorted(
+                str(path).strip() for path in payload.get("changed_paths", []) if str(path).strip()
+            ),
+            "diff_lines": int(payload.get("diff_lines", 0) or 0),
+        }
+
+    def _no_progress_timeout_seconds(self) -> float:
+        raw = getattr(self.launcher.config, "no_progress_timeout_seconds", 120.0)
+        try:
+            return max(1.0, float(raw))
+        except (TypeError, ValueError):
+            return 120.0
+
+    def _exceeded_no_progress_timeout(self, item: dict[str, Any]) -> bool:
+        since = self._parse_timestamp(item.get("last_progress_at")) or self._parse_timestamp(
+            item.get("dispatched_at")
+        )
+        if since is None:
+            return False
+        elapsed = (datetime.now(UTC) - since).total_seconds()
+        return elapsed >= self._no_progress_timeout_seconds()
+
+    @staticmethod
+    def _parse_timestamp(value: Any) -> datetime | None:
+        text = str(value or "").strip()
+        if not text:
+            return None
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=UTC)
+        return parsed
+
+    @staticmethod
+    def _mark_needs_human(item: dict[str, Any], reason: str) -> None:
+        item["status"] = "needs_human"
+        item["dispatch_error"] = reason
+        blockers = [str(value).strip() for value in item.get("blockers", []) if str(value).strip()]
+        if reason not in blockers:
+            blockers.append(reason)
+        item["blockers"] = blockers
+        item.pop("pid", None)
 
     @staticmethod
     def _derive_status(work_orders: list[dict[str, Any]]) -> str:
