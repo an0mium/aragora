@@ -948,6 +948,114 @@ class Article15Artifact:
 
 
 @dataclass
+class Article10Artifact:
+    """EU AI Act Article 10 — Data and Data Governance artifact."""
+
+    artifact_id: str
+    generated_at: str
+    data_sources: list[str] = field(default_factory=list)
+    data_quality_measures: list[str] = field(default_factory=list)
+    bias_detection_methods: list[str] = field(default_factory=list)
+    training_data_provenance: str = ""
+    data_governance_policy: str = ""
+    compliance_notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "artifact_id": self.artifact_id,
+            "generated_at": self.generated_at,
+            "data_sources": self.data_sources,
+            "data_quality_measures": self.data_quality_measures,
+            "bias_detection_methods": self.bias_detection_methods,
+            "training_data_provenance": self.training_data_provenance,
+            "data_governance_policy": self.data_governance_policy,
+            "compliance_notes": self.compliance_notes,
+        }
+
+
+@dataclass
+class Article11Artifact:
+    """EU AI Act Article 11 — Technical Documentation artifact."""
+
+    artifact_id: str
+    generated_at: str
+    system_description: str = ""
+    design_specifications: list[str] = field(default_factory=list)
+    development_process: str = ""
+    monitoring_capabilities: list[str] = field(default_factory=list)
+    performance_metrics: dict[str, Any] = field(default_factory=dict)
+    compliance_notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "artifact_id": self.artifact_id,
+            "generated_at": self.generated_at,
+            "system_description": self.system_description,
+            "design_specifications": self.design_specifications,
+            "development_process": self.development_process,
+            "monitoring_capabilities": self.monitoring_capabilities,
+            "performance_metrics": self.performance_metrics,
+            "compliance_notes": self.compliance_notes,
+        }
+
+
+@dataclass
+class Article43Artifact:
+    """EU AI Act Article 43 — Conformity Assessment artifact."""
+
+    artifact_id: str
+    generated_at: str
+    assessment_type: str = "internal"
+    assessment_date: str = ""
+    assessor: str = ""
+    standards_applied: list[str] = field(default_factory=list)
+    findings: list[str] = field(default_factory=list)
+    conformity_status: str = "pending"
+    compliance_notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "artifact_id": self.artifact_id,
+            "generated_at": self.generated_at,
+            "assessment_type": self.assessment_type,
+            "assessment_date": self.assessment_date,
+            "assessor": self.assessor,
+            "standards_applied": self.standards_applied,
+            "findings": self.findings,
+            "conformity_status": self.conformity_status,
+            "compliance_notes": self.compliance_notes,
+        }
+
+
+@dataclass
+class Article49Artifact:
+    """EU AI Act Article 49 — Registration artifact."""
+
+    artifact_id: str
+    generated_at: str
+    registration_id: str = ""
+    registered_date: str = ""
+    eu_database_entry: str = ""
+    provider_info: dict[str, Any] = field(default_factory=dict)
+    system_purpose: str = ""
+    risk_level: str = ""
+    compliance_notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "artifact_id": self.artifact_id,
+            "generated_at": self.generated_at,
+            "registration_id": self.registration_id,
+            "registered_date": self.registered_date,
+            "eu_database_entry": self.eu_database_entry,
+            "provider_info": self.provider_info,
+            "system_purpose": self.system_purpose,
+            "risk_level": self.risk_level,
+            "compliance_notes": self.compliance_notes,
+        }
+
+
+@dataclass
 class ComplianceArtifactBundle:
     """Complete EU AI Act compliance artifact bundle.
 
@@ -965,6 +1073,10 @@ class ComplianceArtifactBundle:
     article_14: Article14Artifact
     article_9: "Article9Artifact | None" = None
     article_15: "Article15Artifact | None" = None
+    article_10: "Article10Artifact | None" = None
+    article_11: "Article11Artifact | None" = None
+    article_43: "Article43Artifact | None" = None
+    article_49: "Article49Artifact | None" = None
     integrity_hash: str = ""
 
     def __post_init__(self):
@@ -999,6 +1111,14 @@ class ComplianceArtifactBundle:
             "article_15_accuracy_robustness": self.article_15.to_dict()
             if self.article_15
             else None,
+            "article_10_data_governance": self.article_10.to_dict() if self.article_10 else None,
+            "article_11_technical_documentation": self.article_11.to_dict()
+            if self.article_11
+            else None,
+            "article_43_conformity_assessment": self.article_43.to_dict()
+            if self.article_43
+            else None,
+            "article_49_registration": self.article_49.to_dict() if self.article_49 else None,
             "integrity_hash": self.integrity_hash,
         }
 
@@ -1050,6 +1170,10 @@ class ComplianceArtifactGenerator:
             article_14=self._generate_art14(receipt, receipt_id, timestamp),
             article_9=self._generate_art9(receipt, receipt_id, timestamp),
             article_15=self._generate_art15(receipt, receipt_id, timestamp),
+            article_10=self._generate_art10(receipt),
+            article_11=self._generate_art11(receipt),
+            article_43=self._generate_art43(receipt),
+            article_49=self._generate_art49(receipt),
         )
 
     # -- Article 12: Record-Keeping --
@@ -1519,6 +1643,204 @@ class ComplianceArtifactGenerator:
             integrity_hash=integrity_hash,
         )
 
+    def _generate_art10(self, receipt: dict[str, Any]) -> Article10Artifact:
+        """Generate Article 10 (Data and Data Governance) artifact."""
+        artifact_id = f"ART10-{uuid.uuid4().hex[:8]}"
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        data_sources = receipt.get("data_sources", [])
+        training_data = receipt.get("training_data", {})
+        bias_checks = receipt.get("bias_checks", [])
+        data_governance = receipt.get("data_governance", {})
+
+        data_quality_measures = []
+        if training_data.get("validated"):
+            data_quality_measures.append("Training data validated")
+        if training_data.get("deduplicated"):
+            data_quality_measures.append("Training data deduplicated")
+        if not data_quality_measures:
+            data_quality_measures.append(
+                "Multi-agent debate uses heterogeneous model ensemble "
+                "(no single training set dependency)"
+            )
+
+        bias_detection_methods = (
+            list(bias_checks)
+            if bias_checks
+            else [
+                "Adversarial debate with dissent capture",
+                "Hollow consensus detection via Trickster",
+                "Heterogeneous model ensemble reduces shared bias",
+            ]
+        )
+
+        compliance_notes: list[str] = []
+        if not data_sources:
+            compliance_notes.append("No explicit data sources declared in receipt")
+        if not data_governance:
+            compliance_notes.append(
+                "No explicit data governance policy in receipt; platform-level governance applies"
+            )
+
+        return Article10Artifact(
+            artifact_id=artifact_id,
+            generated_at=timestamp,
+            data_sources=data_sources,
+            data_quality_measures=data_quality_measures,
+            bias_detection_methods=bias_detection_methods,
+            training_data_provenance=training_data.get("provenance", ""),
+            data_governance_policy=data_governance.get("policy", ""),
+            compliance_notes=compliance_notes,
+        )
+
+    def _generate_art11(self, receipt: dict[str, Any]) -> Article11Artifact:
+        """Generate Article 11 (Technical Documentation) artifact."""
+        artifact_id = f"ART11-{uuid.uuid4().hex[:8]}"
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        system_description = receipt.get(
+            "system_description",
+            f"{self._system_name} v{self._system_version}"
+            " — multi-agent adversarial debate platform",
+        )
+        design_specs = receipt.get("design_specs", [])
+        monitoring = receipt.get("monitoring", [])
+        perf_metrics = receipt.get("performance_metrics", {})
+
+        if not design_specs:
+            design_specs = [
+                "Heterogeneous multi-model consensus architecture",
+                "Structured critique phases with dissent capture",
+                "Cryptographically signed decision receipts",
+            ]
+
+        monitoring_capabilities = (
+            list(monitoring)
+            if monitoring
+            else [
+                "ELO-based agent performance tracking",
+                "Brier score calibration after settlement",
+                "SettlementTracker for claim accuracy monitoring",
+            ]
+        )
+
+        if not perf_metrics:
+            perf_metrics = {
+                "confidence": receipt.get("confidence", 0.0),
+                "robustness_score": receipt.get("robustness_score", 0.0),
+            }
+
+        compliance_notes: list[str] = []
+        if not receipt.get("system_description"):
+            compliance_notes.append("System description auto-generated from platform defaults")
+        if not receipt.get("design_specs"):
+            compliance_notes.append("Design specifications auto-generated from platform defaults")
+
+        return Article11Artifact(
+            artifact_id=artifact_id,
+            generated_at=timestamp,
+            system_description=system_description,
+            design_specifications=design_specs,
+            development_process=receipt.get("development_process", ""),
+            monitoring_capabilities=monitoring_capabilities,
+            performance_metrics=perf_metrics,
+            compliance_notes=compliance_notes,
+        )
+
+    def _generate_art43(self, receipt: dict[str, Any]) -> Article43Artifact:
+        """Generate Article 43 (Conformity Assessment) artifact."""
+        artifact_id = f"ART43-{uuid.uuid4().hex[:8]}"
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        assessment_type = receipt.get("assessment_type", "internal")
+        assessor = receipt.get("assessor", self._provider_name)
+        standards = receipt.get("standards", [])
+        conformity_status = receipt.get("conformity_status", "pending")
+
+        if not standards:
+            standards = [
+                "EU AI Act (Regulation 2024/1689)",
+                "ISO/IEC 42001:2023 (AI Management System)",
+            ]
+
+        findings: list[str] = []
+        risk_summary = receipt.get("risk_summary", {})
+        if risk_summary.get("critical", 0) > 0:
+            findings.append(f"{risk_summary['critical']} critical risk(s) identified")
+            conformity_status = "non_conformant"
+        elif risk_summary.get("high", 0) > 0:
+            findings.append(f"{risk_summary['high']} high-severity risk(s) identified")
+            if conformity_status == "pending":
+                conformity_status = "conditional"
+
+        confidence = receipt.get("confidence", 0.0)
+        if confidence >= 0.7:
+            findings.append(f"Consensus confidence {confidence:.0%} meets threshold")
+        elif confidence > 0:
+            findings.append(
+                f"Consensus confidence {confidence:.0%} below recommended 70% threshold"
+            )
+
+        compliance_notes: list[str] = []
+        if assessment_type == "internal":
+            compliance_notes.append("Internal conformity assessment per Art. 43(2)")
+        if not receipt.get("assessor"):
+            compliance_notes.append("Assessor defaulted to provider name")
+
+        return Article43Artifact(
+            artifact_id=artifact_id,
+            generated_at=timestamp,
+            assessment_type=assessment_type,
+            assessment_date=receipt.get("assessment_date", timestamp),
+            assessor=assessor,
+            standards_applied=standards,
+            findings=findings,
+            conformity_status=conformity_status,
+            compliance_notes=compliance_notes,
+        )
+
+    def _generate_art49(self, receipt: dict[str, Any]) -> Article49Artifact:
+        """Generate Article 49 (Registration) artifact."""
+        artifact_id = f"ART49-{uuid.uuid4().hex[:8]}"
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        provider_info = receipt.get("provider_info", {})
+        if not provider_info:
+            provider_info = {
+                "name": self._provider_name,
+                "contact": self._provider_contact,
+                "eu_representative": self._eu_representative,
+            }
+
+        system_purpose = receipt.get(
+            "system_purpose",
+            receipt.get("input_summary", ""),
+        )
+
+        risk_level = receipt.get("risk_level", "")
+
+        compliance_notes: list[str] = []
+        registration_id = receipt.get("registration_id", "")
+        if not registration_id:
+            compliance_notes.append(
+                "No EU database registration ID provided; "
+                "registration required before market placement"
+            )
+        if not system_purpose:
+            compliance_notes.append("System purpose not specified in receipt")
+
+        return Article49Artifact(
+            artifact_id=artifact_id,
+            generated_at=timestamp,
+            registration_id=registration_id,
+            registered_date=receipt.get("registered_date", ""),
+            eu_database_entry=receipt.get("eu_database_entry", ""),
+            provider_info=provider_info,
+            system_purpose=system_purpose,
+            risk_level=risk_level,
+            compliance_notes=compliance_notes,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Bundle generator with SQLite-backed storage
@@ -1710,7 +2032,11 @@ __all__ = [
     "Article13Artifact",
     "Article14Artifact",
     "Article9Artifact",
+    "Article10Artifact",
+    "Article11Artifact",
     "Article15Artifact",
+    "Article43Artifact",
+    "Article49Artifact",
     "ComplianceArtifactBundle",
     "ComplianceArtifactGenerator",
     "EUAIActBundleGenerator",

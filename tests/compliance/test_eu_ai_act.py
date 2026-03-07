@@ -18,9 +18,13 @@ import pytest
 
 from aragora.compliance.eu_ai_act import (
     ANNEX_III_CATEGORIES,
+    Article10Artifact,
+    Article11Artifact,
     Article12Artifact,
     Article13Artifact,
     Article14Artifact,
+    Article43Artifact,
+    Article49Artifact,
     ArticleMapping,
     ComplianceArtifactBundle,
     ComplianceArtifactGenerator,
@@ -1076,3 +1080,212 @@ class TestArticle15Artifact:
         assert "accuracy_metrics" in d
         assert "robustness_score" in d
         assert "cryptographic_controls" in d
+
+
+class TestArticle10Artifact:
+    def test_generate_default(self):
+        gen = ComplianceArtifactGenerator()
+        art10 = gen._generate_art10({})
+        assert isinstance(art10, Article10Artifact)
+        assert art10.artifact_id.startswith("ART10-")
+        assert len(art10.bias_detection_methods) >= 1
+        assert any("data sources" in n.lower() for n in art10.compliance_notes)
+
+    def test_generate_with_populated_fields(self):
+        gen = ComplianceArtifactGenerator()
+        receipt = {
+            "data_sources": ["internal_db", "public_dataset"],
+            "training_data": {
+                "validated": True,
+                "deduplicated": True,
+                "provenance": "curated",
+            },
+            "bias_checks": ["demographic_parity", "equalized_odds"],
+            "data_governance": {"policy": "GDPR-compliant data retention"},
+        }
+        art10 = gen._generate_art10(receipt)
+        assert art10.data_sources == ["internal_db", "public_dataset"]
+        assert "Training data validated" in art10.data_quality_measures
+        assert "Training data deduplicated" in art10.data_quality_measures
+        assert art10.bias_detection_methods == [
+            "demographic_parity",
+            "equalized_odds",
+        ]
+        assert art10.training_data_provenance == "curated"
+        assert art10.data_governance_policy == "GDPR-compliant data retention"
+        assert art10.compliance_notes == []
+
+    def test_to_dict(self):
+        gen = ComplianceArtifactGenerator()
+        art10 = gen._generate_art10({})
+        d = art10.to_dict()
+        assert "artifact_id" in d
+        assert "data_sources" in d
+        assert "bias_detection_methods" in d
+        assert "compliance_notes" in d
+
+    def test_bundle_includes_article10(self):
+        gen = ComplianceArtifactGenerator()
+        bundle = gen.generate(_MINIMAL_RECEIPT)
+        assert bundle.article_10 is not None
+        assert bundle.article_10.artifact_id.startswith("ART10-")
+
+
+class TestArticle11Artifact:
+    def test_generate_default(self):
+        gen = ComplianceArtifactGenerator()
+        art11 = gen._generate_art11({})
+        assert isinstance(art11, Article11Artifact)
+        assert art11.artifact_id.startswith("ART11-")
+        assert art11.system_description
+        assert len(art11.design_specifications) >= 1
+        assert len(art11.monitoring_capabilities) >= 1
+
+    def test_generate_with_populated_fields(self):
+        gen = ComplianceArtifactGenerator()
+        receipt = {
+            "system_description": "Custom debate platform",
+            "design_specs": ["microservices", "event-driven"],
+            "monitoring": ["prometheus", "grafana"],
+            "performance_metrics": {"latency_p99": 250, "throughput": 1000},
+            "development_process": "Agile with CI/CD",
+        }
+        art11 = gen._generate_art11(receipt)
+        assert art11.system_description == "Custom debate platform"
+        assert art11.design_specifications == ["microservices", "event-driven"]
+        assert art11.monitoring_capabilities == ["prometheus", "grafana"]
+        assert art11.performance_metrics["latency_p99"] == 250
+        assert art11.development_process == "Agile with CI/CD"
+        assert art11.compliance_notes == []
+
+    def test_to_dict(self):
+        gen = ComplianceArtifactGenerator()
+        art11 = gen._generate_art11({})
+        d = art11.to_dict()
+        assert "system_description" in d
+        assert "design_specifications" in d
+        assert "monitoring_capabilities" in d
+        assert "performance_metrics" in d
+
+    def test_bundle_includes_article11(self):
+        gen = ComplianceArtifactGenerator()
+        bundle = gen.generate(_MINIMAL_RECEIPT)
+        assert bundle.article_11 is not None
+        assert bundle.article_11.artifact_id.startswith("ART11-")
+
+
+class TestArticle43Artifact:
+    def test_generate_default(self):
+        gen = ComplianceArtifactGenerator()
+        art43 = gen._generate_art43({})
+        assert isinstance(art43, Article43Artifact)
+        assert art43.artifact_id.startswith("ART43-")
+        assert art43.assessment_type == "internal"
+        assert len(art43.standards_applied) >= 1
+
+    def test_generate_with_risks(self):
+        gen = ComplianceArtifactGenerator()
+        receipt = {
+            "risk_summary": {
+                "critical": 1,
+                "high": 2,
+                "medium": 0,
+                "low": 0,
+            },
+            "confidence": 0.85,
+        }
+        art43 = gen._generate_art43(receipt)
+        assert art43.conformity_status == "non_conformant"
+        assert any("critical" in f.lower() for f in art43.findings)
+
+    def test_generate_conditional_on_high_risk(self):
+        gen = ComplianceArtifactGenerator()
+        receipt = {
+            "risk_summary": {
+                "critical": 0,
+                "high": 1,
+                "medium": 0,
+                "low": 0,
+            },
+            "confidence": 0.8,
+        }
+        art43 = gen._generate_art43(receipt)
+        assert art43.conformity_status == "conditional"
+
+    def test_generate_with_custom_fields(self):
+        gen = ComplianceArtifactGenerator()
+        receipt = {
+            "assessment_type": "third_party",
+            "assessor": "TUV SUD",
+            "standards": ["ISO/IEC 42001:2023"],
+            "conformity_status": "conformant",
+        }
+        art43 = gen._generate_art43(receipt)
+        assert art43.assessment_type == "third_party"
+        assert art43.assessor == "TUV SUD"
+        assert art43.conformity_status == "conformant"
+
+    def test_to_dict(self):
+        gen = ComplianceArtifactGenerator()
+        art43 = gen._generate_art43({})
+        d = art43.to_dict()
+        assert "assessment_type" in d
+        assert "standards_applied" in d
+        assert "conformity_status" in d
+        assert "findings" in d
+
+    def test_bundle_includes_article43(self):
+        gen = ComplianceArtifactGenerator()
+        bundle = gen.generate(_MINIMAL_RECEIPT)
+        assert bundle.article_43 is not None
+        assert bundle.article_43.artifact_id.startswith("ART43-")
+
+
+class TestArticle49Artifact:
+    def test_generate_default(self):
+        gen = ComplianceArtifactGenerator()
+        art49 = gen._generate_art49({})
+        assert isinstance(art49, Article49Artifact)
+        assert art49.artifact_id.startswith("ART49-")
+        assert art49.provider_info["name"] == "Aragora Inc."
+        assert any("registration" in n.lower() for n in art49.compliance_notes)
+
+    def test_generate_with_populated_fields(self):
+        gen = ComplianceArtifactGenerator()
+        receipt = {
+            "registration_id": "EU-DB-2026-001",
+            "registered_date": "2026-06-01",
+            "eu_database_entry": "https://eu-ai-database.example.com/entry/001",
+            "provider_info": {"name": "Acme AI", "contact": "ai@acme.com"},
+            "system_purpose": "Credit scoring for loan applications",
+            "risk_level": "high",
+        }
+        art49 = gen._generate_art49(receipt)
+        assert art49.registration_id == "EU-DB-2026-001"
+        assert art49.registered_date == "2026-06-01"
+        assert art49.provider_info["name"] == "Acme AI"
+        assert art49.system_purpose == "Credit scoring for loan applications"
+        assert art49.risk_level == "high"
+        assert not any("registration" in n.lower() for n in art49.compliance_notes)
+
+    def test_fallback_to_input_summary(self):
+        gen = ComplianceArtifactGenerator()
+        receipt = {"input_summary": "Hiring algorithm evaluation"}
+        art49 = gen._generate_art49(receipt)
+        assert art49.system_purpose == "Hiring algorithm evaluation"
+
+    def test_to_dict(self):
+        gen = ComplianceArtifactGenerator()
+        art49 = gen._generate_art49({})
+        d = art49.to_dict()
+        assert "registration_id" in d
+        assert "provider_info" in d
+        assert "system_purpose" in d
+        assert "risk_level" in d
+        assert "compliance_notes" in d
+
+    def test_bundle_includes_article49(self):
+        gen = ComplianceArtifactGenerator()
+        bundle = gen.generate(_MINIMAL_RECEIPT)
+        assert bundle.article_49 is not None
+        assert bundle.article_49.artifact_id.startswith("ART49-")
