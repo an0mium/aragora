@@ -32,7 +32,7 @@ class HeatmapCell:
 
         return min(1.0, math.log10(self.count + 1) / 2)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "category": self.category,
             "severity": self.severity,
@@ -180,7 +180,7 @@ class RiskHeatmap:
         """Get total findings for a severity."""
         return sum(c.count for c in self.cells if c.severity == severity)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "cells": [c.to_dict() for c in self.cells],
