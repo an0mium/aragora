@@ -15,8 +15,10 @@ Usage::
 
 from __future__ import annotations
 
+import re
 import logging
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 from aragora.inbox.auto_approval import AutoApprovalPolicy
@@ -27,56 +29,138 @@ from aragora.inbox.trust_wedge import (
     ReceiptState,
     TriageDecision,
     compute_content_hash,
+    get_inbox_trust_wedge_service,
 )
 
 logger = logging.getLogger(__name__)
 
-
-def _extract_action(debate_result: Any) -> str:
-    """Extract an AllowedAction value from a debate result.
-
-    Falls back to IGNORE if the debate output cannot be mapped.
-    """
-    answer = ""
-    if hasattr(debate_result, "final_answer"):
-        answer = str(getattr(debate_result, "final_answer", ""))
-    elif isinstance(debate_result, dict):
-        answer = str(debate_result.get("final_answer", ""))
-
-    answer_lower = answer.lower()
-    for action in AllowedAction:
-        if action.value in answer_lower:
-            return action.value
-
-    return AllowedAction.IGNORE.value
+_ACTION_PATTERNS = {
+    action: re.compile(rf"\b{re.escape(action.value)}\b", re.IGNORECASE) for action in AllowedAction
+}
+_DECISION_LINE_PATTERNS = [
+    re.compile(
+        r"(?im)^\s*(?:#+\s*)?"
+        r"(?:proposal|recommended action|recommendation|action|final action)\s*:\s*"
+        r"(archive|star|label|ignore)\b"
+    ),
+]
 
 
-def _extract_confidence(debate_result: Any) -> float:
-    """Extract confidence from a debate result."""
-    if hasattr(debate_result, "confidence"):
-        try:
-            return float(getattr(debate_result, "confidence", 0.0))
-        except (TypeError, ValueError):
-            return 0.0
+@dataclass(frozen=True)
+class _NormalizedDebateOutcome:
+    final_action: InboxWedgeAction
+    confidence: float
+    consensus_reached: bool
+    dissent_summary: str
+    rationale: str
+    debate_id: str
+
+
+def _result_field(debate_result: Any, field: str, default: Any = None) -> Any:
+    if hasattr(debate_result, field):
+        return getattr(debate_result, field, default)
     if isinstance(debate_result, dict):
+        return debate_result.get(field, default)
+    return default
+
+
+def _result_metadata(debate_result: Any) -> dict[str, Any]:
+    metadata = _result_field(debate_result, "metadata", {})
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _result_rationale(debate_result: Any) -> str:
+    value = _result_field(debate_result, "final_answer", "")
+    return str(value or "")
+
+
+def _result_confidence(debate_result: Any) -> float:
+    candidates = [
+        _result_field(debate_result, "confidence", None),
+        _result_metadata(debate_result).get("consensus_confidence"),
+        _result_metadata(debate_result).get("confidence"),
+    ]
+    for candidate in candidates:
         try:
-            return float(debate_result.get("confidence", 0.0))
+            if candidate is None:
+                continue
+            return max(0.0, min(1.0, float(candidate)))
         except (TypeError, ValueError):
-            return 0.0
+            continue
     return 0.0
 
 
-def _extract_dissent(debate_result: Any) -> str:
-    """Extract dissent information from a debate result."""
-    if hasattr(debate_result, "dissenting_views"):
-        views = getattr(debate_result, "dissenting_views", [])
-        if views:
-            return "; ".join(str(v) for v in views[:3])
-    if isinstance(debate_result, dict):
-        views = debate_result.get("dissenting_views", [])
-        if views:
-            return "; ".join(str(v) for v in views[:3])
-    return ""
+def _result_consensus_reached(debate_result: Any, rationale: str) -> bool:
+    raw_value = _result_field(debate_result, "consensus_reached", None)
+    if raw_value is None:
+        return bool(rationale.strip())
+    return bool(raw_value)
+
+
+def _result_debate_id(debate_result: Any) -> str:
+    debate_id = _result_field(debate_result, "debate_id", None)
+    if debate_id:
+        return str(debate_id)
+    result_id = _result_field(debate_result, "id", None)
+    if result_id:
+        return str(result_id)
+    return f"triage-{uuid.uuid4().hex[:12]}"
+
+
+def _result_dissenting_views(debate_result: Any) -> list[str]:
+    views = _result_field(debate_result, "dissenting_views", [])
+    if not isinstance(views, list):
+        return []
+    return [str(view).strip() for view in views if str(view).strip()]
+
+
+def _parse_action_from_rationale(rationale: str) -> tuple[InboxWedgeAction, bool]:
+    normalized = rationale.strip().lower()
+    if not normalized:
+        return InboxWedgeAction.IGNORE, True
+
+    for pattern in _DECISION_LINE_PATTERNS:
+        match = pattern.search(normalized)
+        if match:
+            return InboxWedgeAction.parse(match.group(1)), False
+
+    matched_actions = [
+        action for action, pattern in _ACTION_PATTERNS.items() if pattern.search(normalized)
+    ]
+    if len(matched_actions) == 1:
+        return matched_actions[0], False
+    return InboxWedgeAction.IGNORE, True
+
+
+def _normalize_debate_outcome(debate_result: Any) -> _NormalizedDebateOutcome:
+    rationale = _result_rationale(debate_result)
+    confidence = _result_confidence(debate_result)
+    consensus_reached = _result_consensus_reached(debate_result, rationale)
+    debate_id = _result_debate_id(debate_result)
+    dissenting_views = _result_dissenting_views(debate_result)
+    final_action, parse_failed = _parse_action_from_rationale(rationale)
+
+    reasons: list[str] = []
+    if not consensus_reached:
+        reasons.append("No consensus reached; manual review required.")
+    if parse_failed:
+        if rationale.strip():
+            reasons.append(
+                "Could not map the debate answer to a single inbox action; fell back to ignore."
+            )
+        else:
+            reasons.append("Debate returned no final answer; fell back to ignore.")
+    if dissenting_views:
+        reasons.append(f"Dissent: {'; '.join(dissenting_views[:3])}")
+
+    return _NormalizedDebateOutcome(
+        final_action=final_action,
+        confidence=confidence,
+        consensus_reached=consensus_reached,
+        dissent_summary=" ".join(reasons).strip(),
+        rationale=rationale,
+        debate_id=debate_id,
+    )
 
 
 class InboxTriageRunner:
@@ -97,9 +181,11 @@ class InboxTriageRunner:
         self,
         gmail_connector: Any | None = None,
         auto_approval_policy: AutoApprovalPolicy | None = None,
+        wedge_service: Any | None = None,
     ) -> None:
         self._gmail = gmail_connector
         self._policy = auto_approval_policy or AutoApprovalPolicy()
+        self._wedge_service = wedge_service or get_inbox_trust_wedge_service()
         self._triaged: list[TriageDecision] = []
 
     @property
@@ -131,8 +217,11 @@ class InboxTriageRunner:
 
         for msg in messages:
             try:
-                decision = await self._triage_message(msg)
-                if auto_approve and self._policy.auto_approve(decision):
+                decision = await self._triage_message(
+                    msg,
+                    auto_approve=auto_approve,
+                )
+                if auto_approve and decision.receipt_state == ReceiptState.APPROVED.value:
                     await self._execute_action(decision)
                 decisions.append(decision)
             except (RuntimeError, OSError, ValueError, TypeError) as exc:
@@ -190,39 +279,34 @@ class InboxTriageRunner:
 
         return messages
 
-    async def _triage_message(self, msg: dict[str, Any]) -> TriageDecision:
+    async def _triage_message(
+        self,
+        msg: dict[str, Any],
+        *,
+        auto_approve: bool = False,
+    ) -> TriageDecision:
         """Run debate and build a TriageDecision for a single message."""
         message_id = msg.get("id", str(uuid.uuid4()))
         body = msg.get("body", msg.get("snippet", ""))
         content_hash = compute_content_hash(body)
 
         debate_result = await self._run_debate(msg)
-
-        action = _extract_action(debate_result)
-        confidence = _extract_confidence(debate_result)
-        dissent = _extract_dissent(debate_result)
-        debate_id = getattr(debate_result, "debate_id", None)
-        if debate_id is None and isinstance(debate_result, dict):
-            debate_id = debate_result.get("debate_id")
-        debate_id = debate_id or f"triage-{uuid.uuid4().hex[:12]}"
-
-        rationale = ""
-        if hasattr(debate_result, "final_answer"):
-            rationale = str(getattr(debate_result, "final_answer", ""))
-        elif isinstance(debate_result, dict):
-            rationale = str(debate_result.get("final_answer", ""))
-
-        parsed_action = InboxWedgeAction.parse(action)
+        normalized = _normalize_debate_outcome(debate_result)
+        provider = (
+            getattr(self._gmail, "connector_id", "gmail") if self._gmail is not None else "gmail"
+        )
+        user_id = getattr(self._gmail, "user_id", "me") if self._gmail is not None else "me"
 
         intent = ActionIntent(
-            provider="arena-consensus",
+            provider=provider,
             message_id=message_id,
-            action=parsed_action,
+            action=normalized.final_action,
             content_hash=content_hash,
-            synthesized_rationale=rationale[:500],
-            confidence=confidence,
+            synthesized_rationale=normalized.rationale[:500],
+            confidence=normalized.confidence,
             provider_route="direct",
-            debate_id=debate_id,
+            debate_id=normalized.debate_id,
+            user_id=user_id,
         )
         # Attach email metadata for CLI display (private attrs)
         intent._subject = msg.get("subject", "(no subject)")  # type: ignore[attr-defined]
@@ -230,13 +314,27 @@ class InboxTriageRunner:
         intent._snippet = msg.get("snippet", body[:120])  # type: ignore[attr-defined]
 
         decision = TriageDecision(
-            final_action=parsed_action,
-            confidence=confidence,
-            dissent_summary=dissent,
+            final_action=normalized.final_action,
+            confidence=normalized.confidence,
+            dissent_summary=normalized.dissent_summary,
             auto_approval_eligible=False,
             provider_route="direct",
             intent=intent,
+            blocked_by_policy=bool(normalized.dissent_summary),
         )
+
+        should_auto_approve = auto_approve and self._policy.can_auto_approve(decision)
+        envelope = self._wedge_service.create_receipt(
+            intent,
+            decision,
+            auto_approve=should_auto_approve,
+        )
+        decision = envelope.decision
+        decision.intent = envelope.intent
+        decision.receipt_id = envelope.receipt.receipt_id
+        decision.receipt_state = envelope.receipt.state.value
+        decision.provider_route = envelope.provider_route
+        decision.label_id = envelope.intent.label_id or decision.label_id
 
         return decision
 
@@ -306,43 +404,22 @@ class InboxTriageRunner:
         Does NOT wire into the execution safety gate -- that integration
         is handled separately.
         """
-        if self._gmail is None:
-            logger.warning("No Gmail connector; skipping execution")
+        if not decision.receipt_id:
+            logger.warning("No persisted receipt on decision; skipping execution")
             return
-
-        intent = decision.intent
-        if intent is None:
-            logger.warning("No intent on decision %s", decision.receipt_id)
-            return
-
-        action = decision.final_action
-        message_id = intent.message_id
 
         try:
-            if action == AllowedAction.ARCHIVE.value:
-                await self._gmail.archive_message(message_id)
-            elif action == AllowedAction.STAR.value:
-                await self._gmail.star_message(message_id)
-            elif action == AllowedAction.LABEL.value:
-                # Label requires a label_id; skip if not provided
-                logger.info("LABEL action requires manual label selection; skipping")
-            elif action == AllowedAction.IGNORE.value:
-                logger.info("IGNORE action; no Gmail operation needed")
-            else:
-                logger.warning("Unknown action %s; skipping execution", action)
-                return
-
+            await self._wedge_service.execute_receipt(decision.receipt_id)
             decision.receipt_state = ReceiptState.EXECUTED.value
             logger.info(
-                "Executed triage action: %s on message %s",
-                action,
-                message_id,
+                "Executed triage action via receipt %s: %s",
+                decision.receipt_id,
+                decision.final_action,
             )
-        except (RuntimeError, OSError, ConnectionError) as exc:
+        except (RuntimeError, OSError, ConnectionError, ValueError) as exc:
             logger.error(
-                "Failed to execute action %s on %s: %s",
-                action,
-                message_id,
+                "Failed to execute receipt %s: %s",
+                decision.receipt_id,
                 exc,
             )
 
