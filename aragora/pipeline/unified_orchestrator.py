@@ -19,6 +19,7 @@ This is the "one function" entry point that wires together:
 
 from __future__ import annotations
 
+import inspect
 import logging
 import time
 import uuid
@@ -83,6 +84,8 @@ class OrchestratorResult:
     plan_outcome: Any | None = None
     bug_fix_result: Any | None = None
     pipeline_outcome: Any | None = None
+    spec_bundle: Any | None = None
+    action_bundle: dict[str, Any] | None = None
     meta_loop_result: Any | None = None
 
     # Tracking
@@ -133,6 +136,11 @@ class UnifiedOrchestrator:
         plan_factory: Any | None = None,
         plan_executor: Any | None = None,
         knowledge_mound: Any | None = None,
+        # Wave 5: OpenClaw execution
+        spec_extractor: Any | None = None,
+        code_task_factory: Any | None = None,
+        # Provider routing
+        provider_router: Any | None = None,
     ) -> None:
         self._input_extension = input_extension
         self._researcher = researcher
@@ -147,6 +155,9 @@ class UnifiedOrchestrator:
         self._plan_factory = plan_factory
         self._plan_executor = plan_executor
         self._km = knowledge_mound
+        self._spec_extractor = spec_extractor
+        self._code_task_factory = code_task_factory
+        self._provider_router = provider_router
 
     async def run(
         self,
@@ -218,18 +229,50 @@ class UnifiedOrchestrator:
                 debate_agents, report = self._diversity_filter.enforce(debate_agents)
                 result.diversity_report = report
 
+            # Select providers via router if available
+            provider_hints = None
+            if self._provider_router is not None:
+                try:
+                    provider_hints = self._provider_router.select_providers_for_debate(
+                        num_agents=agent_count,
+                    )
+                except Exception:
+                    logger.warning("Provider routing failed, using default selection")
+
             result.debate_result = await self._do_debate(
                 debate_prompt,
                 debate_agents,
                 rounds=debate_rounds,
                 agent_count=agent_count,
                 consensus_threshold=consensus_threshold,
+                provider_hints=provider_hints,
             )
             result.stages_completed.append("debate")
 
             # Update phase ELO from debate
             if self._elo_tracker is not None and result.debate_result is not None:
                 self._update_phase_elo(result.debate_result, cfg.domain)
+
+            # Record provider outcomes
+            if self._provider_router is not None and result.debate_result is not None:
+                try:
+                    consensus_reached = bool(
+                        getattr(
+                            result.debate_result,
+                            "consensus",
+                            getattr(result.debate_result, "consensus_reached", False),
+                        )
+                    )
+                    for name in self._provider_names_for_outcome(
+                        result.debate_result,
+                        provider_hints=provider_hints,
+                    ):
+                        self._provider_router.record_outcome(
+                            name,
+                            consensus_reached=consensus_reached,
+                        )
+                except Exception:
+                    logger.debug("Failed to record provider outcomes")
 
         except Exception as exc:
             logger.error("Debate stage failed: %s", exc)
@@ -260,6 +303,19 @@ class UnifiedOrchestrator:
                 logger.warning("Quality gate failed, continuing without validation")
                 result.stages_skipped.append("quality_gate")
 
+        # --- Stage 3c: Spec Extraction (OpenClaw) ---
+        if (
+            cfg.execution_mode == "openclaw"
+            and self._spec_extractor is not None
+            and result.debate_result is not None
+        ):
+            try:
+                result.spec_bundle = self._spec_extractor(result.debate_result)
+                result.stages_completed.append("spec_extraction")
+            except Exception:
+                logger.warning("Spec extraction failed")
+                result.stages_skipped.append("spec_extraction")
+
         # --- Stage 4: Create Decision Plan ---
         if result.debate_result is not None and self._plan_factory is not None:
             try:
@@ -285,20 +341,43 @@ class UnifiedOrchestrator:
                     return result
 
         # --- Stage 6: Execute Plan ---
-        if (
-            result.decision_plan is not None
-            and self._plan_executor is not None
-            and not cfg.skip_execution
-        ):
-            try:
-                result.plan_outcome = await self._plan_executor.execute(
-                    result.decision_plan,
-                    execution_mode=cfg.execution_mode,
-                )
-                result.stages_completed.append("execute")
-            except Exception:
-                logger.warning("Execution failed")
-                result.stages_skipped.append("execute")
+        if not cfg.skip_execution:
+            if (
+                cfg.execution_mode == "openclaw"
+                and self._code_task_factory is not None
+                and result.spec_bundle is not None
+            ):
+                try:
+                    spec = result.spec_bundle
+                    exec_result = await self._code_task_factory(
+                        implementation_prompt=spec.implementation_prompt
+                        if hasattr(spec, "implementation_prompt")
+                        else str(spec),
+                        files_to_modify=getattr(spec, "files_to_modify", []),
+                    )
+                    result.plan_outcome = exec_result
+                    result.action_bundle = {
+                        "harness_name": "claude-code",
+                        "action_type": "implementation",
+                        "input_prompt": getattr(spec, "implementation_prompt", ""),
+                        "exit_code": exec_result.get("exit_code", 0)
+                        if isinstance(exec_result, dict)
+                        else 0,
+                    }
+                    result.stages_completed.append("execute")
+                except Exception:
+                    logger.warning("OpenClaw execution failed")
+                    result.stages_skipped.append("execute")
+            elif result.decision_plan is not None and self._plan_executor is not None:
+                try:
+                    result.plan_outcome = await self._plan_executor.execute(
+                        result.decision_plan,
+                        execution_mode=cfg.execution_mode,
+                    )
+                    result.stages_completed.append("execute")
+                except Exception:
+                    logger.warning("Execution failed")
+                    result.stages_skipped.append("execute")
 
         # --- Stage 6b: Bug-Fix Loop (CLB-008) ---
         # Auto-trigger when tests fail, even without explicit enable_bug_fix_loop.
@@ -383,17 +462,52 @@ class UnifiedOrchestrator:
         rounds: int,
         agent_count: int,
         consensus_threshold: float,
+        provider_hints: list[str] | None = None,
     ) -> Any:
         """Run debate phase."""
         if self._arena_factory is not None:
+            kwargs = {
+                "agents": agents,
+                "rounds": rounds,
+                "agent_count": agent_count,
+                "consensus_threshold": consensus_threshold,
+            }
+            if provider_hints and self._accepts_keyword_arg(self._arena_factory, "provider_hints"):
+                kwargs["provider_hints"] = provider_hints
             return await self._arena_factory(
                 prompt,
-                agents=agents,
-                rounds=rounds,
-                agent_count=agent_count,
-                consensus_threshold=consensus_threshold,
+                **kwargs,
             )
         return None
+
+    @staticmethod
+    def _accepts_keyword_arg(callable_obj: Any, keyword: str) -> bool:
+        """Best-effort check for optional keyword support on injected callables."""
+        try:
+            sig = inspect.signature(callable_obj)
+        except (TypeError, ValueError):
+            return True
+        if keyword in sig.parameters:
+            return True
+        return any(param.kind is inspect.Parameter.VAR_KEYWORD for param in sig.parameters.values())
+
+    @staticmethod
+    def _provider_names_for_outcome(
+        debate_result: Any,
+        *,
+        provider_hints: list[str] | None = None,
+    ) -> list[str]:
+        """Return provider identifiers suitable for router feedback recording."""
+        metadata = getattr(debate_result, "metadata", {}) or {}
+        for key in ("provider_names", "providers", "provider_hints"):
+            value = metadata.get(key)
+            if isinstance(value, list):
+                names = [str(item) for item in value if str(item)]
+                if names:
+                    return names
+        if provider_hints:
+            return [str(item) for item in provider_hints if str(item)]
+        return []
 
     def _update_phase_elo(self, debate_result: Any, domain: str) -> None:
         """Update phase ELO ratings from debate results."""
