@@ -186,6 +186,92 @@ def test_refresh_run_scales_queued_work_after_completion(
     assert counter["value"] >= 2
 
 
+def test_refresh_run_releases_orphaned_conflicts_and_retries(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    missing_path = repo / "missing-docs-worktree"
+    orphaned = store.claim_lease(
+        task_id="old-docs-lane",
+        title="Old docs lane",
+        owner_agent="codex",
+        owner_session_id="stale-session",
+        branch="codex/stale-docs",
+        worktree_path=str(missing_path),
+        claimed_paths=["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+    )
+
+    lifecycle = MagicMock()
+    session_path = repo / "wt-docs"
+    session_path.mkdir()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="fresh-docs",
+        agent="codex",
+        branch="codex/fresh-docs",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Goal",
+            refined_goal="Goal",
+            work_orders=[
+                {
+                    "work_order_id": "docs-lane",
+                    "title": "Write operator guide",
+                    "description": "Add operator guide.",
+                    "file_scope": ["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+                    "expected_tests": [],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "risk_level": "info",
+                }
+            ],
+        )
+    )
+
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "leased"
+    assert work_order["lease_id"]
+    active_lease_ids = {lease.lease_id for lease in store.list_active_leases()}
+    assert orphaned.lease_id not in active_lease_ids
+
+
+def test_refresh_run_marks_resource_wait_on_disk_full(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.side_effect = RuntimeError("No space left on device")
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Goal",
+            refined_goal="Goal",
+            work_orders=[
+                {
+                    "work_order_id": "cli-tests-lane",
+                    "title": "Run CLI coverage",
+                    "description": "Add CLI coverage.",
+                    "file_scope": ["tests/cli/test_swarm_command.py"],
+                    "expected_tests": ["python -m pytest tests/cli/test_swarm_command.py -q"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "risk_level": "review",
+                }
+            ],
+        )
+    )
+
+    assert run.status == "active"
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "waiting_resource"
+    assert "No space left on device" in work_order["resource_error"]
+
+
 # ---------- dispatch_workers / collect_results tests ----------
 
 from unittest.mock import AsyncMock, patch

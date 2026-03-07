@@ -204,11 +204,31 @@ class SwarmSupervisor:
                     )
                     active_count += 1
                 except LeaseConflictError as exc:
+                    released = self._release_orphaned_conflict_leases(exc.conflicts)
+                    if released:
+                        try:
+                            self._lease_work_order(
+                                run_id=run_id,
+                                target_branch=str(record.get("target_branch", "main")),
+                                work_order=item,
+                                managed_dir_pattern=managed_dir_pattern,
+                                approval_policy=SwarmApprovalPolicy.from_dict(
+                                    record.get("approval_policy")
+                                ),
+                            )
+                            active_count += 1
+                            continue
+                        except LeaseConflictError as retry_exc:
+                            exc = retry_exc
                     item["status"] = "waiting_conflict"
                     item["conflicts"] = list(exc.conflicts)
                 except RuntimeError as exc:
-                    item["status"] = "needs_human"
-                    item["dispatch_error"] = str(exc)
+                    if self._is_resource_constraint_error(exc):
+                        item["status"] = "waiting_resource"
+                        item["resource_error"] = str(exc)
+                    else:
+                        item["status"] = "needs_human"
+                        item["dispatch_error"] = str(exc)
                     break
 
         refreshed = self.store.update_supervisor_run(
@@ -662,6 +682,26 @@ class SwarmSupervisor:
         item.pop("pid", None)
         item.pop("blockers", None)
         return True
+
+    def _release_orphaned_conflict_leases(self, conflicts: list[dict[str, Any]]) -> int:
+        released = 0
+        for conflict in conflicts:
+            if str(conflict.get("source", "lease")).strip() not in {"lease", ""}:
+                continue
+            lease_id = str(conflict.get("lease_id", "")).strip()
+            worktree_path = str(conflict.get("worktree_path", "")).strip()
+            if not lease_id or not worktree_path:
+                continue
+            if Path(worktree_path).exists():
+                continue
+            self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
+            released += 1
+        return released
+
+    @staticmethod
+    def _is_resource_constraint_error(exc: Exception) -> bool:
+        lowered = str(exc).lower()
+        return "no space left on device" in lowered or "disk full" in lowered
 
     @staticmethod
     def _alternate_agent(agent: str | None) -> str | None:
