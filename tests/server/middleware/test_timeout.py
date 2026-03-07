@@ -21,6 +21,18 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def reset_timeout_state():
+    """Reset timeout globals before and after each test for isolation."""
+    import aragora.server.middleware.timeout as timeout_module
+
+    timeout_module.shutdown_executor()
+    timeout_module._timeout_config = None
+    yield
+    timeout_module.shutdown_executor()
+    timeout_module._timeout_config = None
+
+
 # ===========================================================================
 # Test RequestTimeoutConfig Dataclass
 # ===========================================================================
@@ -493,20 +505,41 @@ class TestTimeoutContext:
 
         assert result == "success"
 
-    @pytest.mark.skip(
-        reason="signal.alarm requires integer seconds and main thread - not reliable in test environments"
-    )
     def test_timeout_raises_on_unix(self):
-        """Should raise RequestTimeoutError on timeout (Unix only)."""
-        import platform
-
+        """Should install and restore signal handlers around timeout errors."""
         from aragora.server.middleware.timeout import (
             RequestTimeoutError,
             timeout_context,
         )
 
-        if platform.system() == "Windows":
-            return  # Signal-based timeout not available on Windows
+        handler_holder = {}
+        old_handler = object()
+        alarms = []
+
+        def fake_signal(sig, handler):
+            if callable(handler):
+                handler_holder["handler"] = handler
+                return old_handler
+            handler_holder["restored"] = handler
+            return old_handler
+
+        def fake_alarm(seconds):
+            alarms.append(seconds)
+            return 0
+
+        with (
+            patch("platform.system", return_value="Darwin"),
+            patch("signal.signal", side_effect=fake_signal),
+            patch("signal.alarm", side_effect=fake_alarm),
+        ):
+            with pytest.raises(RequestTimeoutError) as exc_info:
+                with timeout_context(0.2, "/api/test"):
+                    handler_holder["handler"](None, None)
+
+        assert exc_info.value.timeout == 0.2
+        assert exc_info.value.path == "/api/test"
+        assert alarms == [1, 0]
+        assert handler_holder["restored"] is old_handler
 
     def test_windows_fallback_no_timeout(self):
         """Should not enforce timeout on Windows (fallback)."""
