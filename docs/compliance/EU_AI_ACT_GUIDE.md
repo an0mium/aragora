@@ -97,6 +97,10 @@ For the interactive demo script that walks through all steps:
 6. [Example Artifact Output](#example-artifact-output)
 7. [Compliance Timeline](#compliance-timeline)
 8. [FAQ](#faq)
+9. [Appendix A: Art. 10 — Data Governance](#appendix-a-art-10--data-governance)
+10. [Appendix B: Art. 11 — Technical Documentation](#appendix-b-art-11--technical-documentation)
+11. [Appendix C: Art. 43 — Conformity Assessment](#appendix-c-art-43--conformity-assessment)
+12. [Appendix D: Art. 49 — EU Database Registration](#appendix-d-art-49--eu-database-registration)
 
 ---
 
@@ -728,6 +732,118 @@ satisfied (100%), partially satisfied (50%), or not satisfied (0%):
 | 75-94 | Substantially Conformant | Minor gaps; review recommendations |
 | 40-74 | Partial Conformity | Material gaps; remediation required |
 | 0-39 | Not Ready | Significant gaps; engage compliance counsel |
+
+---
+
+## Appendix A: Art. 10 — Data Governance
+
+Article 10 requires that training, validation, and testing data sets are subject
+to appropriate data governance and management practices. While Aragora does not
+train AI models itself, it enforces data quality at the decision layer:
+
+- **Evidence quality scoring** — Multi-source evidence collection with automated
+  quality scoring and relevance ranking (`aragora/evidence/`). Every piece of
+  evidence feeding a debate is scored before it influences the outcome.
+- **Knowledge validation** — KnowledgeMound (`aragora/knowledge/mound/`) validates
+  ingested knowledge with contradiction detection, confidence decay, and
+  revalidation cycles. 45 adapters ensure data from heterogeneous sources meets
+  quality thresholds.
+- **Bias reduction through multi-model consensus** — 43 agent types across 8+
+  providers (Anthropic, OpenAI, Google, Mistral, xAI, Meta, DeepSeek, Qwen)
+  inherently reduce single-model bias. The evaluation framework
+  (`aragora/evaluation/`) scores outputs across 8 quality dimensions including
+  fairness.
+- **Data provenance** — Full provenance tracking via `aragora/reasoning/provenance.py`
+  and gauntlet receipt chains. Every claim traces back to its source with
+  cryptographic integrity hashes.
+- **Retention and deletion** — `aragora/privacy/retention.py` enforces configurable
+  retention policies. `aragora/privacy/deletion.py` implements right-to-erasure
+  and data lifecycle controls. `aragora/privacy/consent.py` tracks consent state.
+
+---
+
+## Appendix B: Art. 11 — Technical Documentation
+
+Article 11 requires providers to draw up technical documentation before a
+high-risk AI system is placed on the market, kept up to date throughout its
+lifecycle. Aragora generates and maintains the following:
+
+- **System description** — Aragora is a decision-support platform orchestrating
+  43 agent types across 210+ debate modules with 3,000+ API operations. It does
+  not make autonomous decisions; it produces adversarially vetted recommendations
+  with audit-ready receipts. Limitations: output quality depends on underlying
+  LLM accuracy and evidence availability.
+- **Risk management integration** — Circuit breakers (`aragora/resilience/`)
+  prevent cascading failures. Anomaly detection (`aragora/security/anomaly_detection.py`)
+  flags unusual patterns. Policy enforcement (`aragora/policy/`) applies per-tool
+  and per-task risk budgets. The Gauntlet framework stress-tests decisions
+  adversarially.
+- **Performance metrics** — Debate quality composites range 0.92–0.98 across
+  diverse benchmarks. 208,000+ automated tests validate system behavior. SLO
+  monitoring (`aragora/observability/slo.py`) tracks availability, latency, and
+  error rates with Prometheus metrics and alerting.
+- **Human oversight design** — AutonomyGate in the pipeline
+  (`aragora/pipeline/`) enforces human checkpoints. Approval workflows
+  (`aragora/approvals/`) require explicit human sign-off before execution.
+  Every debate supports HITL/HOTL oversight models with override and stop
+  mechanisms.
+- **Change documentation** — The Nomic Loop (`scripts/nomic_loop.py`) logs all
+  self-improvement cycles with backups, checksums, and rollback capability.
+  Git-based provenance ensures every change is traceable.
+
+---
+
+## Appendix C: Art. 43 — Conformity Assessment
+
+Article 43 requires high-risk AI systems to undergo conformity assessment before
+market placement. Aragora is classified as limited-risk (decision support, not
+autonomous decision-maker), but provides comprehensive assessment documentation:
+
+- **Self-assessment readiness** — For limited-risk deployments, providers can
+  perform internal conformity assessment. Aragora's `aragora compliance audit`
+  command generates per-article compliance reports with pass/partial/fail status
+  and remediation recommendations.
+- **Internal audit controls** — 60+ SOC 2 controls implemented across the
+  platform. Gauntlet receipts (`aragora/gauntlet/receipts.py`) provide
+  cryptographic audit trails with SHA-256 hashing. RBAC with 360+ permissions
+  (`aragora/rbac/`) ensures access control governance.
+- **Testing evidence** — 208,000+ automated tests across 5,000+ test files.
+  Dogfood benchmark runs with documented results (composites 0.92–0.98).
+  Adversarial stress tests via the Gauntlet framework validate robustness.
+- **Ongoing monitoring** — Prometheus metrics and Grafana dashboards
+  (`aragora/observability/metrics.py`). SLO alerting detects compliance drift.
+  The compliance monitor (`aragora/compliance/monitor.py`) tracks control
+  effectiveness continuously.
+- **Artifact generation** — `aragora compliance eu-ai-act generate` produces
+  the per-article JSON artifacts and conformity reports needed as input to
+  formal assessment procedures.
+
+---
+
+## Appendix D: Art. 49 — EU Database Registration
+
+Article 49 requires providers of high-risk AI systems to register in the EU
+database before placing the system on the market or putting it into service.
+
+- **Registration requirement** — Providers and deployers of high-risk AI systems
+  (Annex III) must register themselves and their system in the EU database
+  established under Article 71. Registration must occur before the system is
+  placed on the EU market.
+- **Aragora's risk classification** — Aragora is a decision-support tool, not an
+  autonomous decision-maker, placing it in the limited-risk tier by default.
+  The actual risk classification depends on the deployer's use case. Run
+  `aragora compliance classify` to determine the applicable tier.
+- **Information to provide** — The EU database requires: system name, provider
+  identity, intended purpose, risk category, technical capabilities, member
+  states of availability, and conformity assessment status. Aragora's compliance
+  bundle (`bundle.json`) contains all of these fields.
+- **Timeline** — Registration must be completed before market placement. For
+  existing high-risk systems, the deadline is **August 2, 2026**. Plan
+  registration for Q3 2026 to allow time for review.
+- **Preparation status** — The CLI generates all required artifacts:
+  `aragora compliance eu-ai-act generate` produces the conformity report and
+  risk classification needed for the registration form. The `bundle.json`
+  output maps directly to the EU database schema fields.
 
 ---
 
