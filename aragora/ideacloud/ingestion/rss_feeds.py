@@ -208,7 +208,7 @@ class RSSFeedIngestor(BaseIdeaIngestor):
         nodes: list[IdeaNode] = []
 
         try:
-            import xml.etree.ElementTree as ET
+            import defusedxml.ElementTree as ET
             from urllib.request import urlopen
         except ImportError:
             return nodes
@@ -220,7 +220,7 @@ class RSSFeedIngestor(BaseIdeaIngestor):
             try:
                 with urlopen(feed_config.url, timeout=30) as resp:
                     data = resp.read()
-                root = ET.fromstring(data)  # noqa: S314
+                root = ET.fromstring(data)
 
                 # Try RSS 2.0 format
                 items = root.findall(".//item")
