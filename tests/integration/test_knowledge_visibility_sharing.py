@@ -992,7 +992,7 @@ class TestFullStackIntegration:
 
         url = os.environ.get("ARAGORA_TEST_SERVER_URL")
         if not url:
-            pytest.skip("ARAGORA_TEST_SERVER_URL not set")
+            pytest.fail("ARAGORA_TEST_SERVER_URL not set (required for E2E tests)")
         return url
 
     @pytest.fixture
@@ -1002,7 +1002,7 @@ class TestFullStackIntegration:
 
         token = os.environ.get("ARAGORA_TEST_AUTH_TOKEN")
         if not token:
-            pytest.skip("ARAGORA_TEST_AUTH_TOKEN not set")
+            pytest.fail("ARAGORA_TEST_AUTH_TOKEN not set (required for E2E tests)")
         return token
 
     @pytest.mark.asyncio

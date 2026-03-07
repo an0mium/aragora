@@ -27,22 +27,13 @@ from urllib.parse import urlencode
 
 import pytest
 
-try:
-    from aragora.server.handlers.social.slack import (
-        SLACK_ALLOWED_DOMAINS,
-        SlackHandler,
-        _validate_slack_url,
-        get_slack_handler,
-        get_slack_integration,
-    )
-
-    if SlackHandler is None:
-        raise ImportError("SlackHandler resolved to None")
-except (ImportError, ModuleNotFoundError):
-    pytest.skip(
-        "slack handler not importable (conftest import shadow)",
-        allow_module_level=True,
-    )
+from aragora.server.handlers.social.slack import (
+    SLACK_ALLOWED_DOMAINS,
+    SlackHandler,
+    _validate_slack_url,
+    get_slack_handler,
+    get_slack_integration,
+)
 
 from .conftest import (
     MockHandler,

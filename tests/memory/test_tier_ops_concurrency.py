@@ -415,7 +415,7 @@ class TestMultiProcessSimulation:
 
     @pytest.mark.skipif(
         multiprocessing.get_start_method() == "fork",
-        reason="Fork may not be available on all platforms",
+        reason="Fork is unsafe for SQLite on macOS",
     )
     def test_multiprocess_promote_simulation(self, temp_db_path: str) -> None:
         """Test that promotion is safe across multiple processes."""

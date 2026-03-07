@@ -333,10 +333,6 @@ class TestTimeoutContext:
         __import__("platform").system() == "Windows",
         reason="signal.alarm not available on Windows",
     )
-    @pytest.mark.skipif(
-        __import__("os").environ.get("PYTEST_TIMEOUT") is not None,
-        reason="signal.alarm conflicts with pytest-timeout plugin",
-    )
     def test_context_timeout_raises(self):
         """Test context manager raises on timeout (Unix only)."""
         with pytest.raises(RequestTimeoutError):

@@ -493,21 +493,6 @@ class TestTimeoutContext:
 
         assert result == "success"
 
-    @pytest.mark.skip(
-        reason="signal.alarm requires integer seconds and main thread - not reliable in test environments"
-    )
-    def test_timeout_raises_on_unix(self):
-        """Should raise RequestTimeoutError on timeout (Unix only)."""
-        import platform
-
-        from aragora.server.middleware.timeout import (
-            RequestTimeoutError,
-            timeout_context,
-        )
-
-        if platform.system() == "Windows":
-            return  # Signal-based timeout not available on Windows
-
     def test_windows_fallback_no_timeout(self):
         """Should not enforce timeout on Windows (fallback)."""
         from aragora.server.middleware.timeout import timeout_context

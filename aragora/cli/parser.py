@@ -10,6 +10,18 @@ import os
 
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
+# Commands shown prominently in --help.  Everything else is "advanced".
+CORE_COMMANDS: frozenset[str] = frozenset(
+    {
+        "quickstart",
+        "ask",
+        "decide",
+        "consensus",
+        "serve",
+        "triage",
+    }
+)
+
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 DEFAULT_API_KEY = os.environ.get("ARAGORA_API_KEY")
@@ -47,9 +59,67 @@ def get_version() -> str:
         return "0.8.0-dev"
 
 
+class _GroupedCommandsParser(argparse.ArgumentParser):
+    """ArgumentParser subclass that groups subcommands into core / advanced."""
+
+    def format_help(self) -> str:
+        # Render the default help and replace the flat subcommand list with
+        # two sections: "core commands" and "advanced commands".
+        formatter = self._get_formatter()
+
+        # Usage
+        formatter.add_usage(self.usage, self._actions, self._mutually_exclusive_groups)
+
+        # Description
+        if self.description:
+            formatter.add_text(self.description)
+
+        # Split actions: everything that isn't the subparser action goes first.
+        subparser_action = None
+        for action in self._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                subparser_action = action
+            else:
+                formatter.add_arguments([action])
+
+        # Emit grouped subcommands
+        if subparser_action is not None:
+            core = []
+            advanced = []
+            for choice, parser in (subparser_action.choices or {}).items():
+                help_text = ""
+                for sub_action in subparser_action._choices_actions:
+                    if sub_action.dest == choice:
+                        help_text = sub_action.help or ""
+                        break
+                entry = (choice, help_text)
+                if choice in CORE_COMMANDS:
+                    core.append(entry)
+                else:
+                    advanced.append(entry)
+
+            if core:
+                formatter.start_section("core commands")
+                for name, help_text in sorted(core):
+                    formatter.add_text(f"  {name:<20}{help_text}")
+                formatter.end_section()
+
+            if advanced:
+                formatter.start_section("advanced commands")
+                for name, help_text in sorted(advanced):
+                    formatter.add_text(f"  {name:<20}{help_text}")
+                formatter.end_section()
+
+        # Epilog
+        if self.epilog:
+            formatter.add_text(self.epilog)
+
+        return formatter.format_help()
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build and return the complete CLI argument parser."""
-    parser = argparse.ArgumentParser(
+    parser = _GroupedCommandsParser(
         description="Aragora - Control plane for multi-agent vetted decisionmaking across org knowledge and channels",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""

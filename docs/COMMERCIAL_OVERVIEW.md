@@ -97,7 +97,7 @@ For small teams that need decision rigor and audit trails.
 | Workflow engine | 50+ templates across 6 categories |
 | Vertical weight profiles | Healthcare, financial, legal |
 | API access | Full REST + WebSocket (3,000+ operations) |
-| Python + TypeScript SDKs | Full access (184 Python / 183 TypeScript namespaces) |
+| Python + TypeScript SDKs | Full access (186 Python / 185 TypeScript namespaces) |
 
 Bring your own API keys. LLM costs billed directly by your providers.
 
@@ -150,12 +150,12 @@ For organizations with compliance, security, and governance requirements.
 | Anti-fragile agent reassignment | -- | Yes | Yes |
 | **Memory & Knowledge** | | | |
 | 4-tier Continuum Memory | -- | Yes | Yes |
-| Knowledge Mound (45 adapters) | -- | Yes | Yes |
+| Knowledge Mound (42 adapter specs) | -- | Yes | Yes |
 | Cross-debate institutional memory | -- | Yes | Yes |
 | **Integrations** | | | |
 | REST API + WebSocket | Limited | Full | Full |
-| Python SDK (185 namespaces) | Yes | Yes | Yes |
-| TypeScript SDK (183 namespaces) | Yes | Yes | Yes |
+| Python SDK (186 namespaces) | Yes | Yes | Yes |
+| TypeScript SDK (185 namespaces) | Yes | Yes | Yes |
 | Slack / Teams / Discord | -- | Yes | Yes |
 | Telegram / WhatsApp / email / voice | -- | Yes | Yes |
 | CI/CD (GitHub Actions, GitLab) | -- | Yes | Yes |
@@ -287,7 +287,7 @@ Both SDKs provide typed clients for all 3,000+ API operations with full IntelliS
 | Test files | 4,300+ |
 | API operations | 2,000+ across 2,900+ paths |
 | WebSocket event types | 190+ |
-| SDK namespaces | 184 Python / 183 TypeScript (99.3% parity) |
+| SDK namespaces | 186 Python / 185 TypeScript |
 | Knowledge Mound adapters | 45 |
 | RBAC permission combinations | 450+ (14 resource types × 8 actions × 4 scope levels) |
 | Agent types | 43 |

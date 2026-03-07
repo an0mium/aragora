@@ -389,16 +389,13 @@ class TestPulseBridgeTopicConversion:
 class TestCLIRegistration:
     def test_parser_includes_ideacloud(self):
         """The ideacloud command should be registered in the CLI parser."""
-        try:
-            from aragora.cli.parser import build_parser
+        from aragora.cli.parser import build_parser
 
-            parser = build_parser()
-            # Check that 'ideacloud' is a valid subcommand
-            # We parse with just 'ideacloud' — it should not raise SystemExit
-            # (it might print help, which is fine)
-            assert parser is not None
-        except ImportError:
-            pytest.skip("CLI parser not available")
+        parser = build_parser()
+        # Check that 'ideacloud' is a valid subcommand
+        # We parse with just 'ideacloud' — it should not raise SystemExit
+        # (it might print help, which is fine)
+        assert parser is not None
 
     def test_ideacloud_subcommands_registered(self):
         """All Phase 2+ CLI commands should be registered."""
