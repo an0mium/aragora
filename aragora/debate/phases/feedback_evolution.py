@@ -145,15 +145,18 @@ class EvolutionFeedback:
         if not result or not result.votes:
             return False
 
-        winner = getattr(result, "winner", None)
-        if not winner:
+        winner_obj = getattr(result, "winner", None)
+        if not isinstance(winner_obj, str) or not winner_obj:
             return False
 
         for vote in result.votes:
             if vote.agent == agent.name:
                 # Check if the agent's choice matches the winner
-                canonical = ctx.choice_mapping.get(vote.choice, vote.choice)
-                return canonical == winner
+                choice_key = vote.choice if isinstance(vote.choice, str) else str(vote.choice)
+                canonical_obj = ctx.choice_mapping.get(choice_key, choice_key)
+                if not isinstance(canonical_obj, str):
+                    canonical_obj = str(canonical_obj)
+                return canonical_obj == winner_obj
 
         return False
 
