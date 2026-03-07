@@ -785,20 +785,25 @@ class TeamSelector:
                 return role.value
 
         # Try direct attribute
-        if hasattr(agent, "hierarchy_role") and agent.hierarchy_role:
-            return agent.hierarchy_role
+        hierarchy_role = getattr(agent, "hierarchy_role", None)
+        if isinstance(hierarchy_role, str) and hierarchy_role:
+            return hierarchy_role
 
         # Try spec attribute
-        if hasattr(agent, "spec") and hasattr(agent.spec, "hierarchy_role"):
-            return agent.spec.hierarchy_role
+        spec = getattr(agent, "spec", None)
+        spec_role = getattr(spec, "hierarchy_role", None)
+        if isinstance(spec_role, str) and spec_role:
+            return spec_role
 
         # Try metadata
         if hasattr(agent, "metadata") and isinstance(agent.metadata, dict):
-            return agent.metadata.get("hierarchy_role")
+            metadata_role = agent.metadata.get("hierarchy_role")
+            if isinstance(metadata_role, str):
+                return metadata_role
 
         return None
 
-    def get_hierarchy_status(self, debate_id: str) -> dict | None:
+    def get_hierarchy_status(self, debate_id: str) -> dict[str, Any] | None:
         """Get the hierarchy status for a debate.
 
         Args:
@@ -809,7 +814,8 @@ class TeamSelector:
         """
         if not self.agent_hierarchy:
             return None
-        return self.agent_hierarchy.get_hierarchy_status(debate_id)
+        status = self.agent_hierarchy.get_hierarchy_status(debate_id)
+        return status if isinstance(status, dict) else None
 
     def clear_hierarchy_cache(self, debate_id: str) -> None:
         """Clear hierarchy cache for a completed debate.
@@ -1315,7 +1321,7 @@ class TeamSelector:
 
         # Query KM for domain experts
         try:
-            experts = self.ranking_adapter.get_domain_experts(
+            experts: list[Any] = self.ranking_adapter.get_domain_experts(
                 domain=domain,
                 limit=20,
                 min_confidence=0.3,
@@ -2018,7 +2024,14 @@ class TeamSelector:
         if not self.feedback_loop or not self.config.enable_feedback_weights:
             return {}
         try:
-            return self.feedback_loop.get_domain_weights(domain)
+            weights = self.feedback_loop.get_domain_weights(domain)
+            if not isinstance(weights, dict):
+                return {}
+            return {
+                str(agent_name): float(weight)
+                for agent_name, weight in weights.items()
+                if isinstance(agent_name, str) and isinstance(weight, int | float)
+            }
         except (AttributeError, TypeError):
             return {}
 
