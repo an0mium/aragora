@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 from .types import AbstractionLevel, AbstractionNode, RLMContext
 
 logger = logging.getLogger(__name__)
+NodeRecord = dict[str, Any]
+ReplHelper = Callable[..., Awaitable[Any]]
 
 
 class KnowledgeMoundAdapter:
@@ -77,7 +79,7 @@ class KnowledgeMoundAdapter:
         )
 
         # Group nodes by type for hierarchical representation
-        nodes_by_type: dict[str, list] = {}
+        nodes_by_type: dict[str, list[Any]] = {}
         for node in nodes:
             node_type = getattr(node, "node_type", "unknown")
             nodes_by_type.setdefault(node_type, []).append(node)
@@ -107,14 +109,14 @@ class KnowledgeMoundAdapter:
 
         return context
 
-    def get_repl_helpers(self) -> dict[str, Callable]:
+    def get_repl_helpers(self) -> dict[str, ReplHelper]:
         """
         Get helper functions for REPL access to Knowledge Mound.
 
         Returns dict of functions that can be injected into REPL namespace.
         """
 
-        async def search_mound(query: str, limit: int = 10) -> list[dict]:
+        async def search_mound(query: str, limit: int = 10) -> list[NodeRecord]:
             nodes = await self.mound.query_semantic(query, limit=limit)
             return [
                 {
@@ -126,7 +128,7 @@ class KnowledgeMoundAdapter:
                 for n in nodes
             ]
 
-        async def get_mound_node(node_id: str) -> dict | None:
+        async def get_mound_node(node_id: str) -> NodeRecord | None:
             node = await self.mound.get_node(node_id)
             if not node:
                 return None
