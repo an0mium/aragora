@@ -195,6 +195,7 @@ class TestPreflightHealthCheckAPIKeys:
 
         assert result.status == CheckStatus.FAILED
         assert "No API keys found" in result.message
+        assert "OPENROUTER_API_KEY" in result.message
 
     @pytest.mark.asyncio
     async def test_single_api_key_warns(self, check, monkeypatch):

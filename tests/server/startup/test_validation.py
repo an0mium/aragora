@@ -16,6 +16,11 @@ from aragora.server.startup.validation import (
 )
 
 
+def _env_only(name: str) -> str | None:
+    """Restrict startup validation tests to the patched environment only."""
+    return os.environ.get(name)
+
+
 # ---------------------------------------------------------------------------
 # _get_config_value tests
 # ---------------------------------------------------------------------------
@@ -137,46 +142,131 @@ class TestCheckAgentCredentials:
             },
             clear=True,
         ):
-            with patch("aragora.config.settings.get_settings") as mock_settings:
+            with (
+                patch("aragora.config.settings.get_settings") as mock_settings,
+                patch(
+                    "aragora.server.startup.validation._get_config_value",
+                    side_effect=_env_only,
+                ),
+            ):
                 mock_settings.return_value.agent.default_agents = "openai-api,anthropic-api"
                 warnings = check_agent_credentials()
                 assert warnings == []
 
     def test_warning_missing_openai_key(self):
         with patch.dict("os.environ", {}, clear=True):
-            with patch("aragora.config.settings.get_settings") as mock_settings:
+            with (
+                patch("aragora.config.settings.get_settings") as mock_settings,
+                patch(
+                    "aragora.server.startup.validation._get_config_value",
+                    side_effect=_env_only,
+                ),
+            ):
                 mock_settings.return_value.agent.default_agents = "openai-api"
                 warnings = check_agent_credentials()
                 assert any("OPENAI_API_KEY" in w for w in warnings)
 
     def test_warning_missing_anthropic_key(self):
         with patch.dict("os.environ", {}, clear=True):
-            with patch("aragora.config.settings.get_settings") as mock_settings:
+            with (
+                patch("aragora.config.settings.get_settings") as mock_settings,
+                patch(
+                    "aragora.server.startup.validation._get_config_value",
+                    side_effect=_env_only,
+                ),
+            ):
                 mock_settings.return_value.agent.default_agents = "anthropic-api"
                 warnings = check_agent_credentials()
                 assert any("ANTHROPIC_API_KEY" in w for w in warnings)
 
     def test_warning_missing_openrouter_key(self):
         with patch.dict("os.environ", {}, clear=True):
-            with patch("aragora.config.settings.get_settings") as mock_settings:
+            with (
+                patch("aragora.config.settings.get_settings") as mock_settings,
+                patch(
+                    "aragora.server.startup.validation._get_config_value",
+                    side_effect=_env_only,
+                ),
+            ):
                 mock_settings.return_value.agent.default_agents = "deepseek,qwen"
                 warnings = check_agent_credentials()
                 assert any("OPENROUTER_API_KEY" in w for w in warnings)
 
     def test_custom_agents_override(self):
         with patch.dict("os.environ", {"GEMINI_API_KEY": "test"}, clear=True):
-            warnings = check_agent_credentials(default_agents="gemini")
+            with patch(
+                "aragora.server.startup.validation._get_config_value",
+                side_effect=_env_only,
+            ):
+                warnings = check_agent_credentials(default_agents="gemini")
             assert warnings == []
 
     def test_warning_missing_gemini_key(self):
         with patch.dict("os.environ", {}, clear=True):
-            warnings = check_agent_credentials(default_agents="gemini")
+            with patch(
+                "aragora.server.startup.validation._get_config_value",
+                side_effect=_env_only,
+            ):
+                warnings = check_agent_credentials(default_agents="gemini")
             assert any("GEMINI_API_KEY" in w for w in warnings)
 
     def test_warning_missing_grok_key(self):
         with patch.dict("os.environ", {}, clear=True):
-            warnings = check_agent_credentials(default_agents="grok")
+            with patch(
+                "aragora.server.startup.validation._get_config_value",
+                side_effect=_env_only,
+            ):
+                warnings = check_agent_credentials(default_agents="grok")
             assert any("XAI_API_KEY" in w for w in warnings)
+
+    def test_openrouter_fallback_satisfies_direct_agents(self):
+        with patch.dict(
+            "os.environ",
+            {"OPENROUTER_API_KEY": "or-test-key-12345"},
+            clear=True,
+        ):
+            with patch(
+                "aragora.server.startup.validation._get_config_value",
+                side_effect=_env_only,
+            ):
+                warnings = check_agent_credentials(
+                    default_agents="openai-api,anthropic-api,gemini,grok,mistral-api"
+                )
+            assert warnings == []
+
+    def test_openrouter_fallback_can_be_disabled(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "OPENROUTER_API_KEY": "or-test-key-12345",
+                "ARAGORA_OPENROUTER_FALLBACK_ENABLED": "false",
+            },
+            clear=True,
+        ):
+            with patch(
+                "aragora.server.startup.validation._get_config_value",
+                side_effect=_env_only,
+            ):
+                warnings = check_agent_credentials(default_agents="openai-api")
+            assert any("OPENAI_API_KEY" in w for w in warnings)
+
+    def test_google_api_key_satisfies_gemini(self):
+        with patch.dict("os.environ", {"GOOGLE_API_KEY": "google-test-key-12345"}, clear=True):
+            with patch(
+                "aragora.server.startup.validation._get_config_value",
+                side_effect=_env_only,
+            ):
+                warnings = check_agent_credentials(default_agents="gemini")
+            assert warnings == []
+
+    def test_grok_api_key_alias_satisfies_grok(self):
+        with patch.dict("os.environ", {"GROK_API_KEY": "grok-test-key-12345"}, clear=True):
+            with patch(
+                "aragora.server.startup.validation._get_config_value",
+                side_effect=_env_only,
+            ):
+                warnings = check_agent_credentials(default_agents="grok")
+            assert warnings == []
 
 
 # ---------------------------------------------------------------------------

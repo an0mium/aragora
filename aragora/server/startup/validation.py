@@ -33,6 +33,19 @@ def _get_config_value(name: str) -> str | None:
         return None
 
 
+def _openrouter_fallback_configured() -> bool:
+    """Return True when OpenRouter fallback is available for direct API agents."""
+    if not _get_config_value("OPENROUTER_API_KEY"):
+        return False
+
+    try:
+        from aragora.agents.fallback import get_default_fallback_enabled
+
+        return get_default_fallback_enabled()
+    except (ImportError, AttributeError, RuntimeError, OSError, ValueError):
+        return True
+
+
 def check_connector_dependencies() -> list[str]:
     """Check if connector dependencies are available.
 
@@ -158,18 +171,36 @@ def check_agent_credentials(default_agents: str | None = None) -> list[str]:
                 "Set via env or AWS Secrets Manager (ARAGORA_USE_SECRETS_MANAGER=1)."
             )
 
+    fallback_available = _openrouter_fallback_configured()
+
     # Direct API providers
-    if "openai-api" in agent_names and not _get_config_value("OPENAI_API_KEY"):
+    if "openai-api" in agent_names and not (
+        _get_config_value("OPENAI_API_KEY") or fallback_available
+    ):
         warnings.append("OPENAI_API_KEY missing for openai-api agent (env or Secrets Manager).")
-    if "anthropic-api" in agent_names and not _get_config_value("ANTHROPIC_API_KEY"):
+    if "anthropic-api" in agent_names and not (
+        _get_config_value("ANTHROPIC_API_KEY") or fallback_available
+    ):
         warnings.append(
             "ANTHROPIC_API_KEY missing for anthropic-api agent (env or Secrets Manager)."
         )
-    if "gemini" in agent_names and not _get_config_value("GEMINI_API_KEY"):
-        warnings.append("GEMINI_API_KEY missing for gemini agent (env or Secrets Manager).")
-    if "grok" in agent_names and not _get_config_value("XAI_API_KEY"):
-        warnings.append("XAI_API_KEY missing for grok agent (env or Secrets Manager).")
-    if "mistral-api" in agent_names and not _get_config_value("MISTRAL_API_KEY"):
+    if "gemini" in agent_names and not (
+        _get_config_value("GEMINI_API_KEY")
+        or _get_config_value("GOOGLE_API_KEY")
+        or fallback_available
+    ):
+        warnings.append(
+            "GEMINI_API_KEY or GOOGLE_API_KEY missing for gemini agent (env or Secrets Manager)."
+        )
+    if "grok" in agent_names and not (
+        _get_config_value("XAI_API_KEY") or _get_config_value("GROK_API_KEY") or fallback_available
+    ):
+        warnings.append(
+            "XAI_API_KEY or GROK_API_KEY missing for grok agent (env or Secrets Manager)."
+        )
+    if "mistral-api" in agent_names and not (
+        _get_config_value("MISTRAL_API_KEY") or fallback_available
+    ):
         warnings.append("MISTRAL_API_KEY missing for mistral-api agent (env or Secrets Manager).")
 
     return warnings

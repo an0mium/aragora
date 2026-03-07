@@ -720,7 +720,7 @@ SYSTEM_ENDPOINTS = {
 call it before any credentials are set up.
 
 **Response includes:**
-- `ready_to_debate` -- boolean indicating if at least one required provider is configured
+- `ready_to_debate` -- boolean indicating if at least one core provider is configured
 - Per-provider availability (anthropic, openai, openrouter, mistral, gemini, xai)
 - Missing required and optional API key names
 - Storage backend type and status
@@ -733,7 +733,7 @@ call it before any credentials are set up.
                         "properties": {
                             "ready_to_debate": {
                                 "type": "boolean",
-                                "description": "True if at least one required AI provider is configured",
+                                "description": "True if at least one core AI provider is configured",
                             },
                             "providers": {
                                 "type": "object",
@@ -801,7 +801,7 @@ call it before any credentials are set up.
                             "providers": {
                                 "anthropic": {
                                     "available": True,
-                                    "model": "claude-opus-4-5-20251101",
+                                    "model": "claude-opus-4-6",
                                 },
                                 "openai": {"available": True, "model": "gpt-5.3"},
                                 "openrouter": {
@@ -812,14 +812,21 @@ call it before any credentials are set up.
                                     "available": False,
                                     "reason": "MISTRAL_API_KEY not set",
                                 },
-                                "gemini": {"available": False, "reason": "GEMINI_API_KEY not set"},
-                                "xai": {"available": False, "reason": "XAI_API_KEY not set"},
+                                "gemini": {
+                                    "available": False,
+                                    "reason": "GEMINI_API_KEY or GOOGLE_API_KEY not set",
+                                },
+                                "xai": {
+                                    "available": False,
+                                    "reason": "XAI_API_KEY or GROK_API_KEY not set",
+                                },
                             },
                             "missing_required": [],
                             "missing_optional": [
                                 "GEMINI_API_KEY",
+                                "GOOGLE_API_KEY",
+                                "GROK_API_KEY",
                                 "MISTRAL_API_KEY",
-                                "OPENROUTER_API_KEY",
                                 "XAI_API_KEY",
                             ],
                             "storage": {"type": "sqlite", "status": "connected"},
