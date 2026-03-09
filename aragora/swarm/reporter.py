@@ -639,6 +639,145 @@ def build_integrator_view(
     }
 
 
+def _work_order_status_counts(work_orders: list[dict[str, Any]] | None) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in work_orders or []:
+        if not isinstance(item, dict):
+            continue
+        status = _text(item.get("status")) or "unknown"
+        counts[status] = counts.get(status, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def build_boss_payload(
+    *,
+    run: dict[str, Any],
+    integrator_view: dict[str, Any] | None = None,
+    coordination: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a stable boss-facing payload for supervised swarm runs."""
+    integrator_view = integrator_view if isinstance(integrator_view, dict) else {}
+    coordination = coordination if isinstance(coordination, dict) else {}
+    work_orders = [dict(item) for item in run.get("work_orders", []) if isinstance(item, dict)]
+    lanes_from_integrator = [
+        dict(item) for item in integrator_view.get("lanes", []) if isinstance(item, dict)
+    ]
+    lane_by_work_order = {
+        _text(item.get("work_order_id")): item
+        for item in lanes_from_integrator
+        if _text(item.get("work_order_id"))
+    }
+
+    lane_summaries: list[dict[str, Any]] = []
+    needs_human: list[dict[str, Any]] = []
+    for item in work_orders:
+        work_order_id = _text(item.get("work_order_id"))
+        lane = lane_by_work_order.get(work_order_id, {})
+        lane_summary = {
+            "work_order_id": work_order_id or None,
+            "title": _first_text(item.get("title"), lane.get("title")) or None,
+            "status": _first_text(item.get("status"), lane.get("status"), "unknown"),
+            "target_agent": _first_text(item.get("target_agent"), lane.get("owner_agent")) or None,
+            "branch": _first_text(item.get("branch"), lane.get("branch")) or None,
+            "worktree_path": _first_text(item.get("worktree_path"), lane.get("worktree_path"))
+            or None,
+            "lease_id": _first_text(item.get("lease_id"), lane.get("lease_id")) or None,
+            "receipt_id": _extract_receipt_id(item, lane) or None,
+            "review_status": _first_text(item.get("review_status")) or None,
+            "next_action": _first_text(lane.get("next_action")) or None,
+        }
+        lane_summaries.append(lane_summary)
+
+        escalation_reasons = [_text(reason) for reason in lane.get("blockers", []) if _text(reason)]
+        for key in ("dispatch_error", "resource_error"):
+            reason = _text(item.get(key))
+            if reason:
+                escalation_reasons.append(reason)
+        if lane_summary["status"] == "needs_human" or escalation_reasons:
+            needs_human.append(
+                {
+                    "work_order_id": lane_summary["work_order_id"],
+                    "title": lane_summary["title"],
+                    "reasons": sorted(set(escalation_reasons)),
+                }
+            )
+
+    return {
+        "mode": "boss",
+        "run_id": _text(run.get("run_id")),
+        "status": _text(run.get("status")),
+        "goal": _text(run.get("goal")),
+        "target_branch": _text(run.get("target_branch")),
+        "work_order_counts": _work_order_status_counts(work_orders),
+        "lanes": lane_summaries,
+        "integrator_next_actions": [
+            _text(item) for item in integrator_view.get("next_actions", []) if _text(item)
+        ],
+        "needs_human": needs_human,
+        "coordination_counts": coordination.get("counts", {}),
+        "integrator_summary": integrator_view.get("summary", {}),
+    }
+
+
+def render_boss_text(payload: dict[str, Any]) -> str:
+    """Render a concise boss-facing supervised swarm summary."""
+    counts = payload.get("work_order_counts", {})
+    counts_text = (
+        ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
+        if isinstance(counts, dict) and counts
+        else "none"
+    )
+    lines = [
+        f"run_id={_text(payload.get('run_id'))}",
+        f"status={_text(payload.get('status'))} target_branch={_text(payload.get('target_branch'))}",
+        f"goal={_text(payload.get('goal'))}",
+        f"work_orders=[{counts_text}]",
+    ]
+
+    lanes = payload.get("lanes", [])
+    if isinstance(lanes, list):
+        for lane in lanes[:6]:
+            if not isinstance(lane, dict):
+                continue
+            parts = [
+                _text(lane.get("work_order_id")) or "lane",
+                _text(lane.get("status")) or "unknown",
+            ]
+            branch = _text(lane.get("branch"))
+            if branch:
+                parts.append(f"branch={branch}")
+            worktree_path = _text(lane.get("worktree_path"))
+            if worktree_path:
+                parts.append(f"worktree={worktree_path}")
+            receipt_id = _text(lane.get("receipt_id"))
+            if receipt_id:
+                parts.append(f"receipt={receipt_id}")
+            lines.append("lane: " + " ".join(parts))
+
+    next_actions = payload.get("integrator_next_actions", [])
+    if isinstance(next_actions, list):
+        for item in next_actions[:3]:
+            text = _text(item)
+            if text:
+                lines.append(f"next: {text}")
+
+    needs_human = payload.get("needs_human", [])
+    if isinstance(needs_human, list):
+        for item in needs_human[:3]:
+            if not isinstance(item, dict):
+                continue
+            reasons = [_text(reason) for reason in item.get("reasons", []) if _text(reason)]
+            if not reasons:
+                continue
+            lines.append(
+                "needs_human: "
+                f"{_first_text(item.get('title'), item.get('work_order_id'), 'lane')} -> "
+                + "; ".join(reasons)
+            )
+
+    return "\n".join(lines)
+
+
 @dataclass
 class SwarmReport:
     """Plain-English report of swarm execution for non-developer users."""

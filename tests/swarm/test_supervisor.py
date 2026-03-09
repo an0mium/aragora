@@ -14,6 +14,7 @@ from aragora.nomic.dev_coordination import DevCoordinationStore
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.supervisor import SwarmSupervisor
+from aragora.swarm.worker_launcher import WorkerLauncher
 from aragora.worktree.lifecycle import ManagedWorktreeSession
 
 
@@ -338,7 +339,7 @@ def test_start_run_prefers_explicit_spec_work_orders(
 # ---------- dispatch_workers / collect_results tests ----------
 
 from unittest.mock import AsyncMock, patch
-from aragora.swarm.worker_launcher import WorkerLauncher, WorkerProcess
+from aragora.swarm.worker_launcher import WorkerProcess
 
 UTC = timezone.utc
 
@@ -843,3 +844,30 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
     work_order = updated["work_orders"][0]
     assert work_order["status"] == "needs_human"
     assert "no-progress timeout" in work_order["dispatch_error"]
+
+
+def test_worker_prompt_includes_boss_lane_contract() -> None:
+    prompt = WorkerLauncher._build_prompt(
+        {
+            "title": "Implement boss-facing reporter output",
+            "description": "Emit stable coordinator output for one lane.",
+            "file_scope": ["aragora/swarm/reporter.py", "tests/swarm/test_supervisor.py"],
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "approval_required": True,
+            "lease_id": "lease-123",
+            "metadata": {
+                "acceptance_criteria": ["Output includes run_id and next actions"],
+                "constraints": ["Do not widen beyond the swarm package"],
+            },
+        }
+    )
+
+    assert "Aragora-managed CLI worker lane" in prompt
+    assert "Bounded scope:" in prompt
+    assert "Expected validation:" in prompt
+    assert "Acceptance criteria:" in prompt
+    assert "Constraints:" in prompt
+    assert "Decision boundary:" in prompt
+    assert "Receipt expectation:" in prompt
+    assert "Lease id: lease-123" in prompt
+    assert "Stop condition:" in prompt

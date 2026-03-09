@@ -26,7 +26,7 @@ from uuid import uuid4
 def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | None]:
     first = getattr(args, "swarm_action_or_goal", None)
     second = getattr(args, "swarm_goal", None)
-    if first in {"run", "status", "reconcile"}:
+    if first in {"run", "boss", "status", "reconcile"}:
         return str(first), second
     return "run", first
 
@@ -54,6 +54,34 @@ def _run_supervised_or_report(awaitable: object) -> object | None:
     except ValueError as exc:
         print(f"Error: {exc}")
         return None
+
+
+def _build_boss_payload(
+    run: dict[str, object],
+    *,
+    repo_root: Path,
+    target_branch: str,
+) -> dict[str, object]:
+    from aragora.swarm.reporter import build_boss_payload, build_integrator_view
+    from aragora.worktree.fleet import FleetCoordinationStore, build_fleet_rows
+
+    worktrees = build_fleet_rows(repo_root, base_branch=target_branch, tail=0)
+    store = FleetCoordinationStore(repo_root)
+    claims = store.list_claims()
+    merge_queue = store.list_merge_queue()
+    coordination = store.status_summary()
+    integrator_view = build_integrator_view(
+        runs=[run],
+        worktrees=worktrees,
+        claims=claims,
+        merge_queue=merge_queue,
+        coordination=coordination,
+    )
+    return build_boss_payload(
+        run=run,
+        integrator_view=integrator_view,
+        coordination=coordination,
+    )
 
 
 def cmd_swarm(args: argparse.Namespace) -> None:
@@ -100,8 +128,13 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     dispatch_only = bool(getattr(args, "dispatch_only", False))
     no_wait = bool(getattr(args, "no_wait", False))
     dispatch_workers = not no_dispatch
+    boss_mode = action == "boss"
     if dispatch_only:
         no_wait = True
+    if boss_mode:
+        dispatch_workers = True
+        no_wait = False
+        concurrency_cap = max(4, concurrency_cap)
 
     # Phase 2: User profile
     profile_str = getattr(args, "profile", "ceo")
@@ -269,10 +302,24 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         )
         if run is None:
             return
+        run_payload = run.to_dict()
+        if boss_mode:
+            boss_payload = _build_boss_payload(
+                run_payload,
+                repo_root=Path.cwd(),
+                target_branch=target_branch,
+            )
+            if as_json:
+                print(json.dumps(boss_payload, indent=2))
+            else:
+                from aragora.swarm.reporter import render_boss_text
+
+                print(render_boss_text(boss_payload))
+            return
         if as_json:
-            print(json.dumps(run.to_dict(), indent=2))
+            print(json.dumps(run_payload, indent=2))
         else:
-            _print_supervisor_run(run.to_dict())
+            _print_supervisor_run(run_payload)
     elif dry_run:
         if skip_interrogation:
             spec = SwarmSpec(
@@ -321,10 +368,24 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         )
         if run is None:
             return
+        run_payload = run.to_dict()
+        if boss_mode:
+            boss_payload = _build_boss_payload(
+                run_payload,
+                repo_root=Path.cwd(),
+                target_branch=target_branch,
+            )
+            if as_json:
+                print(json.dumps(boss_payload, indent=2))
+            else:
+                from aragora.swarm.reporter import render_boss_text
+
+                print(render_boss_text(boss_payload))
+            return
         if as_json:
-            print(json.dumps(run.to_dict(), indent=2))
+            print(json.dumps(run_payload, indent=2))
         else:
-            _print_supervisor_run(run.to_dict())
+            _print_supervisor_run(run_payload)
     else:
         run = _run_supervised_or_report(
             commander.run_supervised(
@@ -342,7 +403,21 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         )
         if run is None:
             return
+        run_payload = run.to_dict()
+        if boss_mode:
+            boss_payload = _build_boss_payload(
+                run_payload,
+                repo_root=Path.cwd(),
+                target_branch=target_branch,
+            )
+            if as_json:
+                print(json.dumps(boss_payload, indent=2))
+            else:
+                from aragora.swarm.reporter import render_boss_text
+
+                print(render_boss_text(boss_payload))
+            return
         if as_json:
-            print(json.dumps(run.to_dict(), indent=2))
+            print(json.dumps(run_payload, indent=2))
         else:
-            _print_supervisor_run(run.to_dict())
+            _print_supervisor_run(run_payload)

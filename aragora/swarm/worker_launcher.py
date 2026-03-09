@@ -380,10 +380,17 @@ class WorkerLauncher:
     def _build_prompt(work_order: dict[str, Any]) -> str:
         """Build the task prompt from a work order dict."""
         parts: list[str] = []
+        metadata = work_order.get("metadata", {})
 
         title = str(work_order.get("title", "")).strip()
         if title:
             parts.append(f"# Task: {title}")
+
+        parts.append(
+            "You are one Aragora-managed CLI worker lane inside a supervised swarm run. "
+            "Do only the bounded work for this lane and leave coordination, integration, "
+            "and human escalation to the boss lane."
+        )
 
         description = str(work_order.get("description", "")).strip()
         if description:
@@ -392,14 +399,13 @@ class WorkerLauncher:
         file_scope = work_order.get("file_scope", [])
         if file_scope:
             scope_list = ", ".join(str(f) for f in file_scope)
-            parts.append(f"Files in scope: {scope_list}")
+            parts.append(f"Bounded scope:\n  - Only touch: {scope_list}")
 
         expected_tests = work_order.get("expected_tests", [])
         if expected_tests:
             tests_text = "\n".join(f"  - {t}" for t in expected_tests)
-            parts.append(f"Run these tests to verify:\n{tests_text}")
+            parts.append(f"Expected validation:\n{tests_text}")
 
-        metadata = work_order.get("metadata", {})
         acceptance = metadata.get("acceptance_criteria", [])
         if acceptance:
             criteria_text = "\n".join(f"  - {c}" for c in acceptance)
@@ -410,12 +416,29 @@ class WorkerLauncher:
             constraints_text = "\n".join(f"  - {c}" for c in constraints)
             parts.append(f"Constraints:\n{constraints_text}")
 
+        approval_required = bool(work_order.get("approval_required", False))
+        if approval_required:
+            parts.append(
+                "Decision boundary:\n"
+                "  - If you hit a real ambiguity, approval boundary, or blocker, stop cleanly and "
+                "report the exact reason instead of widening scope."
+            )
+
+        lease_id = str(work_order.get("lease_id", "")).strip()
+        if lease_id:
+            parts.append(
+                "Receipt expectation:\n"
+                f"  - Lease id: {lease_id}\n"
+                "  - Aragora will record the completion receipt after a successful exit from this lane."
+            )
+
         parts.append(
-            "IMPORTANT: After completing the task, you MUST:\n"
-            "1. Run the tests listed above to verify your changes work correctly.\n"
-            "2. Stage all changed files with `git add -A`.\n"
-            '3. Commit with a descriptive message using `git commit -m "..."`. '
-            "Do NOT skip the commit step."
+            "Stop condition:\n"
+            "  - Finish the bounded lane or stop at a real blocker.\n"
+            "  - Run the expected validation commands when possible, or state exactly why they could not run.\n"
+            "  - Stage all changed files with `git add -A`.\n"
+            '  - Commit with a descriptive message using `git commit -m "..."` before exiting.\n'
+            "  - Exit with a truthful final state; do not claim integration or approval work is done unless it happened in this lane."
         )
 
         return "\n\n".join(parts)

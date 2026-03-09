@@ -711,6 +711,7 @@ class SwarmSupervisor:
                         "worker completion violated file-scope ownership; narrow or split the lane",
                     )
                     item["review_status"] = "changes_requested"
+                    item["receipt_id"] = None
                     item["scope_violation"] = {
                         "violations": list(exc.violations),
                         "changed_paths": list(result.changed_paths),

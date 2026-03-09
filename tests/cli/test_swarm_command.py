@@ -279,6 +279,10 @@ class TestSwarmCommand:
             cmd_swarm(args)
 
         mock_commander.run_supervised_from_spec.assert_awaited_once()
+        call = mock_commander.run_supervised_from_spec.await_args
+        assert call.kwargs["max_concurrency"] == 8
+        assert call.kwargs["dispatch"] is True
+        assert call.kwargs["wait"] is True
 
     def test_cmd_swarm_skip_interrogation_fails_closed_for_vague_goal(self, capsys):
         mock_commander = SimpleNamespace(run_supervised_from_spec=AsyncMock())
@@ -492,6 +496,150 @@ class TestSwarmCommand:
         out = capsys.readouterr().out
         assert '"run_id": "run-123"' in out
         assert '"status": "active"' in out
+
+    def test_cmd_swarm_boss_mode_forces_supervised_defaults_and_prints_text(self, capsys):
+        fake_run = _fake_supervisor_run(
+            run_id="boss-run-1",
+            status="needs_human",
+            work_orders=[
+                {
+                    "work_order_id": "lane-a",
+                    "title": "Lane A",
+                    "status": "needs_human",
+                    "branch": "codex/lane-a",
+                    "worktree_path": "/tmp/repo/.worktrees/lane-a",
+                    "target_agent": "codex",
+                    "lease_id": "lease-a",
+                    "receipt_id": "receipt-a",
+                    "dispatch_error": "waiting for human choice",
+                }
+            ],
+        )
+        mock_commander = SimpleNamespace(run_supervised=AsyncMock(return_value=fake_run))
+        args = _swarm_args(
+            swarm_action_or_goal="boss",
+            swarm_goal="Split vague operator request into supervised lanes",
+            concurrency_cap=1,
+        )
+
+        with (
+            patch("aragora.swarm.SwarmCommander", return_value=mock_commander),
+            patch("aragora.cli.commands.swarm._build_boss_payload") as build_payload,
+        ):
+            build_payload.return_value = {
+                "mode": "boss",
+                "run_id": "boss-run-1",
+                "status": "needs_human",
+                "goal": "Split vague operator request into supervised lanes",
+                "target_branch": "main",
+                "work_order_counts": {"needs_human": 1},
+                "lanes": [
+                    {
+                        "work_order_id": "lane-a",
+                        "status": "needs_human",
+                        "branch": "codex/lane-a",
+                        "worktree_path": "/tmp/repo/.worktrees/lane-a",
+                        "receipt_id": "receipt-a",
+                    }
+                ],
+                "integrator_next_actions": ["Review lane-a and decide whether to narrow scope."],
+                "needs_human": [
+                    {
+                        "work_order_id": "lane-a",
+                        "title": "Lane A",
+                        "reasons": ["waiting for human choice"],
+                    }
+                ],
+            }
+            cmd_swarm(args)
+
+        call = mock_commander.run_supervised.await_args
+        assert call.args[0] == "Split vague operator request into supervised lanes"
+        assert call.kwargs["max_concurrency"] == 4
+        assert call.kwargs["dispatch"] is True
+        assert call.kwargs["wait"] is True
+        out = capsys.readouterr().out
+        assert "run_id=boss-run-1" in out
+        assert "work_orders=[needs_human=1]" in out
+        assert "next: Review lane-a and decide whether to narrow scope." in out
+        assert "needs_human: Lane A -> waiting for human choice" in out
+
+    def test_cmd_swarm_boss_mode_json_with_spec_emits_boss_payload(self, tmp_path: Path, capsys):
+        spec_path = tmp_path / "swarm-spec.yaml"
+        spec = SwarmSpec(
+            raw_goal="Run boss mode from spec",
+            refined_goal="Run boss mode from spec",
+            work_orders=[
+                {
+                    "work_order_id": "lane-b",
+                    "title": "Lane B",
+                    "file_scope": ["aragora/swarm/reporter.py"],
+                    "expected_tests": ["python -m pytest tests/swarm/test_commander.py -q"],
+                    "target_agent": "claude",
+                }
+            ],
+        )
+        spec_path.write_text(spec.to_yaml())
+        fake_run = _fake_supervisor_run(
+            run_id="boss-run-2",
+            status="active",
+            work_orders=[
+                {
+                    "work_order_id": "lane-b",
+                    "title": "Lane B",
+                    "status": "leased",
+                    "branch": "codex/lane-b",
+                    "worktree_path": "/tmp/repo/.worktrees/lane-b",
+                    "target_agent": "claude",
+                }
+            ],
+        )
+        mock_commander = SimpleNamespace(run_supervised_from_spec=AsyncMock(return_value=fake_run))
+        args = _swarm_args(
+            swarm_action_or_goal="boss",
+            spec=str(spec_path),
+            json=True,
+            concurrency_cap=2,
+        )
+
+        with (
+            patch("aragora.swarm.SwarmCommander", return_value=mock_commander),
+            patch("aragora.cli.commands.swarm._build_boss_payload") as build_payload,
+        ):
+            build_payload.return_value = {
+                "mode": "boss",
+                "run_id": "boss-run-2",
+                "status": "active",
+                "goal": "Run boss mode from spec",
+                "target_branch": "main",
+                "work_order_counts": {"leased": 1},
+                "lanes": [
+                    {
+                        "work_order_id": "lane-b",
+                        "status": "leased",
+                        "branch": "codex/lane-b",
+                        "worktree_path": "/tmp/repo/.worktrees/lane-b",
+                        "lease_id": "lease-b",
+                        "receipt_id": None,
+                        "next_action": "Wait for worker completion.",
+                    }
+                ],
+                "integrator_next_actions": ["Wait for worker completion."],
+                "needs_human": [],
+                "coordination_counts": {"active_leases": 1},
+                "integrator_summary": {"review_lanes": 0},
+            }
+            cmd_swarm(args)
+
+        call = mock_commander.run_supervised_from_spec.await_args
+        assert call.kwargs["max_concurrency"] == 4
+        assert call.kwargs["dispatch"] is True
+        assert call.kwargs["wait"] is True
+        out = capsys.readouterr().out
+        assert '"mode": "boss"' in out
+        assert '"run_id": "boss-run-2"' in out
+        assert '"integrator_next_actions": [' in out
+        assert '"coordination_counts": {' in out
 
     def test_cmd_swarm_reconcile_watch_uses_watch_run(self, capsys):
         args = _swarm_args(
