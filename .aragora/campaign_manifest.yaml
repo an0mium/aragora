@@ -1,0 +1,213 @@
+budget_limit_usd: 5.0
+campaign_id: campaign-dogfood-2026-03-10
+created_at: '2026-03-10T16:00:00+00:00'
+execution_state:
+  active_projects: []
+  completed_projects: []
+  failed_projects: []
+  last_result:
+    dispatched_projects: []
+    stop_reason: campaign_blocked
+  last_run_at: '2026-03-10T17:10:46.309589+00:00'
+  ready_queue: []
+  skipped_projects:
+  - proj-001
+  total_cost_usd: 3.0
+manifest_version: 1
+max_parallel_ready_projects: 1
+max_retries_per_project: 1
+planner_model: claude
+planning_findings: []
+projects:
+- acceptance_criteria:
+  - docs/guides/SWARM_DOGFOOD_OPERATOR.md contains a 'Campaign vs single-run swarm'
+    section
+  adopted_pr: None
+  branch: None
+  commit_shas: []
+  constraints:
+  - Only modify docs/guides/SWARM_DOGFOOD_OPERATOR.md
+  dependencies: []
+  estimated_cost_usd: 1.5
+  file_scope_hints:
+  - docs/guides/SWARM_DOGFOOD_OPERATOR.md
+  last_run_outcome: clean_exit_no_deliverable
+  pr_url: None
+  project_id: proj-001
+  receipt_id: None
+  retry_count: 2
+  review:
+    findings: []
+    raw_review: {}
+    required: true
+    review_model: claude
+    reviewed_at: None
+    status: pending
+  run_id: 4bcea52d-04c
+  source_refs: []
+  spec:
+    acceptance_criteria:
+    - docs/guides/SWARM_DOGFOOD_OPERATOR.md contains a new section titled 'Campaign
+      vs single-run swarm'
+    - The section explains that campaigns use a YAML manifest to track multiple projects
+    - The section mentions dependency ordering and heterogeneous review
+    - No other files are modified
+    budget_limit_usd: 1.5
+    constraints:
+    - Only modify docs/guides/SWARM_DOGFOOD_OPERATOR.md
+    - Do not modify any Python source files
+    - Keep the new section under 20 lines
+    - Do not remove or alter existing content
+    created_at: '2026-03-10T17:10:05.841824+00:00'
+    epistemic_scores: {}
+    estimated_complexity: medium
+    file_scope_hints:
+    - docs/guides/SWARM_DOGFOOD_OPERATOR.md
+    id: 3759f202-6450-4130-beaf-96e1965639c3
+    interrogation_turns: 0
+    obsidian_source: ''
+    pipeline_stage: ''
+    proactive_suggestions: []
+    raw_goal: Add a 'Campaign vs single-run swarm' section to docs/guides/SWARM_DOGFOOD_OPERATOR.md
+      explaining that campaigns wrap multiple single-run swarm dispatches into a persistent
+      manifest with dependency ordering and review gates.
+    refined_goal: Add a 'Campaign vs single-run swarm' section to docs/guides/SWARM_DOGFOOD_OPERATOR.md
+      explaining that campaigns wrap multiple single-run swarm dispatches into a persistent
+      manifest with dependency ordering and review gates.
+    requires_approval: false
+    research_context: {}
+    track_hints: []
+    user_expertise: non-developer
+    work_orders: []
+  status: skipped
+  title: Add campaign architecture summary to SWARM_DOGFOOD_OPERATOR.md
+- acceptance_criteria:
+  - docs/CLI_REFERENCE.md contains a campaign stop-reason quick-reference table
+  adopted_pr: None
+  branch: None
+  commit_shas: []
+  constraints:
+  - Only modify docs/CLI_REFERENCE.md
+  dependencies:
+  - project_id: proj-001
+    reason: 'sequential validation: proj-001 must complete before proj-002 starts'
+  estimated_cost_usd: 1.5
+  file_scope_hints:
+  - docs/CLI_REFERENCE.md
+  last_run_outcome: None
+  pr_url: None
+  project_id: proj-002
+  receipt_id: None
+  retry_count: 0
+  review:
+    findings: []
+    raw_review: {}
+    required: true
+    review_model: claude
+    reviewed_at: None
+    status: pending
+  run_id: None
+  source_refs: []
+  spec:
+    acceptance_criteria:
+    - docs/CLI_REFERENCE.md contains a table with all five campaign stop reasons
+    - The table appears in the 'aragora swarm campaign' section
+    - Each stop reason has a one-line description
+    - No other files are modified
+    budget_limit_usd: 1.5
+    constraints:
+    - Only modify docs/CLI_REFERENCE.md
+    - Do not modify any Python source files
+    - Keep the table under 10 lines
+    - Do not remove or alter existing content
+    created_at: '2026-03-10T17:10:05.841847+00:00'
+    epistemic_scores: {}
+    estimated_complexity: medium
+    file_scope_hints:
+    - docs/CLI_REFERENCE.md
+    id: 8b765b75-5170-4c8b-8a00-d71f598530af
+    interrogation_turns: 0
+    obsidian_source: ''
+    pipeline_stage: ''
+    proactive_suggestions: []
+    raw_goal: Add a 'Campaign stop reasons' quick-reference table to docs/CLI_REFERENCE.md
+      under the 'aragora swarm campaign' section. List all five stop reasons (still_running,
+      campaign_complete, campaign_blocked, budget_exhausted, time_limit_exceeded)
+      with one-line descriptions.
+    refined_goal: Add a 'Campaign stop reasons' quick-reference table to docs/CLI_REFERENCE.md
+      under the 'aragora swarm campaign' section. List all five stop reasons with
+      one-line descriptions.
+    requires_approval: false
+    research_context: {}
+    track_hints: []
+    user_expertise: non-developer
+    work_orders: []
+  status: pending
+  title: Add campaign stop-reason quick-reference to CLI_REFERENCE.md
+- acceptance_criteria:
+  - docs/guides/CAMPAIGN_OPERATOR.md contains a FAQ section with at least 3 entries
+  adopted_pr: None
+  branch: None
+  commit_shas: []
+  constraints:
+  - Only modify docs/guides/CAMPAIGN_OPERATOR.md
+  dependencies:
+  - project_id: proj-002
+    reason: 'sequential validation: proj-002 must complete before proj-003 starts'
+  estimated_cost_usd: 1.5
+  file_scope_hints:
+  - docs/guides/CAMPAIGN_OPERATOR.md
+  last_run_outcome: None
+  pr_url: None
+  project_id: proj-003
+  receipt_id: None
+  retry_count: 0
+  review:
+    findings: []
+    raw_review: {}
+    required: true
+    review_model: claude
+    reviewed_at: None
+    status: pending
+  run_id: None
+  source_refs: []
+  spec:
+    acceptance_criteria:
+    - docs/guides/CAMPAIGN_OPERATOR.md contains a new FAQ section
+    - The FAQ has at least 3 entries
+    - No other files are modified
+    budget_limit_usd: 1.5
+    constraints:
+    - Only modify docs/guides/CAMPAIGN_OPERATOR.md
+    - Do not modify any Python source files
+    - Keep each FAQ answer under 3 sentences
+    - Do not remove or alter existing content
+    created_at: '2026-03-10T17:10:05.841860+00:00'
+    epistemic_scores: {}
+    estimated_complexity: medium
+    file_scope_hints:
+    - docs/guides/CAMPAIGN_OPERATOR.md
+    id: 61c339e1-4b49-4a2b-bb65-77153adc8491
+    interrogation_turns: 0
+    obsidian_source: ''
+    pipeline_stage: ''
+    proactive_suggestions: []
+    raw_goal: 'Add a short FAQ section to docs/guides/CAMPAIGN_OPERATOR.md with three
+      entries: (1) How do I check campaign progress without dispatching? (2) What
+      happens if I ctrl-C during campaign run? (3) Can I add projects to an existing
+      manifest?'
+    refined_goal: Add a short FAQ section to docs/guides/CAMPAIGN_OPERATOR.md with
+      three entries covering progress checking, interruption safety, and manifest
+      editing.
+    requires_approval: false
+    research_context: {}
+    track_hints: []
+    user_expertise: non-developer
+    work_orders: []
+  status: pending
+  title: Add troubleshooting FAQ to CAMPAIGN_OPERATOR.md
+review_model: claude
+source_kind: prebuilt
+source_ref: manual dogfood manifest
+time_limit_hours: 2.0
+worker_model: claude
