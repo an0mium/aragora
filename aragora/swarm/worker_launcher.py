@@ -225,24 +225,26 @@ class WorkerLauncher:
             logger.warning("Worker %s timed out", work_order_id)
 
         worker.completed_at = datetime.now(UTC).isoformat()
-        worker.diff = await self._collect_diff(worker.worktree_path)
+        try:
+            worker.diff = await self._collect_diff(worker.worktree_path)
 
-        _exit_ok = worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
-        if self.config.auto_commit and worker.diff and _exit_ok:
-            await self._auto_commit(worker)
+            _exit_ok = worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
+            if self.config.auto_commit and worker.diff and _exit_ok:
+                await self._auto_commit(worker)
 
-        worker.head_sha = await self._git_output(worker.worktree_path, "rev-parse", "HEAD")
-        worker.commit_shas = await self._collect_commit_shas(
-            worker.worktree_path,
-            initial_head=worker.initial_head,
-            head_sha=worker.head_sha,
-        )
-        worker.changed_paths = await self._collect_changed_paths(
-            worker.worktree_path,
-            initial_head=worker.initial_head,
-            head_sha=worker.head_sha,
-        )
-        self._cleanup_session_artifacts(worker.worktree_path)
+            worker.head_sha = await self._git_output(worker.worktree_path, "rev-parse", "HEAD")
+            worker.commit_shas = await self._collect_commit_shas(
+                worker.worktree_path,
+                initial_head=worker.initial_head,
+                head_sha=worker.head_sha,
+            )
+            worker.changed_paths = await self._collect_changed_paths(
+                worker.worktree_path,
+                initial_head=worker.initial_head,
+                head_sha=worker.head_sha,
+            )
+        finally:
+            self._cleanup_session_artifacts(worker.worktree_path)
 
         logger.info(
             "Worker %s completed: exit=%s commits=%d changed_paths=%d",
@@ -579,24 +581,26 @@ class WorkerLauncher:
         worker.stderr = cls._read_log_file(worktree_path, "stderr")
         worker.exit_code = 0 if session_exit_code is None else session_exit_code
         worker.completed_at = session_completed_at or datetime.now(UTC).isoformat()
-        worker.diff = await cls._collect_diff(worktree_path)
+        try:
+            worker.diff = await cls._collect_diff(worktree_path)
 
-        _exit_ok = worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
-        if auto_commit and worker.diff and _exit_ok:
-            await cls._auto_commit(worker)
+            _exit_ok = worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
+            if auto_commit and worker.diff and _exit_ok:
+                await cls._auto_commit(worker)
 
-        worker.head_sha = await cls._git_output(worktree_path, "rev-parse", "HEAD")
-        worker.commit_shas = await cls._collect_commit_shas(
-            worktree_path,
-            initial_head=initial_head,
-            head_sha=worker.head_sha,
-        )
-        worker.changed_paths = await cls._collect_changed_paths(
-            worktree_path,
-            initial_head=initial_head,
-            head_sha=worker.head_sha,
-        )
-        cls._cleanup_session_artifacts(worktree_path)
+            worker.head_sha = await cls._git_output(worktree_path, "rev-parse", "HEAD")
+            worker.commit_shas = await cls._collect_commit_shas(
+                worktree_path,
+                initial_head=initial_head,
+                head_sha=worker.head_sha,
+            )
+            worker.changed_paths = await cls._collect_changed_paths(
+                worktree_path,
+                initial_head=initial_head,
+                head_sha=worker.head_sha,
+            )
+        finally:
+            cls._cleanup_session_artifacts(worktree_path)
 
         logger.info(
             "Collected detached worker %s: commits=%d changed_paths=%d",
