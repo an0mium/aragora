@@ -1,0 +1,372 @@
+budget_limit_usd: 8.0
+campaign_id: phase0a-bootstrap-governance
+created_at: "2026-03-10T21:30:00+00:00"
+execution_state:
+  active_projects: []
+  completed_projects: []
+  failed_projects: []
+  last_result: null
+  last_run_at: null
+  ready_queue: []
+  skipped_projects: []
+  total_cost_usd: 0.0
+manifest_version: 1
+max_parallel_ready_projects: 1
+max_retries_per_project: 1
+planner_model: claude
+planning_findings: []
+projects:
+  - project_id: phase0a-001
+    title: Draft canonical backend runtime ADR
+    status: pending
+    dependencies: []
+    estimated_cost_usd: 1.5
+    accepted_output: doc_patch
+    file_scope_hints:
+      - docs/ADR
+      - ROADMAP.md
+      - aragora/server/__main__.py
+      - aragora/server/unified_server.py
+      - aragora/server/fastapi/factory.py
+    constraints:
+      - Only create or modify documentation files under docs/ADR or docs/plans unless explicitly required by the ADR template
+      - Do not modify Python source files
+      - The ADR must identify one canonical backend runtime path and classify compatibility paths
+    acceptance_criteria:
+      - An ADR file exists for canonical backend runtime
+      - The ADR names the primary backend entrypoint
+      - The ADR explains the role of unified server versus FastAPI
+      - No production source files are modified
+    review:
+      required: true
+      review_model: claude
+      status: pending
+      findings: []
+      raw_review: {}
+      reviewed_at: null
+    spec:
+      id: phase0a-001
+      created_at: "2026-03-10T21:30:00+00:00"
+      raw_goal: >
+        Create a canonical backend runtime ADR that declares the primary Aragora
+        backend runtime path, explains the relationship between the unified
+        server and FastAPI migration surface, and classifies non-canonical
+        compatibility paths.
+      refined_goal: >
+        Write the canonical backend runtime ADR with clear entrypoint,
+        compatibility classification, and migration policy.
+      estimated_complexity: medium
+      budget_limit_usd: 1.5
+      requires_approval: false
+      user_expertise: non-developer
+      file_scope_hints:
+        - docs/ADR
+        - ROADMAP.md
+      constraints:
+        - Documentation only
+        - No Python or workflow file edits
+      acceptance_criteria:
+        - ADR committed under docs/ADR
+        - Canonical backend entrypoint named
+        - Compatibility paths listed
+        - Unified server and FastAPI relationship stated
+      research_context: {}
+      epistemic_scores: {}
+      proactive_suggestions: []
+      track_hints: []
+      pipeline_stage: bootstrap_phase0a
+      interrogation_turns: 0
+      work_orders: []
+      obsidian_source: ""
+    adopted_pr: null
+    branch: null
+    commit_shas: []
+    pr_url: null
+    receipt_id: null
+    retry_count: 0
+    run_id: null
+    source_refs: []
+
+  - project_id: phase0a-002
+    title: Draft canonical worker model ADR
+    status: pending
+    dependencies:
+      - project_id: phase0a-001
+        reason: worker ADR should align with declared canonical runtime vocabulary
+    estimated_cost_usd: 1.0
+    accepted_output: doc_patch
+    file_scope_hints:
+      - docs/ADR
+      - scripts/queue_worker.py
+      - deploy/docker-compose.production.yml
+      - deploy/kubernetes/helm/aragora/values.yaml
+    constraints:
+      - Documentation only
+      - Do not modify Python source files
+      - The ADR must name the canonical worker invocation and note known deploy drift
+    acceptance_criteria:
+      - An ADR file exists for canonical worker model
+      - The canonical worker entrypoint is named
+      - Alternate worker paths are classified
+      - No production source files are modified
+    review:
+      required: true
+      review_model: claude
+      status: pending
+      findings: []
+      raw_review: {}
+      reviewed_at: null
+    spec:
+      id: phase0a-002
+      created_at: "2026-03-10T21:30:00+00:00"
+      raw_goal: >
+        Create a canonical worker model ADR that declares the official worker
+        process path, lifecycle, and deploy references, and records any current
+        drift between deploy surfaces.
+      refined_goal: >
+        Write the worker-model ADR with canonical command, deploy mapping, and
+        compatibility notes.
+      estimated_complexity: medium
+      budget_limit_usd: 1.0
+      requires_approval: false
+      user_expertise: non-developer
+      file_scope_hints:
+        - docs/ADR
+      constraints:
+        - Documentation only
+      acceptance_criteria:
+        - ADR committed under docs/ADR
+        - Canonical worker invocation named
+        - Drift with deploy configs called out
+        - Alternate worker paths classified
+      research_context: {}
+      epistemic_scores: {}
+      proactive_suggestions: []
+      track_hints: []
+      pipeline_stage: bootstrap_phase0a
+      interrogation_turns: 0
+      work_orders: []
+      obsidian_source: ""
+    adopted_pr: null
+    branch: null
+    commit_shas: []
+    pr_url: null
+    receipt_id: null
+    retry_count: 0
+    run_id: null
+    source_refs: []
+
+  - project_id: phase0a-003
+    title: Generate subsystem ledger
+    status: pending
+    dependencies:
+      - project_id: phase0a-001
+        reason: subsystem status should align with canonical runtime framing
+    estimated_cost_usd: 1.5
+    accepted_output: doc_patch
+    file_scope_hints:
+      - docs
+      - ROADMAP.md
+      - aragora
+    constraints:
+      - Documentation only
+      - No source-code changes
+      - Use statuses: canonical, core-but-messy, expansion, compatibility, defer
+    acceptance_criteria:
+      - A subsystem ledger document exists under docs
+      - Major top-level Aragora packages are classified
+      - Canonical subsystems are explicitly named
+      - No production source files are modified
+    review:
+      required: true
+      review_model: claude
+      status: pending
+      findings: []
+      raw_review: {}
+      reviewed_at: null
+    spec:
+      id: phase0a-003
+      created_at: "2026-03-10T21:30:00+00:00"
+      raw_goal: >
+        Create a subsystem ledger that classifies major top-level Aragora
+        packages into canonical, core-but-messy, expansion, compatibility, and
+        defer buckets for governance use.
+      refined_goal: >
+        Write the subsystem classification ledger with concise rationale per
+        major package area.
+      estimated_complexity: medium
+      budget_limit_usd: 1.5
+      requires_approval: false
+      user_expertise: non-developer
+      file_scope_hints:
+        - docs
+      constraints:
+        - Documentation only
+      acceptance_criteria:
+        - Ledger committed under docs
+        - Top-level package areas classified
+        - Canonical areas clearly identified
+      research_context: {}
+      epistemic_scores: {}
+      proactive_suggestions: []
+      track_hints: []
+      pipeline_stage: bootstrap_phase0a
+      interrogation_turns: 0
+      work_orders: []
+      obsidian_source: ""
+    adopted_pr: null
+    branch: null
+    commit_shas: []
+    pr_url: null
+    receipt_id: null
+    retry_count: 0
+    run_id: null
+    source_refs: []
+
+  - project_id: phase0a-004
+    title: Generate entrypoint inventory
+    status: pending
+    dependencies:
+      - project_id: phase0a-001
+        reason: entrypoint classification depends on canonical runtime framing
+      - project_id: phase0a-002
+        reason: worker inventory should align with worker ADR
+    estimated_cost_usd: 2.0
+    accepted_output: doc_patch
+    file_scope_hints:
+      - docs
+      - Makefile
+      - deploy
+      - aragora/server
+      - aragora/cli
+      - scripts
+    constraints:
+      - Documentation only
+      - No source-code changes
+      - Must classify backend, CLI, worker, frontend, websocket, and scheduled-job entrypoints
+    acceptance_criteria:
+      - An entrypoint inventory exists under docs
+      - Inventory covers backend, CLI, worker, frontend, websocket, and scheduled jobs
+      - Each entrypoint is classified
+      - No production source files are modified
+    review:
+      required: true
+      review_model: claude
+      status: pending
+      findings: []
+      raw_review: {}
+      reviewed_at: null
+    spec:
+      id: phase0a-004
+      created_at: "2026-03-10T21:30:00+00:00"
+      raw_goal: >
+        Generate a reproducible inventory of actual execution surfaces in the
+        repo, covering backend, CLI, worker, frontend, websocket, and scheduled
+        jobs, and classify each by status.
+      refined_goal: >
+        Produce the runtime entrypoint inventory as a governance artifact.
+      estimated_complexity: medium
+      budget_limit_usd: 2.0
+      requires_approval: false
+      user_expertise: non-developer
+      file_scope_hints:
+        - docs
+      constraints:
+        - Documentation only
+      acceptance_criteria:
+        - Inventory committed under docs
+        - Required entrypoint classes included
+        - Entrypoint statuses recorded
+      research_context: {}
+      epistemic_scores: {}
+      proactive_suggestions: []
+      track_hints: []
+      pipeline_stage: bootstrap_phase0a
+      interrogation_turns: 0
+      work_orders: []
+      obsidian_source: ""
+    adopted_pr: null
+    branch: null
+    commit_shas: []
+    pr_url: null
+    receipt_id: null
+    retry_count: 0
+    run_id: null
+    source_refs: []
+
+  - project_id: phase0a-005
+    title: Generate deploy truth table
+    status: pending
+    dependencies:
+      - project_id: phase0a-001
+        reason: deploy truth must reference canonical backend runtime
+      - project_id: phase0a-002
+        reason: deploy truth must reference canonical worker model
+      - project_id: phase0a-004
+        reason: deploy truth should build on the runtime inventory
+    estimated_cost_usd: 2.0
+    accepted_output: doc_patch
+    file_scope_hints:
+      - docs
+      - deploy
+      - pyproject.toml
+      - Makefile
+    constraints:
+      - Documentation only
+      - No workflow or Python source edits in this phase
+      - Must call out current deploy/runtime drift explicitly
+    acceptance_criteria:
+      - A deploy truth table document exists under docs
+      - It maps environment to actual backend and worker commands
+      - It identifies known drift and mismatches
+      - No production source files are modified
+    review:
+      required: true
+      review_model: claude
+      status: pending
+      findings: []
+      raw_review: {}
+      reviewed_at: null
+    spec:
+      id: phase0a-005
+      created_at: "2026-03-10T21:30:00+00:00"
+      raw_goal: >
+        Create a deploy truth table that maps each environment and deploy surface
+        to the real backend and worker commands currently used, while explicitly
+        identifying drift and mismatches.
+      refined_goal: >
+        Write the deploy truth table as the final governance artifact in the
+        initial bootstrap Phase 0A lane.
+      estimated_complexity: medium
+      budget_limit_usd: 2.0
+      requires_approval: false
+      user_expertise: non-developer
+      file_scope_hints:
+        - docs
+      constraints:
+        - Documentation only
+      acceptance_criteria:
+        - Truth table committed under docs
+        - Environment-to-command mapping included
+        - Drift explicitly identified
+      research_context: {}
+      epistemic_scores: {}
+      proactive_suggestions: []
+      track_hints: []
+      pipeline_stage: bootstrap_phase0a
+      interrogation_turns: 0
+      work_orders: []
+      obsidian_source: ""
+    adopted_pr: null
+    branch: null
+    commit_shas: []
+    pr_url: null
+    receipt_id: null
+    retry_count: 0
+    run_id: null
+    source_refs: []
+review_model: claude
+source_kind: bootstrap
+source_ref: bootstrap-gates phase0a governance lane
+time_limit_hours: 6.0
+worker_model: codex

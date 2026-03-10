@@ -166,10 +166,22 @@ class SwarmSupervisor:
         managed_dir_pattern: str = ".worktrees/{agent}-auto",
         approval_policy: SwarmApprovalPolicy | None = None,
         refresh_scaling: bool = True,
+        default_target_agent: str | None = None,
+        default_reviewer_agent: str | None = None,
     ) -> SupervisorRun:
         goal = spec.refined_goal or spec.raw_goal
         policy = approval_policy or SwarmApprovalPolicy()
         work_orders = [item.to_dict() for item in self._build_supervised_work_orders(spec)]
+        if default_target_agent:
+            for item in work_orders:
+                item["target_agent"] = default_target_agent
+                if not default_reviewer_agent and not str(item.get("reviewer_agent", "")).strip():
+                    item["reviewer_agent"] = (
+                        "claude" if default_target_agent == "codex" else "codex"
+                    )
+        if default_reviewer_agent:
+            for item in work_orders:
+                item["reviewer_agent"] = default_reviewer_agent
         for item in work_orders:
             item.setdefault("status", "queued")
             item.setdefault("lease_id", None)

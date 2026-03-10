@@ -424,6 +424,127 @@ class BossLoopConfig:
 # ---------------------------------------------------------------------------
 
 
+def _classify_terminal_run_outcome(run_dict: dict[str, Any]) -> str:
+    """Map a supervisor run dict to a stable outcome classification."""
+    status = str(run_dict.get("status", "")).strip().lower()
+    if status == "completed":
+        deliverable = _extract_deliverable(run_dict)
+        if deliverable is None:
+            return "clean_exit_no_deliverable"
+        if deliverable.get("type") == "adopted_pr":
+            return "pr_adopted"
+        return "deliverable_created"
+    if status == "needs_human":
+        return "needs_human"
+
+    details = json.dumps(run_dict, sort_keys=True).lower()
+    if "timeout" in details:
+        return "timeout"
+    if "exit_code" in details or "traceback" in details or "crash" in details:
+        return "crash"
+    return "blocked"
+
+
+async def dispatch_bounded_spec(
+    spec: Any,
+    *,
+    target_branch: str = "main",
+    budget_limit_usd: float = 5.0,
+    max_ticks: int = 360,
+    repo_path: Any | None = None,
+    default_target_agent: str | None = None,
+    default_reviewer_agent: str | None = None,
+) -> dict[str, Any]:
+    """Dispatch one bounded spec via the supervisor-backed Boss path.
+
+    This reuses the Boss loop's concrete-deliverable gate so higher-level
+    orchestrators do not implement their own divergent run classification.
+    """
+    from aragora.swarm.commander import SwarmCommander
+    from aragora.swarm.config import SwarmCommanderConfig
+    from aragora.swarm.supervisor import SwarmApprovalPolicy
+
+    if not spec.is_dispatch_bounded():
+        return {
+            "status": "failed",
+            "outcome": "blocked",
+            "error": spec.dispatch_gate_reason(),
+        }
+
+    try:
+        config = SwarmCommanderConfig(
+            budget_limit_usd=budget_limit_usd,
+            require_approval=True,
+        )
+        commander = SwarmCommander(config=config)
+        run = await commander.run_supervised_from_spec(
+            spec,
+            repo_path=repo_path,
+            target_branch=target_branch,
+            max_concurrency=1,
+            approval_policy=SwarmApprovalPolicy(
+                require_merge_approval=True,
+                require_external_action_approval=True,
+            ),
+            dispatch=True,
+            wait=True,
+            interval_seconds=5.0,
+            max_ticks=max_ticks,
+            default_target_agent=default_target_agent,
+            default_reviewer_agent=default_reviewer_agent,
+        )
+        run_dict = run.to_dict()
+        outcome = _classify_terminal_run_outcome(run_dict)
+        deliverable = _extract_deliverable(run_dict)
+        if outcome in {"deliverable_created", "pr_adopted"}:
+            return {
+                "status": "completed",
+                "outcome": outcome,
+                "run": run_dict,
+                "run_id": run_dict.get("run_id"),
+                "deliverable": deliverable,
+            }
+        if outcome == "clean_exit_no_deliverable":
+            return {
+                "status": "needs_human",
+                "outcome": outcome,
+                "run": run_dict,
+                "run_id": run_dict.get("run_id"),
+                "reasons": [
+                    "Run reported completed but produced no concrete deliverable "
+                    "(no pushed branch, no PR, no committed artifact)."
+                ],
+            }
+        if outcome == "needs_human":
+            reasons: list[str] = []
+            for wo in run_dict.get("work_orders", []):
+                if isinstance(wo, dict):
+                    for blocker in wo.get("blockers", []):
+                        reasons.append(str(blocker))
+                    err = wo.get("dispatch_error")
+                    if err:
+                        reasons.append(str(err))
+            return {
+                "status": "needs_human",
+                "outcome": outcome,
+                "run": run_dict,
+                "run_id": run_dict.get("run_id"),
+                "reasons": reasons or ["Worker reached needs_human state."],
+            }
+        return {
+            "status": "failed",
+            "outcome": outcome,
+            "run": run_dict,
+            "run_id": run_dict.get("run_id"),
+            "error": f"Run ended with status: {run_dict.get('status', '')}",
+        }
+    except ValueError as exc:
+        return {"status": "failed", "outcome": "blocked", "error": str(exc)}
+    except Exception as exc:
+        logger.warning("Bounded spec dispatch failed: %s", exc)
+        return {"status": "failed", "outcome": "crash", "error": str(exc)}
+
+
 def _extract_deliverable(run_dict: dict[str, Any]) -> dict[str, Any] | None:
     """Check a completed run for a concrete deliverable.
 
@@ -775,68 +896,17 @@ class BossLoop:
                 f"{spec.dispatch_gate_reason()}",
             }
 
-        try:
-            from aragora.swarm.commander import SwarmCommander
-            from aragora.swarm.config import SwarmCommanderConfig
-            from aragora.swarm.supervisor import SwarmApprovalPolicy
-
-            config = SwarmCommanderConfig(
-                budget_limit_usd=self.config.budget_limit_usd,
-                require_approval=True,
-            )
-            commander = SwarmCommander(config=config)
-            run = await commander.run_supervised_from_spec(
-                spec,
-                target_branch=self.config.target_branch,
-                max_concurrency=1,
-                approval_policy=SwarmApprovalPolicy(
-                    require_merge_approval=True,
-                    require_external_action_approval=True,
-                ),
-                dispatch=True,
-                wait=True,
-                interval_seconds=5.0,
-                max_ticks=360,
-            )
-
-            run_dict = run.to_dict()
-            status = str(run_dict.get("status", "")).strip()
-
-            if status == "completed":
-                deliverable = _extract_deliverable(run_dict)
-                if deliverable is None:
-                    return {
-                        "status": "needs_human",
-                        "reasons": [
-                            "Run reported completed but produced no concrete deliverable "
-                            "(no pushed branch, no PR, no committed artifact). "
-                            "Check worker worktree for uncommitted changes."
-                        ],
-                        "run": run_dict,
-                    }
-                return {"status": "completed", "deliverable": deliverable, "run": run_dict}
-            if status == "needs_human":
-                reasons: list[str] = []
-                for wo in run_dict.get("work_orders", []):
-                    if isinstance(wo, dict):
-                        for blocker in wo.get("blockers", []):
-                            reasons.append(str(blocker))
-                        err = wo.get("dispatch_error")
-                        if err:
-                            reasons.append(str(err))
-                return {
-                    "status": "needs_human",
-                    "reasons": reasons or ["Worker reached needs_human state."],
-                    "run": run_dict,
-                }
-
-            return {"status": "failed", "error": f"Run ended with status: {status}"}
-
-        except ValueError as exc:
-            return {"status": "failed", "error": str(exc)}
-        except Exception as exc:
-            logger.warning("Boss dispatch failed for issue #%d: %s", issue.number, exc)
-            return {"status": "failed", "error": str(exc)}
+        result = await dispatch_bounded_spec(
+            spec,
+            target_branch=self.config.target_branch,
+            budget_limit_usd=self.config.budget_limit_usd,
+            max_ticks=360,
+        )
+        if result.get("status") == "failed":
+            error = str(result.get("error", "")).strip()
+            if error:
+                logger.warning("Boss dispatch failed for issue #%d: %s", issue.number, error)
+        return result
 
     def _collect_needs_human_reasons(self) -> list[str]:
         """Collect all needs-human reasons across iterations."""

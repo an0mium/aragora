@@ -1,0 +1,344 @@
+# Bootstrap Plan: Make Aragora Build Aragora
+
+**Date:** March 10, 2026
+**Updated:** March 10, 2026 (revised to incorporate dogfood #6 evidence
+and phased governance-first approach)
+
+**Goal:** Prove that Aragora can govern its own planning and verification
+loop in a narrow safe lane, then expand by evidence until it can autonomously
+execute a structured hardening backlog against the rest of the codebase.
+
+## Related Documents
+
+- **Execution gating policy:**
+  [`docs/plans/2026-03-10-bootstrap-gates.md`](2026-03-10-bootstrap-gates.md)
+- **First evidence report:**
+  [`docs/plans/2026-03-10-dogfood-6-evidence.md`](2026-03-10-dogfood-6-evidence.md)
+- **Phase 0A campaign manifest:**
+  [`docs/plans/phase0a_campaign_manifest.yaml`](phase0a_campaign_manifest.yaml)
+- **Existing roadmap:**
+  [`ROADMAP.md`](/ROADMAP.md)
+
+## Core Principle
+
+Autonomy expands by proof, not by confidence.
+
+One successful dogfood run does not prove readiness. Ten consecutive bounded
+tasks without manual rescue begin to prove readiness. The plan is structured
+so that each phase's exit gate must be met before the next phase's scope is
+unlocked.
+
+## Situation Assessment
+
+### What the swarm engine can do today
+
+The core infrastructure is real and works:
+
+- **WorkerLauncher** spawns Claude/Codex CLI processes via subprocess
+- **SwarmSupervisor** provisions worktrees, dispatches work orders, collects results
+- **DevCoordinationStore** manages work leases with ACID semantics in SQLite
+- **CampaignExecutor** tracks multi-ticket manifests with dependency ordering
+- **SwarmReconciler** periodically advances leases and collects worker results
+- **HardenedOrchestrator** has safety gates (skill scanning, canary tokens, review)
+
+### What dogfood #6 proved
+
+On March 10, 2026, the first confirmed end-to-end campaign execution:
+
+- Worker dispatch succeeded
+- Worker produced a real file change (20-line doc)
+- Auto-commit succeeded
+- Deliverable extraction succeeded
+- Cross-agent review executed and passed
+- Campaign state was updated to mark the project completed
+- Dependency handling blocked downstream project correctly
+
+See full evidence: `docs/plans/2026-03-10-dogfood-6-evidence.md`
+
+### Known gaps in the engine
+
+| Gap | Effect | Severity |
+|-----|--------|----------|
+| No circuit breaker per worker type | System retries failed workers indefinitely | Critical |
+| Silent failure on worker crash | Tickets stuck in active queue forever | Critical |
+| Quality gates disabled by default | Invalid code merges without verification | Critical |
+| Merge-gate tests never run | Changes accepted without any test execution | High |
+| No cost controls enforced | Budget can be exhausted without warning | High |
+| No deadlock detection | System wedges if all workers fail | High |
+| Artifact cleanup races | Future workers inherit dirty worktrees | Medium |
+| No end-to-end integration test | Only dogfood #6 as proof | High |
+
+These gaps are real but they do NOT block Phase 0A governance work. They block
+Phase 0B code-change work. The phasing below accounts for this.
+
+---
+
+## Phase 0A: Prove Governance (Current Phase)
+
+### Goal
+
+Prove that Aragora can plan, assign, cross-check, and complete documentation
+tasks in a narrow safe lane without human rescue.
+
+### Scope: documentation and governance artifacts only
+
+- ADR generation
+- Subsystem ledger
+- Entrypoint inventory
+- Deploy truth table
+- Campaign manifests and receipts
+
+### NOT allowed in this phase
+
+- Autonomous merges to main
+- Production source file changes
+- Schema migrations
+- Broad refactors
+- Feature generation
+
+### Campaign: 5 governance tasks
+
+See `docs/plans/phase0a_campaign_manifest.yaml` for the full manifest.
+
+| Task | Title | Depends On | Est. Cost |
+|------|-------|------------|-----------|
+| phase0a-001 | Draft canonical backend runtime ADR | none | $1.50 |
+| phase0a-002 | Draft canonical worker model ADR | 001 | $1.00 |
+| phase0a-003 | Generate subsystem ledger | 001 | $1.50 |
+| phase0a-004 | Generate entrypoint inventory | 001, 002 | $2.00 |
+| phase0a-005 | Generate deploy truth table | 001, 002, 004 | $2.00 |
+
+**Budget:** $8.00 total
+**Worker model:** codex
+**Review model:** claude
+**Human oversight:** Review every PR before merge
+
+### Exit gate
+
+Phase 0A is complete ONLY when:
+- 10 consecutive documentation/governance tasks complete without manual rescue
+- Each task emits plan, diff, verification, and receipt artifacts
+- No silent failures
+- No duplicate or conflicting task execution
+- Every rejected task has a recorded rejection reason
+
+**Current progress: 1/10** (dogfood #6)
+
+---
+
+## Phase 0B: Prove Verified Execution
+
+### Goal
+
+Prove that Aragora can make small code changes in canonical paths and verify
+them correctly before any autonomous merge authority is widened.
+
+### Scope: small code changes in canonical subsystems
+
+- CI/config drift fixes
+- Packaging truth fixes
+- Deploy command normalization
+- Startup-path cleanup
+- Small health check additions
+- Test additions in canonical subsystems
+
+### Engine hardening tickets (done during this phase)
+
+These address the known gaps from the situation assessment. They are
+self-referential: the swarm engine fixes itself under human oversight.
+
+| Ticket | Title | Files |
+|--------|-------|-------|
+| B-1 | Circuit breaker per worker type | `swarm/worker_launcher.py`, `swarm/supervisor.py` |
+| B-2 | Failure escalation and ticket recovery | `swarm/supervisor.py`, `swarm/campaign.py` |
+| B-3 | Budget controls enforcement | `nomic/hardened_orchestrator.py`, `swarm/campaign.py` |
+| B-4 | Deadlock detection | `swarm/reconciler.py`, `swarm/campaign.py` |
+| B-5 | Merge gate with test execution | `swarm/supervisor.py`, `swarm/worker_launcher.py` |
+| B-6 | Enable quality gates by default | `nomic/hardened_orchestrator.py` |
+| B-7 | End-to-end swarm integration test | `tests/swarm/test_integration_e2e.py` |
+
+### Constraints
+
+- Merge gate always enabled
+- Human approval required for every merge
+- Cost and budget caps enforced
+- Truth-suite lane required for merge eligibility
+
+### Exit gate
+
+Phase 0B is complete ONLY when:
+- 10 consecutive code-change tasks succeed in canonical subsystems
+- All changes pass required checks and truth-suite
+- At least 3 tasks include composed verification (not only unit tests)
+- No merge is reverted because of orchestrator-caused regression
+- No budget overrun without escalation
+
+---
+
+## Phase 1: Controlled Self-Repair
+
+### Goal
+
+Allow Aragora to fix core architectural debt under explicit boundaries.
+
+### Scope
+
+- Backend consolidation (unified server vs FastAPI)
+- API surface classification (/api/v1 vs /api/v2)
+- Domain boundary enforcement (static import checks in CI)
+- Memory/knowledge contract cleanup
+- Nomic subsystem hardening
+- Worker/runtime normalization
+- Test taxonomy and truth-suite expansion
+
+### Campaign manifest (7 tickets from original P1 backlog)
+
+| Task | Title |
+|------|-------|
+| P1-8 | Backend Classification: Unified Server vs FastAPI |
+| P1-9 | API Surface Matrix |
+| P1-10 | Remove Duplicate Startup Logic |
+| P1-11 | Domain Boundary Rules |
+| P1-12 | Static Boundary Enforcement |
+| P1-13 | Memory/Knowledge Architecture Map |
+| P1-14 | Nomic Subsystem Spec |
+
+### Constraints
+
+- Work limited to canonical and core-but-messy subsystems
+- No autonomous schema migrations without approval
+- No autonomous broad refactor without prior split plan
+- No deletion campaign without residue inventory and rollback plan
+
+### Exit gate
+
+- Canonical runtime story is implemented, not just documented
+- Worker model normalized across deploy surfaces
+- Boundary checks block new cross-layer drift
+- Truth-suite required in CI for canonical changes
+
+---
+
+## Phase 2: Broader Repo Repair
+
+### Goal
+
+Repair broader repo structure after proving control of the core.
+
+### Scope
+
+- Handler rationalization (classify 718 handler files)
+- Frontend contract cleanup (map pages to backend APIs)
+- Selective connector cleanup
+- Compatibility reduction
+- Large-file decomposition
+- Residue inventory and retirement planning
+- Test taxonomy and CI tiering
+
+### Campaign manifest (8 tickets from original P2 backlog)
+
+| Task | Title |
+|------|-------|
+| P2-15 | Truth-Suite: Backend Startup Smoke |
+| P2-16 | Truth-Suite: Debate Flow |
+| P2-17 | Truth-Suite: Worker Flow |
+| P2-18 | Truth-Suite: Persistence Flow |
+| P2-19 | Observability Baseline |
+| P2-20 | Frontend Contract Map |
+| P2-21 | Large-File Refactor Plan |
+| P2-22 | Test Taxonomy And CI Tiering |
+
+### Constraints
+
+- No speculative new product surfaces
+- No bulk connector generation
+- No large autonomous migrations across undefined boundaries
+
+### Exit gate
+
+- Rollback rate remains low
+- Orchestrator-caused regressions remain near zero
+- Quality gates remain on by default
+- Verification artifacts remain complete and reproducible
+
+---
+
+## Hard Stop Conditions
+
+If any of the following occur, autonomy drops back one phase immediately:
+
+- Silent task loss
+- Merge without real verification
+- Repeated stuck workers without escalation
+- Budget overrun without explicit approval
+- Production-path regression caused by orchestrator-issued change
+- Campaign outputs contradict accepted ADRs or subsystem contracts
+- Duplicate execution of the same task causing conflicting changes
+
+---
+
+## Machine-Readable Receipt Format
+
+Every completed task must persist:
+
+```yaml
+task_id: <string>
+campaign_id: <string>
+phase: <0a|0b|1|2>
+manifest_input: <path to manifest>
+worker_branch: <branch name>
+worker_commit: <sha>
+changed_files: [<paths>]
+review_verdict: <passed|failed|skipped>
+verification_results:
+  pytest_exit_code: <int|null>
+  syntax_check: <passed|failed|null>
+  truth_suite: <passed|failed|null>
+final_status: <completed|failed|rejected|stalled>
+failure_classification: <null|worker_crash|timeout|scope_violation|test_failure|budget|stall>
+cost_usd: <float>
+duration_seconds: <int>
+```
+
+---
+
+## What This Plan Does NOT Cover
+
+- Rewriting the debate engine (it works)
+- Deleting scaffolded subsystems (defer until core is solid)
+- Frontend redesign (defer)
+- External pen test for SOC 2 (vendor-dependent)
+- ERC-8004 deployment (defer)
+- New feature development (freeze during bootstrap)
+
+The entire point of this plan is to make the engine trustworthy first, then
+let it handle everything else.
+
+---
+
+## Execution Sequence
+
+### Now: Run Phase 0A campaign
+
+Feed `docs/plans/phase0a_campaign_manifest.yaml` to the swarm in a dogfood
+worktree. Human reviews every PR. Target: 5 governance artifacts merged.
+
+### After 10 consecutive governance successes: Begin Phase 0B
+
+Execute engine hardening tickets (B-1 through B-7) through the swarm with
+human approval on every merge. Target: swarm can verify its own code changes.
+
+### After 10 consecutive code-change successes: Begin Phase 1
+
+Execute P1 backlog (domain boundaries, consolidation) with decreasing human
+oversight. Target: subsystem boundaries enforced, canonical runtime implemented.
+
+### After Phase 1 exit gate: Begin Phase 2
+
+Execute P2 backlog (truth-suite, observability, cleanup) with weekly human
+review. Target: confidence infrastructure complete.
+
+### After Phase 2 exit gate: General autonomy
+
+Aragora can accept campaign manifests targeting any subsystem with standard
+quality gates and observability.
