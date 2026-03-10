@@ -229,7 +229,15 @@ class WorkerLauncher:
             worker.diff = await self._collect_diff(worker.worktree_path)
 
             _exit_ok = worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
-            if self.config.auto_commit and worker.diff and _exit_ok:
+            # For salvageable non-zero exits (e.g. SIGPIPE 141), the worker
+            # may have valid unstaged changes that ``git diff HEAD`` missed
+            # (timeout, binary-only files, etc.).  Fall back to
+            # ``git status --porcelain`` so the salvage commit is not skipped.
+            _has_changes = bool(worker.diff) or (
+                worker.exit_code in _SALVAGEABLE_EXIT_CODES
+                and await self._has_working_tree_changes(worker.worktree_path)
+            )
+            if self.config.auto_commit and _has_changes and _exit_ok:
                 await self._auto_commit(worker)
 
             worker.head_sha = await self._git_output(worker.worktree_path, "rev-parse", "HEAD")
@@ -496,6 +504,24 @@ class WorkerLauncher:
             return ""
 
     @classmethod
+    async def _has_working_tree_changes(cls, worktree_path: str) -> bool:
+        """Check for real (non-artifact) working-tree changes via git status.
+
+        This is a robust fallback for ``_collect_diff`` which relies on
+        ``git diff HEAD`` — that command can return empty on timeout, error,
+        or when only binary files changed.  ``git status --porcelain`` is
+        cheaper and more reliable for a yes/no dirty-tree check.
+        """
+        status = await cls._git_output(worktree_path, "status", "--porcelain")
+        for line in status.splitlines():
+            if len(line) < 4:
+                continue
+            path = line[3:].strip()
+            if path and path not in SESSION_ARTIFACTS:
+                return True
+        return False
+
+    @classmethod
     async def _collect_diff(cls, worktree_path: str) -> str:
         return await cls._git_output(worktree_path, "diff", "HEAD")
 
@@ -585,7 +611,15 @@ class WorkerLauncher:
             worker.diff = await cls._collect_diff(worktree_path)
 
             _exit_ok = worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
-            if auto_commit and worker.diff and _exit_ok:
+            # For salvageable non-zero exits (e.g. SIGPIPE 141), the worker
+            # may have valid unstaged changes that ``git diff HEAD`` missed
+            # (timeout, binary-only files, etc.).  Fall back to
+            # ``git status --porcelain`` so the salvage commit is not skipped.
+            _has_changes = bool(worker.diff) or (
+                worker.exit_code in _SALVAGEABLE_EXIT_CODES
+                and await cls._has_working_tree_changes(worktree_path)
+            )
+            if auto_commit and _has_changes and _exit_ok:
                 await cls._auto_commit(worker)
 
             worker.head_sha = await cls._git_output(worktree_path, "rev-parse", "HEAD")
@@ -685,7 +719,15 @@ class WorkerLauncher:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            await asyncio.wait_for(add_proc.communicate(), timeout=10)
+            _, add_stderr = await asyncio.wait_for(add_proc.communicate(), timeout=10)
+            if add_proc.returncode != 0:
+                logger.warning(
+                    "git add -A failed for %s (rc=%s): %s",
+                    worker.work_order_id,
+                    add_proc.returncode,
+                    (add_stderr or b"").decode(errors="replace").strip(),
+                )
+                return
 
             # Unstage session artifacts — ignore errors if files are not staged
             for artifact in SESSION_ARTIFACTS:
@@ -701,6 +743,25 @@ class WorkerLauncher:
                 )
                 await asyncio.wait_for(reset_proc.communicate(), timeout=5)
 
+            # Verify something is actually staged before committing
+            diff_index_proc = await asyncio.create_subprocess_exec(
+                "git",
+                "diff",
+                "--cached",
+                "--quiet",
+                cwd=worker.worktree_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await asyncio.wait_for(diff_index_proc.communicate(), timeout=5)
+            if diff_index_proc.returncode == 0:
+                # returncode 0 means no staged changes — nothing to commit
+                logger.info(
+                    "No staged changes for %s after git add — skipping commit",
+                    worker.work_order_id,
+                )
+                return
+
             if worker.exit_code is not None and worker.exit_code != 0:
                 msg = (
                     f"fix(swarm): salvage {worker.agent} work for "
@@ -713,11 +774,17 @@ class WorkerLauncher:
                 "commit",
                 "-m",
                 msg,
-                "--allow-empty",
                 cwd=worker.worktree_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            await asyncio.wait_for(commit_proc.communicate(), timeout=10)
+            _, commit_stderr = await asyncio.wait_for(commit_proc.communicate(), timeout=10)
+            if commit_proc.returncode != 0:
+                logger.warning(
+                    "git commit failed for %s (rc=%s): %s",
+                    worker.work_order_id,
+                    commit_proc.returncode,
+                    (commit_stderr or b"").decode(errors="replace").strip(),
+                )
         except (asyncio.TimeoutError, FileNotFoundError, OSError) as exc:
             logger.warning("Auto-commit failed for %s: %s", worker.work_order_id, exc)

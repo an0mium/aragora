@@ -55,6 +55,10 @@ def _run(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(list(args), cwd=cwd, text=True, capture_output=True, check=True)
 
 
+def _head(repo: Path) -> str:
+    return _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+
 # ---------------------------------------------------------------------------
 # SESSION_ARTIFACTS constant
 # ---------------------------------------------------------------------------
@@ -359,8 +363,9 @@ class TestAutoCommitSessionArtifactPrevention:
         assert "work.txt" in committed_files
         assert ".codex_session.log" not in committed_files
 
-    def test_auto_commit_only_artifacts_produces_empty_commit(self, repo: Path) -> None:
-        """If only session artifacts exist, auto-commit produces an allow-empty commit."""
+    def test_auto_commit_only_artifacts_skips_commit(self, repo: Path) -> None:
+        """If only session artifacts exist, auto-commit skips (no commit created)."""
+        initial_head = _head(repo)
         (repo / ".codex_session_meta.json").write_text('{"pid": 2}', encoding="utf-8")
 
         worker = WorkerProcess(
@@ -372,10 +377,8 @@ class TestAutoCommitSessionArtifactPrevention:
 
         asyncio.run(WorkerLauncher._auto_commit(worker))
 
-        # The commit should have no file changes (empty commit via --allow-empty)
-        result = _run(repo, "git", "diff", "--name-only", "HEAD~1", "HEAD")
-        committed_files = [f for f in result.stdout.strip().splitlines() if f]
-        assert len(committed_files) == 0
+        # HEAD should not advance — no real changes to commit
+        assert _head(repo) == initial_head
 
 
 # ---------------------------------------------------------------------------
