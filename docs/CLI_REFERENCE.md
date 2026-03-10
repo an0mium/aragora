@@ -521,6 +521,42 @@ aragora swarm status --json
 aragora swarm reconcile --all-runs
 ```
 
+#### `aragora swarm campaign`
+
+**Purpose:** Multi-project campaign execution with persistent manifest, dependency ordering, heterogeneous review, and Ralph-safe single-iteration dispatch.
+
+**Subcommands:**
+- `run` — plan (if no manifest) then execute one iteration. Resumes from manifest on subsequent calls.
+- `plan` — plan projects from input source, write manifest, do not execute.
+- `status` — show campaign progress from the manifest.
+
+**Key options:**
+- `--source-file <path>` — markdown/text roadmap file (one item per line)
+- `--issue-list <nums>` — comma-separated GitHub issue numbers
+- `--github-query <query>` — GitHub issue search query
+- `--manifest <path>` — manifest path (default: `.aragora/campaign_manifest.yaml`)
+- `--max-parallel-ready-projects <n>` — projects per iteration (default: 1)
+- `--worker-model <model>` — worker model (default: codex)
+- `--review-model <model>` — review model, must differ from worker (default: claude)
+- `--budget-limit <usd>` — total campaign budget (default: 50)
+
+**Examples:**
+```bash
+# Bootstrap from a roadmap file
+aragora swarm campaign run --source-file roadmap.md --json
+
+# Resume from existing manifest
+aragora swarm campaign run --json
+
+# Check campaign progress
+aragora swarm campaign status --json
+
+# Plan only (no execution)
+aragora swarm campaign plan --source-file roadmap.md --json
+```
+
+See `docs/guides/CAMPAIGN_OPERATOR.md` for the full operator guide including Ralph loop usage, prebuilt manifest workflow, and stop-reason semantics.
+
 ---
 
 ### `aragora triage`
