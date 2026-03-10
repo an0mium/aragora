@@ -499,19 +499,52 @@ class SwarmSupervisor:
                 continue
 
             if self._exceeded_no_progress_timeout(item):
-                # Check scope on timeout too — worker may have made wrong changes then stalled
-                timeout_violations = self._check_file_scope_violations(
-                    item, list(item.get("changed_paths", []))
-                )
                 reason = (
                     "worker exceeded no-progress timeout "
                     f"({int(self._no_progress_timeout_seconds())}s)"
                 )
-                if timeout_violations:
-                    self._mark_scope_violation(item, timeout_violations, extra_reason=reason)
+                # Kill the worker before collecting results so the process
+                # releases file handles and the worktree is stable for git.
+                await self._kill_worker(item)
+
+                # Attempt detached result collection so the try/finally in
+                # collect_detached_result cleans session artifacts (#896) and
+                # any salvageable deliverable is surfaced (#899).
+                worktree_path = str(item.get("worktree_path", "")).strip()
+                timeout_result: WorkerProcess | None = None
+                if worktree_path:
+                    try:
+                        timeout_result = await WorkerLauncher.collect_detached_result(
+                            work_order_id=woid,
+                            agent=str(item.get("target_agent", "codex")),
+                            worktree_path=worktree_path,
+                            branch=str(item.get("branch", "main")),
+                            pid=item.get("pid"),
+                            initial_head=str(item.get("initial_head", "")),
+                            auto_commit=self.launcher.config.auto_commit,
+                        )
+                    except Exception:
+                        logger.debug("Timeout result collection failed for %s", woid, exc_info=True)
+
+                if timeout_result is not None and timeout_result.commit_shas:
+                    # Worker produced a concrete deliverable before timing out.
+                    # Surface it through the normal result path.
+                    finished.append(timeout_result)
+                    finished_ids.add(woid)
                 else:
-                    self._mark_needs_human(item, reason)
-                self._release_terminal_lease(item)
+                    # No deliverable — check scope violations and mark blocked.
+                    collected_paths = self._strip_session_artifacts(
+                        list(
+                            (timeout_result.changed_paths if timeout_result else None)
+                            or item.get("changed_paths", [])
+                        )
+                    )
+                    timeout_violations = self._check_file_scope_violations(item, collected_paths)
+                    if timeout_violations:
+                        self._mark_scope_violation(item, timeout_violations, extra_reason=reason)
+                    else:
+                        self._mark_needs_human(item, reason)
+                    self._release_terminal_lease(item)
                 changed = True
 
         if not finished and not changed:
