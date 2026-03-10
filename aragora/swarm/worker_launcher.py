@@ -32,6 +32,17 @@ SESSION_ARTIFACTS: frozenset[str] = frozenset(
     }
 )
 
+# Exit codes where the worker likely completed its work but the process was
+# terminated by a transport-level signal (e.g. broken pipe).  Only these
+# codes are eligible for auto-commit salvage — all other non-zero exits are
+# treated as genuine failures whose partial output must NOT become a
+# concrete deliverable.
+_SALVAGEABLE_EXIT_CODES: frozenset[int] = frozenset(
+    {
+        141,  # SIGPIPE — stdout pipe closed before process finished writing
+    }
+)
+
 
 @dataclass(slots=True)
 class WorkerProcess:
@@ -216,7 +227,8 @@ class WorkerLauncher:
         worker.completed_at = datetime.now(UTC).isoformat()
         worker.diff = await self._collect_diff(worker.worktree_path)
 
-        if self.config.auto_commit and worker.diff:
+        _exit_ok = worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
+        if self.config.auto_commit and worker.diff and _exit_ok:
             await self._auto_commit(worker)
 
         worker.head_sha = await self._git_output(worker.worktree_path, "rev-parse", "HEAD")
@@ -569,7 +581,8 @@ class WorkerLauncher:
         worker.completed_at = session_completed_at or datetime.now(UTC).isoformat()
         worker.diff = await cls._collect_diff(worktree_path)
 
-        if auto_commit and worker.diff:
+        _exit_ok = worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
+        if auto_commit and worker.diff and _exit_ok:
             await cls._auto_commit(worker)
 
         worker.head_sha = await cls._git_output(worktree_path, "rev-parse", "HEAD")

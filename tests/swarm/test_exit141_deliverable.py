@@ -5,9 +5,10 @@ the correct files) but exits with SIGPIPE (141) before committing.  The
 auto-commit gate in ``wait()`` previously required ``exit_code == 0``,
 silently discarding valid work from signal-terminated workers.
 
-The fix removes the exit-code gate so auto-commit salvages valid diffs
-regardless of exit code, turning dirty worktrees into concrete
-deliverables (committed branches).
+The fix adds SIGPIPE (141) to a narrow ``_SALVAGEABLE_EXIT_CODES`` set so
+auto-commit fires for that specific transport failure.  All other non-zero
+exits remain blocked — crashed or partial executions must NOT become
+concrete deliverables.
 """
 
 from __future__ import annotations
@@ -20,19 +21,24 @@ from typing import Any
 
 import pytest
 
-from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
+from aragora.swarm.worker_launcher import (
+    LaunchConfig,
+    WorkerLauncher,
+    WorkerProcess,
+    _SALVAGEABLE_EXIT_CODES,
+)
 
 
 @pytest.fixture()
 def repo(tmp_path: Path) -> Path:
-    """Create a minimal git repo with a tracked file."""
+    """Create a minimal git repo with tracked files matching #873 shape."""
     repo = tmp_path / "repo"
     repo.mkdir()
     _run(repo, "git", "init", "-b", "main")
     _run(repo, "git", "config", "user.email", "test@example.com")
     _run(repo, "git", "config", "user.name", "Test User")
-    # Create a tracked file so modifications show in `git diff HEAD`
     (repo / "package.json").write_text('{"version": "1.0.0"}\n', encoding="utf-8")
+    (repo / "package-lock.json").write_text('{"lockfileVersion": 3}\n', encoding="utf-8")
     (repo / "README.md").write_text("hello\n", encoding="utf-8")
     _run(repo, "git", "add", ".")
     _run(repo, "git", "commit", "-m", "initial")
@@ -47,13 +53,40 @@ def _head(repo: Path) -> str:
     return _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
 
 
-class TestAutoCommitSalvage:
-    """Verify _auto_commit salvages work from non-zero exit workers."""
+def _modify_packages(repo: Path) -> None:
+    """Simulate the exact #873 bounded work: bump tracked dependency files."""
+    (repo / "package.json").write_text('{"version": "1.0.1"}\n', encoding="utf-8")
+    (repo / "package-lock.json").write_text(
+        '{"lockfileVersion": 3, "bumped": true}\n', encoding="utf-8"
+    )
 
-    def test_exit_141_with_diff_produces_salvage_commit(self, repo: Path) -> None:
+
+class TestSalvageableExitCodes:
+    """Verify only the intended exit codes are in the salvageable set."""
+
+    def test_141_is_salvageable(self) -> None:
+        assert 141 in _SALVAGEABLE_EXIT_CODES
+
+    def test_137_is_not_salvageable(self) -> None:
+        """SIGKILL (137) represents a crash — must NOT be salvaged."""
+        assert 137 not in _SALVAGEABLE_EXIT_CODES
+
+    def test_1_is_not_salvageable(self) -> None:
+        """Generic error (1) must NOT be salvaged."""
+        assert 1 not in _SALVAGEABLE_EXIT_CODES
+
+    def test_0_is_not_in_set(self) -> None:
+        """Clean exit is handled separately, not via salvage set."""
+        assert 0 not in _SALVAGEABLE_EXIT_CODES
+
+
+class TestAutoCommitSalvage:
+    """Verify _auto_commit message distinguishes salvage from clean."""
+
+    def test_exit_141_produces_salvage_commit(self, repo: Path) -> None:
         """SIGPIPE exit should auto-commit with 'salvage' message."""
         head = _head(repo)
-        (repo / "package.json").write_text('{"version": "1.0.1"}\n', encoding="utf-8")
+        _modify_packages(repo)
 
         worker = WorkerProcess(
             work_order_id="wo-141",
@@ -73,12 +106,16 @@ class TestAutoCommitSalvage:
         log = _run(repo, "git", "log", "--oneline", "-1").stdout
         assert "salvage" in log
         assert "exit 141" in log
-        assert "wo-141" in log
+
+        # Verify both package files are in the commit
+        diff_files = _run(repo, "git", "diff", "--name-only", f"{head}..{new_head}").stdout
+        assert "package.json" in diff_files
+        assert "package-lock.json" in diff_files
 
     def test_exit_0_produces_clean_commit(self, repo: Path) -> None:
-        """Clean exit produces normal commit message without 'salvage'."""
+        """Clean exit produces normal commit without 'salvage'."""
         head = _head(repo)
-        (repo / "package.json").write_text('{"version": "2.0.0"}\n', encoding="utf-8")
+        _modify_packages(repo)
 
         worker = WorkerProcess(
             work_order_id="wo-clean",
@@ -97,62 +134,65 @@ class TestAutoCommitSalvage:
         assert "completed" in log
         assert "salvage" not in log
 
-    def test_exit_137_sigkill_produces_salvage_commit(self, repo: Path) -> None:
-        """SIGKILL (137) should also salvage."""
-        head = _head(repo)
-        (repo / "package.json").write_text('{"version": "3.0.0"}\n', encoding="utf-8")
 
-        worker = WorkerProcess(
-            work_order_id="wo-137",
-            agent="codex",
-            worktree_path=str(repo),
-            branch="main",
-            pid=None,
-            initial_head=head,
-        )
-        worker.exit_code = 137
-        worker.diff = _run(repo, "git", "diff", "HEAD").stdout
+class TestWaitGateNarrowed:
+    """Verify wait() only salvages _SALVAGEABLE_EXIT_CODES, not all non-zero."""
 
-        asyncio.run(WorkerLauncher._auto_commit(worker))
-
-        log = _run(repo, "git", "log", "--oneline", "-1").stdout
-        assert "salvage" in log
-        assert "exit 137" in log
-
-    def test_no_diff_no_commit(self, repo: Path) -> None:
-        """Without diff, no commit regardless of exit code."""
-        head = _head(repo)
-        # No changes to tracked files
-        assert _head(repo) == head
-
-
-class TestWaitGateRemoved:
-    """Verify wait() no longer gates auto-commit on exit_code == 0.
-
-    Tests the code path by checking source — the actual auto-commit
-    behavior is tested above via _auto_commit directly.
-    """
-
-    def test_wait_method_does_not_gate_on_exit_code(self) -> None:
-        """The wait() method should call auto-commit without exit_code check."""
+    def test_wait_source_checks_salvageable_set(self) -> None:
+        """The wait() method should gate on _SALVAGEABLE_EXIT_CODES."""
         import inspect
 
         src = inspect.getsource(WorkerLauncher.wait)
-        # The old code had: `worker.exit_code == 0`
-        assert "exit_code == 0" not in src
-        # The new code has: `self.config.auto_commit and worker.diff`
-        assert "auto_commit" in src
-        assert "worker.diff" in src
+        # Must NOT have the old blanket gate
+        assert "exit_code == 0" not in src or "_SALVAGEABLE_EXIT_CODES" in src
+        # Must reference the salvageable set
+        assert "_SALVAGEABLE_EXIT_CODES" in src
 
 
-class TestDetachedCollectionSalvage:
-    """Verify collect_detached_result auto-commits on exit 141."""
+class TestNonSalvageableExitsBlocked:
+    """Verify non-salvageable non-zero exits do NOT produce commits."""
+
+    @pytest.mark.parametrize("exit_code", [1, 2, 137, 139, 143])
+    def test_non_salvageable_exit_no_commit_detached(self, repo: Path, exit_code: int) -> None:
+        """Non-salvageable exits must NOT auto-commit even with valid diff."""
+        head = _head(repo)
+        _modify_packages(repo)
+
+        meta = {
+            "pid": 99999,
+            "session_id": "test-blocked",
+            "agent": "codex",
+            "started_at": "2026-03-10T05:00:00Z",
+            "ended_at": "2026-03-10T05:01:00Z",
+            "exit_code": exit_code,
+        }
+        (repo / ".codex_session_meta.json").write_text(json.dumps(meta) + "\n", encoding="utf-8")
+
+        result = asyncio.run(
+            WorkerLauncher.collect_detached_result(
+                work_order_id=f"wo-blocked-{exit_code}",
+                agent="codex",
+                worktree_path=str(repo),
+                branch="main",
+                initial_head=head,
+                auto_commit=True,
+            )
+        )
+
+        assert result is not None
+        assert result.exit_code == exit_code
+        # HEAD must NOT advance — no commit created
+        assert _head(repo) == head
+        assert result.commit_shas == []
+
+
+class TestDetachedSalvagePath:
+    """Verify collect_detached_result salvages only SIGPIPE (141)."""
 
     def test_detached_exit_141_commits_tracked_changes(self, repo: Path) -> None:
-        """collect_detached_result should commit modified tracked files."""
+        """collect_detached_result should commit modified tracked files on 141."""
         head = _head(repo)
-        # Modify a TRACKED file so git diff HEAD shows it
-        (repo / "package.json").write_text('{"version": "1.0.1"}\n', encoding="utf-8")
+        _modify_packages(repo)
 
         meta = {
             "pid": 99999,
@@ -190,7 +230,7 @@ class TestDetachedCollectionSalvage:
     def test_detached_exit_0_commits_clean(self, repo: Path) -> None:
         """collect_detached_result with clean exit uses normal message."""
         head = _head(repo)
-        (repo / "package.json").write_text('{"version": "2.0.0"}\n', encoding="utf-8")
+        _modify_packages(repo)
 
         meta = {
             "pid": 99999,
@@ -221,7 +261,7 @@ class TestDetachedCollectionSalvage:
         assert "salvage" not in log
 
     def test_detached_no_diff_no_commit(self, repo: Path) -> None:
-        """No changes means no commit, even with terminal session."""
+        """No changes means no commit, even with salvageable exit code."""
         head = _head(repo)
 
         meta = {
@@ -252,7 +292,7 @@ class TestDetachedCollectionSalvage:
 
 
 class TestDeliverableGateIntegration:
-    """Verify salvaged commits pass the deliverable gate from #893."""
+    """Verify salvaged commits pass the #893 gate; unsalvaged do not."""
 
     def test_salvaged_commit_is_concrete_deliverable(self) -> None:
         """A work order with commit_shas from salvaged work passes the gate."""
@@ -274,8 +314,8 @@ class TestDeliverableGateIntegration:
         assert result["type"] == "branch"
         assert result["commit_shas"] == ["abc123"]
 
-    def test_unsalvaged_exit_141_no_deliverable(self) -> None:
-        """Without auto-commit, exit 141 produces no deliverable."""
+    def test_unsalvaged_dirty_worktree_no_deliverable(self) -> None:
+        """Without salvage commit, dirty worktree is not a deliverable."""
         from aragora.swarm.boss_loop import _extract_deliverable
 
         run_dict: dict[str, Any] = {
@@ -284,6 +324,24 @@ class TestDeliverableGateIntegration:
                     "work_order_id": "wo-unsalvaged",
                     "status": "completed",
                     "branch": "",
+                    "commit_shas": [],
+                    "pr_url": "",
+                    "changed_paths": ["package.json", "package-lock.json"],
+                },
+            ],
+        }
+        assert _extract_deliverable(run_dict) is None
+
+    def test_non_salvageable_crash_no_deliverable(self) -> None:
+        """A crashed worker (no commits) produces no deliverable."""
+        from aragora.swarm.boss_loop import _extract_deliverable
+
+        run_dict: dict[str, Any] = {
+            "work_orders": [
+                {
+                    "work_order_id": "wo-crashed",
+                    "status": "completed",
+                    "branch": "codex/swarm-work-xyz",
                     "commit_shas": [],
                     "pr_url": "",
                     "changed_paths": ["package.json"],
