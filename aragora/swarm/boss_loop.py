@@ -335,10 +335,9 @@ class BossIterationStatus:
     next_actions: list[str]
     elapsed_seconds: float = 0.0
     error: str | None = None
-    worker_outcome: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        d: dict[str, Any] = {
+        return {
             "iteration": self.iteration,
             "run_id": self.run_id,
             "timestamp": self.timestamp,
@@ -351,9 +350,6 @@ class BossIterationStatus:
             "elapsed_seconds": self.elapsed_seconds,
             "error": self.error,
         }
-        if self.worker_outcome is not None:
-            d["worker_outcome"] = self.worker_outcome
-        return d
 
 
 @dataclass
@@ -370,15 +366,11 @@ class BossLoopResult:
     iteration_statuses: list[dict[str, Any]]
     needs_human_reasons: list[str]
     next_actions: list[str]
-    boss_model: str = "codex"
-    worker_model: str = "codex"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "mode": "boss-loop",
             "run_id": self.run_id,
-            "boss_model": self.boss_model,
-            "worker_model": self.worker_model,
             "iterations_completed": self.iterations_completed,
             "total_elapsed_seconds": self.total_elapsed_seconds,
             "stop_reason": self.stop_reason,
@@ -423,10 +415,6 @@ class BossLoopConfig:
     target_branch: str = "main"
     budget_limit_usd: float = 5.0
 
-    # Model selection
-    boss_model: str = "codex"
-    worker_model: str = "codex"
-
     # Reporting
     status_report_interval: int = 5  # every N iterations
 
@@ -436,18 +424,125 @@ class BossLoopConfig:
 # ---------------------------------------------------------------------------
 
 
-def _extract_worker_outcome(run_dict: dict[str, Any]) -> str | None:
-    """Extract the primary worker_outcome from a run's work orders.
+def _classify_terminal_run_outcome(run_dict: dict[str, Any]) -> str:
+    """Map a supervisor run dict to a stable outcome classification."""
+    status = str(run_dict.get("status", "")).strip().lower()
+    if status == "completed":
+        deliverable = _extract_deliverable(run_dict)
+        if deliverable is None:
+            return "clean_exit_no_deliverable"
+        if deliverable.get("type") == "adopted_pr":
+            return "pr_adopted"
+        return "deliverable_created"
+    if status == "needs_human":
+        return "needs_human"
 
-    Returns the first non-empty ``worker_outcome`` found, or ``None``.
+    details = json.dumps(run_dict, sort_keys=True).lower()
+    if "timeout" in details:
+        return "timeout"
+    if "exit_code" in details or "traceback" in details or "crash" in details:
+        return "crash"
+    return "blocked"
+
+
+async def dispatch_bounded_spec(
+    spec: Any,
+    *,
+    target_branch: str = "main",
+    budget_limit_usd: float = 5.0,
+    max_ticks: int = 360,
+    repo_path: Any | None = None,
+    default_target_agent: str | None = None,
+    default_reviewer_agent: str | None = None,
+) -> dict[str, Any]:
+    """Dispatch one bounded spec via the supervisor-backed Boss path.
+
+    This reuses the Boss loop's concrete-deliverable gate so higher-level
+    orchestrators do not implement their own divergent run classification.
     """
-    for wo in run_dict.get("work_orders", []):
-        if not isinstance(wo, dict):
-            continue
-        outcome = str(wo.get("worker_outcome", "")).strip()
-        if outcome:
-            return outcome
-    return None
+    from aragora.swarm.commander import SwarmCommander
+    from aragora.swarm.config import SwarmCommanderConfig
+    from aragora.swarm.supervisor import SwarmApprovalPolicy
+
+    if not spec.is_dispatch_bounded():
+        return {
+            "status": "failed",
+            "outcome": "blocked",
+            "error": spec.dispatch_gate_reason(),
+        }
+
+    try:
+        config = SwarmCommanderConfig(
+            budget_limit_usd=budget_limit_usd,
+            require_approval=True,
+        )
+        commander = SwarmCommander(config=config)
+        run = await commander.run_supervised_from_spec(
+            spec,
+            repo_path=repo_path,
+            target_branch=target_branch,
+            max_concurrency=1,
+            approval_policy=SwarmApprovalPolicy(
+                require_merge_approval=True,
+                require_external_action_approval=True,
+            ),
+            dispatch=True,
+            wait=True,
+            interval_seconds=5.0,
+            max_ticks=max_ticks,
+            default_target_agent=default_target_agent,
+            default_reviewer_agent=default_reviewer_agent,
+        )
+        run_dict = run.to_dict()
+        outcome = _classify_terminal_run_outcome(run_dict)
+        deliverable = _extract_deliverable(run_dict)
+        if outcome in {"deliverable_created", "pr_adopted"}:
+            return {
+                "status": "completed",
+                "outcome": outcome,
+                "run": run_dict,
+                "run_id": run_dict.get("run_id"),
+                "deliverable": deliverable,
+            }
+        if outcome == "clean_exit_no_deliverable":
+            return {
+                "status": "needs_human",
+                "outcome": outcome,
+                "run": run_dict,
+                "run_id": run_dict.get("run_id"),
+                "reasons": [
+                    "Run reported completed but produced no concrete deliverable "
+                    "(no pushed branch, no PR, no committed artifact)."
+                ],
+            }
+        if outcome == "needs_human":
+            reasons: list[str] = []
+            for wo in run_dict.get("work_orders", []):
+                if isinstance(wo, dict):
+                    for blocker in wo.get("blockers", []):
+                        reasons.append(str(blocker))
+                    err = wo.get("dispatch_error")
+                    if err:
+                        reasons.append(str(err))
+            return {
+                "status": "needs_human",
+                "outcome": outcome,
+                "run": run_dict,
+                "run_id": run_dict.get("run_id"),
+                "reasons": reasons or ["Worker reached needs_human state."],
+            }
+        return {
+            "status": "failed",
+            "outcome": outcome,
+            "run": run_dict,
+            "run_id": run_dict.get("run_id"),
+            "error": f"Run ended with status: {run_dict.get('status', '')}",
+        }
+    except ValueError as exc:
+        return {"status": "failed", "outcome": "blocked", "error": str(exc)}
+    except Exception as exc:
+        logger.warning("Bounded spec dispatch failed: %s", exc)
+        return {"status": "failed", "outcome": "crash", "error": str(exc)}
 
 
 def _extract_deliverable(run_dict: dict[str, Any]) -> dict[str, Any] | None:
@@ -599,8 +694,6 @@ class BossLoop:
             iteration_statuses=[s.to_dict() for s in self._iteration_statuses],
             needs_human_reasons=self._collect_needs_human_reasons(),
             next_actions=self._derive_next_actions(),
-            boss_model=self.config.boss_model,
-            worker_model=self.config.worker_model,
         )
 
     async def _run_iteration(self, iteration: int) -> BossIterationStatus:
@@ -699,7 +792,6 @@ class BossLoop:
         worker_result = await self._dispatch_issue(selected, freshness)
 
         elapsed = time.monotonic() - iter_start
-        outcome = worker_result.get("worker_outcome")
 
         if worker_result.get("status") == "completed":
             self._completed_issues.append(issue_dict)
@@ -715,7 +807,6 @@ class BossLoop:
                 needs_human_reasons=[],
                 next_actions=["Proceeding to next issue."],
                 elapsed_seconds=elapsed,
-                worker_outcome=outcome,
             )
 
         if worker_result.get("status") == "needs_human":
@@ -731,7 +822,6 @@ class BossLoop:
                 needs_human_reasons=worker_result.get("reasons", ["Worker requires human input."]),
                 next_actions=["Review the worker output and decide next steps."],
                 elapsed_seconds=elapsed,
-                worker_outcome=outcome,
             )
 
         # Worker failed
@@ -756,7 +846,6 @@ class BossLoop:
                 ],
                 elapsed_seconds=elapsed,
                 error=worker_result.get("error"),
-                worker_outcome=outcome,
             )
 
         return BossIterationStatus(
@@ -775,7 +864,6 @@ class BossLoop:
             ],
             elapsed_seconds=elapsed,
             error=worker_result.get("error"),
-            worker_outcome=outcome,
         )
 
     async def _dispatch_issue(
@@ -808,84 +896,17 @@ class BossLoop:
                 f"{spec.dispatch_gate_reason()}",
             }
 
-        try:
-            from aragora.swarm.commander import SwarmCommander
-            from aragora.swarm.config import SwarmCommanderConfig
-            from aragora.swarm.supervisor import SwarmApprovalPolicy
-
-            config = SwarmCommanderConfig(
-                budget_limit_usd=self.config.budget_limit_usd,
-                require_approval=True,
-            )
-            commander = SwarmCommander(config=config)
-            boss_model = self.config.boss_model
-            worker_model = self.config.worker_model
-            run = await commander.run_supervised_from_spec(
-                spec,
-                target_branch=self.config.target_branch,
-                max_concurrency=1,
-                approval_policy=SwarmApprovalPolicy(
-                    require_merge_approval=True,
-                    require_external_action_approval=True,
-                ),
-                dispatch=True,
-                wait=True,
-                interval_seconds=5.0,
-                max_ticks=360,
-                default_target_agent=worker_model if worker_model != "codex" else None,
-                boss_agent=boss_model if boss_model != "codex" else None,
-            )
-
-            run_dict = run.to_dict()
-            status = str(run_dict.get("status", "")).strip()
-            outcome = _extract_worker_outcome(run_dict)
-
-            if status == "completed":
-                deliverable = _extract_deliverable(run_dict)
-                if deliverable is None:
-                    return {
-                        "status": "needs_human",
-                        "worker_outcome": outcome or "clean_exit_no_effect",
-                        "reasons": [
-                            "Run reported completed but produced no concrete deliverable "
-                            "(no pushed branch, no PR, no committed artifact). "
-                            "Check worker worktree for uncommitted changes."
-                        ],
-                        "run": run_dict,
-                    }
-                return {
-                    "status": "completed",
-                    "worker_outcome": outcome,
-                    "deliverable": deliverable,
-                    "run": run_dict,
-                }
-            if status == "needs_human":
-                reasons: list[str] = []
-                for wo in run_dict.get("work_orders", []):
-                    if isinstance(wo, dict):
-                        for blocker in wo.get("blockers", []):
-                            reasons.append(str(blocker))
-                        err = wo.get("dispatch_error")
-                        if err:
-                            reasons.append(str(err))
-                return {
-                    "status": "needs_human",
-                    "worker_outcome": outcome,
-                    "reasons": reasons or ["Worker reached needs_human state."],
-                    "run": run_dict,
-                }
-
-            return {
-                "status": "failed",
-                "worker_outcome": outcome,
-                "error": f"Run ended with status: {status}",
-            }
-
-        except ValueError as exc:
-            return {"status": "failed", "error": str(exc)}
-        except Exception as exc:
-            logger.warning("Boss dispatch failed for issue #%d: %s", issue.number, exc)
-            return {"status": "failed", "error": str(exc)}
+        result = await dispatch_bounded_spec(
+            spec,
+            target_branch=self.config.target_branch,
+            budget_limit_usd=self.config.budget_limit_usd,
+            max_ticks=360,
+        )
+        if result.get("status") == "failed":
+            error = str(result.get("error", "")).strip()
+            if error:
+                logger.warning("Boss dispatch failed for issue #%d: %s", issue.number, error)
+        return result
 
     def _collect_needs_human_reasons(self) -> list[str]:
         """Collect all needs-human reasons across iterations."""

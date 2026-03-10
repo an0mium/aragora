@@ -22,6 +22,14 @@ Usage:
 """
 
 from aragora.swarm.commander import SwarmCommander
+from aragora.swarm.campaign import (
+    CampaignExecutionState,
+    CampaignManifest,
+    CampaignProject,
+    CampaignReviewGate,
+    CampaignRunOutcome,
+    CampaignStopReason,
+)
 from aragora.swarm.config import InterrogatorConfig, SwarmCommanderConfig
 from aragora.swarm.reconciler import SwarmReconciler, SwarmReconcilerConfig
 from aragora.swarm.reporter import SwarmReport, SwarmReporter
@@ -30,6 +38,12 @@ from aragora.swarm.supervisor import SupervisorRun, SwarmApprovalPolicy, SwarmSu
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
 
 __all__ = [
+    "CampaignExecutionState",
+    "CampaignManifest",
+    "CampaignProject",
+    "CampaignReviewGate",
+    "CampaignRunOutcome",
+    "CampaignStopReason",
     "InterrogatorConfig",
     "LaunchConfig",
     "SwarmCommander",

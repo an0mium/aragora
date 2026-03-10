@@ -10,6 +10,8 @@ import os
 
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
+DEFAULT_CAMPAIGN_MANIFEST = ".aragora/campaign_manifest.yaml"
+
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 DEFAULT_API_KEY = os.environ.get("ARAGORA_API_KEY")
@@ -2125,12 +2127,17 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "swarm_action_or_goal",
         nargs="?",
-        help="Action (run/status/reconcile) or your goal in plain language",
+        help="Action (run/status/reconcile/campaign) or your goal in plain language",
     )
     swarm_parser.add_argument(
         "swarm_goal",
         nargs="?",
-        help="Goal when using the explicit 'run' action",
+        help="Goal or subaction when using explicit actions",
+    )
+    swarm_parser.add_argument(
+        "swarm_campaign_target",
+        nargs="?",
+        help="Campaign subtarget such as a project id for review",
     )
     swarm_parser.add_argument(
         "--spec",
@@ -2300,16 +2307,47 @@ def _add_swarm_parser(subparsers) -> None:
         help="Stop boss-loop after N consecutive worker failures (default: 3)",
     )
     swarm_parser.add_argument(
-        "--boss-model",
-        type=str,
-        default=None,
-        help="Model for boss-side logic (spec generation, interrogation). Default: codex",
+        "--source-file",
+        help="Campaign planner input markdown/text file",
+    )
+    swarm_parser.add_argument(
+        "--issue-list",
+        help="Comma-separated GitHub issue numbers for campaign planning",
+    )
+    swarm_parser.add_argument(
+        "--github-query",
+        help="GitHub issue search query for campaign planning",
+    )
+    swarm_parser.add_argument(
+        "--planner-model",
+        default="claude",
+        help="Planner model for campaign planning (default: claude)",
     )
     swarm_parser.add_argument(
         "--worker-model",
-        type=str,
+        default="codex",
+        help="Worker model for campaign execution (default: codex)",
+    )
+    swarm_parser.add_argument(
+        "--review-model",
+        default="claude",
+        help="Review model for campaign cross-check/review (default: claude)",
+    )
+    swarm_parser.add_argument(
+        "--manifest",
+        default=DEFAULT_CAMPAIGN_MANIFEST,
+        help="Campaign manifest path (default: .aragora/campaign_manifest.yaml)",
+    )
+    swarm_parser.add_argument(
+        "--output",
         default=None,
-        help="Model for dispatched worker execution. Default: codex",
+        help="Output path for campaign planning (defaults to --manifest)",
+    )
+    swarm_parser.add_argument(
+        "--max-parallel-ready-projects",
+        type=int,
+        default=1,
+        help="Maximum dependency-independent campaign projects to run per execute (default: 1)",
     )
     swarm_parser.set_defaults(
         func=lambda args: __import__(

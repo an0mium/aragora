@@ -195,6 +195,8 @@ class SwarmCommander:
         wait: bool = True,
         interval_seconds: float = 5.0,
         max_ticks: int | None = None,
+        default_target_agent: str | None = None,
+        default_reviewer_agent: str | None = None,
         input_fn: Any | None = None,
         print_fn: Any | None = None,
     ) -> SupervisorRun:
@@ -215,6 +217,8 @@ class SwarmCommander:
             wait=wait,
             interval_seconds=interval_seconds,
             max_ticks=max_ticks,
+            default_target_agent=default_target_agent,
+            default_reviewer_agent=default_reviewer_agent,
         )
 
     async def run_supervised_from_spec(
@@ -231,7 +235,7 @@ class SwarmCommander:
         interval_seconds: float = 5.0,
         max_ticks: int | None = None,
         default_target_agent: str | None = None,
-        boss_agent: str | None = None,
+        default_reviewer_agent: str | None = None,
     ) -> SupervisorRun:
         """Dispatch a spec through the supervisor-backed Codex/Claude worker pool.
 
@@ -252,7 +256,7 @@ class SwarmCommander:
             managed_dir_pattern=managed_dir_pattern,
             approval_policy=approval_policy,
             default_target_agent=default_target_agent,
-            boss_agent=boss_agent,
+            default_reviewer_agent=default_reviewer_agent,
         )
         if dispatch:
             launched = await supervisor.dispatch_workers(run.run_id)
