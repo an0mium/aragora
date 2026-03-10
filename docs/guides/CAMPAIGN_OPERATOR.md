@@ -56,7 +56,7 @@ Every `campaign run` invocation exits with one of these stop reasons in its outp
 | `campaign_complete` | All projects are completed or skipped. Nothing left. | Done. Inspect the manifest for deliverables. |
 | `campaign_blocked` | All remaining projects are blocked, failed, or skipped. No in-flight work. | Inspect the manifest. Fix the blocking issue manually, then resume. |
 | `budget_exhausted` | Cumulative cost reached `budget_limit_usd`. | Increase the budget in the manifest or accept the partial result. |
-| `time_limit_exceeded` | Elapsed time since first execution exceeded `time_limit_hours`. | Increase the limit in the manifest or accept the partial result. |
+| `time_limit_exceeded` | Elapsed time since the current invocation's start exceeded `time_limit_hours`. In practice this only fires if a single `execute_once` dispatch takes longer than the limit. | Increase the limit in the manifest or accept the partial result. |
 
 **`still_running` is normal.** Most iterations return this. It means the campaign is making progress and you should call `campaign run` again.
 
