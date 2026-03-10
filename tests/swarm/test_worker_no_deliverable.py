@@ -692,3 +692,120 @@ class TestDogfood4UncommittedChanges:
         }
         assert _extract_deliverable(run_dict) is None
         assert _classify_terminal_run_outcome(run_dict) == "clean_exit_no_deliverable"
+
+
+# ---------------------------------------------------------------------------
+# Dogfood #5 failure shape: porcelain status path truncation
+# ---------------------------------------------------------------------------
+
+
+class TestPorcelainPathParsing:
+    """Regression: _git_output().strip() ate the leading space from porcelain
+    status lines like ' M docs/file.py', truncating the path by one character.
+
+    Root cause: ``git status --porcelain`` emits lines like `` M docs/file.py``
+    (space + M + space + path).  ``_git_output`` called ``.strip()`` on the
+    entire output, removing the leading space from the first line.  The fixed
+    ``line[3:]`` parser then produced ``ocs/file.py`` instead of
+    ``docs/file.py``, triggering a spurious scope violation.
+    """
+
+    @pytest.mark.asyncio
+    async def test_unstaged_modification_path_not_truncated(self, tmp_path: Path):
+        """Unstaged modification ' M docs/file.py' must not lose the first char."""
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        env = {
+            **__import__("os").environ,
+            "GIT_AUTHOR_NAME": "test",
+            "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "test",
+            "GIT_COMMITTER_EMAIL": "t@t",
+        }
+        subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "--allow-empty", "-m", "init"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            env=env,
+        )
+        docs = repo / "docs" / "guides"
+        docs.mkdir(parents=True)
+        target = docs / "SWARM_DOGFOOD_OPERATOR.md"
+        target.write_text("# Operator Guide\n")
+        subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "add doc"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            env=env,
+        )
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        # Modify without staging → ' M docs/guides/...'
+        target.write_text("# Operator Guide\n\n## New Section\n")
+
+        paths = await WorkerLauncher._collect_changed_paths(
+            str(repo),
+            initial_head=head,
+            head_sha=head,
+        )
+        assert "docs/guides/SWARM_DOGFOOD_OPERATOR.md" in paths
+        assert not any(p.startswith("ocs/") for p in paths)
+
+    @pytest.mark.asyncio
+    async def test_staged_modification_path_parsed(self, tmp_path: Path):
+        """Staged modification 'M  docs/file.py' must parse the full path."""
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        env = {
+            **__import__("os").environ,
+            "GIT_AUTHOR_NAME": "test",
+            "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "test",
+            "GIT_COMMITTER_EMAIL": "t@t",
+        }
+        subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "--allow-empty", "-m", "init"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            env=env,
+        )
+        docs = repo / "docs" / "guides"
+        docs.mkdir(parents=True)
+        target = docs / "SWARM_DOGFOOD_OPERATOR.md"
+        target.write_text("# Operator Guide\n")
+        subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "add doc"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            env=env,
+        )
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        # Modify and stage → 'M  docs/guides/...'
+        target.write_text("# Operator Guide\n\n## New Section\n")
+        subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True)
+
+        paths = await WorkerLauncher._collect_changed_paths(
+            str(repo),
+            initial_head=head,
+            head_sha=head,
+        )
+        assert "docs/guides/SWARM_DOGFOOD_OPERATOR.md" in paths

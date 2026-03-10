@@ -506,7 +506,7 @@ class WorkerLauncher:
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=15)
             if proc.returncode != 0:
                 return ""
-            return stdout.decode(errors="replace").strip()
+            return stdout.decode(errors="replace").rstrip()
         except (asyncio.TimeoutError, FileNotFoundError, OSError):
             return ""
 
@@ -565,11 +565,27 @@ class WorkerLauncher:
             )
             changed.update(line.strip() for line in diff_names.splitlines() if line.strip())
 
+        # _git_output() strips the whole output, which can eat the leading
+        # space from porcelain status lines like " M docs/file.py".  Parse
+        # robustly: skip the first two status characters if the line matches
+        # the XY+space pattern, otherwise fall back to lstrip-after-status.
         status_output = await cls._git_output(worktree_path, "status", "--porcelain")
         for line in status_output.splitlines():
-            if len(line) < 4:
+            if not line or len(line) < 2:
                 continue
-            path = line[3:].strip()
+            # Porcelain v1: XY<space>PATH  (3 chars prefix when both X,Y present)
+            # After .strip(), a leading-space status " M" becomes "M" — only
+            # 2 chars before the path.  Detect by checking whether position 2
+            # is a space (full prefix) or part of the path (stripped prefix).
+            if len(line) > 2 and line[2] == " ":
+                path = line[3:].strip()
+            else:
+                # Stripped leading space: "M docs/..." or "?? docs/..."
+                # Find the first space after the status chars.
+                first_space = line.find(" ")
+                if first_space < 0:
+                    continue
+                path = line[first_space + 1 :].strip()
             if " -> " in path:
                 path = path.split(" -> ")[-1].strip()
             if path:
