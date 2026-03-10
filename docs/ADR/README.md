@@ -21,6 +21,8 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [013](013-workflow-dag-design.md) | Workflow DAG Design | Accepted | Jan 2026 |
 | [014](014-knowledge-mound-architecture.md) | Knowledge Mound Architecture | Accepted | Jan 2026 |
 | [015](015-lazy-import-patterns.md) | Lazy Import Patterns | Accepted | Jan 2026 |
+| [016](016-marketplace-architecture.md) | Agent Template Marketplace Architecture | Accepted | Jan 2026 |
+| [017](017-self-hosted-worker-canonicalization.md) | Self-Hosted Worker Canonicalization | Accepted | Mar 2026 |
 
 ## ADR Format
 
