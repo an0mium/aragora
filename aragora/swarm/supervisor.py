@@ -183,6 +183,7 @@ class SwarmSupervisor:
         approval_policy: SwarmApprovalPolicy | None = None,
         refresh_scaling: bool = True,
         default_target_agent: str | None = None,
+        boss_agent: str | None = None,
     ) -> SupervisorRun:
         goal = spec.refined_goal or spec.raw_goal
         policy = approval_policy or SwarmApprovalPolicy()
@@ -190,16 +191,21 @@ class SwarmSupervisor:
         if default_target_agent:
             for item in work_orders:
                 item["target_agent"] = default_target_agent
+        if boss_agent:
+            for item in work_orders:
+                item["reviewer_agent"] = boss_agent
         for item in work_orders:
             item.setdefault("status", "queued")
             item.setdefault("lease_id", None)
             item.setdefault("receipt_id", None)
             item.setdefault("review_status", "pending")
 
+        planner = boss_agent or "codex"
+        judge = "claude" if planner == "codex" else "codex"
         record = self.store.create_supervisor_run(
             goal=goal,
             target_branch=target_branch,
-            supervisor_agents={"planner": "codex", "judge": "claude"},
+            supervisor_agents={"planner": planner, "judge": judge},
             approval_policy=policy.to_dict(),
             spec=spec.to_dict(),
             work_orders=work_orders,

@@ -389,3 +389,171 @@ class TestCLIArgsWiring:
         args = parser.parse_args(["swarm", "boss-loop"])
         assert getattr(args, "boss_model", None) is None
         assert getattr(args, "worker_model", None) is None
+
+
+class TestBossAgentWiring:
+    """boss_model flows through to supervisor_agents and reviewer_agent on work orders."""
+
+    def test_boss_agent_sets_planner_and_judge(self) -> None:
+        from aragora.swarm.supervisor import SwarmSupervisor
+
+        supervisor = SwarmSupervisor.__new__(SwarmSupervisor)
+
+        spec = MagicMock()
+        spec.refined_goal = "Test goal"
+        spec.raw_goal = "Test goal"
+        spec.to_dict.return_value = {}
+
+        mock_work_order = MagicMock()
+        mock_work_order.to_dict.return_value = {
+            "work_order_id": "wo-1",
+            "target_agent": "codex",
+            "reviewer_agent": "claude",
+            "title": "test",
+        }
+        supervisor._build_supervised_work_orders = MagicMock(return_value=[mock_work_order])
+
+        store = MagicMock()
+        created_record: dict[str, Any] = {}
+
+        def capture_create(**kwargs: Any) -> dict[str, Any]:
+            created_record.update(kwargs)
+            created_record["run_id"] = "run-test"
+            created_record["created_at"] = "2026-01-01T00:00:00"
+            created_record["updated_at"] = "2026-01-01T00:00:00"
+            return created_record
+
+        store.create_supervisor_run.side_effect = capture_create
+        supervisor.store = store
+        supervisor.refresh_run = MagicMock(return_value=MagicMock())
+
+        supervisor.start_run(
+            spec=spec,
+            boss_agent="claude",
+            refresh_scaling=False,
+        )
+
+        call_kwargs = store.create_supervisor_run.call_args
+        # supervisor_agents should reflect the boss_agent
+        supervisor_agents = call_kwargs.kwargs.get("supervisor_agents") or call_kwargs[1].get(
+            "supervisor_agents", {}
+        )
+        assert supervisor_agents["planner"] == "claude"
+        assert supervisor_agents["judge"] == "codex"  # opposite of planner
+
+        # reviewer_agent on work orders should be overridden to boss_agent
+        work_orders = call_kwargs.kwargs.get("work_orders") or call_kwargs[1].get("work_orders", [])
+        assert work_orders[0]["reviewer_agent"] == "claude"
+
+    def test_no_boss_agent_preserves_defaults(self) -> None:
+        from aragora.swarm.supervisor import SwarmSupervisor
+
+        supervisor = SwarmSupervisor.__new__(SwarmSupervisor)
+
+        spec = MagicMock()
+        spec.refined_goal = "Test goal"
+        spec.raw_goal = "Test goal"
+        spec.to_dict.return_value = {}
+
+        mock_work_order = MagicMock()
+        mock_work_order.to_dict.return_value = {
+            "work_order_id": "wo-1",
+            "target_agent": "codex",
+            "reviewer_agent": "claude",
+            "title": "test",
+        }
+        supervisor._build_supervised_work_orders = MagicMock(return_value=[mock_work_order])
+
+        store = MagicMock()
+
+        def capture_create(**kwargs: Any) -> dict[str, Any]:
+            record = dict(kwargs)
+            record["run_id"] = "run-test"
+            record["created_at"] = "2026-01-01T00:00:00"
+            record["updated_at"] = "2026-01-01T00:00:00"
+            return record
+
+        store.create_supervisor_run.side_effect = capture_create
+        supervisor.store = store
+        supervisor.refresh_run = MagicMock(return_value=MagicMock())
+
+        supervisor.start_run(
+            spec=spec,
+            refresh_scaling=False,
+        )
+
+        call_kwargs = store.create_supervisor_run.call_args
+        supervisor_agents = call_kwargs.kwargs.get("supervisor_agents") or call_kwargs[1].get(
+            "supervisor_agents", {}
+        )
+        assert supervisor_agents["planner"] == "codex"  # default
+        assert supervisor_agents["judge"] == "claude"  # default
+
+        work_orders = call_kwargs.kwargs.get("work_orders") or call_kwargs[1].get("work_orders", [])
+        assert work_orders[0]["reviewer_agent"] == "claude"  # unchanged
+
+    @pytest.mark.asyncio
+    async def test_dispatch_passes_boss_agent_to_commander(self) -> None:
+        from aragora.swarm.boss_loop import (
+            BossLoop,
+            BossLoopConfig,
+            GitHubIssue,
+            RunnerFreshnessResult,
+        )
+
+        config = BossLoopConfig(boss_model="claude", worker_model="codex")
+        loop = BossLoop(config=config)
+
+        issue = GitHubIssue(
+            number=200,
+            title="Test boss model",
+            body="Body",
+            labels=[],
+            url="https://github.com/test/test/issues/200",
+            state="OPEN",
+            created_at="2026-01-01T00:00:00",
+        )
+        freshness = RunnerFreshnessResult(
+            fresh=True,
+            runner_ids=["r1"],
+            checked_at="2026-01-01T00:00:00",
+        )
+
+        captured_kwargs: dict[str, Any] = {}
+
+        async def mock_run_supervised(spec_arg: Any, **kwargs: Any) -> MagicMock:
+            captured_kwargs.update(kwargs)
+            run = MagicMock()
+            run.to_dict.return_value = {
+                "status": "completed",
+                "work_orders": [
+                    {
+                        "status": "completed",
+                        "pr_url": "https://github.com/test/test/pull/3",
+                        "work_order_id": "wo-1",
+                        "worker_outcome": "completed",
+                    }
+                ],
+            }
+            return run
+
+        with (
+            patch("aragora.swarm.spec.SwarmSpec") as mock_spec_cls,
+            patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
+            patch("aragora.swarm.config.SwarmCommanderConfig"),
+            patch("aragora.swarm.supervisor.SwarmApprovalPolicy"),
+        ):
+            mock_spec = MagicMock()
+            mock_spec.is_dispatch_bounded.return_value = True
+            mock_spec_cls.from_direct_goal.return_value = mock_spec
+
+            mock_commander = MagicMock()
+            mock_commander.run_supervised_from_spec = mock_run_supervised
+            mock_commander_cls.return_value = mock_commander
+
+            result = await loop._dispatch_issue(issue, freshness)
+
+        assert result["status"] == "completed"
+        assert captured_kwargs.get("boss_agent") == "claude"
+        # worker_model is codex (default), so default_target_agent should be None
+        assert captured_kwargs.get("default_target_agent") is None

@@ -818,6 +818,7 @@ class BossLoop:
                 require_approval=True,
             )
             commander = SwarmCommander(config=config)
+            boss_model = self.config.boss_model
             worker_model = self.config.worker_model
             run = await commander.run_supervised_from_spec(
                 spec,
@@ -832,6 +833,7 @@ class BossLoop:
                 interval_seconds=5.0,
                 max_ticks=360,
                 default_target_agent=worker_model if worker_model != "codex" else None,
+                boss_agent=boss_model if boss_model != "codex" else None,
             )
 
             run_dict = run.to_dict()
