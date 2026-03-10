@@ -308,6 +308,62 @@ class TestCampaignExecutor:
         assert project.last_run_outcome == CampaignRunOutcome.PR_ADOPTED.value
         assert payload["stop_reason"] in {"still_running", "campaign_blocked", "campaign_complete"}
 
+    @pytest.mark.asyncio
+    async def test_execute_once_returns_still_running_when_active_projects_exist(
+        self, tmp_path: Path
+    ) -> None:
+        """Finding 1: active in-flight projects must yield still_running, not campaign_blocked."""
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-inflight",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="In-flight project",
+                    spec=_bounded_spec("In-flight project"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["tests pass"],
+                    constraints=["stay in scope"],
+                    status=CampaignProjectStatus.ACTIVE.value,
+                    run_id="run-inflight",
+                ),
+                CampaignProject(
+                    project_id="proj-002",
+                    title="Blocked downstream",
+                    spec=_bounded_spec("Blocked downstream", ["aragora/cli/commands/swarm.py"]),
+                    file_scope_hints=["aragora/cli/commands/swarm.py"],
+                    acceptance_criteria=["tests pass"],
+                    constraints=["stay in scope"],
+                    dependencies=[
+                        CampaignDependency(project_id="proj-001", reason="subtask_dependency")
+                    ],
+                ),
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        # Run is still in progress — not terminal
+        with patch.object(
+            executor,
+            "_refresh_run_dict",
+            return_value={
+                "run_id": "run-inflight",
+                "status": "running",
+                "work_orders": [],
+            },
+        ):
+            payload = await executor.execute_once()
+
+        assert payload["stop_reason"] == "still_running"
+        assert payload["dispatched_projects"] == []
+        # Project should still be active, not blocked
+        reloaded = load_campaign_manifest(manifest_path)
+        assert reloaded.projects[0].status == CampaignProjectStatus.ACTIVE.value
+
     def test_status_reports_invalid_manifest_truthfully(self, tmp_path: Path) -> None:
         manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -621,6 +677,42 @@ class TestCampaignCLI:
         parsed = json.loads(out)
         assert parsed["invocation_mode"] == "planned_then_executed"
         assert parsed["campaign_id"] == "campaign-query"
+
+    def test_campaign_run_errors_with_source_when_manifest_exists(self, tmp_path: Path) -> None:
+        """Finding 3: conflicting inputs should error even when manifest exists."""
+        from aragora.cli.commands.swarm import cmd_swarm
+        from aragora.swarm.campaign import (
+            CampaignManifest,
+            CampaignProject,
+            save_campaign_manifest,
+        )
+
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-exists",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="old.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Existing",
+                    spec=_bounded_spec("Existing"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pass"],
+                    constraints=["scope"],
+                )
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+
+        args = self._args(
+            swarm_goal="run",
+            manifest=str(manifest_path),
+            source_file="new_roadmap.md",
+        )
+        with pytest.raises(ValueError, match="cannot supply --source-file"):
+            cmd_swarm(args)
 
     def test_cmd_swarm_campaign_status_json(self, capsys: pytest.CaptureFixture[str]) -> None:
         from aragora.cli.commands.swarm import cmd_swarm

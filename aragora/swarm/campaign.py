@@ -842,7 +842,11 @@ class CampaignExecutor:
             capacity = max(0, manifest.max_parallel_ready_projects - active_count)
             selected_ids = [project.project_id for project in ready[:capacity]]
             if not selected_ids and not ready:
-                stop_reason = CampaignStopReason.CAMPAIGN_BLOCKED.value
+                # No ready projects: distinguish "waiting for in-flight" from "truly blocked"
+                if active_count > 0:
+                    stop_reason = CampaignStopReason.STILL_RUNNING.value
+                else:
+                    stop_reason = CampaignStopReason.CAMPAIGN_BLOCKED.value
                 manifest.execution_state.last_result = {
                     "stop_reason": stop_reason,
                     "dispatched_projects": [],
@@ -1064,6 +1068,13 @@ class CampaignExecutor:
                 continue
             run_dict = self._refresh_run_dict(project.run_id)
             if not run_dict:
+                continue
+            # Only classify runs that have reached a terminal status.
+            # _classify_terminal_run_outcome falls back to "blocked" for
+            # unknown statuses (including "running"), which would
+            # incorrectly transition in-flight projects out of ACTIVE.
+            run_status = str(run_dict.get("status", "")).strip().lower()
+            if run_status in {"running", "in_progress", "pending", "queued", ""}:
                 continue
             outcome = _classify_terminal_run_outcome(run_dict)
             if outcome in {

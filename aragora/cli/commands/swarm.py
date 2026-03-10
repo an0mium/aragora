@@ -386,6 +386,11 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             run_manifest_path = manifest_path
             invocation_mode = "resumed"
             if manifest_path.exists():
+                if source_count > 0:
+                    raise ValueError(
+                        "campaign run: cannot supply --source-file, --issue-list, or "
+                        "--github-query when resuming from an existing manifest"
+                    )
                 if not as_json:
                     print(f"Resuming from existing manifest: {manifest_path}")
             else:
