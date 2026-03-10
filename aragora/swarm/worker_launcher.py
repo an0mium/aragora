@@ -230,6 +230,7 @@ class WorkerLauncher:
             initial_head=worker.initial_head,
             head_sha=worker.head_sha,
         )
+        self._cleanup_session_artifacts(worker.worktree_path)
 
         logger.info(
             "Worker %s completed: exit=%s commits=%d changed_paths=%d",
@@ -582,6 +583,7 @@ class WorkerLauncher:
             initial_head=initial_head,
             head_sha=worker.head_sha,
         )
+        cls._cleanup_session_artifacts(worktree_path)
 
         logger.info(
             "Collected detached worker %s: commits=%d changed_paths=%d",
@@ -599,6 +601,26 @@ class WorkerLauncher:
         except (FileNotFoundError, OSError, json.JSONDecodeError):
             return {}
         return payload if isinstance(payload, dict) else {}
+
+    @staticmethod
+    def _cleanup_session_artifacts(worktree_path: str) -> None:
+        """Remove harness session artifacts after result collection.
+
+        The launcher reads these files to qualify terminal state, but they must
+        not remain behind as future worktree dirt once collection completes.
+        """
+        root = Path(worktree_path)
+        for artifact in SESSION_ARTIFACTS:
+            artifact_path = root / artifact
+            try:
+                if artifact_path.is_dir():
+                    shutil.rmtree(artifact_path)
+                else:
+                    artifact_path.unlink()
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                logger.debug("Could not remove session artifact %s: %s", artifact_path, exc)
 
     @staticmethod
     def _terminal_session_result(session_meta: dict[str, Any]) -> tuple[int | None, str | None]:
