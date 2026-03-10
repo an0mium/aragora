@@ -424,6 +424,51 @@ class BossLoopConfig:
 # ---------------------------------------------------------------------------
 
 
+def _extract_deliverable(run_dict: dict[str, Any]) -> dict[str, Any] | None:
+    """Check a completed run for a concrete deliverable.
+
+    A run is only considered to have produced a real deliverable if at least
+    one work order has:
+    - A non-empty ``pr_url``, OR
+    - A non-empty ``branch`` with at least one ``commit_sha``, OR
+    - An explicit ``adopted_pr`` reference
+
+    Returns a summary dict describing the deliverable, or ``None`` if the run
+    produced only a dirty local worktree with no pushed/committed artifact.
+    """
+    work_orders = run_dict.get("work_orders", [])
+    for wo in work_orders:
+        if not isinstance(wo, dict):
+            continue
+        wo_status = str(wo.get("status", "")).strip()
+        if wo_status not in {"completed", "merged"}:
+            continue
+
+        pr_url = str(wo.get("pr_url", "")).strip()
+        if pr_url:
+            return {"type": "pr", "pr_url": pr_url, "work_order_id": wo.get("work_order_id")}
+
+        adopted_pr = str(wo.get("adopted_pr", "")).strip()
+        if adopted_pr:
+            return {
+                "type": "adopted_pr",
+                "adopted_pr": adopted_pr,
+                "work_order_id": wo.get("work_order_id"),
+            }
+
+        branch = str(wo.get("branch", "")).strip()
+        commit_shas = [s for s in wo.get("commit_shas", []) if str(s).strip()]
+        if branch and commit_shas:
+            return {
+                "type": "branch",
+                "branch": branch,
+                "commit_shas": commit_shas,
+                "work_order_id": wo.get("work_order_id"),
+            }
+
+    return None
+
+
 class BossLoop:
     """Long-running Boss loop: pull issues, check freshness, dispatch, report.
 
@@ -758,7 +803,18 @@ class BossLoop:
             status = str(run_dict.get("status", "")).strip()
 
             if status == "completed":
-                return {"status": "completed", "run": run_dict}
+                deliverable = _extract_deliverable(run_dict)
+                if deliverable is None:
+                    return {
+                        "status": "needs_human",
+                        "reasons": [
+                            "Run reported completed but produced no concrete deliverable "
+                            "(no pushed branch, no PR, no committed artifact). "
+                            "Check worker worktree for uncommitted changes."
+                        ],
+                        "run": run_dict,
+                    }
+                return {"status": "completed", "deliverable": deliverable, "run": run_dict}
             if status == "needs_human":
                 reasons: list[str] = []
                 for wo in run_dict.get("work_orders", []):
