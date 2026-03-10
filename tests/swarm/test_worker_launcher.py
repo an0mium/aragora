@@ -68,7 +68,7 @@ class TestLaunchConfig:
         assert cfg.claude_path == "claude"
         assert cfg.codex_path == "codex"
         assert cfg.timeout_seconds == 600.0
-        assert cfg.no_progress_timeout_seconds == 120.0
+        assert cfg.no_progress_timeout_seconds == 720.0
         assert cfg.auto_commit is True
         assert cfg.use_managed_session_script is True
 

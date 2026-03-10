@@ -631,7 +631,11 @@ class SwarmSupervisor:
             return explicit
 
         goal = spec.refined_goal or spec.raw_goal
-        decomposition = self.decomposer.analyze(self._task_prompt(spec))
+        spec_hints = list(spec.file_scope_hints) if spec.file_scope_hints else []
+        decomposition = self.decomposer.analyze(
+            self._task_prompt(spec),
+            file_scope_hints=spec_hints or None,
+        )
         subtasks = list(decomposition.subtasks)
         if not subtasks:
             subtasks = [
@@ -647,7 +651,6 @@ class SwarmSupervisor:
                 )
             ]
         work_orders = self.bridge.build_work_orders(subtasks)
-        spec_hints = list(spec.file_scope_hints)
         for item in work_orders:
             # Override file_scope from spec hints when the decomposer left it
             # empty OR produced scopes with zero overlap with the hints.

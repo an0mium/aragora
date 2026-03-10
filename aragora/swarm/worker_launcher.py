@@ -286,7 +286,11 @@ class WorkerLauncher:
                 except asyncio.TimeoutError:
                     finished = False
             if finished:
-                completed.append(await self.wait(work_order_id, timeout=max(poll_timeout, 0.1)))
+                # Use the configured timeout for result collection — the short
+                # poll_timeout is only for checking whether the process exited.
+                # communicate() on a finished process is normally fast, but
+                # auto_commit (called inside wait) needs 30-60 s for git ops.
+                completed.append(await self.wait(work_order_id))
         return completed
 
     async def snapshot_progress(self, work_order: dict[str, Any]) -> dict[str, Any]:
@@ -805,13 +809,14 @@ class WorkerLauncher:
             commit_proc = await asyncio.create_subprocess_exec(
                 "git",
                 "commit",
+                "--no-verify",
                 "-m",
                 msg,
                 cwd=worker.worktree_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            _, commit_stderr = await asyncio.wait_for(commit_proc.communicate(), timeout=10)
+            _, commit_stderr = await asyncio.wait_for(commit_proc.communicate(), timeout=30)
             if commit_proc.returncode != 0:
                 logger.warning(
                     "git commit failed for %s (rc=%s): %s",

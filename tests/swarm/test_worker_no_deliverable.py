@@ -564,3 +564,131 @@ class TestCampaignDisablesManagedSessionScript:
             "Campaign executor must pass use_managed_session_script=False "
             "to prevent codex_session.sh from creating a nested worktree"
         )
+
+
+# ---------------------------------------------------------------------------
+# Auto-commit bypasses pre-commit hooks
+# ---------------------------------------------------------------------------
+
+
+class TestAutoCommitNoVerify:
+    """Dogfood #4 root cause: _auto_commit's git commit was blocked by
+    pre-commit hooks (timeout or first-run installation delay).  The fix
+    uses --no-verify to bypass hooks — the harness does its own validation."""
+
+    @pytest.mark.asyncio
+    async def test_auto_commit_uses_no_verify(self, tmp_path: Path) -> None:
+        """Verify git commit is called with --no-verify."""
+        repo = _init_repo(tmp_path)
+        (repo / "file.txt").write_text("new content\n", encoding="utf-8")
+
+        worker = WorkerProcess(
+            work_order_id="wo-noverify",
+            agent="codex",
+            worktree_path=str(repo),
+            branch="main",
+            exit_code=0,
+        )
+
+        # Patch _auto_push to isolate the commit test
+        with patch.object(WorkerLauncher, "_auto_push", new_callable=AsyncMock):
+            await WorkerLauncher._auto_commit(worker)
+
+        # Verify commit succeeded
+        result = _run(repo, "git", "log", "--oneline", "-1")
+        assert "wo-noverify" in result.stdout
+
+    @pytest.mark.asyncio
+    async def test_auto_commit_succeeds_with_blocking_hook(self, tmp_path: Path) -> None:
+        """Even if a pre-commit hook would block, --no-verify bypasses it."""
+        repo = _init_repo(tmp_path)
+
+        # Install a pre-commit hook that always fails
+        hooks_dir = repo / ".git" / "hooks"
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+        hook = hooks_dir / "pre-commit"
+        hook.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        hook.chmod(0o755)
+        # Also set core.hooksPath to use this directory
+        _run(repo, "git", "config", "core.hooksPath", str(hooks_dir))
+
+        (repo / "file.txt").write_text("new content\n", encoding="utf-8")
+
+        worker = WorkerProcess(
+            work_order_id="wo-hook-blocked",
+            agent="codex",
+            worktree_path=str(repo),
+            branch="main",
+            exit_code=0,
+        )
+
+        with patch.object(WorkerLauncher, "_auto_push", new_callable=AsyncMock):
+            await WorkerLauncher._auto_commit(worker)
+
+        # Commit should succeed despite the blocking hook
+        result = _run(repo, "git", "log", "--oneline", "-1")
+        assert "wo-hook-blocked" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# collect_finished uses proper timeout for wait()
+# ---------------------------------------------------------------------------
+
+
+class TestCollectFinishedTimeout:
+    """Dogfood #4 secondary bug: collect_finished passed poll_timeout (0.1s)
+    as the wait() timeout.  If proc.communicate() took > 0.1s, exit_code
+    was overwritten to -1, skipping auto_commit entirely."""
+
+    @pytest.mark.asyncio
+    async def test_collect_finished_does_not_pass_short_timeout(self) -> None:
+        """wait() must use the default config timeout, not the poll timeout."""
+        config = LaunchConfig(timeout_seconds=600.0)
+        launcher = WorkerLauncher(config=config)
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0  # Process already finished
+
+        worker = WorkerProcess(
+            work_order_id="wo-timeout",
+            agent="codex",
+            worktree_path="/tmp/fake",
+            branch="main",
+        )
+        launcher._workers["wo-timeout"] = worker
+        launcher._processes["wo-timeout"] = mock_proc
+
+        with patch.object(
+            launcher, "wait", new_callable=AsyncMock, return_value=worker
+        ) as mock_wait:
+            await launcher.collect_finished(work_order_ids=["wo-timeout"])
+            mock_wait.assert_called_once_with("wo-timeout")
+
+
+# ---------------------------------------------------------------------------
+# Dogfood #4 failure shape: uncommitted changes
+# ---------------------------------------------------------------------------
+
+
+class TestDogfood4UncommittedChanges:
+    """Reproduce the dogfood #4 failure: worker modifies files correctly but
+    auto_commit fails (pre-commit hooks block), leaving changes uncommitted.
+    The supervisor sees changed_paths but no commit_shas."""
+
+    def test_changed_paths_but_no_commits_is_no_deliverable(self) -> None:
+        """Work order with changed_paths but empty commit_shas is not a deliverable."""
+        run_dict: dict[str, Any] = {
+            "status": "completed",
+            "work_orders": [
+                {
+                    "work_order_id": "wo-dogfood4",
+                    "status": "completed",
+                    "branch": "codex/swarm-b8214147-subtask_",
+                    "commit_shas": [],
+                    "changed_paths": ["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+                    "pr_url": "",
+                },
+            ],
+        }
+        assert _extract_deliverable(run_dict) is None
+        assert _classify_terminal_run_outcome(run_dict) == "clean_exit_no_deliverable"

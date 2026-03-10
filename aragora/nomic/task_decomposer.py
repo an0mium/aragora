@@ -1236,6 +1236,59 @@ class TaskDecomposer:
         ]
 
     # =========================================================================
+    # File-scope constraint enforcement
+    # =========================================================================
+
+    @staticmethod
+    def _scope_overlaps_hints(file_scope: list[str], hints: list[str]) -> bool:
+        """Check if any scope path has a path-prefix overlap with any hint.
+
+        Overlap is bidirectional: ``aragora/live/package.json`` overlaps
+        ``aragora/live`` (scope under hint) and ``aragora`` overlaps
+        ``aragora/live`` (hint under scope).
+        """
+        for scope_path in file_scope:
+            clean_scope = scope_path.strip().removeprefix("./").rstrip("/")
+            if not clean_scope:
+                continue
+            for hint in hints:
+                clean_hint = hint.strip().removeprefix("./").rstrip("/")
+                if not clean_hint:
+                    continue
+                if clean_scope.startswith(clean_hint) or clean_hint.startswith(clean_scope):
+                    return True
+        return False
+
+    def _constrain_scopes_to_hints(
+        self,
+        subtasks: list[SubTask],
+        hints: list[str],
+    ) -> list[SubTask]:
+        """Validate and constrain subtask file_scope against caller hints.
+
+        - Empty file_scope → backfilled from hints
+        - Non-overlapping file_scope → overridden with hints
+        - Overlapping file_scope → preserved (decomposer correctly narrowed)
+        """
+        for subtask in subtasks:
+            if not subtask.file_scope:
+                subtask.file_scope = list(hints)
+                logger.info(
+                    "Backfilled empty file_scope on subtask %s from hints: %s",
+                    subtask.id,
+                    hints,
+                )
+            elif not self._scope_overlaps_hints(subtask.file_scope, hints):
+                logger.warning(
+                    "Subtask %s file_scope %s has no overlap with hints %s — overriding",
+                    subtask.id,
+                    subtask.file_scope,
+                    hints,
+                )
+                subtask.file_scope = list(hints)
+        return subtasks
+
+    # =========================================================================
     # KM-informed subtask enrichment (async overlay)
     # =========================================================================
 
