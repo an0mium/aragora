@@ -216,7 +216,7 @@ class WorkerLauncher:
         worker.completed_at = datetime.now(UTC).isoformat()
         worker.diff = await self._collect_diff(worker.worktree_path)
 
-        if self.config.auto_commit and worker.diff and worker.exit_code == 0:
+        if self.config.auto_commit and worker.diff:
             await self._auto_commit(worker)
 
         worker.head_sha = await self._git_output(worker.worktree_path, "rev-parse", "HEAD")
@@ -684,7 +684,13 @@ class WorkerLauncher:
                 )
                 await asyncio.wait_for(reset_proc.communicate(), timeout=5)
 
-            msg = f"feat(swarm): {worker.agent} completed {worker.work_order_id}"
+            if worker.exit_code is not None and worker.exit_code != 0:
+                msg = (
+                    f"fix(swarm): salvage {worker.agent} work for "
+                    f"{worker.work_order_id} (exit {worker.exit_code})"
+                )
+            else:
+                msg = f"feat(swarm): {worker.agent} completed {worker.work_order_id}"
             commit_proc = await asyncio.create_subprocess_exec(
                 "git",
                 "commit",
