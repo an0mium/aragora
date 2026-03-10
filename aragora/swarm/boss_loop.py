@@ -335,9 +335,10 @@ class BossIterationStatus:
     next_actions: list[str]
     elapsed_seconds: float = 0.0
     error: str | None = None
+    worker_outcome: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "iteration": self.iteration,
             "run_id": self.run_id,
             "timestamp": self.timestamp,
@@ -350,6 +351,9 @@ class BossIterationStatus:
             "elapsed_seconds": self.elapsed_seconds,
             "error": self.error,
         }
+        if self.worker_outcome is not None:
+            d["worker_outcome"] = self.worker_outcome
+        return d
 
 
 @dataclass
@@ -422,6 +426,20 @@ class BossLoopConfig:
 # ---------------------------------------------------------------------------
 # Boss Loop
 # ---------------------------------------------------------------------------
+
+
+def _extract_worker_outcome(run_dict: dict[str, Any]) -> str | None:
+    """Extract the primary worker_outcome from a run's work orders.
+
+    Returns the first non-empty ``worker_outcome`` found, or ``None``.
+    """
+    for wo in run_dict.get("work_orders", []):
+        if not isinstance(wo, dict):
+            continue
+        outcome = str(wo.get("worker_outcome", "")).strip()
+        if outcome:
+            return outcome
+    return None
 
 
 def _extract_deliverable(run_dict: dict[str, Any]) -> dict[str, Any] | None:
@@ -671,6 +689,7 @@ class BossLoop:
         worker_result = await self._dispatch_issue(selected, freshness)
 
         elapsed = time.monotonic() - iter_start
+        outcome = worker_result.get("worker_outcome")
 
         if worker_result.get("status") == "completed":
             self._completed_issues.append(issue_dict)
@@ -686,6 +705,7 @@ class BossLoop:
                 needs_human_reasons=[],
                 next_actions=["Proceeding to next issue."],
                 elapsed_seconds=elapsed,
+                worker_outcome=outcome,
             )
 
         if worker_result.get("status") == "needs_human":
@@ -701,6 +721,7 @@ class BossLoop:
                 needs_human_reasons=worker_result.get("reasons", ["Worker requires human input."]),
                 next_actions=["Review the worker output and decide next steps."],
                 elapsed_seconds=elapsed,
+                worker_outcome=outcome,
             )
 
         # Worker failed
@@ -725,6 +746,7 @@ class BossLoop:
                 ],
                 elapsed_seconds=elapsed,
                 error=worker_result.get("error"),
+                worker_outcome=outcome,
             )
 
         return BossIterationStatus(
@@ -743,6 +765,7 @@ class BossLoop:
             ],
             elapsed_seconds=elapsed,
             error=worker_result.get("error"),
+            worker_outcome=outcome,
         )
 
     async def _dispatch_issue(
@@ -801,12 +824,14 @@ class BossLoop:
 
             run_dict = run.to_dict()
             status = str(run_dict.get("status", "")).strip()
+            outcome = _extract_worker_outcome(run_dict)
 
             if status == "completed":
                 deliverable = _extract_deliverable(run_dict)
                 if deliverable is None:
                     return {
                         "status": "needs_human",
+                        "worker_outcome": outcome or "clean_exit_no_effect",
                         "reasons": [
                             "Run reported completed but produced no concrete deliverable "
                             "(no pushed branch, no PR, no committed artifact). "
@@ -814,7 +839,12 @@ class BossLoop:
                         ],
                         "run": run_dict,
                     }
-                return {"status": "completed", "deliverable": deliverable, "run": run_dict}
+                return {
+                    "status": "completed",
+                    "worker_outcome": outcome,
+                    "deliverable": deliverable,
+                    "run": run_dict,
+                }
             if status == "needs_human":
                 reasons: list[str] = []
                 for wo in run_dict.get("work_orders", []):
@@ -826,11 +856,16 @@ class BossLoop:
                             reasons.append(str(err))
                 return {
                     "status": "needs_human",
+                    "worker_outcome": outcome,
                     "reasons": reasons or ["Worker reached needs_human state."],
                     "run": run_dict,
                 }
 
-            return {"status": "failed", "error": f"Run ended with status: {status}"}
+            return {
+                "status": "failed",
+                "worker_outcome": outcome,
+                "error": f"Run ended with status: {status}",
+            }
 
         except ValueError as exc:
             return {"status": "failed", "error": str(exc)}

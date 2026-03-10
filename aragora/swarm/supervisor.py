@@ -58,6 +58,22 @@ class SupervisorRunStatus(str, Enum):
     COMPLETED = "completed"
 
 
+class WorkerOutcome(str, Enum):
+    """Fine-grained classification of how a dispatched worker completed or failed.
+
+    This is additional metadata alongside the work-order ``status`` field,
+    providing richer signal for model-matrix benchmarking and outcome analysis.
+    """
+
+    COMPLETED = "completed"
+    TIMEOUT_NO_PROGRESS = "timeout_no_progress"
+    TIMEOUT_WITH_SALVAGE = "timeout_with_salvage"
+    CRASH = "crash"
+    CRASH_WITH_SALVAGE = "crash_with_salvage"
+    CLEAN_EXIT_NO_EFFECT = "clean_exit_no_effect"
+    SCOPE_VIOLATION = "scope_violation"
+
+
 @dataclass(slots=True)
 class SwarmApprovalPolicy:
     """Explicit human-gating policy for supervised swarm runs."""
@@ -504,6 +520,7 @@ class SwarmSupervisor:
                     logger.debug("Exit result collection failed for %s", woid, exc_info=True)
 
                 if exit_result is not None and exit_result.commit_shas:
+                    item["worker_outcome"] = WorkerOutcome.CRASH_WITH_SALVAGE.value
                     finished.append(exit_result)
                     finished_ids.add(woid)
                 else:
@@ -516,8 +533,10 @@ class SwarmSupervisor:
                     exit_violations = self._check_file_scope_violations(item, collected_paths)
                     if exit_violations:
                         self._mark_scope_violation(item, exit_violations)
+                        item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
                     else:
                         self._mark_needs_human(item, reason)
+                        item["worker_outcome"] = WorkerOutcome.CRASH.value
                     self._release_terminal_lease(item)
                 changed = True
                 continue
@@ -553,6 +572,7 @@ class SwarmSupervisor:
                 if timeout_result is not None and timeout_result.commit_shas:
                     # Worker produced a concrete deliverable before timing out.
                     # Surface it through the normal result path.
+                    item["worker_outcome"] = WorkerOutcome.TIMEOUT_WITH_SALVAGE.value
                     finished.append(timeout_result)
                     finished_ids.add(woid)
                 else:
@@ -566,8 +586,10 @@ class SwarmSupervisor:
                     timeout_violations = self._check_file_scope_violations(item, collected_paths)
                     if timeout_violations:
                         self._mark_scope_violation(item, timeout_violations, extra_reason=reason)
+                        item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
                     else:
                         self._mark_needs_human(item, reason)
+                        item["worker_outcome"] = WorkerOutcome.TIMEOUT_NO_PROGRESS.value
                     self._release_terminal_lease(item)
                 changed = True
 
@@ -825,6 +847,8 @@ class SwarmSupervisor:
         scope_violations = self._check_file_scope_violations(item, clean_paths)
         if scope_violations:
             self._mark_scope_violation(item, scope_violations)
+            if "worker_outcome" not in item:
+                item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
             lease_id = str(item.get("lease_id", "")).strip()
             if lease_id:
                 self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
@@ -843,9 +867,18 @@ class SwarmSupervisor:
                     item,
                     "worker produced only session artifacts, no real deliverables",
                 )
+                if "worker_outcome" not in item:
+                    item["worker_outcome"] = WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
                 self._release_terminal_lease(item)
                 item["exit_code"] = result.exit_code
                 return
+
+            # Classify outcome before completion recording
+            if "worker_outcome" not in item:
+                if clean_paths or result.commit_shas:
+                    item["worker_outcome"] = WorkerOutcome.COMPLETED.value
+                else:
+                    item["worker_outcome"] = WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
 
             receipt_id = str(item.get("receipt_id", "")).strip()
             if lease_id and not receipt_id:
@@ -874,6 +907,8 @@ class SwarmSupervisor:
                         "violations": list(exc.violations),
                         "changed_paths": clean_paths,
                     }
+                    if "worker_outcome" not in item:
+                        item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
                     self._release_terminal_lease(item)
                     item["exit_code"] = result.exit_code
                     return
@@ -892,6 +927,13 @@ class SwarmSupervisor:
         item["exit_code"] = result.exit_code
         if result.stderr.strip():
             item["blockers"] = [result.stderr.strip()]
+        if "worker_outcome" not in item:
+            if result.exit_code == -1:
+                item["worker_outcome"] = WorkerOutcome.TIMEOUT_NO_PROGRESS.value
+            elif result.commit_shas:
+                item["worker_outcome"] = WorkerOutcome.CRASH_WITH_SALVAGE.value
+            else:
+                item["worker_outcome"] = WorkerOutcome.CRASH.value
 
     def _release_terminal_lease(self, item: dict[str, Any]) -> None:
         lease_id = str(item.get("lease_id", "")).strip()
