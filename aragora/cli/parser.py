@@ -2299,6 +2299,18 @@ def _add_swarm_parser(subparsers) -> None:
         default=3,
         help="Stop boss-loop after N consecutive worker failures (default: 3)",
     )
+    swarm_parser.add_argument(
+        "--boss-model",
+        type=str,
+        default=None,
+        help="Model for boss-side logic (spec generation, interrogation). Default: codex",
+    )
+    swarm_parser.add_argument(
+        "--worker-model",
+        type=str,
+        default=None,
+        help="Model for dispatched worker execution. Default: codex",
+    )
     swarm_parser.set_defaults(
         func=lambda args: __import__(
             "aragora.cli.commands.swarm", fromlist=["cmd_swarm"]

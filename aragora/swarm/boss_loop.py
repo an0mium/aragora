@@ -370,11 +370,15 @@ class BossLoopResult:
     iteration_statuses: list[dict[str, Any]]
     needs_human_reasons: list[str]
     next_actions: list[str]
+    boss_model: str = "codex"
+    worker_model: str = "codex"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "mode": "boss-loop",
             "run_id": self.run_id,
+            "boss_model": self.boss_model,
+            "worker_model": self.worker_model,
             "iterations_completed": self.iterations_completed,
             "total_elapsed_seconds": self.total_elapsed_seconds,
             "stop_reason": self.stop_reason,
@@ -418,6 +422,10 @@ class BossLoopConfig:
     # Dispatch
     target_branch: str = "main"
     budget_limit_usd: float = 5.0
+
+    # Model selection
+    boss_model: str = "codex"
+    worker_model: str = "codex"
 
     # Reporting
     status_report_interval: int = 5  # every N iterations
@@ -591,6 +599,8 @@ class BossLoop:
             iteration_statuses=[s.to_dict() for s in self._iteration_statuses],
             needs_human_reasons=self._collect_needs_human_reasons(),
             next_actions=self._derive_next_actions(),
+            boss_model=self.config.boss_model,
+            worker_model=self.config.worker_model,
         )
 
     async def _run_iteration(self, iteration: int) -> BossIterationStatus:
@@ -808,6 +818,7 @@ class BossLoop:
                 require_approval=True,
             )
             commander = SwarmCommander(config=config)
+            worker_model = self.config.worker_model
             run = await commander.run_supervised_from_spec(
                 spec,
                 target_branch=self.config.target_branch,
@@ -820,6 +831,7 @@ class BossLoop:
                 wait=True,
                 interval_seconds=5.0,
                 max_ticks=360,
+                default_target_agent=worker_model if worker_model != "codex" else None,
             )
 
             run_dict = run.to_dict()

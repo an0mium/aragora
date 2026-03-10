@@ -242,6 +242,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     if action == "boss-loop":
         from aragora.swarm.boss_loop import BossLoop, BossLoopConfig
 
+        boss_model = getattr(args, "boss_model", None) or "codex"
+        worker_model = getattr(args, "worker_model", None) or "codex"
         boss_loop_config = BossLoopConfig(
             max_iterations=int(getattr(args, "max_ticks", None) or 50),
             iteration_interval_seconds=float(getattr(args, "interval_seconds", 30.0) or 30.0),
@@ -251,8 +253,11 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             target_branch=target_branch,
             budget_limit_usd=budget_limit,
             max_consecutive_failures=int(getattr(args, "max_consecutive_failures", 3) or 3),
+            boss_model=boss_model,
+            worker_model=worker_model,
         )
         loop = BossLoop(config=boss_loop_config)
+        model_tag = f"boss={boss_model} worker={worker_model}"
 
         def _on_status(status: object) -> None:
             if as_json:
@@ -267,8 +272,11 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 else "none"
             )
             stop = status_dict.get("stop_reason")
+            outcome = status_dict.get("worker_outcome", "")
+            outcome_tag = f" outcome={outcome}" if outcome else ""
             print(
-                f"[iter {iteration}] worker={worker} issue={issue_text}"
+                f"[iter {iteration}] {model_tag} worker={worker} issue={issue_text}"
+                + outcome_tag
                 + (f" stop={stop}" if stop else "")
             )
             for action_text in status_dict.get("next_actions", [])[:2]:
@@ -280,6 +288,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         else:
             print(f"\nBoss loop finished: {result.stop_reason}")
             print(
+                f"models: {model_tag}\n"
                 f"iterations={result.iterations_completed} "
                 f"attempted={len(result.issues_attempted)} "
                 f"completed={len(result.issues_completed)} "

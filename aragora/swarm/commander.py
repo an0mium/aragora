@@ -230,6 +230,7 @@ class SwarmCommander:
         wait: bool = True,
         interval_seconds: float = 5.0,
         max_ticks: int | None = None,
+        default_target_agent: str | None = None,
     ) -> SupervisorRun:
         """Dispatch a spec through the supervisor-backed Codex/Claude worker pool.
 
@@ -249,6 +250,7 @@ class SwarmCommander:
             max_concurrency=max_concurrency,
             managed_dir_pattern=managed_dir_pattern,
             approval_policy=approval_policy,
+            default_target_agent=default_target_agent,
         )
         if dispatch:
             launched = await supervisor.dispatch_workers(run.run_id)
