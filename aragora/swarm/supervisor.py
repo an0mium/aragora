@@ -483,18 +483,42 @@ class SwarmSupervisor:
                 continue
 
             if not bool(progress.get("pid_alive")):
-                # Check scope on exit too — worker may have edited wrong files then died
-                exit_violations = self._check_file_scope_violations(
-                    item, list(item.get("changed_paths", []))
-                )
-                if exit_violations:
-                    self._mark_scope_violation(item, exit_violations)
-                else:
-                    self._mark_needs_human(
-                        item,
-                        "worker process exited without receipt or exit marker",
+                # Worker PID is gone but collect_detached_result returned
+                # None earlier (e.g. race between PID exit and session-meta
+                # write).  Route through detached result collection so the
+                # exit-141 salvage (#903) and session-artifact cleanup
+                # (#896/#904) paths can execute (#905).
+                reason = "worker process exited without receipt or exit marker"
+                exit_result: WorkerProcess | None = None
+                try:
+                    exit_result = await WorkerLauncher.collect_detached_result(
+                        work_order_id=woid,
+                        agent=str(item.get("target_agent", "codex")),
+                        worktree_path=worktree_path,
+                        branch=str(item.get("branch", "main")),
+                        pid=item.get("pid"),
+                        initial_head=str(item.get("initial_head", "")),
+                        auto_commit=self.launcher.config.auto_commit,
                     )
-                self._release_terminal_lease(item)
+                except Exception:
+                    logger.debug("Exit result collection failed for %s", woid, exc_info=True)
+
+                if exit_result is not None and exit_result.commit_shas:
+                    finished.append(exit_result)
+                    finished_ids.add(woid)
+                else:
+                    collected_paths = self._strip_session_artifacts(
+                        list(
+                            (exit_result.changed_paths if exit_result else None)
+                            or item.get("changed_paths", [])
+                        )
+                    )
+                    exit_violations = self._check_file_scope_violations(item, collected_paths)
+                    if exit_violations:
+                        self._mark_scope_violation(item, exit_violations)
+                    else:
+                        self._mark_needs_human(item, reason)
+                    self._release_terminal_lease(item)
                 changed = True
                 continue
 
