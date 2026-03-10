@@ -892,7 +892,7 @@ class SwarmSupervisor:
                 item["exit_code"] = result.exit_code
                 return
 
-            # Clean exit with zero changes of any kind
+            # Clean exit with zero changes of any kind — fail closed
             if not clean_paths and not result.commit_shas:
                 if not _pre_outcome:
                     item["worker_outcome"] = WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
@@ -904,6 +904,13 @@ class SwarmSupervisor:
                     result.initial_head,
                     result.head_sha,
                 )
+                self._mark_needs_human(
+                    item,
+                    "worker exited 0 with no commits and no changed paths",
+                )
+                self._release_terminal_lease(item)
+                item["exit_code"] = result.exit_code
+                return
             elif not _pre_outcome:
                 item["worker_outcome"] = WorkerOutcome.COMPLETED.value
 

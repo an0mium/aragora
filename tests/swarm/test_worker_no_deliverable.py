@@ -328,6 +328,9 @@ class TestSupervisorWorkerOutcome:
         record = store.get_supervisor_run(run_id)
         wo = record["work_orders"][0]
         assert wo["worker_outcome"] == WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
+        assert wo["status"] == "needs_human", (
+            "clean_exit_no_effect must fail closed to needs_human, not completed"
+        )
 
     @pytest.mark.asyncio
     async def test_nonzero_exit_no_commits_sets_crash(self, tmp_path: Path) -> None:
@@ -478,3 +481,86 @@ def _create_run(store: Any, item: dict[str, Any]) -> str:
         work_orders=[item],
     )
     return record["run_id"]
+
+
+# ---------------------------------------------------------------------------
+# Campaign dispatch disables managed session script
+# ---------------------------------------------------------------------------
+
+
+class TestCampaignDisablesManagedSessionScript:
+    """Campaign executor must pass use_managed_session_script=False to avoid
+    the nested-worktree problem where codex_session.sh creates a second
+    worktree that the harness never inspects."""
+
+    @pytest.mark.asyncio
+    async def test_campaign_dispatch_passes_use_managed_session_script_false(
+        self, tmp_path: Path
+    ) -> None:
+        """Verify dispatch_bounded_spec receives use_managed_session_script=False
+        when called from the campaign executor."""
+        from unittest.mock import ANY
+
+        from aragora.swarm.campaign import (
+            CampaignExecutor,
+            CampaignManifest,
+            CampaignProject,
+            save_campaign_manifest,
+        )
+        from aragora.swarm.spec import SwarmSpec
+
+        manifest_dir = tmp_path / ".aragora"
+        manifest_dir.mkdir()
+        manifest_path = manifest_dir / "campaign_manifest.yaml"
+
+        spec = SwarmSpec(
+            raw_goal="test",
+            refined_goal="test",
+            acceptance_criteria=["test passes"],
+            file_scope_hints=["test.md"],
+        )
+        project = CampaignProject(
+            project_id="proj-001",
+            title="test project",
+            spec=spec,
+            acceptance_criteria=["test passes"],
+            file_scope_hints=["test.md"],
+            estimated_cost_usd=1.0,
+        )
+        manifest = CampaignManifest(
+            campaign_id="test-campaign",
+            created_at="2026-01-01T00:00:00Z",
+            source_kind="prebuilt",
+            source_ref="test",
+            worker_model="codex",
+            review_model="claude",
+            max_retries_per_project=0,
+            projects=[project],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+
+        captured_kwargs: dict[str, Any] = {}
+
+        async def mock_dispatch(spec: Any, **kwargs: Any) -> dict[str, Any]:
+            captured_kwargs.update(kwargs)
+            return {
+                "status": "needs_human",
+                "outcome": "clean_exit_no_deliverable",
+                "run": {"status": "completed", "work_orders": []},
+                "run_id": "test-run-id",
+            }
+
+        executor = CampaignExecutor(
+            manifest_path=manifest_path,
+            repo_root=tmp_path,
+        )
+        with patch(
+            "aragora.swarm.campaign.dispatch_bounded_spec",
+            side_effect=mock_dispatch,
+        ):
+            await executor.execute_once()
+
+        assert captured_kwargs.get("use_managed_session_script") is False, (
+            "Campaign executor must pass use_managed_session_script=False "
+            "to prevent codex_session.sh from creating a nested worktree"
+        )

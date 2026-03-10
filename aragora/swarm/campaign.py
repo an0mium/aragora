@@ -958,6 +958,7 @@ class CampaignExecutor:
             repo_path=self.repo_root,
             default_target_agent=worker_model,
             default_reviewer_agent=review_model,
+            use_managed_session_script=False,
         )
 
         with locked_manifest_path(self.manifest_path):

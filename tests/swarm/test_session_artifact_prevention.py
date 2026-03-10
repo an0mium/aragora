@@ -489,10 +489,10 @@ class TestDetachedWorkerEndToEndFailClosed:
         # Should proceed to completed, not rejected
         assert item["status"] != "needs_human"
 
-    def test_genuine_no_op_worker_not_rejected(
+    def test_genuine_no_op_worker_fails_closed(
         self, repo: Path, store: DevCoordinationStore
     ) -> None:
-        """A worker with no changes AND no commits should not be rejected by artifact guard."""
+        """A worker with no changes AND no commits must fail closed to needs_human."""
         supervisor = self._make_supervisor(repo, store)
         item = {
             "work_order_id": "no-op",
@@ -513,5 +513,5 @@ class TestDetachedWorkerEndToEndFailClosed:
         )
         supervisor._apply_worker_result(item, result)
 
-        # Genuine no-op should still complete (no deliverables but no ghost commits)
-        assert item["status"] == "completed"
+        # Genuine no-op must fail closed — a worker that produces nothing is not "completed"
+        assert item["status"] == "needs_human"

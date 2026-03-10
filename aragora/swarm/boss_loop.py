@@ -458,6 +458,7 @@ async def dispatch_bounded_spec(
     repo_path: Any | None = None,
     default_target_agent: str | None = None,
     default_reviewer_agent: str | None = None,
+    use_managed_session_script: bool = True,
 ) -> dict[str, Any]:
     """Dispatch one bounded spec via the supervisor-backed Boss path.
 
@@ -496,6 +497,7 @@ async def dispatch_bounded_spec(
             max_ticks=max_ticks,
             default_target_agent=default_target_agent,
             default_reviewer_agent=default_reviewer_agent,
+            use_managed_session_script=use_managed_session_script,
         )
         run_dict = run.to_dict()
         outcome = _classify_terminal_run_outcome(run_dict)

@@ -236,18 +236,26 @@ class SwarmCommander:
         max_ticks: int | None = None,
         default_target_agent: str | None = None,
         default_reviewer_agent: str | None = None,
+        use_managed_session_script: bool = True,
     ) -> SupervisorRun:
         """Dispatch a spec through the supervisor-backed Codex/Claude worker pool.
 
         Args:
             dispatch: If True, spawn CLI worker processes after provisioning.
             wait: If True, reconcile until the run reaches a stable stop condition.
+            use_managed_session_script: If False, skip the codex_session.sh wrapper
+                and run the worker CLI directly in the harness-managed worktree.
         """
         self._spec = spec
         self._require_dispatch_bounded(spec)
         from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher
 
-        launcher = WorkerLauncher(config=LaunchConfig(detach=not wait))
+        launcher = WorkerLauncher(
+            config=LaunchConfig(
+                detach=not wait,
+                use_managed_session_script=use_managed_session_script,
+            )
+        )
         supervisor = SwarmSupervisor(repo_root=repo_path or Path.cwd(), launcher=launcher)
         run = supervisor.start_run(
             spec=spec,

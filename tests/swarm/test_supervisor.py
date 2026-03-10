@@ -452,6 +452,8 @@ async def test_collect_results_updates_work_orders(repo: Path, store: DevCoordin
         exit_code=0,
         completed_at="2026-03-06T20:00:00+00:00",
         diff="diff --git a/test.py",
+        changed_paths=["test.py"],
+        commit_shas=["abc123"],
     )
     mock_launcher.get_worker = MagicMock(return_value=completed_worker)
     mock_launcher.wait = AsyncMock(return_value=completed_worker)
