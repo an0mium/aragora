@@ -1238,6 +1238,41 @@ def _compute_stop_reason(manifest: CampaignManifest) -> str:
     }
     if statuses and statuses.issubset(blocked_like | {CampaignProjectStatus.COMPLETED.value}):
         return CampaignStopReason.CAMPAIGN_BLOCKED.value
+    # Check for unreachable pending projects: if every non-terminal project
+    # has at least one dependency in a terminal-but-not-completed state, the
+    # campaign is effectively blocked even though raw statuses include pending.
+    terminal_not_completed = blocked_like
+    active_statuses = {
+        CampaignProjectStatus.ACTIVE.value,
+        CampaignProjectStatus.DELIVERED.value,
+    }
+    if not statuses & active_statuses:
+        project_status_map = {p.project_id: p.status for p in manifest.projects}
+        reachable = [
+            p
+            for p in manifest.projects
+            if p.status
+            in {
+                CampaignProjectStatus.PENDING.value,
+                CampaignProjectStatus.READY.value,
+                CampaignProjectStatus.NEEDS_REVISION.value,
+            }
+        ]
+        if reachable and all(
+            any(
+                project_status_map.get(d.project_id) in terminal_not_completed
+                for d in p.dependencies
+            )
+            for p in reachable
+            if p.dependencies
+        ):
+            # Every remaining non-terminal project with dependencies has at least
+            # one dependency that will never complete.  If there are also no
+            # dependency-free pending projects that could still make progress,
+            # the campaign is blocked.
+            dependency_free = [p for p in reachable if not p.dependencies]
+            if not dependency_free:
+                return CampaignStopReason.CAMPAIGN_BLOCKED.value
     return CampaignStopReason.STILL_RUNNING.value
 
 

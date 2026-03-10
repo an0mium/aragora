@@ -19,7 +19,9 @@ from aragora.swarm.campaign import (
     CampaignReviewGate,
     CampaignReviewStatus,
     CampaignRunOutcome,
+    CampaignStopReason,
     CampaignExecutor,
+    _compute_stop_reason,
     load_campaign_manifest,
     save_campaign_manifest,
 )
@@ -375,6 +377,138 @@ class TestCampaignExecutor:
         executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
         with pytest.raises(ValueError):
             executor.status()
+
+
+class TestComputeStopReason:
+    """Dogfood finding F2: status and run must agree on blocked state."""
+
+    def test_unreachable_pending_projects_are_campaign_blocked(self) -> None:
+        """Pending projects whose deps are skipped/failed are unreachable."""
+        manifest = CampaignManifest(
+            campaign_id="campaign-unreachable",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Head project",
+                    spec=_bounded_spec("Head project"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pass"],
+                    constraints=["scope"],
+                    status=CampaignProjectStatus.SKIPPED.value,
+                ),
+                CampaignProject(
+                    project_id="proj-002",
+                    title="Downstream",
+                    spec=_bounded_spec("Downstream", ["docs/CLI_REFERENCE.md"]),
+                    file_scope_hints=["docs/CLI_REFERENCE.md"],
+                    acceptance_criteria=["pass"],
+                    constraints=["scope"],
+                    status=CampaignProjectStatus.PENDING.value,
+                    dependencies=[CampaignDependency(project_id="proj-001", reason="sequential")],
+                ),
+            ],
+        )
+        assert _compute_stop_reason(manifest) == CampaignStopReason.CAMPAIGN_BLOCKED.value
+
+    def test_reachable_pending_projects_are_still_running(self) -> None:
+        """Pending projects with no deps or all-completed deps are reachable."""
+        manifest = CampaignManifest(
+            campaign_id="campaign-reachable",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Completed head",
+                    spec=_bounded_spec("Completed head"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pass"],
+                    constraints=["scope"],
+                    status=CampaignProjectStatus.COMPLETED.value,
+                ),
+                CampaignProject(
+                    project_id="proj-002",
+                    title="Ready downstream",
+                    spec=_bounded_spec("Ready downstream", ["docs/CLI_REFERENCE.md"]),
+                    file_scope_hints=["docs/CLI_REFERENCE.md"],
+                    acceptance_criteria=["pass"],
+                    constraints=["scope"],
+                    status=CampaignProjectStatus.PENDING.value,
+                    dependencies=[CampaignDependency(project_id="proj-001", reason="sequential")],
+                ),
+            ],
+        )
+        assert _compute_stop_reason(manifest) == CampaignStopReason.STILL_RUNNING.value
+
+    def test_mixed_skipped_and_independent_pending_is_still_running(self) -> None:
+        """A dependency-free pending project keeps the campaign alive."""
+        manifest = CampaignManifest(
+            campaign_id="campaign-mixed",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Skipped head",
+                    spec=_bounded_spec("Skipped head"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pass"],
+                    constraints=["scope"],
+                    status=CampaignProjectStatus.SKIPPED.value,
+                ),
+                CampaignProject(
+                    project_id="proj-002",
+                    title="Independent project",
+                    spec=_bounded_spec("Independent project", ["docs/FAQ.md"]),
+                    file_scope_hints=["docs/FAQ.md"],
+                    acceptance_criteria=["pass"],
+                    constraints=["scope"],
+                    status=CampaignProjectStatus.PENDING.value,
+                    dependencies=[],
+                ),
+            ],
+        )
+        assert _compute_stop_reason(manifest) == CampaignStopReason.STILL_RUNNING.value
+
+    def test_status_agrees_with_run_on_unreachable_blocked(self, tmp_path: Path) -> None:
+        """End-to-end: executor.status() must report campaign_blocked for unreachable projects."""
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-status-blocked",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Skipped head",
+                    spec=_bounded_spec("Skipped head"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pass"],
+                    constraints=["scope"],
+                    status=CampaignProjectStatus.SKIPPED.value,
+                ),
+                CampaignProject(
+                    project_id="proj-002",
+                    title="Unreachable downstream",
+                    spec=_bounded_spec("Unreachable downstream", ["docs/CLI_REFERENCE.md"]),
+                    file_scope_hints=["docs/CLI_REFERENCE.md"],
+                    acceptance_criteria=["pass"],
+                    constraints=["scope"],
+                    status=CampaignProjectStatus.PENDING.value,
+                    dependencies=[CampaignDependency(project_id="proj-001", reason="sequential")],
+                ),
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+        status = executor.status()
+        assert status["stop_reason"] == CampaignStopReason.CAMPAIGN_BLOCKED.value
 
 
 class TestCampaignCLI:
