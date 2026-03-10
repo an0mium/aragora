@@ -481,6 +481,9 @@ class WorkerLauncher:
             "  - Stage only the files you intentionally changed with `git add <file> ...`.\n"
             "  - Do NOT use `git add -A` or `git add .` — session metadata files must not be committed.\n"
             '  - Commit with a descriptive message using `git commit -m "..."` before exiting.\n'
+            "  - After committing, push your branch: `git push origin HEAD`.\n"
+            "  - If `git push` fails (e.g. no remote, permission error), that is acceptable — "
+            "the harness will attempt to push for you.\n"
             "  - Exit with a truthful final state; do not claim integration or approval work is done unless it happened in this lane."
         )
 
@@ -816,5 +819,47 @@ class WorkerLauncher:
                     commit_proc.returncode,
                     (commit_stderr or b"").decode(errors="replace").strip(),
                 )
+                return
+
+            # Push the branch so the deliverable is visible upstream.
+            # Best-effort: if push fails (no remote, auth, etc.) the local
+            # commit is still collected by _collect_commit_shas.
+            await WorkerLauncher._auto_push(worker)
         except (asyncio.TimeoutError, FileNotFoundError, OSError) as exc:
             logger.warning("Auto-commit failed for %s: %s", worker.work_order_id, exc)
+
+    @staticmethod
+    async def _auto_push(worker: WorkerProcess) -> None:
+        """Best-effort push of the worker branch to origin.
+
+        Called after auto-commit to ensure the deliverable is available for
+        review and PR creation.  If push fails the local commit is still
+        collected — the deliverable gate accepts branch+commit_shas from
+        the local worktree.
+        """
+        try:
+            push_proc = await asyncio.create_subprocess_exec(
+                "git",
+                "push",
+                "origin",
+                "HEAD",
+                cwd=worker.worktree_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, push_stderr = await asyncio.wait_for(push_proc.communicate(), timeout=30)
+            if push_proc.returncode != 0:
+                logger.info(
+                    "Auto-push failed for %s (rc=%s): %s — local commit preserved",
+                    worker.work_order_id,
+                    push_proc.returncode,
+                    (push_stderr or b"").decode(errors="replace").strip()[:200],
+                )
+            else:
+                logger.info("Auto-pushed branch for %s", worker.work_order_id)
+        except (asyncio.TimeoutError, FileNotFoundError, OSError) as exc:
+            logger.info(
+                "Auto-push skipped for %s: %s — local commit preserved",
+                worker.work_order_id,
+                exc,
+            )

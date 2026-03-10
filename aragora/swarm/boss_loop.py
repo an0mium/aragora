@@ -335,9 +335,10 @@ class BossIterationStatus:
     next_actions: list[str]
     elapsed_seconds: float = 0.0
     error: str | None = None
+    worker_outcome: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "iteration": self.iteration,
             "run_id": self.run_id,
             "timestamp": self.timestamp,
@@ -350,6 +351,9 @@ class BossIterationStatus:
             "elapsed_seconds": self.elapsed_seconds,
             "error": self.error,
         }
+        if self.worker_outcome is not None:
+            result["worker_outcome"] = self.worker_outcome
+        return result
 
 
 @dataclass
@@ -587,6 +591,20 @@ def _extract_deliverable(run_dict: dict[str, Any]) -> dict[str, Any] | None:
                 "work_order_id": wo.get("work_order_id"),
             }
 
+    return None
+
+
+def _extract_worker_outcome(run_dict: dict[str, Any]) -> str | None:
+    """Extract the first non-empty ``worker_outcome`` from a completed run.
+
+    Returns None if no work order carries a ``worker_outcome`` field.
+    """
+    for wo in run_dict.get("work_orders", []):
+        if not isinstance(wo, dict):
+            continue
+        outcome = str(wo.get("worker_outcome", "")).strip()
+        if outcome:
+            return outcome
     return None
 
 

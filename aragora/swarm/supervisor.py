@@ -58,6 +58,23 @@ class SupervisorRunStatus(str, Enum):
     COMPLETED = "completed"
 
 
+class WorkerOutcome(str, Enum):
+    """Structured classification of a worker's terminal state.
+
+    Set on each work-order item as ``worker_outcome`` so operators and
+    higher-level orchestrators (campaign, boss loop) can distinguish between
+    fundamentally different failure modes without parsing free-text fields.
+    """
+
+    COMPLETED = "completed"
+    CLEAN_EXIT_NO_EFFECT = "clean_exit_no_effect"
+    CRASH = "crash"
+    CRASH_WITH_SALVAGE = "crash_with_salvage"
+    TIMEOUT_NO_PROGRESS = "timeout_no_progress"
+    TIMEOUT_WITH_SALVAGE = "timeout_with_salvage"
+    SCOPE_VIOLATION = "scope_violation"
+
+
 @dataclass(slots=True)
 class SwarmApprovalPolicy:
     """Explicit human-gating policy for supervised swarm runs."""
@@ -488,6 +505,7 @@ class SwarmSupervisor:
                 scope_violations = self._check_file_scope_violations(item, progress_paths)
                 if scope_violations:
                     self._mark_scope_violation(item, scope_violations)
+                    item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
                     self._release_terminal_lease(item)
                     await self._kill_worker(item)
                     changed = True
@@ -501,11 +519,39 @@ class SwarmSupervisor:
                 )
                 if exit_violations:
                     self._mark_scope_violation(item, exit_violations)
+                    item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
                 else:
+                    # Attempt detached result collection — worker may have
+                    # committed successfully before dying without an exit marker.
+                    detached_result: WorkerProcess | None = None
+                    try:
+                        detached_result = await WorkerLauncher.collect_detached_result(
+                            work_order_id=woid,
+                            agent=str(item.get("target_agent", "codex")),
+                            worktree_path=worktree_path,
+                            branch=str(item.get("branch", "main")),
+                            pid=item.get("pid"),
+                            initial_head=str(item.get("initial_head", "")),
+                            auto_commit=self.launcher.config.auto_commit,
+                        )
+                    except Exception:
+                        logger.debug(
+                            "Detached result collection failed for %s", woid, exc_info=True
+                        )
+
+                    if detached_result is not None and detached_result.commit_shas:
+                        finished.append(detached_result)
+                        finished_ids.add(woid)
+                        item["worker_outcome"] = WorkerOutcome.CRASH_WITH_SALVAGE.value
+                        self._release_terminal_lease(item)
+                        changed = True
+                        continue
+
                     self._mark_needs_human(
                         item,
                         "worker process exited without receipt or exit marker",
                     )
+                    item["worker_outcome"] = WorkerOutcome.CRASH.value
                 self._release_terminal_lease(item)
                 changed = True
                 continue
@@ -543,6 +589,7 @@ class SwarmSupervisor:
                     # Surface it through the normal result path.
                     finished.append(timeout_result)
                     finished_ids.add(woid)
+                    item["worker_outcome"] = WorkerOutcome.TIMEOUT_WITH_SALVAGE.value
                 else:
                     # No deliverable — check scope violations and mark blocked.
                     collected_paths = self._strip_session_artifacts(
@@ -554,8 +601,10 @@ class SwarmSupervisor:
                     timeout_violations = self._check_file_scope_violations(item, collected_paths)
                     if timeout_violations:
                         self._mark_scope_violation(item, timeout_violations, extra_reason=reason)
+                        item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
                     else:
                         self._mark_needs_human(item, reason)
+                        item["worker_outcome"] = WorkerOutcome.TIMEOUT_NO_PROGRESS.value
                     self._release_terminal_lease(item)
                 changed = True
 
@@ -809,10 +858,16 @@ class SwarmSupervisor:
         item["head_sha"] = result.head_sha
         item.pop("pid", None)
 
+        # Preserve worker_outcome if already set by detached/timeout collection
+        # paths — those have more specific context (e.g. timeout_with_salvage).
+        _pre_outcome = str(item.get("worker_outcome", "")).strip()
+
         # Fail closed: check file-scope before accepting any result as successful
         scope_violations = self._check_file_scope_violations(item, clean_paths)
         if scope_violations:
             self._mark_scope_violation(item, scope_violations)
+            if not _pre_outcome:
+                item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
             lease_id = str(item.get("lease_id", "")).strip()
             if lease_id:
                 self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
@@ -831,9 +886,26 @@ class SwarmSupervisor:
                     item,
                     "worker produced only session artifacts, no real deliverables",
                 )
+                if not _pre_outcome:
+                    item["worker_outcome"] = WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
                 self._release_terminal_lease(item)
                 item["exit_code"] = result.exit_code
                 return
+
+            # Clean exit with zero changes of any kind
+            if not clean_paths and not result.commit_shas:
+                if not _pre_outcome:
+                    item["worker_outcome"] = WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
+                logger.warning(
+                    "Worker %s exited 0 with no commits and no changed paths — "
+                    "clean_exit_no_effect (branch=%s, initial_head=%s, head_sha=%s)",
+                    item.get("work_order_id"),
+                    item.get("branch"),
+                    result.initial_head,
+                    result.head_sha,
+                )
+            elif not _pre_outcome:
+                item["worker_outcome"] = WorkerOutcome.COMPLETED.value
 
             receipt_id = str(item.get("receipt_id", "")).strip()
             if lease_id and not receipt_id:
@@ -870,6 +942,13 @@ class SwarmSupervisor:
             item["status"] = "completed"
             item["review_status"] = "pending_heterogeneous_review"
             return
+
+        # Non-zero exit: classify as crash (with or without salvage)
+        if not _pre_outcome:
+            if result.commit_shas and clean_paths:
+                item["worker_outcome"] = WorkerOutcome.CRASH_WITH_SALVAGE.value
+            else:
+                item["worker_outcome"] = WorkerOutcome.CRASH.value
 
         if self._requeue_after_worker_failure(item, result):
             return
