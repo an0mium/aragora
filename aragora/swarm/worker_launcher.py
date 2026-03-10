@@ -634,6 +634,20 @@ class WorkerLauncher:
                 head_sha=worker.head_sha,
             )
         finally:
+            # Wait for the worker process (including its shell EXIT trap) to
+            # fully terminate before removing artifacts.  Without this wait
+            # the codex_session.sh trap can recreate .codex_session_meta.json
+            # and append to .codex_session.log after Python-side cleanup (#902).
+            _cleanup_pid = pid
+            if _cleanup_pid is None:
+                raw_pid = session_meta.get("pid")
+                if raw_pid is not None:
+                    try:
+                        _cleanup_pid = int(raw_pid)
+                    except (TypeError, ValueError):
+                        pass
+            if _cleanup_pid is not None:
+                await cls._wait_for_pid_exit(_cleanup_pid)
             cls._cleanup_session_artifacts(worktree_path)
 
         logger.info(
@@ -695,6 +709,22 @@ class WorkerLauncher:
             return False
         except OSError:
             return False
+
+    @classmethod
+    async def _wait_for_pid_exit(cls, pid: int, timeout: float = 5.0) -> None:
+        """Wait for a process to fully terminate, including trap handlers.
+
+        The shell wrapper ``codex_session.sh`` uses an EXIT trap that rewrites
+        session artifacts.  After sending SIGTERM the trap handler may still be
+        running when Python-side cleanup fires.  Polling until the PID is gone
+        ensures the trap has completed before we delete those files.
+        """
+        deadline = asyncio.get_event_loop().time() + timeout
+        while asyncio.get_event_loop().time() < deadline:
+            if not cls._is_pid_running(pid):
+                return
+            await asyncio.sleep(0.1)
+        logger.debug("PID %d still alive after %.1fs wait — proceeding with cleanup", pid, timeout)
 
     @staticmethod
     def _read_log_file(worktree_path: str, stream: str) -> str:
