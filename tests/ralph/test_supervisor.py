@@ -888,6 +888,76 @@ class TestResumeSyncVerification:
         assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
         assert result.status == SupervisorStatus.RUNNING.value
 
+    def test_resume_escalates_after_max_attempts(self, tmp_path: Path) -> None:
+        """Stuck RESUMING escalates after _MAX_RESUME_ATTEMPTS failed syncs."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+            active_repair_pr="https://github.com/org/repo/pull/1",
+            resume_attempts=5,  # already at the limit
+        )
+
+        # Fetch will fail — but escalation fires first due to resume_attempts > 5
+        sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+        result = sup.step()
+
+        assert result.action == SupervisorAction.ESCALATED.value
+        assert result.status == SupervisorStatus.ESCALATED.value
+        assert "resume attempts" in result.detail.lower()
+        state = load_supervisor_state(state_path)
+        assert state.status == SupervisorStatus.ESCALATED.value
+
+    def test_resume_attempts_increments_on_each_failure(self, tmp_path: Path) -> None:
+        """Each failed resume sync increments resume_attempts toward the limit."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+            active_repair_pr="https://github.com/org/repo/pull/1",
+            resume_attempts=0,
+        )
+
+        sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+
+        # Fetch fails on every attempt
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(fetch_rc=1),
+        ):
+            result = sup.step()
+
+        assert result.status == SupervisorStatus.RESUMING.value
+        state = load_supervisor_state(state_path)
+        assert state.resume_attempts == 1  # incremented from 0
+
+    def test_resume_attempts_resets_on_success(self, tmp_path: Path) -> None:
+        """Successful resume resets resume_attempts to 0."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+            active_repair_pr="https://github.com/org/repo/pull/1",
+            resume_attempts=3,
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
+        state = load_supervisor_state(state_path)
+        assert state.resume_attempts == 0
+
 
 # ---------------------------------------------------------------------------
 # Stop

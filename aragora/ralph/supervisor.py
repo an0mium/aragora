@@ -62,6 +62,7 @@ class SupervisorAction(str, Enum):
 # ---------------------------------------------------------------------------
 
 _DEFAULT_MAX_REPAIR_ATTEMPTS = 2
+_MAX_RESUME_ATTEMPTS = 5
 
 
 @dataclass(slots=True)
@@ -83,6 +84,7 @@ class SupervisorState:
     active_repair_branch: str | None = None
     active_repair_task: dict[str, Any] | None = None
     merge_commit_sha: str | None = None
+    resume_attempts: int = 0
     resume_cursor: str | None = None
     budget_spent_usd: float = 0.0
     escalation_reason: str | None = None
@@ -105,6 +107,7 @@ class SupervisorState:
             "active_repair_branch": self.active_repair_branch,
             "active_repair_task": self.active_repair_task,
             "merge_commit_sha": self.merge_commit_sha,
+            "resume_attempts": self.resume_attempts,
             "resume_cursor": self.resume_cursor,
             "budget_spent_usd": self.budget_spent_usd,
             "escalation_reason": self.escalation_reason,
@@ -129,6 +132,7 @@ class SupervisorState:
             active_repair_branch=data.get("active_repair_branch"),
             active_repair_task=data.get("active_repair_task"),
             merge_commit_sha=data.get("merge_commit_sha"),
+            resume_attempts=int(data.get("resume_attempts", 0)),
             resume_cursor=data.get("resume_cursor"),
             budget_spent_usd=float(data.get("budget_spent_usd", 0.0)),
             escalation_reason=data.get("escalation_reason"),
@@ -585,6 +589,15 @@ class RalphSupervisor:
         """
         merge_sha = state.merge_commit_sha
 
+        # 0. Escalate if we have been stuck in RESUMING too many times.
+        state.resume_attempts += 1
+        if state.resume_attempts > _MAX_RESUME_ATTEMPTS:
+            return self._escalate(
+                state,
+                f"Failed to synchronize worktree after {_MAX_RESUME_ATTEMPTS} "
+                "resume attempts; manual intervention required.",
+            )
+
         # 1. Fetch latest origin/main.
         try:
             fetch = subprocess.run(
@@ -684,6 +697,7 @@ class RalphSupervisor:
         state.active_repair_task = None
         state.merge_commit_sha = None
         state.repair_attempts = 0
+        state.resume_attempts = 0
         state.status = SupervisorStatus.RUNNING.value
 
         return StepResult(
