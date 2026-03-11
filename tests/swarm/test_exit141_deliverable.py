@@ -326,6 +326,94 @@ class TestDetachedSalvagePath:
         assert result.commit_shas == []
 
 
+class TestUntrackedFileDetection:
+    """Verify clean-exit workers with only untracked files get auto-committed.
+
+    This is the B-0 root cause for Phase 0A governance tasks: workers create
+    NEW files (not modifications), ``git diff HEAD`` returns empty, and the
+    auto-commit gate must fall back to ``git status --porcelain``.
+    """
+
+    def _create_untracked_file(self, repo: Path) -> None:
+        (repo / "docs").mkdir(exist_ok=True)
+        (repo / "docs" / "new-governance-doc.md").write_text(
+            "# New Document\n\nCreated by worker.\n", encoding="utf-8"
+        )
+
+    def test_detached_exit_0_untracked_file_commits(self, repo: Path) -> None:
+        """collect_detached_result must commit untracked files on clean exit."""
+        head = _head(repo)
+        self._create_untracked_file(repo)
+        assert _run(repo, "git", "diff", "HEAD").stdout == ""
+
+        meta = {
+            "pid": 99999,
+            "session_id": "test-untracked-detached",
+            "agent": "codex",
+            "started_at": "2026-03-10T05:00:00Z",
+            "ended_at": "2026-03-10T05:01:00Z",
+            "exit_code": 0,
+        }
+        (repo / ".codex_session_meta.json").write_text(json.dumps(meta) + "\n", encoding="utf-8")
+
+        result = asyncio.run(
+            WorkerLauncher.collect_detached_result(
+                work_order_id="wo-untracked-detached",
+                agent="codex",
+                worktree_path=str(repo),
+                branch="main",
+                initial_head=head,
+                auto_commit=True,
+            )
+        )
+
+        assert result is not None
+        assert result.exit_code == 0
+        new_head = _head(repo)
+        assert new_head != head, "untracked file must be committed via porcelain fallback"
+        assert len(result.commit_shas) > 0
+        diff_files = _run(repo, "git", "diff", "--name-only", f"{head}..{new_head}").stdout
+        assert "docs/new-governance-doc.md" in diff_files
+
+    def test_wait_exit_0_untracked_file_commits(self, repo: Path) -> None:
+        """wait() must commit untracked files on clean exit.
+
+        Exercises the full gating logic in wait() rather than calling
+        _auto_commit() directly.
+        """
+        head = _head(repo)
+        self._create_untracked_file(repo)
+
+        launcher = WorkerLauncher(config=LaunchConfig(auto_commit=True))
+
+        worker = WorkerProcess(
+            work_order_id="wo-untracked-wait",
+            agent="codex",
+            worktree_path=str(repo),
+            branch="main",
+            pid=None,
+            initial_head=head,
+        )
+        launcher._workers["wo-untracked-wait"] = worker
+
+        # Use MagicMock to simulate a finished process with exit code 0
+        from unittest.mock import AsyncMock, MagicMock
+
+        proc = MagicMock()
+        proc.returncode = 0
+        proc.communicate = AsyncMock(return_value=(b"done", b""))
+        launcher._processes["wo-untracked-wait"] = proc
+
+        result = asyncio.run(launcher.wait("wo-untracked-wait"))
+
+        assert result.exit_code == 0
+        new_head = _head(repo)
+        assert new_head != head, "untracked file must be committed via porcelain fallback in wait()"
+        assert len(result.commit_shas) > 0
+        diff_files = _run(repo, "git", "diff", "--name-only", f"{head}..{new_head}").stdout
+        assert "docs/new-governance-doc.md" in diff_files
+
+
 class TestDeliverableGateIntegration:
     """Verify salvaged commits pass the #893 gate; unsalvaged do not."""
 
