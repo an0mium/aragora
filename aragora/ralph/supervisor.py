@@ -575,20 +575,109 @@ class RalphSupervisor:
         )
 
     def _step_resume(self, state: SupervisorState) -> StepResult:
-        """Resume campaign after a repair PR was merged."""
-        # Fetch latest main so the worktree sees the merged repair.
-        # Use fetch (not pull) — worktrees are typically on feature branches.
+        """Resume campaign after a repair PR was merged.
+
+        Fail-closed: the worktree must be verified as synchronized with the
+        merged repair before clearing blocker state and transitioning to
+        RUNNING.  ``git fetch`` alone only updates refs — it does NOT update
+        checked-out files, so we must also confirm the merge commit SHA is
+        reachable and attempt a fast-forward merge to pull the changes in.
+        """
+        merge_sha = state.merge_commit_sha
+
+        # 1. Fetch latest origin/main.
         try:
-            subprocess.run(
+            fetch = subprocess.run(
                 ["git", "fetch", "origin", "main"],
                 capture_output=True,
                 cwd=str(self.repo_root),
                 timeout=30,
             )
+            if fetch.returncode != 0:
+                logger.warning(
+                    "git fetch origin main failed (rc=%d): %s",
+                    fetch.returncode,
+                    fetch.stderr[:200] if isinstance(fetch.stderr, (str, bytes)) else "",
+                )
+                return StepResult(
+                    action=SupervisorAction.NOOP.value,
+                    status=SupervisorStatus.RESUMING.value,
+                    detail="git fetch origin main failed; staying in RESUMING.",
+                )
         except Exception as exc:
-            logger.debug("git fetch origin main failed: %s", exc)
+            logger.warning("git fetch origin main raised: %s", exc)
+            return StepResult(
+                action=SupervisorAction.NOOP.value,
+                status=SupervisorStatus.RESUMING.value,
+                detail=f"git fetch origin main raised: {type(exc).__name__}; staying in RESUMING.",
+            )
 
-        # Clear blocker state and reset repair budget for future blockers.
+        # 2. If we have a merge SHA, verify it landed on origin/main.
+        if merge_sha:
+            if not self._is_ancestor(merge_sha, "origin/main"):
+                logger.warning(
+                    "Merge commit %s not found on origin/main after fetch; staying in RESUMING.",
+                    merge_sha,
+                )
+                return StepResult(
+                    action=SupervisorAction.NOOP.value,
+                    status=SupervisorStatus.RESUMING.value,
+                    detail=(
+                        f"Merge commit {merge_sha} is not an ancestor of "
+                        f"origin/main; staying in RESUMING."
+                    ),
+                )
+
+            # 3. Try to incorporate the repair into the worktree.
+            if not self._is_ancestor(merge_sha, "HEAD"):
+                # Worktree doesn't include the merge yet — try ff-only merge.
+                try:
+                    ff = subprocess.run(
+                        ["git", "merge", "--ff-only", "origin/main"],
+                        capture_output=True,
+                        cwd=str(self.repo_root),
+                        timeout=30,
+                    )
+                    if ff.returncode != 0:
+                        logger.warning(
+                            "git merge --ff-only origin/main failed (rc=%d); staying in RESUMING.",
+                            ff.returncode,
+                        )
+                        return StepResult(
+                            action=SupervisorAction.NOOP.value,
+                            status=SupervisorStatus.RESUMING.value,
+                            detail=(
+                                "Worktree could not fast-forward to include "
+                                f"merge commit {merge_sha}; staying in RESUMING."
+                            ),
+                        )
+                except Exception as exc:
+                    logger.warning("git merge --ff-only raised: %s", exc)
+                    return StepResult(
+                        action=SupervisorAction.NOOP.value,
+                        status=SupervisorStatus.RESUMING.value,
+                        detail=(
+                            f"git merge --ff-only raised: {type(exc).__name__}; "
+                            "staying in RESUMING."
+                        ),
+                    )
+
+                # Verify again after the merge attempt.
+                if not self._is_ancestor(merge_sha, "HEAD"):
+                    logger.warning(
+                        "Merge commit %s still not in HEAD after ff-merge; staying in RESUMING.",
+                        merge_sha,
+                    )
+                    return StepResult(
+                        action=SupervisorAction.NOOP.value,
+                        status=SupervisorStatus.RESUMING.value,
+                        detail=(
+                            f"Merge commit {merge_sha} not reachable from HEAD "
+                            "even after ff-merge; staying in RESUMING."
+                        ),
+                    )
+
+        # All checks passed — clear blocker state and resume.
         state.active_blocker = None
         state.active_repair_pr = None
         state.active_repair_branch = None
@@ -602,6 +691,20 @@ class RalphSupervisor:
             status=SupervisorStatus.RUNNING.value,
             detail="Campaign resumed after repair merge. Next step will run iteration.",
         )
+
+    def _is_ancestor(self, commit: str, ref: str) -> bool:
+        """Check if *commit* is an ancestor of *ref* using ``git merge-base --is-ancestor``."""
+        try:
+            result = subprocess.run(
+                ["git", "merge-base", "--is-ancestor", commit, ref],
+                capture_output=True,
+                cwd=str(self.repo_root),
+                timeout=15,
+            )
+            return result.returncode == 0
+        except Exception as exc:
+            logger.debug("git merge-base --is-ancestor failed: %s", exc)
+            return False
 
     # -- helpers --
 

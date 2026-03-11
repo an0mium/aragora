@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -507,20 +508,83 @@ class TestStepPRChecking:
 # ---------------------------------------------------------------------------
 
 
+def _mock_subprocess_for_resume(
+    *,
+    fetch_rc: int = 0,
+    ancestor_origin_rc: int = 0,
+    ancestor_head_rc: int = 0,
+    ff_merge_rc: int = 0,
+    ancestor_post_ff_rc: int = 0,
+    fetch_raises: Exception | None = None,
+    ff_merge_raises: Exception | None = None,
+):
+    """Build a side_effect function for subprocess.run that simulates the
+    multi-step resume sync: fetch, merge-base checks, and ff-merge.
+
+    Call order expected by _step_resume():
+      1. git fetch origin main
+      2. git merge-base --is-ancestor <sha> origin/main
+      3. git merge-base --is-ancestor <sha> HEAD
+      4. (if HEAD check fails) git merge --ff-only origin/main
+      5. (if ff succeeds) git merge-base --is-ancestor <sha> HEAD  (post-ff)
+    """
+    call_index = 0
+
+    def side_effect(cmd, **kwargs):
+        nonlocal call_index
+        call_index += 1
+
+        if cmd[:3] == ["git", "fetch", "origin"]:
+            if fetch_raises:
+                raise fetch_raises
+            return MagicMock(returncode=fetch_rc, stderr=b"")
+
+        if cmd[:3] == ["git", "merge-base", "--is-ancestor"]:
+            ref = cmd[-1] if len(cmd) > 4 else ""
+            if ref == "origin/main":
+                return MagicMock(returncode=ancestor_origin_rc)
+            # HEAD check — distinguish first vs post-ff-merge
+            if ref == "HEAD":
+                # If ancestor_head_rc != 0 (worktree doesn't have it yet),
+                # the first HEAD check fails; after ff-merge the post-ff check
+                # uses ancestor_post_ff_rc.
+                if ancestor_head_rc != 0 and call_index > 4:
+                    return MagicMock(returncode=ancestor_post_ff_rc)
+                return MagicMock(returncode=ancestor_head_rc)
+            return MagicMock(returncode=ancestor_head_rc)
+
+        if cmd[:3] == ["git", "merge", "--ff-only"]:
+            if ff_merge_raises:
+                raise ff_merge_raises
+            return MagicMock(returncode=ff_merge_rc)
+
+        return MagicMock(returncode=0)
+
+    return side_effect
+
+
 class TestStepResume:
     def test_resume_resets_repair_attempts(self, tmp_path: Path) -> None:
-        """After successful repair→merge→resume, repair_attempts resets to 0."""
+        """After successful repair->merge->resume, repair_attempts resets to 0."""
         state_path = tmp_path / "state.yaml"
         _write_state(
             state_path,
             status=SupervisorStatus.RESUMING.value,
             active_blocker=BlockerKind.REVIEWER_MISSING_DIFF.value,
             active_repair_pr="https://github.com/org/repo/pull/1",
+            merge_commit_sha="abc123",
             repair_attempts=2,
             max_repair_attempts=2,
         )
 
-        with patch("aragora.ralph.supervisor.subprocess.run"):
+        # SHA already on origin/main AND already in HEAD -> direct resume.
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                ancestor_origin_rc=0,
+                ancestor_head_rc=0,
+            ),
+        ):
             supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
             result = supervisor.step()
 
@@ -540,7 +604,13 @@ class TestStepResume:
             merge_commit_sha="abc",
         )
 
-        with patch("aragora.ralph.supervisor.subprocess.run"):
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                ancestor_origin_rc=0,
+                ancestor_head_rc=0,
+            ),
+        ):
             supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
             result = supervisor.step()
 
@@ -554,6 +624,269 @@ class TestStepResume:
         assert state.active_repair_task is None
         assert state.merge_commit_sha is None
         assert state.status == SupervisorStatus.RUNNING.value
+
+
+# ---------------------------------------------------------------------------
+# Resume sync verification (fail-closed)
+# ---------------------------------------------------------------------------
+
+
+class TestResumeSyncVerification:
+    """Verify that _step_resume() fails closed: the campaign worktree must be
+    synchronized to the merged repair before transitioning to RUNNING."""
+
+    def test_sync_success_sha_already_in_head(self, tmp_path: Path) -> None:
+        """Happy path: merge SHA on origin/main AND already in HEAD -> RUNNING."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+            active_repair_pr="https://github.com/org/repo/pull/1",
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                ancestor_origin_rc=0,
+                ancestor_head_rc=0,
+            ),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
+        assert result.status == SupervisorStatus.RUNNING.value
+        state = load_supervisor_state(state_path)
+        assert state.status == SupervisorStatus.RUNNING.value
+        assert state.active_blocker is None
+        assert state.merge_commit_sha is None
+
+    def test_sync_success_ff_merge_needed(self, tmp_path: Path) -> None:
+        """SHA on origin/main but not in HEAD; ff-merge succeeds -> RUNNING."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                ancestor_origin_rc=0,
+                ancestor_head_rc=1,  # not in HEAD yet
+                ff_merge_rc=0,  # ff succeeds
+                ancestor_post_ff_rc=0,  # now reachable
+            ),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
+        assert result.status == SupervisorStatus.RUNNING.value
+
+    def test_sync_failure_fetch_fails(self, tmp_path: Path) -> None:
+        """git fetch fails -> stay RESUMING, do NOT clear state."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+            active_repair_pr="https://github.com/org/repo/pull/1",
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(fetch_rc=128),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.action == SupervisorAction.NOOP.value
+        assert result.status == SupervisorStatus.RESUMING.value
+        state = load_supervisor_state(state_path)
+        assert state.status == SupervisorStatus.RESUMING.value
+        assert state.active_blocker == "reviewer_missing_diff"
+        assert state.merge_commit_sha == "deadbeef"
+
+    def test_sync_failure_fetch_raises(self, tmp_path: Path) -> None:
+        """git fetch raises exception -> stay RESUMING."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                fetch_raises=OSError("network down"),
+            ),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.status == SupervisorStatus.RESUMING.value
+        state = load_supervisor_state(state_path)
+        assert state.merge_commit_sha == "deadbeef"
+
+    def test_sync_failure_sha_not_on_origin_main(self, tmp_path: Path) -> None:
+        """Merge SHA not ancestor of origin/main -> stay RESUMING."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                ancestor_origin_rc=1,  # not on origin/main
+            ),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.status == SupervisorStatus.RESUMING.value
+        assert "not an ancestor" in result.detail
+        state = load_supervisor_state(state_path)
+        assert state.active_blocker == "reviewer_missing_diff"
+
+    def test_sync_failure_ff_merge_fails(self, tmp_path: Path) -> None:
+        """SHA on origin/main, not in HEAD, ff-merge fails -> stay RESUMING."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                ancestor_origin_rc=0,
+                ancestor_head_rc=1,  # not in HEAD
+                ff_merge_rc=128,  # ff-merge fails (diverged)
+            ),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.status == SupervisorStatus.RESUMING.value
+        assert "could not fast-forward" in result.detail.lower()
+        state = load_supervisor_state(state_path)
+        assert state.merge_commit_sha == "deadbeef"
+
+    def test_sync_failure_ff_merge_raises(self, tmp_path: Path) -> None:
+        """ff-merge raises exception -> stay RESUMING."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                ancestor_origin_rc=0,
+                ancestor_head_rc=1,
+                ff_merge_raises=subprocess.TimeoutExpired(cmd="git", timeout=30),
+            ),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.status == SupervisorStatus.RESUMING.value
+
+    def test_sync_failure_post_ff_head_check_fails(self, tmp_path: Path) -> None:
+        """ff-merge returns 0 but merge-base still shows SHA not in HEAD -> stay RESUMING."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                ancestor_origin_rc=0,
+                ancestor_head_rc=1,  # not in HEAD initially
+                ff_merge_rc=0,  # ff reports success
+                ancestor_post_ff_rc=1,  # but still not reachable!
+            ),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.status == SupervisorStatus.RESUMING.value
+        assert "not reachable from HEAD" in result.detail
+
+    def test_no_premature_running_when_blocker_state_present(self, tmp_path: Path) -> None:
+        """Even with a successful fetch, if sync verification fails the
+        blocker state must NOT be cleared and status must NOT be RUNNING."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="deadbeef",
+            active_blocker="reviewer_missing_diff",
+            active_repair_pr="https://github.com/org/repo/pull/1",
+            active_repair_branch="fix/branch",
+            active_repair_task={"title": "fix something"},
+            repair_attempts=1,
+        )
+
+        # Fetch succeeds but SHA not on origin/main.
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(ancestor_origin_rc=1),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.status == SupervisorStatus.RESUMING.value
+        state = load_supervisor_state(state_path)
+        # All repair state must be preserved.
+        assert state.status == SupervisorStatus.RESUMING.value
+        assert state.active_blocker == "reviewer_missing_diff"
+        assert state.active_repair_pr == "https://github.com/org/repo/pull/1"
+        assert state.active_repair_branch == "fix/branch"
+        assert state.active_repair_task == {"title": "fix something"}
+        assert state.merge_commit_sha == "deadbeef"
+        assert state.repair_attempts == 1
+
+    def test_resume_without_merge_sha_proceeds(self, tmp_path: Path) -> None:
+        """Backward compat: if merge_commit_sha is None (legacy state),
+        fetch-only is sufficient and resume proceeds to RUNNING."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            active_blocker="reviewer_missing_diff",
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
+        assert result.status == SupervisorStatus.RUNNING.value
 
 
 # ---------------------------------------------------------------------------
@@ -651,8 +984,14 @@ class TestFullLoopSimulation:
             r4 = supervisor.step()
         assert r4.status == SupervisorStatus.RESUMING.value
 
-        # Step 5: resume -> running
-        with patch("aragora.ralph.supervisor.subprocess.run"):
+        # Step 5: resume -> running (with sync verification)
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                ancestor_origin_rc=0,
+                ancestor_head_rc=0,
+            ),
+        ):
             r5 = supervisor.step()
         assert r5.action == SupervisorAction.CAMPAIGN_RESUMED.value
         assert r5.status == SupervisorStatus.RUNNING.value
@@ -984,19 +1323,28 @@ class TestStepDispatch:
             state_path,
             campaign_manifest_path=str(manifest_path),
             status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="abc123",
         )
 
         supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
 
-        with patch("aragora.ralph.supervisor.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                ancestor_origin_rc=0,
+                ancestor_head_rc=0,
+            ),
+        ) as mock_run:
             result = supervisor.step()
 
         assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
         assert result.status == SupervisorStatus.RUNNING.value
-        assert mock_run.call_count == 1
+        # First call must be fetch.
         first_call = mock_run.call_args_list[0]
         assert first_call[0][0] == ["git", "fetch", "origin", "main"]
+        # No git pull in any call.
+        for call in mock_run.call_args_list:
+            assert "pull" not in call[0][0]
 
     def test_full_loop_with_dispatch(self, tmp_path: Path) -> None:
         """Full loop: RUNNING → classify → dispatch(PR) → merge → resume → complete."""
@@ -1050,9 +1398,14 @@ class TestStepDispatch:
             r3 = supervisor.step()
         assert r3.status == SupervisorStatus.RESUMING.value
 
-        # Step 4: Resume → pull ff-only → RUNNING
-        with patch("aragora.ralph.supervisor.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
+        # Step 4: Resume → sync verification → RUNNING
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(
+                ancestor_origin_rc=0,
+                ancestor_head_rc=0,
+            ),
+        ):
             r4 = supervisor.step()
         assert r4.action == SupervisorAction.CAMPAIGN_RESUMED.value
         assert r4.status == SupervisorStatus.RUNNING.value
