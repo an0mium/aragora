@@ -420,6 +420,57 @@ class TestStepPRChecking:
 
         assert result.status == SupervisorStatus.WAITING_FOR_PR.value
 
+    def test_waiting_for_pr_refreshes_run_tracking(self, tmp_path: Path) -> None:
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.WAITING_FOR_PR.value,
+            active_repair_task={"title": "fix", "run_id": "run-123"},
+        )
+
+        run_dict = {
+            "status": "active",
+            "work_orders": [
+                {
+                    "branch": "fix/reviewer-diff",
+                    "metadata": {"pull_request_url": "https://github.com/org/repo/pull/77"},
+                }
+            ],
+        }
+
+        with patch.object(RalphSupervisor, "_refresh_dispatch_run", return_value=run_dict):
+            supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = supervisor.step()
+
+        assert result.status == SupervisorStatus.WAITING_FOR_MERGE.value
+        state = load_supervisor_state(state_path)
+        assert state.active_repair_branch == "fix/reviewer-diff"
+        assert state.active_repair_pr == "https://github.com/org/repo/pull/77"
+        assert state.active_repair_task is not None
+        assert state.active_repair_task["run_status"] == "active"
+
+    def test_waiting_for_pr_escalates_when_run_finishes_without_tracking(
+        self, tmp_path: Path
+    ) -> None:
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.WAITING_FOR_PR.value,
+            active_repair_task={"title": "fix", "run_id": "run-123"},
+        )
+
+        run_dict = {
+            "status": "needs_human",
+            "work_orders": [{"status": "blocked"}],
+        }
+
+        with patch.object(RalphSupervisor, "_refresh_dispatch_run", return_value=run_dict):
+            supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = supervisor.step()
+
+        assert result.action == SupervisorAction.ESCALATED.value
+        assert result.status == SupervisorStatus.ESCALATED.value
+
     def test_waiting_for_merge_not_merged(self, tmp_path: Path) -> None:
         state_path = tmp_path / "state.yaml"
         _write_state(
@@ -711,7 +762,8 @@ class TestStepDispatch:
         state = load_supervisor_state(state_path)
         assert state.active_repair_pr == "https://github.com/org/repo/pull/55"
         assert state.active_repair_branch == "fix/reviewer-diff"
-        assert state.active_dispatch_run_id == "run-abc123"
+        assert state.active_repair_task is not None
+        assert state.active_repair_task["run_id"] == "run-abc123"
 
     def test_handle_blocker_dispatches_branch_only(self, tmp_path: Path) -> None:
         manifest_path = _write_blocked_manifest(tmp_path / "manifest.yaml")

@@ -82,7 +82,6 @@ class SupervisorState:
     active_repair_pr: str | None = None
     active_repair_branch: str | None = None
     active_repair_task: dict[str, Any] | None = None
-    active_dispatch_run_id: str | None = None
     merge_commit_sha: str | None = None
     resume_cursor: str | None = None
     budget_spent_usd: float = 0.0
@@ -105,7 +104,6 @@ class SupervisorState:
             "active_repair_pr": self.active_repair_pr,
             "active_repair_branch": self.active_repair_branch,
             "active_repair_task": self.active_repair_task,
-            "active_dispatch_run_id": self.active_dispatch_run_id,
             "merge_commit_sha": self.merge_commit_sha,
             "resume_cursor": self.resume_cursor,
             "budget_spent_usd": self.budget_spent_usd,
@@ -130,7 +128,6 @@ class SupervisorState:
             active_repair_pr=data.get("active_repair_pr"),
             active_repair_branch=data.get("active_repair_branch"),
             active_repair_task=data.get("active_repair_task"),
-            active_dispatch_run_id=data.get("active_dispatch_run_id"),
             merge_commit_sha=data.get("merge_commit_sha"),
             resume_cursor=data.get("resume_cursor"),
             budget_spent_usd=float(data.get("budget_spent_usd", 0.0)),
@@ -432,7 +429,8 @@ class RalphSupervisor:
             return self._escalate(state, f"No repair template for: {blocker_kind.value}")
 
         state.repair_attempts += 1
-        state.active_repair_task = repair.to_dict()
+        task_payload = repair.to_dict()
+        state.active_repair_task = task_payload
 
         # Dispatch the repair lane.
         spec = self._build_repair_spec(repair)
@@ -451,12 +449,17 @@ class RalphSupervisor:
             dispatch_result = {"status": "failed", "outcome": "crash"}
 
         # Extract deliverable info.
-        run_id = dispatch_result.get("run_id")
-        state.active_dispatch_run_id = str(run_id) if run_id else None
+        run_id = str(dispatch_result.get("run_id", "")).strip() or None
         deliverable = dispatch_result.get("deliverable") or {}
 
         pr_url = str(deliverable.get("pr_url", "")).strip()
         branch = str(deliverable.get("branch", "")).strip()
+        if run_id:
+            task_payload["run_id"] = run_id
+        if branch:
+            task_payload["branch"] = branch
+        if pr_url:
+            task_payload["pr_url"] = pr_url
 
         if pr_url:
             state.active_repair_pr = pr_url
@@ -481,6 +484,34 @@ class RalphSupervisor:
 
     def _step_check_pr(self, state: SupervisorState) -> StepResult:
         """Check if a repair PR has been opened."""
+        run_id = self._repair_run_id(state)
+        if run_id and not (state.active_repair_pr or state.active_repair_branch):
+            run_dict = self._refresh_dispatch_run(run_id)
+            if run_dict:
+                branch, pr_url = self._update_repair_tracking_from_run(state, run_dict)
+                if pr_url:
+                    state.status = SupervisorStatus.WAITING_FOR_MERGE.value
+                    return StepResult(
+                        action=SupervisorAction.PR_CHECKED.value,
+                        status=SupervisorStatus.WAITING_FOR_MERGE.value,
+                        detail=f"PR discovered from repair run: {pr_url}. Waiting for merge.",
+                    )
+                if branch:
+                    state.status = SupervisorStatus.WAITING_FOR_PR.value
+                    return StepResult(
+                        action=SupervisorAction.PR_CHECKED.value,
+                        status=SupervisorStatus.WAITING_FOR_PR.value,
+                        detail=f"Repair branch discovered from run: {branch}. Waiting for PR.",
+                    )
+                if str(run_dict.get("status", "")).strip() in {
+                    "completed",
+                    "needs_human",
+                }:
+                    return self._escalate(
+                        state,
+                        "Repair run reached a terminal state without a tracked branch or PR.",
+                    )
+
         if state.active_repair_pr:
             # PR exists, wait for merge.
             state.status = SupervisorStatus.WAITING_FOR_MERGE.value
@@ -566,7 +597,6 @@ class RalphSupervisor:
         state.active_repair_pr = None
         state.active_repair_branch = None
         state.active_repair_task = None
-        state.active_dispatch_run_id = None
         state.merge_commit_sha = None
         state.status = SupervisorStatus.RUNNING.value
 
@@ -614,6 +644,47 @@ class RalphSupervisor:
         except Exception as exc:
             logger.debug("gh pr merge raised: %s", exc)
         return False
+
+    def _repair_run_id(self, state: SupervisorState) -> str | None:
+        task = state.active_repair_task if isinstance(state.active_repair_task, dict) else {}
+        text = str(task.get("run_id", "")).strip()
+        return text or None
+
+    def _refresh_dispatch_run(self, run_id: str) -> dict[str, Any] | None:
+        from aragora.swarm.supervisor import SwarmSupervisor
+
+        supervisor = SwarmSupervisor(repo_root=self.repo_root)
+        try:
+            return supervisor.refresh_run(run_id).to_dict()
+        except Exception as exc:
+            logger.debug("refresh_run failed for repair run %s: %s", run_id, exc)
+            return None
+
+    def _update_repair_tracking_from_run(
+        self,
+        state: SupervisorState,
+        run_dict: dict[str, Any],
+    ) -> tuple[str | None, str | None]:
+        task = dict(state.active_repair_task or {})
+        branch: str | None = None
+        pr_url: str | None = None
+        for item in run_dict.get("work_orders", []):
+            if not isinstance(item, dict):
+                continue
+            branch = branch or str(item.get("branch", "")).strip() or None
+            pr_url = pr_url or str(item.get("pull_request_url", "")).strip() or None
+            meta = item.get("metadata")
+            if isinstance(meta, dict):
+                pr_url = pr_url or str(meta.get("pull_request_url", "")).strip() or None
+        if branch:
+            state.active_repair_branch = branch
+            task["branch"] = branch
+        if pr_url:
+            state.active_repair_pr = pr_url
+            task["pr_url"] = pr_url
+        task["run_status"] = str(run_dict.get("status", "")).strip()
+        state.active_repair_task = task
+        return branch, pr_url
 
     def _escalate(self, state: SupervisorState, reason: str) -> StepResult:
         state.status = SupervisorStatus.ESCALATED.value
