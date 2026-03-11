@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -16,6 +17,7 @@ from aragora.swarm.campaign import (
     CampaignPlanner,
     CampaignProject,
     CampaignProjectStatus,
+    CampaignReviewer,
     CampaignReviewGate,
     CampaignReviewStatus,
     CampaignRunOutcome,
@@ -37,6 +39,17 @@ def _bounded_spec(goal: str, scope: list[str] | None = None) -> SwarmSpec:
         file_scope_hints=scope or ["aragora/swarm/campaign.py"],
         budget_limit_usd=5.0,
     )
+
+
+def _git(tmp_repo: Path, *args: str) -> str:
+    proc = subprocess.run(
+        ["git", *args],
+        cwd=tmp_repo,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return proc.stdout.strip()
 
 
 class TestCampaignPlanner:
@@ -258,6 +271,81 @@ class TestCampaignExecutor:
         assert project.status == CampaignProjectStatus.NEEDS_REVISION.value
         assert project.last_run_outcome == CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value
         assert project.retry_count == 1
+
+
+class TestCampaignReviewer:
+    def test_build_prompt_includes_docs_only_deliverable_evidence(self, tmp_path: Path) -> None:
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        _git(repo_root, "init", "-b", "main")
+        _git(repo_root, "config", "user.email", "test@example.com")
+        _git(repo_root, "config", "user.name", "Test User")
+        docs_dir = repo_root / "docs" / "adr"
+        docs_dir.mkdir(parents=True, exist_ok=True)
+        baseline = docs_dir / "README.md"
+        baseline.write_text("# ADR Index\n", encoding="utf-8")
+        _git(repo_root, "add", ".")
+        _git(repo_root, "commit", "-m", "initial")
+
+        branch_name = "codex/docs-phase0a-007"
+        _git(repo_root, "checkout", "-b", branch_name)
+        adr_path = docs_dir / "phase0a-007-backend-runtime.md"
+        adr_path.write_text(
+            "# ADR phase0a-007\n\n"
+            "Decision: standardize the backend worker runtime.\n\n"
+            "Rationale:\n"
+            "- reduce campaign review ambiguity\n"
+            "- make docs-only deliverables reviewable\n",
+            encoding="utf-8",
+        )
+        _git(repo_root, "add", str(adr_path.relative_to(repo_root)))
+        _git(repo_root, "commit", "-m", "Add phase0a-007 ADR")
+        head_sha = _git(repo_root, "rev-parse", "HEAD")
+
+        project = CampaignProject(
+            project_id="phase0a-007",
+            title="Finalize backend runtime ADR",
+            spec=_bounded_spec(
+                "Finalize backend runtime ADR", ["docs/adr/phase0a-007-backend-runtime.md"]
+            ),
+            file_scope_hints=["docs/adr/phase0a-007-backend-runtime.md"],
+            acceptance_criteria=["ADR explains the backend runtime decision"],
+            constraints=["docs only"],
+            branch=branch_name,
+            commit_shas=[head_sha],
+        )
+        run_dict = {
+            "run_id": "run-adr-1",
+            "status": "completed",
+            "work_orders": [
+                {
+                    "status": "completed",
+                    "branch": branch_name,
+                    "commit_shas": [head_sha],
+                    "changed_paths": ["docs/adr/phase0a-007-backend-runtime.md"],
+                }
+            ],
+        }
+
+        prompt = CampaignReviewer._build_prompt(
+            project,
+            run_dict,
+            "claude",
+            repo_root=repo_root,
+            target_branch="main",
+        )
+
+        payload = json.loads(prompt.splitlines()[-1])
+        evidence = payload["deliverable_evidence"]
+        assert evidence["available"] is True
+        assert evidence["branch"] == branch_name
+        assert evidence["target_branch"] == "main"
+        assert evidence["changed_files"] == ["docs/adr/phase0a-007-backend-runtime.md"]
+        assert "standardize the backend worker runtime" in evidence["diff"]
+        assert "make docs-only deliverables reviewable" in evidence["diff"]
+        assert evidence["file_snapshots"][0]["path"] == "docs/adr/phase0a-007-backend-runtime.md"
+        assert "ADR phase0a-007" in evidence["file_snapshots"][0]["content"]
+        assert "concrete deliverable evidence" in prompt.lower()
 
     @pytest.mark.asyncio
     async def test_execute_once_reconciles_active_project_without_redispatch(

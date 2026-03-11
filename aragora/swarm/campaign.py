@@ -463,6 +463,120 @@ def _gh_json(cmd: list[str]) -> Any:
     return json.loads(proc.stdout)
 
 
+_REVIEW_MAX_FILES = 4
+_REVIEW_MAX_DIFF_CHARS = 12000
+_REVIEW_MAX_FILE_CHARS = 3000
+_REVIEW_TIMEOUT_SECONDS = 10
+
+
+def _truncate_review_text(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "\n... [truncated]"
+
+
+def _git_capture(repo_root: Path, args: list[str]) -> str:
+    proc = subprocess.run(
+        ["git", *args],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        timeout=_REVIEW_TIMEOUT_SECONDS,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout
+
+
+def _review_scope_paths(project: CampaignProject, run_dict: dict[str, Any]) -> list[str]:
+    paths: set[str] = set()
+    for hint in project.file_scope_hints:
+        hint_text = str(hint).strip()
+        if hint_text:
+            paths.add(hint_text)
+    for work_order in run_dict.get("work_orders", []):
+        if not isinstance(work_order, dict):
+            continue
+        for path in work_order.get("changed_paths", []) or []:
+            path_text = str(path).strip()
+            if path_text:
+                paths.add(path_text)
+    return sorted(paths)
+
+
+def _review_branch_changed_files(
+    repo_root: Path, target_branch: str, branch: str, scope_paths: list[str]
+) -> list[str]:
+    args = ["diff", "--name-only", f"{target_branch}...{branch}"]
+    if scope_paths:
+        args.extend(["--", *scope_paths])
+    changed = _git_capture(repo_root, args)
+    return [line.strip() for line in changed.splitlines() if line.strip()]
+
+
+def _review_branch_diff(
+    repo_root: Path, target_branch: str, branch: str, scope_paths: list[str]
+) -> str:
+    args = ["diff", "--no-ext-diff", "--unified=3", f"{target_branch}...{branch}"]
+    if scope_paths:
+        args.extend(["--", *scope_paths])
+    return _git_capture(repo_root, args)
+
+
+def _review_file_snapshots(
+    repo_root: Path, branch: str, changed_files: list[str]
+) -> list[dict[str, str]]:
+    snapshots: list[dict[str, str]] = []
+    for path in changed_files[:_REVIEW_MAX_FILES]:
+        content = _git_capture(repo_root, ["show", f"{branch}:{path}"])
+        if not content:
+            continue
+        snapshots.append(
+            {
+                "path": path,
+                "content": _truncate_review_text(content, _REVIEW_MAX_FILE_CHARS),
+            }
+        )
+    return snapshots
+
+
+def _build_review_evidence(
+    project: CampaignProject,
+    run_dict: dict[str, Any],
+    *,
+    repo_root: Path | None,
+    target_branch: str,
+) -> dict[str, Any]:
+    if repo_root is None:
+        return {"available": False, "reason": "repo_root_unavailable"}
+    branch = str(project.branch or "").strip()
+    if not branch:
+        return {"available": False, "reason": "deliverable_branch_unavailable"}
+
+    scope_paths = _review_scope_paths(project, run_dict)
+    changed_files = _review_branch_changed_files(repo_root, target_branch, branch, scope_paths)
+    if not changed_files:
+        return {
+            "available": False,
+            "reason": "no_changed_files_detected",
+            "branch": branch,
+            "target_branch": target_branch,
+        }
+
+    diff_text = _review_branch_diff(repo_root, target_branch, branch, scope_paths)
+    snapshots = _review_file_snapshots(repo_root, branch, changed_files)
+    return {
+        "available": True,
+        "branch": branch,
+        "target_branch": target_branch,
+        "commit_shas": list(project.commit_shas),
+        "changed_files": changed_files[:_REVIEW_MAX_FILES],
+        "diff": _truncate_review_text(diff_text, _REVIEW_MAX_DIFF_CHARS),
+        "file_snapshots": snapshots,
+    }
+
+
 class CampaignPlanner:
     """Build a persistent campaign manifest from documents or GitHub issues."""
 
@@ -756,9 +870,17 @@ class CampaignReviewer:
         worker_model: str,
         review_model: str,
         run_dict: dict[str, Any],
+        repo_root: Path | None = None,
+        target_branch: str = "main",
     ) -> CampaignReviewGate:
         chosen_review_model = _canonical_review_model(worker_model, review_model)
-        prompt = self._build_prompt(project, run_dict, chosen_review_model)
+        prompt = self._build_prompt(
+            project,
+            run_dict,
+            chosen_review_model,
+            repo_root=repo_root,
+            target_branch=target_branch,
+        )
         try:
             agent = create_agent(chosen_review_model, name="campaign-review", role="critic")
             raw = await agent.generate(prompt)
@@ -791,9 +913,22 @@ class CampaignReviewer:
             )
 
     @staticmethod
-    def _build_prompt(project: CampaignProject, run_dict: dict[str, Any], review_model: str) -> str:
+    def _build_prompt(
+        project: CampaignProject,
+        run_dict: dict[str, Any],
+        review_model: str,
+        *,
+        repo_root: Path | None = None,
+        target_branch: str = "main",
+    ) -> str:
         deliverable = _extract_deliverable(run_dict)
         work_orders = run_dict.get("work_orders", [])
+        deliverable_evidence = _build_review_evidence(
+            project,
+            run_dict,
+            repo_root=repo_root,
+            target_branch=target_branch,
+        )
         summary = {
             "review_model": review_model,
             "project_id": project.project_id,
@@ -802,9 +937,11 @@ class CampaignReviewer:
             "file_scope_hints": project.file_scope_hints,
             "deliverable": deliverable,
             "work_orders": work_orders,
+            "deliverable_evidence": deliverable_evidence,
         }
         return (
             "Review this completed implementation against the project specification.\n"
+            "Use the concrete deliverable evidence below when evaluating content quality.\n"
             "Respond with strict JSON only: "
             '{"status":"passed|changes_requested|blocked_nonreviewable","findings":["..."]}\n'
             f"{json.dumps(summary, sort_keys=True)}"
@@ -914,6 +1051,8 @@ class CampaignExecutor:
             worker_model=manifest.worker_model,
             review_model=manifest.review_model,
             run_dict=run_dict,
+            repo_root=self.repo_root,
+            target_branch=self.target_branch,
         )
         with locked_manifest_path(self.manifest_path):
             manifest = load_campaign_manifest(self.manifest_path)
@@ -993,6 +1132,8 @@ class CampaignExecutor:
                 worker_model=worker_model,
                 review_model=review_model,
                 run_dict=dict(result["run"]),
+                repo_root=self.repo_root,
+                target_branch=self.target_branch,
             )
             with locked_manifest_path(self.manifest_path):
                 manifest = load_campaign_manifest(self.manifest_path)
