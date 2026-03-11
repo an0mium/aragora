@@ -508,6 +508,26 @@ class TestStepPRChecking:
 
 
 class TestStepResume:
+    def test_resume_resets_repair_attempts(self, tmp_path: Path) -> None:
+        """After successful repair→merge→resume, repair_attempts resets to 0."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.RESUMING.value,
+            active_blocker=BlockerKind.REVIEWER_MISSING_DIFF.value,
+            active_repair_pr="https://github.com/org/repo/pull/1",
+            repair_attempts=2,
+            max_repair_attempts=2,
+        )
+
+        with patch("aragora.ralph.supervisor.subprocess.run"):
+            supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = supervisor.step()
+
+        assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
+        state = load_supervisor_state(state_path)
+        assert state.repair_attempts == 0
+
     def test_resume_clears_blocker_and_sets_running(self, tmp_path: Path) -> None:
         state_path = tmp_path / "state.yaml"
         _write_state(
@@ -801,7 +821,8 @@ class TestStepDispatch:
         assert state.active_repair_pr is None
         assert state.active_repair_branch == "fix/reviewer-diff-v2"
 
-    def test_handle_blocker_dispatch_failure_stays_waiting(self, tmp_path: Path) -> None:
+    def test_handle_blocker_dispatch_failure_stays_running(self, tmp_path: Path) -> None:
+        """Dispatch returns no trackable output → stays RUNNING for retry."""
         manifest_path = _write_blocked_manifest(tmp_path / "manifest.yaml")
         state_path = tmp_path / "state.yaml"
         _write_state(
@@ -825,9 +846,13 @@ class TestStepDispatch:
             result = supervisor.step()
 
         assert result.action == SupervisorAction.REPAIR_DISPATCHED.value
-        assert result.status == SupervisorStatus.WAITING_FOR_PR.value
+        # No run_id, branch, or PR — stays RUNNING for retry
+        assert result.status == SupervisorStatus.RUNNING.value
+        state = load_supervisor_state(state_path)
+        assert state.active_blocker is not None
 
-    def test_handle_blocker_dispatch_exception_stays_waiting(self, tmp_path: Path) -> None:
+    def test_handle_blocker_dispatch_exception_stays_running(self, tmp_path: Path) -> None:
+        """Dispatch raises exception with no trackable output → stays RUNNING."""
         manifest_path = _write_blocked_manifest(tmp_path / "manifest.yaml")
         state_path = tmp_path / "state.yaml"
         _write_state(
@@ -846,7 +871,60 @@ class TestStepDispatch:
             result = supervisor.step()
 
         assert result.action == SupervisorAction.REPAIR_DISPATCHED.value
-        assert result.status == SupervisorStatus.WAITING_FOR_PR.value
+        assert result.status == SupervisorStatus.RUNNING.value
+
+    def test_dispatch_crash_eventually_escalates_via_max_attempts(self, tmp_path: Path) -> None:
+        """Repeated dispatch crashes exhaust max_repair_attempts → escalate."""
+        manifest_path = _write_blocked_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RUNNING.value,
+            active_blocker=BlockerKind.REVIEWER_MISSING_DIFF.value,
+            repair_attempts=0,
+            max_repair_attempts=2,
+        )
+
+        supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+
+        # Two dispatch crashes — uses up all attempts
+        for _ in range(2):
+            with patch(
+                "aragora.ralph.supervisor.asyncio.run",
+                side_effect=RuntimeError("crash"),
+            ):
+                result = supervisor.step()
+            assert result.status == SupervisorStatus.RUNNING.value
+
+        # Third attempt: max_repair_attempts exceeded → escalate
+        result = supervisor.step()
+        assert result.action == SupervisorAction.ESCALATED.value
+        assert result.status == SupervisorStatus.ESCALATED.value
+
+    def test_auto_merge_not_called_twice(self, tmp_path: Path) -> None:
+        """Auto-merge is only requested once per PR, not on every poll tick."""
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.WAITING_FOR_MERGE.value,
+            active_repair_pr="https://github.com/org/repo/pull/99",
+            active_repair_task={"title": "fix", "auto_merge_requested": True},
+        )
+
+        supervisor = RalphSupervisor(
+            state_path=state_path,
+            repo_root=tmp_path,
+            merge_policy="admin_merge_allowed",
+        )
+
+        with (
+            patch.object(supervisor, "_check_pr_merged", return_value=(False, None)),
+            patch.object(supervisor, "_auto_merge_pr", return_value=True) as mock_merge,
+        ):
+            supervisor.step()
+
+        mock_merge.assert_not_called()
 
     def test_auto_merge_called_when_policy_allows(self, tmp_path: Path) -> None:
         manifest_path = _write_manifest(tmp_path / "manifest.yaml")
@@ -898,7 +976,8 @@ class TestStepDispatch:
         assert result.status == SupervisorStatus.WAITING_FOR_MERGE.value
         mock_merge.assert_not_called()
 
-    def test_resume_pulls_ff_only(self, tmp_path: Path) -> None:
+    def test_resume_uses_fetch_not_pull(self, tmp_path: Path) -> None:
+        """Resume uses git fetch (worktree-safe), not git pull."""
         manifest_path = _write_manifest(tmp_path / "manifest.yaml")
         state_path = tmp_path / "state.yaml"
         _write_state(
@@ -915,9 +994,9 @@ class TestStepDispatch:
 
         assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
         assert result.status == SupervisorStatus.RUNNING.value
-        # First call should be git pull --ff-only
+        assert mock_run.call_count == 1
         first_call = mock_run.call_args_list[0]
-        assert first_call[0][0] == ["git", "pull", "--ff-only", "origin", "main"]
+        assert first_call[0][0] == ["git", "fetch", "origin", "main"]
 
     def test_full_loop_with_dispatch(self, tmp_path: Path) -> None:
         """Full loop: RUNNING → classify → dispatch(PR) → merge → resume → complete."""
@@ -986,3 +1065,20 @@ class TestStepDispatch:
             r5 = supervisor.step()
         assert r5.action == SupervisorAction.CAMPAIGN_COMPLETED.value
         assert r5.status == SupervisorStatus.COMPLETED.value
+
+
+# ---------------------------------------------------------------------------
+# Repair spec
+# ---------------------------------------------------------------------------
+
+
+class TestBuildRepairSpec:
+    def test_repair_spec_does_not_require_approval(self, tmp_path: Path) -> None:
+        """Repair specs are autonomous — requires_approval must be False."""
+        from aragora.ralph.repair import generate_repair_task
+
+        supervisor = RalphSupervisor(state_path=tmp_path / "s.yaml", repo_root=tmp_path)
+        repair = generate_repair_task(BlockerKind.REVIEWER_MISSING_DIFF)
+        assert repair is not None
+        spec = supervisor._build_repair_spec(repair)
+        assert spec.requires_approval is False

@@ -468,8 +468,9 @@ class RalphSupervisor:
         elif branch:
             state.active_repair_branch = branch
             state.status = SupervisorStatus.WAITING_FOR_PR.value
-        else:
+        elif run_id:
             state.status = SupervisorStatus.WAITING_FOR_PR.value
+        # else: no trackable output — stay RUNNING for retry via max_repair_attempts
 
         detail = f"Repair dispatched: {repair.title} (status={dispatch_result.get('status')})"
         if pr_url:
@@ -552,9 +553,13 @@ class RalphSupervisor:
 
         merged, merge_sha = self._check_pr_merged(pr_url)
         if not merged:
-            # Optionally trigger auto-merge when policy allows.
+            # Optionally trigger auto-merge when policy allows (once per PR).
             if self.merge_policy == "admin_merge_allowed":
-                self._auto_merge_pr(pr_url)
+                task = dict(state.active_repair_task or {})
+                if not task.get("auto_merge_requested"):
+                    if self._auto_merge_pr(pr_url):
+                        task["auto_merge_requested"] = True
+                        state.active_repair_task = task
             return StepResult(
                 action=SupervisorAction.PR_CHECKED.value,
                 status=SupervisorStatus.WAITING_FOR_MERGE.value,
@@ -571,33 +576,25 @@ class RalphSupervisor:
 
     def _step_resume(self, state: SupervisorState) -> StepResult:
         """Resume campaign after a repair PR was merged."""
-        # Update worktree to include the merged repair.
+        # Fetch latest main so the worktree sees the merged repair.
+        # Use fetch (not pull) — worktrees are typically on feature branches.
         try:
             subprocess.run(
-                ["git", "pull", "--ff-only", "origin", "main"],
+                ["git", "fetch", "origin", "main"],
                 capture_output=True,
                 cwd=str(self.repo_root),
-                timeout=60,
+                timeout=30,
             )
         except Exception as exc:
-            logger.debug("git pull --ff-only failed: %s", exc)
-            # Fallback: just fetch so HEAD is at least aware of the merge.
-            try:
-                subprocess.run(
-                    ["git", "fetch", "origin", "main"],
-                    capture_output=True,
-                    cwd=str(self.repo_root),
-                    timeout=30,
-                )
-            except Exception as exc2:
-                logger.debug("git fetch fallback also failed: %s", exc2)
+            logger.debug("git fetch origin main failed: %s", exc)
 
-        # Clear blocker state.
+        # Clear blocker state and reset repair budget for future blockers.
         state.active_blocker = None
         state.active_repair_pr = None
         state.active_repair_branch = None
         state.active_repair_task = None
         state.merge_commit_sha = None
+        state.repair_attempts = 0
         state.status = SupervisorStatus.RUNNING.value
 
         return StepResult(
@@ -616,7 +613,7 @@ class RalphSupervisor:
         spec = SwarmSpec.from_direct_goal(
             goal,
             budget_limit_usd=self.repair_budget_usd,
-            requires_approval=True,
+            requires_approval=False,
             user_expertise="developer",
         )
         # Override inferred hints with the repair's explicit allowed_paths.
