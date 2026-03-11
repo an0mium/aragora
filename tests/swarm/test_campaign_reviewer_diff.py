@@ -69,10 +69,11 @@ class TestFetchDiffContent:
             result = _fetch_diff_content(_make_run_dict(), repo_root=tmp_path, target_branch="main")
 
         assert result == diff_text
-        mock_run.assert_called_once()
-        args = mock_run.call_args
-        assert args[0][0] == ["git", "diff", "main...codex/worker-branch"]
-        assert args[1]["cwd"] == str(tmp_path)
+        # Two calls: fetch + diff
+        assert mock_run.call_count == 2
+        diff_call = mock_run.call_args_list[1]
+        assert diff_call[0][0] == ["git", "diff", "origin/main...codex/worker-branch"]
+        assert diff_call[1]["cwd"] == str(tmp_path)
 
     def test_truncates_large_diffs(self, tmp_path: Path) -> None:
         large_diff = "x" * (_DIFF_MAX_CHARS + 1000)

@@ -775,9 +775,18 @@ def _fetch_diff_content(
                 break
     if not branch:
         return None
+    # Use origin/ prefix to avoid stale local refs in worktrees.
+    diff_base = target_branch if "/" in target_branch else f"origin/{target_branch}"
     try:
+        # Fetch to ensure the remote ref is current.
+        subprocess.run(
+            ["git", "fetch", "origin", target_branch],
+            capture_output=True,
+            cwd=str(repo_root),
+            timeout=15,
+        )
         result = subprocess.run(
-            ["git", "diff", f"{target_branch}...{branch}"],
+            ["git", "diff", f"{diff_base}...{branch}"],
             capture_output=True,
             text=True,
             cwd=str(repo_root),
