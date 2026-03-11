@@ -192,6 +192,7 @@ Examples:
     _add_signing_parser(subparsers)
     _add_inbox_wedge_parser(subparsers)
     _add_triage_parser(subparsers)
+    _add_ralph_parser(subparsers)
 
     return parser
 
@@ -2353,4 +2354,65 @@ def _add_swarm_parser(subparsers) -> None:
         func=lambda args: __import__(
             "aragora.cli.commands.swarm", fromlist=["cmd_swarm"]
         ).cmd_swarm(args)
+    )
+
+
+def _add_ralph_parser(subparsers) -> None:
+    """Add the 'ralph' subcommand for the campaign supervisor."""
+    ralph_parser = subparsers.add_parser(
+        "ralph",
+        help="Ralph campaign supervisor — autonomous incident commander",
+        description=(
+            "Ralph campaign supervisor: run, classify, repair, merge, resume.\n\n"
+            "Actions:\n"
+            "  campaign-supervisor start   Start a new supervisor run\n"
+            "  campaign-supervisor step    Advance one step\n"
+            "  campaign-supervisor status  Show current state\n"
+            "  campaign-supervisor stop    Gracefully stop\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    ralph_parser.add_argument(
+        "ralph_action",
+        nargs="?",
+        default="campaign-supervisor",
+        help="Action: campaign-supervisor (default)",
+    )
+    ralph_parser.add_argument(
+        "ralph_subaction",
+        nargs="?",
+        default="status",
+        help="Subaction: start, step, status, stop, resume (default: status)",
+    )
+    ralph_parser.add_argument(
+        "--manifest",
+        help="Path to campaign manifest (for start)",
+    )
+    ralph_parser.add_argument(
+        "--state",
+        default=".aragora/supervisor_state.yaml",
+        help="Path to supervisor state file (default: .aragora/supervisor_state.yaml)",
+    )
+    ralph_parser.add_argument(
+        "--merge-policy",
+        default="manual_review_required",
+        choices=["manual_review_required", "admin_merge_allowed"],
+        help="PR merge policy (default: manual_review_required)",
+    )
+    ralph_parser.add_argument(
+        "--max-repair-attempts",
+        type=int,
+        default=2,
+        help="Max automatic repair attempts per blocker (default: 2)",
+    )
+    ralph_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Output JSON instead of human-readable text",
+    )
+    ralph_parser.set_defaults(
+        func=lambda args: __import__(
+            "aragora.cli.commands.ralph", fromlist=["cmd_ralph"]
+        ).cmd_ralph(args)
     )
