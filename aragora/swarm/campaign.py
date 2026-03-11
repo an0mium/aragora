@@ -746,6 +746,55 @@ class CampaignPlanner:
                     dependency.project_id = id_map[dependency.project_id]
 
 
+_DIFF_MAX_CHARS = 50_000
+
+
+def _fetch_diff_content(
+    run_dict: dict[str, Any],
+    *,
+    repo_root: Path | None = None,
+    target_branch: str = "main",
+    max_chars: int = _DIFF_MAX_CHARS,
+) -> str | None:
+    """Fetch the actual git diff between the worker branch and the target branch.
+
+    Returns the diff text (truncated to *max_chars*), or ``None`` if the diff
+    cannot be obtained (missing branch, no repo_root, git error).
+    """
+    if repo_root is None:
+        return None
+    deliverable = _extract_deliverable(run_dict)
+    if not deliverable or deliverable.get("type") not in ("branch", "pr"):
+        return None
+    branch = deliverable.get("branch")
+    if not branch:
+        # For PR-type deliverables, try extracting the branch from work orders.
+        for wo in run_dict.get("work_orders", []):
+            if isinstance(wo, dict) and str(wo.get("branch", "")).strip():
+                branch = str(wo["branch"]).strip()
+                break
+    if not branch:
+        return None
+    try:
+        result = subprocess.run(
+            ["git", "diff", f"{target_branch}...{branch}"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo_root),
+            timeout=30,
+        )
+        if result.returncode != 0:
+            logger.debug("_fetch_diff_content git diff failed: %s", result.stderr)
+            return None
+        diff = result.stdout
+        if len(diff) > max_chars:
+            diff = diff[:max_chars] + f"\n\n... [truncated at {max_chars} chars]"
+        return diff if diff.strip() else None
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.debug("_fetch_diff_content error: %s", exc)
+        return None
+
+
 class CampaignReviewer:
     """Blocking heterogeneous review gate for completed campaign projects."""
 
@@ -756,9 +805,16 @@ class CampaignReviewer:
         worker_model: str,
         review_model: str,
         run_dict: dict[str, Any],
+        repo_root: Path | None = None,
+        target_branch: str = "main",
     ) -> CampaignReviewGate:
         chosen_review_model = _canonical_review_model(worker_model, review_model)
-        prompt = self._build_prompt(project, run_dict, chosen_review_model)
+        diff_content = _fetch_diff_content(
+            run_dict, repo_root=repo_root, target_branch=target_branch
+        )
+        prompt = self._build_prompt(
+            project, run_dict, chosen_review_model, diff_content=diff_content
+        )
         try:
             agent = create_agent(chosen_review_model, name="campaign-review", role="critic")
             raw = await agent.generate(prompt)
@@ -791,7 +847,13 @@ class CampaignReviewer:
             )
 
     @staticmethod
-    def _build_prompt(project: CampaignProject, run_dict: dict[str, Any], review_model: str) -> str:
+    def _build_prompt(
+        project: CampaignProject,
+        run_dict: dict[str, Any],
+        review_model: str,
+        *,
+        diff_content: str | None = None,
+    ) -> str:
         deliverable = _extract_deliverable(run_dict)
         work_orders = run_dict.get("work_orders", [])
         summary = {
@@ -803,12 +865,17 @@ class CampaignReviewer:
             "deliverable": deliverable,
             "work_orders": work_orders,
         }
-        return (
+        parts = [
             "Review this completed implementation against the project specification.\n"
             "Respond with strict JSON only: "
             '{"status":"passed|changes_requested|blocked_nonreviewable","findings":["..."]}\n'
-            f"{json.dumps(summary, sort_keys=True)}"
-        )
+            f"{json.dumps(summary, sort_keys=True)}",
+        ]
+        if diff_content:
+            parts.append(
+                f"\n\n--- ACTUAL DIFF (worker branch vs base) ---\n{diff_content}\n--- END DIFF ---"
+            )
+        return "\n".join(parts)
 
 
 class CampaignExecutor:
@@ -914,6 +981,8 @@ class CampaignExecutor:
             worker_model=manifest.worker_model,
             review_model=manifest.review_model,
             run_dict=run_dict,
+            repo_root=self.repo_root,
+            target_branch=self.target_branch,
         )
         with locked_manifest_path(self.manifest_path):
             manifest = load_campaign_manifest(self.manifest_path)
@@ -993,6 +1062,8 @@ class CampaignExecutor:
                 worker_model=worker_model,
                 review_model=review_model,
                 run_dict=dict(result["run"]),
+                repo_root=self.repo_root,
+                target_branch=self.target_branch,
             )
             with locked_manifest_path(self.manifest_path):
                 manifest = load_campaign_manifest(self.manifest_path)
