@@ -49,6 +49,7 @@ class SupervisorAction(str, Enum):
     CAMPAIGN_ITERATION = "campaign_iteration"
     BLOCKER_CLASSIFIED = "blocker_classified"
     REPAIR_GENERATED = "repair_generated"
+    REPAIR_DISPATCHED = "repair_dispatched"
     PR_CHECKED = "pr_checked"
     CAMPAIGN_RESUMED = "campaign_resumed"
     CAMPAIGN_COMPLETED = "campaign_completed"
@@ -81,6 +82,7 @@ class SupervisorState:
     active_repair_pr: str | None = None
     active_repair_branch: str | None = None
     active_repair_task: dict[str, Any] | None = None
+    active_dispatch_run_id: str | None = None
     merge_commit_sha: str | None = None
     resume_cursor: str | None = None
     budget_spent_usd: float = 0.0
@@ -103,6 +105,7 @@ class SupervisorState:
             "active_repair_pr": self.active_repair_pr,
             "active_repair_branch": self.active_repair_branch,
             "active_repair_task": self.active_repair_task,
+            "active_dispatch_run_id": self.active_dispatch_run_id,
             "merge_commit_sha": self.merge_commit_sha,
             "resume_cursor": self.resume_cursor,
             "budget_spent_usd": self.budget_spent_usd,
@@ -127,6 +130,7 @@ class SupervisorState:
             active_repair_pr=data.get("active_repair_pr"),
             active_repair_branch=data.get("active_repair_branch"),
             active_repair_task=data.get("active_repair_task"),
+            active_dispatch_run_id=data.get("active_dispatch_run_id"),
             merge_commit_sha=data.get("merge_commit_sha"),
             resume_cursor=data.get("resume_cursor"),
             budget_spent_usd=float(data.get("budget_spent_usd", 0.0)),
@@ -202,10 +206,12 @@ class RalphSupervisor:
         state_path: Path,
         repo_root: Path | None = None,
         merge_policy: str = "manual_review_required",
+        repair_budget_usd: float = 2.0,
     ) -> None:
         self.state_path = state_path.resolve()
         self.repo_root = (repo_root or Path.cwd()).resolve()
         self.merge_policy = merge_policy
+        self.repair_budget_usd = repair_budget_usd
 
     # -- public API --
 
@@ -218,6 +224,7 @@ class RalphSupervisor:
         repo_root: Path | None = None,
         merge_policy: str = "manual_review_required",
         max_repair_attempts: int = _DEFAULT_MAX_REPAIR_ATTEMPTS,
+        repair_budget_usd: float = 2.0,
     ) -> "RalphSupervisor":
         """Initialize a new supervisor run and persist state."""
         manifest_path = manifest_path.resolve()
@@ -242,6 +249,7 @@ class RalphSupervisor:
             state_path=state_path,
             repo_root=repo_root,
             merge_policy=merge_policy,
+            repair_budget_usd=repair_budget_usd,
         )
         logger.info(
             "Ralph supervisor started: %s (campaign=%s)",
@@ -391,7 +399,7 @@ class RalphSupervisor:
         )
 
     def _step_handle_blocker(self, state: SupervisorState) -> StepResult:
-        """Generate a repair task for a deterministic blocker, or escalate."""
+        """Generate and dispatch a repair task for a deterministic blocker, or escalate."""
         blocker_kind_str = state.active_blocker or ""
         try:
             blocker_kind = BlockerKind(blocker_kind_str)
@@ -425,12 +433,49 @@ class RalphSupervisor:
 
         state.repair_attempts += 1
         state.active_repair_task = repair.to_dict()
-        state.status = SupervisorStatus.WAITING_FOR_PR.value
+
+        # Dispatch the repair lane.
+        spec = self._build_repair_spec(repair)
+        try:
+            from aragora.swarm.boss_loop import dispatch_bounded_spec
+
+            dispatch_result = asyncio.run(
+                dispatch_bounded_spec(
+                    spec,
+                    repo_path=self.repo_root,
+                    budget_limit_usd=self.repair_budget_usd,
+                )
+            )
+        except Exception as exc:
+            logger.warning("Repair dispatch failed: %s", exc)
+            dispatch_result = {"status": "failed", "outcome": "crash"}
+
+        # Extract deliverable info.
+        run_id = dispatch_result.get("run_id")
+        state.active_dispatch_run_id = str(run_id) if run_id else None
+        deliverable = dispatch_result.get("deliverable") or {}
+
+        pr_url = str(deliverable.get("pr_url", "")).strip()
+        branch = str(deliverable.get("branch", "")).strip()
+
+        if pr_url:
+            state.active_repair_pr = pr_url
+            state.active_repair_branch = branch or None
+            state.status = SupervisorStatus.WAITING_FOR_MERGE.value
+        elif branch:
+            state.active_repair_branch = branch
+            state.status = SupervisorStatus.WAITING_FOR_PR.value
+        else:
+            state.status = SupervisorStatus.WAITING_FOR_PR.value
+
+        detail = f"Repair dispatched: {repair.title} (status={dispatch_result.get('status')})"
+        if pr_url:
+            detail += f" PR: {pr_url}"
 
         return StepResult(
-            action=SupervisorAction.REPAIR_GENERATED.value,
-            status=SupervisorStatus.WAITING_FOR_PR.value,
-            detail=f"Repair task generated: {repair.title}",
+            action=SupervisorAction.REPAIR_DISPATCHED.value,
+            status=state.status,
+            detail=detail,
             repair_task=repair,
         )
 
@@ -476,6 +521,9 @@ class RalphSupervisor:
 
         merged, merge_sha = self._check_pr_merged(pr_url)
         if not merged:
+            # Optionally trigger auto-merge when policy allows.
+            if self.merge_policy == "admin_merge_allowed":
+                self._auto_merge_pr(pr_url)
             return StepResult(
                 action=SupervisorAction.PR_CHECKED.value,
                 status=SupervisorStatus.WAITING_FOR_MERGE.value,
@@ -492,22 +540,33 @@ class RalphSupervisor:
 
     def _step_resume(self, state: SupervisorState) -> StepResult:
         """Resume campaign after a repair PR was merged."""
-        # Fetch latest main.
+        # Update worktree to include the merged repair.
         try:
             subprocess.run(
-                ["git", "fetch", "origin", "main"],
+                ["git", "pull", "--ff-only", "origin", "main"],
                 capture_output=True,
                 cwd=str(self.repo_root),
-                timeout=30,
+                timeout=60,
             )
         except Exception as exc:
-            logger.debug("git fetch failed: %s", exc)
+            logger.debug("git pull --ff-only failed: %s", exc)
+            # Fallback: just fetch so HEAD is at least aware of the merge.
+            try:
+                subprocess.run(
+                    ["git", "fetch", "origin", "main"],
+                    capture_output=True,
+                    cwd=str(self.repo_root),
+                    timeout=30,
+                )
+            except Exception as exc2:
+                logger.debug("git fetch fallback also failed: %s", exc2)
 
         # Clear blocker state.
         state.active_blocker = None
         state.active_repair_pr = None
         state.active_repair_branch = None
         state.active_repair_task = None
+        state.active_dispatch_run_id = None
         state.merge_commit_sha = None
         state.status = SupervisorStatus.RUNNING.value
 
@@ -518,6 +577,43 @@ class RalphSupervisor:
         )
 
     # -- helpers --
+
+    def _build_repair_spec(self, repair: RepairTask) -> Any:
+        """Convert a RepairTask to a dispatch-bounded SwarmSpec."""
+        from aragora.swarm.spec import SwarmSpec
+
+        goal = f"{repair.title}\n\n{repair.problem_statement}"
+        spec = SwarmSpec.from_direct_goal(
+            goal,
+            budget_limit_usd=self.repair_budget_usd,
+            requires_approval=True,
+            user_expertise="developer",
+        )
+        # Override inferred hints with the repair's explicit allowed_paths.
+        spec.file_scope_hints = list(repair.allowed_paths)
+        # Set acceptance criteria from done_condition + required_tests.
+        spec.acceptance_criteria = [repair.done_condition]
+        if repair.required_tests:
+            spec.acceptance_criteria.append(f"Tests pass: {', '.join(repair.required_tests)}")
+        return spec
+
+    def _auto_merge_pr(self, pr_url: str) -> bool:
+        """Attempt to auto-merge a PR via gh CLI. Returns True if merge was initiated."""
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "merge", pr_url, "--squash", "--auto"],
+                capture_output=True,
+                text=True,
+                cwd=str(self.repo_root),
+                timeout=30,
+            )
+            if result.returncode == 0:
+                logger.info("Auto-merge initiated for %s", pr_url)
+                return True
+            logger.debug("gh pr merge failed (rc=%d): %s", result.returncode, result.stderr)
+        except Exception as exc:
+            logger.debug("gh pr merge raised: %s", exc)
+        return False
 
     def _escalate(self, state: SupervisorState, reason: str) -> StepResult:
         state.status = SupervisorStatus.ESCALATED.value

@@ -120,6 +120,8 @@ def _cmd_status(state_path: Path, json_output: bool) -> None:
             print(f"  Active blocker: {d['active_blocker']}")
         if d.get("active_repair_pr"):
             print(f"  Repair PR: {d['active_repair_pr']}")
+        if d.get("active_dispatch_run_id"):
+            print(f"  Dispatch run: {d['active_dispatch_run_id']}")
         if d.get("escalation_reason"):
             print(f"  Escalation: {d['escalation_reason']}")
         print(f"  Last stop reason: {d.get('last_stop_reason', 'none')}")

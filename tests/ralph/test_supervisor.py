@@ -309,9 +309,18 @@ class TestStepHandleBlocker:
         )
 
         supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
-        result = supervisor.step()
 
-        assert result.action == SupervisorAction.REPAIR_GENERATED.value
+        # Mock dispatch to return a branch (no PR).
+        mock_dispatch = {
+            "status": "completed",
+            "outcome": "deliverable_created",
+            "run_id": "run-test",
+            "deliverable": {"type": "branch", "branch": "fix/test", "commit_shas": ["sha1"]},
+        }
+        with patch("aragora.ralph.supervisor.asyncio.run", return_value=mock_dispatch):
+            result = supervisor.step()
+
+        assert result.action == SupervisorAction.REPAIR_DISPATCHED.value
         assert result.status == SupervisorStatus.WAITING_FOR_PR.value
         assert result.repair_task is not None
         assert (
@@ -550,19 +559,21 @@ class TestFullLoopSimulation:
         state = load_supervisor_state(state_path)
         assert state.active_blocker == BlockerKind.REVIEWER_MISSING_DIFF.value
 
-        # Step 2: handle blocker -> generate repair
-        r2 = supervisor.step()
-        assert r2.action == SupervisorAction.REPAIR_GENERATED.value
+        # Step 2: handle blocker -> dispatch repair (with PR)
+        dispatch_result = {
+            "status": "completed",
+            "outcome": "deliverable",
+            "run_id": "run-full-loop",
+            "deliverable": {
+                "pr_url": "https://github.com/org/repo/pull/99",
+                "branch": "codex/repair-branch",
+            },
+        }
+        with patch("aragora.ralph.supervisor.asyncio.run", return_value=dispatch_result):
+            r2 = supervisor.step()
+        assert r2.action == SupervisorAction.REPAIR_DISPATCHED.value
         assert r2.repair_task is not None
-
-        # Simulate: someone opens a PR
-        state = load_supervisor_state(state_path)
-        state.active_repair_pr = "https://github.com/org/repo/pull/99"
-        save_supervisor_state(state_path, state)
-
-        # Step 3: check PR -> found, wait for merge
-        r3 = supervisor.step()
-        assert r3.status == SupervisorStatus.WAITING_FOR_MERGE.value
+        assert r2.status == SupervisorStatus.WAITING_FOR_MERGE.value
 
         # Step 4: check merge -> merged
         with patch.object(RalphSupervisor, "_check_pr_merged", return_value=(True, "merged-sha")):
@@ -614,3 +625,312 @@ class TestFullLoopSimulation:
         r2 = supervisor.step()
         assert r2.action == SupervisorAction.ESCALATED.value
         assert r2.status == SupervisorStatus.ESCALATED.value
+
+
+# ---------------------------------------------------------------------------
+# Dispatch integration tests
+# ---------------------------------------------------------------------------
+
+
+def _write_blocked_manifest(path: Path) -> Path:
+    """Write a manifest with a blocked project that triggers reviewer_missing_diff."""
+    manifest = {
+        "campaign_id": "test-campaign",
+        "created_at": "2026-03-10T00:00:00Z",
+        "source_kind": "manual",
+        "source_ref": "test",
+        "worker_model": "codex",
+        "review_model": "claude",
+        "max_parallel_ready_projects": 1,
+        "max_retries_per_project": 2,
+        "budget_limit_usd": 20.0,
+        "time_limit_hours": 4.0,
+        "projects": [
+            {
+                "project_id": "proj-001",
+                "title": "Test project",
+                "status": "blocked",
+                "last_run_outcome": "deliverable_created",
+                "review": {
+                    "status": "changes_requested",
+                    "findings": ["Scope violation detected"],
+                },
+            }
+        ],
+        "execution_state": {
+            "ready_queue": [],
+            "active_projects": [],
+            "completed_projects": [],
+            "failed_projects": [],
+            "skipped_projects": [],
+            "total_cost_usd": 0.0,
+        },
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.dump(manifest), encoding="utf-8")
+    return path
+
+
+class TestStepDispatch:
+    """Tests for the dispatch wiring in _step_handle_blocker."""
+
+    def test_handle_blocker_dispatches_and_stores_pr(self, tmp_path: Path) -> None:
+        manifest_path = _write_blocked_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RUNNING.value,
+            active_blocker=BlockerKind.REVIEWER_MISSING_DIFF.value,
+        )
+
+        supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+
+        mock_dispatch_result = {
+            "status": "completed",
+            "outcome": "deliverable_created",
+            "run_id": "run-abc123",
+            "deliverable": {
+                "type": "pr",
+                "pr_url": "https://github.com/org/repo/pull/55",
+                "branch": "fix/reviewer-diff",
+                "commit_shas": ["sha1"],
+            },
+        }
+
+        with patch(
+            "aragora.ralph.supervisor.asyncio.run",
+            return_value=mock_dispatch_result,
+        ):
+            result = supervisor.step()
+
+        assert result.action == SupervisorAction.REPAIR_DISPATCHED.value
+        assert result.status == SupervisorStatus.WAITING_FOR_MERGE.value
+        assert "PR: https://github.com/org/repo/pull/55" in result.detail
+
+        state = load_supervisor_state(state_path)
+        assert state.active_repair_pr == "https://github.com/org/repo/pull/55"
+        assert state.active_repair_branch == "fix/reviewer-diff"
+        assert state.active_dispatch_run_id == "run-abc123"
+
+    def test_handle_blocker_dispatches_branch_only(self, tmp_path: Path) -> None:
+        manifest_path = _write_blocked_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RUNNING.value,
+            active_blocker=BlockerKind.REVIEWER_MISSING_DIFF.value,
+        )
+
+        supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+
+        mock_dispatch_result = {
+            "status": "completed",
+            "outcome": "deliverable_created",
+            "run_id": "run-def456",
+            "deliverable": {
+                "type": "branch",
+                "branch": "fix/reviewer-diff-v2",
+                "commit_shas": ["sha2"],
+            },
+        }
+
+        with patch(
+            "aragora.ralph.supervisor.asyncio.run",
+            return_value=mock_dispatch_result,
+        ):
+            result = supervisor.step()
+
+        assert result.action == SupervisorAction.REPAIR_DISPATCHED.value
+        assert result.status == SupervisorStatus.WAITING_FOR_PR.value
+
+        state = load_supervisor_state(state_path)
+        assert state.active_repair_pr is None
+        assert state.active_repair_branch == "fix/reviewer-diff-v2"
+
+    def test_handle_blocker_dispatch_failure_stays_waiting(self, tmp_path: Path) -> None:
+        manifest_path = _write_blocked_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RUNNING.value,
+            active_blocker=BlockerKind.REVIEWER_MISSING_DIFF.value,
+        )
+
+        supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+
+        mock_dispatch_result = {
+            "status": "failed",
+            "outcome": "crash",
+        }
+
+        with patch(
+            "aragora.ralph.supervisor.asyncio.run",
+            return_value=mock_dispatch_result,
+        ):
+            result = supervisor.step()
+
+        assert result.action == SupervisorAction.REPAIR_DISPATCHED.value
+        assert result.status == SupervisorStatus.WAITING_FOR_PR.value
+
+    def test_handle_blocker_dispatch_exception_stays_waiting(self, tmp_path: Path) -> None:
+        manifest_path = _write_blocked_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RUNNING.value,
+            active_blocker=BlockerKind.REVIEWER_MISSING_DIFF.value,
+        )
+
+        supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+
+        with patch(
+            "aragora.ralph.supervisor.asyncio.run",
+            side_effect=RuntimeError("dispatch exploded"),
+        ):
+            result = supervisor.step()
+
+        assert result.action == SupervisorAction.REPAIR_DISPATCHED.value
+        assert result.status == SupervisorStatus.WAITING_FOR_PR.value
+
+    def test_auto_merge_called_when_policy_allows(self, tmp_path: Path) -> None:
+        manifest_path = _write_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.WAITING_FOR_MERGE.value,
+            active_repair_pr="https://github.com/org/repo/pull/99",
+        )
+
+        supervisor = RalphSupervisor(
+            state_path=state_path,
+            repo_root=tmp_path,
+            merge_policy="admin_merge_allowed",
+        )
+
+        with (
+            patch.object(supervisor, "_check_pr_merged", return_value=(False, None)),
+            patch.object(supervisor, "_auto_merge_pr", return_value=True) as mock_merge,
+        ):
+            result = supervisor.step()
+
+        assert result.status == SupervisorStatus.WAITING_FOR_MERGE.value
+        mock_merge.assert_called_once_with("https://github.com/org/repo/pull/99")
+
+    def test_auto_merge_not_called_for_manual_policy(self, tmp_path: Path) -> None:
+        manifest_path = _write_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.WAITING_FOR_MERGE.value,
+            active_repair_pr="https://github.com/org/repo/pull/99",
+        )
+
+        supervisor = RalphSupervisor(
+            state_path=state_path,
+            repo_root=tmp_path,
+            merge_policy="manual_review_required",
+        )
+
+        with (
+            patch.object(supervisor, "_check_pr_merged", return_value=(False, None)),
+            patch.object(supervisor, "_auto_merge_pr", return_value=True) as mock_merge,
+        ):
+            result = supervisor.step()
+
+        assert result.status == SupervisorStatus.WAITING_FOR_MERGE.value
+        mock_merge.assert_not_called()
+
+    def test_resume_pulls_ff_only(self, tmp_path: Path) -> None:
+        manifest_path = _write_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RESUMING.value,
+        )
+
+        supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+
+        with patch("aragora.ralph.supervisor.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            result = supervisor.step()
+
+        assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
+        assert result.status == SupervisorStatus.RUNNING.value
+        # First call should be git pull --ff-only
+        first_call = mock_run.call_args_list[0]
+        assert first_call[0][0] == ["git", "pull", "--ff-only", "origin", "main"]
+
+    def test_full_loop_with_dispatch(self, tmp_path: Path) -> None:
+        """Full loop: RUNNING → classify → dispatch(PR) → merge → resume → complete."""
+        manifest_path = _write_blocked_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+
+        supervisor = RalphSupervisor.start(
+            manifest_path=manifest_path,
+            state_path=state_path,
+            repo_root=tmp_path,
+            merge_policy="admin_merge_allowed",
+        )
+
+        # Step 1: Campaign iteration → blocked
+        with patch(
+            "aragora.ralph.supervisor.asyncio.run",
+            return_value={"stop_reason": "campaign_blocked", "dispatched_projects": []},
+        ):
+            r1 = supervisor.step()
+        assert r1.action == SupervisorAction.BLOCKER_CLASSIFIED.value
+
+        # Step 2: Handle blocker → dispatch repair → gets PR
+        mock_dispatch = {
+            "status": "completed",
+            "outcome": "deliverable_created",
+            "run_id": "run-loop-1",
+            "deliverable": {
+                "type": "pr",
+                "pr_url": "https://github.com/org/repo/pull/100",
+                "branch": "fix/reviewer-fidelity",
+                "commit_shas": ["sha1"],
+            },
+        }
+        with patch(
+            "aragora.ralph.supervisor.asyncio.run",
+            return_value=mock_dispatch,
+        ):
+            r2 = supervisor.step()
+        assert r2.action == SupervisorAction.REPAIR_DISPATCHED.value
+        assert r2.status == SupervisorStatus.WAITING_FOR_MERGE.value
+
+        # Step 3: Check merge → merged
+        with (
+            patch.object(
+                supervisor,
+                "_check_pr_merged",
+                return_value=(True, "abc123def"),
+            ),
+            patch.object(supervisor, "_auto_merge_pr"),
+        ):
+            r3 = supervisor.step()
+        assert r3.status == SupervisorStatus.RESUMING.value
+
+        # Step 4: Resume → pull ff-only → RUNNING
+        with patch("aragora.ralph.supervisor.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            r4 = supervisor.step()
+        assert r4.action == SupervisorAction.CAMPAIGN_RESUMED.value
+        assert r4.status == SupervisorStatus.RUNNING.value
+
+        # Step 5: Campaign iteration → complete
+        with patch(
+            "aragora.ralph.supervisor.asyncio.run",
+            return_value={"stop_reason": "campaign_complete", "dispatched_projects": []},
+        ):
+            r5 = supervisor.step()
+        assert r5.action == SupervisorAction.CAMPAIGN_COMPLETED.value
+        assert r5.status == SupervisorStatus.COMPLETED.value
