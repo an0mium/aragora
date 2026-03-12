@@ -101,6 +101,56 @@ class TestClassifyBlocker:
         result = classify_blocker(stop_reason="campaign_blocked", manifest_dict=manifest)
         assert result == BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
 
+    def test_blocked_with_repeated_needs_human(self) -> None:
+        manifest = {
+            "projects": [
+                {
+                    "project_id": "p1",
+                    "status": "blocked",
+                    "last_run_outcome": "needs_human",
+                },
+                {
+                    "project_id": "p2",
+                    "status": "blocked",
+                    "last_run_outcome": "needs_human",
+                },
+            ]
+        }
+        result = classify_blocker(stop_reason="campaign_blocked", manifest_dict=manifest)
+        assert result == BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
+
+    def test_blocked_with_mixed_stall_outcomes(self) -> None:
+        manifest = {
+            "projects": [
+                {
+                    "project_id": "p1",
+                    "status": "blocked",
+                    "last_run_outcome": "needs_human",
+                },
+                {
+                    "project_id": "p2",
+                    "status": "failed",
+                    "last_run_outcome": "clean_exit_no_deliverable",
+                },
+            ]
+        }
+        result = classify_blocker(stop_reason="campaign_blocked", manifest_dict=manifest)
+        assert result == BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
+
+    def test_blocked_with_single_needs_human(self) -> None:
+        manifest = {
+            "projects": [
+                {
+                    "project_id": "p1",
+                    "status": "blocked",
+                    "last_run_outcome": "needs_human",
+                    "receipt_id": "r1",
+                },
+            ]
+        }
+        result = classify_blocker(stop_reason="campaign_blocked", manifest_dict=manifest)
+        assert result == BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
+
     def test_blocked_with_receipt_gap(self) -> None:
         manifest = {
             "projects": [

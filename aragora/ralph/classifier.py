@@ -125,9 +125,12 @@ def _classify_campaign_blocked(manifest_dict: dict[str, Any]) -> BlockerKind:
     if has_deliverable and has_review_rejection:
         return BlockerKind.REVIEWER_MISSING_DIFF
 
-    # Check for repeated clean_exit_no_deliverable on docs-only tasks.
-    clean_exit_count = outcomes.count("clean_exit_no_deliverable")
-    if clean_exit_count >= 2:
+    # Check for repeated worker stalls (no usable deliverable).
+    # Both clean_exit_no_deliverable and needs_human represent the same
+    # failure family: the worker finished but produced nothing actionable.
+    _STALL_OUTCOMES = {"clean_exit_no_deliverable", "needs_human"}
+    stall_count = sum(1 for o in outcomes if o in _STALL_OUTCOMES)
+    if stall_count >= 2:
         return BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
 
     # Check for receipt gaps: terminal projects without receipt_id.
@@ -145,7 +148,7 @@ def _classify_campaign_blocked(manifest_dict: dict[str, Any]) -> BlockerKind:
                 return BlockerKind.MANIFEST_IDENTIFIER_COLLISION
             seen_hints.add(hint)
 
-    if clean_exit_count >= 1:
+    if stall_count >= 1:
         return BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
 
     return BlockerKind.UNKNOWN
