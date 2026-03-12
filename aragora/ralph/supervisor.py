@@ -811,21 +811,43 @@ class RalphSupervisor:
         )
 
     def _find_pr_for_branch(self, branch: str) -> str | None:
-        """Use gh CLI to find an open PR for the given branch."""
-        try:
-            result = subprocess.run(
-                ["gh", "pr", "list", "--head", branch, "--json", "url", "--limit", "1"],
-                capture_output=True,
-                text=True,
-                cwd=str(self.repo_root),
-                timeout=15,
-            )
-            if result.returncode == 0:
+        """Use gh CLI to find the current or most recent PR for the given branch."""
+        for pr_state in ("open", "merged"):
+            try:
+                result = subprocess.run(
+                    [
+                        "gh",
+                        "pr",
+                        "list",
+                        "--head",
+                        branch,
+                        "--state",
+                        pr_state,
+                        "--json",
+                        "url,mergedAt",
+                        "--limit",
+                        "10",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    cwd=str(self.repo_root),
+                    timeout=15,
+                )
+                if result.returncode != 0:
+                    continue
+
                 prs = json.loads(result.stdout)
-                if prs and isinstance(prs, list):
-                    return str(prs[0].get("url", ""))
-        except Exception as exc:
-            logger.debug("gh pr list failed: %s", exc)
+                if not prs or not isinstance(prs, list):
+                    continue
+
+                if pr_state == "merged":
+                    prs = sorted(prs, key=lambda pr: str(pr.get("mergedAt") or ""), reverse=True)
+
+                url = str(prs[0].get("url", "")).strip()
+                if url:
+                    return url
+            except Exception as exc:
+                logger.debug("gh pr list failed for state %s: %s", pr_state, exc)
         return None
 
     def _check_pr_merged(self, pr_url: str) -> tuple[bool, str | None]:

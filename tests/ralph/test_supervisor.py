@@ -504,6 +504,57 @@ class TestStepPRChecking:
 
 
 # ---------------------------------------------------------------------------
+# PR discovery helper
+# ---------------------------------------------------------------------------
+
+
+class TestFindPrForBranch:
+    def test_prefers_open_pr(self, tmp_path: Path) -> None:
+        supervisor = RalphSupervisor(state_path=tmp_path / "state.yaml", repo_root=tmp_path)
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            return_value=MagicMock(
+                returncode=0,
+                stdout='[{"url":"https://github.com/org/repo/pull/42","mergedAt":null}]',
+            ),
+        ) as run_mock:
+            pr_url = supervisor._find_pr_for_branch("fix/reviewer-diff")
+
+        assert pr_url == "https://github.com/org/repo/pull/42"
+        run_mock.assert_called_once()
+        assert "--state" in run_mock.call_args.args[0]
+        assert "open" in run_mock.call_args.args[0]
+
+    def test_falls_back_to_latest_merged_pr(self, tmp_path: Path) -> None:
+        supervisor = RalphSupervisor(state_path=tmp_path / "state.yaml", repo_root=tmp_path)
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=[
+                MagicMock(returncode=0, stdout="[]"),
+                MagicMock(
+                    returncode=0,
+                    stdout=(
+                        '[{"url":"https://github.com/org/repo/pull/41",'
+                        '"mergedAt":"2026-03-10T12:00:00Z"},'
+                        '{"url":"https://github.com/org/repo/pull/43",'
+                        '"mergedAt":"2026-03-11T09:00:00Z"}]'
+                    ),
+                ),
+            ],
+        ) as run_mock:
+            pr_url = supervisor._find_pr_for_branch("fix/reviewer-diff")
+
+        assert pr_url == "https://github.com/org/repo/pull/43"
+        assert run_mock.call_count == 2
+        first_call = run_mock.call_args_list[0].args[0]
+        second_call = run_mock.call_args_list[1].args[0]
+        assert "open" in first_call
+        assert "merged" in second_call
+
+
+# ---------------------------------------------------------------------------
 # Step: resume
 # ---------------------------------------------------------------------------
 
