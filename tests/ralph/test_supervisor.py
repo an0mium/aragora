@@ -960,6 +960,246 @@ class TestResumeSyncVerification:
 
 
 # ---------------------------------------------------------------------------
+# Resume reconciliation (manifest project reset)
+# ---------------------------------------------------------------------------
+
+
+def _write_blocked_manifest_with_projects(path: Path, project_ids: list[str]) -> Path:
+    """Write a manifest with blocked projects for reconciliation tests."""
+    projects = [
+        {
+            "project_id": pid,
+            "title": f"Project {pid}",
+            "status": "blocked",
+            "last_run_outcome": "deliverable_created",
+            "review": {
+                "required": True,
+                "review_model": "claude",
+                "status": "blocked_nonreviewable",
+                "findings": ["Review failed: CLI error"],
+                "reviewed_at": "2026-03-11T01:00:00Z",
+                "raw_review": {"error": "some error"},
+            },
+            "retry_count": 1,
+        }
+        for pid in project_ids
+    ]
+    manifest = {
+        "campaign_id": "test-reconcile",
+        "created_at": "2026-03-10T00:00:00Z",
+        "source_kind": "manual",
+        "source_ref": "test",
+        "worker_model": "codex",
+        "review_model": "claude",
+        "max_parallel_ready_projects": 1,
+        "max_retries_per_project": 2,
+        "budget_limit_usd": 20.0,
+        "time_limit_hours": 4.0,
+        "projects": projects,
+        "execution_state": {
+            "ready_queue": [],
+            "active_projects": [],
+            "completed_projects": [],
+            "failed_projects": list(project_ids),
+            "skipped_projects": [],
+            "total_cost_usd": 5.0,
+        },
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.dump(manifest), encoding="utf-8")
+    return path
+
+
+class TestResumeReconciliation:
+    """Verify that resume resets affected projects in the manifest."""
+
+    def test_resume_resets_affected_projects_to_ready(self, tmp_path: Path) -> None:
+        """After repair merge, affected blocked projects become ready."""
+        manifest_path = _write_blocked_manifest_with_projects(
+            tmp_path / "manifest.yaml", ["p1", "p2"]
+        )
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="abc123",
+            active_blocker="reviewer_missing_diff_context",
+            active_repair_pr="https://github.com/org/repo/pull/1",
+            active_repair_task={
+                "title": "fix reviewer",
+                "affected_project_ids": ["p1", "p2"],
+            },
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(ancestor_origin_rc=0, ancestor_head_rc=0),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
+        assert result.status == SupervisorStatus.RUNNING.value
+        assert "Reset 2 projects" in result.detail
+
+        # Verify manifest was updated.
+        manifest_data = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        for proj in manifest_data["projects"]:
+            assert proj["status"] == "ready"
+            assert proj["last_run_outcome"] is None
+            assert proj["review"]["status"] == "pending"
+            assert proj["review"]["findings"] == []
+
+        # Verify execution_state was refreshed.
+        exec_state = manifest_data["execution_state"]
+        assert set(exec_state["ready_queue"]) == {"p1", "p2"}
+        assert exec_state["failed_projects"] == []
+
+    def test_resume_does_not_reclassify_same_blocker(self, tmp_path: Path) -> None:
+        """After resume+reconciliation, next iteration must NOT re-classify
+        the same blocker from stale manifest state."""
+        manifest_path = _write_blocked_manifest_with_projects(tmp_path / "manifest.yaml", ["p1"])
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="abc123",
+            active_blocker="reviewer_missing_diff_context",
+            active_repair_pr="https://github.com/org/repo/pull/1",
+            active_repair_task={
+                "title": "fix reviewer",
+                "affected_project_ids": ["p1"],
+            },
+        )
+
+        # Step 1: resume (reconciles manifest).
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(ancestor_origin_rc=0, ancestor_head_rc=0),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            r1 = sup.step()
+        assert r1.action == SupervisorAction.CAMPAIGN_RESUMED.value
+
+        # Step 2: next campaign iteration — should NOT re-classify same blocker.
+        # Mock execute_once to return still_running (projects are dispatchable now).
+        with patch(
+            "aragora.ralph.supervisor.asyncio.run",
+            return_value={"stop_reason": "still_running", "dispatched_projects": ["p1"]},
+        ):
+            r2 = sup.step()
+
+        assert r2.action == SupervisorAction.CAMPAIGN_ITERATION.value
+        assert r2.status == SupervisorStatus.RUNNING.value
+        # The blocker must NOT have been re-set.
+        state = load_supervisor_state(state_path)
+        assert state.active_blocker is None
+
+    def test_resume_preserves_non_affected_projects(self, tmp_path: Path) -> None:
+        """Projects NOT in affected_project_ids remain unchanged."""
+        manifest_path = _write_blocked_manifest_with_projects(
+            tmp_path / "manifest.yaml", ["p1", "p2", "p3"]
+        )
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="abc123",
+            active_blocker="reviewer_missing_diff_context",
+            active_repair_task={
+                "title": "fix",
+                "affected_project_ids": ["p1", "p3"],
+            },
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(ancestor_origin_rc=0, ancestor_head_rc=0),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
+
+        manifest_data = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        by_id = {p["project_id"]: p for p in manifest_data["projects"]}
+
+        # p1 and p3 reset.
+        assert by_id["p1"]["status"] == "ready"
+        assert by_id["p3"]["status"] == "ready"
+        # p2 still blocked.
+        assert by_id["p2"]["status"] == "blocked"
+        assert by_id["p2"]["last_run_outcome"] == "deliverable_created"
+
+    def test_resume_without_affected_ids_still_works(self, tmp_path: Path) -> None:
+        """Resume with no affected_project_ids (legacy state) clears blocker state
+        without modifying the manifest."""
+        manifest_path = _write_blocked_manifest_with_projects(tmp_path / "manifest.yaml", ["p1"])
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="abc123",
+            active_blocker="reviewer_missing_diff_context",
+            active_repair_task={"title": "fix"},  # no affected_project_ids
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(ancestor_origin_rc=0, ancestor_head_rc=0),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
+        # Manifest unchanged — p1 still blocked (no affected_ids to reset).
+        manifest_data = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        assert manifest_data["projects"][0]["status"] == "blocked"
+
+    def test_resume_skips_already_completed_projects(self, tmp_path: Path) -> None:
+        """If a project was already completed, don't regress it to ready."""
+        manifest_path = _write_blocked_manifest_with_projects(
+            tmp_path / "manifest.yaml", ["p1", "p2"]
+        )
+        # Manually set p2 to completed.
+        manifest_data = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        manifest_data["projects"][1]["status"] = "completed"
+        manifest_path.write_text(yaml.dump(manifest_data), encoding="utf-8")
+
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RESUMING.value,
+            merge_commit_sha="abc123",
+            active_blocker="reviewer_missing_diff_context",
+            active_repair_task={
+                "title": "fix",
+                "affected_project_ids": ["p1", "p2"],
+            },
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.subprocess.run",
+            side_effect=_mock_subprocess_for_resume(ancestor_origin_rc=0, ancestor_head_rc=0),
+        ):
+            sup = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = sup.step()
+
+        assert result.action == SupervisorAction.CAMPAIGN_RESUMED.value
+        assert "Reset 1 projects" in result.detail
+
+        manifest_data = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        by_id = {p["project_id"]: p for p in manifest_data["projects"]}
+        assert by_id["p1"]["status"] == "ready"
+        assert by_id["p2"]["status"] == "completed"  # preserved
+
+
+# ---------------------------------------------------------------------------
 # Stop
 # ---------------------------------------------------------------------------
 

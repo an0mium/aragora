@@ -690,7 +690,10 @@ class RalphSupervisor:
                         ),
                     )
 
-        # All checks passed — clear blocker state and resume.
+        # All checks passed — reconcile manifest then clear blocker state.
+        affected_ids = self._affected_project_ids(state)
+        reconciled = self._reconcile_manifest_projects(state, affected_ids)
+
         state.active_blocker = None
         state.active_repair_pr = None
         state.active_repair_branch = None
@@ -700,10 +703,15 @@ class RalphSupervisor:
         state.resume_attempts = 0
         state.status = SupervisorStatus.RUNNING.value
 
+        detail = "Campaign resumed after repair merge."
+        if reconciled:
+            detail += f" Reset {len(reconciled)} projects to ready: {reconciled}"
+        detail += " Next step will run iteration."
+
         return StepResult(
             action=SupervisorAction.CAMPAIGN_RESUMED.value,
             status=SupervisorStatus.RUNNING.value,
-            detail="Campaign resumed after repair merge. Next step will run iteration.",
+            detail=detail,
         )
 
     def _is_ancestor(self, commit: str, ref: str) -> bool:
@@ -719,6 +727,87 @@ class RalphSupervisor:
         except Exception as exc:
             logger.debug("git merge-base --is-ancestor failed: %s", exc)
             return False
+
+    # -- resume reconciliation --
+
+    @staticmethod
+    def _affected_project_ids(state: SupervisorState) -> list[str]:
+        """Extract affected project IDs from the active repair task."""
+        task = state.active_repair_task if isinstance(state.active_repair_task, dict) else {}
+        ids = task.get("affected_project_ids", [])
+        return [str(pid) for pid in ids if str(pid).strip()] if isinstance(ids, list) else []
+
+    def _reconcile_manifest_projects(
+        self,
+        state: SupervisorState,
+        affected_ids: list[str],
+    ) -> list[str]:
+        """Reset affected projects in the manifest so they are retryable.
+
+        After a repair merge, stale blocked/failed project outcomes would cause
+        the classifier to re-trigger the same blocker.  This method resets those
+        projects to ``ready`` with cleared review and outcome fields.
+
+        Returns the list of project IDs that were actually reset.
+        """
+        if not affected_ids:
+            return []
+
+        manifest_path = Path(state.campaign_manifest_path)
+        try:
+            manifest_data = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.warning("Could not read manifest for reconciliation: %s", exc)
+            return []
+
+        if not isinstance(manifest_data, dict):
+            return []
+
+        affected_set = set(affected_ids)
+        reconciled: list[str] = []
+        for project in manifest_data.get("projects", []):
+            if not isinstance(project, dict):
+                continue
+            pid = str(project.get("project_id", ""))
+            if pid not in affected_set:
+                continue
+            if project.get("status") not in ("blocked", "failed"):
+                continue
+
+            project["status"] = "ready"
+            project["last_run_outcome"] = None
+            if isinstance(project.get("review"), dict):
+                project["review"]["status"] = "pending"
+                project["review"]["findings"] = []
+                project["review"]["raw_review"] = {}
+                project["review"]["reviewed_at"] = None
+            reconciled.append(pid)
+
+        if not reconciled:
+            return []
+
+        # Refresh execution_state lists to match new project statuses.
+        _blocked_like = {"blocked", "failed"}
+        exec_state = manifest_data.get("execution_state", {})
+        projects = manifest_data.get("projects", [])
+        exec_state["ready_queue"] = [
+            p["project_id"] for p in projects if p.get("status") == "ready"
+        ]
+        exec_state["failed_projects"] = [
+            p["project_id"] for p in projects if p.get("status") in _blocked_like
+        ]
+
+        try:
+            text = yaml.dump(manifest_data, default_flow_style=False, sort_keys=False)
+            tmp = manifest_path.with_suffix(".yaml.tmp")
+            tmp.write_text(text, encoding="utf-8")
+            tmp.replace(manifest_path)
+        except Exception as exc:
+            logger.warning("Could not write reconciled manifest: %s", exc)
+            return []
+
+        logger.info("Reconciled %d projects to ready: %s", len(reconciled), reconciled)
+        return reconciled
 
     # -- helpers --
 
