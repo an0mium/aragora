@@ -811,10 +811,22 @@ class RalphSupervisor:
         )
 
     def _find_pr_for_branch(self, branch: str) -> str | None:
-        """Use gh CLI to find an open PR for the given branch."""
+        """Use gh CLI to find a PR (open or merged) for the given branch."""
         try:
             result = subprocess.run(
-                ["gh", "pr", "list", "--head", branch, "--json", "url", "--limit", "1"],
+                [
+                    "gh",
+                    "pr",
+                    "list",
+                    "--head",
+                    branch,
+                    "--state",
+                    "all",
+                    "--json",
+                    "url",
+                    "--limit",
+                    "1",
+                ],
                 capture_output=True,
                 text=True,
                 cwd=str(self.repo_root),
