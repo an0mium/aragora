@@ -151,6 +151,8 @@ class TestBuildPromptWithDiff:
         assert "ACTUAL DIFF" in prompt
         assert "+hello world" in prompt
         assert "END DIFF" in prompt
+        parsed_json = json.loads(prompt.split("\n")[-1])
+        assert parsed_json["project_id"] == "phase0a-007"
 
     def test_prompt_excludes_diff_when_none(self) -> None:
         project = _make_project()

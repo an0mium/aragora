@@ -877,13 +877,13 @@ class CampaignReviewer:
         parts = [
             "Review this completed implementation against the project specification.\n"
             "Respond with strict JSON only: "
-            '{"status":"passed|changes_requested|blocked_nonreviewable","findings":["..."]}\n'
-            f"{json.dumps(summary, sort_keys=True)}",
+            '{"status":"passed|changes_requested|blocked_nonreviewable","findings":["..."]}'
         ]
         if diff_content:
             parts.append(
                 f"\n\n--- ACTUAL DIFF (worker branch vs base) ---\n{diff_content}\n--- END DIFF ---"
             )
+        parts.append(json.dumps(summary, sort_keys=True))
         return "\n".join(parts)
 
 
