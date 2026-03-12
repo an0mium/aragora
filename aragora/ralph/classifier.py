@@ -125,8 +125,11 @@ def _classify_campaign_blocked(manifest_dict: dict[str, Any]) -> BlockerKind:
     if has_deliverable and has_review_rejection:
         return BlockerKind.REVIEWER_MISSING_DIFF
 
-    # Check for repeated clean_exit_no_deliverable on docs-only tasks.
-    clean_exit_count = outcomes.count("clean_exit_no_deliverable")
+    # Check for repeated worker-produced-nothing outcomes on docs-only tasks.
+    # The campaign executor uses "needs_human" while boss_loop uses
+    # "clean_exit_no_deliverable" — both mean the worker ran but produced
+    # no usable deliverable.
+    clean_exit_count = sum(outcomes.count(o) for o in ("clean_exit_no_deliverable", "needs_human"))
     if clean_exit_count >= 2:
         return BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
 

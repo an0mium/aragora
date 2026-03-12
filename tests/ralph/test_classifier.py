@@ -150,3 +150,41 @@ class TestClassifyBlocker:
     def test_blocked_with_no_projects(self) -> None:
         result = classify_blocker(stop_reason="campaign_blocked", manifest_dict={"projects": []})
         assert result == BlockerKind.UNKNOWN
+
+    def test_blocked_with_needs_human_maps_to_clean_exit(self) -> None:
+        """Campaign executor uses 'needs_human' for worker-produced-nothing."""
+        manifest = {
+            "projects": [
+                {
+                    "project_id": "p1",
+                    "status": "blocked",
+                    "last_run_outcome": "needs_human",
+                },
+                {
+                    "project_id": "p2",
+                    "status": "blocked",
+                    "last_run_outcome": "needs_human",
+                },
+            ]
+        }
+        result = classify_blocker(stop_reason="campaign_blocked", manifest_dict=manifest)
+        assert result == BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
+
+    def test_blocked_with_mixed_needs_human_and_clean_exit(self) -> None:
+        """Both outcome strings should count toward the same blocker kind."""
+        manifest = {
+            "projects": [
+                {
+                    "project_id": "p1",
+                    "status": "blocked",
+                    "last_run_outcome": "needs_human",
+                },
+                {
+                    "project_id": "p2",
+                    "status": "failed",
+                    "last_run_outcome": "clean_exit_no_deliverable",
+                },
+            ]
+        }
+        result = classify_blocker(stop_reason="campaign_blocked", manifest_dict=manifest)
+        assert result == BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
