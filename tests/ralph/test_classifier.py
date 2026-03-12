@@ -101,6 +101,40 @@ class TestClassifyBlocker:
         result = classify_blocker(stop_reason="campaign_blocked", manifest_dict=manifest)
         assert result == BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
 
+    def test_blocked_with_needs_human_maps_to_clean_exit_family(self) -> None:
+        manifest = {
+            "projects": [
+                {
+                    "project_id": "p1",
+                    "status": "failed",
+                    "last_run_outcome": "needs_human",
+                    "receipt_id": "r1",
+                }
+            ]
+        }
+        result = classify_blocker(stop_reason="campaign_blocked", manifest_dict=manifest)
+        assert result == BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
+
+    def test_blocked_with_mixed_no_deliverable_outcomes(self) -> None:
+        manifest = {
+            "projects": [
+                {
+                    "project_id": "p1",
+                    "status": "failed",
+                    "last_run_outcome": "clean_exit_no_deliverable",
+                    "receipt_id": "r1",
+                },
+                {
+                    "project_id": "p2",
+                    "status": "skipped",
+                    "last_run_outcome": "needs_human",
+                    "receipt_id": "r2",
+                },
+            ]
+        }
+        result = classify_blocker(stop_reason="campaign_blocked", manifest_dict=manifest)
+        assert result == BlockerKind.WORKER_CLEAN_EXIT_NO_EFFECT
+
     def test_blocked_with_receipt_gap(self) -> None:
         manifest = {
             "projects": [
