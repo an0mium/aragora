@@ -219,6 +219,47 @@ class TestReviewerBillingErrorDetection:
         assert any("claude auth" in f.lower() for f in gate.findings)
 
     @pytest.mark.asyncio
+    async def test_review_prompt_includes_actual_git_diff_content(self, tmp_path: Path) -> None:
+        reviewer = CampaignReviewer()
+        project = _make_project()
+        run_dict = _make_run_dict()
+        diff_text = "diff --git a/docs/test.md b/docs/test.md\n+hello from git diff\n"
+
+        fetch_result = MagicMock()
+        fetch_result.returncode = 0
+        fetch_result.stdout = ""
+
+        diff_result = MagicMock()
+        diff_result.returncode = 0
+        diff_result.stdout = diff_text
+
+        mock_agent = AsyncMock()
+        mock_agent.generate = AsyncMock(return_value='{"status":"passed","findings":[]}')
+
+        with (
+            patch(
+                "aragora.swarm.campaign.subprocess.run",
+                side_effect=[fetch_result, diff_result],
+            ) as mock_run,
+            patch("aragora.swarm.campaign.create_agent", return_value=mock_agent),
+        ):
+            gate = await reviewer.review(
+                project=project,
+                worker_model="codex",
+                review_model="claude",
+                run_dict=run_dict,
+                repo_root=tmp_path,
+                target_branch="main",
+            )
+
+        assert gate.status == CampaignReviewStatus.PASSED.value
+        prompt = mock_agent.generate.await_args.args[0]
+        assert "ACTUAL DIFF" in prompt
+        assert diff_text in prompt
+        assert "hello from git diff" in prompt
+        assert mock_run.call_args_list[1][0][0] == ["git", "diff", "origin/main...codex/worker-branch"]
+
+    @pytest.mark.asyncio
     async def test_non_billing_cli_error_does_not_trigger_billing_message(self) -> None:
         """Regular CLISubprocessError does not produce billing guidance."""
         reviewer = CampaignReviewer()
