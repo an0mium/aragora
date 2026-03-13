@@ -257,7 +257,11 @@ class TestReviewerBillingErrorDetection:
         assert "ACTUAL DIFF" in prompt
         assert diff_text in prompt
         assert "hello from git diff" in prompt
-        assert mock_run.call_args_list[1][0][0] == ["git", "diff", "origin/main...codex/worker-branch"]
+        assert mock_run.call_args_list[1][0][0] == [
+            "git",
+            "diff",
+            "origin/main...codex/worker-branch",
+        ]
 
     @pytest.mark.asyncio
     async def test_non_billing_cli_error_does_not_trigger_billing_message(self) -> None:
