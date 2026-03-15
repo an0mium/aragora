@@ -207,6 +207,21 @@ class TestEmitReceipt:
 
         assert project.receipt_id == "docs/receipts/phase0a-test/test-001.yaml"
 
+    def test_receipt_preserves_worker_receipt_id(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / "manifest.yaml"
+        manifest_path.write_text("campaign_id: phase0a-test\n")
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        project = _make_project(status="completed")
+        project.worker_receipt_id = "worker-receipt-123"
+        manifest = _make_manifest(projects=[project])
+
+        receipt_path = executor._emit_receipt(manifest, project, None)
+
+        content = receipt_path.read_text()
+        assert "worker_receipt_id: worker-receipt-123" in content
+        assert project.worker_receipt_id == "worker-receipt-123"
+
     def test_receipt_raises_on_write_failure(self, tmp_path: Path) -> None:
         manifest_path = tmp_path / "manifest.yaml"
         manifest_path.write_text("campaign_id: phase0a-test\n")
@@ -323,6 +338,41 @@ class TestApplyDispatchResultEmitsReceipt:
         assert project.status == CampaignProjectStatus.NEEDS_REVISION.value
         receipt_path = tmp_path / "docs" / "receipts" / "phase0a-test" / "test-001.yaml"
         assert not receipt_path.exists()
+
+    def test_terminal_dispatch_preserves_worker_receipt_and_attempt_history(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / "manifest.yaml"
+        manifest_path.write_text("campaign_id: phase0a-test\n")
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        project = _make_project(status="active")
+        manifest = _make_manifest(projects=[project])
+        manifest.max_retries_per_project = 0
+
+        result = {
+            "run_id": "run-001",
+            "run": {
+                "run_id": "run-001",
+                "status": "needs_human",
+                "work_orders": [
+                    {
+                        "status": "needs_human",
+                        "receipt_id": "worker-receipt-123",
+                        "dispatch_error": "human approval required",
+                    }
+                ],
+            },
+            "deliverable": {},
+            "outcome": CampaignRunOutcome.NEEDS_HUMAN.value,
+        }
+        executor._apply_dispatch_result(manifest, project, result)
+
+        assert project.worker_receipt_id == "worker-receipt-123"
+        assert project.receipt_id == "docs/receipts/phase0a-test/test-001.yaml"
+        assert len(project.attempt_history) == 1
+        assert project.attempt_history[0]["worker_receipt_id"] == "worker-receipt-123"
+        assert project.attempt_history[0]["campaign_receipt_id"] == project.receipt_id
 
 
 class TestReadyProjectsEmitsReceipt:

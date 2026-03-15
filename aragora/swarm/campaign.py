@@ -23,7 +23,12 @@ from aragora.swarm.boss_loop import (
     dispatch_bounded_spec,
 )
 from aragora.swarm.spec import SwarmSpec
-from aragora.swarm.supervisor import SwarmSupervisor
+from aragora.swarm.supervisor import (
+    CAMPAIGN_BLOCKERS_METADATA_KEY,
+    CAMPAIGN_OUTCOME_METADATA_KEY,
+    CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY,
+    SwarmSupervisor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -189,11 +194,13 @@ class CampaignProject:
     retry_count: int = 0
     last_run_outcome: str | None = None
     run_id: str | None = None
+    worker_receipt_id: str | None = None
     receipt_id: str | None = None
     pr_url: str | None = None
     adopted_pr: str | None = None
     branch: str | None = None
     commit_shas: list[str] = field(default_factory=list)
+    attempt_history: list[dict[str, Any]] = field(default_factory=list)
     review: CampaignReviewGate = field(default_factory=CampaignReviewGate)
 
     def to_dict(self) -> dict[str, Any]:
@@ -211,11 +218,13 @@ class CampaignProject:
             "retry_count": self.retry_count,
             "last_run_outcome": self.last_run_outcome,
             "run_id": self.run_id,
+            "worker_receipt_id": self.worker_receipt_id,
             "receipt_id": self.receipt_id,
             "pr_url": self.pr_url,
             "adopted_pr": self.adopted_pr,
             "branch": self.branch,
             "commit_shas": list(self.commit_shas),
+            "attempt_history": [dict(item) for item in self.attempt_history],
             "review": self.review.to_dict(),
         }
 
@@ -244,11 +253,15 @@ class CampaignProject:
             retry_count=int(data.get("retry_count", 0) or 0),
             last_run_outcome=str(data.get("last_run_outcome", "")).strip() or None,
             run_id=str(data.get("run_id", "")).strip() or None,
+            worker_receipt_id=str(data.get("worker_receipt_id", "")).strip() or None,
             receipt_id=str(data.get("receipt_id", "")).strip() or None,
             pr_url=str(data.get("pr_url", "")).strip() or None,
             adopted_pr=str(data.get("adopted_pr", "")).strip() or None,
             branch=str(data.get("branch", "")).strip() or None,
             commit_shas=[str(item) for item in data.get("commit_shas", []) if str(item).strip()],
+            attempt_history=[
+                dict(item) for item in data.get("attempt_history", []) if isinstance(item, dict)
+            ],
             review=CampaignReviewGate.from_dict(data.get("review")),
         )
 
@@ -1124,12 +1137,17 @@ class CampaignExecutor:
     def _apply_dispatch_result(
         self, manifest: CampaignManifest, project: CampaignProject, result: dict[str, Any]
     ) -> None:
-        project.run_id = str(result.get("run_id", "")).strip() or project.run_id
         run_dict = dict(result.get("run") or {})
+        project.run_id = str(result.get("run_id", "")).strip() or project.run_id
         deliverable = dict(result.get("deliverable") or {})
-        outcome = str(result.get("outcome", CampaignRunOutcome.BLOCKED.value)).strip()
+        outcome = self._resolve_dispatch_outcome(
+            result,
+            run_dict=run_dict,
+            deliverable=deliverable,
+        )
+        run_blockers = self._dispatch_blockers(run_dict)
         project.last_run_outcome = outcome
-        project.receipt_id = _first_receipt_id(run_dict) or project.receipt_id
+        project.worker_receipt_id = _first_receipt_id(run_dict) or project.worker_receipt_id
         if deliverable.get("type") == "pr":
             project.pr_url = str(deliverable.get("pr_url", "")).strip() or project.pr_url
         elif deliverable.get("type") == "adopted_pr":
@@ -1154,7 +1172,10 @@ class CampaignExecutor:
         elif outcome == CampaignRunOutcome.NEEDS_HUMAN.value:
             project.status = CampaignProjectStatus.BLOCKED.value
         elif outcome in {CampaignRunOutcome.TIMEOUT.value, CampaignRunOutcome.CRASH.value}:
-            project.status = CampaignProjectStatus.FAILED.value
+            if project.retry_count <= manifest.max_retries_per_project:
+                project.status = CampaignProjectStatus.NEEDS_REVISION.value
+            else:
+                project.status = CampaignProjectStatus.FAILED.value
         else:
             project.status = CampaignProjectStatus.BLOCKED.value
 
@@ -1166,6 +1187,15 @@ class CampaignExecutor:
 
         if project.status in _TERMINAL_STATUSES:
             self._emit_receipt(manifest, project, run_dict)
+
+        self._record_attempt(
+            project,
+            run_dict=run_dict,
+            outcome=outcome,
+            blockers=run_blockers,
+            requeue_eligible=self._run_requeue_eligible(run_dict, outcome)
+            and self._project_recovery_eligible(manifest, project),
+        )
 
     def _apply_review_result(
         self,
@@ -1185,6 +1215,104 @@ class CampaignExecutor:
 
         if project.status in _TERMINAL_STATUSES:
             self._emit_receipt(manifest, project, run_dict)
+
+    def _resolve_dispatch_outcome(
+        self,
+        result: dict[str, Any],
+        *,
+        run_dict: dict[str, Any],
+        deliverable: dict[str, Any],
+    ) -> str:
+        deliverable = dict(deliverable or {})
+        if deliverable.get("type") == "adopted_pr":
+            return CampaignRunOutcome.PR_ADOPTED.value
+        if deliverable:
+            return CampaignRunOutcome.DELIVERABLE_CREATED.value
+
+        metadata = dict(run_dict.get("metadata") or {})
+        metadata_outcome = str(metadata.get(CAMPAIGN_OUTCOME_METADATA_KEY, "")).strip()
+        if metadata_outcome:
+            return metadata_outcome
+
+        inferred_outcome, _ = SwarmSupervisor._campaign_outcome_for_work_orders(
+            list(run_dict.get("work_orders", []))
+        )
+        if inferred_outcome:
+            return inferred_outcome
+
+        if run_dict:
+            classified = _classify_terminal_run_outcome(run_dict)
+            if classified:
+                return classified
+
+        return str(result.get("outcome", CampaignRunOutcome.BLOCKED.value)).strip()
+
+    @staticmethod
+    def _dispatch_blockers(run_dict: dict[str, Any]) -> list[str]:
+        metadata = dict(run_dict.get("metadata") or {})
+        blockers = [
+            str(item).strip()
+            for item in metadata.get(CAMPAIGN_BLOCKERS_METADATA_KEY, [])
+            if str(item).strip()
+        ]
+        if blockers:
+            return blockers
+        _, fallback_blockers = SwarmSupervisor._campaign_outcome_for_work_orders(
+            list(run_dict.get("work_orders", []))
+        )
+        return fallback_blockers
+
+    @staticmethod
+    def _project_recovery_eligible(
+        manifest: CampaignManifest,
+        project: CampaignProject,
+    ) -> bool:
+        if project.status != CampaignProjectStatus.NEEDS_REVISION.value:
+            return False
+        if project.retry_count > manifest.max_retries_per_project:
+            return False
+        return project.last_run_outcome in {
+            CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value,
+            CampaignRunOutcome.TIMEOUT.value,
+            CampaignRunOutcome.CRASH.value,
+        }
+
+    @staticmethod
+    def _run_requeue_eligible(run_dict: dict[str, Any], outcome: str) -> bool:
+        metadata = dict(run_dict.get("metadata") or {})
+        if CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY in metadata:
+            return bool(metadata.get(CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY))
+        return outcome in {
+            CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value,
+            CampaignRunOutcome.TIMEOUT.value,
+            CampaignRunOutcome.CRASH.value,
+        }
+
+    @staticmethod
+    def _record_attempt(
+        project: CampaignProject,
+        *,
+        run_dict: dict[str, Any],
+        outcome: str,
+        blockers: list[str],
+        requeue_eligible: bool,
+    ) -> None:
+        record = {
+            "attempt": int(project.retry_count),
+            "recorded_at": _now_iso(),
+            "run_id": project.run_id,
+            "run_status": str(run_dict.get("status", "")).strip() or None,
+            "outcome": outcome,
+            "project_status": project.status,
+            "worker_receipt_id": project.worker_receipt_id,
+            "campaign_receipt_id": project.receipt_id,
+            "review_status": project.review.status,
+            "requeue_eligible": requeue_eligible,
+        }
+        if blockers:
+            record["blockers"] = list(blockers[:10])
+            record["failure_detail"] = blockers[0]
+        project.attempt_history.append(record)
 
     def _spec_for_retry(self, project: CampaignProject) -> SwarmSpec:
         spec = SwarmSpec.from_dict(project.spec.to_dict())
@@ -1209,7 +1337,11 @@ class CampaignExecutor:
             run_status = str(run_dict.get("status", "")).strip().lower()
             if run_status in {"running", "in_progress", "pending", "queued", ""}:
                 continue
-            outcome = _classify_terminal_run_outcome(run_dict)
+            outcome = self._resolve_dispatch_outcome(
+                {"run": run_dict},
+                run_dict=run_dict,
+                deliverable=_extract_deliverable(run_dict),
+            )
             if outcome in {
                 CampaignRunOutcome.DELIVERABLE_CREATED.value,
                 CampaignRunOutcome.PR_ADOPTED.value,
@@ -1288,6 +1420,7 @@ class CampaignExecutor:
                 "campaign_id": manifest.campaign_id,
                 "phase": _derive_phase(manifest.campaign_id),
                 "manifest_input": manifest_input,
+                "worker_receipt_id": project.worker_receipt_id,
                 "worker_branch": _worker_branch_from_run(project, run_dict),
                 "worker_commit": _worker_commit_from_run(project, run_dict),
                 "changed_files": _changed_files_from_run(run_dict),
@@ -1413,14 +1546,39 @@ def _manifest_summary(manifest: CampaignManifest) -> dict[str, Any]:
                 "status": project.status,
                 "retry_count": project.retry_count,
                 "run_id": project.run_id,
+                "last_run_outcome": project.last_run_outcome,
+                "worker_receipt_id": project.worker_receipt_id,
                 "receipt_id": project.receipt_id,
                 "pr_url": project.pr_url,
                 "adopted_pr": project.adopted_pr,
                 "review_status": project.review.status,
+                "attempt_count": len(project.attempt_history),
+                "last_failure_reason": project.last_run_outcome,
+                "last_failure_detail": _project_last_failure_detail(project),
+                "recovery_eligible": _project_recovery_eligible(manifest, project),
                 "dependencies": [dep.to_dict() for dep in project.dependencies],
             }
             for project in manifest.projects
         ],
+    }
+
+
+def _project_last_failure_detail(project: CampaignProject) -> str | None:
+    if not project.attempt_history:
+        return None
+    detail = str(project.attempt_history[-1].get("failure_detail", "")).strip()
+    return detail or None
+
+
+def _project_recovery_eligible(manifest: CampaignManifest, project: CampaignProject) -> bool:
+    if project.status != CampaignProjectStatus.NEEDS_REVISION.value:
+        return False
+    if project.retry_count > manifest.max_retries_per_project:
+        return False
+    return project.last_run_outcome in {
+        CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value,
+        CampaignRunOutcome.TIMEOUT.value,
+        CampaignRunOutcome.CRASH.value,
     }
 
 

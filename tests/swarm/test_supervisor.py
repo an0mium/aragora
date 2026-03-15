@@ -14,6 +14,7 @@ from aragora.nomic.dev_coordination import DevCoordinationStore
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.supervisor import (
+    CAMPAIGN_OUTCOME_METADATA_KEY,
     WORKER_TYPE_CIRCUIT_BREAKERS_KEY,
     WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY,
     SwarmSupervisor,
@@ -800,6 +801,81 @@ async def test_dispatch_workers_trips_and_skips_worker_type_circuit_breaker(
     assert [item["target_agent"] for item in work_orders] == ["codex", "codex", "codex"]
     assert [item["status"] for item in work_orders] == ["leased", "leased", "leased"]
     assert work_orders[2]["metadata"]["last_failure_reason"] == "worker_type_blocked"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="wo-blocked",
+        title="blocked worker dispatch",
+        owner_agent="claude",
+        owner_session_id="blocked-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["tests/swarm/test_supervisor.py"],
+    )
+    blocked_until = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+    run_record = store.create_supervisor_run(
+        goal="all workers blocked",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "all workers blocked"},
+        work_orders=[
+            {
+                "work_order_id": "wo-blocked",
+                "status": "leased",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "reviewer_agent": "codex",
+                "lease_id": lease.lease_id,
+            }
+        ],
+        status="active",
+        metadata={
+            WORKER_TYPE_CIRCUIT_BREAKERS_KEY: {
+                "claude": {
+                    "status": "open",
+                    "failure_count": 2,
+                    "failure_threshold": 2,
+                    "reset_timeout_seconds": 300.0,
+                    "opened_at": datetime.now(timezone.utc).isoformat(),
+                    "blocked_until": blocked_until,
+                    "last_failure_reason": "agent_unavailable",
+                    "last_failure_detail": "claude CLI not found",
+                    "trip_count": 1,
+                },
+                "codex": {
+                    "status": "open",
+                    "failure_count": 2,
+                    "failure_threshold": 2,
+                    "reset_timeout_seconds": 300.0,
+                    "opened_at": datetime.now(timezone.utc).isoformat(),
+                    "blocked_until": blocked_until,
+                    "last_failure_reason": "agent_capacity",
+                    "last_failure_detail": "Credit balance is too low",
+                    "trip_count": 1,
+                },
+            },
+        },
+    )
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=MagicMock(spec=WorkerLauncher))
+
+    launched = await supervisor.dispatch_workers(run_record["run_id"])
+
+    assert launched == []
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "needs_human"
+    assert "worker dispatch blocked" in work_order["dispatch_error"]
+    assert updated["status"] == "needs_human"
+    assert updated["metadata"][CAMPAIGN_OUTCOME_METADATA_KEY] == "needs_human"
+    assert store.status_summary()["counts"]["active_leases"] == 0
 
 
 @pytest.mark.asyncio

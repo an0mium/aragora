@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 
 WORKER_TYPE_CIRCUIT_BREAKERS_KEY = "worker_type_circuit_breakers"
 WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY = "worker_type_circuit_breaker_policy"
+CAMPAIGN_OUTCOME_METADATA_KEY = "campaign_outcome"
+CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY = "campaign_requeue_eligible"
+CAMPAIGN_BLOCKERS_METADATA_KEY = "campaign_blockers"
 DEFAULT_BREAKER_FAILURE_THRESHOLD = 2
 DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS = 900.0
 
@@ -294,6 +297,10 @@ class SwarmSupervisor:
             run_id,
             status=self._derive_status(work_orders),
             work_orders=work_orders,
+            metadata=self._campaign_metadata(
+                dict(record.get("metadata") or {}),
+                work_orders,
+            ),
         )
         return SupervisorRun.from_record(refreshed)
 
@@ -475,9 +482,12 @@ class SwarmSupervisor:
             run_id,
             status=self._derive_status(work_orders),
             work_orders=work_orders,
-            metadata=self._worker_type_circuit_breaker_metadata(
-                metadata,
-                worker_type_circuit_breakers,
+            metadata=self._campaign_metadata(
+                self._worker_type_circuit_breaker_metadata(
+                    metadata,
+                    worker_type_circuit_breakers,
+                ),
+                work_orders,
             ),
         )
         return launched
@@ -525,9 +535,12 @@ class SwarmSupervisor:
             run_id,
             status=self._derive_status(work_orders),
             work_orders=work_orders,
-            metadata=self._worker_type_circuit_breaker_metadata(
-                metadata,
-                worker_type_circuit_breakers,
+            metadata=self._campaign_metadata(
+                self._worker_type_circuit_breaker_metadata(
+                    metadata,
+                    worker_type_circuit_breakers,
+                ),
+                work_orders,
             ),
         )
         return completed
@@ -726,9 +739,12 @@ class SwarmSupervisor:
             run_id,
             status=self._derive_status(work_orders),
             work_orders=work_orders,
-            metadata=self._worker_type_circuit_breaker_metadata(
-                metadata,
-                worker_type_circuit_breakers,
+            metadata=self._campaign_metadata(
+                self._worker_type_circuit_breaker_metadata(
+                    metadata,
+                    worker_type_circuit_breakers,
+                ),
+                work_orders,
             ),
         )
         return finished
@@ -957,6 +973,113 @@ class SwarmSupervisor:
         prevents workers from claiming credit for non-work output.
         """
         return [p for p in paths if Path(p).name not in SESSION_ARTIFACTS]
+
+    def _campaign_metadata(
+        self,
+        metadata: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        payload = dict(metadata)
+        outcome, blockers = self._campaign_outcome_for_work_orders(work_orders)
+        if not outcome:
+            payload.pop(CAMPAIGN_OUTCOME_METADATA_KEY, None)
+            payload.pop(CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY, None)
+            payload.pop(CAMPAIGN_BLOCKERS_METADATA_KEY, None)
+            return payload
+
+        payload[CAMPAIGN_OUTCOME_METADATA_KEY] = outcome
+        payload[CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY] = self._campaign_requeue_eligible(outcome)
+        if blockers:
+            payload[CAMPAIGN_BLOCKERS_METADATA_KEY] = blockers[:10]
+        else:
+            payload.pop(CAMPAIGN_BLOCKERS_METADATA_KEY, None)
+        return payload
+
+    @classmethod
+    def _campaign_outcome_for_work_orders(
+        cls,
+        work_orders: list[dict[str, Any]],
+    ) -> tuple[str | None, list[str]]:
+        statuses: set[str] = set()
+        worker_outcomes: set[str] = set()
+        blockers: list[str] = []
+        has_deliverable = False
+
+        for item in work_orders:
+            if not isinstance(item, dict):
+                continue
+            status = str(item.get("status", "")).strip().lower()
+            if status:
+                statuses.add(status)
+
+            worker_outcome = str(item.get("worker_outcome", "")).strip().lower()
+            if worker_outcome:
+                worker_outcomes.add(worker_outcome)
+
+            deliverable_type = cls._work_order_deliverable_type(item)
+            if deliverable_type == "pr_adopted":
+                return deliverable_type, cls._campaign_blockers_from_work_orders(work_orders)
+            if deliverable_type == "deliverable_created":
+                has_deliverable = True
+
+            for value in item.get("blockers", []):
+                text = str(value).strip()
+                if text and text not in blockers:
+                    blockers.append(text)
+            dispatch_error = str(item.get("dispatch_error", "")).strip()
+            if dispatch_error and dispatch_error not in blockers:
+                blockers.append(dispatch_error)
+
+        if has_deliverable:
+            return "deliverable_created", blockers
+        if any(outcome.startswith("timeout") for outcome in worker_outcomes) or "timed_out" in statuses:
+            return "timeout", blockers
+        if any(outcome.startswith("crash") for outcome in worker_outcomes) or "failed" in statuses:
+            return "crash", blockers
+        if "scope_violation" in worker_outcomes or "scope_violation" in statuses:
+            return "blocked", blockers
+        if "clean_exit_no_effect" in worker_outcomes:
+            return "clean_exit_no_deliverable", blockers
+        if "needs_human" in statuses:
+            return "needs_human", blockers
+        if statuses and statuses <= {"completed"}:
+            return "clean_exit_no_deliverable", blockers
+        return None, blockers
+
+    @staticmethod
+    def _campaign_blockers_from_work_orders(work_orders: list[dict[str, Any]]) -> list[str]:
+        blockers: list[str] = []
+        for item in work_orders:
+            if not isinstance(item, dict):
+                continue
+            for value in item.get("blockers", []):
+                text = str(value).strip()
+                if text and text not in blockers:
+                    blockers.append(text)
+            dispatch_error = str(item.get("dispatch_error", "")).strip()
+            if dispatch_error and dispatch_error not in blockers:
+                blockers.append(dispatch_error)
+        return blockers
+
+    @staticmethod
+    def _campaign_requeue_eligible(outcome: str) -> bool:
+        return outcome in {
+            "clean_exit_no_deliverable",
+            "timeout",
+            "crash",
+        }
+
+    @staticmethod
+    def _work_order_deliverable_type(item: dict[str, Any]) -> str | None:
+        if str(item.get("adopted_pr", "")).strip():
+            return "pr_adopted"
+        if str(item.get("pr_url", "")).strip():
+            return "deliverable_created"
+        branch = str(item.get("branch", "")).strip()
+        commit_shas = [str(sha).strip() for sha in item.get("commit_shas", []) if str(sha).strip()]
+        if branch and commit_shas:
+            return "deliverable_created"
+        return None
 
     def _apply_worker_result(
         self,
@@ -1532,9 +1655,11 @@ class SwarmSupervisor:
             }
         )
         item["metadata"] = metadata
-        item["status"] = "leased"
-        item["dispatch_error"] = None
-        item.pop("pid", None)
+        self._mark_needs_human(
+            item,
+            f"worker dispatch blocked: {detail}",
+        )
+        self._release_terminal_lease(item)
 
     def _release_orphaned_conflict_leases(self, conflicts: list[dict[str, Any]]) -> int:
         released = 0

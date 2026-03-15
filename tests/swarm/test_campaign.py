@@ -3,12 +3,15 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import subprocess
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.nomic.dev_coordination import DevCoordinationStore
 from aragora.swarm.campaign import (
     CampaignDependency,
     CampaignExecutionState,
@@ -26,6 +29,15 @@ from aragora.swarm.campaign import (
     save_campaign_manifest,
 )
 from aragora.swarm.spec import SwarmSpec
+from aragora.swarm.supervisor import SwarmSupervisor
+from aragora.swarm.worker_launcher import WorkerLauncher, WorkerProcess
+
+UTC = timezone.utc
+from aragora.swarm.supervisor import (
+    CAMPAIGN_BLOCKERS_METADATA_KEY,
+    CAMPAIGN_OUTCOME_METADATA_KEY,
+    CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY,
+)
 
 
 def _bounded_spec(goal: str, scope: list[str] | None = None) -> SwarmSpec:
@@ -37,6 +49,122 @@ def _bounded_spec(goal: str, scope: list[str] | None = None) -> SwarmSpec:
         file_scope_hints=scope or ["aragora/swarm/campaign.py"],
         budget_limit_usd=5.0,
     )
+
+
+def _run(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(list(args), cwd=cwd, text=True, capture_output=True, check=True)
+
+
+def _init_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _run(repo, "git", "init", "-b", "main")
+    _run(repo, "git", "config", "user.email", "test@example.com")
+    _run(repo, "git", "config", "user.name", "Test User")
+    (repo / "README.md").write_text("hello\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "initial")
+    _run(repo, "git", "remote", "add", "origin", str(repo))
+    _run(repo, "git", "update-ref", "refs/remotes/origin/main", "HEAD")
+    return repo
+
+
+def _head(repo: Path) -> str:
+    return _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+
+async def _record_timeout_run(repo: Path) -> str:
+    store = DevCoordinationStore(repo_root=repo)
+    head = _head(repo)
+    stale = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
+    run_record = store.create_supervisor_run(
+        goal="timeout campaign bridge",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "timeout campaign bridge"},
+        work_orders=[
+            {
+                "work_order_id": "wo-timeout",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "pid": 4242,
+                "initial_head": head,
+                "dispatched_at": stale,
+                "last_progress_at": stale,
+                "progress_fingerprint": {
+                    "head_sha": head,
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                },
+            }
+        ],
+        status="active",
+    )
+
+    launcher = MagicMock(spec=WorkerLauncher)
+    launcher.collect_finished = AsyncMock(return_value=[])
+    launcher.snapshot_progress = AsyncMock(
+        return_value={
+            "pid_alive": True,
+            "head_sha": head,
+            "changed_paths": [],
+            "diff_lines": 0,
+        }
+    )
+    launcher.config = SimpleNamespace(auto_commit=True, no_progress_timeout_seconds=60.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=launcher)
+    with patch.object(WorkerLauncher, "collect_detached_result", new=AsyncMock(return_value=None)):
+        await supervisor.collect_finished_results(run_record["run_id"])
+    return run_record["run_id"]
+
+
+async def _record_crash_run(repo: Path) -> str:
+    store = DevCoordinationStore(repo_root=repo)
+    head = _head(repo)
+    run_record = store.create_supervisor_run(
+        goal="crash campaign bridge",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "crash campaign bridge"},
+        work_orders=[
+            {
+                "work_order_id": "wo-crash",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "initial_head": head,
+            }
+        ],
+        status="active",
+    )
+
+    launcher = MagicMock(spec=WorkerLauncher)
+    launcher.collect_finished = AsyncMock(
+        return_value=[
+            WorkerProcess(
+                work_order_id="wo-crash",
+                agent="codex",
+                worktree_path=str(repo),
+                branch="main",
+                exit_code=1,
+                changed_paths=[],
+                commit_shas=[],
+                head_sha=head,
+                stderr="worker crashed",
+            )
+        ]
+    )
+    launcher.config = SimpleNamespace(auto_commit=False, no_progress_timeout_seconds=60.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=launcher)
+    await supervisor.collect_finished_results(run_record["run_id"])
+    return run_record["run_id"]
 
 
 class TestCampaignPlanner:
@@ -150,6 +278,56 @@ class TestCampaignManifestIO:
 
 class TestCampaignExecutor:
     @pytest.mark.asyncio
+    async def test_execute_once_redispatches_needs_revision_with_review_findings(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-review-retry",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Retry with review findings",
+                    spec=_bounded_spec("Retry with review findings"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_campaign.py"],
+                    constraints=["do not widen scope"],
+                    status=CampaignProjectStatus.NEEDS_REVISION.value,
+                    review=CampaignReviewGate(
+                        required=True,
+                        review_model="claude",
+                        status=CampaignReviewStatus.CHANGES_REQUESTED.value,
+                        findings=["Preserve ticket auditability."],
+                    ),
+                )
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        dispatch = AsyncMock(
+            return_value={
+                "status": "needs_human",
+                "outcome": CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value,
+                "run_id": "run-review-retry",
+                "run": {
+                    "run_id": "run-review-retry",
+                    "status": "completed",
+                    "work_orders": [],
+                },
+            }
+        )
+        with patch("aragora.swarm.campaign.dispatch_bounded_spec", new=dispatch):
+            payload = await executor.execute_once()
+
+        retry_spec = dispatch.await_args.args[0]
+        assert "Address prior review finding: Preserve ticket auditability." in retry_spec.constraints
+        assert payload["dispatched_projects"][0]["project_id"] == "proj-001"
+
+    @pytest.mark.asyncio
     async def test_execute_once_records_completed_project_after_review(
         self, tmp_path: Path
     ) -> None:
@@ -259,6 +437,137 @@ class TestCampaignExecutor:
         assert project.last_run_outcome == CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value
         assert project.retry_count == 1
 
+    def test_reconcile_active_needs_human_run_blocks_and_emits_receipt(
+        self, tmp_path: Path
+    ) -> None:
+        repo = _init_repo(tmp_path)
+        store = DevCoordinationStore(repo_root=repo)
+        run_record = store.create_supervisor_run(
+            goal="needs human campaign bridge",
+            target_branch="main",
+            supervisor_agents={},
+            approval_policy={},
+            spec={"raw_goal": "needs human campaign bridge"},
+            work_orders=[
+                {
+                    "work_order_id": "wo-human",
+                    "status": "needs_human",
+                    "worktree_path": str(repo),
+                    "branch": "main",
+                    "target_agent": "codex",
+                    "dispatch_error": "Worker requires human input.",
+                }
+            ],
+            status="active",
+        )
+
+        manifest_path = repo / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="phase0b-needs-human",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Blocked run",
+                    spec=_bounded_spec("Blocked run", ["aragora/swarm/campaign.py"]),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_campaign.py"],
+                    constraints=["do not widen scope"],
+                    status=CampaignProjectStatus.ACTIVE.value,
+                    run_id=run_record["run_id"],
+                )
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=repo)
+
+        executor._reconcile_active_projects(manifest)
+
+        project = manifest.projects[0]
+        receipt_path = repo / "docs" / "receipts" / "phase0b-needs-human" / "proj-001.yaml"
+        assert project.status == CampaignProjectStatus.BLOCKED.value
+        assert project.last_run_outcome == CampaignRunOutcome.NEEDS_HUMAN.value
+        assert project.receipt_id == "docs/receipts/phase0b-needs-human/proj-001.yaml"
+        assert receipt_path.exists()
+
+    @pytest.mark.asyncio
+    async def test_reconcile_active_crash_run_uses_supervisor_failure_metadata(
+        self, tmp_path: Path
+    ) -> None:
+        repo = _init_repo(tmp_path)
+        run_id = await _record_crash_run(repo)
+        manifest_path = repo / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="phase0b-crash",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            max_retries_per_project=2,
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Crash recovery",
+                    spec=_bounded_spec("Crash recovery", ["aragora/swarm/campaign.py"]),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_campaign.py"],
+                    constraints=["do not widen scope"],
+                    status=CampaignProjectStatus.ACTIVE.value,
+                    run_id=run_id,
+                )
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=repo)
+
+        executor._reconcile_active_projects(manifest)
+
+        project = manifest.projects[0]
+        assert project.status == CampaignProjectStatus.NEEDS_REVISION.value
+        assert project.last_run_outcome == CampaignRunOutcome.CRASH.value
+        assert project.receipt_id is None
+        assert project.attempt_history[-1]["requeue_eligible"] is True
+        assert project.attempt_history[-1]["failure_detail"] == "worker crashed"
+
+    @pytest.mark.asyncio
+    async def test_reconcile_active_timeout_run_uses_supervisor_failure_metadata(
+        self, tmp_path: Path
+    ) -> None:
+        repo = _init_repo(tmp_path)
+        run_id = await _record_timeout_run(repo)
+        manifest_path = repo / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="phase0b-timeout",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            max_retries_per_project=2,
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Timeout recovery",
+                    spec=_bounded_spec("Timeout recovery", ["aragora/swarm/campaign.py"]),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_campaign.py"],
+                    constraints=["do not widen scope"],
+                    status=CampaignProjectStatus.ACTIVE.value,
+                    run_id=run_id,
+                )
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=repo)
+
+        executor._reconcile_active_projects(manifest)
+
+        project = manifest.projects[0]
+        assert project.status == CampaignProjectStatus.NEEDS_REVISION.value
+        assert project.last_run_outcome == CampaignRunOutcome.TIMEOUT.value
+        assert project.receipt_id is None
+        assert project.attempt_history[-1]["requeue_eligible"] is True
+        assert "no-progress timeout" in project.attempt_history[-1]["failure_detail"]
+
     @pytest.mark.asyncio
     async def test_execute_once_reconciles_active_project_without_redispatch(
         self, tmp_path: Path
@@ -309,6 +618,114 @@ class TestCampaignExecutor:
         assert mock_dispatch.await_count == 0
         assert project.last_run_outcome == CampaignRunOutcome.PR_ADOPTED.value
         assert payload["stop_reason"] in {"still_running", "campaign_blocked", "campaign_complete"}
+
+    @pytest.mark.asyncio
+    async def test_execute_once_requeues_timeout_outcome_and_preserves_attempt_audit(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-timeout-retry",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            worker_model="codex",
+            review_model="claude",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Recoverable timeout",
+                    spec=_bounded_spec("Recoverable timeout"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_campaign.py"],
+                    constraints=["do not widen scope"],
+                    estimated_cost_usd=1.0,
+                )
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        timeout_result = {
+            "status": "failed",
+            "outcome": CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value,
+            "run_id": "run-timeout-1",
+            "run": {
+                "run_id": "run-timeout-1",
+                "status": "completed",
+                "metadata": {
+                    CAMPAIGN_OUTCOME_METADATA_KEY: CampaignRunOutcome.TIMEOUT.value,
+                    CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY: True,
+                    CAMPAIGN_BLOCKERS_METADATA_KEY: ["worker exceeded no-progress timeout (60s)"],
+                },
+                "work_orders": [
+                    {
+                        "status": "needs_human",
+                        "worker_outcome": "timeout_no_progress",
+                        "dispatch_error": "worker exceeded no-progress timeout (60s)",
+                        "receipt_id": "worker-receipt-1",
+                    }
+                ],
+            },
+        }
+        success_result = {
+            "status": "completed",
+            "outcome": CampaignRunOutcome.DELIVERABLE_CREATED.value,
+            "run_id": "run-success-2",
+            "deliverable": {"type": "pr", "pr_url": "https://github.com/example/pull/2"},
+            "run": {
+                "run_id": "run-success-2",
+                "status": "completed",
+                "work_orders": [
+                    {
+                        "status": "completed",
+                        "pr_url": "https://github.com/example/pull/2",
+                        "receipt_id": "worker-receipt-2",
+                    }
+                ],
+            },
+        }
+        review_gate = CampaignReviewGate(
+            required=True,
+            review_model="claude",
+            status=CampaignReviewStatus.PASSED.value,
+            findings=[],
+        )
+
+        with (
+            patch(
+                "aragora.swarm.campaign.dispatch_bounded_spec",
+                new=AsyncMock(side_effect=[timeout_result, success_result]),
+            ),
+            patch.object(executor.reviewer, "review", new=AsyncMock(return_value=review_gate)),
+        ):
+            first_payload = await executor.execute_once()
+            first_project = load_campaign_manifest(manifest_path).projects[0]
+            status_payload = executor.status()
+            second_payload = await executor.execute_once()
+
+        assert first_payload["stop_reason"] == CampaignStopReason.STILL_RUNNING.value
+        assert first_project.status == CampaignProjectStatus.NEEDS_REVISION.value
+        assert first_project.last_run_outcome == CampaignRunOutcome.TIMEOUT.value
+        assert first_project.worker_receipt_id == "worker-receipt-1"
+        assert len(first_project.attempt_history) == 1
+        assert first_project.attempt_history[0]["requeue_eligible"] is True
+        assert "no-progress timeout" in first_project.attempt_history[0]["failure_detail"]
+        assert status_payload["projects"][0]["last_run_outcome"] == CampaignRunOutcome.TIMEOUT.value
+        assert status_payload["projects"][0]["recovery_eligible"] is True
+        assert "no-progress timeout" in status_payload["projects"][0]["last_failure_detail"]
+
+        reloaded = load_campaign_manifest(manifest_path).projects[0]
+        assert second_payload["stop_reason"] in {
+            CampaignStopReason.STILL_RUNNING.value,
+            CampaignStopReason.CAMPAIGN_COMPLETE.value,
+        }
+        assert reloaded.status == CampaignProjectStatus.COMPLETED.value
+        assert reloaded.pr_url == "https://github.com/example/pull/2"
+        assert reloaded.worker_receipt_id == "worker-receipt-2"
+        assert len(reloaded.attempt_history) == 2
+        assert reloaded.attempt_history[0]["outcome"] == CampaignRunOutcome.TIMEOUT.value
+        assert reloaded.attempt_history[1]["outcome"] == CampaignRunOutcome.DELIVERABLE_CREATED.value
 
     @pytest.mark.asyncio
     async def test_execute_once_returns_still_running_when_active_projects_exist(
