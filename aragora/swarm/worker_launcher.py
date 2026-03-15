@@ -96,8 +96,8 @@ class LaunchConfig:
 
     claude_path: str = "claude"
     codex_path: str = "codex"
-    timeout_seconds: float = 600.0
-    no_progress_timeout_seconds: float = 720.0
+    timeout_seconds: float = 2400.0
+    no_progress_timeout_seconds: float = 1800.0
     claude_model: str | None = None
     codex_model: str | None = None
     auto_commit: bool = True
