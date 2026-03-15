@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -30,6 +30,11 @@ from aragora.worktree.lifecycle import WorktreeLifecycleService
 
 UTC = timezone.utc
 logger = logging.getLogger(__name__)
+
+WORKER_TYPE_CIRCUIT_BREAKERS_KEY = "worker_type_circuit_breakers"
+WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY = "worker_type_circuit_breaker_policy"
+DEFAULT_BREAKER_FAILURE_THRESHOLD = 2
+DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS = 900.0
 
 
 def _path_in_scope(path: str, scope_pattern: str) -> bool:
@@ -216,6 +221,11 @@ class SwarmSupervisor:
             metadata={
                 "max_concurrency": min(max(1, int(max_concurrency)), 8),
                 "managed_dir_pattern": managed_dir_pattern,
+                WORKER_TYPE_CIRCUIT_BREAKERS_KEY: {},
+                WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY: {
+                    "failure_threshold": DEFAULT_BREAKER_FAILURE_THRESHOLD,
+                    "reset_timeout_seconds": DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS,
+                },
             },
         )
         run = SupervisorRun.from_record(record)
@@ -336,6 +346,35 @@ class SwarmSupervisor:
             "coordination": coordination,
         }
 
+    def reset_worker_type_circuit_breaker(
+        self,
+        run_id: str,
+        worker_type: str,
+    ) -> SupervisorRun:
+        """Manually reset the circuit breaker for a worker type on a run."""
+        record = self.store.get_supervisor_run(run_id)
+        if record is None:
+            raise KeyError(f"Unknown supervisor run: {run_id}")
+
+        metadata = dict(record.get("metadata") or {})
+        circuit_breakers = self._worker_type_circuit_breakers(metadata)
+        normalized_worker_type = str(worker_type).strip().lower()
+        if not normalized_worker_type:
+            raise ValueError("worker_type must be non-empty")
+        self._reset_worker_type_circuit_breaker_entry(
+            circuit_breakers,
+            normalized_worker_type,
+        )
+
+        updated = self.store.update_supervisor_run(
+            run_id,
+            metadata=self._worker_type_circuit_breaker_metadata(
+                metadata,
+                circuit_breakers,
+            ),
+        )
+        return SupervisorRun.from_record(updated)
+
     async def dispatch_workers(self, run_id: str) -> list[WorkerProcess]:
         """Launch worker processes for all leased work orders in a run.
 
@@ -351,10 +390,34 @@ class SwarmSupervisor:
             raise KeyError(f"Unknown supervisor run: {run_id}")
 
         work_orders = [dict(item) for item in record.get("work_orders", [])]
+        metadata = dict(record.get("metadata") or {})
+        worker_type_circuit_breaker_policy = self._worker_type_circuit_breaker_policy(metadata)
+        worker_type_circuit_breakers = self._worker_type_circuit_breakers(metadata)
+        self._expire_worker_type_circuit_breakers(worker_type_circuit_breakers)
         launched: list[WorkerProcess] = []
 
         for item in work_orders:
             if str(item.get("status", "")) != "leased":
+                continue
+            target_agent = str(item.get("target_agent", "codex")).strip().lower() or "codex"
+            if self._worker_type_circuit_breaker_is_open(
+                worker_type_circuit_breakers,
+                target_agent,
+            ):
+                breaker = dict(worker_type_circuit_breakers.get(target_agent) or {})
+                detail = self._worker_type_circuit_breaker_detail(target_agent, breaker)
+                fallback_requeued = self._requeue_with_fallback(
+                    item,
+                    reason="worker_type_blocked",
+                    detail=detail,
+                    worker_type_circuit_breakers=worker_type_circuit_breakers,
+                )
+                if not fallback_requeued:
+                    self._mark_worker_type_blocked(
+                        item,
+                        worker_type=target_agent,
+                        detail=detail,
+                    )
                 continue
             worktree_path = str(item.get("worktree_path", "")).strip()
             branch = str(item.get("branch", "main")).strip()
@@ -366,6 +429,10 @@ class SwarmSupervisor:
                     item,
                     worktree_path=worktree_path,
                     branch=branch,
+                )
+                self._record_worker_type_success(
+                    worker_type_circuit_breakers,
+                    target_agent,
                 )
                 dispatch_time = datetime.now(UTC).isoformat()
                 item["status"] = "dispatched"
@@ -381,7 +448,18 @@ class SwarmSupervisor:
                 }
                 launched.append(worker)
             except (FileNotFoundError, RuntimeError, OSError) as exc:
-                fallback_requeued = self._requeue_after_dispatch_error(item, exc)
+                self._record_worker_type_failure(
+                    worker_type_circuit_breakers,
+                    target_agent,
+                    reason=self._dispatch_failure_reason(exc),
+                    detail=str(exc),
+                    policy=worker_type_circuit_breaker_policy,
+                )
+                fallback_requeued = self._requeue_after_dispatch_error(
+                    item,
+                    exc,
+                    worker_type_circuit_breakers=worker_type_circuit_breakers,
+                )
                 if not fallback_requeued:
                     item["status"] = "dispatch_failed"
                     item["dispatch_error"] = str(exc)
@@ -397,6 +475,10 @@ class SwarmSupervisor:
             run_id,
             status=self._derive_status(work_orders),
             work_orders=work_orders,
+            metadata=self._worker_type_circuit_breaker_metadata(
+                metadata,
+                worker_type_circuit_breakers,
+            ),
         )
         return launched
 
@@ -416,6 +498,10 @@ class SwarmSupervisor:
             raise KeyError(f"Unknown supervisor run: {run_id}")
 
         work_orders = [dict(item) for item in record.get("work_orders", [])]
+        metadata = dict(record.get("metadata") or {})
+        worker_type_circuit_breaker_policy = self._worker_type_circuit_breaker_policy(metadata)
+        worker_type_circuit_breakers = self._worker_type_circuit_breakers(metadata)
+        self._expire_worker_type_circuit_breakers(worker_type_circuit_breakers)
         completed: list[WorkerProcess] = []
 
         for item in work_orders:
@@ -427,13 +513,22 @@ class SwarmSupervisor:
                 continue
 
             result = await self.launcher.wait(work_order_id, timeout=timeout)
-            self._apply_worker_result(item, result)
+            self._apply_worker_result(
+                item,
+                result,
+                worker_type_circuit_breakers=worker_type_circuit_breakers,
+                worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
+            )
             completed.append(result)
 
         self.store.update_supervisor_run(
             run_id,
             status=self._derive_status(work_orders),
             work_orders=work_orders,
+            metadata=self._worker_type_circuit_breaker_metadata(
+                metadata,
+                worker_type_circuit_breakers,
+            ),
         )
         return completed
 
@@ -449,6 +544,10 @@ class SwarmSupervisor:
             raise KeyError(f"Unknown supervisor run: {run_id}")
 
         work_orders = [dict(item) for item in record.get("work_orders", [])]
+        metadata = dict(record.get("metadata") or {})
+        worker_type_circuit_breaker_policy = self._worker_type_circuit_breaker_policy(metadata)
+        worker_type_circuit_breakers = self._worker_type_circuit_breakers(metadata)
+        self._expire_worker_type_circuit_breakers(worker_type_circuit_breakers)
         dispatched_ids = [
             str(item.get("work_order_id", "")).strip()
             for item in work_orders
@@ -616,12 +715,21 @@ class SwarmSupervisor:
             worker = finished_by_id.get(str(item.get("work_order_id", "")).strip())
             if worker is None:
                 continue
-            self._apply_worker_result(item, worker)
+            self._apply_worker_result(
+                item,
+                worker,
+                worker_type_circuit_breakers=worker_type_circuit_breakers,
+                worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
+            )
 
         self.store.update_supervisor_run(
             run_id,
             status=self._derive_status(work_orders),
             work_orders=work_orders,
+            metadata=self._worker_type_circuit_breaker_metadata(
+                metadata,
+                worker_type_circuit_breakers,
+            ),
         )
         return finished
 
@@ -850,7 +958,14 @@ class SwarmSupervisor:
         """
         return [p for p in paths if Path(p).name not in SESSION_ARTIFACTS]
 
-    def _apply_worker_result(self, item: dict[str, Any], result: WorkerProcess) -> None:
+    def _apply_worker_result(
+        self,
+        item: dict[str, Any],
+        result: WorkerProcess,
+        *,
+        worker_type_circuit_breakers: dict[str, dict[str, Any]] | None = None,
+        worker_type_circuit_breaker_policy: dict[str, Any] | None = None,
+    ) -> None:
         # Strip session artifacts before any qualification logic runs
         clean_paths = self._strip_session_artifacts(list(result.changed_paths))
         item["completed_at"] = result.completed_at
@@ -949,6 +1064,11 @@ class SwarmSupervisor:
                     return
                 item["receipt_id"] = receipt.receipt_id
                 item["confidence"] = receipt.confidence
+            if worker_type_circuit_breakers is not None:
+                self._record_worker_type_success(
+                    worker_type_circuit_breakers,
+                    str(item.get("target_agent", result.agent)),
+                )
             item["status"] = "completed"
             item["review_status"] = "pending_heterogeneous_review"
             return
@@ -960,7 +1080,26 @@ class SwarmSupervisor:
             else:
                 item["worker_outcome"] = WorkerOutcome.CRASH.value
 
-        if self._requeue_after_worker_failure(item, result):
+        capacity_failure_detail = self._capacity_failure_detail(result)
+        if (
+            capacity_failure_detail
+            and worker_type_circuit_breakers is not None
+            and worker_type_circuit_breaker_policy is not None
+        ):
+            self._record_worker_type_failure(
+                worker_type_circuit_breakers,
+                str(item.get("target_agent", result.agent)),
+                reason="agent_capacity",
+                detail=capacity_failure_detail,
+                open_immediately=True,
+                policy=worker_type_circuit_breaker_policy,
+            )
+
+        if self._requeue_after_worker_failure(
+            item,
+            result,
+            worker_type_circuit_breakers=worker_type_circuit_breakers,
+        ):
             return
 
         if lease_id:
@@ -979,7 +1118,13 @@ class SwarmSupervisor:
         except KeyError:
             return
 
-    def _requeue_after_dispatch_error(self, item: dict[str, Any], exc: Exception) -> bool:
+    def _requeue_after_dispatch_error(
+        self,
+        item: dict[str, Any],
+        exc: Exception,
+        *,
+        worker_type_circuit_breakers: dict[str, dict[str, Any]] | None = None,
+    ) -> bool:
         message = str(exc).strip()
         lowered = message.lower()
         if "cli not found" not in lowered and "not found" not in lowered:
@@ -988,32 +1133,24 @@ class SwarmSupervisor:
             item,
             reason="agent_unavailable",
             detail=message,
+            worker_type_circuit_breakers=worker_type_circuit_breakers,
         )
 
     def _requeue_after_worker_failure(
         self,
         item: dict[str, Any],
         result: WorkerProcess,
+        *,
+        worker_type_circuit_breakers: dict[str, dict[str, Any]] | None = None,
     ) -> bool:
-        combined = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
-        lowered = combined.lower()
-        capacity_patterns = (
-            "credit balance is too low",
-            "insufficient credit",
-            "insufficient balance",
-            "out of credits",
-            "quota exceeded",
-            "usage limit reached",
-            "rate limit exceeded",
-            "billing",
-            "payment required",
-        )
-        if not any(pattern in lowered for pattern in capacity_patterns):
+        capacity_failure_detail = self._capacity_failure_detail(result)
+        if not capacity_failure_detail:
             return False
         return self._requeue_with_fallback(
             item,
             reason="agent_capacity",
-            detail=combined or f"{result.agent} worker failed",
+            detail=capacity_failure_detail,
+            worker_type_circuit_breakers=worker_type_circuit_breakers,
         )
 
     def _requeue_with_fallback(
@@ -1022,10 +1159,16 @@ class SwarmSupervisor:
         *,
         reason: str,
         detail: str,
+        worker_type_circuit_breakers: dict[str, dict[str, Any]] | None = None,
     ) -> bool:
         current_agent = str(item.get("target_agent", "")).strip().lower()
         fallback_agent = self._alternate_agent(current_agent)
         if not fallback_agent:
+            return False
+        if worker_type_circuit_breakers is not None and self._worker_type_circuit_breaker_is_open(
+            worker_type_circuit_breakers,
+            fallback_agent,
+        ):
             return False
 
         metadata = dict(item.get("metadata") or {})
@@ -1085,6 +1228,313 @@ class SwarmSupervisor:
         item.pop("last_progress_at", None)
         item.pop("progress_fingerprint", None)
         return True
+
+    @staticmethod
+    def _dispatch_failure_reason(exc: Exception) -> str:
+        message = str(exc).strip().lower()
+        if "cli not found" in message or "not found" in message:
+            return "agent_unavailable"
+        return "agent_launch_failed"
+
+    @staticmethod
+    def _capacity_failure_detail(result: WorkerProcess) -> str:
+        combined = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
+        lowered = combined.lower()
+        capacity_patterns = (
+            "credit balance is too low",
+            "insufficient credit",
+            "insufficient balance",
+            "out of credits",
+            "quota exceeded",
+            "usage limit reached",
+            "rate limit exceeded",
+            "billing",
+            "payment required",
+        )
+        if any(pattern in lowered for pattern in capacity_patterns):
+            return combined or f"{result.agent} worker failed"
+        return ""
+
+    def _worker_type_circuit_breaker_policy(self, metadata: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(metadata.get(WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY) or {})
+        try:
+            failure_threshold = max(
+                1,
+                int(payload.get("failure_threshold", DEFAULT_BREAKER_FAILURE_THRESHOLD)),
+            )
+        except (TypeError, ValueError):
+            failure_threshold = DEFAULT_BREAKER_FAILURE_THRESHOLD
+        try:
+            reset_timeout_seconds = max(
+                1.0,
+                float(
+                    payload.get(
+                        "reset_timeout_seconds",
+                        DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS,
+                    )
+                ),
+            )
+        except (TypeError, ValueError):
+            reset_timeout_seconds = DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS
+        return {
+            "failure_threshold": failure_threshold,
+            "reset_timeout_seconds": reset_timeout_seconds,
+        }
+
+    def _worker_type_circuit_breakers(
+        self,
+        metadata: dict[str, Any],
+    ) -> dict[str, dict[str, Any]]:
+        policy = self._worker_type_circuit_breaker_policy(metadata)
+        raw_breakers = dict(metadata.get(WORKER_TYPE_CIRCUIT_BREAKERS_KEY) or {})
+        normalized: dict[str, dict[str, Any]] = {}
+
+        for raw_worker_type, raw_entry in raw_breakers.items():
+            worker_type = str(raw_worker_type).strip().lower()
+            if not worker_type:
+                continue
+            entry = self._default_worker_type_circuit_breaker(policy)
+            payload = dict(raw_entry or {})
+            entry["status"] = str(payload.get("status", entry["status"])).strip().lower() or "closed"
+            if entry["status"] not in {"open", "closed"}:
+                entry["status"] = "closed"
+            try:
+                entry["failure_count"] = max(0, int(payload.get("failure_count", 0) or 0))
+            except (TypeError, ValueError):
+                entry["failure_count"] = 0
+            try:
+                entry["trip_count"] = max(0, int(payload.get("trip_count", 0) or 0))
+            except (TypeError, ValueError):
+                entry["trip_count"] = 0
+            entry["last_failure_reason"] = (
+                str(payload.get("last_failure_reason", "")).strip()
+            )
+            entry["last_failure_detail"] = (
+                str(payload.get("last_failure_detail", "")).strip()[:1000]
+            )
+            entry["last_failure_at"] = self._normalized_timestamp(
+                payload.get("last_failure_at")
+            )
+            entry["opened_at"] = self._normalized_timestamp(payload.get("opened_at"))
+            blocked_until = self._normalized_timestamp(payload.get("blocked_until"))
+            if entry["status"] == "open" and not blocked_until and entry["opened_at"]:
+                opened_at = self._parse_timestamp(entry["opened_at"])
+                if opened_at is not None:
+                    blocked_until = (
+                        opened_at + timedelta(seconds=entry["reset_timeout_seconds"])
+                    ).isoformat()
+            entry["blocked_until"] = blocked_until if entry["status"] == "open" else None
+            entry["last_reset_at"] = self._normalized_timestamp(payload.get("last_reset_at"))
+            normalized[worker_type] = entry
+
+        return normalized
+
+    def _worker_type_circuit_breaker_metadata(
+        self,
+        metadata: dict[str, Any],
+        circuit_breakers: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        policy = self._worker_type_circuit_breaker_policy(metadata)
+        normalized_breakers = {
+            worker_type: dict(entry)
+            for worker_type, entry in sorted(circuit_breakers.items())
+        }
+        return {
+            WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY: policy,
+            WORKER_TYPE_CIRCUIT_BREAKERS_KEY: normalized_breakers,
+        }
+
+    @staticmethod
+    def _default_worker_type_circuit_breaker(policy: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "status": "closed",
+            "failure_count": 0,
+            "failure_threshold": int(policy["failure_threshold"]),
+            "reset_timeout_seconds": float(policy["reset_timeout_seconds"]),
+            "opened_at": None,
+            "blocked_until": None,
+            "last_failure_at": None,
+            "last_failure_reason": "",
+            "last_failure_detail": "",
+            "trip_count": 0,
+            "last_reset_at": None,
+        }
+
+    @staticmethod
+    def _normalized_timestamp(value: Any) -> str | None:
+        text = str(value or "").strip()
+        if not text:
+            return None
+        return text
+
+    @staticmethod
+    def _worker_type_circuit_breaker_is_open(
+        circuit_breakers: dict[str, dict[str, Any]],
+        worker_type: str,
+    ) -> bool:
+        entry = circuit_breakers.get(str(worker_type).strip().lower()) or {}
+        return str(entry.get("status", "")).strip().lower() == "open"
+
+    def _worker_type_circuit_breaker_detail(
+        self,
+        worker_type: str,
+        breaker: dict[str, Any],
+    ) -> str:
+        detail = f"{worker_type} breaker open"
+        blocked_until = str(breaker.get("blocked_until", "")).strip()
+        if blocked_until:
+            detail += f" until {blocked_until}"
+        last_reason = str(breaker.get("last_failure_reason", "")).strip()
+        if last_reason:
+            detail += f" after {last_reason}"
+        return detail
+
+    def _record_worker_type_failure(
+        self,
+        circuit_breakers: dict[str, dict[str, Any]],
+        worker_type: str,
+        *,
+        reason: str,
+        detail: str,
+        open_immediately: bool = False,
+        policy: dict[str, Any] | None = None,
+    ) -> None:
+        normalized_worker_type = str(worker_type).strip().lower()
+        if not normalized_worker_type:
+            return
+        entry = circuit_breakers.get(normalized_worker_type)
+        if entry is None:
+            entry = self._default_worker_type_circuit_breaker(
+                policy
+                or {
+                    "failure_threshold": DEFAULT_BREAKER_FAILURE_THRESHOLD,
+                    "reset_timeout_seconds": DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS,
+                }
+            )
+            circuit_breakers[normalized_worker_type] = entry
+
+        now = datetime.now(UTC)
+        threshold = max(1, int(entry.get("failure_threshold", DEFAULT_BREAKER_FAILURE_THRESHOLD)))
+        reset_timeout_seconds = max(
+            1.0,
+            float(entry.get("reset_timeout_seconds", DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS)),
+        )
+        was_open = str(entry.get("status", "")).strip().lower() == "open"
+        failure_count = threshold if open_immediately else int(entry.get("failure_count", 0)) + 1
+
+        entry["failure_count"] = max(failure_count, threshold if open_immediately else failure_count)
+        entry["last_failure_at"] = now.isoformat()
+        entry["last_failure_reason"] = str(reason).strip()
+        entry["last_failure_detail"] = str(detail).strip()[:1000]
+
+        if open_immediately or entry["failure_count"] >= threshold:
+            entry["status"] = "open"
+            if not was_open:
+                entry["trip_count"] = int(entry.get("trip_count", 0) or 0) + 1
+                entry["opened_at"] = now.isoformat()
+            elif not entry.get("opened_at"):
+                entry["opened_at"] = now.isoformat()
+            entry["blocked_until"] = (now + timedelta(seconds=reset_timeout_seconds)).isoformat()
+            return
+
+        entry["status"] = "closed"
+        entry["opened_at"] = None
+        entry["blocked_until"] = None
+
+    def _record_worker_type_success(
+        self,
+        circuit_breakers: dict[str, dict[str, Any]],
+        worker_type: str,
+    ) -> None:
+        normalized_worker_type = str(worker_type).strip().lower()
+        if not normalized_worker_type:
+            return
+        entry = circuit_breakers.get(normalized_worker_type)
+        if entry is None:
+            return
+        if str(entry.get("status", "")).strip().lower() == "open":
+            return
+        if (
+            int(entry.get("failure_count", 0) or 0) == 0
+            and not entry.get("opened_at")
+            and not entry.get("blocked_until")
+        ):
+            return
+        self._reset_worker_type_circuit_breaker_entry(
+            circuit_breakers,
+            normalized_worker_type,
+        )
+
+    def _reset_worker_type_circuit_breaker_entry(
+        self,
+        circuit_breakers: dict[str, dict[str, Any]],
+        worker_type: str,
+        *,
+        now: datetime | None = None,
+    ) -> None:
+        normalized_worker_type = str(worker_type).strip().lower()
+        if not normalized_worker_type:
+            return
+        entry = circuit_breakers.get(normalized_worker_type)
+        if entry is None:
+            return
+        reset_at = (now or datetime.now(UTC)).isoformat()
+        entry["status"] = "closed"
+        entry["failure_count"] = 0
+        entry["opened_at"] = None
+        entry["blocked_until"] = None
+        entry["last_reset_at"] = reset_at
+
+    def _expire_worker_type_circuit_breakers(
+        self,
+        circuit_breakers: dict[str, dict[str, Any]],
+    ) -> None:
+        now = datetime.now(UTC)
+        for worker_type, entry in circuit_breakers.items():
+            if str(entry.get("status", "")).strip().lower() != "open":
+                continue
+            blocked_until = self._parse_timestamp(entry.get("blocked_until"))
+            if blocked_until is None:
+                opened_at = self._parse_timestamp(entry.get("opened_at"))
+                if opened_at is not None:
+                    blocked_until = opened_at + timedelta(
+                        seconds=float(
+                            entry.get(
+                                "reset_timeout_seconds",
+                                DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS,
+                            )
+                        )
+                    )
+                    entry["blocked_until"] = blocked_until.isoformat()
+            if blocked_until is None:
+                continue
+            if now >= blocked_until:
+                self._reset_worker_type_circuit_breaker_entry(
+                    circuit_breakers,
+                    worker_type,
+                    now=now,
+                )
+
+    def _mark_worker_type_blocked(
+        self,
+        item: dict[str, Any],
+        *,
+        worker_type: str,
+        detail: str,
+    ) -> None:
+        metadata = dict(item.get("metadata") or {})
+        metadata.update(
+            {
+                "last_failure_reason": "worker_type_blocked",
+                "last_failure_detail": str(detail).strip()[:1000],
+                "blocked_worker_type": str(worker_type).strip().lower(),
+                "reuse_existing_worktree": True,
+            }
+        )
+        item["metadata"] = metadata
+        item["status"] = "leased"
+        item["dispatch_error"] = None
+        item.pop("pid", None)
 
     def _release_orphaned_conflict_leases(self, conflicts: list[dict[str, Any]]) -> int:
         released = 0
