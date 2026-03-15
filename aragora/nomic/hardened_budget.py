@@ -22,20 +22,110 @@ if TYPE_CHECKING:
 logger = logging.getLogger("aragora.nomic.hardened_orchestrator")
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
+
+
 class BudgetMixin:
     """Mixin providing budget enforcement methods for HardenedOrchestrator."""
 
     # These attributes are expected to be set by the host class __init__
     hardened_config: Any
     _budget_spent_usd: float
+    _budget_reserved_usd: float
+    _budget_reservations: dict[str, float]
+    _budget_lock: Any
     _budget_manager: Any
     _budget_id: str | None
+    _total_cost_usd: float
     _completed_assignments: list
     _active_assignments: list
     _call_timestamps: collections.deque
     _agent_failure_counts: dict[str, int]
     _agent_success_counts: dict[str, int]
     _agent_open_until: dict[str, float]
+
+    @staticmethod
+    def _reservation_key(assignment: AgentAssignment) -> str:
+        return assignment.subtask.id
+
+    def _estimated_assignment_cost(self, assignment: AgentAssignment) -> float:
+        be_config = self.hardened_config.budget_enforcement
+        return float(be_config.cost_per_subtask_estimate if be_config else 0.10)
+
+    def _reset_budget_tracking(self) -> None:
+        """Reset committed and reserved budget for a new orchestrator run."""
+        with self._budget_lock:
+            self._budget_spent_usd = 0.0
+            self._budget_reserved_usd = 0.0
+            self._budget_reservations.clear()
+            self._total_cost_usd = 0.0
+
+    def _budget_snapshot(
+        self,
+        *,
+        spent_usd: float | None = None,
+        limit_usd: float | None = None,
+    ) -> dict[str, float | bool | None]:
+        with self._budget_lock:
+            spent = max(float(spent_usd or 0.0), float(self._budget_spent_usd or 0.0))
+            reserved = float(self._budget_reserved_usd or 0.0)
+        limit = self.hardened_config.budget_limit_usd if limit_usd is None else limit_usd
+        committed = spent + reserved
+        remaining = None if limit is None else max(0.0, float(limit) - committed)
+        return {
+            "spent_usd": round(spent, 4),
+            "reserved_usd": round(reserved, 4),
+            "committed_usd": round(committed, 4),
+            "remaining_usd": None if remaining is None else round(remaining, 4),
+            "limit_usd": None if limit is None else round(float(limit), 4),
+            "exhausted": bool(limit is not None and committed >= float(limit)),
+        }
+
+    def _reserve_budget(self, assignment: AgentAssignment, amount_usd: float) -> None:
+        key = self._reservation_key(assignment)
+        with self._budget_lock:
+            if key in self._budget_reservations:
+                return
+            self._budget_reservations[key] = amount_usd
+            self._budget_reserved_usd += amount_usd
+        snapshot = self._budget_snapshot()
+        self._emit_event(  # type: ignore[attr-defined]
+            "budget_reserved",
+            subtask=assignment.subtask.id,
+            reserved=round(amount_usd, 4),
+            committed=snapshot["committed_usd"],
+            remaining=snapshot["remaining_usd"],
+            limit=snapshot["limit_usd"],
+        )
+
+    def _cancel_budget_reservation(self, assignment: AgentAssignment, *, reason: str) -> None:
+        key = self._reservation_key(assignment)
+        with self._budget_lock:
+            reserved = self._budget_reservations.pop(key, 0.0)
+            if reserved > 0:
+                self._budget_reserved_usd = max(0.0, self._budget_reserved_usd - reserved)
+            else:
+                reserved = 0.0
+        if reserved <= 0:
+            return
+        snapshot = self._budget_snapshot()
+        self._emit_event(  # type: ignore[attr-defined]
+            "budget_reservation_released",
+            subtask=assignment.subtask.id,
+            released=round(reserved, 4),
+            committed=snapshot["committed_usd"],
+            remaining=snapshot["remaining_usd"],
+            limit=snapshot["limit_usd"],
+            reason=reason,
+        )
 
     def _init_budget_manager(self, config: BudgetEnforcementConfig) -> None:
         """Initialize BudgetManager integration."""
@@ -76,19 +166,48 @@ class BudgetMixin:
             True if assignment may proceed, False if skipped due to budget.
         """
         be_config = self.hardened_config.budget_enforcement
-        estimate = be_config.cost_per_subtask_estimate if be_config else 0.10
+        estimate = self._estimated_assignment_cost(assignment)
+        reservation_key = self._reservation_key(assignment)
+
+        with self._budget_lock:
+            existing_reservation = self._budget_reservations.get(reservation_key)
+        if existing_reservation is not None:
+            return True
 
         # Path 1: BudgetManager integration
         if self._budget_manager is not None and self._budget_id is not None:
             budget = self._budget_manager.get_budget(self._budget_id)
             if budget is None:
                 logger.warning("budget_not_found id=%s, allowing", self._budget_id)
+                self._reserve_budget(assignment, estimate)
                 return True
 
             # Check hard_stop_percent
             hard_stop = be_config.hard_stop_percent if be_config else 1.0
-            if budget.usage_percentage >= hard_stop:
+            usage_percentage = _safe_float(getattr(budget, "usage_percentage", 0.0))
+            if usage_percentage >= hard_stop:
                 self._skip_assignment(assignment, "budget_exceeded_hard_stop")
+                return False
+
+            limit_usd = _safe_float(
+                getattr(budget, "amount_usd", self.hardened_config.budget_limit_usd or 0.0),
+                _safe_float(self.hardened_config.budget_limit_usd, 0.0),
+            )
+            spent_usd = max(
+                _safe_float(getattr(budget, "spent_usd", 0.0)),
+                _safe_float(self._budget_spent_usd, 0.0),
+            )
+            projected_total = spent_usd + float(self._budget_reserved_usd or 0.0) + estimate
+            if limit_usd > 0 and projected_total > limit_usd + 1e-9:
+                logger.warning(
+                    "budget_blocked_projected subtask=%s projected=%.2f spent=%.2f reserved=%.2f limit=%.2f",
+                    assignment.subtask.id,
+                    projected_total,
+                    spent_usd,
+                    self._budget_reserved_usd,
+                    limit_usd,
+                )
+                self._skip_assignment(assignment, "budget_exceeded")
                 return False
 
             result = budget.can_spend_extended(estimate)
@@ -103,20 +222,25 @@ class BudgetMixin:
                 self._skip_assignment(assignment, "budget_exceeded")
                 return False
 
+            self._reserve_budget(assignment, estimate)
             return True
 
         # Path 2: Simple float counter (legacy)
         if self.hardened_config.budget_limit_usd is not None:
-            if self._budget_spent_usd >= self.hardened_config.budget_limit_usd:
+            projected_total = self._budget_spent_usd + self._budget_reserved_usd + estimate
+            if projected_total > self.hardened_config.budget_limit_usd + 1e-9:
                 logger.warning(
-                    "budget_exceeded subtask=%s spent=%.2f limit=%.2f",
+                    "budget_exceeded subtask=%s projected=%.2f spent=%.2f reserved=%.2f limit=%.2f",
                     assignment.subtask.id,
+                    projected_total,
                     self._budget_spent_usd,
+                    self._budget_reserved_usd,
                     self.hardened_config.budget_limit_usd,
                 )
                 self._skip_assignment(assignment, "budget_exceeded")
                 return False
 
+        self._reserve_budget(assignment, estimate)
         return True
 
     def _record_budget_spend(
@@ -130,7 +254,14 @@ class BudgetMixin:
         increments the simple float counter.
         """
         be_config = self.hardened_config.budget_enforcement
-        cost = amount_usd or (be_config.cost_per_subtask_estimate if be_config else 0.10)
+        cost = float(amount_usd or (be_config.cost_per_subtask_estimate if be_config else 0.10))
+        reservation_key = self._reservation_key(assignment)
+        with self._budget_lock:
+            reserved = self._budget_reservations.pop(reservation_key, 0.0)
+            if reserved > 0:
+                self._budget_reserved_usd = max(0.0, self._budget_reserved_usd - reserved)
+            self._budget_spent_usd += cost
+            self._total_cost_usd = self._budget_spent_usd
 
         # Path 1: BudgetManager
         if self._budget_manager is not None and self._budget_id is not None:
@@ -146,22 +277,23 @@ class BudgetMixin:
                     assignment.subtask.id,
                     cost,
                 )
-            return
-
-        # Path 2: Simple counter
-        self._budget_spent_usd += cost
+        snapshot = self._budget_snapshot()
 
         # Emit budget tracking event
         self._emit_event(  # type: ignore[attr-defined]
             "budget_update",
             subtask=assignment.subtask.id,
             cost=round(cost, 4),
-            total_spent=round(self._budget_spent_usd, 4),
-            limit=self.hardened_config.budget_limit_usd,
+            released_reservation=round(reserved, 4),
+            total_spent=snapshot["spent_usd"],
+            reserved=snapshot["reserved_usd"],
+            remaining=snapshot["remaining_usd"],
+            limit=snapshot["limit_usd"],
         )
 
     def _skip_assignment(self, assignment: AgentAssignment, reason: str) -> None:
         """Mark an assignment as skipped and move to completed list."""
+        self._cancel_budget_reservation(assignment, reason=reason)
         assignment.status = "skipped"
         assignment.result = {"reason": reason}
         assignment.completed_at = datetime.now(timezone.utc)

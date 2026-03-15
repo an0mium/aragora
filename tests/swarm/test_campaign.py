@@ -398,6 +398,60 @@ class TestCampaignExecutor:
         assert payload["dispatched_projects"][0]["project_id"] == "proj-001"
 
     @pytest.mark.asyncio
+    async def test_execute_once_halts_before_dispatch_when_remaining_budget_is_insufficient(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-budget-preflight",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            budget_limit_usd=1.0,
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Would exceed remaining budget",
+                    spec=_bounded_spec("Would exceed remaining budget"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_campaign.py"],
+                    constraints=["do not widen scope"],
+                    estimated_cost_usd=0.50,
+                )
+            ],
+            execution_state=CampaignExecutionState(total_cost_usd=0.75),
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        with patch(
+            "aragora.swarm.campaign.dispatch_bounded_spec",
+            new=AsyncMock(
+                return_value={
+                    "status": "unexpected-dispatch",
+                    "outcome": CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value,
+                    "run_id": "run-unexpected",
+                    "run": {
+                        "run_id": "run-unexpected",
+                        "status": "completed",
+                        "work_orders": [],
+                    },
+                }
+            ),
+        ) as mock_dispatch:
+            payload = await executor.execute_once()
+
+        reloaded = load_campaign_manifest(manifest_path)
+        assert mock_dispatch.await_count == 0
+        assert payload["stop_reason"] == CampaignStopReason.BUDGET_EXHAUSTED.value
+        assert payload["dispatched_projects"] == []
+        assert reloaded.execution_state.total_cost_usd == pytest.approx(0.75)
+        assert reloaded.projects[0].status in {
+            CampaignProjectStatus.PENDING.value,
+            CampaignProjectStatus.READY.value,
+        }
+
+    @pytest.mark.asyncio
     async def test_execute_once_marks_clean_exit_no_deliverable_needs_revision(
         self, tmp_path: Path
     ) -> None:
@@ -438,6 +492,50 @@ class TestCampaignExecutor:
         assert project.status == CampaignProjectStatus.NEEDS_REVISION.value
         assert project.last_run_outcome == CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value
         assert project.retry_count == 1
+
+    @pytest.mark.asyncio
+    async def test_execute_once_halts_before_over_budget_dispatch(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-budget-cap",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            budget_limit_usd=1.0,
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Too expensive",
+                    spec=_bounded_spec("Too expensive"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_campaign.py"],
+                    constraints=["do not widen scope"],
+                    estimated_cost_usd=2.0,
+                )
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        with patch(
+            "aragora.swarm.campaign.dispatch_bounded_spec", new=AsyncMock()
+        ) as mock_dispatch:
+            payload = await executor.execute_once()
+
+        reloaded = load_campaign_manifest(manifest_path)
+        status_payload = executor.status()
+
+        assert mock_dispatch.await_count == 0
+        assert payload["stop_reason"] == CampaignStopReason.BUDGET_EXHAUSTED.value
+        assert payload["budget_blocked_projects"] == ["proj-001"]
+        assert payload["budget"]["available_budget_usd"] == 1.0
+        assert reloaded.projects[0].status in {
+            CampaignProjectStatus.PENDING.value,
+            CampaignProjectStatus.READY.value,
+        }
+        assert status_payload["stop_reason"] == CampaignStopReason.BUDGET_EXHAUSTED.value
+        assert status_payload["budget"]["available_budget_usd"] == 1.0
+        assert status_payload["projects"][0]["estimated_cost_usd"] == 2.0
 
     def test_reconcile_active_needs_human_run_blocks_and_emits_receipt(
         self, tmp_path: Path
@@ -787,6 +885,63 @@ class TestCampaignExecutor:
         reloaded = load_campaign_manifest(manifest_path)
         assert reloaded.projects[0].status == CampaignProjectStatus.ACTIVE.value
 
+    @pytest.mark.asyncio
+    async def test_execute_once_keeps_running_while_active_budget_is_reserved(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-budget-reserved",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            budget_limit_usd=1.0,
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="In-flight expensive task",
+                    spec=_bounded_spec("In-flight expensive task"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["tests pass"],
+                    constraints=["stay in scope"],
+                    status=CampaignProjectStatus.ACTIVE.value,
+                    run_id="run-expensive",
+                    estimated_cost_usd=0.75,
+                ),
+                CampaignProject(
+                    project_id="proj-002",
+                    title="Ready but unaffordable",
+                    spec=_bounded_spec("Ready but unaffordable", ["docs/CLI_REFERENCE.md"]),
+                    file_scope_hints=["docs/CLI_REFERENCE.md"],
+                    acceptance_criteria=["tests pass"],
+                    constraints=["stay in scope"],
+                    estimated_cost_usd=0.50,
+                ),
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        with (
+            patch.object(
+                executor,
+                "_refresh_run_dict",
+                return_value={"run_id": "run-expensive", "status": "running", "work_orders": []},
+            ),
+            patch("aragora.swarm.campaign.dispatch_bounded_spec", new=AsyncMock()) as mock_dispatch,
+        ):
+            payload = await executor.execute_once()
+
+        status_payload = executor.status()
+
+        assert mock_dispatch.await_count == 0
+        assert payload["stop_reason"] == CampaignStopReason.STILL_RUNNING.value
+        assert payload["budget_blocked_projects"] == ["proj-002"]
+        assert payload["budget"]["reserved_cost_usd"] == 0.75
+        assert payload["budget"]["available_budget_usd"] == 0.25
+        assert status_payload["budget"]["reserved_cost_usd"] == 0.75
+        assert status_payload["budget"]["available_budget_usd"] == 0.25
+
     def test_status_reports_invalid_manifest_truthfully(self, tmp_path: Path) -> None:
         manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -798,6 +953,41 @@ class TestCampaignExecutor:
         executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
         with pytest.raises(ValueError):
             executor.status()
+
+    def test_status_exposes_budget_accounting_and_review_state(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-budget-status",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            budget_limit_usd=3.0,
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Reviewed project",
+                    spec=_bounded_spec("Reviewed project"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_campaign.py"],
+                    constraints=["do not widen scope"],
+                    status=CampaignProjectStatus.DELIVERED.value,
+                    review=CampaignReviewGate(
+                        required=True,
+                        review_model="claude",
+                        status=CampaignReviewStatus.PENDING.value,
+                    ),
+                )
+            ],
+            execution_state=CampaignExecutionState(total_cost_usd=1.25),
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        status = executor.status()
+
+        assert status["budget_limit_usd"] == pytest.approx(3.0)
+        assert status["total_cost_usd"] == pytest.approx(1.25)
+        assert status["projects"][0]["review_status"] == CampaignReviewStatus.PENDING.value
 
 
 class TestComputeStopReason:

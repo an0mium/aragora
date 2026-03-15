@@ -185,6 +185,28 @@ class TestBuildPromptWithDiff:
         parsed_json = json.loads(prompt.split("\n")[-1])
         assert parsed_json["project_id"] == "phase0a-007"
 
+    def test_prompt_includes_budget_context(self) -> None:
+        project = _make_project()
+        run_dict = _make_run_dict()
+
+        prompt = CampaignReviewer._build_prompt(
+            project,
+            run_dict,
+            "claude",
+            budget_context={
+                "budget_limit_usd": 5.0,
+                "spent_cost_usd": 1.5,
+                "reserved_cost_usd": 0.5,
+                "available_budget_usd": 3.0,
+                "project_estimated_cost_usd": 1.0,
+            },
+        )
+
+        parsed_json = json.loads(prompt.split("\n")[-1])
+        assert parsed_json["budget"]["budget_limit_usd"] == 5.0
+        assert parsed_json["budget"]["available_budget_usd"] == 3.0
+        assert parsed_json["budget"]["project_estimated_cost_usd"] == 1.0
+
 
 class TestReviewerBillingErrorDetection:
     """Tests that billing/credit errors from the Claude CLI are surfaced clearly."""

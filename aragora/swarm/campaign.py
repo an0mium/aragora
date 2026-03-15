@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 UTC = timezone.utc
 DEFAULT_CAMPAIGN_MANIFEST = ".aragora/campaign_manifest.yaml"
+_BUDGET_EPSILON = 1e-9
 
 # Statuses that represent terminal project transitions (no further retries).
 # Receipt emission fires only for these statuses.
@@ -141,6 +142,7 @@ class CampaignExecutionState:
     failed_projects: list[str] = field(default_factory=list)
     skipped_projects: list[str] = field(default_factory=list)
     total_cost_usd: float = 0.0
+    reserved_cost_usd: float = 0.0
     last_run_at: str | None = None
     last_result: dict[str, Any] = field(default_factory=dict)
 
@@ -152,6 +154,7 @@ class CampaignExecutionState:
             "failed_projects": list(self.failed_projects),
             "skipped_projects": list(self.skipped_projects),
             "total_cost_usd": self.total_cost_usd,
+            "reserved_cost_usd": self.reserved_cost_usd,
             "last_run_at": self.last_run_at,
             "last_result": dict(self.last_result),
         }
@@ -174,6 +177,7 @@ class CampaignExecutionState:
                 str(item) for item in data.get("skipped_projects", []) if str(item).strip()
             ],
             total_cost_usd=float(data.get("total_cost_usd", 0.0) or 0.0),
+            reserved_cost_usd=float(data.get("reserved_cost_usd", 0.0) or 0.0),
             last_run_at=str(data.get("last_run_at", "")).strip() or None,
             last_result=dict(data.get("last_result") or {}),
         )
@@ -424,6 +428,52 @@ def _canonical_review_model(worker_model: str, requested: str | None = None) -> 
 def _complexity_cost(label: str) -> float:
     lowered = str(label or "").strip().lower()
     return {"low": 0.5, "medium": 1.0, "moderate": 1.0, "high": 2.0}.get(lowered, 1.0)
+
+
+def _project_estimated_cost(project: CampaignProject) -> float:
+    return max(0.0, float(project.estimated_cost_usd or 0.0))
+
+
+def _campaign_budget_snapshot(manifest: CampaignManifest) -> dict[str, float | bool]:
+    spent = max(0.0, float(manifest.execution_state.total_cost_usd or 0.0))
+    reserved = sum(
+        _project_estimated_cost(project)
+        for project in manifest.projects
+        if project.status == CampaignProjectStatus.ACTIVE.value
+    )
+    limit = max(0.0, float(manifest.budget_limit_usd or 0.0))
+    committed = spent + reserved
+    available = max(0.0, limit - committed)
+    return {
+        "budget_limit_usd": round(limit, 4),
+        "spent_cost_usd": round(spent, 4),
+        "reserved_cost_usd": round(reserved, 4),
+        "committed_cost_usd": round(committed, 4),
+        "available_budget_usd": round(available, 4),
+        "budget_exhausted": bool(available <= _BUDGET_EPSILON),
+    }
+
+
+def _dispatchable_projects(manifest: CampaignManifest) -> list[CampaignProject]:
+    completed = {
+        project.project_id
+        for project in manifest.projects
+        if project.status == CampaignProjectStatus.COMPLETED.value
+    }
+    candidates: list[CampaignProject] = []
+    for project in manifest.projects:
+        if project.status not in {
+            CampaignProjectStatus.PENDING.value,
+            CampaignProjectStatus.READY.value,
+            CampaignProjectStatus.NEEDS_REVISION.value,
+        }:
+            continue
+        if project.retry_count > manifest.max_retries_per_project:
+            continue
+        deps = {dep.project_id for dep in project.dependencies}
+        if deps.issubset(completed):
+            candidates.append(project)
+    return candidates
 
 
 def _success_criteria_to_list(success_criteria: dict[str, Any]) -> list[str]:
@@ -828,6 +878,7 @@ class CampaignReviewer:
         worker_model: str,
         review_model: str,
         run_dict: dict[str, Any],
+        budget_context: dict[str, Any] | None = None,
         repo_root: Path | None = None,
         target_branch: str = "main",
     ) -> CampaignReviewGate:
@@ -836,7 +887,11 @@ class CampaignReviewer:
             run_dict, repo_root=repo_root, target_branch=target_branch
         )
         prompt = self._build_prompt(
-            project, run_dict, chosen_review_model, diff_content=diff_content
+            project,
+            run_dict,
+            chosen_review_model,
+            diff_content=diff_content,
+            budget_context=budget_context,
         )
         try:
             agent = create_agent(chosen_review_model, name="campaign-review", role="critic")
@@ -900,6 +955,7 @@ class CampaignReviewer:
         review_model: str,
         *,
         diff_content: str | None = None,
+        budget_context: dict[str, Any] | None = None,
     ) -> str:
         deliverable = _extract_deliverable(run_dict)
         work_orders = run_dict.get("work_orders", [])
@@ -909,6 +965,9 @@ class CampaignReviewer:
             "title": project.title,
             "acceptance_criteria": project.acceptance_criteria,
             "file_scope_hints": project.file_scope_hints,
+            "budget": dict(
+                budget_context or {"project_estimated_cost_usd": project.estimated_cost_usd}
+            ),
             "deliverable": deliverable,
             "work_orders": work_orders,
         }
@@ -945,13 +1004,28 @@ class CampaignExecutor:
         with locked_manifest_path(self.manifest_path):
             manifest = load_campaign_manifest(self.manifest_path)
             self._reconcile_active_projects(manifest)
+            _refresh_execution_state(manifest)
             stop_reason = _compute_stop_reason(manifest)
             if stop_reason != CampaignStopReason.STILL_RUNNING.value:
+                budget_snapshot = _campaign_budget_snapshot(manifest)
+                blocked_projects: list[str] = []
+                if stop_reason == CampaignStopReason.BUDGET_EXHAUSTED.value:
+                    available_budget = float(budget_snapshot["available_budget_usd"])
+                    blocked_projects = [
+                        project.project_id
+                        for project in _dispatchable_projects(manifest)
+                        if _project_estimated_cost(project) > available_budget + _BUDGET_EPSILON
+                    ]
                 manifest.execution_state.last_run_at = _now_iso()
                 manifest.execution_state.last_result = {
                     "stop_reason": stop_reason,
                     "dispatched_projects": [],
+                    "budget": budget_snapshot,
                 }
+                if blocked_projects:
+                    manifest.execution_state.last_result["budget_blocked_projects"] = (
+                        blocked_projects
+                    )
                 _refresh_execution_state(manifest)
                 save_campaign_manifest(self.manifest_path, manifest)
                 return manifest.execution_state.last_result
@@ -965,7 +1039,23 @@ class CampaignExecutor:
                 ]
             )
             capacity = max(0, manifest.max_parallel_ready_projects - active_count)
-            selected_ids = [project.project_id for project in ready[:capacity]]
+            budget_snapshot = _campaign_budget_snapshot(manifest)
+            if capacity <= 0:
+                manifest.execution_state.last_result = {
+                    "stop_reason": CampaignStopReason.STILL_RUNNING.value,
+                    "dispatched_projects": [],
+                    "budget": budget_snapshot,
+                }
+                _refresh_execution_state(manifest)
+                save_campaign_manifest(self.manifest_path, manifest)
+                return manifest.execution_state.last_result
+
+            selected_projects, budget_blocked_ids = self._select_projects_for_dispatch(
+                manifest,
+                ready,
+                capacity=capacity,
+            )
+            selected_ids = [project.project_id for project in selected_projects]
             if not selected_ids and not ready:
                 # No ready projects: distinguish "waiting for in-flight" from "truly blocked"
                 if active_count > 0:
@@ -975,6 +1065,22 @@ class CampaignExecutor:
                 manifest.execution_state.last_result = {
                     "stop_reason": stop_reason,
                     "dispatched_projects": [],
+                    "budget": budget_snapshot,
+                }
+                _refresh_execution_state(manifest)
+                save_campaign_manifest(self.manifest_path, manifest)
+                return manifest.execution_state.last_result
+            if not selected_ids:
+                stop_reason = (
+                    CampaignStopReason.STILL_RUNNING.value
+                    if active_count > 0
+                    else CampaignStopReason.BUDGET_EXHAUSTED.value
+                )
+                manifest.execution_state.last_result = {
+                    "stop_reason": stop_reason,
+                    "dispatched_projects": [],
+                    "budget": budget_snapshot,
+                    "budget_blocked_projects": budget_blocked_ids,
                 }
                 _refresh_execution_state(manifest)
                 save_campaign_manifest(self.manifest_path, manifest)
@@ -987,6 +1093,7 @@ class CampaignExecutor:
             manifest.execution_state.last_result = {
                 "stop_reason": CampaignStopReason.STILL_RUNNING.value,
                 "dispatched_projects": list(selected_ids),
+                "budget": _campaign_budget_snapshot(manifest),
             }
             _refresh_execution_state(manifest)
             save_campaign_manifest(self.manifest_path, manifest)
@@ -1001,6 +1108,7 @@ class CampaignExecutor:
             manifest.execution_state.last_result = {
                 "stop_reason": _compute_stop_reason(manifest),
                 "dispatched_projects": dispatched,
+                "budget": _campaign_budget_snapshot(manifest),
             }
             _refresh_execution_state(manifest)
             save_campaign_manifest(self.manifest_path, manifest)
@@ -1023,11 +1131,13 @@ class CampaignExecutor:
             run_dict = self._refresh_run_dict(project.run_id)
             if not run_dict:
                 raise ValueError(f"Project {project_id} run {project.run_id} is not available.")
+            budget_context = self._review_budget_context(manifest, project)
         gate = await self.reviewer.review(
             project=project,
             worker_model=manifest.worker_model,
             review_model=manifest.review_model,
             run_dict=run_dict,
+            budget_context=budget_context,
             repo_root=self.repo_root,
             target_branch=self.target_branch,
         )
@@ -1065,6 +1175,37 @@ class CampaignExecutor:
                 "source_kind": manifest.source_kind,
                 "items": items,
             }
+
+    @staticmethod
+    def _select_projects_for_dispatch(
+        manifest: CampaignManifest,
+        ready_projects: list[CampaignProject],
+        *,
+        capacity: int,
+    ) -> tuple[list[CampaignProject], list[str]]:
+        available_budget = float(_campaign_budget_snapshot(manifest)["available_budget_usd"])
+        selected: list[CampaignProject] = []
+        blocked_ids: list[str] = []
+        for project in ready_projects:
+            if len(selected) >= capacity:
+                break
+            project_cost = _project_estimated_cost(project)
+            if project_cost <= available_budget + _BUDGET_EPSILON:
+                selected.append(project)
+                available_budget = max(0.0, available_budget - project_cost)
+            else:
+                blocked_ids.append(project.project_id)
+        return selected, blocked_ids
+
+    @staticmethod
+    def _review_budget_context(
+        manifest: CampaignManifest,
+        project: CampaignProject,
+    ) -> dict[str, Any]:
+        return {
+            **_campaign_budget_snapshot(manifest),
+            "project_estimated_cost_usd": round(_project_estimated_cost(project), 4),
+        }
 
     async def _execute_project_id(self, project_id: str) -> dict[str, Any]:
         with locked_manifest_path(self.manifest_path):
@@ -1104,11 +1245,13 @@ class CampaignExecutor:
                 project = manifest.project_map()[project_id]
                 worker_model = manifest.worker_model
                 review_model = manifest.review_model
+                budget_context = self._review_budget_context(manifest, project)
             gate = await self.reviewer.review(
                 project=project,
                 worker_model=worker_model,
                 review_model=review_model,
                 run_dict=dict(result["run"]),
+                budget_context=budget_context,
                 repo_root=self.repo_root,
                 target_branch=self.target_branch,
             )
@@ -1193,6 +1336,7 @@ class CampaignExecutor:
             run_dict=run_dict,
             outcome=outcome,
             blockers=run_blockers,
+            budget_snapshot=self._review_budget_context(manifest, project),
             requeue_eligible=self._run_requeue_eligible(run_dict, outcome)
             and self._project_recovery_eligible(manifest, project),
         )
@@ -1295,6 +1439,7 @@ class CampaignExecutor:
         run_dict: dict[str, Any],
         outcome: str,
         blockers: list[str],
+        budget_snapshot: dict[str, Any] | None,
         requeue_eligible: bool,
     ) -> None:
         record = {
@@ -1309,6 +1454,11 @@ class CampaignExecutor:
             "review_status": project.review.status,
             "requeue_eligible": requeue_eligible,
         }
+        if budget_snapshot:
+            record["budget_limit_usd"] = budget_snapshot.get("budget_limit_usd")
+            record["budget_spent_usd"] = budget_snapshot.get("spent_cost_usd")
+            record["budget_reserved_usd"] = budget_snapshot.get("reserved_cost_usd")
+            record["budget_available_usd"] = budget_snapshot.get("available_budget_usd")
         if blockers:
             record["blockers"] = list(blockers[:10])
             record["failure_detail"] = blockers[0]
@@ -1437,6 +1587,7 @@ class CampaignExecutor:
                 "rescue_required": False,
                 "rescue_description": None,
                 "cost_usd": project.estimated_cost_usd,
+                "budget": self._review_budget_context(manifest, project),
                 "duration_seconds": _duration_seconds_from_run(run_dict),
                 "created_at": datetime.now(UTC).isoformat(),
             }
@@ -1521,12 +1672,16 @@ def _refresh_execution_state(manifest: CampaignManifest) -> None:
         for project in manifest.projects
         if project.status == CampaignProjectStatus.SKIPPED.value
     ]
+    manifest.execution_state.reserved_cost_usd = float(
+        _campaign_budget_snapshot(manifest)["reserved_cost_usd"]
+    )
 
 
 def _manifest_summary(manifest: CampaignManifest) -> dict[str, Any]:
     counts: dict[str, int] = {}
     for project in manifest.projects:
         counts[project.status] = counts.get(project.status, 0) + 1
+    budget = _campaign_budget_snapshot(manifest)
     return {
         "mode": "campaign-status",
         "campaign_id": manifest.campaign_id,
@@ -1537,6 +1692,9 @@ def _manifest_summary(manifest: CampaignManifest) -> dict[str, Any]:
         "review_model": manifest.review_model,
         "budget_limit_usd": manifest.budget_limit_usd,
         "total_cost_usd": manifest.execution_state.total_cost_usd,
+        "reserved_cost_usd": manifest.execution_state.reserved_cost_usd,
+        "budget_available_usd": budget["available_budget_usd"],
+        "budget": budget,
         "counts": counts,
         "stop_reason": _compute_stop_reason(manifest),
         "projects": [
@@ -1544,6 +1702,7 @@ def _manifest_summary(manifest: CampaignManifest) -> dict[str, Any]:
                 "project_id": project.project_id,
                 "title": project.title,
                 "status": project.status,
+                "estimated_cost_usd": project.estimated_cost_usd,
                 "retry_count": project.retry_count,
                 "run_id": project.run_id,
                 "last_run_outcome": project.last_run_outcome,
@@ -1583,14 +1742,13 @@ def _project_recovery_eligible(manifest: CampaignManifest, project: CampaignProj
 
 
 def _compute_stop_reason(manifest: CampaignManifest) -> str:
-    if manifest.execution_state.total_cost_usd >= manifest.budget_limit_usd:
-        return CampaignStopReason.BUDGET_EXHAUSTED.value
-    started_at = _parse_dt(manifest.execution_state.last_run_at)
-    if started_at and manifest.time_limit_hours > 0:
-        elapsed_hours = (datetime.now(UTC) - started_at).total_seconds() / 3600.0
-        if elapsed_hours >= manifest.time_limit_hours:
-            return CampaignStopReason.TIME_LIMIT_EXCEEDED.value
     statuses = {project.status for project in manifest.projects}
+    active_statuses = {
+        CampaignProjectStatus.ACTIVE.value,
+        CampaignProjectStatus.DELIVERED.value,
+    }
+    active_present = bool(statuses & active_statuses)
+
     if statuses and statuses.issubset(
         {
             CampaignProjectStatus.COMPLETED.value,
@@ -1605,14 +1763,36 @@ def _compute_stop_reason(manifest: CampaignManifest) -> str:
     }
     if statuses and statuses.issubset(blocked_like | {CampaignProjectStatus.COMPLETED.value}):
         return CampaignStopReason.CAMPAIGN_BLOCKED.value
+
+    budget = _campaign_budget_snapshot(manifest)
+    dispatchable = _dispatchable_projects(manifest)
+    if (
+        dispatchable
+        and not active_present
+        and not any(
+            _project_estimated_cost(project)
+            <= float(budget["available_budget_usd"]) + _BUDGET_EPSILON
+            for project in dispatchable
+        )
+    ):
+        return CampaignStopReason.BUDGET_EXHAUSTED.value
+    if (
+        dispatchable
+        and not active_present
+        and float(budget["available_budget_usd"]) <= _BUDGET_EPSILON
+    ):
+        return CampaignStopReason.BUDGET_EXHAUSTED.value
+
+    started_at = _parse_dt(manifest.execution_state.last_run_at)
+    if started_at and manifest.time_limit_hours > 0:
+        elapsed_hours = (datetime.now(UTC) - started_at).total_seconds() / 3600.0
+        if elapsed_hours >= manifest.time_limit_hours:
+            return CampaignStopReason.TIME_LIMIT_EXCEEDED.value
+
     # Check for unreachable pending projects: if every non-terminal project
     # has at least one dependency in a terminal-but-not-completed state, the
     # campaign is effectively blocked even though raw statuses include pending.
     terminal_not_completed = blocked_like
-    active_statuses = {
-        CampaignProjectStatus.ACTIVE.value,
-        CampaignProjectStatus.DELIVERED.value,
-    }
     if not statuses & active_statuses:
         project_status_map = {p.project_id: p.status for p in manifest.projects}
         reachable = [

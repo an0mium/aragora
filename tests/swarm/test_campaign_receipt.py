@@ -414,6 +414,24 @@ class TestApplyReviewResultEmitsReceipt:
         assert "review_verdict: passed" in content
         assert "final_status: completed" in content
 
+    def test_completed_review_receipt_includes_budget_accounting_and_truth_suite_placeholder(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / "manifest.yaml"
+        manifest_path.write_text("campaign_id: phase0a-test\n")
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        project = _make_project(status="delivered", estimated_cost_usd=3.5)
+        manifest = _make_manifest(projects=[project])
+        gate = CampaignReviewGate(status=CampaignReviewStatus.PASSED.value)
+
+        executor._apply_review_result(manifest, project, gate)
+
+        receipt_path = tmp_path / "docs" / "receipts" / "phase0a-test" / "test-001.yaml"
+        content = receipt_path.read_text()
+        assert "cost_usd: 3.5" in content
+        assert "truth_suite: null" in content
+
     def test_no_receipt_on_changes_requested(self, tmp_path: Path) -> None:
         manifest_path = tmp_path / "manifest.yaml"
         manifest_path.write_text("campaign_id: phase0a-test\n")

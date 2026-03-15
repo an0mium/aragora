@@ -33,6 +33,7 @@ import json
 import logging
 import secrets
 import subprocess
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -217,6 +218,10 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
 
         # Budget tracking (simple float counter, legacy)
         self._budget_spent_usd: float = 0.0
+        self._budget_reserved_usd: float = 0.0
+        self._budget_reservations: dict[str, float] = {}
+        self._budget_lock = threading.Lock()
+        self.budget_limit = budget_limit_usd
 
         # BudgetManager integration (persistent, org-aware)
         self._budget_manager: Any | None = None
@@ -412,7 +417,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
         if self.hardened_config.enable_prompt_defense:
             self._scan_for_injection(goal, context)
 
-        self._budget_spent_usd = 0.0
+        self._reset_budget_tracking()
         self._spectate_events.clear()
         self._receipts.clear()
 
@@ -798,7 +803,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             )
 
         # Reset budget tracking for this run
-        self._budget_spent_usd = 0.0
+        self._reset_budget_tracking()
         self._spectate_events.clear()
         self._receipts.clear()
 
@@ -2324,39 +2329,43 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
         if not self._check_budget_allows(assignment):
             return
 
-        # J. Circuit breaker check (per agent type)
-        if not self._check_agent_circuit_breaker(assignment.agent_type):
-            self._skip_assignment(assignment, "circuit_breaker_open")
-            return
+        try:
+            # J. Circuit breaker check (per agent type)
+            if not self._check_agent_circuit_breaker(assignment.agent_type):
+                self._skip_assignment(assignment, "circuit_breaker_open")
+                return
 
-        # I. Rate limiting
-        await self._enforce_rate_limit()
+            # I. Rate limiting
+            await self._enforce_rate_limit()
 
-        # A. Worktree isolation path
-        if self.hardened_config.use_worktree_isolation:
-            await self._execute_in_worktree(assignment, max_cycles)
+            # A. Worktree isolation path
+            if self.hardened_config.use_worktree_isolation:
+                await self._execute_in_worktree(assignment, max_cycles)
+                # Record agent outcome for circuit breaker
+                self._record_agent_outcome(
+                    assignment.agent_type,
+                    assignment.status == "completed",
+                )
+                return
+
+            # Non-worktree path: delegate to parent
+            await super()._execute_single_assignment(assignment, max_cycles)
+
             # Record agent outcome for circuit breaker
             self._record_agent_outcome(
                 assignment.agent_type,
                 assignment.status == "completed",
             )
-            return
 
-        # Non-worktree path: delegate to parent
-        await super()._execute_single_assignment(assignment, max_cycles)
+            # Record budget spend (cost incurred regardless of gauntlet outcome)
+            self._record_budget_spend(assignment)
 
-        # Record agent outcome for circuit breaker
-        self._record_agent_outcome(
-            assignment.agent_type,
-            assignment.status == "completed",
-        )
-
-        # Record budget spend (cost incurred regardless of gauntlet outcome)
-        self._record_budget_spend(assignment)
-
-        # C. Post-execution gauntlet validation
-        if self.hardened_config.enable_gauntlet_validation and assignment.status == "completed":
-            await self._run_gauntlet_validation(assignment)
+            # C. Post-execution gauntlet validation
+            if self.hardened_config.enable_gauntlet_validation and assignment.status == "completed":
+                await self._run_gauntlet_validation(assignment)
+        except Exception:
+            self._cancel_budget_reservation(assignment, reason="assignment_aborted")
+            raise
 
     async def _execute_in_worktree(
         self,
@@ -2366,6 +2375,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
         """Execute an assignment inside an isolated worktree."""
         manager = self._get_worktree_manager()
         ctx = None
+        budget_recorded = False
 
         try:
             # Create worktree
@@ -2398,6 +2408,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
 
             # Record budget spend (cost incurred regardless of merge outcome)
             self._record_budget_spend(assignment)
+            budget_recorded = True
 
             # Run gauntlet on completed work (with optional retry)
             if self.hardened_config.enable_gauntlet_validation and assignment.status == "completed":
@@ -2576,6 +2587,11 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             assignment.result = {"error": f"Worktree execution failed: {type(e).__name__}"}
 
         finally:
+            if not budget_recorded:
+                self._cancel_budget_reservation(
+                    assignment,
+                    reason="worktree_execution_failed",
+                )
             # Always clean up the worktree
             if ctx is not None:
                 try:

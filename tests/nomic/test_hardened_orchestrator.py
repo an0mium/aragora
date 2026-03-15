@@ -517,6 +517,21 @@ class TestBudgetEnforcement:
         assert assignment.result == {"reason": "budget_exceeded"}
 
     @pytest.mark.asyncio
+    async def test_projected_over_budget_skips_assignment_before_execution(self):
+        """Projected spend should halt execution before crossing the configured cap."""
+        orch = HardenedOrchestrator(budget_limit_usd=1.0)
+        orch._budget_spent_usd = 0.95
+
+        assignment = _make_assignment()
+        orch._active_assignments.append(assignment)
+
+        allowed = orch._check_budget_allows(assignment)
+
+        assert allowed is False
+        assert assignment.status == "skipped"
+        assert assignment.result == {"reason": "budget_exceeded"}
+
+    @pytest.mark.asyncio
     async def test_under_budget_proceeds(self):
         """Assignment proceeds when under budget."""
         orch = HardenedOrchestrator(
@@ -542,6 +557,39 @@ class TestBudgetEnforcement:
             await orch._execute_single_assignment(assignment, max_cycles=3)
 
             mock_parent.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_projected_over_budget_skips_assignment(self):
+        """Assignment is skipped before projected spend would cross the cap."""
+        orch = HardenedOrchestrator(budget_limit_usd=1.0)
+        orch._budget_spent_usd = 0.95
+        orch._total_cost_usd = 0.95
+
+        assignment = _make_assignment()
+        orch._active_assignments.append(assignment)
+
+        result = orch._check_budget_allows(assignment)
+
+        assert result is False
+        assert assignment.status == "skipped"
+        assert assignment.result == {"reason": "budget_exceeded"}
+
+    @pytest.mark.asyncio
+    async def test_inflight_budget_reservation_blocks_second_assignment(self):
+        """A reserved in-flight budget slice prevents parallel overrun."""
+        orch = HardenedOrchestrator(budget_limit_usd=0.15)
+        first = _make_assignment(subtask=_make_subtask(id="first"))
+        second = _make_assignment(subtask=_make_subtask(id="second"))
+        orch._active_assignments.extend([first, second])
+
+        assert orch._check_budget_allows(first) is True
+        assert orch._budget_reserved_usd == pytest.approx(0.10)
+
+        result = orch._check_budget_allows(second)
+
+        assert result is False
+        assert second.status == "skipped"
+        assert second.result == {"reason": "budget_exceeded"}
 
     @pytest.mark.asyncio
     async def test_no_budget_limit_proceeds(self):
@@ -752,6 +800,20 @@ class TestBudgetManagerIntegration:
 
         orch._record_budget_spend(assignment, amount_usd=0.75)
         assert orch._budget_spent_usd == 1.00
+
+    def test_record_budget_spend_emits_budget_update_event(self):
+        """Budget accounting remains visible through spectate events."""
+        orch = HardenedOrchestrator(budget_limit_usd=2.0)
+        assignment = _make_assignment()
+
+        orch._record_budget_spend(assignment, amount_usd=0.25)
+
+        event = orch._spectate_events[-1]
+        assert event["type"] == "budget_update"
+        assert event["subtask"] == assignment.subtask.id
+        assert event["cost"] == 0.25
+        assert event["total_spent"] == 0.25
+        assert event["limit"] == 2.0
 
     @pytest.mark.asyncio
     async def test_budget_spend_recorded_after_execution(self):
