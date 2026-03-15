@@ -714,10 +714,12 @@ async def test_dispatch_workers_trips_and_skips_worker_type_circuit_breaker(
         ],
         status="active",
         metadata={
+            "max_concurrency": 3,
+            "managed_dir_pattern": ".worktrees/custom-{agent}",
             WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY: {
                 "failure_threshold": 2,
                 "reset_timeout_seconds": 300.0,
-            }
+            },
         },
     )
 
@@ -738,6 +740,8 @@ async def test_dispatch_workers_trips_and_skips_worker_type_circuit_breaker(
 
     updated = store.get_supervisor_run(run_record["run_id"])
     assert updated is not None
+    assert updated["metadata"]["max_concurrency"] == 3
+    assert updated["metadata"]["managed_dir_pattern"] == ".worktrees/custom-{agent}"
     breaker = updated["metadata"][WORKER_TYPE_CIRCUIT_BREAKERS_KEY]["claude"]
     assert breaker["status"] == "open"
     assert breaker["failure_count"] == 2
@@ -809,7 +813,11 @@ async def test_collect_finished_results_requeues_capacity_failure_to_fallback_ag
         launcher=mock_launcher,
         decomposer=decomposer,
     )
-    run = supervisor.start_run(spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"))
+    run = supervisor.start_run(
+        spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"),
+        max_concurrency=4,
+        managed_dir_pattern=".worktrees/phase0b-{agent}",
+    )
     run.work_orders[0]["status"] = "dispatched"
     run.work_orders[0]["target_agent"] = "claude"
     run.work_orders[0]["reviewer_agent"] = "codex"
@@ -821,6 +829,8 @@ async def test_collect_finished_results_requeues_capacity_failure_to_fallback_ag
     assert len(completed) == 1
     refreshed = store.get_supervisor_run(run.run_id)
     assert refreshed is not None
+    assert refreshed["metadata"]["max_concurrency"] == 4
+    assert refreshed["metadata"]["managed_dir_pattern"] == ".worktrees/phase0b-{agent}"
     work_order = refreshed["work_orders"][0]
     assert work_order["status"] == "leased"
     assert work_order["target_agent"] == "codex"
@@ -834,6 +844,53 @@ async def test_collect_finished_results_requeues_capacity_failure_to_fallback_ag
     assert breaker["last_failure_reason"] == "agent_capacity"
     assert breaker["last_failure_detail"] == "Credit balance is too low"
     assert store.status_summary()["counts"]["active_leases"] == 1
+
+
+def test_reset_worker_type_circuit_breaker_preserves_run_metadata(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="reset breaker metadata",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "reset breaker metadata"},
+        work_orders=[],
+        status="active",
+        metadata={
+            "max_concurrency": 5,
+            "managed_dir_pattern": ".worktrees/preserve-{agent}",
+            WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY: {
+                "failure_threshold": 2,
+                "reset_timeout_seconds": 300.0,
+            },
+            WORKER_TYPE_CIRCUIT_BREAKERS_KEY: {
+                "claude": {
+                    "status": "open",
+                    "failure_count": 2,
+                    "failure_threshold": 2,
+                    "reset_timeout_seconds": 300.0,
+                    "opened_at": datetime.now(timezone.utc).isoformat(),
+                    "blocked_until": (
+                        datetime.now(timezone.utc) + timedelta(minutes=5)
+                    ).isoformat(),
+                    "last_failure_reason": "agent_unavailable",
+                    "last_failure_detail": "CLI not found",
+                }
+            },
+        },
+    )
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+
+    updated = supervisor.reset_worker_type_circuit_breaker(run_record["run_id"], "claude")
+
+    assert updated.metadata["max_concurrency"] == 5
+    assert updated.metadata["managed_dir_pattern"] == ".worktrees/preserve-{agent}"
+    breaker = updated.metadata[WORKER_TYPE_CIRCUIT_BREAKERS_KEY]["claude"]
+    assert breaker["status"] == "closed"
+    assert breaker["failure_count"] == 0
+    assert breaker["last_reset_at"]
 
 
 @pytest.mark.asyncio

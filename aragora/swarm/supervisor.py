@@ -1295,7 +1295,9 @@ class SwarmSupervisor:
                 continue
             entry = self._default_worker_type_circuit_breaker(policy)
             payload = dict(raw_entry or {})
-            entry["status"] = str(payload.get("status", entry["status"])).strip().lower() or "closed"
+            entry["status"] = (
+                str(payload.get("status", entry["status"])).strip().lower() or "closed"
+            )
             if entry["status"] not in {"open", "closed"}:
                 entry["status"] = "closed"
             try:
@@ -1306,15 +1308,11 @@ class SwarmSupervisor:
                 entry["trip_count"] = max(0, int(payload.get("trip_count", 0) or 0))
             except (TypeError, ValueError):
                 entry["trip_count"] = 0
-            entry["last_failure_reason"] = (
-                str(payload.get("last_failure_reason", "")).strip()
-            )
-            entry["last_failure_detail"] = (
-                str(payload.get("last_failure_detail", "")).strip()[:1000]
-            )
-            entry["last_failure_at"] = self._normalized_timestamp(
-                payload.get("last_failure_at")
-            )
+            entry["last_failure_reason"] = str(payload.get("last_failure_reason", "")).strip()
+            entry["last_failure_detail"] = str(payload.get("last_failure_detail", "")).strip()[
+                :1000
+            ]
+            entry["last_failure_at"] = self._normalized_timestamp(payload.get("last_failure_at"))
             entry["opened_at"] = self._normalized_timestamp(payload.get("opened_at"))
             blocked_until = self._normalized_timestamp(payload.get("blocked_until"))
             if entry["status"] == "open" and not blocked_until and entry["opened_at"]:
@@ -1336,10 +1334,10 @@ class SwarmSupervisor:
     ) -> dict[str, Any]:
         policy = self._worker_type_circuit_breaker_policy(metadata)
         normalized_breakers = {
-            worker_type: dict(entry)
-            for worker_type, entry in sorted(circuit_breakers.items())
+            worker_type: dict(entry) for worker_type, entry in sorted(circuit_breakers.items())
         }
         return {
+            **dict(metadata),
             WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY: policy,
             WORKER_TYPE_CIRCUIT_BREAKERS_KEY: normalized_breakers,
         }
@@ -1422,7 +1420,9 @@ class SwarmSupervisor:
         was_open = str(entry.get("status", "")).strip().lower() == "open"
         failure_count = threshold if open_immediately else int(entry.get("failure_count", 0)) + 1
 
-        entry["failure_count"] = max(failure_count, threshold if open_immediately else failure_count)
+        entry["failure_count"] = max(
+            failure_count, threshold if open_immediately else failure_count
+        )
         entry["last_failure_at"] = now.isoformat()
         entry["last_failure_reason"] = str(reason).strip()
         entry["last_failure_detail"] = str(detail).strip()[:1000]
