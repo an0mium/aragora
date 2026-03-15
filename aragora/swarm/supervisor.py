@@ -1032,7 +1032,10 @@ class SwarmSupervisor:
 
         if has_deliverable:
             return "deliverable_created", blockers
-        if any(outcome.startswith("timeout") for outcome in worker_outcomes) or "timed_out" in statuses:
+        if (
+            any(outcome.startswith("timeout") for outcome in worker_outcomes)
+            or "timed_out" in statuses
+        ):
             return "timeout", blockers
         if any(outcome.startswith("crash") for outcome in worker_outcomes) or "failed" in statuses:
             return "crash", blockers

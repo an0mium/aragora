@@ -324,7 +324,9 @@ class TestCampaignExecutor:
             payload = await executor.execute_once()
 
         retry_spec = dispatch.await_args.args[0]
-        assert "Address prior review finding: Preserve ticket auditability." in retry_spec.constraints
+        assert (
+            "Address prior review finding: Preserve ticket auditability." in retry_spec.constraints
+        )
         assert payload["dispatched_projects"][0]["project_id"] == "proj-001"
 
     @pytest.mark.asyncio
@@ -725,7 +727,9 @@ class TestCampaignExecutor:
         assert reloaded.worker_receipt_id == "worker-receipt-2"
         assert len(reloaded.attempt_history) == 2
         assert reloaded.attempt_history[0]["outcome"] == CampaignRunOutcome.TIMEOUT.value
-        assert reloaded.attempt_history[1]["outcome"] == CampaignRunOutcome.DELIVERABLE_CREATED.value
+        assert (
+            reloaded.attempt_history[1]["outcome"] == CampaignRunOutcome.DELIVERABLE_CREATED.value
+        )
 
     @pytest.mark.asyncio
     async def test_execute_once_returns_still_running_when_active_projects_exist(

@@ -863,7 +863,9 @@ async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
         },
     )
 
-    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=MagicMock(spec=WorkerLauncher))
+    supervisor = SwarmSupervisor(
+        repo_root=repo, store=store, launcher=MagicMock(spec=WorkerLauncher)
+    )
 
     launched = await supervisor.dispatch_workers(run_record["run_id"])
 
