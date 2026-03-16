@@ -118,28 +118,34 @@ projects:
       - docs/plans/2026-03-10-bootstrap-plan.md
     spec:
       raw_goal: >
-        Detect campaign deadlocks where work can no longer make forward progress
-        because dependencies, reconciliation state, or terminal transitions have
-        stalled. Scope includes reconciler and campaign readiness logic.
+        Introduce the smallest production change needed to classify and surface
+        an explicit campaign deadlock/stall state for active runs that stop
+        making forward progress.
       refined_goal: >
-        Add deadlock detection and surfacing across reconciler and campaign
-        scheduling logic.
+        Add a minimal production deadlock/stall classification in campaign and
+        reconciler control flow, with a surfaced outcome/state that is distinct
+        from dependency-blocked topology-blocked waiting states and from
+        `needs_human` escalation.
       acceptance_criteria:
-        - "Deadlocked campaign or reconciliation states are detected explicitly"
-        - "Deadlock detection surfaces actionable status instead of indefinite waiting"
-        - "Campaign state distinguishes deadlock from normal queued or blocked work"
-        - "Behavior is covered by automated tests for stalled dependency and reconciliation scenarios"
+        - "Deadlock/stall is explicitly detected when an active run has stopped making forward progress"
+        - "Deadlock/stall outcome/state is explicitly distinct from dependency-blocked and topology-blocked campaign states"
+        - "Deadlock/stall outcome/state is explicitly distinct from bare `needs_human` escalation"
+        - "Deadlock/stall classification and surfacing are tested in representative stalled progress and reconciler scenarios"
+        - "Tests are required, but are insufficient without at least one production-code change that emits an explicit deadlock/stall campaign outcome/state"
       constraints:
         - "Merge gate always enabled"
         - "Human approval required for every merge"
         - "Cost and budget caps enforced"
         - "Truth-suite lane required for merge eligibility"
     file_scope_hints:
-      - aragora/swarm/reconciler.py
       - aragora/swarm/campaign.py
+      - aragora/swarm/reconciler.py
+      - aragora/swarm/supervisor.py
+      - tests/swarm/test_campaign.py
+      - tests/swarm/test_waiting_conflict_deadlock.py
     acceptance_criteria:
-      - "Deadlocks are detected and surfaced to campaign control flow"
-      - "Tests cover representative stalled-state scenarios"
+      - "Deadlock/stall is emitted as a distinct campaign outcome/state for active runs that are no longer advancing"
+      - "Tests cover representative stalled-state scenarios; tests-only artifacts do not satisfy completion without production-state wiring changes"
     estimated_cost_usd: 4.00
     status: pending
 
