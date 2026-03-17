@@ -1039,6 +1039,10 @@ class SwarmSupervisor:
 
         if has_deliverable:
             return "deliverable_created", blockers
+        if "scope_violation" in worker_outcomes or "scope_violation" in statuses:
+            return "blocked", blockers
+        if any(outcome.startswith("crash") for outcome in worker_outcomes):
+            return "crash", blockers
         if stalled_no_progress or stalled_dead_end:
             return "stalled", blockers
         if (
@@ -1046,10 +1050,8 @@ class SwarmSupervisor:
             or "timed_out" in statuses
         ):
             return "timeout", blockers
-        if any(outcome.startswith("crash") for outcome in worker_outcomes) or "failed" in statuses:
+        if "failed" in statuses:
             return "crash", blockers
-        if "scope_violation" in worker_outcomes or "scope_violation" in statuses:
-            return "blocked", blockers
         if "clean_exit_no_effect" in worker_outcomes:
             return "clean_exit_no_deliverable", blockers
         if "needs_human" in statuses:

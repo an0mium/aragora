@@ -119,6 +119,26 @@ class TestDeriveStatusDeadlock:
         assert outcome == "stalled"
         assert blockers == []
 
+    def test_scope_violation_takes_precedence_over_stalled(self) -> None:
+        work_orders = [
+            {"status": "waiting_conflict"},
+            {"status": "scope_violation"},
+        ]
+        outcome, blockers = SwarmSupervisor._campaign_outcome_for_work_orders(work_orders)
+
+        assert outcome == "blocked"
+        assert blockers == []
+
+    def test_crash_worker_outcome_takes_precedence_over_stalled(self) -> None:
+        work_orders = [
+            {"status": "waiting_conflict"},
+            {"status": "failed", "worker_outcome": "crash"},
+        ]
+        outcome, blockers = SwarmSupervisor._campaign_outcome_for_work_orders(work_orders)
+
+        assert outcome == "crash"
+        assert blockers == []
+
 
 class TestReconcilerStopForensic873:
     """Verify the reconciler stops for the exact #873 failure shape."""
