@@ -169,3 +169,85 @@ def test_should_not_stop_when_dispatched_work_remains() -> None:
     run = _run("active", ["waiting_conflict", "dispatched"])
 
     assert SwarmReconciler._should_stop(run) is False
+
+
+@pytest.mark.asyncio
+async def test_watch_run_force_collects_on_max_ticks_exhaustion() -> None:
+    """When max_ticks is exhausted with dispatched work orders still active,
+    watch_run must force-kill workers and attempt salvage collection."""
+    dispatched = _run("active", ["dispatched", "dispatched"])
+
+    supervisor = MagicMock()
+    supervisor.store.get_supervisor_run.return_value = dispatched.to_dict()
+    supervisor._kill_worker = AsyncMock()
+    supervisor.collect_finished_results = AsyncMock(return_value=[])
+    supervisor.refresh_run.return_value = _run("needs_human", ["needs_human", "needs_human"])
+
+    reconciler = SwarmReconciler(supervisor=supervisor)
+    # tick_run returns dispatched every time, never reaching _should_stop
+    reconciler.tick_run = AsyncMock(return_value=dispatched)
+
+    result = await reconciler.watch_run("run-123", interval_seconds=0.01, max_ticks=2)
+
+    # Force collection should have been triggered
+    assert supervisor._kill_worker.await_count == 2
+    supervisor.collect_finished_results.assert_awaited_with("run-123")
+
+
+@pytest.mark.asyncio
+async def test_watch_run_skips_force_collect_when_naturally_stopped() -> None:
+    """When watch_run exits because _should_stop returned True,
+    force collection should NOT be triggered."""
+    completed = _run("completed", ["merged"])
+
+    supervisor = MagicMock()
+    reconciler = SwarmReconciler(supervisor=supervisor)
+    reconciler.tick_run = AsyncMock(return_value=completed)
+
+    result = await reconciler.watch_run("run-123", interval_seconds=0.01, max_ticks=10)
+
+    assert result.status == "completed"
+    # No force collection — _kill_worker should not be called
+    supervisor._kill_worker.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_force_collect_dispatched_kills_and_collects() -> None:
+    """_force_collect_dispatched should kill all dispatched workers and
+    call collect_finished_results for salvage."""
+    run_dict = _run("active", ["dispatched", "completed", "dispatched"]).to_dict()
+
+    supervisor = MagicMock()
+    supervisor.store.get_supervisor_run.return_value = run_dict
+    supervisor._kill_worker = AsyncMock()
+    supervisor.collect_finished_results = AsyncMock(return_value=[])
+    supervisor.refresh_run.return_value = _run("needs_human", ["needs_human"])
+
+    # After force collect, return updated state
+    final_dict = _run("needs_human", ["needs_human", "completed", "needs_human"]).to_dict()
+    supervisor.store.get_supervisor_run.side_effect = [run_dict, final_dict]
+
+    reconciler = SwarmReconciler(supervisor=supervisor)
+    result = await reconciler._force_collect_dispatched("run-123")
+
+    # Should kill only the 2 dispatched work orders
+    assert supervisor._kill_worker.await_count == 2
+    supervisor.collect_finished_results.assert_awaited_once_with("run-123")
+    assert result.status == "needs_human"
+
+
+@pytest.mark.asyncio
+async def test_force_collect_dispatched_noop_when_none_dispatched() -> None:
+    """_force_collect_dispatched should return early if no work orders are dispatched."""
+    run_dict = _run("active", ["completed", "merged"]).to_dict()
+
+    supervisor = MagicMock()
+    supervisor.store.get_supervisor_run.return_value = run_dict
+    supervisor._kill_worker = AsyncMock()
+    supervisor.collect_finished_results = AsyncMock(return_value=[])
+
+    reconciler = SwarmReconciler(supervisor=supervisor)
+    result = await reconciler._force_collect_dispatched("run-123")
+
+    supervisor._kill_worker.assert_not_awaited()
+    supervisor.collect_finished_results.assert_not_awaited()

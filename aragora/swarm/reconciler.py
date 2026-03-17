@@ -8,10 +8,13 @@ pending coordination artifacts into the global work queue.
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
 from aragora.swarm.supervisor import SupervisorRun, SwarmSupervisor
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -81,13 +84,55 @@ class SwarmReconciler:
         tick_limit = self.config.max_ticks if max_ticks is None else max_ticks
         ticks = 0
         run = await self.tick_run(run_id)
+        exhausted_ticks = False
         while not self._should_stop(run):
             ticks += 1
             if tick_limit is not None and ticks >= tick_limit:
+                exhausted_ticks = True
                 break
             await asyncio.sleep(interval)
             run = await self.tick_run(run_id)
+
+        if exhausted_ticks and not self._should_stop(run):
+            run = await self._force_collect_dispatched(run_id)
+
         return run
+
+    async def _force_collect_dispatched(self, run_id: str) -> SupervisorRun:
+        """Force-collect all dispatched work orders after max_ticks exhaustion.
+
+        Kills still-running workers and triggers salvage auto-commit on any
+        dirty worktrees so that code written by workers is not silently lost.
+        """
+        record = self.supervisor.store.get_supervisor_run(run_id)
+        if record is None:
+            raise KeyError(f"Unknown supervisor run: {run_id}")
+
+        work_orders = [dict(item) for item in record.get("work_orders", [])]
+        dispatched = [item for item in work_orders if str(item.get("status", "")) == "dispatched"]
+        if not dispatched:
+            return SupervisorRun.from_record(record)
+
+        logger.warning(
+            "max_ticks exhausted for run %s with %d dispatched work orders — "
+            "force-collecting with salvage",
+            run_id,
+            len(dispatched),
+        )
+
+        # Kill workers and collect — this invokes the supervisor's existing
+        # no-progress timeout path which handles salvage auto-commit.
+        for item in dispatched:
+            await self.supervisor._kill_worker(item)
+
+        # One final collect pass picks up salvaged commits from killed workers.
+        await self.supervisor.collect_finished_results(run_id)
+        self.supervisor.refresh_run(run_id)
+
+        final_record = self.supervisor.store.get_supervisor_run(run_id)
+        if final_record is None:
+            raise KeyError(f"Unknown supervisor run: {run_id}")
+        return SupervisorRun.from_record(final_record)
 
     @staticmethod
     def _should_stop(run: SupervisorRun) -> bool:
