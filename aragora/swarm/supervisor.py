@@ -81,6 +81,7 @@ class WorkerOutcome(str, Enum):
     TIMEOUT_NO_PROGRESS = "timeout_no_progress"
     TIMEOUT_WITH_SALVAGE = "timeout_with_salvage"
     SCOPE_VIOLATION = "scope_violation"
+    MERGE_GATE_FAILED = "merge_gate_failed"
 
 
 @dataclass(slots=True)
@@ -196,6 +197,7 @@ class SwarmSupervisor:
     ) -> SupervisorRun:
         goal = spec.refined_goal or spec.raw_goal
         policy = approval_policy or SwarmApprovalPolicy()
+        policy.require_merge_approval = True
         work_orders = [item.to_dict() for item in self._build_supervised_work_orders(spec)]
         if default_target_agent:
             for item in work_orders:
@@ -645,6 +647,11 @@ class SwarmSupervisor:
                             pid=item.get("pid"),
                             initial_head=str(item.get("initial_head", "")),
                             auto_commit=self.launcher.config.auto_commit,
+                            expected_tests=[
+                                str(test).strip()
+                                for test in item.get("expected_tests", [])
+                                if str(test).strip()
+                            ],
                         )
                     except Exception:
                         logger.debug(
@@ -692,6 +699,11 @@ class SwarmSupervisor:
                             pid=item.get("pid"),
                             initial_head=str(item.get("initial_head", "")),
                             auto_commit=self.launcher.config.auto_commit,
+                            expected_tests=[
+                                str(test).strip()
+                                for test in item.get("expected_tests", [])
+                                if str(test).strip()
+                            ],
                         )
                     except Exception:
                         logger.debug("Timeout result collection failed for %s", woid, exc_info=True)
@@ -797,10 +809,7 @@ class SwarmSupervisor:
                     item.file_scope = list(spec_hints)
             item.expected_tests = self._default_tests(item, spec)
             item.risk_level = self._risk_level_for_scope(item.file_scope)
-            item.approval_required = item.approval_required or item.risk_level in {
-                "critical",
-                "review",
-            }
+            item.approval_required = True
             item.metadata = {
                 **dict(item.metadata),
                 "acceptance_criteria": list(spec.acceptance_criteria),
@@ -894,10 +903,7 @@ class SwarmSupervisor:
             item.risk_level = str(item.risk_level).strip() or self._risk_level_for_scope(
                 item.file_scope
             )
-            item.approval_required = item.approval_required or item.risk_level in {
-                "critical",
-                "review",
-            }
+            item.approval_required = True
             item.metadata = {
                 **dict(item.metadata),
                 "acceptance_criteria": list(spec.acceptance_criteria),
@@ -947,8 +953,7 @@ class SwarmSupervisor:
                 "work_order_id": str(work_order.get("work_order_id", "")),
                 "reviewer_agent": str(work_order.get("reviewer_agent", "")),
                 "risk_level": str(work_order.get("risk_level", "review")),
-                "approval_required": bool(work_order.get("approval_required", False))
-                or approval_policy.require_merge_approval,
+                "approval_required": True,
             },
         )
         work_order.update(
@@ -959,8 +964,7 @@ class SwarmSupervisor:
                 "branch": session.branch,
                 "worktree_path": str(session.path),
                 "target_agent": target_agent,
-                "approval_required": bool(work_order.get("approval_required", False))
-                or approval_policy.require_merge_approval,
+                "approval_required": True,
             }
         )
 
@@ -1109,6 +1113,7 @@ class SwarmSupervisor:
         item["diff_lines"] = result.diff.count("\n")
         item["changed_paths"] = clean_paths
         item["tests_run"] = list(result.tests_run)
+        item["verification_results"] = self._verification_results_from_result(result)
         item["commit_shas"] = list(result.commit_shas)
         item["head_sha"] = result.head_sha
         item.pop("pid", None)
@@ -1168,6 +1173,18 @@ class SwarmSupervisor:
                 return
             elif not _pre_outcome:
                 item["worker_outcome"] = WorkerOutcome.COMPLETED.value
+
+            merge_gate = self._merge_gate_state(item)
+            item["merge_gate"] = merge_gate
+            if not bool(merge_gate.get("checks_passed")):
+                self._mark_needs_human(item, self._merge_gate_failure_reason(merge_gate))
+                item["review_status"] = "changes_requested"
+                item["receipt_id"] = None
+                if not _pre_outcome:
+                    item["worker_outcome"] = WorkerOutcome.MERGE_GATE_FAILED.value
+                self._release_terminal_lease(item)
+                item["exit_code"] = result.exit_code
+                return
 
             receipt_id = str(item.get("receipt_id", "")).strip()
             if lease_id and not receipt_id:
@@ -1714,6 +1731,109 @@ class SwarmSupervisor:
         if result.commit_shas or result.changed_paths:
             return 0.6
         return 0.4
+
+    @staticmethod
+    def _verification_results_from_result(result: WorkerProcess) -> list[dict[str, Any]]:
+        raw_results = list(getattr(result, "verification_results", []) or [])
+        normalized: list[dict[str, Any]] = []
+        for entry in raw_results:
+            if not isinstance(entry, dict):
+                continue
+            command = str(entry.get("command", "")).strip()
+            if not command:
+                continue
+            try:
+                exit_code = int(entry.get("exit_code", 0))
+            except (TypeError, ValueError):
+                exit_code = -1
+            try:
+                duration_seconds = float(entry.get("duration_seconds", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                duration_seconds = 0.0
+            normalized.append(
+                {
+                    "command": command,
+                    "exit_code": exit_code,
+                    "passed": bool(entry.get("passed", exit_code == 0)),
+                    "stdout": str(entry.get("stdout", "")),
+                    "stderr": str(entry.get("stderr", "")),
+                    "duration_seconds": duration_seconds,
+                }
+            )
+        if normalized:
+            return normalized
+        return [
+            {
+                "command": str(command).strip(),
+                "exit_code": 0,
+                "passed": True,
+                "stdout": "",
+                "stderr": "",
+                "duration_seconds": 0.0,
+            }
+            for command in result.tests_run
+            if str(command).strip()
+        ]
+
+    @classmethod
+    def _merge_gate_state(cls, item: dict[str, Any]) -> dict[str, Any]:
+        expected_checks = [
+            str(test).strip() for test in item.get("expected_tests", []) if str(test).strip()
+        ]
+        verification_results = [
+            dict(entry)
+            for entry in item.get("verification_results", [])
+            if isinstance(entry, dict) and str(entry.get("command", "")).strip()
+        ]
+        seen_commands = {
+            str(entry.get("command", "")).strip()
+            for entry in verification_results
+            if str(entry.get("command", "")).strip()
+        }
+        missing_checks = [command for command in expected_checks if command not in seen_commands]
+        failed_checks = [
+            dict(entry)
+            for entry in verification_results
+            if str(entry.get("command", "")).strip() in expected_checks
+            and not bool(entry.get("passed", False))
+        ]
+
+        blocked_reasons: list[str] = []
+        if missing_checks:
+            blocked_reasons.append(
+                "merge gate blocked: required verification did not run: "
+                + ", ".join(missing_checks[:3])
+            )
+        if failed_checks:
+            first = failed_checks[0]
+            reason = (
+                "merge gate blocked: verification failed: "
+                f"{first.get('command', '')} (exit {first.get('exit_code', -1)})"
+            )
+            stderr = str(first.get("stderr", "")).strip()
+            if stderr:
+                reason = f"{reason} - {stderr.splitlines()[0][:200]}"
+            blocked_reasons.append(reason)
+
+        checks_passed = not expected_checks or (not missing_checks and not failed_checks)
+        return {
+            "enabled": True,
+            "expected_checks": expected_checks,
+            "verification_results": verification_results,
+            "checks_passed": checks_passed,
+            "human_approval_required": True,
+            "merge_eligible": checks_passed,
+            "blocked_reasons": blocked_reasons,
+        }
+
+    @staticmethod
+    def _merge_gate_failure_reason(merge_gate: dict[str, Any]) -> str:
+        reasons = [
+            str(reason).strip()
+            for reason in merge_gate.get("blocked_reasons", [])
+            if str(reason).strip()
+        ]
+        return reasons[0] if reasons else "merge gate blocked"
 
     @staticmethod
     def _progress_fingerprint(source: Any) -> dict[str, Any]:

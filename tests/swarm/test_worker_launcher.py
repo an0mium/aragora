@@ -67,8 +67,8 @@ class TestLaunchConfig:
         cfg = LaunchConfig()
         assert cfg.claude_path == "claude"
         assert cfg.codex_path == "codex"
-        assert cfg.timeout_seconds == 600.0
-        assert cfg.no_progress_timeout_seconds == 720.0
+        assert cfg.timeout_seconds == 2400.0
+        assert cfg.no_progress_timeout_seconds == 1800.0
         assert cfg.auto_commit is True
         assert cfg.use_managed_session_script is True
 
@@ -159,7 +159,12 @@ class TestLaunch:
             "#!/usr/bin/env bash\n", encoding="utf-8"
         )
 
-        wo = {"work_order_id": "wo-abc", "target_agent": "claude", "title": "Test"}
+        wo = {
+            "work_order_id": "wo-abc",
+            "target_agent": "claude",
+            "title": "Test",
+            "expected_tests": ["python -m pytest tests/auth/ -q"],
+        }
 
         with (
             patch("shutil.which", return_value="/usr/bin/claude"),
@@ -171,6 +176,8 @@ class TestLaunch:
         assert worker.work_order_id == "wo-abc"
         assert worker.agent == "claude"
         assert worker.pid == 42
+        assert worker.expected_tests == ["python -m pytest tests/auth/ -q"]
+        assert worker.tests_run == []
         assert worker.is_running
 
     @pytest.mark.asyncio
@@ -187,6 +194,7 @@ class TestWait:
     @pytest.mark.asyncio
     async def test_wait_collects_results(self):
         launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        expected_test = "python -m pytest tests/swarm/test_supervisor.py -q"
 
         # Set up a mock worker + process
         worker = WorkerProcess(
@@ -195,6 +203,7 @@ class TestWait:
             worktree_path="/tmp/wt",
             branch="main",
             pid=100,
+            expected_tests=[expected_test],
         )
         launcher._workers["wo-1"] = worker
 
@@ -202,14 +211,34 @@ class TestWait:
         mock_proc.communicate = AsyncMock(return_value=(b"output text", b""))
         mock_proc.returncode = 0
         launcher._processes["wo-1"] = mock_proc
+        verification_results = [
+            {
+                "command": expected_test,
+                "exit_code": 0,
+                "passed": True,
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": 0.1,
+            }
+        ]
 
-        with patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/file"):
+        with (
+            patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/file"),
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new=AsyncMock(return_value=verification_results),
+            ) as mock_verify,
+        ):
             result = await launcher.wait("wo-1")
 
         assert result.exit_code == 0
         assert result.stdout == "output text"
         assert result.diff == "diff --git a/file"
+        assert result.tests_run == [expected_test]
+        assert result.verification_results == verification_results
         assert result.completed_at is not None
+        mock_verify.assert_awaited_once_with("/tmp/wt", [expected_test])
         assert "wo-1" not in launcher._processes
 
     @pytest.mark.asyncio
@@ -227,7 +256,7 @@ class TestWait:
 
         mock_proc = AsyncMock()
         mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
-        mock_proc.kill = AsyncMock()
+        mock_proc.kill = MagicMock()
         mock_proc.wait = AsyncMock()
         launcher._processes["wo-2"] = mock_proc
 
@@ -243,6 +272,52 @@ class TestWait:
         launcher = WorkerLauncher()
         with pytest.raises(KeyError, match="No running worker"):
             await launcher.wait("nonexistent")
+
+    @pytest.mark.asyncio
+    async def test_wait_runs_expected_verification_commands(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+
+        worker = WorkerProcess(
+            work_order_id="wo-verify",
+            agent="claude",
+            worktree_path="/tmp/wt",
+            branch="main",
+            pid=100,
+            expected_tests=["python -m pytest tests/swarm/test_worker_launcher.py -q"],
+        )
+        launcher._workers["wo-verify"] = worker
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"worker output", b""))
+        mock_proc.returncode = 0
+        launcher._processes["wo-verify"] = mock_proc
+
+        verification_results = [
+            {
+                "command": "python -m pytest tests/swarm/test_worker_launcher.py -q",
+                "exit_code": 0,
+                "passed": True,
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": 0.2,
+            }
+        ]
+
+        with (
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new=AsyncMock(return_value=verification_results),
+            ),
+        ):
+            result = await launcher.wait("wo-verify")
+
+        assert result.tests_run == ["python -m pytest tests/swarm/test_worker_launcher.py -q"]
+        assert result.verification_results == verification_results
 
 
 class TestLaunchAndWait:
@@ -320,6 +395,17 @@ class TestCollectDetachedResult:
 
     @pytest.mark.asyncio
     async def test_collects_results_when_pid_dead(self):
+        expected_test = "python -m pytest tests/swarm/test_supervisor.py -q"
+        verification_results = [
+            {
+                "command": expected_test,
+                "exit_code": 0,
+                "passed": True,
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": 0.1,
+            }
+        ]
         with (
             patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
             patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/x"),
@@ -328,6 +414,11 @@ class TestCollectDetachedResult:
             patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
             patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
             patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new=AsyncMock(return_value=verification_results),
+            ) as mock_verify,
         ):
             result = await WorkerLauncher.collect_detached_result(
                 work_order_id="wo-2",
@@ -336,6 +427,7 @@ class TestCollectDetachedResult:
                 branch="main",
                 pid=99999,
                 initial_head="def456",
+                expected_tests=[expected_test],
             )
 
         assert result is not None
@@ -343,7 +435,10 @@ class TestCollectDetachedResult:
         assert result.head_sha == "abc123"
         assert result.commit_shas == ["abc123"]
         assert result.changed_paths == ["file.py"]
+        assert result.tests_run == [expected_test]
+        assert result.verification_results == verification_results
         assert result.stdout == "some output"
+        mock_verify.assert_awaited_once_with("/tmp/wt", [expected_test])
 
     @pytest.mark.asyncio
     async def test_collects_without_pid(self):

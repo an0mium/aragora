@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 import shutil
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,8 @@ _SALVAGEABLE_EXIT_CODES: frozenset[int] = frozenset(
     }
 )
 
+DEFAULT_VERIFICATION_TIMEOUT_SECONDS = 900.0
+
 
 @dataclass(slots=True)
 class WorkerProcess:
@@ -65,7 +68,9 @@ class WorkerProcess:
     head_sha: str = ""
     commit_shas: list[str] = field(default_factory=list)
     changed_paths: list[str] = field(default_factory=list)
+    expected_tests: list[str] = field(default_factory=list)
     tests_run: list[str] = field(default_factory=list)
+    verification_results: list[dict[str, Any]] = field(default_factory=list)
     command: list[str] = field(default_factory=list)
 
     @property
@@ -87,6 +92,9 @@ class WorkerProcess:
             "head_sha": self.head_sha,
             "commit_shas": list(self.commit_shas),
             "changed_paths": list(self.changed_paths),
+            "expected_tests": list(self.expected_tests),
+            "tests_run": list(self.tests_run),
+            "verification_results": [dict(item) for item in self.verification_results],
         }
 
 
@@ -178,7 +186,7 @@ class WorkerLauncher:
             session_id=session_id,
             lease_id=lease_id,
             initial_head=initial_head,
-            tests_run=[
+            expected_tests=[
                 str(item) for item in work_order.get("expected_tests", []) if str(item).strip()
             ],
             command=list(cmd),
@@ -250,6 +258,16 @@ class WorkerLauncher:
                 initial_head=worker.initial_head,
                 head_sha=worker.head_sha,
             )
+            if worker.exit_code == 0 and worker.expected_tests:
+                worker.verification_results = await self._run_verification_commands(
+                    worker.worktree_path,
+                    worker.expected_tests,
+                )
+                worker.tests_run = [
+                    str(item.get("command", "")).strip()
+                    for item in worker.verification_results
+                    if str(item.get("command", "")).strip()
+                ]
         finally:
             self._cleanup_session_artifacts(worker.worktree_path)
 
@@ -616,6 +634,7 @@ class WorkerLauncher:
         pid: int | None = None,
         initial_head: str = "",
         auto_commit: bool = True,
+        expected_tests: list[str] | None = None,
     ) -> WorkerProcess | None:
         """Collect results from a detached worker by checking PID and worktree state.
 
@@ -635,6 +654,7 @@ class WorkerLauncher:
             branch=branch,
             pid=pid,
             initial_head=initial_head,
+            expected_tests=[str(item).strip() for item in expected_tests or [] if str(item).strip()],
         )
 
         worker.stdout = cls._read_log_file(worktree_path, "stdout")
@@ -666,6 +686,16 @@ class WorkerLauncher:
                 initial_head=initial_head,
                 head_sha=worker.head_sha,
             )
+            if worker.exit_code == 0 and worker.expected_tests:
+                worker.verification_results = await cls._run_verification_commands(
+                    worktree_path,
+                    worker.expected_tests,
+                )
+                worker.tests_run = [
+                    str(item.get("command", "")).strip()
+                    for item in worker.verification_results
+                    if str(item.get("command", "")).strip()
+                ]
         finally:
             # Wait for the worker process (including its shell EXIT trap) to
             # fully terminate before removing artifacts.  Without this wait
@@ -758,6 +788,71 @@ class WorkerLauncher:
                 return
             await asyncio.sleep(0.1)
         logger.debug("PID %d still alive after %.1fs wait — proceeding with cleanup", pid, timeout)
+
+    @classmethod
+    async def _run_verification_commands(
+        cls,
+        worktree_path: str,
+        commands: list[str],
+        *,
+        timeout: float = DEFAULT_VERIFICATION_TIMEOUT_SECONDS,
+    ) -> list[dict[str, Any]]:
+        """Run required verification commands and capture structured results."""
+        results: list[dict[str, Any]] = []
+        for raw_command in commands:
+            command = str(raw_command).strip()
+            if not command:
+                continue
+
+            started = time.monotonic()
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    "/bin/bash",
+                    "-lc",
+                    command,
+                    cwd=worktree_path,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+            except (FileNotFoundError, OSError) as exc:
+                results.append(
+                    {
+                        "command": command,
+                        "exit_code": -2,
+                        "passed": False,
+                        "stdout": "",
+                        "stderr": str(exc),
+                        "duration_seconds": round(time.monotonic() - started, 3),
+                    }
+                )
+                continue
+
+            try:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    proc.communicate(),
+                    timeout=timeout,
+                )
+                exit_code = proc.returncode if proc.returncode is not None else -1
+                stdout = (stdout_bytes or b"").decode(errors="replace")
+                stderr = (stderr_bytes or b"").decode(errors="replace")
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                exit_code = -1
+                stdout = ""
+                stderr = f"Timed out after {int(timeout)}s"
+
+            results.append(
+                {
+                    "command": command,
+                    "exit_code": exit_code,
+                    "passed": exit_code == 0,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                    "duration_seconds": round(time.monotonic() - started, 3),
+                }
+            )
+        return results
 
     @staticmethod
     def _read_log_file(worktree_path: str, stream: str) -> str:
