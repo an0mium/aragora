@@ -654,7 +654,9 @@ class WorkerLauncher:
             branch=branch,
             pid=pid,
             initial_head=initial_head,
-            expected_tests=[str(item).strip() for item in expected_tests or [] if str(item).strip()],
+            expected_tests=[
+                str(item).strip() for item in expected_tests or [] if str(item).strip()
+            ],
         )
 
         worker.stdout = cls._read_log_file(worktree_path, "stdout")
