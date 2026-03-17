@@ -42,6 +42,7 @@ _TERMINAL_STATUSES: frozenset[str] = frozenset(
     {
         "completed",
         "failed",
+        "stalled",
         "blocked",
         "skipped",
     }
@@ -56,6 +57,7 @@ class CampaignProjectStatus(str, Enum):
     NEEDS_REVISION = "needs_revision"
     COMPLETED = "completed"
     FAILED = "failed"
+    STALLED = "stalled"
     BLOCKED = "blocked"
     SKIPPED = "skipped"
 
@@ -64,6 +66,7 @@ class CampaignRunOutcome(str, Enum):
     DELIVERABLE_CREATED = "deliverable_created"
     PR_ADOPTED = "pr_adopted"
     CLEAN_EXIT_NO_DELIVERABLE = "clean_exit_no_deliverable"
+    STALLED = "stalled"
     NEEDS_HUMAN = "needs_human"
     TIMEOUT = "timeout"
     CRASH = "crash"
@@ -73,6 +76,7 @@ class CampaignRunOutcome(str, Enum):
 class CampaignStopReason(str, Enum):
     STILL_RUNNING = "still_running"
     CAMPAIGN_COMPLETE = "campaign_complete"
+    CAMPAIGN_STALLED = "campaign_stalled"
     BUDGET_EXHAUSTED = "budget_exhausted"
     TIME_LIMIT_EXCEEDED = "time_limit_exceeded"
     CAMPAIGN_BLOCKED = "campaign_blocked"
@@ -1312,6 +1316,8 @@ class CampaignExecutor:
             project.status = CampaignProjectStatus.DELIVERED.value
         elif outcome == CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value:
             project.status = CampaignProjectStatus.NEEDS_REVISION.value
+        elif outcome == CampaignRunOutcome.STALLED.value:
+            project.status = CampaignProjectStatus.STALLED.value
         elif outcome == CampaignRunOutcome.NEEDS_HUMAN.value:
             project.status = CampaignProjectStatus.BLOCKED.value
         elif outcome in {CampaignRunOutcome.TIMEOUT.value, CampaignRunOutcome.CRASH.value}:
@@ -1496,6 +1502,7 @@ class CampaignExecutor:
                 CampaignRunOutcome.DELIVERABLE_CREATED.value,
                 CampaignRunOutcome.PR_ADOPTED.value,
                 CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value,
+                CampaignRunOutcome.STALLED.value,
                 CampaignRunOutcome.NEEDS_HUMAN.value,
                 CampaignRunOutcome.TIMEOUT.value,
                 CampaignRunOutcome.CRASH.value,
@@ -1665,7 +1672,11 @@ def _refresh_execution_state(manifest: CampaignManifest) -> None:
         project.project_id
         for project in manifest.projects
         if project.status
-        in {CampaignProjectStatus.FAILED.value, CampaignProjectStatus.BLOCKED.value}
+        in {
+            CampaignProjectStatus.FAILED.value,
+            CampaignProjectStatus.STALLED.value,
+            CampaignProjectStatus.BLOCKED.value,
+        }
     ]
     manifest.execution_state.skipped_projects = [
         project.project_id
@@ -1743,6 +1754,12 @@ def _project_recovery_eligible(manifest: CampaignManifest, project: CampaignProj
 
 def _compute_stop_reason(manifest: CampaignManifest) -> str:
     statuses = {project.status for project in manifest.projects}
+    blocked_like = {
+        CampaignProjectStatus.STALLED.value,
+        CampaignProjectStatus.BLOCKED.value,
+        CampaignProjectStatus.FAILED.value,
+        CampaignProjectStatus.SKIPPED.value,
+    }
     active_statuses = {
         CampaignProjectStatus.ACTIVE.value,
         CampaignProjectStatus.DELIVERED.value,
@@ -1756,16 +1773,26 @@ def _compute_stop_reason(manifest: CampaignManifest) -> str:
         }
     ):
         return CampaignStopReason.CAMPAIGN_COMPLETE.value
-    blocked_like = {
-        CampaignProjectStatus.BLOCKED.value,
-        CampaignProjectStatus.FAILED.value,
-        CampaignProjectStatus.SKIPPED.value,
-    }
+
+    dispatchable = _dispatchable_projects(manifest)
+    terminal_blockers = [project for project in manifest.projects if project.status in blocked_like]
+    if (
+        terminal_blockers
+        and len(terminal_blockers)
+        == sum(
+            1
+            for project in terminal_blockers
+            if project.last_run_outcome == CampaignRunOutcome.STALLED.value
+        )
+        and not active_present
+        and not dispatchable
+    ):
+        return CampaignStopReason.CAMPAIGN_STALLED.value
+
     if statuses and statuses.issubset(blocked_like | {CampaignProjectStatus.COMPLETED.value}):
         return CampaignStopReason.CAMPAIGN_BLOCKED.value
 
     budget = _campaign_budget_snapshot(manifest)
-    dispatchable = _dispatchable_projects(manifest)
     if (
         dispatchable
         and not active_present
@@ -1873,6 +1900,7 @@ def _failure_classification_from_outcome(outcome: str | None) -> str | None:
     mapping = {
         CampaignRunOutcome.CRASH.value: "worker_crash",
         CampaignRunOutcome.TIMEOUT.value: "timeout",
+        CampaignRunOutcome.STALLED.value: "stall",
         CampaignRunOutcome.BLOCKED.value: "stall",
         CampaignRunOutcome.NEEDS_HUMAN.value: "stall",
         CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value: "stall",
@@ -1885,6 +1913,7 @@ def _receipt_final_status(project_status: str) -> str:
         "completed": "completed",
         "failed": "failed",
         "skipped": "failed",
+        "stalled": "rejected",
         "blocked": "rejected",
     }.get(project_status, "failed")
 

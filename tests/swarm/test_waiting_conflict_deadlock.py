@@ -107,6 +107,18 @@ class TestDeriveStatusDeadlock:
         ]
         assert SwarmSupervisor._derive_status(work_orders) == "needs_human"
 
+    def test_forensic_873_shape_campaign_outcome_is_stalled(self) -> None:
+        work_orders = [
+            {"status": "completed"},
+            {"status": "waiting_conflict"},
+            {"status": "waiting_conflict"},
+            {"status": "failed"},
+        ]
+        outcome, blockers = SwarmSupervisor._campaign_outcome_for_work_orders(work_orders)
+
+        assert outcome == "stalled"
+        assert blockers == []
+
 
 class TestReconcilerStopForensic873:
     """Verify the reconciler stops for the exact #873 failure shape."""

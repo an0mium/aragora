@@ -631,7 +631,7 @@ class TestCampaignExecutor:
         assert project.attempt_history[-1]["failure_detail"] == "worker crashed"
 
     @pytest.mark.asyncio
-    async def test_reconcile_active_timeout_run_uses_supervisor_failure_metadata(
+    async def test_reconcile_active_no_progress_timeout_surfaces_stalled_state(
         self, tmp_path: Path
     ) -> None:
         repo = _init_repo(tmp_path)
@@ -662,11 +662,15 @@ class TestCampaignExecutor:
         executor._reconcile_active_projects(manifest)
 
         project = manifest.projects[0]
-        assert project.status == CampaignProjectStatus.NEEDS_REVISION.value
-        assert project.last_run_outcome == CampaignRunOutcome.TIMEOUT.value
-        assert project.receipt_id is None
-        assert project.attempt_history[-1]["requeue_eligible"] is True
+        receipt_path = repo / "docs" / "receipts" / "phase0b-timeout" / "proj-001.yaml"
+
+        assert project.status == CampaignProjectStatus.STALLED.value
+        assert project.last_run_outcome == CampaignRunOutcome.STALLED.value
+        assert project.receipt_id == "docs/receipts/phase0b-timeout/proj-001.yaml"
+        assert receipt_path.exists()
+        assert project.attempt_history[-1]["requeue_eligible"] is False
         assert "no-progress timeout" in project.attempt_history[-1]["failure_detail"]
+        assert _compute_stop_reason(manifest) == CampaignStopReason.CAMPAIGN_STALLED.value
 
     @pytest.mark.asyncio
     async def test_execute_once_reconciles_active_project_without_redispatch(
@@ -718,6 +722,64 @@ class TestCampaignExecutor:
         assert mock_dispatch.await_count == 0
         assert project.last_run_outcome == CampaignRunOutcome.PR_ADOPTED.value
         assert payload["stop_reason"] in {"still_running", "campaign_blocked", "campaign_complete"}
+
+    @pytest.mark.asyncio
+    async def test_execute_once_surfaces_waiting_conflict_deadlock_as_campaign_stalled(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-deadlock",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Deadlocked project",
+                    spec=_bounded_spec("Deadlocked project"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_campaign.py"],
+                    constraints=["do not widen scope"],
+                    status=CampaignProjectStatus.ACTIVE.value,
+                    run_id="run-deadlock",
+                ),
+                CampaignProject(
+                    project_id="proj-002",
+                    title="Downstream blocked by deadlock",
+                    spec=_bounded_spec("Downstream blocked by deadlock"),
+                    file_scope_hints=["aragora/swarm/reconciler.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_reconciler.py"],
+                    constraints=["do not widen scope"],
+                    dependencies=[
+                        CampaignDependency(project_id="proj-001", reason="subtask_dependency")
+                    ],
+                ),
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        with patch.object(
+            executor,
+            "_refresh_run_dict",
+            return_value={
+                "run_id": "run-deadlock",
+                "status": "needs_human",
+                "work_orders": [
+                    {"status": "completed"},
+                    {"status": "waiting_conflict"},
+                    {"status": "waiting_conflict"},
+                    {"status": "failed"},
+                ],
+            },
+        ):
+            payload = await executor.execute_once()
+
+        reloaded = load_campaign_manifest(manifest_path)
+        assert reloaded.projects[0].status == CampaignProjectStatus.STALLED.value
+        assert reloaded.projects[0].last_run_outcome == CampaignRunOutcome.STALLED.value
+        assert payload["stop_reason"] == CampaignStopReason.CAMPAIGN_STALLED.value
 
     @pytest.mark.asyncio
     async def test_execute_once_requeues_timeout_outcome_and_preserves_attempt_audit(
@@ -1120,6 +1182,38 @@ class TestComputeStopReason:
         executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
         status = executor.status()
         assert status["stop_reason"] == CampaignStopReason.CAMPAIGN_BLOCKED.value
+
+    def test_stalled_project_stop_reason_is_distinct_from_campaign_blocked(self) -> None:
+        manifest = CampaignManifest(
+            campaign_id="campaign-stalled",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Stalled head",
+                    spec=_bounded_spec("Stalled head"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pass"],
+                    constraints=["scope"],
+                    status=CampaignProjectStatus.STALLED.value,
+                    last_run_outcome=CampaignRunOutcome.STALLED.value,
+                ),
+                CampaignProject(
+                    project_id="proj-002",
+                    title="Dependent project",
+                    spec=_bounded_spec("Dependent project", ["docs/CLI_REFERENCE.md"]),
+                    file_scope_hints=["docs/CLI_REFERENCE.md"],
+                    acceptance_criteria=["pass"],
+                    constraints=["scope"],
+                    status=CampaignProjectStatus.PENDING.value,
+                    dependencies=[CampaignDependency(project_id="proj-001", reason="sequential")],
+                ),
+            ],
+        )
+
+        assert _compute_stop_reason(manifest) == CampaignStopReason.CAMPAIGN_STALLED.value
 
 
 class TestCampaignCLI:
