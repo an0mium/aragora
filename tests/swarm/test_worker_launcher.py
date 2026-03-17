@@ -242,6 +242,51 @@ class TestWait:
         assert "wo-1" not in launcher._processes
 
     @pytest.mark.asyncio
+    async def test_wait_attached_logs_stream_to_files(self, tmp_path: Path):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        worktree = tmp_path / "wt"
+        worktree.mkdir()
+
+        worker = WorkerProcess(
+            work_order_id="wo-live-logs",
+            agent="codex",
+            worktree_path=str(worktree),
+            branch="main",
+            pid=123,
+        )
+        launcher._workers["wo-live-logs"] = worker
+
+        stdout_reader = asyncio.StreamReader()
+        stdout_reader.feed_data(b"worker stdout\n")
+        stdout_reader.feed_eof()
+
+        stderr_reader = asyncio.StreamReader()
+        stderr_reader.feed_data(b"worker stderr\n")
+        stderr_reader.feed_eof()
+
+        mock_proc = MagicMock()
+        mock_proc.wait = AsyncMock(return_value=0)
+        mock_proc.returncode = 0
+        mock_proc.stdout = stdout_reader
+        mock_proc.stderr = stderr_reader
+        launcher._processes["wo-live-logs"] = mock_proc
+        launcher._start_live_log_capture("wo-live-logs", str(worktree), mock_proc)
+
+        with (
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            result = await launcher.wait("wo-live-logs")
+
+        assert result.exit_code == 0
+        assert result.stdout == "worker stdout\n"
+        assert result.stderr == "worker stderr\n"
+        assert (worktree / ".swarm_worker_stdout.log").read_text() == "worker stdout\n"
+        assert (worktree / ".swarm_worker_stderr.log").read_text() == "worker stderr\n"
+
+    @pytest.mark.asyncio
     async def test_wait_handles_timeout(self):
         launcher = WorkerLauncher(LaunchConfig(timeout_seconds=0.01, auto_commit=False))
 
@@ -483,6 +528,30 @@ class TestSnapshotProgress:
         assert snapshot["head_sha"] == "def456"
         assert snapshot["changed_paths"] == ["file.py"]
         assert snapshot["diff_lines"] == 2
+
+    @pytest.mark.asyncio
+    async def test_includes_log_tails(self, tmp_path: Path):
+        launcher = WorkerLauncher()
+        work_order = {
+            "pid": 12345,
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+        long_stdout = "a" * 5000
+        long_stderr = "b" * 5000
+        (tmp_path / ".swarm_worker_stdout.log").write_text(long_stdout, encoding="utf-8")
+        (tmp_path / ".swarm_worker_stderr.log").write_text(long_stderr, encoding="utf-8")
+
+        with (
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=True),
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["stdout_tail"] == long_stdout[-4000:]
+        assert snapshot["stderr_tail"] == long_stderr[-4000:]
 
 
 class TestIsPidRunning:

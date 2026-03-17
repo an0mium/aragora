@@ -507,6 +507,8 @@ async def test_collect_results_updates_work_orders(repo: Path, store: DevCoordin
         diff="diff --git a/test.py",
         changed_paths=["test.py"],
         commit_shas=["abc123"],
+        stdout="worker stdout\n" + ("a" * 5000),
+        stderr="worker stderr\n",
         tests_run=["python -m pytest tests/swarm/test_supervisor.py -q"],
         verification_results=[
             {
@@ -536,6 +538,8 @@ async def test_collect_results_updates_work_orders(repo: Path, store: DevCoordin
     updated = store.get_supervisor_run(run_id)
     wo = updated["work_orders"][0]
     assert wo["status"] == "completed"
+    assert wo["stdout_tail"] == completed_worker.stdout[-4000:]
+    assert wo["stderr_tail"] == "worker stderr\n"
 
 
 @pytest.mark.asyncio
@@ -1492,6 +1496,67 @@ async def test_collect_finished_results_updates_progress_heartbeat(
     assert work_order["head_sha"] == "def456"
     assert work_order["changed_paths"] == ["aragora/swarm/supervisor.py"]
     assert work_order["diff_lines"] == 12
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_persists_log_tails_without_git_progress(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    old_progress = (datetime.now(UTC) - timedelta(seconds=5)).isoformat()
+    run_record = store.create_supervisor_run(
+        goal="log tail heartbeat",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "log tail heartbeat"},
+        work_orders=[
+            {
+                "work_order_id": "wo-log-tail",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "pid": 321,
+                "initial_head": "abc123",
+                "dispatched_at": old_progress,
+                "last_progress_at": old_progress,
+                "progress_fingerprint": {
+                    "head_sha": "abc123",
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                },
+            }
+        ],
+        status="active",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[])
+    mock_launcher.snapshot_progress = AsyncMock(
+        return_value={
+            "pid_alive": True,
+            "head_sha": "abc123",
+            "changed_paths": [],
+            "diff_lines": 0,
+            "stdout_tail": "still validating\n",
+            "stderr_tail": "warning line\n",
+        }
+    )
+    mock_launcher.config = SimpleNamespace(auto_commit=True, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    with patch.object(WorkerLauncher, "collect_detached_result", new=AsyncMock(return_value=None)):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert completed == []
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "dispatched"
+    assert work_order["last_progress_at"] == old_progress
+    assert work_order["stdout_tail"] == "still validating\n"
+    assert work_order["stderr_tail"] == "warning line\n"
 
 
 @pytest.mark.asyncio

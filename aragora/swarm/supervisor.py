@@ -36,6 +36,7 @@ WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY = "worker_type_circuit_breaker_policy"
 CAMPAIGN_OUTCOME_METADATA_KEY = "campaign_outcome"
 CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY = "campaign_requeue_eligible"
 CAMPAIGN_BLOCKERS_METADATA_KEY = "campaign_blockers"
+MAX_WORKER_LOG_TAIL_CHARS = 4000
 DEFAULT_BREAKER_FAILURE_THRESHOLD = 2
 DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS = 900.0
 
@@ -602,6 +603,12 @@ class SwarmSupervisor:
             progress = await self.launcher.snapshot_progress(item)
             observed_at = datetime.now(UTC).isoformat()
             item["last_observed_at"] = observed_at
+            if self._update_log_tails(
+                item,
+                stdout=str(progress.get("stdout_tail", "")),
+                stderr=str(progress.get("stderr_tail", "")),
+            ):
+                changed = True
             progress_fingerprint = self._progress_fingerprint(progress)
             if progress_fingerprint != self._progress_fingerprint(item.get("progress_fingerprint")):
                 item["progress_fingerprint"] = progress_fingerprint
@@ -1117,6 +1124,7 @@ class SwarmSupervisor:
         item["verification_results"] = self._verification_results_from_result(result)
         item["commit_shas"] = list(result.commit_shas)
         item["head_sha"] = result.head_sha
+        self._update_log_tails(item, stdout=result.stdout, stderr=result.stderr)
         item.pop("pid", None)
 
         # Preserve worker_outcome if already set by detached/timeout collection
@@ -1844,6 +1852,34 @@ class SwarmSupervisor:
             if str(reason).strip()
         ]
         return reasons[0] if reasons else "merge gate blocked"
+
+    @classmethod
+    def _update_log_tails(
+        cls,
+        item: dict[str, Any],
+        *,
+        stdout: str,
+        stderr: str,
+    ) -> bool:
+        changed = False
+        for key, value in {
+            "stdout_tail": cls._log_tail(stdout),
+            "stderr_tail": cls._log_tail(stderr),
+        }.items():
+            if value:
+                if str(item.get(key, "")) != value:
+                    item[key] = value
+                    changed = True
+            elif key in item:
+                item.pop(key, None)
+                changed = True
+        return changed
+
+    @staticmethod
+    def _log_tail(text: str, *, max_chars: int = MAX_WORKER_LOG_TAIL_CHARS) -> str:
+        if len(text) <= max_chars:
+            return text
+        return text[-max_chars:]
 
     @staticmethod
     def _progress_fingerprint(source: Any) -> dict[str, Any]:

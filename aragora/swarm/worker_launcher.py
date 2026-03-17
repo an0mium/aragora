@@ -20,6 +20,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 UTC = timezone.utc
+MAX_WORKER_LOG_TAIL_CHARS = 4000
 
 # Session artifacts that autonomous workers should never treat as deliverable
 # output.  These are infrastructure metadata files created by the harness, not
@@ -121,6 +122,8 @@ class WorkerLauncher:
         self.config = config or LaunchConfig()
         self._workers: dict[str, WorkerProcess] = {}
         self._processes: dict[str, asyncio.subprocess.Process] = {}
+        self._live_log_tasks: dict[str, dict[str, asyncio.Task[bytes]]] = {}
+        self._live_log_handles: dict[str, dict[str, Any]] = {}
 
     async def launch(
         self,
@@ -168,14 +171,13 @@ class WorkerLauncher:
                 start_new_session=True,
             )
         else:
-            stdout_file = None
-            stderr_file = None
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 cwd=worktree_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
+            self._start_live_log_capture(work_order_id, worktree_path, proc)
 
         worker = WorkerProcess(
             work_order_id=work_order_id,
@@ -208,28 +210,55 @@ class WorkerLauncher:
             raise KeyError(f"No running worker for {work_order_id}")
 
         effective_timeout = timeout or self.config.timeout_seconds
+        live_capture_enabled = work_order_id in self._live_log_tasks
 
         try:
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(),
-                timeout=effective_timeout,
-            )
-            worker.exit_code = proc.returncode
-            # In detached mode, stdout/stderr are file handles, not PIPE —
-            # communicate() returns (None, None).
-            if stdout_bytes is not None:
-                worker.stdout = stdout_bytes.decode(errors="replace")
+            if live_capture_enabled:
+                await asyncio.wait_for(proc.wait(), timeout=effective_timeout)
+                worker.exit_code = proc.returncode
+                live_logs = await self._finish_live_log_capture(
+                    work_order_id,
+                    worker.worktree_path,
+                )
+                worker.stdout = live_logs["stdout"]
+                worker.stderr = live_logs["stderr"]
             else:
-                worker.stdout = self._read_log_file(worker.worktree_path, "stdout")
-            if stderr_bytes is not None:
-                worker.stderr = stderr_bytes.decode(errors="replace")
-            else:
-                worker.stderr = self._read_log_file(worker.worktree_path, "stderr")
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    proc.communicate(),
+                    timeout=effective_timeout,
+                )
+                worker.exit_code = proc.returncode
+                # In detached mode, stdout/stderr are file handles, not PIPE —
+                # communicate() returns (None, None).
+                if stdout_bytes is not None:
+                    worker.stdout = stdout_bytes.decode(errors="replace")
+                else:
+                    worker.stdout = self._read_log_file(worker.worktree_path, "stdout")
+                if stderr_bytes is not None:
+                    worker.stderr = stderr_bytes.decode(errors="replace")
+                else:
+                    worker.stderr = self._read_log_file(worker.worktree_path, "stderr")
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
             worker.exit_code = -1
-            worker.stderr = f"Timed out after {effective_timeout}s"
+            if live_capture_enabled:
+                live_logs = await self._finish_live_log_capture(
+                    work_order_id,
+                    worker.worktree_path,
+                )
+                worker.stdout = live_logs["stdout"]
+                stderr_parts = [
+                    part
+                    for part in [
+                        live_logs["stderr"].strip(),
+                        f"Timed out after {effective_timeout}s",
+                    ]
+                    if part
+                ]
+                worker.stderr = "\n".join(stderr_parts)
+            else:
+                worker.stderr = f"Timed out after {effective_timeout}s"
             logger.warning("Worker %s timed out", work_order_id)
 
         worker.completed_at = datetime.now(UTC).isoformat()
@@ -325,12 +354,16 @@ class WorkerLauncher:
             "head_sha": "",
             "changed_paths": [],
             "diff_lines": 0,
+            "stdout_tail": "",
+            "stderr_tail": "",
         }
         if not worktree_path:
             return snapshot
 
         head_sha = await self._git_output(worktree_path, "rev-parse", "HEAD")
         diff = await self._collect_diff(worktree_path)
+        stdout_tail = self._tail_text(self._read_log_file(worktree_path, "stdout"))
+        stderr_tail = self._tail_text(self._read_log_file(worktree_path, "stderr"))
         changed_paths = await self._collect_changed_paths(
             worktree_path,
             initial_head=initial_head,
@@ -341,6 +374,8 @@ class WorkerLauncher:
                 "head_sha": head_sha,
                 "changed_paths": list(changed_paths),
                 "diff_lines": diff.count("\n") if diff else 0,
+                "stdout_tail": stdout_tail,
+                "stderr_tail": stderr_tail,
             }
         )
         return snapshot
@@ -864,6 +899,92 @@ class WorkerLauncher:
             return log_path.read_text(errors="replace")
         except (FileNotFoundError, OSError):
             return ""
+
+    def _start_live_log_capture(
+        self,
+        work_order_id: str,
+        worktree_path: str,
+        proc: asyncio.subprocess.Process,
+    ) -> None:
+        tasks: dict[str, asyncio.Task[bytes]] = {}
+        handles: dict[str, Any] = {}
+        for stream_name in ("stdout", "stderr"):
+            stream = getattr(proc, stream_name, None)
+            if not isinstance(stream, asyncio.StreamReader):
+                continue
+            log_path = Path(worktree_path) / f".swarm_worker_{stream_name}.log"
+            handle = open(log_path, "wb")  # noqa: SIM115
+            handles[stream_name] = handle
+            tasks[stream_name] = asyncio.create_task(
+                self._tee_stream_to_log(stream, handle, stream_name=stream_name)
+            )
+        if tasks:
+            self._live_log_tasks[work_order_id] = tasks
+            self._live_log_handles[work_order_id] = handles
+            return
+
+        for handle in handles.values():
+            handle.close()
+
+    async def _finish_live_log_capture(
+        self,
+        work_order_id: str,
+        worktree_path: str,
+    ) -> dict[str, str]:
+        tasks = self._live_log_tasks.pop(work_order_id, {})
+        handles = self._live_log_handles.pop(work_order_id, {})
+        captured: dict[str, str] = {}
+        try:
+            for stream_name in ("stdout", "stderr"):
+                task = tasks.get(stream_name)
+                if task is None:
+                    captured[stream_name] = self._read_log_file(worktree_path, stream_name)
+                    continue
+                try:
+                    data = await task
+                except Exception:
+                    logger.debug(
+                        "Attached %s capture failed for %s",
+                        stream_name,
+                        work_order_id,
+                        exc_info=True,
+                    )
+                    captured[stream_name] = self._read_log_file(worktree_path, stream_name)
+                    continue
+                captured[stream_name] = data.decode(errors="replace")
+        finally:
+            for handle in handles.values():
+                try:
+                    handle.close()
+                except OSError:
+                    logger.debug("Failed to close live log handle", exc_info=True)
+        return captured
+
+    @staticmethod
+    async def _tee_stream_to_log(
+        stream: asyncio.StreamReader,
+        handle: Any,
+        *,
+        stream_name: str,
+    ) -> bytes:
+        captured = bytearray()
+        while True:
+            chunk = await stream.read(4096)
+            if not chunk:
+                break
+            captured.extend(chunk)
+            try:
+                handle.write(chunk)
+                handle.flush()
+            except OSError:
+                logger.debug("Failed to write %s live log chunk", stream_name, exc_info=True)
+        return bytes(captured)
+
+    @staticmethod
+    def _tail_text(text: str, *, max_chars: int = MAX_WORKER_LOG_TAIL_CHARS) -> str:
+        if len(text) <= max_chars:
+            return text
+        return text[-max_chars:]
 
     @staticmethod
     async def _auto_commit(worker: WorkerProcess) -> None:
