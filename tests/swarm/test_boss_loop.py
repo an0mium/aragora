@@ -18,7 +18,7 @@ import asyncio
 import json
 from datetime import datetime, timezone
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -32,6 +32,7 @@ from aragora.swarm.boss_loop import (
     GitHubIssueFeed,
     RunnerFreshnessResult,
     check_runner_freshness,
+    dispatch_bounded_spec,
     select_eligible_issue,
 )
 
@@ -865,6 +866,34 @@ class TestBossLoopCLI:
         assert args.boss_label_filter == "boss-ready"
         assert args.max_consecutive_failures == 5
         assert args.json is True
+
+
+@pytest.mark.asyncio
+async def test_dispatch_bounded_spec_enables_force_collect_on_max_ticks() -> None:
+    spec = MagicMock()
+    spec.is_dispatch_bounded.return_value = True
+
+    fake_run = MagicMock()
+    fake_run.to_dict.return_value = {
+        "status": "completed",
+        "run_id": "run-123",
+        "work_orders": [
+            {
+                "status": "completed",
+                "branch": "codex/example",
+                "commit_shas": ["abc123"],
+            }
+        ],
+    }
+
+    with patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls:
+        mock_commander_cls.return_value.run_supervised_from_spec = AsyncMock(return_value=fake_run)
+
+        await dispatch_bounded_spec(spec, max_ticks=7)
+
+    kwargs = mock_commander_cls.return_value.run_supervised_from_spec.await_args.kwargs
+    assert kwargs["max_ticks"] == 7
+    assert kwargs["force_collect_on_max_ticks"] is True
 
 
 # ---------------------------------------------------------------------------

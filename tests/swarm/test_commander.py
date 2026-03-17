@@ -173,6 +173,45 @@ class TestSwarmCommanderRunFromSpec:
         )
 
     @pytest.mark.asyncio
+    async def test_run_supervised_from_spec_forwards_force_collect_flag(self):
+        spec = SwarmSpec(
+            raw_goal="Dogfood the swarm with explicit work orders",
+            refined_goal="Dogfood the swarm with explicit work orders",
+            file_scope_hints=["aragora/swarm/reconciler.py"],
+            acceptance_criteria=["python -m pytest tests/swarm/test_reconciler.py -q"],
+            constraints=["do not widen scope"],
+        )
+        commander = SwarmCommander()
+        fake_run = MagicMock()
+        fake_run.run_id = "test-run-id"
+        watched_run = MagicMock()
+        watched_run.run_id = fake_run.run_id
+
+        with (
+            patch("aragora.swarm.commander.SwarmSupervisor") as mock_supervisor_cls,
+            patch("aragora.swarm.commander.SwarmReconciler") as mock_reconciler_cls,
+        ):
+            mock_sup = mock_supervisor_cls.return_value
+            mock_sup.start_run.return_value = fake_run
+            mock_sup.dispatch_workers = AsyncMock(return_value=[MagicMock()])
+            mock_reconciler_cls.return_value.watch_run = AsyncMock(return_value=watched_run)
+
+            result = await commander.run_supervised_from_spec(
+                spec,
+                interval_seconds=1.5,
+                max_ticks=4,
+                force_collect_on_max_ticks=True,
+            )
+
+        assert result is watched_run
+        mock_reconciler_cls.return_value.watch_run.assert_awaited_once_with(
+            fake_run.run_id,
+            interval_seconds=1.5,
+            max_ticks=4,
+            force_collect_on_max_ticks=True,
+        )
+
+    @pytest.mark.asyncio
     async def test_run_supervised_from_spec_no_dispatch_skips_launcher(self):
         spec = SwarmSpec(
             raw_goal="Dogfood the swarm with explicit work orders",

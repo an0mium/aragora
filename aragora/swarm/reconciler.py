@@ -76,33 +76,43 @@ class SwarmReconciler:
         *,
         interval_seconds: float | None = None,
         max_ticks: int | None = None,
+        force_collect_on_max_ticks: bool = False,
     ) -> SupervisorRun:
-        """Reconcile a run until it reaches a stable stop condition."""
+        """Reconcile a run until it reaches a stable stop condition.
+
+        When ``force_collect_on_max_ticks`` is enabled, exhausting
+        ``max_ticks`` becomes a hard stop for bounded runs: any remaining
+        dispatched workers are force-collected once so supervisor salvage can
+        preserve concrete work instead of abandoning dirty worktrees.
+        """
         interval = (
             self.config.interval_seconds if interval_seconds is None else max(0.1, interval_seconds)
         )
         tick_limit = self.config.max_ticks if max_ticks is None else max_ticks
+        # Count completed sleep/reconcile intervals after the initial tick.
+        # This preserves the immediate first reconciliation and still allows
+        # the final boundary tick before max_ticks exhaustion.
         ticks = 0
         run = await self.tick_run(run_id)
-        exhausted_ticks = False
         while not self._should_stop(run):
-            ticks += 1
             if tick_limit is not None and ticks >= tick_limit:
-                exhausted_ticks = True
+                if force_collect_on_max_ticks:
+                    run = await self._force_collect_dispatched(run_id)
                 break
             await asyncio.sleep(interval)
             run = await self.tick_run(run_id)
-
-        if exhausted_ticks and not self._should_stop(run):
-            run = await self._force_collect_dispatched(run_id)
+            ticks += 1
 
         return run
 
     async def _force_collect_dispatched(self, run_id: str) -> SupervisorRun:
-        """Force-collect all dispatched work orders after max_ticks exhaustion.
+        """Force-collect dispatched work orders after bounded max_ticks exhaustion.
 
-        Kills still-running workers and triggers salvage auto-commit on any
-        dirty worktrees so that code written by workers is not silently lost.
+        This is intentionally opt-in from ``watch_run()`` so generic
+        long-running supervisor sessions do not terminate active work simply
+        because a caller stopped waiting. Bounded dispatch paths can enable it
+        to treat ``max_ticks`` as a hard time cap and run one final salvage
+        collection pass before returning.
         """
         record = self.supervisor.store.get_supervisor_run(run_id)
         if record is None:

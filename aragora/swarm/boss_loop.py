@@ -495,6 +495,7 @@ async def dispatch_bounded_spec(
             wait=True,
             interval_seconds=5.0,
             max_ticks=max_ticks,
+            force_collect_on_max_ticks=True,
             default_target_agent=default_target_agent,
             default_reviewer_agent=default_reviewer_agent,
             use_managed_session_script=use_managed_session_script,

@@ -195,6 +195,7 @@ class SwarmCommander:
         wait: bool = True,
         interval_seconds: float = 5.0,
         max_ticks: int | None = None,
+        force_collect_on_max_ticks: bool = False,
         default_target_agent: str | None = None,
         default_reviewer_agent: str | None = None,
         input_fn: Any | None = None,
@@ -217,6 +218,7 @@ class SwarmCommander:
             wait=wait,
             interval_seconds=interval_seconds,
             max_ticks=max_ticks,
+            force_collect_on_max_ticks=force_collect_on_max_ticks,
             default_target_agent=default_target_agent,
             default_reviewer_agent=default_reviewer_agent,
         )
@@ -234,6 +236,7 @@ class SwarmCommander:
         wait: bool = True,
         interval_seconds: float = 5.0,
         max_ticks: int | None = None,
+        force_collect_on_max_ticks: bool = False,
         default_target_agent: str | None = None,
         default_reviewer_agent: str | None = None,
         use_managed_session_script: bool = True,
@@ -270,10 +273,15 @@ class SwarmCommander:
             launched = await supervisor.dispatch_workers(run.run_id)
             if wait and launched:
                 reconciler = SwarmReconciler(supervisor=supervisor)
+                watch_kwargs: dict[str, Any] = {
+                    "interval_seconds": interval_seconds,
+                    "max_ticks": max_ticks,
+                }
+                if force_collect_on_max_ticks:
+                    watch_kwargs["force_collect_on_max_ticks"] = True
                 return await reconciler.watch_run(
                     run.run_id,
-                    interval_seconds=interval_seconds,
-                    max_ticks=max_ticks,
+                    **watch_kwargs,
                 )
             return supervisor.refresh_run(run.run_id)
 

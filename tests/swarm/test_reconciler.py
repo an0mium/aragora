@@ -128,6 +128,20 @@ async def test_watch_run_stops_when_completed() -> None:
     assert reconciler.tick_run.await_count == 2
 
 
+@pytest.mark.asyncio
+async def test_watch_run_uses_boundary_tick_before_hitting_max_ticks() -> None:
+    active = _run("active", ["dispatched"])
+    completed = _run("completed", ["merged"])
+
+    reconciler = SwarmReconciler(supervisor=MagicMock())
+    reconciler.tick_run = AsyncMock(side_effect=[active, completed])
+
+    result = await reconciler.watch_run("run-123", interval_seconds=0.01, max_ticks=1)
+
+    assert result.status == "completed"
+    assert reconciler.tick_run.await_count == 2
+
+
 def test_should_not_stop_for_waiting_resource_with_forward_progress() -> None:
     """waiting_resource alone is a dead-end, but combined with a leased
     work order the run still has forward progress."""
@@ -172,42 +186,68 @@ def test_should_not_stop_when_dispatched_work_remains() -> None:
 
 
 @pytest.mark.asyncio
-async def test_watch_run_force_collects_on_max_ticks_exhaustion() -> None:
-    """When max_ticks is exhausted with dispatched work orders still active,
-    watch_run must force-kill workers and attempt salvage collection."""
+async def test_watch_run_does_not_force_collect_on_max_ticks_by_default() -> None:
+    """Default watch_run behavior should stop waiting without killing workers."""
     dispatched = _run("active", ["dispatched", "dispatched"])
 
     supervisor = MagicMock()
-    supervisor.store.get_supervisor_run.return_value = dispatched.to_dict()
     supervisor._kill_worker = AsyncMock()
     supervisor.collect_finished_results = AsyncMock(return_value=[])
-    supervisor.refresh_run.return_value = _run("needs_human", ["needs_human", "needs_human"])
 
     reconciler = SwarmReconciler(supervisor=supervisor)
-    # tick_run returns dispatched every time, never reaching _should_stop
     reconciler.tick_run = AsyncMock(return_value=dispatched)
 
     result = await reconciler.watch_run("run-123", interval_seconds=0.01, max_ticks=2)
 
-    # Force collection should have been triggered
-    assert supervisor._kill_worker.await_count == 2
-    supervisor.collect_finished_results.assert_awaited_with("run-123")
+    assert result.status == "active"
+    supervisor._kill_worker.assert_not_awaited()
+    supervisor.collect_finished_results.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_watch_run_skips_force_collect_when_naturally_stopped() -> None:
-    """When watch_run exits because _should_stop returned True,
-    force collection should NOT be triggered."""
+async def test_watch_run_force_collects_on_max_ticks_exhaustion_when_enabled() -> None:
+    """Bounded runs can opt in to a final salvage collect on max_ticks."""
+    dispatched = _run("active", ["dispatched", "dispatched"])
+    final = _run("needs_human", ["needs_human", "needs_human"])
+
+    supervisor = MagicMock()
+    supervisor.store.get_supervisor_run.side_effect = [dispatched.to_dict(), final.to_dict()]
+    supervisor._kill_worker = AsyncMock()
+    supervisor.collect_finished_results = AsyncMock(return_value=[])
+    supervisor.refresh_run.return_value = final
+
+    reconciler = SwarmReconciler(supervisor=supervisor)
+    reconciler.tick_run = AsyncMock(return_value=dispatched)
+
+    result = await reconciler.watch_run(
+        "run-123",
+        interval_seconds=0.01,
+        max_ticks=2,
+        force_collect_on_max_ticks=True,
+    )
+
+    assert result.status == "needs_human"
+    assert supervisor._kill_worker.await_count == 2
+    supervisor.collect_finished_results.assert_awaited_once_with("run-123")
+
+
+@pytest.mark.asyncio
+async def test_watch_run_skips_force_collect_when_naturally_stopped_even_if_enabled() -> None:
+    """Natural stop should win even when bounded force-collect is enabled."""
     completed = _run("completed", ["merged"])
 
     supervisor = MagicMock()
     reconciler = SwarmReconciler(supervisor=supervisor)
     reconciler.tick_run = AsyncMock(return_value=completed)
 
-    result = await reconciler.watch_run("run-123", interval_seconds=0.01, max_ticks=10)
+    result = await reconciler.watch_run(
+        "run-123",
+        interval_seconds=0.01,
+        max_ticks=10,
+        force_collect_on_max_ticks=True,
+    )
 
     assert result.status == "completed"
-    # No force collection — _kill_worker should not be called
     supervisor._kill_worker.assert_not_called()
 
 
