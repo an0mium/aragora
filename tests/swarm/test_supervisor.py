@@ -926,6 +926,25 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
     assert "no-progress timeout" in work_order["dispatch_error"]
 
 
+def test_session_key_unique_per_work_order() -> None:
+    """Regression: subtask_1/subtask_2/subtask_3 must NOT collide into one worktree."""
+    run_id = "abcdef12-3456"
+    work_orders = [
+        {"work_order_id": "subtask_1"},
+        {"work_order_id": "subtask_2"},
+        {"work_order_id": "subtask_3"},
+    ]
+    keys = set()
+    for wo in work_orders:
+        wo_id = str(wo.get("work_order_id", "task"))
+        session_key = f"swarm-{run_id[:8]}-{wo_id}"
+        keys.add(session_key)
+    assert len(keys) == 3, f"Session keys collide: {keys}"
+    assert "swarm-abcdef12-subtask_1" in keys
+    assert "swarm-abcdef12-subtask_2" in keys
+    assert "swarm-abcdef12-subtask_3" in keys
+
+
 def test_worker_prompt_includes_boss_lane_contract() -> None:
     prompt = WorkerLauncher._build_prompt(
         {

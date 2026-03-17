@@ -115,7 +115,7 @@ class TestBuildCommand:
         assert "--" in cmd
         assert "-p" in cmd
         assert "fix bug" in cmd
-        assert "--yes" in cmd
+        assert "--dangerously-skip-permissions" in cmd
         assert "--model" in cmd
         assert "claude-opus-4-6" in cmd
 
@@ -133,7 +133,7 @@ class TestBuildCommand:
         launcher = WorkerLauncher()
         cmd = launcher._build_command("gpt5", "do thing", "/tmp/wt")
         assert cmd[0] == "bash"
-        assert "--yes" in cmd
+        assert "--dangerously-skip-permissions" in cmd
 
     def test_no_model_flag_when_none(self):
         launcher = WorkerLauncher()

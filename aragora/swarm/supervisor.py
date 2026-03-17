@@ -793,7 +793,8 @@ class SwarmSupervisor:
     ) -> None:
         target_agent = str(work_order.get("target_agent", "codex")).strip() or "codex"
         managed_dir = self._managed_dir_for_agent(managed_dir_pattern, target_agent)
-        session_key = f"swarm-{run_id[:8]}-{str(work_order.get('work_order_id', 'task'))[:8]}"
+        wo_id = str(work_order.get("work_order_id", "task"))
+        session_key = f"swarm-{run_id[:8]}-{wo_id}"
         session = self.lifecycle.ensure_managed_worktree(
             managed_dir=managed_dir,
             base_branch=target_branch,

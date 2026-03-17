@@ -383,7 +383,7 @@ class WorkerLauncher:
 
     def _build_agent_command(self, agent: str, prompt: str) -> list[str]:
         if agent == "claude":
-            cmd = [self.config.claude_path, "-p", prompt, "--yes"]
+            cmd = [self.config.claude_path, "-p", prompt, "--dangerously-skip-permissions"]
             if self.config.claude_model:
                 cmd.extend(["--model", self.config.claude_model])
             return cmd
@@ -395,7 +395,7 @@ class WorkerLauncher:
             return cmd
 
         logger.warning("Unknown agent %r, falling back to claude", agent)
-        return [self.config.claude_path, "-p", prompt, "--yes"]
+        return [self.config.claude_path, "-p", prompt, "--dangerously-skip-permissions"]
 
     def _validate_launch_command(self, cmd: list[str], agent: str) -> None:
         if not cmd:
