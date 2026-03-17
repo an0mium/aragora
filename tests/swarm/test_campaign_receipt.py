@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
 from aragora.swarm.campaign import (
     CampaignExecutor,
@@ -131,6 +131,11 @@ def _make_manifest(
     if projects:
         m.projects = projects
     return m
+
+
+def _load_text_like_yaml(path: Path) -> dict:
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else {}
 
 
 class TestEmitReceipt:
@@ -260,6 +265,38 @@ class TestEmitReceipt:
         assert "abc123" in content
         assert "docs/test.md" in content
         assert "duration_seconds: 300" in content
+
+    def test_receipt_includes_planner_and_verification_metadata(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / "manifest.yaml"
+        manifest_path.write_text("campaign_id: phase0a-test\n")
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        project = _make_project(status="completed", branch="")
+        manifest = _make_manifest(projects=[project])
+        manifest.planner_strategy = "model"
+        run_dict = {
+            "work_orders": [
+                {
+                    "branch": "codex/from-run",
+                    "head_sha": "abc123",
+                    "changed_paths": ["docs/test.md"],
+                    "metadata": {
+                        "planner_strategy_requested": "model",
+                        "planner_strategy_used": "heuristic",
+                        "planner_fallback_reason": "TimeoutError: planner timed out",
+                    },
+                    "verification_missing_reason": "missing_verification_plan",
+                }
+            ]
+        }
+
+        receipt_path = executor._emit_receipt(manifest, project, run_dict)
+
+        payload = _load_text_like_yaml(receipt_path)
+        assert payload["planner_strategy_requested"] == "model"
+        assert payload["planner_strategy_used"] == "heuristic"
+        assert payload["planner_fallback_reason"] == "TimeoutError: planner timed out"
+        assert payload["verification_missing_reason"] == "missing_verification_plan"
 
     def test_receipt_always_marks_rescue_false(self, tmp_path: Path) -> None:
         manifest_path = tmp_path / "manifest.yaml"

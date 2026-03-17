@@ -2325,6 +2325,12 @@ def _add_swarm_parser(subparsers) -> None:
         help="Planner model for campaign planning (default: claude)",
     )
     swarm_parser.add_argument(
+        "--planner-strategy",
+        default="heuristic",
+        choices=("heuristic", "model"),
+        help="Planner strategy for campaign planning/execution (default: heuristic)",
+    )
+    swarm_parser.add_argument(
         "--worker-model",
         default="codex",
         help="Worker model for campaign execution (default: codex)",
@@ -2333,6 +2339,21 @@ def _add_swarm_parser(subparsers) -> None:
         "--review-model",
         default="claude",
         help="Review model for campaign cross-check/review (default: claude)",
+    )
+    swarm_parser.add_argument(
+        "--allow-same-model-review",
+        action="store_true",
+        help="Allow worker and reviewer to use the same model for experiment runs",
+    )
+    swarm_parser.add_argument(
+        "--experiment-id",
+        default=None,
+        help="Optional experiment identifier for campaign benchmark runs",
+    )
+    swarm_parser.add_argument(
+        "--experiment-label",
+        default=None,
+        help="Optional human-readable experiment label for campaign benchmark runs",
     )
     swarm_parser.add_argument(
         "--manifest",

@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.nomic.dev_coordination import DevCoordinationStore
+from aragora.nomic.task_decomposer import SubTask
 from aragora.swarm.campaign import (
     CampaignDependency,
     CampaignExecutionState,
@@ -247,6 +248,34 @@ class TestCampaignPlanner:
         assert any("overlapping scope" in finding for finding in manifest.planning_findings)
         assert manifest.projects[1].dependencies[0].project_id == manifest.projects[0].project_id
 
+    def test_model_planner_falls_back_to_heuristic_and_records_finding(
+        self, tmp_path: Path
+    ) -> None:
+        planner = CampaignPlanner(
+            repo_root=tmp_path,
+            planner_model="codex",
+            planner_strategy="model",
+        )
+        planner.decomposer = MagicMock()
+        planner.decomposer.analyze_with_model_sync.side_effect = RuntimeError("planner timeout")
+        planner.decomposer.analyze.return_value = SimpleNamespace(
+            should_decompose=False,
+            subtasks=[],
+            complexity_level="medium",
+        )
+
+        manifest = planner.plan_from_items(
+            ["Enable quality gates in aragora/nomic/hardened_orchestrator.py"],
+            source_kind="source_file",
+            source_ref="roadmap.md",
+        )
+
+        planner.decomposer.analyze_with_model_sync.assert_called_once()
+        planner.decomposer.analyze.assert_called_once()
+        assert any(
+            "planner fallback to heuristic" in finding for finding in manifest.planning_findings
+        )
+
 
 class TestCampaignManifestIO:
     def test_round_trip_yaml(self, tmp_path: Path) -> None:
@@ -275,8 +304,109 @@ class TestCampaignManifestIO:
         assert loaded.projects[0].project_id == "proj-001"
         assert loaded.projects[0].spec.is_dispatch_bounded() is True
 
+    def test_same_model_review_requires_opt_in(self) -> None:
+        enforced = CampaignManifest(
+            campaign_id="campaign-enforced",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            worker_model="codex",
+            review_model="codex",
+            enforce_cross_model_review=True,
+        )
+        allowed = CampaignManifest(
+            campaign_id="campaign-allowed",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            worker_model="codex",
+            review_model="codex",
+            enforce_cross_model_review=False,
+        )
+
+        assert enforced.review_model == "claude"
+        assert allowed.review_model == "codex"
+
 
 class TestCampaignExecutor:
+    @pytest.mark.asyncio
+    async def test_execute_once_uses_model_planner_to_create_explicit_work_orders(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-model-planner",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            planner_model="claude",
+            planner_strategy="model",
+            worker_model="claude",
+            review_model="claude",
+            enforce_cross_model_review=False,
+            experiment_id="exp-001",
+            experiment_label="claude-all-the-way",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Enable quality gates by default",
+                    spec=_bounded_spec(
+                        "Enable quality gates by default",
+                        ["aragora/nomic/hardened_orchestrator.py"],
+                    ),
+                    file_scope_hints=["aragora/nomic/hardened_orchestrator.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_campaign.py"],
+                    constraints=["do not widen scope"],
+                )
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+        executor.decomposer.analyze_with_model = AsyncMock(
+            return_value=SimpleNamespace(
+                subtasks=[
+                    SubTask(
+                        id="subtask_1",
+                        title="Planner lane",
+                        description="Wire default quality gates",
+                        dependencies=[],
+                        estimated_complexity="medium",
+                        file_scope=["aragora/nomic/hardened_orchestrator.py"],
+                        success_criteria={
+                            "tests": "python -m pytest tests/swarm/test_campaign.py -q"
+                        },
+                    )
+                ]
+            )
+        )
+
+        with patch(
+            "aragora.swarm.campaign.dispatch_bounded_spec",
+            new=AsyncMock(
+                return_value={
+                    "status": "needs_human",
+                    "outcome": CampaignRunOutcome.CLEAN_EXIT_NO_DELIVERABLE.value,
+                    "run_id": "run-model-planner",
+                    "run": {
+                        "run_id": "run-model-planner",
+                        "status": "completed",
+                        "work_orders": [],
+                    },
+                }
+            ),
+        ) as mock_dispatch:
+            await executor.execute_once()
+
+        passed_spec = mock_dispatch.await_args.args[0]
+        assert passed_spec.work_orders
+        work_order = passed_spec.work_orders[0]
+        assert work_order["target_agent"] == "claude"
+        assert work_order["reviewer_agent"] == "claude"
+        assert work_order["metadata"]["planner_strategy_requested"] == "model"
+        assert work_order["metadata"]["planner_strategy_used"] == "model"
+        assert work_order["metadata"]["experiment_id"] == "exp-001"
+        executor.decomposer.analyze_with_model.assert_awaited_once()
+
     @pytest.mark.asyncio
     async def test_execute_once_redispatches_needs_revision_with_review_findings(
         self, tmp_path: Path
@@ -1311,6 +1441,37 @@ class TestCampaignCLI:
         assert args.swarm_action_or_goal == "campaign"
         assert args.swarm_goal == "run"
         assert args.source_file == "ROADMAP.md"
+
+    def test_swarm_parser_accepts_campaign_experiment_flags(self) -> None:
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "campaign",
+                "plan",
+                "--source-file",
+                "ROADMAP.md",
+                "--planner-strategy",
+                "model",
+                "--planner-model",
+                "codex",
+                "--worker-model",
+                "claude",
+                "--review-model",
+                "claude",
+                "--allow-same-model-review",
+                "--experiment-id",
+                "exp-001",
+                "--experiment-label",
+                "planner-benchmark",
+            ]
+        )
+
+        assert args.planner_strategy == "model"
+        assert args.allow_same_model_review is True
+        assert args.experiment_id == "exp-001"
 
     def test_campaign_run_plans_then_executes(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]

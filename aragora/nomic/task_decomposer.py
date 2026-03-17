@@ -17,6 +17,7 @@ Oracle-driven validation:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -301,6 +302,85 @@ class TaskDecomposer:
         self._concept_pattern = re.compile(
             r"\b(" + "|".join(DECOMPOSITION_CONCEPTS) + r")\b",
             re.IGNORECASE,
+        )
+
+    async def analyze_with_model(
+        self,
+        task_description: str,
+        *,
+        planner_model: str,
+        timeout_seconds: float = 120.0,
+        file_scope_hints: list[str] | None = None,
+        acceptance_criteria: list[str] | None = None,
+        constraints: list[str] | None = None,
+    ) -> TaskDecomposition:
+        """Decompose a task using the configured planner model.
+
+        This is the runtime planner path used by campaign benchmarking. The
+        planner must return strict JSON so the output shape is comparable across
+        models and can be converted into explicit work orders deterministically.
+        """
+        if not task_description:
+            return TaskDecomposition(
+                original_task="",
+                complexity_score=0,
+                complexity_level="low",
+                should_decompose=False,
+                rationale="Empty task",
+            )
+
+        from aragora.agents.base import create_agent
+
+        prompt = self._build_model_planning_prompt(
+            task_description,
+            file_scope_hints=file_scope_hints,
+            acceptance_criteria=acceptance_criteria,
+            constraints=constraints,
+        )
+        agent = create_agent(planner_model, name="task-planner", role="planner")
+        timeout = max(1.0, float(timeout_seconds or 0.0))
+        raw = await asyncio.wait_for(agent.generate(prompt), timeout=timeout)
+        payload = self._extract_first_json_payload(raw)
+        subtasks, rationale = self._parse_model_subtasks(
+            payload,
+            file_scope_hints=file_scope_hints,
+        )
+        if not subtasks:
+            raise ValueError("Planner model returned no valid subtasks.")
+
+        complexity_score = max(
+            self._calculate_complexity(task_description),
+            self.config.complexity_threshold,
+        )
+        return TaskDecomposition(
+            original_task=task_description,
+            complexity_score=complexity_score,
+            complexity_level=self._score_to_level(complexity_score),
+            should_decompose=True,
+            subtasks=subtasks[: self.config.max_subtasks],
+            rationale=rationale,
+        )
+
+    def analyze_with_model_sync(
+        self,
+        task_description: str,
+        *,
+        planner_model: str,
+        timeout_seconds: float = 120.0,
+        file_scope_hints: list[str] | None = None,
+        acceptance_criteria: list[str] | None = None,
+        constraints: list[str] | None = None,
+    ) -> TaskDecomposition:
+        """Synchronous wrapper for model-based planning."""
+        return asyncio.run(
+            self.analyze_with_model(
+                task_description,
+                planner_model=planner_model,
+                timeout_seconds=timeout_seconds,
+                file_scope_hints=file_scope_hints,
+                acceptance_criteria=acceptance_criteria,
+                constraints=constraints,
+            )
         )
 
     def analyze(
@@ -645,6 +725,163 @@ class TaskDecomposer:
                 total += 1
 
         return max(1, min(10, round(total)))
+
+    @staticmethod
+    def _extract_first_json_payload(text: str) -> dict[str, Any]:
+        content = str(text or "").strip()
+        if not content:
+            return {}
+        for candidate in (content, TaskDecomposer._slice_json_candidate(content, "{", "}")):
+            if not candidate:
+                continue
+            try:
+                parsed = json.loads(candidate)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if isinstance(parsed, dict):
+                return parsed
+            if isinstance(parsed, list):
+                return {"subtasks": parsed}
+        array_candidate = TaskDecomposer._slice_json_candidate(content, "[", "]")
+        if array_candidate:
+            try:
+                parsed = json.loads(array_candidate)
+            except (json.JSONDecodeError, ValueError):
+                return {}
+            if isinstance(parsed, list):
+                return {"subtasks": parsed}
+        return {}
+
+    @staticmethod
+    def _slice_json_candidate(text: str, start_char: str, end_char: str) -> str:
+        start = text.find(start_char)
+        end = text.rfind(end_char)
+        if start == -1 or end == -1 or end <= start:
+            return ""
+        return text[start : end + 1]
+
+    def _build_model_planning_prompt(
+        self,
+        task_description: str,
+        *,
+        file_scope_hints: list[str] | None = None,
+        acceptance_criteria: list[str] | None = None,
+        constraints: list[str] | None = None,
+    ) -> str:
+        scope_text = (
+            "\n".join(f"- {item}" for item in file_scope_hints or [])
+            if file_scope_hints
+            else "- none"
+        )
+        acceptance_text = (
+            "\n".join(f"- {item}" for item in acceptance_criteria or [])
+            if acceptance_criteria
+            else "- none"
+        )
+        constraints_text = (
+            "\n".join(f"- {item}" for item in constraints or []) if constraints else "- none"
+        )
+        return (
+            "You are a bounded task planner for a supervised code-change swarm.\n"
+            "Return strict JSON only. Do not include markdown fences or prose outside JSON.\n\n"
+            "Task:\n"
+            f"{task_description}\n\n"
+            "File scope hints:\n"
+            f"{scope_text}\n\n"
+            "Acceptance criteria:\n"
+            f"{acceptance_text}\n\n"
+            "Constraints:\n"
+            f"{constraints_text}\n\n"
+            "Requirements:\n"
+            "- Produce 1-5 subtasks.\n"
+            "- If the task is narrow, return exactly 1 subtask.\n"
+            "- Keep every file_scope entry within the file scope hints when hints are provided.\n"
+            "- Prefer concrete work orders over generic phases.\n"
+            "- Use dependency IDs only when one subtask must finish before another can start.\n"
+            "- Include a success_criteria.tests command when a relevant pytest command is obvious.\n"
+            "- estimated_complexity must be one of: low, medium, high.\n\n"
+            "JSON schema:\n"
+            "{\n"
+            '  "rationale": "short explanation",\n'
+            '  "subtasks": [\n'
+            "    {\n"
+            '      "id": "subtask_1",\n'
+            '      "title": "short title",\n'
+            '      "description": "bounded implementation task",\n'
+            '      "dependencies": ["subtask_0"],\n'
+            '      "estimated_complexity": "low",\n'
+            '      "file_scope": ["aragora/path.py"],\n'
+            '      "success_criteria": {\n'
+            '        "tests": "python -m pytest path/to/test.py -q",\n'
+            '        "definition_of_done": "brief measurable result"\n'
+            "      }\n"
+            "    }\n"
+            "  ]\n"
+            "}\n"
+        )
+
+    def _parse_model_subtasks(
+        self,
+        payload: dict[str, Any],
+        *,
+        file_scope_hints: list[str] | None = None,
+    ) -> tuple[list[SubTask], str]:
+        raw_subtasks = payload.get("subtasks")
+        if not isinstance(raw_subtasks, list):
+            raw_subtasks = []
+
+        subtasks: list[SubTask] = []
+        seen_ids: set[str] = set()
+        for index, item in enumerate(raw_subtasks, start=1):
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title", "")).strip()
+            description = str(item.get("description", "")).strip() or title
+            if not title and not description:
+                continue
+            raw_id = str(item.get("id", "")).strip() or f"subtask_{index}"
+            subtask_id = raw_id
+            suffix = 2
+            while subtask_id in seen_ids:
+                subtask_id = f"{raw_id}_{suffix}"
+                suffix += 1
+            seen_ids.add(subtask_id)
+
+            complexity = str(item.get("estimated_complexity", "medium")).strip().lower()
+            if complexity not in {"low", "medium", "high"}:
+                complexity = "medium"
+
+            success_criteria = dict(item.get("success_criteria") or {})
+            expected_tests = [
+                str(test).strip() for test in item.get("expected_tests", []) if str(test).strip()
+            ]
+            if expected_tests and "tests" not in success_criteria:
+                success_criteria["tests"] = (
+                    expected_tests[0] if len(expected_tests) == 1 else expected_tests
+                )
+
+            subtasks.append(
+                SubTask(
+                    id=subtask_id,
+                    title=title or description[:80],
+                    description=description,
+                    dependencies=[
+                        str(dep).strip() for dep in item.get("dependencies", []) if str(dep).strip()
+                    ],
+                    estimated_complexity=complexity,
+                    file_scope=[
+                        str(path).strip()
+                        for path in item.get("file_scope", [])
+                        if str(path).strip()
+                    ],
+                    success_criteria=success_criteria,
+                )
+            )
+
+        if file_scope_hints:
+            subtasks = self._constrain_scopes_to_hints(subtasks, file_scope_hints)
+        rationale = str(payload.get("rationale", "")).strip() or "model-based planner output"
+        return subtasks, rationale
 
     _SPECIFIC_ACTION_VERBS = {
         "add",

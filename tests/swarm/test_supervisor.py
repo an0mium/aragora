@@ -6,7 +6,7 @@ import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -392,7 +392,7 @@ def test_start_run_initializes_worker_type_circuit_breaker_metadata(
 
 # ---------- dispatch_workers / collect_results tests ----------
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 from aragora.swarm.worker_launcher import WorkerProcess
 
 UTC = timezone.utc
@@ -487,6 +487,7 @@ async def test_collect_results_updates_work_orders(repo: Path, store: DevCoordin
                 "worktree_path": str(repo),
                 "branch": "main",
                 "target_agent": "claude",
+                "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
             }
         ],
         status="active",
@@ -506,6 +507,17 @@ async def test_collect_results_updates_work_orders(repo: Path, store: DevCoordin
         diff="diff --git a/test.py",
         changed_paths=["test.py"],
         commit_shas=["abc123"],
+        tests_run=["python -m pytest tests/swarm/test_supervisor.py -q"],
+        verification_results=[
+            {
+                "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                "exit_code": 0,
+                "passed": True,
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": 0.2,
+            }
+        ],
     )
     mock_launcher.get_worker = MagicMock(return_value=completed_worker)
     mock_launcher.wait = AsyncMock(return_value=completed_worker)
@@ -701,6 +713,85 @@ async def test_collect_results_blocks_merge_gate_when_required_checks_fail(
 
 
 @pytest.mark.asyncio
+async def test_collect_results_blocks_merge_gate_without_verification_plan(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="merge-missing-plan",
+        title="Merge missing plan lane",
+        owner_agent="claude",
+        owner_session_id="merge-missing-plan-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        expected_tests=[],
+    )
+    run_record = store.create_supervisor_run(
+        goal="merge gate missing verification plan",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "merge gate missing verification plan"},
+        work_orders=[
+            {
+                "work_order_id": "wo-merge-missing-plan",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "owner_session_id": "merge-missing-plan-session",
+                "lease_id": lease.lease_id,
+                "review_status": "pending",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "expected_tests": [],
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    completed_worker = WorkerProcess(
+        work_order_id="wo-merge-missing-plan",
+        agent="claude",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="merge-missing-plan-session",
+        pid=100,
+        exit_code=0,
+        completed_at="2026-03-06T20:00:00+00:00",
+        diff="diff --git a/aragora/swarm/supervisor.py",
+        changed_paths=["aragora/swarm/supervisor.py"],
+        commit_shas=["abc12345"],
+        tests_run=[],
+        verification_results=[],
+    )
+    mock_launcher.get_worker = MagicMock(return_value=completed_worker)
+    mock_launcher.wait = AsyncMock(return_value=completed_worker)
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        launcher=mock_launcher,
+    )
+
+    results = await supervisor.collect_results(run_id)
+    assert len(results) == 1
+
+    updated = store.get_supervisor_run(run_id)
+    assert updated is not None
+    wo = updated["work_orders"][0]
+    assert wo["status"] == "needs_human"
+    assert wo["review_status"] == "changes_requested"
+    assert wo["receipt_id"] is None
+    assert wo["worker_outcome"] == "merge_gate_failed"
+    assert wo["merge_gate"]["checks_passed"] is False
+    assert wo["merge_gate"]["verification_missing_reason"] == "missing_verification_plan"
+    assert wo["verification_missing_reason"] == "missing_verification_plan"
+    assert "missing verification plan" in wo["dispatch_error"]
+
+
+@pytest.mark.asyncio
 async def test_collect_results_marks_scope_violation_needs_human(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -728,6 +819,7 @@ async def test_collect_results_marks_scope_violation_needs_human(
                 "target_agent": "claude",
                 "owner_session_id": "scope-session",
                 "lease_id": lease.lease_id,
+                "file_scope": ["aragora/server/auth_checks.py"],
                 "review_status": "pending",
             }
         ],
@@ -766,10 +858,10 @@ async def test_collect_results_marks_scope_violation_needs_human(
     updated = store.get_supervisor_run(run_id)
     assert updated is not None
     wo = updated["work_orders"][0]
-    assert wo["status"] == "needs_human"
+    assert wo["status"] == "scope_violation"
     assert wo["review_status"] == "changes_requested"
-    assert "file-scope ownership" in wo["dispatch_error"]
-    assert wo["receipt_id"] is None
+    assert "outside permitted scope" in wo["dispatch_error"]
+    assert wo.get("receipt_id") is None
     assert wo["lease_id"] == lease.lease_id
     assert wo["scope_violation"]["violations"][0]["type"] == "out_of_scope"
 

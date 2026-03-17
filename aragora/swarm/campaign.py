@@ -16,6 +16,7 @@ from typing import Any
 
 from aragora.agents.base import create_agent
 from aragora.agents.errors import CLISubprocessError
+from aragora.nomic.pipeline_bridge import NomicPipelineBridge
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposer
 from aragora.swarm.boss_loop import (
     _extract_deliverable,
@@ -281,8 +282,12 @@ class CampaignManifest:
     source_kind: str
     source_ref: str
     planner_model: str = "claude"
+    planner_strategy: str = "heuristic"
     worker_model: str = "codex"
     review_model: str = "claude"
+    enforce_cross_model_review: bool = True
+    experiment_id: str | None = None
+    experiment_label: str | None = None
     max_parallel_ready_projects: int = 2
     max_retries_per_project: int = 2
     budget_limit_usd: float = 50.0
@@ -292,6 +297,14 @@ class CampaignManifest:
     planning_findings: list[str] = field(default_factory=list)
     manifest_version: int = 1
 
+    def __post_init__(self) -> None:
+        self.planner_strategy = _canonical_planner_strategy(self.planner_strategy)
+        self.review_model = _canonical_review_model(
+            self.worker_model,
+            self.review_model,
+            enforce_cross_model_review=self.enforce_cross_model_review,
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "campaign_id": self.campaign_id,
@@ -299,8 +312,12 @@ class CampaignManifest:
             "source_kind": self.source_kind,
             "source_ref": self.source_ref,
             "planner_model": self.planner_model,
+            "planner_strategy": self.planner_strategy,
             "worker_model": self.worker_model,
             "review_model": self.review_model,
+            "enforce_cross_model_review": self.enforce_cross_model_review,
+            "experiment_id": self.experiment_id,
+            "experiment_label": self.experiment_label,
             "max_parallel_ready_projects": self.max_parallel_ready_projects,
             "max_retries_per_project": self.max_retries_per_project,
             "budget_limit_usd": self.budget_limit_usd,
@@ -313,14 +330,27 @@ class CampaignManifest:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CampaignManifest:
+        planner_model = str(data.get("planner_model", "claude")).strip() or "claude"
+        planner_strategy = _canonical_planner_strategy(data.get("planner_strategy"))
+        worker_model = str(data.get("worker_model", "codex")).strip() or "codex"
+        enforce_cross_model_review = bool(data.get("enforce_cross_model_review", True))
+        review_model = _canonical_review_model(
+            worker_model,
+            str(data.get("review_model", "claude")).strip() or "claude",
+            enforce_cross_model_review=enforce_cross_model_review,
+        )
         return cls(
             campaign_id=str(data.get("campaign_id", "")).strip(),
             created_at=str(data.get("created_at", "")).strip(),
             source_kind=str(data.get("source_kind", "")).strip(),
             source_ref=str(data.get("source_ref", "")).strip(),
-            planner_model=str(data.get("planner_model", "claude")).strip() or "claude",
-            worker_model=str(data.get("worker_model", "codex")).strip() or "codex",
-            review_model=str(data.get("review_model", "claude")).strip() or "claude",
+            planner_model=planner_model,
+            planner_strategy=planner_strategy,
+            worker_model=worker_model,
+            review_model=review_model,
+            enforce_cross_model_review=enforce_cross_model_review,
+            experiment_id=str(data.get("experiment_id", "")).strip() or None,
+            experiment_label=str(data.get("experiment_label", "")).strip() or None,
             max_parallel_ready_projects=max(
                 1, int(data.get("max_parallel_ready_projects", 2) or 2)
             ),
@@ -422,9 +452,19 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _canonical_review_model(worker_model: str, requested: str | None = None) -> str:
+def _canonical_planner_strategy(value: Any) -> str:
+    strategy = str(value or "heuristic").strip().lower()
+    return "model" if strategy == "model" else "heuristic"
+
+
+def _canonical_review_model(
+    worker_model: str,
+    requested: str | None = None,
+    *,
+    enforce_cross_model_review: bool = True,
+) -> str:
     candidate = str(requested or "").strip() or ("claude" if worker_model == "codex" else "codex")
-    if candidate == worker_model:
+    if enforce_cross_model_review and candidate == worker_model:
         return "claude" if worker_model == "codex" else "codex"
     return candidate
 
@@ -539,21 +579,34 @@ class CampaignPlanner:
         *,
         repo_root: Path | None = None,
         planner_model: str = "claude",
+        planner_strategy: str = "heuristic",
         worker_model: str = "codex",
         review_model: str = "claude",
+        enforce_cross_model_review: bool = True,
         budget_limit_usd: float = 50.0,
         max_parallel_ready_projects: int = 2,
         decomposer: TaskDecomposer | None = None,
         enable_model_crosscheck: bool = False,
+        experiment_id: str | None = None,
+        experiment_label: str | None = None,
     ) -> None:
         self.repo_root = (repo_root or Path.cwd()).resolve()
         self.planner_model = planner_model
+        self.planner_strategy = _canonical_planner_strategy(planner_strategy)
         self.worker_model = worker_model
-        self.review_model = _canonical_review_model(worker_model, review_model)
+        self.enforce_cross_model_review = bool(enforce_cross_model_review)
+        self.review_model = _canonical_review_model(
+            worker_model,
+            review_model,
+            enforce_cross_model_review=self.enforce_cross_model_review,
+        )
         self.budget_limit_usd = budget_limit_usd
         self.max_parallel_ready_projects = max(1, int(max_parallel_ready_projects))
         self.decomposer = decomposer or TaskDecomposer()
         self.enable_model_crosscheck = enable_model_crosscheck
+        self.experiment_id = experiment_id
+        self.experiment_label = experiment_label
+        self._planner_fallbacks: list[str] = []
 
     def plan_from_source_file(self, path: Path) -> CampaignManifest:
         text = path.read_text(encoding="utf-8")
@@ -623,6 +676,7 @@ class CampaignPlanner:
     ) -> CampaignManifest:
         projects: list[CampaignProject] = []
         source_findings: list[str] = []
+        self._planner_fallbacks = []
         source_index = 0
         for item in items:
             source_index += 1
@@ -631,6 +685,7 @@ class CampaignPlanner:
                 source_findings.append(f"Skipped under-specified candidate: {item[:80]}")
                 continue
             projects.extend(created)
+        source_findings.extend(self._planner_fallbacks)
         self._apply_overlap_dependencies(projects, findings=source_findings)
         projects = self._topological_sort_projects(projects)
         self._renumber_projects(projects)
@@ -642,8 +697,12 @@ class CampaignPlanner:
             source_kind=source_kind,
             source_ref=source_ref,
             planner_model=self.planner_model,
+            planner_strategy=self.planner_strategy,
             worker_model=self.worker_model,
             review_model=self.review_model,
+            enforce_cross_model_review=self.enforce_cross_model_review,
+            experiment_id=self.experiment_id,
+            experiment_label=self.experiment_label,
             max_parallel_ready_projects=self.max_parallel_ready_projects,
             budget_limit_usd=self.budget_limit_usd,
             projects=projects,
@@ -659,7 +718,23 @@ class CampaignPlanner:
             requires_approval=True,
             user_expertise="developer",
         )
-        decomposition = self.decomposer.analyze(item)
+        if self.planner_strategy == "model":
+            try:
+                decomposition = self.decomposer.analyze_with_model_sync(
+                    item,
+                    planner_model=self.planner_model,
+                    file_scope_hints=base_spec.file_scope_hints or None,
+                    acceptance_criteria=base_spec.acceptance_criteria,
+                    constraints=base_spec.constraints,
+                )
+            except Exception as exc:
+                self._planner_fallbacks.append(
+                    f"planner fallback to heuristic for source item {source_index}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                decomposition = self.decomposer.analyze(item)
+        else:
+            decomposition = self.decomposer.analyze(item)
         projects: list[CampaignProject] = []
         if decomposition.should_decompose and decomposition.subtasks:
             subtask_id_map: dict[str, str] = {}
@@ -881,12 +956,17 @@ class CampaignReviewer:
         project: CampaignProject,
         worker_model: str,
         review_model: str,
+        enforce_cross_model_review: bool = True,
         run_dict: dict[str, Any],
         budget_context: dict[str, Any] | None = None,
         repo_root: Path | None = None,
         target_branch: str = "main",
     ) -> CampaignReviewGate:
-        chosen_review_model = _canonical_review_model(worker_model, review_model)
+        chosen_review_model = _canonical_review_model(
+            worker_model,
+            review_model,
+            enforce_cross_model_review=enforce_cross_model_review,
+        )
         diff_content = _fetch_diff_content(
             run_dict, repo_root=repo_root, target_branch=target_branch
         )
@@ -998,11 +1078,15 @@ class CampaignExecutor:
         repo_root: Path | None = None,
         target_branch: str = "main",
         reviewer: CampaignReviewer | None = None,
+        decomposer: TaskDecomposer | None = None,
+        bridge: NomicPipelineBridge | None = None,
     ) -> None:
         self.manifest_path = manifest_path.resolve()
         self.repo_root = (repo_root or Path.cwd()).resolve()
         self.target_branch = target_branch
         self.reviewer = reviewer or CampaignReviewer()
+        self.decomposer = decomposer or TaskDecomposer()
+        self.bridge = bridge or NomicPipelineBridge(repo_path=self.repo_root)
 
     async def execute_once(self) -> dict[str, Any]:
         with locked_manifest_path(self.manifest_path):
@@ -1140,6 +1224,7 @@ class CampaignExecutor:
             project=project,
             worker_model=manifest.worker_model,
             review_model=manifest.review_model,
+            enforce_cross_model_review=manifest.enforce_cross_model_review,
             run_dict=run_dict,
             budget_context=budget_context,
             repo_root=self.repo_root,
@@ -1217,10 +1302,17 @@ class CampaignExecutor:
             project = manifest.project_map().get(project_id)
             if project is None:
                 raise KeyError(f"Unknown project_id: {project_id}")
-            retry_spec = self._spec_for_retry(project)
             worker_model = manifest.worker_model
-            review_model = manifest.review_model
+            review_model = _canonical_review_model(
+                worker_model,
+                manifest.review_model,
+                enforce_cross_model_review=manifest.enforce_cross_model_review,
+            )
             budget_limit = project.spec.budget_limit_usd or manifest.budget_limit_usd
+            manifest_snapshot = CampaignManifest.from_dict(manifest.to_dict())
+            project_snapshot = CampaignProject.from_dict(project.to_dict())
+
+        retry_spec = await self._spec_for_retry(manifest_snapshot, project_snapshot)
 
         result = await dispatch_bounded_spec(
             retry_spec,
@@ -1254,6 +1346,7 @@ class CampaignExecutor:
                 project=project,
                 worker_model=worker_model,
                 review_model=review_model,
+                enforce_cross_model_review=manifest.enforce_cross_model_review,
                 run_dict=dict(result["run"]),
                 budget_context=budget_context,
                 repo_root=self.repo_root,
@@ -1468,16 +1561,132 @@ class CampaignExecutor:
         if blockers:
             record["blockers"] = list(blockers[:10])
             record["failure_detail"] = blockers[0]
+        planner_metadata = _planner_metadata_from_run(run_dict)
+        if planner_metadata.get("planner_strategy_requested"):
+            record["planner_strategy_requested"] = planner_metadata["planner_strategy_requested"]
+        if planner_metadata.get("planner_strategy_used"):
+            record["planner_strategy_used"] = planner_metadata["planner_strategy_used"]
+        if planner_metadata.get("planner_fallback_reason"):
+            record["planner_fallback_reason"] = planner_metadata["planner_fallback_reason"]
+        verification_missing_reason = _verification_missing_reason_from_run(run_dict)
+        if verification_missing_reason:
+            record["verification_missing_reason"] = verification_missing_reason
         project.attempt_history.append(record)
 
-    def _spec_for_retry(self, project: CampaignProject) -> SwarmSpec:
+    async def _spec_for_retry(
+        self,
+        manifest: CampaignManifest,
+        project: CampaignProject,
+    ) -> SwarmSpec:
         spec = SwarmSpec.from_dict(project.spec.to_dict())
         if project.review.findings:
             extra_constraints = [
                 f"Address prior review finding: {finding}" for finding in project.review.findings
             ]
             spec.constraints = list(dict.fromkeys(list(spec.constraints) + extra_constraints))
+        if spec.work_orders or manifest.planner_strategy != "model":
+            return spec
+
+        planning_prompt = self._planner_task_prompt(project, spec)
+        planner_metadata = {
+            "planner_model": manifest.planner_model,
+            "planner_strategy_requested": manifest.planner_strategy,
+            "planner_strategy_used": "model",
+            "planner_fallback_reason": None,
+            "experiment_id": manifest.experiment_id,
+            "experiment_label": manifest.experiment_label,
+        }
+        try:
+            decomposition = await self.decomposer.analyze_with_model(
+                planning_prompt,
+                planner_model=manifest.planner_model,
+                file_scope_hints=spec.file_scope_hints or None,
+                acceptance_criteria=spec.acceptance_criteria,
+                constraints=spec.constraints,
+            )
+        except Exception as exc:
+            planner_metadata["planner_strategy_used"] = "heuristic"
+            planner_metadata["planner_fallback_reason"] = f"{type(exc).__name__}: {exc}"[:500]
+            decomposition = self.decomposer.analyze(
+                planning_prompt,
+                file_scope_hints=spec.file_scope_hints or None,
+            )
+
+        spec.work_orders = self._planned_work_orders_from_decomposition(
+            decomposition,
+            spec=spec,
+            worker_model=manifest.worker_model,
+            review_model=manifest.review_model,
+            enforce_cross_model_review=manifest.enforce_cross_model_review,
+            planner_metadata=planner_metadata,
+        )
         return spec
+
+    @staticmethod
+    def _planner_task_prompt(project: CampaignProject, spec: SwarmSpec) -> str:
+        parts = [spec.refined_goal or spec.raw_goal or project.title]
+        if spec.file_scope_hints:
+            parts.append("File scope hints: " + ", ".join(spec.file_scope_hints))
+        if spec.acceptance_criteria:
+            parts.append("Acceptance criteria: " + "; ".join(spec.acceptance_criteria))
+        if spec.constraints:
+            parts.append("Constraints: " + "; ".join(spec.constraints))
+        return "\n".join(parts)
+
+    def _planned_work_orders_from_decomposition(
+        self,
+        decomposition: Any,
+        *,
+        spec: SwarmSpec,
+        worker_model: str,
+        review_model: str,
+        enforce_cross_model_review: bool,
+        planner_metadata: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        subtasks = list(getattr(decomposition, "subtasks", []) or [])
+        if not subtasks:
+            subtasks = [
+                SubTask(
+                    id="subtask_1",
+                    title=(spec.refined_goal or spec.raw_goal or "Planned work")[:80],
+                    description=spec.refined_goal or spec.raw_goal or "Planned work",
+                    file_scope=list(spec.file_scope_hints),
+                    success_criteria={
+                        "tests": (
+                            spec.acceptance_criteria[0]
+                            if spec.acceptance_criteria
+                            and (
+                                spec.acceptance_criteria[0].startswith("pytest")
+                                or spec.acceptance_criteria[0].startswith("python -m pytest")
+                            )
+                            else ""
+                        ),
+                        "definition_of_done": spec.acceptance_criteria[0]
+                        if spec.acceptance_criteria
+                        else "Complete the bounded task.",
+                    },
+                )
+            ]
+        chosen_review_model = _canonical_review_model(
+            worker_model,
+            review_model,
+            enforce_cross_model_review=enforce_cross_model_review,
+        )
+        work_orders = [item.to_dict() for item in self.bridge.build_work_orders(subtasks)]
+        for item in work_orders:
+            item["target_agent"] = worker_model
+            item["reviewer_agent"] = chosen_review_model
+            item["metadata"] = {
+                **dict(item.get("metadata") or {}),
+                **{
+                    key: value
+                    for key, value in planner_metadata.items()
+                    if value is not None and value != ""
+                },
+                "requested_target_agent": worker_model,
+                "requested_reviewer_agent": chosen_review_model,
+            }
+        return work_orders
 
     def _reconcile_active_projects(self, manifest: CampaignManifest) -> None:
         for project in manifest.projects:
@@ -1571,12 +1780,20 @@ class CampaignExecutor:
                 manifest_input = str(self.manifest_path.relative_to(self.repo_root))
             except ValueError:
                 manifest_input = str(self.manifest_path)
+            planner_metadata = _planner_metadata_from_run(run_dict)
+            verification_missing_reason = _verification_missing_reason_from_run(run_dict)
 
             payload: dict[str, Any] = {
                 "task_id": project.project_id,
                 "campaign_id": manifest.campaign_id,
                 "phase": _derive_phase(manifest.campaign_id),
                 "manifest_input": manifest_input,
+                "planner_strategy_requested": planner_metadata.get("planner_strategy_requested")
+                or manifest.planner_strategy,
+                "planner_strategy_used": planner_metadata.get("planner_strategy_used")
+                or manifest.planner_strategy,
+                "planner_fallback_reason": planner_metadata.get("planner_fallback_reason"),
+                "verification_missing_reason": verification_missing_reason,
                 "worker_receipt_id": project.worker_receipt_id,
                 "worker_branch": _worker_branch_from_run(project, run_dict),
                 "worker_commit": _worker_commit_from_run(project, run_dict),
@@ -1699,8 +1916,12 @@ def _manifest_summary(manifest: CampaignManifest) -> dict[str, Any]:
         "source_kind": manifest.source_kind,
         "source_ref": manifest.source_ref,
         "planner_model": manifest.planner_model,
+        "planner_strategy": manifest.planner_strategy,
         "worker_model": manifest.worker_model,
         "review_model": manifest.review_model,
+        "enforce_cross_model_review": manifest.enforce_cross_model_review,
+        "experiment_id": manifest.experiment_id,
+        "experiment_label": manifest.experiment_label,
         "budget_limit_usd": manifest.budget_limit_usd,
         "total_cost_usd": manifest.execution_state.total_cost_usd,
         "reserved_cost_usd": manifest.execution_state.reserved_cost_usd,
@@ -1992,4 +2213,48 @@ def _worker_commit_from_run(
         shas = [str(s).strip() for s in wo.get("commit_shas", []) if str(s).strip()]
         if shas:
             return shas[-1]
+    return None
+
+
+def _planner_metadata_from_run(run_dict: dict[str, Any] | None) -> dict[str, Any]:
+    if not run_dict:
+        return {}
+    for wo in run_dict.get("work_orders", []):
+        if not isinstance(wo, dict):
+            continue
+        metadata = dict(wo.get("metadata") or {})
+        if any(
+            key in metadata
+            for key in (
+                "planner_strategy_requested",
+                "planner_strategy_used",
+                "planner_fallback_reason",
+            )
+        ):
+            return {
+                "planner_strategy_requested": str(
+                    metadata.get("planner_strategy_requested", "")
+                ).strip()
+                or None,
+                "planner_strategy_used": str(metadata.get("planner_strategy_used", "")).strip()
+                or None,
+                "planner_fallback_reason": str(metadata.get("planner_fallback_reason", "")).strip()
+                or None,
+            }
+    return {}
+
+
+def _verification_missing_reason_from_run(run_dict: dict[str, Any] | None) -> str | None:
+    if not run_dict:
+        return None
+    for wo in run_dict.get("work_orders", []):
+        if not isinstance(wo, dict):
+            continue
+        reason = str(wo.get("verification_missing_reason", "")).strip()
+        if reason:
+            return reason
+        merge_gate = dict(wo.get("merge_gate") or {})
+        reason = str(merge_gate.get("verification_missing_reason", "")).strip()
+        if reason:
+            return reason
     return None

@@ -1177,6 +1177,8 @@ class SwarmSupervisor:
 
             merge_gate = self._merge_gate_state(item)
             item["merge_gate"] = merge_gate
+            if merge_gate.get("verification_missing_reason"):
+                item["verification_missing_reason"] = merge_gate["verification_missing_reason"]
             if not bool(merge_gate.get("checks_passed")):
                 self._mark_needs_human(item, self._merge_gate_failure_reason(merge_gate))
                 item["review_status"] = "changes_requested"
@@ -1800,6 +1802,12 @@ class SwarmSupervisor:
         ]
 
         blocked_reasons: list[str] = []
+        verification_missing_reason: str | None = None
+        if not expected_checks:
+            verification_missing_reason = "missing_verification_plan"
+            blocked_reasons.append(
+                "merge gate blocked: missing verification plan for code-change lane"
+            )
         if missing_checks:
             blocked_reasons.append(
                 "merge gate blocked: required verification did not run: "
@@ -1816,11 +1824,12 @@ class SwarmSupervisor:
                 reason = f"{reason} - {stderr.splitlines()[0][:200]}"
             blocked_reasons.append(reason)
 
-        checks_passed = not expected_checks or (not missing_checks and not failed_checks)
+        checks_passed = bool(expected_checks) and not missing_checks and not failed_checks
         return {
             "enabled": True,
             "expected_checks": expected_checks,
             "verification_results": verification_results,
+            "verification_missing_reason": verification_missing_reason,
             "checks_passed": checks_passed,
             "human_approval_required": True,
             "merge_eligible": checks_passed,

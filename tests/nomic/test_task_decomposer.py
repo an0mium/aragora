@@ -1,5 +1,8 @@
 """Tests for Nomic Loop task decomposer."""
 
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from aragora.nomic.task_decomposer import (
@@ -112,6 +115,54 @@ class TestTaskDecomposer:
 
         # Same complexity, different decomposition decisions possible
         assert result_low.complexity_score == result_high.complexity_score
+
+    @pytest.mark.asyncio
+    async def test_analyze_with_model_parses_strict_json(self):
+        decomposer = TaskDecomposer()
+        mock_agent = SimpleNamespace(
+            generate=AsyncMock(
+                return_value=(
+                    '{"rationale":"planner output","subtasks":[{"id":"lane_1","title":"Gate defaults",'
+                    '"description":"Enable defaults","dependencies":[],"estimated_complexity":"medium",'
+                    '"file_scope":["aragora/nomic/hardened_orchestrator.py"],'
+                    '"success_criteria":{"tests":"python -m pytest tests/swarm/test_campaign.py -q"}}]}'
+                )
+            )
+        )
+
+        with patch("aragora.agents.base.create_agent", return_value=mock_agent):
+            result = await decomposer.analyze_with_model(
+                "Enable quality gates by default",
+                planner_model="claude",
+                file_scope_hints=["aragora/nomic/hardened_orchestrator.py"],
+            )
+
+        assert result.should_decompose is True
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].id == "lane_1"
+        assert result.subtasks[0].file_scope == ["aragora/nomic/hardened_orchestrator.py"]
+
+    @pytest.mark.asyncio
+    async def test_analyze_with_model_wraps_json_array_payload(self):
+        decomposer = TaskDecomposer()
+        mock_agent = SimpleNamespace(
+            generate=AsyncMock(
+                return_value=(
+                    '[{"title":"Gate defaults","description":"Enable defaults",'
+                    '"estimated_complexity":"medium","file_scope":["aragora/nomic/hardened_orchestrator.py"]}]'
+                )
+            )
+        )
+
+        with patch("aragora.agents.base.create_agent", return_value=mock_agent):
+            result = await decomposer.analyze_with_model(
+                "Enable quality gates by default",
+                planner_model="codex",
+                file_scope_hints=["aragora/nomic/hardened_orchestrator.py"],
+            )
+
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].title == "Gate defaults"
 
 
 class TestSubTask:

@@ -321,13 +321,19 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             return CampaignPlanner(
                 repo_root=Path.cwd(),
                 planner_model=str(getattr(args, "planner_model", "claude") or "claude"),
+                planner_strategy=str(getattr(args, "planner_strategy", "heuristic") or "heuristic"),
                 worker_model=str(getattr(args, "worker_model", "codex") or "codex"),
                 review_model=str(getattr(args, "review_model", "claude") or "claude"),
+                enforce_cross_model_review=not bool(
+                    getattr(args, "allow_same_model_review", False)
+                ),
                 budget_limit_usd=float(getattr(args, "budget_limit", 50.0) or 50.0),
                 max_parallel_ready_projects=int(
                     getattr(args, "max_parallel_ready_projects", parallel_default)
                     or parallel_default
                 ),
+                experiment_id=str(getattr(args, "experiment_id", "")).strip() or None,
+                experiment_label=str(getattr(args, "experiment_label", "")).strip() or None,
             )
 
         def _plan_campaign(planner):
