@@ -104,6 +104,28 @@ class TestBuildPrompt:
         assert "All tests pass" in prompt
         assert "Do not modify CLAUDE.md" in prompt
 
+    def test_codex_prompt_includes_lane_closure_guidance(self):
+        prompt = WorkerLauncher._build_prompt(
+            {
+                "target_agent": "codex",
+                "title": "Harden execution",
+            }
+        )
+
+        assert "Codex lane discipline:" in prompt
+        assert "checkpoint commit before long" in prompt
+        assert "Do not exit 0 with staged or unstaged changes remaining." in prompt
+
+    def test_claude_prompt_omits_codex_lane_closure_guidance(self):
+        prompt = WorkerLauncher._build_prompt(
+            {
+                "target_agent": "claude",
+                "title": "Harden execution",
+            }
+        )
+
+        assert "Codex lane discipline:" not in prompt
+
 
 class TestBuildCommand:
     def test_claude_command(self):
@@ -266,6 +288,64 @@ class TestWait:
         assert result.exit_code == -1
         assert "Timed out" in result.stderr
         mock_proc.kill.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_wait_salvages_codex_timeout_with_commit_and_runs_verification(self):
+        launcher = WorkerLauncher(LaunchConfig(timeout_seconds=0.01, auto_commit=True))
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+
+        worker = WorkerProcess(
+            work_order_id="wo-timeout-salvage",
+            agent="codex",
+            worktree_path="/tmp/wt",
+            branch="main",
+            pid=200,
+            expected_tests=[expected_test],
+        )
+        launcher._workers["wo-timeout-salvage"] = worker
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_proc.kill = MagicMock()
+        mock_proc.wait = AsyncMock()
+        launcher._processes["wo-timeout-salvage"] = mock_proc
+
+        verification_results = [
+            {
+                "command": expected_test,
+                "exit_code": 0,
+                "passed": True,
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": 0.2,
+            }
+        ]
+
+        with (
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher,
+                "_has_working_tree_changes",
+                new=AsyncMock(return_value=True),
+            ),
+            patch.object(WorkerLauncher, "_auto_commit", new=AsyncMock()) as mock_commit,
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new=AsyncMock(return_value=verification_results),
+            ) as mock_verify,
+        ):
+            result = await launcher.wait("wo-timeout-salvage")
+
+        assert result.exit_code == 0
+        assert result.commit_shas == ["abc123"]
+        assert "salvageable commit" in result.stderr
+        mock_proc.kill.assert_called_once()
+        mock_commit.assert_awaited_once()
+        mock_verify.assert_awaited_once_with("/tmp/wt", [expected_test])
 
     @pytest.mark.asyncio
     async def test_wait_unknown_raises(self):

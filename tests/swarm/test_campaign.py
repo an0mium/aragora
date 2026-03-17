@@ -402,10 +402,112 @@ class TestCampaignExecutor:
         work_order = passed_spec.work_orders[0]
         assert work_order["target_agent"] == "claude"
         assert work_order["reviewer_agent"] == "claude"
+        assert work_order["expected_tests"] == ["python -m pytest tests/swarm/test_campaign.py -q"]
         assert work_order["metadata"]["planner_strategy_requested"] == "model"
         assert work_order["metadata"]["planner_strategy_used"] == "model"
         assert work_order["metadata"]["experiment_id"] == "exp-001"
         executor.decomposer.analyze_with_model.assert_awaited_once()
+
+    def test_planned_work_orders_inherit_expected_tests_when_planner_omits_them(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-model-planner-fallback-tests",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            planner_model="claude",
+            planner_strategy="model",
+            worker_model="claude",
+            review_model="claude",
+            enforce_cross_model_review=False,
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+        spec = _bounded_spec(
+            "Enable quality gates by default",
+            ["aragora/nomic/hardened_orchestrator.py"],
+        )
+
+        work_orders = executor._planned_work_orders_from_decomposition(
+            SimpleNamespace(
+                subtasks=[
+                    SubTask(
+                        id="subtask_1",
+                        title="Planner lane",
+                        description="Wire default quality gates",
+                        dependencies=[],
+                        estimated_complexity="medium",
+                        file_scope=["aragora/nomic/hardened_orchestrator.py"],
+                        success_criteria={},
+                    )
+                ]
+            ),
+            spec=spec,
+            worker_model="claude",
+            review_model="claude",
+            enforce_cross_model_review=False,
+            planner_metadata={
+                "planner_strategy_requested": "model",
+                "planner_strategy_used": "model",
+            },
+        )
+
+        assert work_orders[0]["expected_tests"] == ["pytest -q tests/swarm/test_campaign.py"]
+        assert (
+            work_orders[0]["success_criteria"]["tests"] == "pytest -q tests/swarm/test_campaign.py"
+        )
+
+    def test_planned_work_orders_preserve_explicit_planner_tests(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-model-planner-explicit-tests",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            planner_model="claude",
+            planner_strategy="model",
+            worker_model="claude",
+            review_model="claude",
+            enforce_cross_model_review=False,
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+        spec = _bounded_spec(
+            "Enable quality gates by default",
+            ["aragora/nomic/hardened_orchestrator.py"],
+        )
+
+        work_orders = executor._planned_work_orders_from_decomposition(
+            SimpleNamespace(
+                subtasks=[
+                    SubTask(
+                        id="subtask_1",
+                        title="Planner lane",
+                        description="Wire default quality gates",
+                        dependencies=[],
+                        estimated_complexity="medium",
+                        file_scope=["aragora/nomic/hardened_orchestrator.py"],
+                        success_criteria={
+                            "tests": "python -m pytest tests/custom/test_quality_gates.py -q"
+                        },
+                    )
+                ]
+            ),
+            spec=spec,
+            worker_model="claude",
+            review_model="claude",
+            enforce_cross_model_review=False,
+            planner_metadata={
+                "planner_strategy_requested": "model",
+                "planner_strategy_used": "model",
+            },
+        )
+
+        assert work_orders[0]["expected_tests"] == [
+            "python -m pytest tests/custom/test_quality_gates.py -q"
+        ]
 
     @pytest.mark.asyncio
     async def test_execute_once_redispatches_needs_revision_with_review_findings(

@@ -266,6 +266,40 @@ class TestEmitReceipt:
         assert "docs/test.md" in content
         assert "duration_seconds: 300" in content
 
+    def test_receipt_includes_multi_branch_worker_metadata(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / "manifest.yaml"
+        manifest_path.write_text("campaign_id: phase0a-test\n")
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        project = _make_project(status="completed", branch="")
+        manifest = _make_manifest(projects=[project])
+        run_dict = {
+            "work_orders": [
+                {
+                    "branch": "codex/swarm-subtask-1",
+                    "commit_shas": ["abc123"],
+                    "changed_paths": ["docs/test.md"],
+                },
+                {
+                    "branch": "codex/swarm-subtask-2",
+                    "head_sha": "def456",
+                    "changed_paths": ["aragora/swarm/campaign.py"],
+                },
+            ]
+        }
+
+        receipt_path = executor._emit_receipt(manifest, project, run_dict)
+
+        payload = _load_text_like_yaml(receipt_path)
+        assert payload["worker_branch"] == "codex/swarm-subtask-1"
+        assert payload["worker_commit"] == "def456"
+        assert payload["worker_branches"] == [
+            "codex/swarm-subtask-1",
+            "codex/swarm-subtask-2",
+        ]
+        assert payload["worker_commits"] == ["abc123", "def456"]
+        assert payload["changed_files"] == ["docs/test.md", "aragora/swarm/campaign.py"]
+
     def test_receipt_includes_planner_and_verification_metadata(self, tmp_path: Path) -> None:
         manifest_path = tmp_path / "manifest.yaml"
         manifest_path.write_text("campaign_id: phase0a-test\n")

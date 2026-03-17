@@ -1674,6 +1674,15 @@ class CampaignExecutor:
         )
         work_orders = [item.to_dict() for item in self.bridge.build_work_orders(subtasks)]
         for item in work_orders:
+            inherited_tests = self._inherited_expected_tests_for_planned_work_order(item, spec)
+            if inherited_tests:
+                item["expected_tests"] = inherited_tests
+                success_criteria = dict(item.get("success_criteria") or {})
+                if "tests" not in success_criteria:
+                    success_criteria["tests"] = (
+                        inherited_tests[0] if len(inherited_tests) == 1 else list(inherited_tests)
+                    )
+                item["success_criteria"] = success_criteria
             item["target_agent"] = worker_model
             item["reviewer_agent"] = chosen_review_model
             item["metadata"] = {
@@ -1687,6 +1696,27 @@ class CampaignExecutor:
                 "requested_reviewer_agent": chosen_review_model,
             }
         return work_orders
+
+    @staticmethod
+    def _inherited_expected_tests_for_planned_work_order(
+        work_order: dict[str, Any],
+        spec: SwarmSpec,
+    ) -> list[str]:
+        existing = [
+            str(item).strip() for item in work_order.get("expected_tests", []) if str(item).strip()
+        ]
+        if existing:
+            return list(dict.fromkeys(existing))
+
+        inferred: list[str] = []
+        for raw_path in work_order.get("file_scope", []):
+            path = str(raw_path).strip()
+            if path.startswith("tests/") and path.endswith(".py"):
+                inferred.append(f"python -m pytest {path} -q")
+        if inferred:
+            return list(dict.fromkeys(inferred))
+
+        return _tests_from_acceptance_criteria(spec.acceptance_criteria)
 
     def _reconcile_active_projects(self, manifest: CampaignManifest) -> None:
         for project in manifest.projects:
@@ -1782,6 +1812,8 @@ class CampaignExecutor:
                 manifest_input = str(self.manifest_path)
             planner_metadata = _planner_metadata_from_run(run_dict)
             verification_missing_reason = _verification_missing_reason_from_run(run_dict)
+            worker_branches = _worker_branches_from_run(project, run_dict)
+            worker_commits = _worker_commits_from_run(project, run_dict)
 
             payload: dict[str, Any] = {
                 "task_id": project.project_id,
@@ -1795,8 +1827,10 @@ class CampaignExecutor:
                 "planner_fallback_reason": planner_metadata.get("planner_fallback_reason"),
                 "verification_missing_reason": verification_missing_reason,
                 "worker_receipt_id": project.worker_receipt_id,
-                "worker_branch": _worker_branch_from_run(project, run_dict),
-                "worker_commit": _worker_commit_from_run(project, run_dict),
+                "worker_branch": worker_branches[0] if worker_branches else None,
+                "worker_commit": worker_commits[-1] if worker_commits else None,
+                "worker_branches": worker_branches,
+                "worker_commits": worker_commits,
                 "changed_files": _changed_files_from_run(run_dict),
                 "review_verdict": _receipt_review_verdict(project.review.status),
                 "verification_results": {
@@ -2182,38 +2216,72 @@ def _changed_files_from_run(run_dict: dict[str, Any] | None) -> list[str]:
     return paths
 
 
+def _tests_from_acceptance_criteria(acceptance_criteria: list[str]) -> list[str]:
+    tests: list[str] = []
+    for item in acceptance_criteria:
+        text = str(item).strip()
+        if text.startswith("python -m pytest") or text.startswith("pytest"):
+            tests.append(text)
+    return list(dict.fromkeys(tests))
+
+
+def _ordered_unique(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in items:
+        text = str(item).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        ordered.append(text)
+    return ordered
+
+
+def _worker_branches_from_run(
+    project: CampaignProject, run_dict: dict[str, Any] | None
+) -> list[str]:
+    branches: list[str] = []
+    if project.branch:
+        branches.append(project.branch)
+    if run_dict:
+        for wo in run_dict.get("work_orders", []):
+            if not isinstance(wo, dict):
+                continue
+            branch = str(wo.get("branch", "")).strip()
+            if branch:
+                branches.append(branch)
+    return _ordered_unique(branches)
+
+
+def _worker_commits_from_run(
+    project: CampaignProject, run_dict: dict[str, Any] | None
+) -> list[str]:
+    commits: list[str] = [str(sha).strip() for sha in project.commit_shas if str(sha).strip()]
+    if run_dict:
+        for wo in run_dict.get("work_orders", []):
+            if not isinstance(wo, dict):
+                continue
+            commits.extend(
+                str(sha).strip() for sha in wo.get("commit_shas", []) if str(sha).strip()
+            )
+            head_sha = str(wo.get("head_sha", "")).strip()
+            if head_sha:
+                commits.append(head_sha)
+    return _ordered_unique(commits)
+
+
 def _worker_branch_from_run(
     project: CampaignProject, run_dict: dict[str, Any] | None
 ) -> str | None:
-    if project.branch:
-        return project.branch
-    if not run_dict:
-        return None
-    for wo in run_dict.get("work_orders", []):
-        if isinstance(wo, dict):
-            branch = str(wo.get("branch", "")).strip()
-            if branch:
-                return branch
-    return None
+    branches = _worker_branches_from_run(project, run_dict)
+    return branches[0] if branches else None
 
 
 def _worker_commit_from_run(
     project: CampaignProject, run_dict: dict[str, Any] | None
 ) -> str | None:
-    if project.commit_shas:
-        return project.commit_shas[-1]
-    if not run_dict:
-        return None
-    for wo in run_dict.get("work_orders", []):
-        if not isinstance(wo, dict):
-            continue
-        sha = str(wo.get("head_sha", "")).strip()
-        if sha:
-            return sha
-        shas = [str(s).strip() for s in wo.get("commit_shas", []) if str(s).strip()]
-        if shas:
-            return shas[-1]
-    return None
+    commits = _worker_commits_from_run(project, run_dict)
+    return commits[-1] if commits else None
 
 
 def _planner_metadata_from_run(run_dict: dict[str, Any] | None) -> dict[str, Any]:

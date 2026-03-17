@@ -34,10 +34,10 @@ SESSION_ARTIFACTS: frozenset[str] = frozenset(
 )
 
 # Exit codes where the worker likely completed its work but the process was
-# terminated by a transport-level signal (e.g. broken pipe).  Only these
-# codes are eligible for auto-commit salvage — all other non-zero exits are
-# treated as genuine failures whose partial output must NOT become a
-# concrete deliverable.
+# terminated by a transport-level signal (e.g. broken pipe). These codes are
+# eligible for auto-commit salvage for all worker types. Codex lanes also get
+# a best-effort salvage path when they exit non-zero after producing a real
+# commit so review/verification can still judge the recovered deliverable.
 _SALVAGEABLE_EXIT_CODES: frozenset[int] = frozenset(
     {
         141,  # SIGPIPE — stdout pipe closed before process finished writing
@@ -236,15 +236,17 @@ class WorkerLauncher:
         try:
             worker.diff = await self._collect_diff(worker.worktree_path)
 
-            _exit_ok = worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
+            _can_query_dirty_tree = self._can_query_dirty_tree(worker)
             # ``git diff HEAD`` only detects modifications to tracked files.
             # Workers that create NEW (untracked) files show no diff.
             # Always fall back to ``git status --porcelain`` which detects
             # both untracked and modified files.
             _has_changes = bool(worker.diff) or (
-                _exit_ok and await self._has_working_tree_changes(worker.worktree_path)
+                _can_query_dirty_tree and await self._has_working_tree_changes(worker.worktree_path)
             )
-            if self.config.auto_commit and _has_changes and _exit_ok:
+            if self.config.auto_commit and self._should_attempt_auto_commit(
+                worker, has_changes=_has_changes
+            ):
                 await self._auto_commit(worker)
 
             worker.head_sha = await self._git_output(worker.worktree_path, "rev-parse", "HEAD")
@@ -258,6 +260,7 @@ class WorkerLauncher:
                 initial_head=worker.initial_head,
                 head_sha=worker.head_sha,
             )
+            self._promote_salvaged_codex_exit(worker)
             if worker.exit_code == 0 and worker.expected_tests:
                 worker.verification_results = await self._run_verification_commands(
                     worker.worktree_path,
@@ -438,6 +441,7 @@ class WorkerLauncher:
         """Build the task prompt from a work order dict."""
         parts: list[str] = []
         metadata = work_order.get("metadata", {})
+        target_agent = str(work_order.get("target_agent", "")).strip().lower()
 
         title = str(work_order.get("title", "")).strip()
         if title:
@@ -485,6 +489,16 @@ class WorkerLauncher:
                 "Decision boundary:\n"
                 "  - If you hit a real ambiguity, approval boundary, or blocker, stop cleanly and "
                 "report the exact reason instead of widening scope."
+            )
+
+        if target_agent == "codex":
+            parts.append(
+                "Codex lane discipline:\n"
+                "  - If you have a real bounded code change, create a checkpoint commit before long "
+                "or fragile validation.\n"
+                "  - Do not exit 0 with staged or unstaged changes remaining.\n"
+                "  - If validation is slow or fails late, still preserve the bounded deliverable "
+                "with an honest commit message and report the failing command."
             )
 
         lease_id = str(work_order.get("lease_id", "")).strip()
@@ -666,15 +680,15 @@ class WorkerLauncher:
         try:
             worker.diff = await cls._collect_diff(worktree_path)
 
-            _exit_ok = worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES
+            _can_query_dirty_tree = cls._can_query_dirty_tree(worker)
             # ``git diff HEAD`` only detects modifications to tracked files.
             # Workers that create NEW (untracked) files show no diff.
             # Always fall back to ``git status --porcelain`` which detects
             # both untracked and modified files.
             _has_changes = bool(worker.diff) or (
-                _exit_ok and await cls._has_working_tree_changes(worktree_path)
+                _can_query_dirty_tree and await cls._has_working_tree_changes(worktree_path)
             )
-            if auto_commit and _has_changes and _exit_ok:
+            if auto_commit and cls._should_attempt_auto_commit(worker, has_changes=_has_changes):
                 await cls._auto_commit(worker)
 
             worker.head_sha = await cls._git_output(worktree_path, "rev-parse", "HEAD")
@@ -688,6 +702,7 @@ class WorkerLauncher:
                 initial_head=initial_head,
                 head_sha=worker.head_sha,
             )
+            cls._promote_salvaged_codex_exit(worker)
             if worker.exit_code == 0 and worker.expected_tests:
                 worker.verification_results = await cls._run_verification_commands(
                     worktree_path,
@@ -855,6 +870,37 @@ class WorkerLauncher:
                 }
             )
         return results
+
+    @staticmethod
+    def _can_query_dirty_tree(worker: WorkerProcess) -> bool:
+        return (
+            worker.exit_code == 0
+            or worker.exit_code in _SALVAGEABLE_EXIT_CODES
+            or worker.agent == "codex"
+        )
+
+    @staticmethod
+    def _should_attempt_auto_commit(worker: WorkerProcess, *, has_changes: bool) -> bool:
+        if not has_changes:
+            return False
+        if worker.exit_code == 0 or worker.exit_code in _SALVAGEABLE_EXIT_CODES:
+            return True
+        return worker.agent == "codex"
+
+    @staticmethod
+    def _promote_salvaged_codex_exit(worker: WorkerProcess) -> None:
+        if worker.agent != "codex":
+            return
+        if worker.exit_code in (None, 0):
+            return
+        if not worker.commit_shas:
+            return
+        note = (
+            f"Codex exited {worker.exit_code} after producing a salvageable commit; "
+            "verification continued on the recovered deliverable."
+        )
+        worker.stderr = "\n".join(part for part in (worker.stderr.strip(), note) if part).strip()
+        worker.exit_code = 0
 
     @staticmethod
     def _read_log_file(worktree_path: str, stream: str) -> str:

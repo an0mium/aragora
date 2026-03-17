@@ -53,6 +53,10 @@ RESULT_COLUMNS = [
     "review_status",
     "worker_branch",
     "worker_commit",
+    "worker_branch_count",
+    "worker_commit_count",
+    "worker_branches_json",
+    "worker_commits_json",
     "pr_url",
     "pr_state",
     "ci_status",
@@ -272,6 +276,17 @@ def build_result_row(runtime_manifest_path: Path) -> dict[str, Any]:
     receipt_path = PROJECT_ROOT / project.receipt_id if project.receipt_id else None
     receipt = _load_receipt(receipt_path)
     branch = str(receipt.get("worker_branch") or project.branch or "").strip() or None
+    worker_branches = [
+        str(item).strip() for item in receipt.get("worker_branches", []) if str(item).strip()
+    ]
+    if not worker_branches and branch:
+        worker_branches = [branch]
+    worker_commit = str(receipt.get("worker_commit") or "").strip()
+    worker_commits = [
+        str(item).strip() for item in receipt.get("worker_commits", []) if str(item).strip()
+    ]
+    if not worker_commits and worker_commit:
+        worker_commits = [worker_commit]
     pr_lookup = _lookup_pr(branch)
     pr_number = int(pr_lookup["number"]) if isinstance(pr_lookup.get("number"), int) else None
     review_model = manifest.review_model
@@ -295,7 +310,11 @@ def build_result_row(runtime_manifest_path: Path) -> dict[str, Any]:
         "last_run_outcome": project.last_run_outcome,
         "review_status": project.review.status,
         "worker_branch": branch or "",
-        "worker_commit": str(receipt.get("worker_commit") or "").strip(),
+        "worker_commit": worker_commit,
+        "worker_branch_count": len(worker_branches),
+        "worker_commit_count": len(worker_commits),
+        "worker_branches_json": json.dumps(worker_branches),
+        "worker_commits_json": json.dumps(worker_commits),
         "pr_url": str(project.pr_url or pr_lookup.get("url") or "").strip(),
         "pr_state": str(pr_lookup.get("state") or "").strip(),
         "ci_status": _lookup_ci_status(pr_number),
