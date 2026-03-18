@@ -378,7 +378,7 @@ class WorkerLauncher:
         session_id: str = "",
     ) -> list[str]:
         """Build the launch command for the given agent type."""
-        inner = self._build_agent_command(agent, prompt)
+        inner = self._build_agent_command(agent, prompt, worktree_path=worktree_path)
         if not self.config.use_managed_session_script:
             return inner
 
@@ -402,7 +402,9 @@ class WorkerLauncher:
         cmd.extend(inner)
         return cmd
 
-    def _build_agent_command(self, agent: str, prompt: str) -> list[str]:
+    def _build_agent_command(
+        self, agent: str, prompt: str, *, worktree_path: str = ""
+    ) -> list[str]:
         if agent == "claude":
             cmd = [self.config.claude_path, "-p", prompt, "--dangerously-skip-permissions"]
             if self.config.claude_model:
@@ -413,10 +415,40 @@ class WorkerLauncher:
             cmd = [self.config.codex_path, "exec", prompt, "--full-auto"]
             if self.config.codex_model:
                 cmd.extend(["--model", self.config.codex_model])
+            git_dir = self._resolve_worktree_gitdir(worktree_path)
+            if git_dir:
+                cmd.extend(["--add-dir", git_dir])
             return cmd
 
         logger.warning("Unknown agent %r, falling back to claude", agent)
         return [self.config.claude_path, "-p", prompt, "--dangerously-skip-permissions"]
+
+    @staticmethod
+    def _resolve_worktree_gitdir(worktree_path: str) -> str:
+        """Return the real gitdir for a git worktree, or '' for regular repos.
+
+        Git worktrees have a `.git` *file* (not directory) containing
+        ``gitdir: <path>``.  That path points to the parent repo's
+        ``.git/worktrees/<name>/`` directory where the index and lock
+        files live.  The Codex ``--full-auto`` sandbox only allows writes
+        inside the worktree itself, so we need ``--add-dir <gitdir>`` to
+        let ``git add``/``git commit`` create ``index.lock``.
+        """
+        if not worktree_path:
+            return ""
+        dot_git = Path(worktree_path) / ".git"
+        if not dot_git.exists() or dot_git.is_dir():
+            return ""
+        try:
+            text = dot_git.read_text().strip()
+            if text.startswith("gitdir:"):
+                gitdir = text.split(":", 1)[1].strip()
+                resolved = (dot_git.parent / gitdir).resolve()
+                if resolved.is_dir():
+                    return str(resolved)
+        except OSError:
+            pass
+        return ""
 
     def _validate_launch_command(self, cmd: list[str], agent: str) -> None:
         if not cmd:

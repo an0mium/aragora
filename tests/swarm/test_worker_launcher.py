@@ -168,6 +168,50 @@ class TestBuildCommand:
         assert cmd[0] == "claude"
         assert "-p" in cmd
 
+    def test_codex_adds_worktree_gitdir_to_sandbox(self, tmp_path: Path):
+        """Codex in a worktree gets --add-dir pointing to the real gitdir."""
+        wt = tmp_path / "wt"
+        wt.mkdir()
+        real_gitdir = tmp_path / "repo" / ".git" / "worktrees" / "wt"
+        real_gitdir.mkdir(parents=True)
+        (wt / ".git").write_text(f"gitdir: {real_gitdir}\n")
+        launcher = WorkerLauncher(LaunchConfig(use_managed_session_script=False))
+        cmd = launcher._build_command("codex", "task", str(wt))
+        assert "--add-dir" in cmd
+        idx = cmd.index("--add-dir")
+        assert cmd[idx + 1] == str(real_gitdir)
+        assert "--full-auto" in cmd
+
+    def test_codex_no_add_dir_for_regular_repo(self, tmp_path: Path):
+        """Regular repos (.git is a directory) should NOT get --add-dir."""
+        wt = tmp_path / "repo"
+        wt.mkdir()
+        (wt / ".git").mkdir()
+        launcher = WorkerLauncher(LaunchConfig(use_managed_session_script=False))
+        cmd = launcher._build_command("codex", "task", str(wt))
+        assert "--add-dir" not in cmd
+        assert "--full-auto" in cmd
+
+    def test_resolve_worktree_gitdir(self, tmp_path: Path):
+        """Resolves gitdir from a .git file in a worktree."""
+        wt = tmp_path / "wt"
+        wt.mkdir()
+        real_gitdir = tmp_path / "repo" / ".git" / "worktrees" / "wt"
+        real_gitdir.mkdir(parents=True)
+        (wt / ".git").write_text(f"gitdir: {real_gitdir}\n")
+        assert WorkerLauncher._resolve_worktree_gitdir(str(wt)) == str(real_gitdir)
+
+    def test_resolve_worktree_gitdir_empty(self):
+        """Empty path returns empty string."""
+        assert WorkerLauncher._resolve_worktree_gitdir("") == ""
+
+    def test_resolve_worktree_gitdir_regular_repo(self, tmp_path: Path):
+        """.git directory (not file) returns empty string."""
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / ".git").mkdir()
+        assert WorkerLauncher._resolve_worktree_gitdir(str(repo)) == ""
+
 
 class TestLaunch:
     @pytest.mark.asyncio
