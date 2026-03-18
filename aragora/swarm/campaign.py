@@ -911,56 +911,72 @@ def _fetch_diff_content(
     target_branch: str = "main",
     max_chars: int = _DIFF_MAX_CHARS,
 ) -> str | None:
-    """Fetch the actual git diff between the worker branch and the target branch.
-
-    Returns the diff text (truncated to *max_chars*), or ``None`` if the diff
-    cannot be obtained (missing branch, no repo_root, git error).
-    """
-    if repo_root is None:
-        return None
-    deliverable = _extract_deliverable(run_dict)
-    if not deliverable or deliverable.get("type") not in ("branch", "pr"):
-        return None
-    branch = deliverable.get("branch")
-    if not branch:
-        # For PR-type deliverables, try extracting the branch from work orders.
-        for wo in run_dict.get("work_orders", []):
-            if isinstance(wo, dict) and str(wo.get("branch", "")).strip():
-                branch = str(wo["branch"]).strip()
-                break
-    if not branch:
-        return None
-    # Use origin/ prefix to avoid stale local refs in worktrees.
-    diff_base = target_branch if "/" in target_branch else f"origin/{target_branch}"
-    try:
-        # Fetch to ensure the remote ref is current.
-        subprocess.run(
-            ["git", "fetch", "origin", target_branch],
-            capture_output=True,
-            cwd=str(repo_root),
-            timeout=15,
-        )
-        result = subprocess.run(
-            ["git", "diff", f"{diff_base}...{branch}"],
-            capture_output=True,
-            text=True,
-            cwd=str(repo_root),
-            timeout=30,
-        )
-        if result.returncode != 0:
-            logger.debug("_fetch_diff_content git diff failed: %s", result.stderr)
-            return None
-        diff = result.stdout
-        if len(diff) > max_chars:
-            diff = diff[:max_chars] + f"\n\n... [truncated at {max_chars} chars]"
-        return diff if diff.strip() else None
-    except (subprocess.TimeoutExpired, OSError) as exc:
-        logger.debug("_fetch_diff_content error: %s", exc)
-        return None
+    """Backward-compatible wrapper around ``CampaignReviewer._fetch_diff_content``."""
+    return CampaignReviewer._fetch_diff_content(
+        run_dict,
+        repo_root=repo_root,
+        target_branch=target_branch,
+        max_chars=max_chars,
+    )
 
 
 class CampaignReviewer:
     """Blocking heterogeneous review gate for completed campaign projects."""
+
+    @staticmethod
+    def _fetch_diff_content(
+        run_dict: dict[str, Any],
+        *,
+        repo_root: Path | None = None,
+        target_branch: str = "main",
+        max_chars: int = _DIFF_MAX_CHARS,
+    ) -> str | None:
+        """Fetch the actual git diff between the worker branch and the target branch.
+
+        Returns the diff text (truncated to *max_chars*), or ``None`` if the diff
+        cannot be obtained (missing branch, no repo_root, git error).
+        """
+        if repo_root is None:
+            return None
+        deliverable = _extract_deliverable(run_dict)
+        if not deliverable or deliverable.get("type") not in ("branch", "pr"):
+            return None
+        branch = deliverable.get("branch")
+        if not branch:
+            # For PR-type deliverables, try extracting the branch from work orders.
+            for wo in run_dict.get("work_orders", []):
+                if isinstance(wo, dict) and str(wo.get("branch", "")).strip():
+                    branch = str(wo["branch"]).strip()
+                    break
+        if not branch:
+            return None
+        # Use origin/ prefix to avoid stale local refs in worktrees.
+        diff_base = target_branch if "/" in target_branch else f"origin/{target_branch}"
+        try:
+            # Fetch to ensure the remote ref is current.
+            subprocess.run(
+                ["git", "fetch", "origin", target_branch],
+                capture_output=True,
+                cwd=str(repo_root),
+                timeout=15,
+            )
+            result = subprocess.run(
+                ["git", "diff", f"{diff_base}...{branch}"],
+                capture_output=True,
+                text=True,
+                cwd=str(repo_root),
+                timeout=30,
+            )
+            if result.returncode != 0:
+                logger.debug("_fetch_diff_content git diff failed: %s", result.stderr)
+                return None
+            diff = result.stdout
+            if len(diff) > max_chars:
+                diff = diff[:max_chars] + f"\n\n... [truncated at {max_chars} chars]"
+            return diff if diff.strip() else None
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            logger.debug("_fetch_diff_content error: %s", exc)
+            return None
 
     async def review(
         self,
@@ -979,7 +995,7 @@ class CampaignReviewer:
             review_model,
             enforce_cross_model_review=enforce_cross_model_review,
         )
-        diff_content = _fetch_diff_content(
+        diff_content = self._fetch_diff_content(
             run_dict, repo_root=repo_root, target_branch=target_branch
         )
         prompt = self._build_prompt(
