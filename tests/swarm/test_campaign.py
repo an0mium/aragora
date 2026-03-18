@@ -562,7 +562,7 @@ class TestCampaignExecutor:
         assert payload["dispatched_projects"][0]["project_id"] == "proj-001"
 
     @pytest.mark.asyncio
-    async def test_execute_once_records_completed_project_after_review(
+    async def test_execute_once_records_waiting_for_merge_after_review(
         self, tmp_path: Path
     ) -> None:
         manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
@@ -623,11 +623,104 @@ class TestCampaignExecutor:
 
         reloaded = load_campaign_manifest(manifest_path)
         project = reloaded.projects[0]
-        assert project.status == CampaignProjectStatus.COMPLETED.value
+        assert project.status == CampaignProjectStatus.WAITING_FOR_MERGE.value
         assert project.run_id == "run-123"
         assert project.pr_url == "https://github.com/example/pull/1"
         assert project.review.status == CampaignReviewStatus.PASSED.value
+        assert project.receipt_id is None
         assert payload["dispatched_projects"][0]["project_id"] == "proj-001"
+        assert payload["merge_ready_projects"] == [
+            {
+                "project_id": "proj-001",
+                "kind": "project",
+                "status": CampaignProjectStatus.WAITING_FOR_MERGE.value,
+                "pr_url": "https://github.com/example/pull/1",
+                "branch": None,
+                "run_id": "run-123",
+                "target_branch": "main",
+            }
+        ]
+
+    @pytest.mark.asyncio
+    async def test_execute_once_records_waiting_for_pr_after_branch_only_review(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="campaign-exec-branch",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            worker_model="codex",
+            review_model="claude",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Implement manifest",
+                    spec=_bounded_spec("Implement manifest"),
+                    file_scope_hints=["aragora/swarm/campaign.py"],
+                    acceptance_criteria=["pytest -q tests/swarm/test_campaign.py"],
+                    constraints=["do not widen scope"],
+                    estimated_cost_usd=1.0,
+                )
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        dispatch_result = {
+            "status": "completed",
+            "outcome": CampaignRunOutcome.DELIVERABLE_CREATED.value,
+            "run_id": "run-branch-123",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/proj-001",
+                "commit_shas": ["branch-sha-1"],
+            },
+            "run": {
+                "run_id": "run-branch-123",
+                "status": "completed",
+                "work_orders": [
+                    {
+                        "status": "completed",
+                        "branch": "codex/proj-001",
+                        "receipt_id": "receipt-branch-1",
+                    }
+                ],
+            },
+        }
+        review_gate = CampaignReviewGate(
+            required=True,
+            review_model="claude",
+            status=CampaignReviewStatus.PASSED.value,
+            findings=[],
+        )
+
+        with (
+            patch(
+                "aragora.swarm.campaign.dispatch_bounded_spec",
+                new=AsyncMock(return_value=dispatch_result),
+            ),
+            patch.object(executor.reviewer, "review", new=AsyncMock(return_value=review_gate)),
+        ):
+            payload = await executor.execute_once()
+
+        reloaded = load_campaign_manifest(manifest_path)
+        project = reloaded.projects[0]
+        assert project.status == CampaignProjectStatus.WAITING_FOR_PR.value
+        assert project.branch == "codex/proj-001"
+        assert project.receipt_id is None
+        assert payload["merge_ready_projects"] == [
+            {
+                "project_id": "proj-001",
+                "kind": "project",
+                "status": CampaignProjectStatus.WAITING_FOR_PR.value,
+                "pr_url": None,
+                "branch": "codex/proj-001",
+                "run_id": "run-branch-123",
+                "target_branch": "main",
+            }
+        ]
 
     @pytest.mark.asyncio
     async def test_execute_once_halts_before_dispatch_when_remaining_budget_is_insufficient(
@@ -1114,14 +1207,26 @@ class TestCampaignExecutor:
             CampaignStopReason.STILL_RUNNING.value,
             CampaignStopReason.CAMPAIGN_COMPLETE.value,
         }
-        assert reloaded.status == CampaignProjectStatus.COMPLETED.value
+        assert reloaded.status == CampaignProjectStatus.WAITING_FOR_MERGE.value
         assert reloaded.pr_url == "https://github.com/example/pull/2"
+        assert reloaded.receipt_id is None
         assert reloaded.worker_receipt_id == "worker-receipt-2"
         assert len(reloaded.attempt_history) == 2
         assert reloaded.attempt_history[0]["outcome"] == CampaignRunOutcome.TIMEOUT.value
         assert (
             reloaded.attempt_history[1]["outcome"] == CampaignRunOutcome.DELIVERABLE_CREATED.value
         )
+        assert second_payload["merge_ready_projects"] == [
+            {
+                "project_id": "proj-001",
+                "kind": "project",
+                "status": CampaignProjectStatus.WAITING_FOR_MERGE.value,
+                "pr_url": "https://github.com/example/pull/2",
+                "branch": None,
+                "run_id": "run-success-2",
+                "target_branch": "main",
+            }
+        ]
 
     @pytest.mark.asyncio
     async def test_execute_once_returns_still_running_when_active_projects_exist(
@@ -1282,6 +1387,76 @@ class TestCampaignExecutor:
         assert status["budget_limit_usd"] == pytest.approx(3.0)
         assert status["total_cost_usd"] == pytest.approx(1.25)
         assert status["projects"][0]["review_status"] == CampaignReviewStatus.PENDING.value
+
+
+class TestCampaignMergeLifecycle:
+    def test_record_project_pr_transitions_waiting_for_pr_to_waiting_for_merge(
+        self, tmp_path: Path
+    ) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="phase0b-project-merge",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="Branch ready",
+                    spec=_bounded_spec("Branch ready"),
+                    status=CampaignProjectStatus.WAITING_FOR_PR.value,
+                    branch="codex/proj-001",
+                    run_id="run-branch-1",
+                    last_run_outcome=CampaignRunOutcome.DELIVERABLE_CREATED.value,
+                )
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        result = executor.record_project_pr(
+            "proj-001",
+            pr_url="https://github.com/example/repo/pull/42",
+        )
+
+        reloaded = load_campaign_manifest(manifest_path).projects[0]
+        assert result["status"] == CampaignProjectStatus.WAITING_FOR_MERGE.value
+        assert reloaded.status == CampaignProjectStatus.WAITING_FOR_MERGE.value
+        assert reloaded.pr_url == "https://github.com/example/repo/pull/42"
+
+    def test_complete_project_emits_receipt_after_merge(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / ".aragora" / "campaign_manifest.yaml"
+        manifest = CampaignManifest(
+            campaign_id="phase0b-project-complete",
+            created_at="2026-03-10T00:00:00+00:00",
+            source_kind="source_file",
+            source_ref="roadmap.md",
+            projects=[
+                CampaignProject(
+                    project_id="proj-001",
+                    title="PR awaiting merge",
+                    spec=_bounded_spec("PR awaiting merge"),
+                    status=CampaignProjectStatus.WAITING_FOR_MERGE.value,
+                    pr_url="https://github.com/example/repo/pull/43",
+                    run_id="run-pr-1",
+                    worker_receipt_id="worker-receipt-1",
+                    last_run_outcome=CampaignRunOutcome.DELIVERABLE_CREATED.value,
+                )
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        with patch.object(executor, "_refresh_run_dict", return_value={"work_orders": []}):
+            result = executor.complete_project("proj-001", merge_sha="merge-sha-1")
+
+        reloaded = load_campaign_manifest(manifest_path).projects[0]
+        receipt_path = tmp_path / "docs" / "receipts" / "phase0b-project-complete" / "proj-001.yaml"
+        assert result["status"] == CampaignProjectStatus.COMPLETED.value
+        assert reloaded.status == CampaignProjectStatus.COMPLETED.value
+        assert reloaded.receipt_id == "docs/receipts/phase0b-project-complete/proj-001.yaml"
+        assert reloaded.commit_shas[-1] == "merge-sha-1"
+        assert receipt_path.exists()
 
 
 class TestComputeStopReason:

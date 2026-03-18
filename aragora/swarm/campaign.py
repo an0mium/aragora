@@ -37,6 +37,16 @@ UTC = timezone.utc
 DEFAULT_CAMPAIGN_MANIFEST = ".aragora/campaign_manifest.yaml"
 _BUDGET_EPSILON = 1e-9
 
+
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in {"none", "null"}:
+        return None
+    return text
+
+
 # Statuses that represent terminal project transitions (no further retries).
 # Receipt emission fires only for these statuses.
 _TERMINAL_STATUSES: frozenset[str] = frozenset(
@@ -55,6 +65,8 @@ class CampaignProjectStatus(str, Enum):
     READY = "ready"
     ACTIVE = "active"
     DELIVERED = "delivered"
+    WAITING_FOR_PR = "waiting_for_pr"
+    WAITING_FOR_MERGE = "waiting_for_merge"
     NEEDS_REVISION = "needs_revision"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -134,7 +146,7 @@ class CampaignReviewGate:
             status=str(data.get("status", CampaignReviewStatus.PENDING.value)).strip()
             or CampaignReviewStatus.PENDING.value,
             findings=[str(item) for item in data.get("findings", []) if str(item).strip()],
-            reviewed_at=str(data.get("reviewed_at", "")).strip() or None,
+            reviewed_at=_optional_text(data.get("reviewed_at")),
             raw_review=dict(data.get("raw_review") or {}),
         )
 
@@ -260,13 +272,13 @@ class CampaignProject:
             status=str(data.get("status", CampaignProjectStatus.PENDING.value)).strip()
             or CampaignProjectStatus.PENDING.value,
             retry_count=int(data.get("retry_count", 0) or 0),
-            last_run_outcome=str(data.get("last_run_outcome", "")).strip() or None,
-            run_id=str(data.get("run_id", "")).strip() or None,
-            worker_receipt_id=str(data.get("worker_receipt_id", "")).strip() or None,
-            receipt_id=str(data.get("receipt_id", "")).strip() or None,
-            pr_url=str(data.get("pr_url", "")).strip() or None,
-            adopted_pr=str(data.get("adopted_pr", "")).strip() or None,
-            branch=str(data.get("branch", "")).strip() or None,
+            last_run_outcome=_optional_text(data.get("last_run_outcome")),
+            run_id=_optional_text(data.get("run_id")),
+            worker_receipt_id=_optional_text(data.get("worker_receipt_id")),
+            receipt_id=_optional_text(data.get("receipt_id")),
+            pr_url=_optional_text(data.get("pr_url")),
+            adopted_pr=_optional_text(data.get("adopted_pr")),
+            branch=_optional_text(data.get("branch")),
             commit_shas=[str(item) for item in data.get("commit_shas", []) if str(item).strip()],
             attempt_history=[
                 dict(item) for item in data.get("attempt_history", []) if isinstance(item, dict)
@@ -349,8 +361,8 @@ class CampaignManifest:
             worker_model=worker_model,
             review_model=review_model,
             enforce_cross_model_review=enforce_cross_model_review,
-            experiment_id=str(data.get("experiment_id", "")).strip() or None,
-            experiment_label=str(data.get("experiment_label", "")).strip() or None,
+            experiment_id=_optional_text(data.get("experiment_id")),
+            experiment_label=_optional_text(data.get("experiment_label")),
             max_parallel_ready_projects=max(
                 1, int(data.get("max_parallel_ready_projects", 2) or 2)
             ),
@@ -1109,6 +1121,9 @@ class CampaignExecutor:
                     "stop_reason": stop_reason,
                     "dispatched_projects": [],
                     "budget": budget_snapshot,
+                    "merge_ready_projects": _merge_ready_projects(
+                        manifest, target_branch=self.target_branch
+                    ),
                 }
                 if blocked_projects:
                     manifest.execution_state.last_result["budget_blocked_projects"] = (
@@ -1133,6 +1148,9 @@ class CampaignExecutor:
                     "stop_reason": CampaignStopReason.STILL_RUNNING.value,
                     "dispatched_projects": [],
                     "budget": budget_snapshot,
+                    "merge_ready_projects": _merge_ready_projects(
+                        manifest, target_branch=self.target_branch
+                    ),
                 }
                 _refresh_execution_state(manifest)
                 save_campaign_manifest(self.manifest_path, manifest)
@@ -1154,6 +1172,9 @@ class CampaignExecutor:
                     "stop_reason": stop_reason,
                     "dispatched_projects": [],
                     "budget": budget_snapshot,
+                    "merge_ready_projects": _merge_ready_projects(
+                        manifest, target_branch=self.target_branch
+                    ),
                 }
                 _refresh_execution_state(manifest)
                 save_campaign_manifest(self.manifest_path, manifest)
@@ -1169,6 +1190,9 @@ class CampaignExecutor:
                     "dispatched_projects": [],
                     "budget": budget_snapshot,
                     "budget_blocked_projects": budget_blocked_ids,
+                    "merge_ready_projects": _merge_ready_projects(
+                        manifest, target_branch=self.target_branch
+                    ),
                 }
                 _refresh_execution_state(manifest)
                 save_campaign_manifest(self.manifest_path, manifest)
@@ -1182,6 +1206,9 @@ class CampaignExecutor:
                 "stop_reason": CampaignStopReason.STILL_RUNNING.value,
                 "dispatched_projects": list(selected_ids),
                 "budget": _campaign_budget_snapshot(manifest),
+                "merge_ready_projects": _merge_ready_projects(
+                    manifest, target_branch=self.target_branch
+                ),
             }
             _refresh_execution_state(manifest)
             save_campaign_manifest(self.manifest_path, manifest)
@@ -1197,6 +1224,9 @@ class CampaignExecutor:
                 "stop_reason": _compute_stop_reason(manifest),
                 "dispatched_projects": dispatched,
                 "budget": _campaign_budget_snapshot(manifest),
+                "merge_ready_projects": _merge_ready_projects(
+                    manifest, target_branch=self.target_branch
+                ),
             }
             _refresh_execution_state(manifest)
             save_campaign_manifest(self.manifest_path, manifest)
@@ -1238,6 +1268,76 @@ class CampaignExecutor:
             _refresh_execution_state(manifest)
             save_campaign_manifest(self.manifest_path, manifest)
             return {"project_id": project_id, "review": gate.to_dict(), "status": project.status}
+
+    def record_project_pr(self, project_id: str, *, pr_url: str) -> dict[str, Any]:
+        """Persist PR discovery or creation for a project awaiting merge."""
+        normalized_pr_url = str(pr_url).strip()
+        if not normalized_pr_url:
+            raise ValueError("pr_url is required")
+
+        with locked_manifest_path(self.manifest_path):
+            manifest = load_campaign_manifest(self.manifest_path)
+            project = manifest.project_map().get(project_id)
+            if project is None:
+                raise KeyError(f"Unknown project_id: {project_id}")
+            if project.status not in {
+                CampaignProjectStatus.WAITING_FOR_PR.value,
+                CampaignProjectStatus.WAITING_FOR_MERGE.value,
+            }:
+                raise ValueError(
+                    f"Project {project_id} is not waiting for PR/merge (status={project.status})."
+                )
+
+            project.pr_url = normalized_pr_url
+            project.status = CampaignProjectStatus.WAITING_FOR_MERGE.value
+            _refresh_execution_state(manifest)
+            save_campaign_manifest(self.manifest_path, manifest)
+            return {
+                "project_id": project.project_id,
+                "status": project.status,
+                "pr_url": project.pr_url,
+            }
+
+    def complete_project(
+        self,
+        project_id: str,
+        *,
+        pr_url: str | None = None,
+        merge_sha: str | None = None,
+    ) -> dict[str, Any]:
+        """Mark a PR-backed project completed after the merge lands."""
+        with locked_manifest_path(self.manifest_path):
+            manifest = load_campaign_manifest(self.manifest_path)
+            project = manifest.project_map().get(project_id)
+            if project is None:
+                raise KeyError(f"Unknown project_id: {project_id}")
+            if project.status not in {
+                CampaignProjectStatus.WAITING_FOR_PR.value,
+                CampaignProjectStatus.WAITING_FOR_MERGE.value,
+            }:
+                raise ValueError(
+                    f"Project {project_id} is not waiting for PR/merge (status={project.status})."
+                )
+
+            normalized_pr_url = str(pr_url or "").strip()
+            normalized_merge_sha = str(merge_sha or "").strip()
+            if normalized_pr_url:
+                project.pr_url = normalized_pr_url
+            if normalized_merge_sha and normalized_merge_sha not in project.commit_shas:
+                project.commit_shas.append(normalized_merge_sha)
+            project.status = CampaignProjectStatus.COMPLETED.value
+
+            run_dict = self._refresh_run_dict(project.run_id) if project.run_id else None
+            self._emit_receipt(manifest, project, run_dict)
+            _refresh_execution_state(manifest)
+            save_campaign_manifest(self.manifest_path, manifest)
+            return {
+                "project_id": project.project_id,
+                "status": project.status,
+                "pr_url": project.pr_url,
+                "merge_sha": normalized_merge_sha or None,
+                "receipt_id": project.receipt_id,
+            }
 
     def sync_issue_plan(self) -> dict[str, Any]:
         with locked_manifest_path(self.manifest_path):
@@ -1450,7 +1550,12 @@ class CampaignExecutor:
         project.review = gate
 
         if gate.status == CampaignReviewStatus.PASSED.value:
-            project.status = CampaignProjectStatus.COMPLETED.value
+            if _project_pr_reference(project):
+                project.status = CampaignProjectStatus.WAITING_FOR_MERGE.value
+            elif project.branch:
+                project.status = CampaignProjectStatus.WAITING_FOR_PR.value
+            else:
+                project.status = CampaignProjectStatus.COMPLETED.value
         elif gate.status == CampaignReviewStatus.CHANGES_REQUESTED.value:
             project.status = CampaignProjectStatus.NEEDS_REVISION.value
         else:
@@ -1912,7 +2017,12 @@ def _refresh_execution_state(manifest: CampaignManifest) -> None:
     manifest.execution_state.active_projects = [
         project.project_id
         for project in manifest.projects
-        if project.status == CampaignProjectStatus.ACTIVE.value
+        if project.status
+        in {
+            CampaignProjectStatus.ACTIVE.value,
+            CampaignProjectStatus.WAITING_FOR_PR.value,
+            CampaignProjectStatus.WAITING_FOR_MERGE.value,
+        }
     ]
     manifest.execution_state.completed_projects = [
         project.project_id
@@ -2018,6 +2128,8 @@ def _compute_stop_reason(manifest: CampaignManifest) -> str:
     active_statuses = {
         CampaignProjectStatus.ACTIVE.value,
         CampaignProjectStatus.DELIVERED.value,
+        CampaignProjectStatus.WAITING_FOR_PR.value,
+        CampaignProjectStatus.WAITING_FOR_MERGE.value,
     }
     active_present = bool(statuses & active_statuses)
 
@@ -2103,6 +2215,40 @@ def _compute_stop_reason(manifest: CampaignManifest) -> str:
             if not dependency_free:
                 return CampaignStopReason.CAMPAIGN_BLOCKED.value
     return CampaignStopReason.STILL_RUNNING.value
+
+
+def _project_pr_reference(project: CampaignProject) -> str | None:
+    for candidate in (project.pr_url, project.adopted_pr):
+        text = str(candidate or "").strip()
+        if text:
+            return text
+    return None
+
+
+def _merge_ready_projects(
+    manifest: CampaignManifest,
+    *,
+    target_branch: str,
+) -> list[dict[str, Any]]:
+    ready: list[dict[str, Any]] = []
+    for project in manifest.projects:
+        if project.status not in {
+            CampaignProjectStatus.WAITING_FOR_PR.value,
+            CampaignProjectStatus.WAITING_FOR_MERGE.value,
+        }:
+            continue
+        ready.append(
+            {
+                "project_id": project.project_id,
+                "kind": "project",
+                "status": project.status,
+                "pr_url": _project_pr_reference(project),
+                "branch": project.branch,
+                "run_id": project.run_id,
+                "target_branch": target_branch,
+            }
+        )
+    return ready
 
 
 def _extract_first_json_object(text: str) -> dict[str, Any]:

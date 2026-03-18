@@ -11,6 +11,7 @@ import pytest
 import yaml
 
 from aragora.ralph.classifier import BlockerKind
+from aragora.ralph.github_control import GitHubGateSnapshot
 from aragora.ralph.supervisor import (
     RalphSupervisor,
     StepResult,
@@ -20,6 +21,7 @@ from aragora.ralph.supervisor import (
     load_supervisor_state,
     save_supervisor_state,
 )
+from aragora.swarm.campaign import load_campaign_manifest
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +65,35 @@ def _write_state(path: Path, **overrides) -> SupervisorState:
     )
     save_supervisor_state(path, state)
     return state
+
+
+def _gate_snapshot(
+    *,
+    pr_url: str = "https://github.com/org/repo/pull/1",
+    disposition: str,
+    state: str = "OPEN",
+    merge_commit_sha: str | None = None,
+    blocker_detail: str | None = None,
+    required_checks_green: bool = True,
+    required_checks_known: bool = True,
+) -> GitHubGateSnapshot:
+    return GitHubGateSnapshot(
+        pr_url=pr_url,
+        state=state,
+        draft=False,
+        head_branch="codex/test",
+        base_branch="main",
+        review_decision="APPROVED",
+        merge_state_status="CLEAN",
+        merge_commit_sha=merge_commit_sha,
+        required_checks=[],
+        advisory_checks=[],
+        required_checks_green=required_checks_green,
+        required_checks_known=required_checks_known,
+        required_checks_source="ruleset" if required_checks_known else None,
+        disposition=disposition,
+        blocker_detail=blocker_detail,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -415,11 +446,18 @@ class TestStepPRChecking:
             active_repair_branch="fix/reviewer-diff",
         )
 
-        with patch.object(RalphSupervisor, "_find_pr_for_branch", return_value=None):
+        with (
+            patch.object(RalphSupervisor, "_find_pr_for_branch", return_value=None),
+            patch.object(
+                RalphSupervisor,
+                "_create_pr_for_branch",
+                return_value="https://github.com/org/repo/pull/42",
+            ),
+        ):
             supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
             result = supervisor.step()
 
-        assert result.status == SupervisorStatus.WAITING_FOR_PR.value
+        assert result.status == SupervisorStatus.WAITING_FOR_MERGE.value
 
     def test_waiting_for_pr_refreshes_run_tracking(self, tmp_path: Path) -> None:
         state_path = tmp_path / "state.yaml"
@@ -480,7 +518,16 @@ class TestStepPRChecking:
             active_repair_pr="https://github.com/org/repo/pull/1",
         )
 
-        with patch.object(RalphSupervisor, "_check_pr_merged", return_value=(False, None)):
+        with patch.object(
+            RalphSupervisor,
+            "_fetch_pr_gate_snapshot",
+            return_value=_gate_snapshot(
+                pr_url="https://github.com/org/repo/pull/1",
+                disposition="wait_for_required_checks",
+                blocker_detail="checks pending",
+                required_checks_green=False,
+            ),
+        ):
             supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
             result = supervisor.step()
 
@@ -494,13 +541,265 @@ class TestStepPRChecking:
             active_repair_pr="https://github.com/org/repo/pull/1",
         )
 
-        with patch.object(RalphSupervisor, "_check_pr_merged", return_value=(True, "abc123")):
+        with patch.object(
+            RalphSupervisor,
+            "_fetch_pr_gate_snapshot",
+            return_value=_gate_snapshot(
+                pr_url="https://github.com/org/repo/pull/1",
+                disposition="merged",
+                state="MERGED",
+                merge_commit_sha="abc123",
+            ),
+        ):
             supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
             result = supervisor.step()
 
         assert result.status == SupervisorStatus.RESUMING.value
         state = load_supervisor_state(state_path)
         assert state.merge_commit_sha == "abc123"
+
+
+class TestProjectMergeTargets:
+    def test_campaign_iteration_registers_project_merge_target(self, tmp_path: Path) -> None:
+        manifest_path = _write_manifest(tmp_path / "manifest.yaml")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.RUNNING.value,
+        )
+
+        with patch(
+            "aragora.ralph.supervisor.asyncio.run",
+            return_value={
+                "stop_reason": "still_running",
+                "dispatched_projects": [],
+                "merge_ready_projects": [
+                    {
+                        "project_id": "proj-001",
+                        "kind": "project",
+                        "status": "waiting_for_pr",
+                        "pr_url": None,
+                        "branch": "codex/proj-001",
+                        "run_id": "run-001",
+                        "target_branch": "main",
+                    }
+                ],
+            },
+        ):
+            supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = supervisor.step()
+
+        assert result.status == SupervisorStatus.WAITING_FOR_PR.value
+        state = load_supervisor_state(state_path)
+        assert state.active_merge_target is not None
+        assert state.active_merge_target["kind"] == "project"
+        assert state.active_merge_target["project_id"] == "proj-001"
+
+    def test_waiting_for_pr_creates_project_pr_and_updates_manifest(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / "manifest.yaml"
+        manifest_data = {
+            "campaign_id": "project-pr-create",
+            "created_at": "2026-01-01",
+            "source_kind": "manual",
+            "source_ref": "test",
+            "worker_model": "codex",
+            "review_model": "claude",
+            "max_parallel_ready_projects": 1,
+            "max_retries_per_project": 2,
+            "budget_limit_usd": 20.0,
+            "time_limit_hours": 4.0,
+            "projects": [
+                {
+                    "project_id": "proj-001",
+                    "title": "Branch ready",
+                    "status": "waiting_for_pr",
+                    "branch": "codex/proj-001",
+                    "run_id": "run-001",
+                    "spec": {
+                        "raw_goal": "x",
+                        "refined_goal": "x",
+                        "acceptance_criteria": ["pass"],
+                        "constraints": ["stay in scope"],
+                        "file_scope_hints": ["README.md"],
+                    },
+                    "review": {"status": "passed", "findings": []},
+                }
+            ],
+            "execution_state": {
+                "ready_queue": [],
+                "active_projects": ["proj-001"],
+                "completed_projects": [],
+                "failed_projects": [],
+                "skipped_projects": [],
+                "total_cost_usd": 0.0,
+            },
+        }
+        manifest_path.write_text(yaml.dump(manifest_data), encoding="utf-8")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.WAITING_FOR_PR.value,
+            active_merge_target={
+                "kind": "project",
+                "project_id": "proj-001",
+                "run_id": "run-001",
+                "branch": "codex/proj-001",
+                "pr_url": None,
+                "target_branch": "main",
+                "auto_merge_requested": False,
+                "last_gate_snapshot": None,
+                "last_merge_action": None,
+            },
+        )
+
+        with (
+            patch.object(RalphSupervisor, "_find_pr_for_branch", return_value=None),
+            patch.object(
+                RalphSupervisor,
+                "_create_pr_for_branch",
+                return_value="https://github.com/org/repo/pull/201",
+            ),
+        ):
+            supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+            result = supervisor.step()
+
+        assert result.status == SupervisorStatus.WAITING_FOR_MERGE.value
+        manifest = load_campaign_manifest(manifest_path)
+        project = manifest.project_map()["proj-001"]
+        assert project.status == "waiting_for_merge"
+        assert project.pr_url == "https://github.com/org/repo/pull/201"
+
+    def test_waiting_for_merge_waits_on_review_without_merging(self, tmp_path: Path) -> None:
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            status=SupervisorStatus.WAITING_FOR_MERGE.value,
+            active_merge_target={
+                "kind": "project",
+                "project_id": "proj-001",
+                "pr_url": "https://github.com/org/repo/pull/301",
+                "branch": "codex/proj-001",
+                "target_branch": "main",
+                "auto_merge_requested": False,
+                "last_gate_snapshot": None,
+                "last_merge_action": None,
+            },
+        )
+
+        supervisor = RalphSupervisor(
+            state_path=state_path,
+            repo_root=tmp_path,
+            merge_policy="admin_merge_allowed",
+        )
+        with (
+            patch.object(
+                supervisor,
+                "_fetch_pr_gate_snapshot",
+                return_value=_gate_snapshot(
+                    pr_url="https://github.com/org/repo/pull/301",
+                    disposition="wait_for_review",
+                    blocker_detail="review required",
+                ),
+            ),
+            patch.object(supervisor, "_merge_pr") as mock_merge,
+        ):
+            result = supervisor.step()
+
+        assert result.status == SupervisorStatus.WAITING_FOR_MERGE.value
+        mock_merge.assert_not_called()
+
+    def test_merged_project_pr_completes_project_and_clears_target(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / "manifest.yaml"
+        manifest_data = {
+            "campaign_id": "project-pr-merged",
+            "created_at": "2026-01-01",
+            "source_kind": "manual",
+            "source_ref": "test",
+            "worker_model": "codex",
+            "review_model": "claude",
+            "max_parallel_ready_projects": 1,
+            "max_retries_per_project": 2,
+            "budget_limit_usd": 20.0,
+            "time_limit_hours": 4.0,
+            "projects": [
+                {
+                    "project_id": "proj-001",
+                    "title": "PR ready",
+                    "status": "waiting_for_merge",
+                    "pr_url": "https://github.com/org/repo/pull/401",
+                    "run_id": "run-401",
+                    "last_run_outcome": "deliverable_created",
+                    "spec": {
+                        "raw_goal": "x",
+                        "refined_goal": "x",
+                        "acceptance_criteria": ["pass"],
+                        "constraints": ["stay in scope"],
+                        "file_scope_hints": ["README.md"],
+                    },
+                    "review": {"status": "passed", "findings": []},
+                }
+            ],
+            "execution_state": {
+                "ready_queue": [],
+                "active_projects": ["proj-001"],
+                "completed_projects": [],
+                "failed_projects": [],
+                "skipped_projects": [],
+                "total_cost_usd": 0.0,
+            },
+        }
+        manifest_path.write_text(yaml.dump(manifest_data), encoding="utf-8")
+        state_path = tmp_path / "state.yaml"
+        _write_state(
+            state_path,
+            campaign_manifest_path=str(manifest_path),
+            status=SupervisorStatus.WAITING_FOR_MERGE.value,
+            active_merge_target={
+                "kind": "project",
+                "project_id": "proj-001",
+                "run_id": "run-401",
+                "pr_url": "https://github.com/org/repo/pull/401",
+                "branch": "codex/proj-001",
+                "target_branch": "main",
+                "auto_merge_requested": False,
+                "last_gate_snapshot": None,
+                "last_merge_action": None,
+            },
+        )
+
+        supervisor = RalphSupervisor(state_path=state_path, repo_root=tmp_path)
+        with (
+            patch.object(
+                supervisor,
+                "_fetch_pr_gate_snapshot",
+                return_value=_gate_snapshot(
+                    pr_url="https://github.com/org/repo/pull/401",
+                    disposition="merged",
+                    state="MERGED",
+                    merge_commit_sha="merge-sha-401",
+                ),
+            ),
+            patch.object(
+                supervisor,
+                "_synchronize_merged_commit",
+                return_value={"ok": True, "detail": "synced"},
+            ),
+            patch(
+                "aragora.swarm.campaign.CampaignExecutor._refresh_run_dict",
+                return_value={"work_orders": []},
+            ),
+        ):
+            result = supervisor.step()
+
+        assert result.status == SupervisorStatus.RUNNING.value
+        state = load_supervisor_state(state_path)
+        assert state.active_merge_target is None
+        manifest = load_campaign_manifest(manifest_path)
+        project = manifest.project_map()["proj-001"]
+        assert project.status == "completed"
+        assert project.receipt_id is not None
 
 
 # ---------------------------------------------------------------------------
@@ -1290,7 +1589,16 @@ class TestFullLoopSimulation:
         assert r2.status == SupervisorStatus.WAITING_FOR_MERGE.value
 
         # Step 4: check merge -> merged
-        with patch.object(RalphSupervisor, "_check_pr_merged", return_value=(True, "merged-sha")):
+        with patch.object(
+            RalphSupervisor,
+            "_fetch_pr_gate_snapshot",
+            return_value=_gate_snapshot(
+                pr_url="https://github.com/org/repo/pull/99",
+                disposition="merged",
+                state="MERGED",
+                merge_commit_sha="merged-sha",
+            ),
+        ):
             r4 = supervisor.step()
         assert r4.status == SupervisorStatus.RESUMING.value
 
@@ -1568,8 +1876,15 @@ class TestStepDispatch:
         )
 
         with (
-            patch.object(supervisor, "_check_pr_merged", return_value=(False, None)),
-            patch.object(supervisor, "_auto_merge_pr", return_value=True) as mock_merge,
+            patch.object(
+                supervisor,
+                "_fetch_pr_gate_snapshot",
+                return_value=_gate_snapshot(
+                    pr_url="https://github.com/org/repo/pull/99",
+                    disposition="merge_now",
+                ),
+            ),
+            patch.object(supervisor, "_merge_pr") as mock_merge,
         ):
             supervisor.step()
 
@@ -1592,13 +1907,28 @@ class TestStepDispatch:
         )
 
         with (
-            patch.object(supervisor, "_check_pr_merged", return_value=(False, None)),
-            patch.object(supervisor, "_auto_merge_pr", return_value=True) as mock_merge,
+            patch.object(
+                supervisor,
+                "_fetch_pr_gate_snapshot",
+                return_value=_gate_snapshot(
+                    pr_url="https://github.com/org/repo/pull/99",
+                    disposition="merge_now",
+                ),
+            ),
+            patch.object(
+                supervisor,
+                "_merge_pr",
+                return_value=MagicMock(merged=True, to_dict=lambda: {"merged": True}),
+            ) as mock_merge,
         ):
             result = supervisor.step()
 
         assert result.status == SupervisorStatus.WAITING_FOR_MERGE.value
-        mock_merge.assert_called_once_with("https://github.com/org/repo/pull/99")
+        mock_merge.assert_called_once_with(
+            "https://github.com/org/repo/pull/99",
+            required_checks_green=True,
+            allow_admin=True,
+        )
 
     def test_auto_merge_not_called_for_manual_policy(self, tmp_path: Path) -> None:
         manifest_path = _write_manifest(tmp_path / "manifest.yaml")
@@ -1617,8 +1947,15 @@ class TestStepDispatch:
         )
 
         with (
-            patch.object(supervisor, "_check_pr_merged", return_value=(False, None)),
-            patch.object(supervisor, "_auto_merge_pr", return_value=True) as mock_merge,
+            patch.object(
+                supervisor,
+                "_fetch_pr_gate_snapshot",
+                return_value=_gate_snapshot(
+                    pr_url="https://github.com/org/repo/pull/99",
+                    disposition="merge_now",
+                ),
+            ),
+            patch.object(supervisor, "_merge_pr") as mock_merge,
         ):
             result = supervisor.step()
 
@@ -1700,8 +2037,13 @@ class TestStepDispatch:
         with (
             patch.object(
                 supervisor,
-                "_check_pr_merged",
-                return_value=(True, "abc123def"),
+                "_fetch_pr_gate_snapshot",
+                return_value=_gate_snapshot(
+                    pr_url="https://github.com/org/repo/pull/100",
+                    disposition="merged",
+                    state="MERGED",
+                    merge_commit_sha="abc123def",
+                ),
             ),
             patch.object(supervisor, "_auto_merge_pr"),
         ):

@@ -8,7 +8,6 @@ call advances the state machine by exactly one action.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import subprocess
 import uuid
@@ -20,6 +19,7 @@ from typing import Any
 
 import yaml
 
+from aragora.ralph.github_control import GitHubControl, GitHubControlError
 from aragora.ralph.classifier import BlockerKind, classify_blocker
 from aragora.ralph.repair import RepairTask, generate_repair_task
 
@@ -80,6 +80,7 @@ class SupervisorState:
     blocker_history: list[dict[str, Any]] = field(default_factory=list)
     repair_attempts: int = 0
     max_repair_attempts: int = _DEFAULT_MAX_REPAIR_ATTEMPTS
+    active_merge_target: dict[str, Any] | None = None
     active_repair_pr: str | None = None
     active_repair_branch: str | None = None
     active_repair_task: dict[str, Any] | None = None
@@ -91,6 +92,7 @@ class SupervisorState:
     updated_at: str = ""
 
     def to_dict(self) -> dict[str, Any]:
+        compat = _compat_repair_fields_from_target(self.active_merge_target)
         return {
             "supervisor_id": self.supervisor_id,
             "campaign_manifest_path": self.campaign_manifest_path,
@@ -103,9 +105,12 @@ class SupervisorState:
             "blocker_history": list(self.blocker_history),
             "repair_attempts": self.repair_attempts,
             "max_repair_attempts": self.max_repair_attempts,
-            "active_repair_pr": self.active_repair_pr,
-            "active_repair_branch": self.active_repair_branch,
-            "active_repair_task": self.active_repair_task,
+            "active_merge_target": dict(self.active_merge_target)
+            if isinstance(self.active_merge_target, dict) and self.active_merge_target
+            else None,
+            "active_repair_pr": self.active_repair_pr or compat["pr_url"],
+            "active_repair_branch": self.active_repair_branch or compat["branch"],
+            "active_repair_task": self.active_repair_task or compat["task"],
             "merge_commit_sha": self.merge_commit_sha,
             "resume_attempts": self.resume_attempts,
             "resume_cursor": self.resume_cursor,
@@ -116,6 +121,10 @@ class SupervisorState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SupervisorState:
+        active_merge_target = data.get("active_merge_target")
+        if not isinstance(active_merge_target, dict) or not active_merge_target:
+            active_merge_target = _synthesize_merge_target_from_legacy_fields(data)
+        compat = _compat_repair_fields_from_target(active_merge_target)
         return cls(
             supervisor_id=str(data.get("supervisor_id", "")),
             campaign_manifest_path=str(data.get("campaign_manifest_path", "")),
@@ -128,9 +137,10 @@ class SupervisorState:
             blocker_history=list(data.get("blocker_history") or []),
             repair_attempts=int(data.get("repair_attempts", 0)),
             max_repair_attempts=int(data.get("max_repair_attempts", _DEFAULT_MAX_REPAIR_ATTEMPTS)),
-            active_repair_pr=data.get("active_repair_pr"),
-            active_repair_branch=data.get("active_repair_branch"),
-            active_repair_task=data.get("active_repair_task"),
+            active_merge_target=active_merge_target,
+            active_repair_pr=data.get("active_repair_pr") or compat["pr_url"],
+            active_repair_branch=data.get("active_repair_branch") or compat["branch"],
+            active_repair_task=data.get("active_repair_task") or compat["task"],
             merge_commit_sha=data.get("merge_commit_sha"),
             resume_attempts=int(data.get("resume_attempts", 0)),
             resume_cursor=data.get("resume_cursor"),
@@ -138,6 +148,54 @@ class SupervisorState:
             escalation_reason=data.get("escalation_reason"),
             updated_at=str(data.get("updated_at", "")),
         )
+
+
+def _compat_repair_fields_from_target(
+    target: dict[str, Any] | None,
+) -> dict[str, dict[str, Any] | str | None]:
+    if not isinstance(target, dict) or target.get("kind") != "repair":
+        return {"pr_url": None, "branch": None, "task": None}
+    task = target.get("repair_task")
+    if not isinstance(task, dict):
+        task = None
+    return {
+        "pr_url": _optional_text(target.get("pr_url")),
+        "branch": _optional_text(target.get("branch")),
+        "task": task,
+    }
+
+
+def _synthesize_merge_target_from_legacy_fields(data: dict[str, Any]) -> dict[str, Any] | None:
+    pr_url = _optional_text(data.get("active_repair_pr"))
+    branch = _optional_text(data.get("active_repair_branch"))
+    task = data.get("active_repair_task")
+    if not pr_url and not branch and not isinstance(task, dict):
+        return None
+    target: dict[str, Any] = {
+        "kind": "repair",
+        "project_id": None,
+        "run_id": _optional_text(task.get("run_id")) if isinstance(task, dict) else None,
+        "branch": branch,
+        "pr_url": pr_url,
+        "target_branch": "main",
+        "auto_merge_requested": bool(task.get("auto_merge_requested"))
+        if isinstance(task, dict)
+        else False,
+        "last_gate_snapshot": None,
+        "last_merge_action": None,
+    }
+    if isinstance(task, dict):
+        target["repair_task"] = dict(task)
+    return target
+
+
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in {"none", "null"}:
+        return None
+    return text
 
 
 def load_supervisor_state(path: Path) -> SupervisorState:
@@ -213,6 +271,7 @@ class RalphSupervisor:
         self.repo_root = (repo_root or Path.cwd()).resolve()
         self.merge_policy = merge_policy
         self.repair_budget_usd = repair_budget_usd
+        self.github = GitHubControl(repo_root=self.repo_root)
 
     # -- public API --
 
@@ -316,6 +375,98 @@ class RalphSupervisor:
             detail="Supervisor stopped by operator.",
         )
 
+    def _merge_target(self, state: SupervisorState) -> dict[str, Any] | None:
+        target = state.active_merge_target
+        return dict(target) if isinstance(target, dict) and target else None
+
+    def _set_merge_target(self, state: SupervisorState, target: dict[str, Any] | None) -> None:
+        state.active_merge_target = dict(target) if isinstance(target, dict) and target else None
+        compat = _compat_repair_fields_from_target(state.active_merge_target)
+        state.active_repair_pr = compat["pr_url"] if isinstance(compat["pr_url"], str) else None
+        state.active_repair_branch = compat["branch"] if isinstance(compat["branch"], str) else None
+        state.active_repair_task = compat["task"] if isinstance(compat["task"], dict) else None
+
+    def _clear_merge_target(self, state: SupervisorState) -> None:
+        self._set_merge_target(state, None)
+
+    def _merge_target_run_id(self, state: SupervisorState) -> str | None:
+        target = self._merge_target(state)
+        return _optional_text(target.get("run_id")) if target else None
+
+    def _persist_merge_target_pr(
+        self,
+        state: SupervisorState,
+        *,
+        pr_url: str,
+        branch: str | None = None,
+    ) -> None:
+        target = self._merge_target(state)
+        if not target:
+            return
+        target["pr_url"] = pr_url
+        if branch:
+            target["branch"] = branch
+        self._set_merge_target(state, target)
+
+        if target.get("kind") == "project" and target.get("project_id"):
+            from aragora.swarm.campaign import CampaignExecutor
+
+            executor = CampaignExecutor(
+                manifest_path=Path(state.campaign_manifest_path),
+                repo_root=self.repo_root,
+                target_branch=str(target.get("target_branch") or "main"),
+            )
+            executor.record_project_pr(str(target["project_id"]), pr_url=pr_url)
+
+    def _register_project_merge_target(
+        self,
+        state: SupervisorState,
+        target: dict[str, Any],
+    ) -> tuple[str, str]:
+        merge_target = {
+            "kind": "project",
+            "project_id": _optional_text(target.get("project_id")),
+            "run_id": _optional_text(target.get("run_id")),
+            "branch": _optional_text(target.get("branch")),
+            "pr_url": _optional_text(target.get("pr_url")),
+            "target_branch": _optional_text(target.get("target_branch")) or "main",
+            "auto_merge_requested": False,
+            "last_gate_snapshot": None,
+            "last_merge_action": None,
+        }
+        self._set_merge_target(state, merge_target)
+        if merge_target["pr_url"]:
+            state.status = SupervisorStatus.WAITING_FOR_MERGE.value
+            return state.status, f"Project PR ready: {merge_target['pr_url']}"
+        state.status = SupervisorStatus.WAITING_FOR_PR.value
+        return state.status, (
+            f"Project {merge_target['project_id']} awaiting PR creation for branch "
+            f"{merge_target['branch']}."
+        )
+
+    def _register_repair_merge_target(
+        self,
+        state: SupervisorState,
+        *,
+        task_payload: dict[str, Any],
+        branch: str | None,
+        pr_url: str | None,
+        run_id: str | None,
+    ) -> None:
+        target = {
+            "kind": "repair",
+            "project_id": None,
+            "run_id": run_id,
+            "branch": branch,
+            "pr_url": pr_url,
+            "target_branch": "main",
+            "auto_merge_requested": False,
+            "last_gate_snapshot": None,
+            "last_merge_action": None,
+            "repair_task": dict(task_payload),
+        }
+        self._set_merge_target(state, target)
+
     # -- step implementations --
 
     def _step_campaign_iteration(self, state: SupervisorState) -> StepResult:
@@ -350,6 +501,9 @@ class RalphSupervisor:
         state.last_campaign_result = result
         stop_reason = str(result.get("stop_reason", ""))
         state.last_stop_reason = stop_reason
+        merge_ready_projects = [
+            item for item in result.get("merge_ready_projects", []) if isinstance(item, dict)
+        ]
 
         # Update budget from manifest.
         try:
@@ -358,6 +512,16 @@ class RalphSupervisor:
             state.budget_spent_usd = float(exec_state.get("total_cost_usd", 0.0))
         except Exception:
             pass
+
+        if merge_ready_projects and not self._merge_target(state):
+            next_status, detail = self._register_project_merge_target(
+                state, merge_ready_projects[0]
+            )
+            return StepResult(
+                action=SupervisorAction.CAMPAIGN_ITERATION.value,
+                status=next_status,
+                detail=detail,
+            )
 
         if stop_reason == "campaign_complete":
             state.status = SupervisorStatus.COMPLETED.value
@@ -434,7 +598,6 @@ class RalphSupervisor:
 
         state.repair_attempts += 1
         task_payload = repair.to_dict()
-        state.active_repair_task = task_payload
 
         # Dispatch the repair lane.
         spec = self._build_repair_spec(repair)
@@ -465,12 +628,16 @@ class RalphSupervisor:
         if pr_url:
             task_payload["pr_url"] = pr_url
 
+        self._register_repair_merge_target(
+            state,
+            task_payload=task_payload,
+            branch=branch or None,
+            pr_url=pr_url or None,
+            run_id=run_id,
+        )
         if pr_url:
-            state.active_repair_pr = pr_url
-            state.active_repair_branch = branch or None
             state.status = SupervisorStatus.WAITING_FOR_MERGE.value
         elif branch:
-            state.active_repair_branch = branch
             state.status = SupervisorStatus.WAITING_FOR_PR.value
         elif run_id:
             state.status = SupervisorStatus.WAITING_FOR_PR.value
@@ -488,25 +655,33 @@ class RalphSupervisor:
         )
 
     def _step_check_pr(self, state: SupervisorState) -> StepResult:
-        """Check if a repair PR has been opened."""
-        run_id = self._repair_run_id(state)
-        if run_id and not (state.active_repair_pr or state.active_repair_branch):
+        """Check if the active merge target has a PR yet, creating one if needed."""
+        target = self._merge_target(state)
+        if not target:
+            return self._escalate(state, "No active merge target while waiting for PR.")
+
+        run_id = self._merge_target_run_id(state)
+        if run_id and not (
+            _optional_text(target.get("pr_url")) or _optional_text(target.get("branch"))
+        ):
             run_dict = self._refresh_dispatch_run(run_id)
             if run_dict:
                 branch, pr_url = self._update_repair_tracking_from_run(state, run_dict)
                 if pr_url:
+                    self._persist_merge_target_pr(state, pr_url=pr_url, branch=branch)
                     state.status = SupervisorStatus.WAITING_FOR_MERGE.value
                     return StepResult(
                         action=SupervisorAction.PR_CHECKED.value,
                         status=SupervisorStatus.WAITING_FOR_MERGE.value,
-                        detail=f"PR discovered from repair run: {pr_url}. Waiting for merge.",
+                        detail=f"PR discovered from run: {pr_url}. Waiting for merge.",
                     )
                 if branch:
+                    target = self._merge_target(state) or target
                     state.status = SupervisorStatus.WAITING_FOR_PR.value
                     return StepResult(
                         action=SupervisorAction.PR_CHECKED.value,
                         status=SupervisorStatus.WAITING_FOR_PR.value,
-                        detail=f"Repair branch discovered from run: {branch}. Waiting for PR.",
+                        detail=f"Branch discovered from run: {branch}. Waiting for PR.",
                     )
                 if str(run_dict.get("status", "")).strip() in {
                     "completed",
@@ -514,29 +689,45 @@ class RalphSupervisor:
                 }:
                     return self._escalate(
                         state,
-                        "Repair run reached a terminal state without a tracked branch or PR.",
+                        "Tracked run reached a terminal state without a branch or PR.",
                     )
 
-        if state.active_repair_pr:
-            # PR exists, wait for merge.
+        target = self._merge_target(state) or target
+        pr_url = _optional_text(target.get("pr_url"))
+        branch = _optional_text(target.get("branch"))
+
+        if pr_url:
             state.status = SupervisorStatus.WAITING_FOR_MERGE.value
             return StepResult(
                 action=SupervisorAction.PR_CHECKED.value,
                 status=SupervisorStatus.WAITING_FOR_MERGE.value,
-                detail=f"PR found: {state.active_repair_pr}. Waiting for merge.",
+                detail=f"PR found: {pr_url}. Waiting for merge.",
             )
 
-        # Check if a PR was created on the repair branch.
-        if state.active_repair_branch:
-            pr_url = self._find_pr_for_branch(state.active_repair_branch)
-            if pr_url:
-                state.active_repair_pr = pr_url
+        if branch:
+            discovered = self._find_pr_for_branch(branch)
+            if discovered:
+                self._persist_merge_target_pr(state, pr_url=discovered, branch=branch)
                 state.status = SupervisorStatus.WAITING_FOR_MERGE.value
                 return StepResult(
                     action=SupervisorAction.PR_CHECKED.value,
                     status=SupervisorStatus.WAITING_FOR_MERGE.value,
-                    detail=f"PR discovered: {pr_url}. Waiting for merge.",
+                    detail=f"PR discovered: {discovered}. Waiting for merge.",
                 )
+            try:
+                created = self._create_pr_for_branch(
+                    branch=branch,
+                    target_branch=str(target.get("target_branch") or "main"),
+                )
+            except GitHubControlError as exc:
+                return self._escalate(state, f"PR creation failed: {exc}")
+            self._persist_merge_target_pr(state, pr_url=created, branch=branch)
+            state.status = SupervisorStatus.WAITING_FOR_MERGE.value
+            return StepResult(
+                action=SupervisorAction.PR_CHECKED.value,
+                status=SupervisorStatus.WAITING_FOR_MERGE.value,
+                detail=f"PR created: {created}. Waiting for merge.",
+            )
 
         return StepResult(
             action=SupervisorAction.PR_CHECKED.value,
@@ -545,8 +736,12 @@ class RalphSupervisor:
         )
 
     def _step_check_merge(self, state: SupervisorState) -> StepResult:
-        """Check if the repair PR has been merged."""
-        pr_url = state.active_repair_pr
+        """Check gate truth and merge status for the active PR target."""
+        target = self._merge_target(state)
+        if not target:
+            return self._escalate(state, "No active merge target while waiting for merge.")
+
+        pr_url = _optional_text(target.get("pr_url"))
         if not pr_url:
             state.status = SupervisorStatus.WAITING_FOR_PR.value
             return StepResult(
@@ -555,27 +750,103 @@ class RalphSupervisor:
                 detail="No PR URL. Reverting to waiting_for_pr.",
             )
 
-        merged, merge_sha = self._check_pr_merged(pr_url)
-        if not merged:
-            # Optionally trigger auto-merge when policy allows (once per PR).
-            if self.merge_policy == "admin_merge_allowed":
-                task = dict(state.active_repair_task or {})
-                if not task.get("auto_merge_requested"):
-                    if self._auto_merge_pr(pr_url):
-                        task["auto_merge_requested"] = True
-                        state.active_repair_task = task
+        try:
+            snapshot = self._fetch_pr_gate_snapshot(pr_url)
+        except GitHubControlError as exc:
+            return self._escalate(state, f"GitHub gate lookup failed: {exc}")
+
+        target["last_gate_snapshot"] = snapshot.to_dict()
+        self._set_merge_target(state, target)
+
+        if snapshot.disposition == "merged":
+            state.merge_commit_sha = snapshot.merge_commit_sha
+            if target.get("kind") == "repair":
+                state.status = SupervisorStatus.RESUMING.value
+                return StepResult(
+                    action=SupervisorAction.PR_CHECKED.value,
+                    status=SupervisorStatus.RESUMING.value,
+                    detail=f"PR merged (SHA: {snapshot.merge_commit_sha}). Ready to resume campaign.",
+                )
+            project_id = _optional_text(target.get("project_id"))
+            if not project_id:
+                return self._escalate(state, "Merged project target is missing project_id.")
+            if snapshot.merge_commit_sha:
+                sync_result = self._synchronize_merged_commit(snapshot.merge_commit_sha)
+                if not sync_result["ok"]:
+                    return StepResult(
+                        action=SupervisorAction.NOOP.value,
+                        status=SupervisorStatus.WAITING_FOR_MERGE.value,
+                        detail=str(sync_result["detail"]),
+                    )
+            from aragora.swarm.campaign import CampaignExecutor
+
+            executor = CampaignExecutor(
+                manifest_path=Path(state.campaign_manifest_path),
+                repo_root=self.repo_root,
+                target_branch=str(target.get("target_branch") or "main"),
+            )
+            executor.complete_project(
+                project_id,
+                pr_url=pr_url,
+                merge_sha=snapshot.merge_commit_sha,
+            )
+            self._clear_merge_target(state)
+            state.merge_commit_sha = None
+            state.resume_attempts = 0
+            state.status = SupervisorStatus.RUNNING.value
+            return StepResult(
+                action=SupervisorAction.CAMPAIGN_ITERATION.value,
+                status=SupervisorStatus.RUNNING.value,
+                detail=f"Project {project_id} completed after merge {pr_url}.",
+            )
+
+        if snapshot.disposition == "blocked_nonreviewable":
+            return self._escalate(
+                state,
+                snapshot.blocker_detail or f"PR {pr_url} is blocked in a non-reviewable state.",
+            )
+
+        if snapshot.disposition in {"wait_for_review", "wait_for_required_checks"}:
             return StepResult(
                 action=SupervisorAction.PR_CHECKED.value,
                 status=SupervisorStatus.WAITING_FOR_MERGE.value,
-                detail=f"PR {pr_url} not yet merged.",
+                detail=snapshot.blocker_detail or f"PR {pr_url} waiting on merge gates.",
             )
 
-        state.merge_commit_sha = merge_sha
-        state.status = SupervisorStatus.RESUMING.value
+        if snapshot.disposition == "merge_now":
+            if self.merge_policy != "admin_merge_allowed":
+                return StepResult(
+                    action=SupervisorAction.PR_CHECKED.value,
+                    status=SupervisorStatus.WAITING_FOR_MERGE.value,
+                    detail=f"PR {pr_url} is merge-ready and awaiting manual merge.",
+                )
+            target = self._merge_target(state) or target
+            if target.get("auto_merge_requested"):
+                return StepResult(
+                    action=SupervisorAction.PR_CHECKED.value,
+                    status=SupervisorStatus.WAITING_FOR_MERGE.value,
+                    detail=f"Merge already requested for {pr_url}; waiting for GitHub to confirm.",
+                )
+            merge_result = self._merge_pr(
+                pr_url,
+                required_checks_green=snapshot.required_checks_green,
+                allow_admin=True,
+            )
+            target["auto_merge_requested"] = True
+            target["last_merge_action"] = merge_result.to_dict()
+            self._set_merge_target(state, target)
+            if merge_result.merged:
+                return StepResult(
+                    action=SupervisorAction.PR_CHECKED.value,
+                    status=SupervisorStatus.WAITING_FOR_MERGE.value,
+                    detail=f"Merge initiated for {pr_url}; waiting for GitHub to confirm.",
+                )
+            return self._escalate(state, merge_result.detail or f"Failed to merge {pr_url}.")
+
         return StepResult(
             action=SupervisorAction.PR_CHECKED.value,
-            status=SupervisorStatus.RESUMING.value,
-            detail=f"PR merged (SHA: {merge_sha}). Ready to resume campaign.",
+            status=SupervisorStatus.WAITING_FOR_MERGE.value,
+            detail=f"PR {pr_url} not yet merged.",
         )
 
     def _step_resume(self, state: SupervisorState) -> StepResult:
@@ -695,9 +966,7 @@ class RalphSupervisor:
         reconciled = self._reconcile_manifest_projects(state, affected_ids)
 
         state.active_blocker = None
-        state.active_repair_pr = None
-        state.active_repair_branch = None
-        state.active_repair_task = None
+        self._clear_merge_target(state)
         state.merge_commit_sha = None
         state.repair_attempts = 0
         state.resume_attempts = 0
@@ -728,12 +997,64 @@ class RalphSupervisor:
             logger.debug("git merge-base --is-ancestor failed: %s", exc)
             return False
 
+    def _synchronize_merged_commit(self, merge_sha: str) -> dict[str, Any]:
+        """Fetch origin/main and fast-forward the worktree until *merge_sha* is present."""
+        try:
+            fetch = subprocess.run(
+                ["git", "fetch", "origin", "main"],
+                capture_output=True,
+                cwd=str(self.repo_root),
+                timeout=30,
+            )
+            if fetch.returncode != 0:
+                return {"ok": False, "detail": "git fetch origin main failed."}
+        except Exception as exc:
+            return {"ok": False, "detail": f"git fetch origin main raised: {type(exc).__name__}."}
+
+        if not self._is_ancestor(merge_sha, "origin/main"):
+            return {
+                "ok": False,
+                "detail": f"Merge commit {merge_sha} is not an ancestor of origin/main yet.",
+            }
+
+        if self._is_ancestor(merge_sha, "HEAD"):
+            return {"ok": True, "detail": f"Merge commit {merge_sha} already present in HEAD."}
+
+        try:
+            ff = subprocess.run(
+                ["git", "merge", "--ff-only", "origin/main"],
+                capture_output=True,
+                cwd=str(self.repo_root),
+                timeout=30,
+            )
+            if ff.returncode != 0:
+                return {
+                    "ok": False,
+                    "detail": f"Worktree could not fast-forward to include {merge_sha}.",
+                }
+        except Exception as exc:
+            return {
+                "ok": False,
+                "detail": f"git merge --ff-only raised: {type(exc).__name__}.",
+            }
+
+        if not self._is_ancestor(merge_sha, "HEAD"):
+            return {
+                "ok": False,
+                "detail": f"Merge commit {merge_sha} still not reachable from HEAD.",
+            }
+        return {"ok": True, "detail": f"Merge commit {merge_sha} synchronized into HEAD."}
+
     # -- resume reconciliation --
 
     @staticmethod
     def _affected_project_ids(state: SupervisorState) -> list[str]:
         """Extract affected project IDs from the active repair task."""
         task = state.active_repair_task if isinstance(state.active_repair_task, dict) else {}
+        if not task and isinstance(state.active_merge_target, dict):
+            maybe_task = state.active_merge_target.get("repair_task")
+            if isinstance(maybe_task, dict):
+                task = maybe_task
         ids = task.get("affected_project_ids", [])
         return [str(pid) for pid in ids if str(pid).strip()] if isinstance(ids, list) else []
 
@@ -831,27 +1152,12 @@ class RalphSupervisor:
         return spec
 
     def _auto_merge_pr(self, pr_url: str) -> bool:
-        """Attempt to auto-merge a PR via gh CLI. Returns True if merge was initiated."""
-        try:
-            result = subprocess.run(
-                ["gh", "pr", "merge", pr_url, "--squash", "--auto"],
-                capture_output=True,
-                text=True,
-                cwd=str(self.repo_root),
-                timeout=30,
-            )
-            if result.returncode == 0:
-                logger.info("Auto-merge initiated for %s", pr_url)
-                return True
-            logger.debug("gh pr merge failed (rc=%d): %s", result.returncode, result.stderr)
-        except Exception as exc:
-            logger.debug("gh pr merge raised: %s", exc)
-        return False
+        """Backward-compatible wrapper around GitHubControl.merge_pr()."""
+        result = self._merge_pr(pr_url, required_checks_green=True, allow_admin=True)
+        return result.merged
 
     def _repair_run_id(self, state: SupervisorState) -> str | None:
-        task = state.active_repair_task if isinstance(state.active_repair_task, dict) else {}
-        text = str(task.get("run_id", "")).strip()
-        return text or None
+        return self._merge_target_run_id(state)
 
     def _refresh_dispatch_run(self, run_id: str) -> dict[str, Any] | None:
         from aragora.swarm.supervisor import SwarmSupervisor
@@ -868,7 +1174,8 @@ class RalphSupervisor:
         state: SupervisorState,
         run_dict: dict[str, Any],
     ) -> tuple[str | None, str | None]:
-        task = dict(state.active_repair_task or {})
+        target = self._merge_target(state) or {}
+        task = dict(state.active_repair_task or target.get("repair_task") or {})
         branch: str | None = None
         pr_url: str | None = None
         for item in run_dict.get("work_orders", []):
@@ -880,13 +1187,14 @@ class RalphSupervisor:
             if isinstance(meta, dict):
                 pr_url = pr_url or str(meta.get("pull_request_url", "")).strip() or None
         if branch:
-            state.active_repair_branch = branch
+            target["branch"] = branch
             task["branch"] = branch
         if pr_url:
-            state.active_repair_pr = pr_url
+            target["pr_url"] = pr_url
             task["pr_url"] = pr_url
         task["run_status"] = str(run_dict.get("status", "")).strip()
-        state.active_repair_task = task
+        target["repair_task"] = task
+        self._set_merge_target(state, target)
         return branch, pr_url
 
     def _escalate(self, state: SupervisorState, reason: str) -> StepResult:
@@ -900,51 +1208,28 @@ class RalphSupervisor:
         )
 
     def _find_pr_for_branch(self, branch: str) -> str | None:
-        """Use gh CLI to find a PR (open or merged) for the given branch."""
-        try:
-            result = subprocess.run(
-                [
-                    "gh",
-                    "pr",
-                    "list",
-                    "--head",
-                    branch,
-                    "--state",
-                    "all",
-                    "--json",
-                    "url",
-                    "--limit",
-                    "1",
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(self.repo_root),
-                timeout=15,
-            )
-            if result.returncode == 0:
-                prs = json.loads(result.stdout)
-                if prs and isinstance(prs, list):
-                    return str(prs[0].get("url", ""))
-        except Exception as exc:
-            logger.debug("gh pr list failed: %s", exc)
-        return None
+        return self.github.find_pr_for_branch(branch)
+
+    def _create_pr_for_branch(self, *, branch: str, target_branch: str) -> str:
+        return self.github.create_pr_for_branch(branch, target_branch)
+
+    def _fetch_pr_gate_snapshot(self, pr_url: str) -> Any:
+        return self.github.fetch_gate_snapshot(pr_url)
+
+    def _merge_pr(
+        self,
+        pr_url: str,
+        *,
+        required_checks_green: bool,
+        allow_admin: bool,
+    ) -> Any:
+        return self.github.merge_pr(
+            pr_url,
+            required_checks_green=required_checks_green,
+            allow_admin=allow_admin,
+        )
 
     def _check_pr_merged(self, pr_url: str) -> tuple[bool, str | None]:
-        """Check if a PR has been merged using gh CLI."""
-        try:
-            result = subprocess.run(
-                ["gh", "pr", "view", pr_url, "--json", "state,mergeCommit"],
-                capture_output=True,
-                text=True,
-                cwd=str(self.repo_root),
-                timeout=15,
-            )
-            if result.returncode == 0:
-                data = json.loads(result.stdout)
-                if data.get("state") == "MERGED":
-                    merge_commit = data.get("mergeCommit", {})
-                    sha = str(merge_commit.get("oid", "")) if merge_commit else None
-                    return True, sha
-        except Exception as exc:
-            logger.debug("gh pr view failed: %s", exc)
-        return False, None
+        """Backward-compatible merge-status helper used by existing tests."""
+        snapshot = self._fetch_pr_gate_snapshot(pr_url)
+        return snapshot.disposition == "merged", snapshot.merge_commit_sha
