@@ -713,6 +713,88 @@ class DevCoordinationStore:
             )
         return expired
 
+    def reap_stale_leases(
+        self,
+        *,
+        stale_threshold_seconds: float = 1800.0,
+    ) -> list[WorkLease]:
+        """Release active leases whose worker process is dead.
+
+        A lease is stale when its metadata ``worker_pid`` is no longer running,
+        **or** no ``worker_pid`` is recorded and the lease has not been
+        heartbeated within *stale_threshold_seconds* (default 30 min).
+
+        Complements ``reap_expired_leases`` (TTL only) and the conflict-path
+        reaping in ``SwarmSupervisor._release_orphaned_conflict_leases``.
+        """
+        now = _utcnow()
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                "SELECT * FROM leases WHERE status = ?",
+                (LeaseStatus.ACTIVE.value,),
+            ).fetchall()
+        finally:
+            conn.close()
+
+        stale: list[WorkLease] = []
+        for row in rows:
+            lease = WorkLease.from_row(row)
+            if _parse_dt(lease.expires_at) <= now:
+                continue  # reap_expired_leases handles TTL expiry.
+
+            metadata = lease.metadata or {}
+            raw_pid = metadata.get("worker_pid")
+
+            if raw_pid is not None:
+                probe = _safe_kill_probe(raw_pid)
+                if probe is None or isinstance(probe, PermissionError):
+                    continue  # Process alive (or owned by another user).
+            else:
+                updated = _parse_dt(lease.updated_at)
+                if (now - updated).total_seconds() < stale_threshold_seconds:
+                    continue
+
+            stale.append(lease)
+
+        if not stale:
+            return stale
+
+        conn = self._connect()
+        try:
+            for lease in stale:
+                conn.execute(
+                    "UPDATE leases SET status = ?, updated_at = ? WHERE lease_id = ?",
+                    (LeaseStatus.EXPIRED.value, now.isoformat(), lease.lease_id),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+        for lease in stale:
+            self._release_fleet_claims_for_lease(lease)
+            reason = (
+                "worker_pid_dead"
+                if (lease.metadata or {}).get("worker_pid") is not None
+                else "heartbeat_timeout"
+            )
+            self._publish(
+                "lease_stale",
+                track=lease.branch,
+                data={
+                    "lease_id": lease.lease_id,
+                    "task_id": lease.task_id,
+                    "worktree_path": lease.worktree_path,
+                    "reason": reason,
+                },
+            )
+            self._sync_supervisor_run_from_lease(
+                lease.metadata,
+                update={"status": "needs_human", "failure_reason": "stale_lease_reaped"},
+            )
+
+        return stale
+
     def list_completion_receipts(self, lease_id: str | None = None) -> list[CompletionReceipt]:
         conn = self._connect()
         try:
@@ -843,6 +925,7 @@ class DevCoordinationStore:
             _normalize_claim(item) for item in claimed_paths or [] if str(item).strip()
         ]
         self.reap_expired_leases()
+        self.reap_stale_leases()
         now = _utcnow()
         conn = self._connect()
         try:
@@ -1088,6 +1171,25 @@ class DevCoordinationStore:
                 "violations": violations,
             },
         )
+
+    def update_lease_metadata(self, lease_id: str, updates: dict[str, Any]) -> None:
+        """Merge *updates* into a lease's metadata JSON."""
+        now = _utcnow().isoformat()
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT metadata_json FROM leases WHERE lease_id = ?", (lease_id,)
+            ).fetchone()
+            if row is None:
+                return
+            metadata = {**_json_loads(row["metadata_json"], {}), **updates}
+            conn.execute(
+                "UPDATE leases SET updated_at = ?, metadata_json = ? WHERE lease_id = ?",
+                (now, _json_dump(metadata), lease_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
     def release_lease(self, lease_id: str, status: LeaseStatus = LeaseStatus.RELEASED) -> WorkLease:
         now = _utcnow().isoformat()
@@ -1922,6 +2024,17 @@ class DevCoordinationStore:
             conn.close()
 
 
+def _safe_kill_probe(raw_pid: Any) -> Exception | None:
+    """Probe whether *raw_pid* is alive.  Returns ``None`` if alive, the exception otherwise."""
+    import os as _os
+
+    try:
+        _os.kill(int(raw_pid), 0)
+        return None
+    except (ProcessLookupError, PermissionError, TypeError, ValueError, OSError) as exc:
+        return exc
+
+
 def _utcnow() -> datetime:
     return datetime.now(UTC)
 
@@ -2263,10 +2376,14 @@ def main() -> int:
 
     if args.command == "reap":
         expired = store.reap_expired_leases()
+        stale = store.reap_stale_leases()
+        all_reaped = expired + stale
         payload = {
             "ok": True,
-            "count": len(expired),
-            "leases": [lease.to_dict() for lease in expired],
+            "count": len(all_reaped),
+            "expired": len(expired),
+            "stale": len(stale),
+            "leases": [lease.to_dict() for lease in all_reaped],
         }
         if args.json:
             print(json.dumps(payload, indent=2))  # noqa: T201

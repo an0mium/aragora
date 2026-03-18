@@ -245,6 +245,16 @@ class SwarmSupervisor:
         return run
 
     def refresh_run(self, run_id: str) -> SupervisorRun:
+        # Proactively reap TTL-expired leases so stale locks don't accumulate
+        # when no new claim_lease() calls are attempted (e.g. all work orders
+        # stuck in waiting_conflict).
+        try:
+            reaped = self.store.reap_expired_leases()
+            if reaped:
+                logger.info("reaped %d expired leases during refresh_run", len(reaped))
+        except Exception:
+            logger.debug("reap_expired_leases failed during refresh_run", exc_info=True)
+
         record = self.store.get_supervisor_run(run_id)
         if record is None:
             raise KeyError(f"Unknown supervisor run: {run_id}")
@@ -463,6 +473,18 @@ class SwarmSupervisor:
                     "changed_paths": [],
                     "diff_lines": 0,
                 }
+                # Persist worker PID in lease metadata so reap_stale_leases
+                # can detect dead processes even if this supervisor dies.
+                lease_id = str(item.get("lease_id", "")).strip()
+                if lease_id and worker.pid is not None:
+                    try:
+                        self.store.update_lease_metadata(lease_id, {"worker_pid": worker.pid})
+                    except Exception:
+                        logger.debug(
+                            "Failed to persist worker PID to lease %s",
+                            lease_id,
+                            exc_info=True,
+                        )
                 launched.append(worker)
             except (FileNotFoundError, RuntimeError, OSError) as exc:
                 self._record_worker_type_failure(
