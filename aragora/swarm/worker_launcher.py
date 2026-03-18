@@ -577,12 +577,14 @@ class WorkerLauncher:
 
         if target_agent == "codex":
             parts.append(
-                "Codex lane discipline:\n"
-                "  - If you have a real bounded code change, create a checkpoint commit before long "
-                "or fragile validation.\n"
+                "Codex lane discipline (CRITICAL — commit early):\n"
+                "  - IMMEDIATELY after writing your code changes, run `git add <files> && "
+                'git commit -m "..."` BEFORE running any validation or tests.\n'
+                "  - Do not spend tokens on exploration after code is written — commit first, "
+                "then validate if budget remains.\n"
                 "  - Do not exit 0 with staged or unstaged changes remaining.\n"
-                "  - If validation is slow or fails late, still preserve the bounded deliverable "
-                "with an honest commit message and report the failing command."
+                "  - If validation is slow or fails, the commit still preserves your deliverable "
+                "with an honest commit message."
             )
 
         lease_id = str(work_order.get("lease_id", "")).strip()

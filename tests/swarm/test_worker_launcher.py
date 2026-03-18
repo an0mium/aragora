@@ -112,8 +112,9 @@ class TestBuildPrompt:
             }
         )
 
-        assert "Codex lane discipline:" in prompt
-        assert "checkpoint commit before long" in prompt
+        assert "Codex lane discipline (CRITICAL" in prompt
+        assert "IMMEDIATELY after writing" in prompt
+        assert "commit first, then validate" in prompt
         assert "Do not exit 0 with staged or unstaged changes remaining." in prompt
 
     def test_claude_prompt_omits_codex_lane_closure_guidance(self):
