@@ -21,6 +21,7 @@ from aragora.swarm.campaign import (
     _receipt_final_status,
     _receipt_review_verdict,
 )
+from aragora.swarm.worker_launcher import MAX_WORKER_LOG_TAIL_CHARS
 
 
 # ---------------------------------------------------------------------------
@@ -332,6 +333,178 @@ class TestEmitReceipt:
         assert payload["planner_fallback_reason"] == "TimeoutError: planner timed out"
         assert payload["verification_missing_reason"] == "missing_verification_plan"
 
+    def test_receipt_includes_work_order_debug_snapshot(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / "manifest.yaml"
+        manifest_path.write_text("campaign_id: phase0a-test\n")
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        project = _make_project(status="blocked", branch="")
+        manifest = _make_manifest(projects=[project])
+        run_dict = {
+            "work_orders": [
+                {
+                    "work_order_id": "wo-1",
+                    "title": "Analyze classifier blocker mapping",
+                    "description": "Trace stop_reason -> BlockerKind and add regressions.",
+                    "status": "needs_human",
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "file_scope": [
+                        "aragora/ralph/classifier.py",
+                        "tests/ralph/test_classifier.py",
+                    ],
+                    "expected_tests": ["python -m pytest tests/ralph/test_classifier.py -q"],
+                    "success_criteria": {
+                        "tests": "python -m pytest tests/ralph/test_classifier.py -q",
+                        "definition_of_done": "Classifier mapping documented and covered.",
+                    },
+                    "metadata": {
+                        "planner_strategy_requested": "model",
+                        "planner_strategy_used": "heuristic",
+                        "planner_fallback_reason": "AgentConnectionError: planner fallback",
+                        "requested_target_agent": "codex",
+                        "requested_reviewer_agent": "claude",
+                    },
+                    "branch": "codex/swarm-test",
+                    "commit_shas": ["abc123"],
+                    "head_sha": "abc123",
+                    "changed_paths": [
+                        "aragora/ralph/classifier.py",
+                        "tests/ralph/test_classifier.py",
+                    ],
+                    "review_status": "changes_requested",
+                    "worker_outcome": "merge_gate_failed",
+                    "dispatch_error": "merge gate blocked: verification failed",
+                    "blockers": ["review failed", "verification failed"],
+                    "verification_missing_reason": "missing_verification_plan",
+                    "verification_results": [
+                        {
+                            "command": "python -m pytest tests/ralph/test_classifier.py -q",
+                            "exit_code": 126,
+                            "passed": False,
+                            "stdout": "ok\n",
+                            "stderr": "exec format error\n",
+                            "duration_seconds": 0.322,
+                        }
+                    ],
+                    "merge_gate": {
+                        "enabled": True,
+                        "checks_passed": False,
+                        "human_approval_required": True,
+                        "merge_eligible": False,
+                        "verification_missing_reason": "missing_verification_plan",
+                        "expected_checks": ["python -m pytest tests/ralph/test_classifier.py -q"],
+                        "blocked_reasons": [
+                            "merge gate blocked: verification failed: python -m pytest tests/ralph/test_classifier.py -q (exit 126)"
+                        ],
+                        "verification_results": [
+                            {
+                                "command": "python -m pytest tests/ralph/test_classifier.py -q",
+                                "exit_code": 126,
+                                "passed": False,
+                            }
+                        ],
+                    },
+                    "stdout_tail": "worker stdout tail\n",
+                    "stderr_tail": "worker stderr tail\n",
+                    "dispatched_at": "2026-03-10T21:00:00+00:00",
+                    "started_at": "2026-03-10T21:00:05+00:00",
+                    "completed_at": "2026-03-10T21:05:05+00:00",
+                    "last_progress_at": "2026-03-10T21:04:55+00:00",
+                    "last_observed_at": "2026-03-10T21:05:05+00:00",
+                }
+            ]
+        }
+
+        receipt_path = executor._emit_receipt(manifest, project, run_dict)
+
+        payload = _load_text_like_yaml(receipt_path)
+        snapshot = payload["work_orders"][0]
+        assert snapshot["work_order_id"] == "wo-1"
+        assert snapshot["target_agent"] == "codex"
+        assert snapshot["reviewer_agent"] == "claude"
+        assert snapshot["file_scope"] == [
+            "aragora/ralph/classifier.py",
+            "tests/ralph/test_classifier.py",
+        ]
+        assert snapshot["expected_tests"] == ["python -m pytest tests/ralph/test_classifier.py -q"]
+        assert snapshot["metadata"]["planner_strategy_used"] == "heuristic"
+        assert "Analyze classifier blocker mapping" in snapshot["prompt_preview"]
+        assert "FILE SCOPE GUIDANCE:" in snapshot["prompt_preview"]
+        assert "aragora/ralph/classifier.py" in snapshot["prompt_preview"]
+        assert snapshot["branch"] == "codex/swarm-test"
+        assert snapshot["commit_shas"] == ["abc123"]
+        assert snapshot["worker_outcome"] == "merge_gate_failed"
+        assert snapshot["verification_results"] == [
+            {
+                "command": "python -m pytest tests/ralph/test_classifier.py -q",
+                "duration_seconds": 0.322,
+                "exit_code": 126,
+                "passed": False,
+                "stdout_tail": "ok\n",
+                "stderr_tail": "exec format error\n",
+            }
+        ]
+        assert snapshot["merge_gate"] == {
+            "enabled": True,
+            "checks_passed": False,
+            "human_approval_required": True,
+            "merge_eligible": False,
+            "verification_missing_reason": "missing_verification_plan",
+            "expected_checks": ["python -m pytest tests/ralph/test_classifier.py -q"],
+            "blocked_reasons": [
+                "merge gate blocked: verification failed: python -m pytest tests/ralph/test_classifier.py -q (exit 126)"
+            ],
+        }
+        assert snapshot["stdout_tail"] == "worker stdout tail\n"
+        assert snapshot["stderr_tail"] == "worker stderr tail\n"
+
+    def test_receipt_truncates_debug_log_fields(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / "manifest.yaml"
+        manifest_path.write_text("campaign_id: phase0a-test\n")
+        executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
+
+        project = _make_project(status="blocked", branch="")
+        manifest = _make_manifest(projects=[project])
+        long_stdout = "a" * (MAX_WORKER_LOG_TAIL_CHARS + 25)
+        long_stderr = "b" * (MAX_WORKER_LOG_TAIL_CHARS + 25)
+        run_dict = {
+            "work_orders": [
+                {
+                    "work_order_id": "wo-1",
+                    "title": "Debug worker stall",
+                    "description": "Capture long logs.",
+                    "verification_results": [
+                        {
+                            "command": "python -m pytest tests/ralph/test_classifier.py -q",
+                            "exit_code": 1,
+                            "passed": False,
+                            "stdout": long_stdout,
+                            "stderr": long_stderr,
+                            "duration_seconds": 1.0,
+                        }
+                    ],
+                    "stdout_tail": long_stdout,
+                    "stderr_tail": long_stderr,
+                }
+            ]
+        }
+
+        receipt_path = executor._emit_receipt(manifest, project, run_dict)
+
+        payload = _load_text_like_yaml(receipt_path)
+        snapshot = payload["work_orders"][0]
+        assert snapshot["stdout_tail"] == long_stdout[-MAX_WORKER_LOG_TAIL_CHARS:]
+        assert snapshot["stderr_tail"] == long_stderr[-MAX_WORKER_LOG_TAIL_CHARS:]
+        assert (
+            snapshot["verification_results"][0]["stdout_tail"]
+            == long_stdout[-MAX_WORKER_LOG_TAIL_CHARS:]
+        )
+        assert (
+            snapshot["verification_results"][0]["stderr_tail"]
+            == long_stderr[-MAX_WORKER_LOG_TAIL_CHARS:]
+        )
+
     def test_receipt_always_marks_rescue_false(self, tmp_path: Path) -> None:
         manifest_path = tmp_path / "manifest.yaml"
         manifest_path.write_text("campaign_id: phase0a-test\n")
@@ -472,7 +645,7 @@ class TestApplyReviewResultEmitsReceipt:
         manifest_path.write_text("campaign_id: phase0a-test\n")
         executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
 
-        project = _make_project(status="delivered")
+        project = _make_project(status="delivered", branch="")
         manifest = _make_manifest(projects=[project])
         gate = CampaignReviewGate(status=CampaignReviewStatus.PASSED.value)
 
@@ -492,7 +665,7 @@ class TestApplyReviewResultEmitsReceipt:
         manifest_path.write_text("campaign_id: phase0a-test\n")
         executor = CampaignExecutor(manifest_path=manifest_path, repo_root=tmp_path)
 
-        project = _make_project(status="delivered", estimated_cost_usd=3.5)
+        project = _make_project(status="delivered", estimated_cost_usd=3.5, branch="")
         manifest = _make_manifest(projects=[project])
         gate = CampaignReviewGate(status=CampaignReviewStatus.PASSED.value)
 

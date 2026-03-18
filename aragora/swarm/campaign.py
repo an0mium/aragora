@@ -30,6 +30,7 @@ from aragora.swarm.supervisor import (
     CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY,
     SwarmSupervisor,
 )
+from aragora.swarm.worker_launcher import MAX_WORKER_LOG_TAIL_CHARS, WorkerLauncher
 
 logger = logging.getLogger(__name__)
 
@@ -1950,6 +1951,7 @@ class CampaignExecutor:
                 "worker_branches": worker_branches,
                 "worker_commits": worker_commits,
                 "changed_files": _changed_files_from_run(run_dict),
+                "work_orders": _work_order_snapshots_from_run(run_dict),
                 "review_verdict": _receipt_review_verdict(project.review.status),
                 "verification_results": {
                     "pytest_exit_code": None,
@@ -2441,6 +2443,147 @@ def _worker_commit_from_run(
 ) -> str | None:
     commits = _worker_commits_from_run(project, run_dict)
     return commits[-1] if commits else None
+
+
+def _truncate_receipt_text(
+    value: Any,
+    *,
+    max_chars: int = MAX_WORKER_LOG_TAIL_CHARS,
+    tail: bool = False,
+) -> str:
+    text = str(value)
+    if len(text) <= max_chars:
+        return text
+    return text[-max_chars:] if tail else text[:max_chars]
+
+
+def _receipt_debug_value(value: Any, *, tail: bool = False) -> Any:
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        return _truncate_receipt_text(value, tail=tail)
+    if isinstance(value, list):
+        return [_receipt_debug_value(item, tail=tail) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _receipt_debug_value(item, tail=tail) for key, item in value.items()}
+    return _truncate_receipt_text(value, tail=tail)
+
+
+def _receipt_verification_results(
+    work_order: dict[str, Any],
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for entry in work_order.get("verification_results", []):
+        if not isinstance(entry, dict):
+            continue
+        command = str(entry.get("command", "")).strip()
+        if not command:
+            continue
+        result: dict[str, Any] = {
+            "command": command,
+            "passed": bool(entry.get("passed", False)),
+            "stdout_tail": _truncate_receipt_text(entry.get("stdout", ""), tail=True),
+            "stderr_tail": _truncate_receipt_text(entry.get("stderr", ""), tail=True),
+        }
+        try:
+            result["exit_code"] = int(entry.get("exit_code", 0))
+        except (TypeError, ValueError):
+            result["exit_code"] = -1
+        try:
+            result["duration_seconds"] = float(entry.get("duration_seconds", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            result["duration_seconds"] = 0.0
+        results.append(result)
+    return results
+
+
+def _receipt_merge_gate(work_order: dict[str, Any]) -> dict[str, Any] | None:
+    merge_gate = work_order.get("merge_gate")
+    if not isinstance(merge_gate, dict) or not merge_gate:
+        return None
+    return {
+        "enabled": bool(merge_gate.get("enabled", True)),
+        "checks_passed": bool(merge_gate.get("checks_passed", False)),
+        "human_approval_required": bool(merge_gate.get("human_approval_required", False)),
+        "merge_eligible": bool(merge_gate.get("merge_eligible", False)),
+        "verification_missing_reason": _optional_text(
+            merge_gate.get("verification_missing_reason")
+        ),
+        "expected_checks": [
+            str(item).strip() for item in merge_gate.get("expected_checks", []) if str(item).strip()
+        ],
+        "blocked_reasons": [
+            _truncate_receipt_text(item)
+            for item in merge_gate.get("blocked_reasons", [])
+            if str(item).strip()
+        ],
+    }
+
+
+def _work_order_snapshot_for_receipt(work_order: dict[str, Any]) -> dict[str, Any]:
+    prompt_preview = _truncate_receipt_text(
+        WorkerLauncher._build_prompt(work_order),
+        max_chars=MAX_WORKER_LOG_TAIL_CHARS,
+    )
+    stdout_tail = _truncate_receipt_text(work_order.get("stdout_tail", ""), tail=True)
+    stderr_tail = _truncate_receipt_text(work_order.get("stderr_tail", ""), tail=True)
+    return {
+        "work_order_id": _optional_text(work_order.get("work_order_id")),
+        "title": _optional_text(work_order.get("title")),
+        "description": _optional_text(work_order.get("description")),
+        "status": _optional_text(work_order.get("status")),
+        "target_agent": _optional_text(work_order.get("target_agent")),
+        "reviewer_agent": _optional_text(work_order.get("reviewer_agent")),
+        "file_scope": [
+            str(item).strip() for item in work_order.get("file_scope", []) if str(item).strip()
+        ],
+        "expected_tests": [
+            str(item).strip() for item in work_order.get("expected_tests", []) if str(item).strip()
+        ],
+        "success_criteria": _receipt_debug_value(work_order.get("success_criteria")),
+        "metadata": _receipt_debug_value(work_order.get("metadata") or {}),
+        "prompt_preview": prompt_preview,
+        "branch": _optional_text(work_order.get("branch")),
+        "commit_shas": [
+            str(item).strip() for item in work_order.get("commit_shas", []) if str(item).strip()
+        ],
+        "head_sha": _optional_text(work_order.get("head_sha")),
+        "changed_paths": [
+            str(item).strip() for item in work_order.get("changed_paths", []) if str(item).strip()
+        ],
+        "receipt_id": _optional_text(work_order.get("receipt_id")),
+        "review_status": _optional_text(work_order.get("review_status")),
+        "worker_outcome": _optional_text(work_order.get("worker_outcome")),
+        "dispatch_error": _optional_text(work_order.get("dispatch_error")),
+        "blockers": [
+            _truncate_receipt_text(item)
+            for item in work_order.get("blockers", [])
+            if str(item).strip()
+        ],
+        "verification_missing_reason": _optional_text(
+            work_order.get("verification_missing_reason")
+        ),
+        "verification_results": _receipt_verification_results(work_order),
+        "merge_gate": _receipt_merge_gate(work_order),
+        "stdout_tail": stdout_tail or None,
+        "stderr_tail": stderr_tail or None,
+        "dispatched_at": _optional_text(work_order.get("dispatched_at")),
+        "started_at": _optional_text(work_order.get("started_at")),
+        "completed_at": _optional_text(work_order.get("completed_at")),
+        "last_progress_at": _optional_text(work_order.get("last_progress_at")),
+        "last_observed_at": _optional_text(work_order.get("last_observed_at")),
+    }
+
+
+def _work_order_snapshots_from_run(run_dict: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not run_dict:
+        return []
+    snapshots: list[dict[str, Any]] = []
+    for work_order in run_dict.get("work_orders", []):
+        if not isinstance(work_order, dict):
+            continue
+        snapshots.append(_work_order_snapshot_for_receipt(work_order))
+    return snapshots
 
 
 def _planner_metadata_from_run(run_dict: dict[str, Any] | None) -> dict[str, Any]:
