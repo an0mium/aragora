@@ -631,6 +631,48 @@ class FeatureFlagRegistry:
             FlagCategory.BILLING,
         )
 
+        # Decision integrity rollout flags
+        self.register(
+            "receipt_enforcement_openclaw",
+            bool,
+            False,
+            "Require approved execution receipts for OpenClaw action execution paths",
+            FlagCategory.CORE,
+            FlagStatus.ALPHA,
+        )
+        self.register(
+            "receipt_enforcement_canvas",
+            bool,
+            False,
+            "Require approved execution receipts for canvas action execution paths",
+            FlagCategory.CORE,
+            FlagStatus.ALPHA,
+        )
+        self.register(
+            "receipt_enforcement_computer_use",
+            bool,
+            False,
+            "Require approved execution receipts for computer-use orchestration paths",
+            FlagCategory.CORE,
+            FlagStatus.ALPHA,
+        )
+        self.register(
+            "receipt_enforcement_inbox",
+            bool,
+            False,
+            "Require approved execution receipts for inbox mutation paths",
+            FlagCategory.CORE,
+            FlagStatus.ALPHA,
+        )
+        self.register(
+            "receipt_enforcement_shared_inbox",
+            bool,
+            False,
+            "Require approved execution receipts for shared inbox mutation paths",
+            FlagCategory.CORE,
+            FlagStatus.ALPHA,
+        )
+
         # Oracle streaming
         self.register(
             "enable_oracle_streaming",
