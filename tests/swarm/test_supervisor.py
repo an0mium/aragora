@@ -1918,3 +1918,72 @@ def test_worker_prompt_includes_boss_lane_contract() -> None:
     assert "Receipt expectation:" in prompt
     assert "Lease id: lease-123" in prompt
     assert "Stop condition:" in prompt
+
+
+def test_refresh_run_reaps_expired_leases(repo: Path, store: DevCoordinationStore) -> None:
+    """refresh_run proactively reaps TTL-expired leases so stuck waiting_conflict
+    work orders can recover even when no new claim_lease calls occur."""
+    # Create a lease with normal TTL, then manually expire it
+    expired = store.claim_lease(
+        task_id="old-task",
+        title="Old task",
+        owner_agent="codex",
+        owner_session_id="dead-session",
+        branch="codex/dead-branch",
+        worktree_path=str(repo / "dead-wt"),
+        claimed_paths=["some/file.py"],
+    )
+    assert expired.lease_id in {l.lease_id for l in store.list_active_leases()}
+    # Backdate expiry to the past so reap_expired_leases picks it up
+    conn = store._connect()
+    try:
+        conn.execute(
+            "UPDATE leases SET expires_at = ? WHERE lease_id = ?",
+            ("2020-01-01T00:00:00+00:00", expired.lease_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    # Set up a minimal supervisor with a live run
+    lifecycle = MagicMock()
+    session_path = repo / "wt-fresh"
+    session_path.mkdir()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="fresh-session",
+        agent="codex",
+        branch="codex/fresh-branch",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="fresh-lane",
+                title="Fresh work",
+                description="Do fresh work.",
+                file_scope=["other/file.py"],
+            )
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    run = supervisor.start_run(spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"))
+
+    # refresh_run should have reaped the expired lease
+    supervisor.refresh_run(run.run_id)
+    active_lease_ids = {l.lease_id for l in store.list_active_leases()}
+    assert expired.lease_id not in active_lease_ids
