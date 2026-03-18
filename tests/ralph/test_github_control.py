@@ -228,6 +228,131 @@ class TestGitHubControlGateSnapshots:
         assert snapshot.required_checks_known is False
 
 
+class TestGitHubControlTaskCoverage:
+    @patch("aragora.ralph.github_control.subprocess.run")
+    def test_find_pr_for_branch_found(self, mock_run, tmp_path: Path) -> None:
+        mock_run.return_value = _completed_process(
+            stdout=json.dumps([{"number": 42, "url": "https://github.com/org/repo/pull/42"}])
+        )
+
+        control = GitHubControl(repo_root=tmp_path)
+
+        assert control.find_pr_for_branch("codex/test") == "https://github.com/org/repo/pull/42"
+
+    @patch("aragora.ralph.github_control.subprocess.run")
+    def test_find_pr_for_branch_not_found(self, mock_run, tmp_path: Path) -> None:
+        mock_run.return_value = _completed_process(stdout="[]")
+
+        control = GitHubControl(repo_root=tmp_path)
+
+        assert control.find_pr_for_branch("codex/test") is None
+
+    @patch("aragora.ralph.github_control.subprocess.run")
+    def test_create_pr_for_branch_success(self, mock_run, tmp_path: Path) -> None:
+        mock_run.return_value = _completed_process(
+            stdout=json.dumps({"url": "https://github.com/org/repo/pull/77"})
+        )
+
+        control = GitHubControl(repo_root=tmp_path)
+
+        assert control.create_pr_for_branch("codex/test", "main") == (
+            "https://github.com/org/repo/pull/77"
+        )
+
+    @patch("aragora.ralph.github_control.subprocess.run")
+    def test_create_pr_for_branch_failure(self, mock_run, tmp_path: Path) -> None:
+        mock_run.return_value = _completed_process(returncode=1, stderr="auth failed")
+
+        control = GitHubControl(repo_root=tmp_path)
+
+        with pytest.raises(GitHubControlError, match="auth failed"):
+            control.create_pr_for_branch("codex/test", "main")
+
+    @patch("aragora.ralph.github_control.subprocess.run")
+    def test_fetch_gate_snapshot_parses_rulesets(self, mock_run, tmp_path: Path) -> None:
+        mock_run.side_effect = [
+            _completed_process(
+                stdout=json.dumps(
+                    {
+                        "url": "https://github.com/org/repo/pull/55",
+                        "state": "OPEN",
+                        "isDraft": False,
+                        "headRefName": "codex/test",
+                        "baseRefName": "main",
+                        "reviewDecision": "APPROVED",
+                        "mergeStateStatus": "BLOCKED",
+                        "mergeCommit": None,
+                        "statusCheckRollup": [
+                            {"context": "ci/unit", "state": "SUCCESS"},
+                            {"context": "lint", "state": "PENDING"},
+                            {"context": "coverage", "state": "SUCCESS"},
+                        ],
+                    }
+                )
+            ),
+            _completed_process(
+                stdout=json.dumps(
+                    [
+                        {
+                            "parameters": {
+                                "required_status_checks": [
+                                    {"context": "ci/unit"},
+                                    {"context": "lint"},
+                                ]
+                            }
+                        }
+                    ]
+                )
+            ),
+        ]
+
+        control = GitHubControl(repo_root=tmp_path)
+        snapshot = control.fetch_gate_snapshot("https://github.com/org/repo/pull/55")
+
+        assert [check.name for check in snapshot.required_checks] == ["ci/unit", "lint"]
+        assert snapshot.required_checks_source == "ruleset"
+        assert snapshot.required_checks_known is True
+
+    @patch("aragora.ralph.github_control.subprocess.run")
+    def test_fetch_gate_snapshot_draft_disposition(self, mock_run, tmp_path: Path) -> None:
+        mock_run.side_effect = [
+            _completed_process(
+                stdout=json.dumps(
+                    {
+                        "url": "https://github.com/org/repo/pull/56",
+                        "state": "OPEN",
+                        "isDraft": True,
+                        "headRefName": "codex/test",
+                        "baseRefName": "main",
+                        "reviewDecision": "APPROVED",
+                        "mergeStateStatus": "CLEAN",
+                        "mergeCommit": None,
+                        "statusCheckRollup": [{"context": "ci/unit", "state": "SUCCESS"}],
+                    }
+                )
+            ),
+            _completed_process(
+                stdout=json.dumps(
+                    [
+                        {
+                            "parameters": {
+                                "required_status_checks": [
+                                    {"context": "ci/unit"},
+                                ]
+                            }
+                        }
+                    ]
+                )
+            ),
+        ]
+
+        control = GitHubControl(repo_root=tmp_path)
+        snapshot = control.fetch_gate_snapshot("https://github.com/org/repo/pull/56")
+
+        assert snapshot.draft is True
+        assert snapshot.disposition == "wait_for_review"
+
+
 class TestGitHubControlMerge:
     @patch("aragora.ralph.github_control.subprocess.run")
     def test_merge_pr_uses_normal_merge_first(self, mock_run, tmp_path: Path) -> None:
