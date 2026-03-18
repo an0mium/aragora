@@ -169,17 +169,19 @@ class TestBuildCommand:
         assert "-p" in cmd
 
     def test_codex_adds_worktree_gitdir_to_sandbox(self, tmp_path: Path):
-        """Codex in a worktree gets --add-dir pointing to the real gitdir."""
+        """Codex in a worktree gets --add-dir pointing to the common .git dir."""
         wt = tmp_path / "wt"
         wt.mkdir()
-        real_gitdir = tmp_path / "repo" / ".git" / "worktrees" / "wt"
+        parent_git = tmp_path / "repo" / ".git"
+        real_gitdir = parent_git / "worktrees" / "wt"
         real_gitdir.mkdir(parents=True)
+        (real_gitdir / "commondir").write_text("../..\n")
         (wt / ".git").write_text(f"gitdir: {real_gitdir}\n")
         launcher = WorkerLauncher(LaunchConfig(use_managed_session_script=False))
         cmd = launcher._build_command("codex", "task", str(wt))
         assert "--add-dir" in cmd
         idx = cmd.index("--add-dir")
-        assert cmd[idx + 1] == str(real_gitdir)
+        assert cmd[idx + 1] == str(parent_git.resolve())
         assert "--full-auto" in cmd
 
     def test_codex_no_add_dir_for_regular_repo(self, tmp_path: Path):
@@ -192,8 +194,19 @@ class TestBuildCommand:
         assert "--add-dir" not in cmd
         assert "--full-auto" in cmd
 
-    def test_resolve_worktree_gitdir(self, tmp_path: Path):
-        """Resolves gitdir from a .git file in a worktree."""
+    def test_resolve_worktree_gitdir_returns_common_dir(self, tmp_path: Path):
+        """Resolves to the common .git directory, not the worktree subdir."""
+        wt = tmp_path / "wt"
+        wt.mkdir()
+        parent_git = tmp_path / "repo" / ".git"
+        real_gitdir = parent_git / "worktrees" / "wt"
+        real_gitdir.mkdir(parents=True)
+        (real_gitdir / "commondir").write_text("../..\n")
+        (wt / ".git").write_text(f"gitdir: {real_gitdir}\n")
+        assert WorkerLauncher._resolve_worktree_gitdir(str(wt)) == str(parent_git.resolve())
+
+    def test_resolve_worktree_gitdir_fallback_without_commondir(self, tmp_path: Path):
+        """Falls back to worktree gitdir when commondir file is missing."""
         wt = tmp_path / "wt"
         wt.mkdir()
         real_gitdir = tmp_path / "repo" / ".git" / "worktrees" / "wt"

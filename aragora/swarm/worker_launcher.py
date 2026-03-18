@@ -460,14 +460,18 @@ class WorkerLauncher:
 
     @staticmethod
     def _resolve_worktree_gitdir(worktree_path: str) -> str:
-        """Return the real gitdir for a git worktree, or '' for regular repos.
+        """Return the common git directory for a git worktree, or '' for regular repos.
 
         Git worktrees have a `.git` *file* (not directory) containing
-        ``gitdir: <path>``.  That path points to the parent repo's
-        ``.git/worktrees/<name>/`` directory where the index and lock
-        files live.  The Codex ``--full-auto`` sandbox only allows writes
-        inside the worktree itself, so we need ``--add-dir <gitdir>`` to
-        let ``git add``/``git commit`` create ``index.lock``.
+        ``gitdir: <path>`` pointing to ``.git/worktrees/<name>/``.
+        That worktree-specific dir has a ``commondir`` file pointing
+        back to the parent ``.git/`` directory.
+
+        The Codex ``--full-auto`` sandbox only allows writes inside the
+        worktree itself.  ``git add`` needs write access to both
+        ``.git/worktrees/<name>/`` (index, HEAD) and ``.git/objects/``
+        (blob storage), so we return the common ``.git/`` directory to
+        cover both via a single ``--add-dir``.
         """
         if not worktree_path:
             return ""
@@ -476,11 +480,24 @@ class WorkerLauncher:
             return ""
         try:
             text = dot_git.read_text().strip()
-            if text.startswith("gitdir:"):
-                gitdir = text.split(":", 1)[1].strip()
-                resolved = (dot_git.parent / gitdir).resolve()
-                if resolved.is_dir():
-                    return str(resolved)
+            if not text.startswith("gitdir:"):
+                return ""
+            gitdir = text.split(":", 1)[1].strip()
+            resolved = (dot_git.parent / gitdir).resolve()
+            if not resolved.is_dir():
+                return ""
+            # Resolve the common directory (parent .git/) via commondir
+            # file.  This covers .git/objects/, .git/refs/, and the
+            # worktree-specific .git/worktrees/<name>/ subdirectory.
+            commondir_file = resolved / "commondir"
+            if commondir_file.is_file():
+                commondir = commondir_file.read_text().strip()
+                common = (resolved / commondir).resolve()
+                if common.is_dir():
+                    return str(common)
+            # Fallback to the worktree gitdir itself if commondir
+            # is missing (shouldn't happen in practice).
+            return str(resolved)
         except OSError:
             pass
         return ""
