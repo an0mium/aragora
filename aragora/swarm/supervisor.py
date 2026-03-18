@@ -39,6 +39,11 @@ CAMPAIGN_BLOCKERS_METADATA_KEY = "campaign_blockers"
 MAX_WORKER_LOG_TAIL_CHARS = 4000
 DEFAULT_BREAKER_FAILURE_THRESHOLD = 2
 DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS = 900.0
+SESSION_LOCK_FILES = (
+    ".claude-session-active",
+    ".codex_session_active",
+    ".nomic-session-active",
+)
 
 
 def _path_in_scope(path: str, scope_pattern: str) -> bool:
@@ -1719,11 +1724,89 @@ class SwarmSupervisor:
             worktree_path = str(conflict.get("worktree_path", "")).strip()
             if not lease_id or not worktree_path:
                 continue
-            if Path(worktree_path).exists():
+            orphaned_reason = self._orphaned_conflict_reason(worktree_path)
+            if not orphaned_reason:
                 continue
             self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
+            logger.info(
+                "released_orphaned_conflict_lease lease_id=%s reason=%s worktree=%s",
+                lease_id,
+                orphaned_reason,
+                worktree_path,
+            )
             released += 1
         return released
+
+    def _orphaned_conflict_reason(self, worktree_path: str) -> str | None:
+        path = Path(worktree_path)
+        if not path.exists():
+            return "missing_worktree"
+
+        lock_state = self._session_lock_state(path)
+        if lock_state == "active":
+            return None
+        if lock_state == "stale":
+            return "dead_session_lock"
+
+        session_meta = WorkerLauncher._read_session_meta(str(path))
+        if session_meta:
+            if str(session_meta.get("ended_at", "")).strip():
+                return "session_ended"
+            raw_pid = session_meta.get("pid")
+            try:
+                pid = int(raw_pid)
+            except (TypeError, ValueError):
+                pid = None
+            if pid is None:
+                return None
+            if WorkerLauncher._is_pid_running(pid):
+                return None
+            return "dead_session_pid"
+
+        if self._is_managed_worktree(path):
+            return "managed_worktree_without_active_session"
+        return None
+
+    def _is_managed_worktree(self, path: Path) -> bool:
+        managed_root = (self.repo_root / ".worktrees").resolve()
+        try:
+            return path.resolve().is_relative_to(managed_root)
+        except ValueError:
+            return False
+
+    @classmethod
+    def _session_lock_state(cls, worktree_path: Path) -> str:
+        found_lock = False
+        for lock_name in SESSION_LOCK_FILES:
+            lock_path = worktree_path / lock_name
+            if not lock_path.exists():
+                continue
+            found_lock = True
+            try:
+                pids = cls._parse_session_lock_pids(lock_path)
+            except OSError:
+                return "active"
+            if not pids:
+                return "active"
+            if any(WorkerLauncher._is_pid_running(pid) for pid in pids):
+                return "active"
+        return "stale" if found_lock else "missing"
+
+    @staticmethod
+    def _parse_session_lock_pids(lock_path: Path) -> list[int]:
+        raw = lock_path.read_text(encoding="utf-8")
+        pids: list[int] = []
+        for line in raw.splitlines():
+            entry = line.strip()
+            if "=" not in entry:
+                continue
+            key, value = entry.split("=", 1)
+            if key.strip() not in {"pid", "ppid"}:
+                continue
+            value = value.strip()
+            if value.isdigit():
+                pids.append(int(value))
+        return pids
 
     @staticmethod
     def _is_resource_constraint_error(exc: Exception) -> bool:
