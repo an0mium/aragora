@@ -237,6 +237,88 @@ class TestCheckFileScopeViolations:
 
 
 # ---------------------------------------------------------------------------
+# Tests for _validate_file_scope (dispatch-time hallucination stripping)
+# ---------------------------------------------------------------------------
+
+
+class TestValidateFileScope:
+    """Planner-hallucinated scope entries must be stripped before dispatch."""
+
+    def test_hallucinated_root_stripped(self, tmp_path: Path) -> None:
+        """Scope entries with non-existent top-level dirs are dropped."""
+        wt = tmp_path / "worktree"
+        wt.mkdir()
+        (wt / ".git").write_text("gitdir: /tmp/fake\n")  # mark as git checkout
+        (wt / "aragora" / "nomic").mkdir(parents=True)
+        (wt / "tests").mkdir()
+
+        raw_scope = [
+            "src/orchestrator/hardened_orchestrator.py",  # hallucinated
+            "aragora/nomic/hardened_orchestrator.py",  # real
+            "tests/truth_suite/test_budget_caps.py",  # real root
+        ]
+        valid = SwarmSupervisor._validate_file_scope(raw_scope, str(wt))
+        assert "src/orchestrator/hardened_orchestrator.py" not in valid
+        assert "aragora/nomic/hardened_orchestrator.py" in valid
+        assert "tests/truth_suite/test_budget_caps.py" in valid
+
+    def test_all_hallucinated_returns_empty(self, tmp_path: Path) -> None:
+        wt = tmp_path / "worktree"
+        wt.mkdir()
+        (wt / ".git").write_text("gitdir: /tmp/fake\n")
+        scope = ["src/foo.py", "lib/bar.py"]
+        assert SwarmSupervisor._validate_file_scope(scope, str(wt)) == []
+
+    def test_empty_worktree_path_passes_through(self) -> None:
+        scope = ["aragora/foo.py"]
+        assert SwarmSupervisor._validate_file_scope(scope, "") == scope
+
+    def test_all_valid_passes_through(self, tmp_path: Path) -> None:
+        wt = tmp_path / "worktree"
+        wt.mkdir()
+        (wt / ".git").write_text("gitdir: /tmp/fake\n")
+        (wt / "aragora").mkdir()
+        (wt / "tests").mkdir()
+
+        scope = ["aragora/swarm/supervisor.py", "tests/swarm/test_supervisor.py"]
+        assert SwarmSupervisor._validate_file_scope(scope, str(wt)) == scope
+
+    def test_no_git_dir_skips_validation(self, tmp_path: Path) -> None:
+        """Directories without .git (e.g. test fixtures) skip validation."""
+        wt = tmp_path / "worktree"
+        wt.mkdir()
+        scope = ["src/foo.py"]
+        assert SwarmSupervisor._validate_file_scope(scope, str(wt)) == scope
+
+    def test_enforcement_after_stripping(self, tmp_path: Path) -> None:
+        """End-to-end: hallucinated scope stripped → worker edits real files →
+        enforcement passes (because file_scope is now empty/valid).
+
+        Regression test for B-3 benchmark: planner generated src/orchestrator/
+        paths but real code lives at aragora/nomic/, causing 0% deliverable rate.
+        """
+        wt = tmp_path / "worktree"
+        wt.mkdir()
+        (wt / ".git").write_text("gitdir: /tmp/fake\n")
+        (wt / "aragora" / "nomic").mkdir(parents=True)
+
+        # Planner hallucinated all scope entries
+        raw_scope = ["src/orchestrator/hardened_orchestrator.py"]
+        valid_scope = SwarmSupervisor._validate_file_scope(raw_scope, str(wt))
+        assert valid_scope == []
+
+        # Worker edits real file — with empty scope, enforcement is open
+        work_order = {"work_order_id": "test", "file_scope": valid_scope}
+        violations = SwarmSupervisor._check_file_scope_violations(
+            work_order,
+            ["aragora/nomic/hardened_orchestrator.py"],
+        )
+        assert violations == [], (
+            "Real edits must not be rejected after hallucinated scope is stripped"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Tests for _mark_scope_violation
 # ---------------------------------------------------------------------------
 
@@ -435,9 +517,8 @@ class TestWorkerPromptScopeLanguage:
             "metadata": {},
         }
         prompt = WorkerLauncher._build_prompt(work_order)
-        assert "MANDATORY FILE SCOPE CONSTRAINT" in prompt
-        assert "MUST only" in prompt
-        assert "rejected" in prompt.lower() or "discarded" in prompt.lower()
+        assert "FILE SCOPE GUIDANCE" in prompt
+        assert "verify these paths exist" in prompt
         assert "aragora/live/package.json" in prompt
         assert "aragora/live/package-lock.json" in prompt
 
@@ -449,7 +530,7 @@ class TestWorkerPromptScopeLanguage:
             "metadata": {},
         }
         prompt = WorkerLauncher._build_prompt(work_order)
-        assert "MANDATORY FILE SCOPE CONSTRAINT" not in prompt
+        assert "FILE SCOPE GUIDANCE" not in prompt
 
 
 # ---------------------------------------------------------------------------

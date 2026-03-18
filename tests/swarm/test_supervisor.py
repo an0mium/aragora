@@ -1709,7 +1709,7 @@ def test_worker_prompt_includes_boss_lane_contract() -> None:
     )
 
     assert "Aragora-managed CLI worker lane" in prompt
-    assert "MANDATORY FILE SCOPE CONSTRAINT" in prompt
+    assert "FILE SCOPE GUIDANCE" in prompt
     assert "Expected validation:" in prompt
     assert "Acceptance criteria:" in prompt
     assert "Constraints:" in prompt

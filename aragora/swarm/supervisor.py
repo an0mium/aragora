@@ -940,7 +940,10 @@ class SwarmSupervisor:
             reconcile=True,
             strategy="ff-only",
         )
-        file_scope = [str(item) for item in work_order.get("file_scope", []) if str(item).strip()]
+        raw_scope = [str(item) for item in work_order.get("file_scope", []) if str(item).strip()]
+        file_scope = self._validate_file_scope(raw_scope, str(session.path))
+        if len(file_scope) < len(raw_scope):
+            work_order["file_scope"] = file_scope
         claimed_paths = [item for item in file_scope if not self._looks_like_glob(item)]
         allowed_globs = [item for item in file_scope if self._looks_like_glob(item)]
         if not allowed_globs and not claimed_paths and file_scope:
@@ -2075,6 +2078,51 @@ class SwarmSupervisor:
     @staticmethod
     def _looks_like_glob(path: str) -> bool:
         return any(token in path for token in ("*", "?", "["))
+
+    @staticmethod
+    def _validate_file_scope(file_scope: list[str], worktree_path: str) -> list[str]:
+        """Drop file_scope entries whose top-level directory does not exist.
+
+        LLM planners sometimes hallucinate paths (e.g. ``src/orchestrator/``
+        when the real code lives at ``aragora/nomic/``).  These entries block
+        workers at two layers:
+
+        1. The prompt tells the worker to stay in scope → worker refuses to
+           edit real files and exits with zero deliverables.
+        2. The supervisor enforces scope on changed paths → any real edits
+           are rejected as ``scope_violation``.
+
+        This method strips entries whose first path component (e.g. ``src``)
+        does not exist in the worktree, so that both prompt and enforcement
+        operate on the real codebase structure.  Valid entries (e.g.
+        ``aragora/nomic/foo.py``) pass through unchanged.
+        """
+        if not file_scope or not worktree_path:
+            return file_scope
+        wt = Path(worktree_path)
+        if not wt.is_dir():
+            return file_scope
+        # Only validate against real git checkouts (have .git file/dir).
+        # Test fixtures create bare directories without .git.
+        dot_git = wt / ".git"
+        if not dot_git.exists():
+            return file_scope
+        valid: list[str] = []
+        for scope_path in file_scope:
+            clean = scope_path.removeprefix("./").strip()
+            if not clean:
+                continue
+            root = clean.split("/")[0]
+            if (wt / root).exists():
+                valid.append(scope_path)
+            else:
+                logger.warning(
+                    "Dropping hallucinated file_scope entry %r (root %r not found in %s)",
+                    scope_path,
+                    root,
+                    worktree_path,
+                )
+        return valid
 
     @staticmethod
     def _tests_from_acceptance(acceptance_criteria: list[str]) -> list[str]:

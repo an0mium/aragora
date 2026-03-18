@@ -545,11 +545,14 @@ class WorkerLauncher:
         if file_scope:
             scope_list = "\n".join(f"  - {f}" for f in file_scope)
             parts.append(
-                "MANDATORY FILE SCOPE CONSTRAINT:\n"
-                "You MUST only create, modify, or delete files within these paths:\n"
+                "FILE SCOPE GUIDANCE:\n"
+                "The planner expects you to work in these paths:\n"
                 f"{scope_list}\n"
-                "DO NOT edit any files outside this scope. Edits outside scope will be "
-                "rejected and your work will be discarded. This is enforced automatically."
+                "IMPORTANT: Before starting, verify these paths exist. If they do not, "
+                "search the codebase for the actual files that match the intent "
+                "(e.g. `find . -name '*.py' | grep <keyword>`). Work on the real files "
+                "you find — do not create files at non-existent paths just to satisfy "
+                "the scope list. Stay within the spirit of the task."
             )
 
         expected_tests = work_order.get("expected_tests", [])
