@@ -337,27 +337,59 @@ class RalphSupervisor:
         if state.status == SupervisorStatus.WAITING_FOR_MERGE.value:
             result = self._step_check_merge(state)
             save_supervisor_state(self.state_path, state)
+            self._emit_step_metrics(state, result)
             return result
 
         if state.status == SupervisorStatus.WAITING_FOR_PR.value:
             result = self._step_check_pr(state)
             save_supervisor_state(self.state_path, state)
+            self._emit_step_metrics(state, result)
             return result
 
         if state.status == SupervisorStatus.RESUMING.value:
             result = self._step_resume(state)
             save_supervisor_state(self.state_path, state)
+            self._emit_step_metrics(state, result)
             return result
 
         # status == RUNNING: run one campaign iteration.
         if state.active_blocker:
             result = self._step_handle_blocker(state)
             save_supervisor_state(self.state_path, state)
+            self._emit_step_metrics(state, result)
             return result
 
         result = self._step_campaign_iteration(state)
         save_supervisor_state(self.state_path, state)
+        self._emit_step_metrics(state, result)
         return result
+
+    @staticmethod
+    def _emit_step_metrics(state: SupervisorState, result: StepResult) -> None:
+        """Emit Prometheus metrics after each step."""
+        try:
+            from aragora.observability.metrics.ralph import (
+                record_blocker_classified,
+                record_budget_spent,
+                record_campaign_status,
+                record_campaign_step,
+                record_repair_attempt,
+            )
+
+            cid = state.campaign_id or state.supervisor_id
+            record_campaign_step(cid, result.action)
+            record_campaign_status(cid, state.status)
+            record_budget_spent(cid, state.budget_spent_usd)
+            if result.action == SupervisorAction.BLOCKER_CLASSIFIED.value and state.active_blocker:
+                try:
+                    bk = BlockerKind(state.active_blocker)
+                    record_blocker_classified(bk.value, bk.is_deterministic)
+                except ValueError:
+                    record_blocker_classified(state.active_blocker, False)
+            if result.action == SupervisorAction.REPAIR_DISPATCHED.value:
+                record_repair_attempt(state.active_blocker or "unknown")
+        except Exception:
+            logger.debug("Failed to emit ralph metrics", exc_info=True)
 
     def status(self) -> dict[str, Any]:
         """Return current supervisor state as dict."""
