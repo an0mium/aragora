@@ -2134,3 +2134,81 @@ class TestNeedsHumanWithDeliverable:
         executor._apply_review_result(reloaded, project, gate)
 
         assert project.status == CampaignProjectStatus.WAITING_FOR_PR.value
+
+    @pytest.mark.asyncio
+    async def test_reconcile_delivered_project_recovers_pending_review_from_run_metadata(
+        self, tmp_path: Path
+    ) -> None:
+        repo = _init_repo(tmp_path)
+        manifest_path = repo / ".aragora" / "manifest.yaml"
+        manifest_path.parent.mkdir(parents=True)
+
+        manifest = CampaignManifest(
+            campaign_id="test-review-recovery",
+            created_at=datetime.now(UTC).isoformat(),
+            source_kind="manual",
+            source_ref="test",
+            planner_strategy="model",
+            planner_model="codex",
+            worker_model="codex",
+            review_model="claude",
+            projects=[
+                CampaignProject(
+                    project_id="P-1",
+                    title="Recovered deliverable",
+                    status=CampaignProjectStatus.DELIVERED.value,
+                    run_id="run-recover",
+                    review=CampaignReviewGate(
+                        required=True,
+                        status=CampaignReviewStatus.PENDING.value,
+                        review_model="claude",
+                    ),
+                    spec=SwarmSpec(
+                        raw_goal="Recover delivered project review",
+                        refined_goal="Recover delivered project review",
+                        file_scope_hints=["aragora/swarm/campaign.py"],
+                    ),
+                ),
+            ],
+        )
+        save_campaign_manifest(manifest_path, manifest)
+
+        executor = CampaignExecutor(
+            manifest_path=manifest_path,
+            repo_root=repo,
+            target_branch="main",
+        )
+
+        run_dict = {
+            "run_id": "run-recover",
+            "status": "needs_human",
+            "metadata": {
+                CAMPAIGN_OUTCOME_METADATA_KEY: CampaignRunOutcome.DELIVERABLE_CREATED.value,
+                CAMPAIGN_BLOCKERS_METADATA_KEY: [
+                    "merge gate blocked: missing verification plan for code-change lane"
+                ],
+                CAMPAIGN_REQUEUE_ELIGIBLE_METADATA_KEY: False,
+            },
+            "work_orders": [
+                {
+                    "work_order_id": "wo-1",
+                    "status": "needs_human",
+                    "branch": "codex/swarm-recover-subtask_1",
+                    "commit_shas": ["deadbeef"],
+                    "receipt_id": "worker-receipt-1",
+                    "verification_missing_reason": "missing_verification_plan",
+                }
+            ],
+        }
+
+        with patch.object(executor, "_refresh_run_dict", return_value=run_dict):
+            await executor._reconcile_delivered_projects()
+
+        reloaded = load_campaign_manifest(manifest_path)
+        project = reloaded.project_map()["P-1"]
+        assert project.status == CampaignProjectStatus.NEEDS_REVISION.value
+        assert project.branch == "codex/swarm-recover-subtask_1"
+        assert project.commit_shas == ["deadbeef"]
+        assert project.worker_receipt_id == "worker-receipt-1"
+        assert project.review.status == CampaignReviewStatus.CHANGES_REQUESTED.value
+        assert "missing verification plan" in project.review.findings[0]

@@ -2171,3 +2171,63 @@ def test_refresh_run_reaps_expired_leases(repo: Path, store: DevCoordinationStor
     supervisor.refresh_run(run.run_id)
     active_lease_ids = {l.lease_id for l in store.list_active_leases()}
     assert expired.lease_id not in active_lease_ids
+
+
+def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordinationStore) -> None:
+    """refresh_run should not leave dead leased work orders active forever."""
+    lifecycle = MagicMock()
+    session_path = repo / "wt-stale"
+    session_path.mkdir()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="stale-worker",
+        agent="codex",
+        branch="codex/stale-worker",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="stale-lane",
+                title="Stale work",
+                description="Do stale work.",
+                file_scope=["other/file.py"],
+            )
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    run = supervisor.start_run(spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"))
+    lease_id = str(run.work_orders[0]["lease_id"])
+    assert lease_id
+
+    conn = store._connect()
+    try:
+        conn.execute(
+            "UPDATE leases SET updated_at = ? WHERE lease_id = ?",
+            ("2020-01-01T00:00:00+00:00", lease_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    refreshed = supervisor.refresh_run(run.run_id)
+
+    assert refreshed.status == "needs_human"
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "needs_human"
+    assert work_order["failure_reason"] == "stale_lease_reaped"
+    assert lease_id not in {lease.lease_id for lease in store.list_active_leases()}

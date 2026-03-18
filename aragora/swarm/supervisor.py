@@ -247,6 +247,15 @@ class SwarmSupervisor:
         return run
 
     def refresh_run(self, run_id: str) -> SupervisorRun:
+        # Reap dead-session active leases before deriving run status so
+        # orphaned leased work orders do not remain "active" indefinitely.
+        try:
+            stale = self.store.reap_stale_leases()
+            if stale:
+                logger.info("reaped %d stale leases during refresh_run", len(stale))
+        except Exception:
+            logger.debug("reap_stale_leases failed during refresh_run", exc_info=True)
+
         # Proactively reap TTL-expired leases so stale locks don't accumulate
         # when no new claim_lease() calls are attempted (e.g. all work orders
         # stuck in waiting_conflict).

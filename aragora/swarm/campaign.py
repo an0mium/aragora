@@ -1102,6 +1102,7 @@ class CampaignExecutor:
         self.bridge = bridge or NomicPipelineBridge(repo_path=self.repo_root)
 
     async def execute_once(self) -> dict[str, Any]:
+        await self._reconcile_delivered_projects()
         with locked_manifest_path(self.manifest_path):
             manifest = load_campaign_manifest(self.manifest_path)
             self._reconcile_active_projects(manifest)
@@ -1232,6 +1233,134 @@ class CampaignExecutor:
             _refresh_execution_state(manifest)
             save_campaign_manifest(self.manifest_path, manifest)
             return manifest.execution_state.last_result
+
+    async def _reconcile_delivered_projects(self) -> None:
+        with locked_manifest_path(self.manifest_path):
+            manifest = load_campaign_manifest(self.manifest_path)
+            pending_ids = [
+                project.project_id
+                for project in manifest.projects
+                if project.status == CampaignProjectStatus.DELIVERED.value
+                and project.run_id
+                and project.review.status == CampaignReviewStatus.PENDING.value
+            ]
+
+        for project_id in pending_ids:
+            await self._reconcile_delivered_project(project_id)
+
+    async def _reconcile_delivered_project(self, project_id: str) -> None:
+        with locked_manifest_path(self.manifest_path):
+            manifest = load_campaign_manifest(self.manifest_path)
+            project = manifest.project_map().get(project_id)
+            if (
+                project is None
+                or project.status != CampaignProjectStatus.DELIVERED.value
+                or not project.run_id
+                or project.review.status != CampaignReviewStatus.PENDING.value
+            ):
+                return
+            run_id = str(project.run_id).strip()
+            worker_model = manifest.worker_model
+            review_model = manifest.review_model
+            enforce_cross_model_review = manifest.enforce_cross_model_review
+
+        run_dict = self._refresh_run_dict(run_id)
+        if not run_dict:
+            return
+
+        gate = self._review_gate_from_run_metadata(
+            run_dict,
+            review_model=review_model,
+        )
+        if gate is None:
+            with locked_manifest_path(self.manifest_path):
+                manifest = load_campaign_manifest(self.manifest_path)
+                project = manifest.project_map().get(project_id)
+                if project is None:
+                    return
+                budget_context = self._review_budget_context(manifest, project)
+            gate = await self.reviewer.review(
+                project=project,
+                worker_model=worker_model,
+                review_model=review_model,
+                enforce_cross_model_review=enforce_cross_model_review,
+                run_dict=dict(run_dict),
+                budget_context=budget_context,
+                repo_root=self.repo_root,
+                target_branch=self.target_branch,
+            )
+
+        with locked_manifest_path(self.manifest_path):
+            manifest = load_campaign_manifest(self.manifest_path)
+            project = manifest.project_map().get(project_id)
+            if (
+                project is None
+                or project.status != CampaignProjectStatus.DELIVERED.value
+                or project.review.status != CampaignReviewStatus.PENDING.value
+            ):
+                return
+            self._hydrate_project_deliverable(project, run_dict)
+            project.review = gate
+            self._apply_review_result(manifest, project, gate, run_dict=dict(run_dict))
+            _refresh_execution_state(manifest)
+            save_campaign_manifest(self.manifest_path, manifest)
+
+    @staticmethod
+    def _hydrate_project_deliverable(project: CampaignProject, run_dict: dict[str, Any]) -> None:
+        deliverable = _extract_deliverable(run_dict)
+        if deliverable:
+            if deliverable.get("type") == "pr":
+                project.pr_url = str(deliverable.get("pr_url", "")).strip() or project.pr_url
+            elif deliverable.get("type") == "adopted_pr":
+                project.adopted_pr = (
+                    str(deliverable.get("adopted_pr", "")).strip() or project.adopted_pr
+                )
+            elif deliverable.get("type") == "branch":
+                project.branch = str(deliverable.get("branch", "")).strip() or project.branch
+                commit_shas = [
+                    str(item).strip()
+                    for item in deliverable.get("commit_shas", [])
+                    if str(item).strip()
+                ]
+                if commit_shas:
+                    project.commit_shas = commit_shas
+
+        # Recovery runs can persist branch/commit metadata on work orders even
+        # when the top-level deliverable blob is absent or incomplete.
+        project.branch = _worker_branch_from_run(project, run_dict) or project.branch
+        commit_shas = _worker_commits_from_run(project, run_dict)
+        if commit_shas:
+            project.commit_shas = commit_shas
+        project.worker_receipt_id = _first_receipt_id(run_dict) or project.worker_receipt_id
+
+    @staticmethod
+    def _review_gate_from_run_metadata(
+        run_dict: dict[str, Any],
+        *,
+        review_model: str,
+    ) -> CampaignReviewGate | None:
+        blockers = CampaignExecutor._dispatch_blockers(run_dict)
+        verification_missing_reason = _verification_missing_reason_from_run(run_dict)
+        if verification_missing_reason or blockers:
+            findings = list(blockers)
+            if verification_missing_reason:
+                findings.append(f"Worker verification incomplete: {verification_missing_reason}.")
+            deduped_findings = [
+                item for item in dict.fromkeys(str(f).strip() for f in findings) if item
+            ]
+            return CampaignReviewGate(
+                required=True,
+                review_model=review_model,
+                status=CampaignReviewStatus.CHANGES_REQUESTED.value,
+                findings=deduped_findings or ["Worker reported an unresolved merge-gate issue."],
+                reviewed_at=_now_iso(),
+                raw_review={
+                    "source": "run_metadata_recovery",
+                    "blockers": blockers,
+                    "verification_missing_reason": verification_missing_reason,
+                },
+            )
+        return None
 
     def status(self) -> dict[str, Any]:
         with locked_manifest_path(self.manifest_path):
