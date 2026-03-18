@@ -544,6 +544,104 @@ def test_start_run_prefers_explicit_spec_work_orders(
     assert work_order["metadata"]["source"] == "explicit_spec_work_order"
 
 
+def test_explicit_work_orders_merge_spec_file_scope_hints(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    """Regression test for #884: explicit work orders with empty file_scope
+    must inherit spec.file_scope_hints so workers stay in the intended surface."""
+    session_path = repo / "wt-scope-merge"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-scope-merge",
+        agent="codex",
+        branch="codex/swarm-scope-merge",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    decomposer = MagicMock()
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    spec = SwarmSpec(
+        raw_goal="Bump @eslint/eslintrc in /aragora/live",
+        refined_goal="Bump @eslint/eslintrc from 3.2.0 to 3.3.0 in /aragora/live",
+        file_scope_hints=["aragora/live"],
+        work_orders=[
+            {
+                "work_order_id": "bump-eslint",
+                "title": "Bump eslintrc dependency",
+                "description": "Update @eslint/eslintrc to 3.3.0",
+                "file_scope": [],  # Empty — must be backfilled from spec hints
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            }
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, max_concurrency=1)
+
+    assert len(run.work_orders) == 1
+    work_order = run.work_orders[0]
+    assert work_order["file_scope"] == ["aragora/live"], (
+        "Empty file_scope on explicit work order must be backfilled from spec.file_scope_hints"
+    )
+
+
+def test_explicit_work_orders_merge_spec_hints_into_existing_scope(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    """When an explicit work order already has a file_scope, spec hints are merged in."""
+    session_path = repo / "wt-scope-merge2"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-scope-merge2",
+        agent="codex",
+        branch="codex/swarm-scope-merge2",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    decomposer = MagicMock()
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+    spec = SwarmSpec(
+        raw_goal="Fix live frontend",
+        refined_goal="Fix live frontend linting",
+        file_scope_hints=["aragora/live", "tests/live"],
+        work_orders=[
+            {
+                "work_order_id": "fix-lint",
+                "title": "Fix linting",
+                "description": "Fix eslint config",
+                "file_scope": ["aragora/live/package.json"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            }
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, max_concurrency=1)
+
+    work_order = run.work_orders[0]
+    assert "aragora/live/package.json" in work_order["file_scope"]
+    assert "aragora/live" in work_order["file_scope"]
+    assert "tests/live" in work_order["file_scope"]
+
+
 def test_start_run_initializes_worker_type_circuit_breaker_metadata(
     repo: Path, store: DevCoordinationStore
 ) -> None:

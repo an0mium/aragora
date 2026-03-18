@@ -949,7 +949,29 @@ class SwarmSupervisor:
                 )
             )
 
+        # Merge spec.file_scope_hints into explicit work orders so scope
+        # enforcement is never bypassed when the upstream planner leaves
+        # file_scope empty on individual work orders (fixes #884).
+        spec_hints = list(spec.file_scope_hints) if spec.file_scope_hints else []
         for item in work_orders:
+            if spec_hints:
+                if not item.file_scope:
+                    item.file_scope = list(spec_hints)
+                    logger.info(
+                        "Backfilled empty file_scope on explicit work order %s from spec hints: %s",
+                        item.work_order_id,
+                        spec_hints,
+                    )
+                else:
+                    merged = list(dict.fromkeys(item.file_scope + list(spec_hints)))
+                    if set(merged) != set(item.file_scope):
+                        logger.info(
+                            "Merged spec hints into explicit work order %s file_scope: %s -> %s",
+                            item.work_order_id,
+                            item.file_scope,
+                            merged,
+                        )
+                    item.file_scope = merged
             item.expected_tests = self._default_tests(item, spec)
             item.risk_level = str(item.risk_level).strip() or self._risk_level_for_scope(
                 item.file_scope
