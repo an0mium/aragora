@@ -450,9 +450,16 @@ class WorkerLauncher:
             cmd = [self.config.codex_path, "exec", prompt, "--full-auto"]
             if self.config.codex_model:
                 cmd.extend(["--model", self.config.codex_model])
-            git_dir = self._resolve_worktree_gitdir(worktree_path)
-            if git_dir:
-                cmd.extend(["--add-dir", git_dir])
+            git_access_dirs = [
+                path
+                for path in (
+                    self._resolve_worktree_gitdir(worktree_path),
+                    self._resolve_worktree_common_gitdir(worktree_path),
+                )
+                if path
+            ]
+            for access_dir in dict.fromkeys(git_access_dirs):
+                cmd.extend(["--add-dir", access_dir])
             return cmd
 
         logger.warning("Unknown agent %r, falling back to claude", agent)
@@ -465,9 +472,7 @@ class WorkerLauncher:
         Git worktrees have a `.git` *file* (not directory) containing
         ``gitdir: <path>``.  That path points to the parent repo's
         ``.git/worktrees/<name>/`` directory where the index and lock
-        files live.  The Codex ``--full-auto`` sandbox only allows writes
-        inside the worktree itself, so we need ``--add-dir <gitdir>`` to
-        let ``git add``/``git commit`` create ``index.lock``.
+        files live.
         """
         if not worktree_path:
             return ""
@@ -481,6 +486,32 @@ class WorkerLauncher:
                 resolved = (dot_git.parent / gitdir).resolve()
                 if resolved.is_dir():
                     return str(resolved)
+        except OSError:
+            pass
+        return ""
+
+    @classmethod
+    def _resolve_worktree_common_gitdir(cls, worktree_path: str) -> str:
+        """Return the shared common git dir for a worktree, or '' if unknown.
+
+        Worktrees keep their shared object store and most refs in the parent
+        repository's main ``.git`` directory.  Codex needs write access there
+        in addition to the per-worktree gitdir so ``git add`` can write new
+        objects and ``git commit`` can update refs.
+        """
+        gitdir = cls._resolve_worktree_gitdir(worktree_path)
+        if not gitdir:
+            return ""
+        commondir = Path(gitdir) / "commondir"
+        if not commondir.exists():
+            return ""
+        try:
+            text = commondir.read_text().strip()
+            if not text:
+                return ""
+            resolved = (Path(gitdir) / text).resolve()
+            if resolved.is_dir():
+                return str(resolved)
         except OSError:
             pass
         return ""

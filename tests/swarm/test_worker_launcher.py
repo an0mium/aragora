@@ -168,18 +168,20 @@ class TestBuildCommand:
         assert cmd[0] == "claude"
         assert "-p" in cmd
 
-    def test_codex_adds_worktree_gitdir_to_sandbox(self, tmp_path: Path):
-        """Codex in a worktree gets --add-dir pointing to the real gitdir."""
+    def test_codex_adds_worktree_git_access_dirs_to_sandbox(self, tmp_path: Path):
+        """Codex in a worktree gets add-dir entries for gitdir and common dir."""
         wt = tmp_path / "wt"
         wt.mkdir()
         real_gitdir = tmp_path / "repo" / ".git" / "worktrees" / "wt"
         real_gitdir.mkdir(parents=True)
+        common_gitdir = tmp_path / "repo" / ".git"
+        common_gitdir.mkdir(parents=True, exist_ok=True)
+        (real_gitdir / "commondir").write_text("../..")
         (wt / ".git").write_text(f"gitdir: {real_gitdir}\n")
         launcher = WorkerLauncher(LaunchConfig(use_managed_session_script=False))
         cmd = launcher._build_command("codex", "task", str(wt))
-        assert "--add-dir" in cmd
-        idx = cmd.index("--add-dir")
-        assert cmd[idx + 1] == str(real_gitdir)
+        add_dirs = [cmd[idx + 1] for idx, token in enumerate(cmd[:-1]) if token == "--add-dir"]
+        assert add_dirs == [str(real_gitdir), str(common_gitdir)]
         assert "--full-auto" in cmd
 
     def test_codex_no_add_dir_for_regular_repo(self, tmp_path: Path):
@@ -211,6 +213,27 @@ class TestBuildCommand:
         repo.mkdir()
         (repo / ".git").mkdir()
         assert WorkerLauncher._resolve_worktree_gitdir(str(repo)) == ""
+
+    def test_resolve_worktree_common_gitdir(self, tmp_path: Path):
+        """Resolves commondir from the per-worktree gitdir metadata."""
+        wt = tmp_path / "wt"
+        wt.mkdir()
+        real_gitdir = tmp_path / "repo" / ".git" / "worktrees" / "wt"
+        real_gitdir.mkdir(parents=True)
+        common_gitdir = tmp_path / "repo" / ".git"
+        common_gitdir.mkdir(parents=True, exist_ok=True)
+        (real_gitdir / "commondir").write_text("../..")
+        (wt / ".git").write_text(f"gitdir: {real_gitdir}\n")
+        assert WorkerLauncher._resolve_worktree_common_gitdir(str(wt)) == str(common_gitdir)
+
+    def test_resolve_worktree_common_gitdir_missing_metadata(self, tmp_path: Path):
+        """Missing commondir metadata returns empty string."""
+        wt = tmp_path / "wt"
+        wt.mkdir()
+        real_gitdir = tmp_path / "repo" / ".git" / "worktrees" / "wt"
+        real_gitdir.mkdir(parents=True)
+        (wt / ".git").write_text(f"gitdir: {real_gitdir}\n")
+        assert WorkerLauncher._resolve_worktree_common_gitdir(str(wt)) == ""
 
 
 class TestLaunch:
