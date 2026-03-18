@@ -250,7 +250,7 @@ class TestGitHubControlTaskCoverage:
     @patch("aragora.ralph.github_control.subprocess.run")
     def test_create_pr_for_branch_success(self, mock_run, tmp_path: Path) -> None:
         mock_run.return_value = _completed_process(
-            stdout=json.dumps({"url": "https://github.com/org/repo/pull/77"})
+            stdout=json.dumps({"url": "https://github.com/org/repo/pull/77 "})
         )
 
         control = GitHubControl(repo_root=tmp_path)
