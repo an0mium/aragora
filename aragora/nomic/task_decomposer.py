@@ -432,15 +432,29 @@ class TaskDecomposer:
         complexity_score = self._calculate_complexity(task_description, debate_result)
         complexity_level = self._score_to_level(complexity_score)
 
-        # If the goal is vague (below decomposition threshold), try semantic
-        # expansion to produce concrete subtasks from templates and track configs.
-        # This handles abstract goals like "maximize utility for SMEs" that lack
-        # file mentions and specific keywords but are still genuinely complex.
-        # Skip expansion for goals that are specific but just score low on
-        # complexity (e.g. "add retry logic to connectors" — actionable as-is).
+        # If the goal is vague (below decomposition threshold), try LLM-based
+        # subtask extraction first via _llm_extract_subtasks which has
+        # anti-pattern guardrails preventing irrelevant template-derived
+        # subtasks (fixes #888). Fall back to _expand_vague_goal only when
+        # the LLM is unavailable.
         if complexity_score < self.config.complexity_threshold and not self._is_specific_goal(
             task_description
         ):
+            llm_subtasks = self._llm_extract_subtasks(
+                task_description, file_scope_hints=file_scope_hints
+            )
+            if llm_subtasks and len(llm_subtasks) >= 2:
+                return TaskDecomposition(
+                    original_task=task_description,
+                    complexity_score=max(complexity_score, self.config.complexity_threshold),
+                    complexity_level=self._score_to_level(
+                        max(complexity_score, self.config.complexity_threshold)
+                    ),
+                    should_decompose=True,
+                    subtasks=llm_subtasks[: self.config.max_subtasks],
+                    rationale=self._build_rationale(task_description, complexity_score, True),
+                )
+            # LLM unavailable — fall back to template/track keyword expansion
             expanded = self._expand_vague_goal(task_description)
             if expanded is not None:
                 if file_scope_hints:
