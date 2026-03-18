@@ -90,6 +90,20 @@ To keep delivery fast and reliable:
 3. Every meaningful decision has a tamper-evident provenance trail.
 4. The platform measurably improves its own quality over time via closed-loop evaluation.
 
+### March 2026 Execution Update
+
+The near-term program is now explicit: Aragora should use its existing pipeline substrate to become a local-first idea-to-spec-to-execution workbench, and then use that same workbench to build more of Aragora itself.
+
+Current execution epic: [#989](https://github.com/synaptent/aragora/issues/989)
+
+Current program lanes:
+- [#991](https://github.com/synaptent/aragora/issues/991) close the Ralph autonomy gap from spec to repair PR
+- [#994](https://github.com/synaptent/aragora/issues/994) add interactive stage transitions from ideas to goals to specs
+- [#993](https://github.com/synaptent/aragora/issues/993) productize the unified local-first DAG workbench
+- [#990](https://github.com/synaptent/aragora/issues/990) dogfood the pipeline to build more of Aragora itself
+
+This is the "rebuild the ship while sailing it" doctrine in concrete form: humans should mostly supply priorities, approvals, and policy choices while the system increasingly performs the transition, planning, and routing work for itself.
+
 ---
 
 ## Core Product Architecture: The Unified DAG Pipeline
@@ -116,6 +130,11 @@ Every stage transition creates a `ProvenanceLink` with SHA-256 content hashes. A
 ### Implementation Status
 
 ~70% backend, ~50% frontend. Key existing components: `IdeaToExecutionPipeline` (1,173 LOC), `UnifiedDAGCanvas` (React Flow with swim-lane stages), `DAGOperationsCoordinator`, 15+ REST endpoints, 135+ test files. Main gap: the "golden path" button that triggers the full pipeline from the canvas UI.
+
+Near-term execution gap summary:
+- Ralph is close enough to benchmark seriously, but still needs clean no-intervention proof as part of [#991](https://github.com/synaptent/aragora/issues/991).
+- The product moat is the transition UX and unified workbench, not more disconnected backend scaffolding.
+- The self-improvement program should increasingly consume pipeline-generated specs and issue updates instead of ad hoc session summaries.
 
 See `docs/plans/IDEA_TO_EXECUTION_PIPELINE.md` for the detailed implementation plan and `docs/plans/prompt-to-spec-market-analysis.md` Part 6 for the complete vision with market analysis.
 

@@ -40,6 +40,8 @@ This index intentionally links to actively maintained docs with validated paths.
 ## Architecture and Planning
 
 - [Conductor Control Plane Implementation Spec](plans/2026-03-07-conductor-control-plane.md)
+- [Bootstrapped Idea-to-Execution Program](plans/2026-03-18-bootstrapped-idea-to-execution-program.md)
+- [Aragora Evolution Roadmap](plans/ARAGORA_EVOLUTION_ROADMAP.md)
 
 ## Security and Compliance
 

@@ -1,6 +1,6 @@
 # Active Execution Issues
 
-Last updated: 2026-03-07
+Last updated: 2026-03-18
 
 This document links Aragora's current execution program to the live GitHub issue tracker.
 
@@ -12,8 +12,9 @@ This document links Aragora's current execution program to the live GitHub issue
 
 1. Truthfulness and backlog canonicalization
 2. Decision Integrity Kernel unification
-3. Sequential surface productization
-4. Assurance closeout kept warm, not the main product lane
+3. Bootstrapped idea-to-execution program
+4. Sequential surface productization
+5. Assurance closeout kept warm, not the main product lane
 
 ## Truthfulness And Backlog Canonicalization
 
@@ -47,6 +48,20 @@ Current tranche: [#811](https://github.com/synaptent/aragora/issues/811) and [#8
 | [#814](https://github.com/synaptent/aragora/issues/814) | Open | `priority:high` | `owner:team-core` | `2026-M3 Strategic Moat Scale-Out` | Make OpenClaw action dispatch real |
 | [#815](https://github.com/synaptent/aragora/issues/815) | Open | `priority:high` | `owner:team-core` | `2026-M3 Strategic Moat Scale-Out` | Scale adversarial orchestration to 10+ agents |
 | [#816](https://github.com/synaptent/aragora/issues/816) | Open | `priority:high` | `owner:team-core` | `2026-M3 Strategic Moat Scale-Out` | Deploy ERC-8004 identity and settlement integration |
+
+## Bootstrapped Idea-to-Execution Program
+
+Epic: [#989](https://github.com/synaptent/aragora/issues/989)
+
+Current tranche: [#991](https://github.com/synaptent/aragora/issues/991) -> [#994](https://github.com/synaptent/aragora/issues/994) -> [#993](https://github.com/synaptent/aragora/issues/993) -> [#990](https://github.com/synaptent/aragora/issues/990)
+
+| Issue | State | Priority | Owner | Milestone | Scope |
+|------|-------|----------|-------|-----------|-------|
+| [#989](https://github.com/synaptent/aragora/issues/989) | Open | `priority:high` | `owner:team-core` | `2026-M3 Strategic Moat Scale-Out` | Bootstrapped local-first idea-to-execution workbench epic |
+| [#991](https://github.com/synaptent/aragora/issues/991) | Open | `priority:high` | `owner:team-core` | `2026-M3 Strategic Moat Scale-Out` | Close the Ralph autonomy gap from spec to repair PR |
+| [#994](https://github.com/synaptent/aragora/issues/994) | Open | `priority:high` | `owner:team-core` | `2026-M3 Strategic Moat Scale-Out` | Add interactive stage transitions from ideas to goals to specs |
+| [#993](https://github.com/synaptent/aragora/issues/993) | Open | `priority:high` | `owner:team-core` | `2026-M3 Strategic Moat Scale-Out` | Productize the unified local-first DAG workbench |
+| [#990](https://github.com/synaptent/aragora/issues/990) | Open | `priority:high` | `owner:team-core` | `2026-M3 Strategic Moat Scale-Out` | Dogfood the pipeline to build more of Aragora itself |
 
 ## Sequential Surface Productization
 

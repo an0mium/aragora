@@ -2,7 +2,7 @@
 
 > **Living document** — tracks features planned, partially built, or in need of hardening. Updated as items are completed or priorities shift.
 > Active execution status now lives in [docs/status/ACTIVE_EXECUTION_ISSUES.md](status/ACTIVE_EXECUTION_ISSUES.md) and the linked GitHub issues. This file remains the capability and productization backlog truth.
-> Last updated: March 2026
+> Last updated: March 18, 2026
 
 ## How to Read This List
 
@@ -71,11 +71,13 @@
 |---------|--------|-------|
 | Prover-Estimator debate protocol | Design only | Beyond consensus to structured truth-seeking. Replaces/supplements current majority-vote consensus. |
 | Cross-verification phase (3-pass hallucination detection) | Design only | Three-agent verification pass post-synthesis. |
-| Canvas GUI (8-stage visual DAG) | Partial frontend | Prompt-engine page exists; full 8-stage visual canvas missing. |
+| Interactive stage transitions (ideas -> goals -> specs) | Partial backend, weak product UX | Core pipeline and transition infrastructure exist, but the guided interrogation/edit/approval flow is still missing. Tracked in [#994](https://github.com/synaptent/aragora/issues/994). |
+| Canvas GUI (8-stage visual DAG) | Partial frontend | Prompt-engine page exists; full unified local-first DAG workbench is not yet productized. Tracked in [#989](https://github.com/synaptent/aragora/issues/989) and [#993](https://github.com/synaptent/aragora/issues/993). |
 | Market resolution mechanism | Design only | Long-horizon settlement claim pricing via prediction market. |
 | STOP N-candidate for Nomic Loop | Design only | Multi-plan generation before committing to self-improvement path. |
 | Meta-improver for debate protocols | Design only | A/B test protocol variants using Nomic Loop. |
 | Obsidian bidirectional sync | Design only | Full sync + bidirectional updates from Obsidian vault. |
+| Pipeline dogfooding for self-development | Early program lane | Roadmap/goal docs should increasingly become pipeline artifacts and executable specs for Aragora itself. Tracked in [#990](https://github.com/synaptent/aragora/issues/990). |
 
 ---
 
@@ -93,10 +95,11 @@
 
 | Feature | Current State | Gap |
 |---------|---------------|-----|
-| Self-improving platform quality | Nomic Loop 100% wired; 82 E2E tests; CLB backbone hardened (14/14 issues closed); safety gates + gauntlet gate + evolution audit + golden-path test | Diverse benchmark validated (100% pass). Production safety gate requires ENABLE_NOMIC_LOOP=true. |
+| Self-improving platform quality | Nomic Loop 100% wired; 82 E2E tests; CLB backbone hardened (14/14 issues closed); safety gates + gauntlet gate + evolution audit + golden-path test | Diverse benchmark validated (100% pass). Production safety gate requires ENABLE_NOMIC_LOOP=true. Next gap is dogfooding the pipeline for self-development ([#990](https://github.com/synaptent/aragora/issues/990)). |
 | Blockchain receipts | SHA-256 cryptographic hashing works | On-chain storage with ERC-8004 (not deployed) |
 | Semantic convergence | **Migrated** (PR #723) | All similarity paths use embeddings. Only `unified_diff` (text display) uses difflib. |
 | OpenClaw execution | **Core loop shipped** (PR #727) | CodeImplementationTask + SpecExtractor + receipt linkage. Production validation pending. |
+| Ralph autonomous repair loop | Recent benchmark proved repair generation, PR creation, and merge-gate inspection paths | Clean no-babysitting proof still required: no manual manifest edits, no manual branch pushes, no manual repair steering. Tracked in [#991](https://github.com/synaptent/aragora/issues/991). |
 | RLM context access | Code complete (283 exports) | No user-facing guide; integration with default Arena config unclear |
 
 ---

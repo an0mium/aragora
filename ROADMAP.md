@@ -1,6 +1,6 @@
 # Aragora Product Roadmap
 
-**Last Updated:** March 2026
+**Last Updated:** March 18, 2026
 
 ---
 
@@ -203,18 +203,29 @@ for capturing this cohort is now.
 - [x] Public demo at aragora.ai/demo (PR #705; standalone demo page live)
 - [ ] EU AI Act compliance package — final packaging polish, regulator-ready validation, and customer rollout hardening
 - [ ] SOC 2 Type II audit engagement kickoff (controls are ready; external auditor engagement pending)
+- [ ] Validate the Ralph autonomy boundary with a clean spec -> repair PR -> merge-gate benchmark ([#991](https://github.com/synaptent/aragora/issues/991))
+- [ ] Start the interactive stage-transition system from ideas -> goals -> executable specs ([#994](https://github.com/synaptent/aragora/issues/994))
 
 ### Q3 2026 Priorities
 - [ ] Cloud marketplace listings: AWS Marketplace and Azure Marketplace
 - [ ] Vertical packages: Healthcare (FHIR/HIPAA), Financial Services (SOX/audit), Legal
 - [ ] Skills marketplace pilot (community agent templates)
 - [ ] Kubernetes Operator for automated horizontal scaling
+- [ ] Productize the unified local-first DAG workbench across ideas, goals, actions, and orchestration ([#993](https://github.com/synaptent/aragora/issues/993))
+- [ ] Dogfood the pipeline to generate and dispatch more of Aragora's own roadmap work ([#990](https://github.com/synaptent/aragora/issues/990))
 
 ### Q4 2026 Priorities
 - [ ] 10+ agent coordination at enterprise scale
 - [ ] Cross-organization federation foundation
 - [ ] Decision-Integrity UI Workbench (visual debate canvas)
 - [ ] OpenClaw E2E demo production-ready
+
+### Cross-Cutting 2026 Program: Bootstrapped Idea-to-Execution Workbench
+- [ ] [#989](https://github.com/synaptent/aragora/issues/989) Establish the bootstrapped local-first idea-to-execution workbench as a primary execution program
+- [ ] [#991](https://github.com/synaptent/aragora/issues/991) Close Ralph autonomy gaps from spec to repair PR
+- [ ] [#994](https://github.com/synaptent/aragora/issues/994) Add interactive stage transitions from ideas to goals to specs
+- [ ] [#993](https://github.com/synaptent/aragora/issues/993) Productize the unified local-first DAG workbench
+- [ ] [#990](https://github.com/synaptent/aragora/issues/990) Use the pipeline to build more of Aragora itself
 
 ### 2027 Horizon
 - Prover-Estimator debate protocol

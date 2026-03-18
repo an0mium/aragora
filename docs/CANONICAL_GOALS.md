@@ -2,7 +2,7 @@
 
 **Single source of truth for all goals across aragoradocs.**
 **This document defines WHAT Aragora is and WHY. The [Evolution Roadmap](plans/ARAGORA_EVOLUTION_ROADMAP.md) defines HOW.**
-**Last updated: March 1, 2026**
+**Last updated: March 18, 2026**
 
 ---
 
@@ -65,6 +65,8 @@ The system should take vague ideas as input and, through a structured process, u
 
 With increasingly long-running autonomous agentic AI, people who can generate precise, fully detailed specifications for what they want are gaining 10x advantages over people who lack this discipline and clarity. There is a market opportunity to provide GUI interfaces for people who think more vaguely, don't know how to or can't be bothered to make precise specs, want AI to take ideas to execution, and want to interactively shape the process of ideas to specs to plans to execution while letting AIs automate all parts of the process they don't care about or are fine with delegating.
 
+The product posture for this pillar is now explicitly local-first and stage-transition-driven: Aragora should ask the minimum useful clarifying questions, produce best-effort goals and specs, preserve provenance at every transition, and let humans spend their effort on high-value judgment rather than manual restatement and copy-paste.
+
 **The Four-Stage Unified DAG Pipeline:**
 
 | Stage | Node Types | AI Transition | User Action |
@@ -74,7 +76,7 @@ With increasingly long-running autonomous agentic AI, people who can generate pr
 | **3. Actions** | Task, Milestone, Dependency, Acceptance Criteria | Goals decompose into dependency-aware project plans | Edit, add gates, set owners |
 | **4. Orchestration** | Agent Assignment, Parallel Run, Gate/Review, Verification, Receipt | Actions map to agent capabilities with constraint architecture | Monitor, intervene, approve |
 
-**Serves:** Prompt decomposition engine, interrogator, researcher, spec builder, refinement loop, IdeaToExecutionPipeline, UnifiedDAGCanvas, DAGOperationsCoordinator, Canvas GUI (8-stage experience from prompt to receipt), Obsidian bidirectional sync.
+**Serves:** Prompt decomposition engine, interrogator, researcher, spec builder, refinement loop, IdeaToExecutionPipeline, UnifiedDAGCanvas, DAGOperationsCoordinator, Canvas GUI (8-stage experience from prompt to receipt), Obsidian bidirectional sync, Ralph execution handoff, local-first idea-to-execution workbench.
 
 #### Pillar 4: Regulatory Audit Trail
 
@@ -85,6 +87,8 @@ The system should provide a full audit trail suitable for various regulatory fra
 #### Pillar 5: Self-Repair and Self-Improvement
 
 The system should be able to self-repair and self-improve and orchestrate swarms of heterogeneous agents to build its own software and other software repos in a higher-assurance way than swarms of a single model and faster than a single model. The Nomic Loop is the autonomous self-improvement cycle where agents debate improvements, design solutions, implement code, and verify changes.
+
+This pillar now includes a bootstrapping requirement: Aragora should increasingly use its own idea-to-execution pipeline to generate, maintain, and dispatch more of Aragora's roadmap work, with humans reserved for priority, policy, and risk decisions rather than repeated prompt restatement.
 
 **The Nomic Loop Phases:**
 
@@ -98,7 +102,7 @@ The system should be able to self-repair and self-improve and orchestrate swarms
 
 **Safety features:** Automatic backups, protected file checksums, rollback on failure, human approval for dangerous changes, gauntlet gate, worktree isolation, auto-revert.
 
-**Serves:** Nomic Loop (scripts/nomic_loop.py), MetaPlanner, BranchCoordinator, TaskDecomposer, HardenedOrchestrator, ForwardFixer, self-healing test infrastructure, meta-improver for debate protocols, STOP N-candidate implementation.
+**Serves:** Nomic Loop (scripts/nomic_loop.py), MetaPlanner, BranchCoordinator, TaskDecomposer, HardenedOrchestrator, ForwardFixer, self-healing test infrastructure, meta-improver for debate protocols, STOP N-candidate implementation, Ralph loop autonomy, pipeline dogfooding for self-development.
 
 #### Pillar 6: OpenClaw Integration for Controlled Agentic Execution
 
