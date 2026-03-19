@@ -3,10 +3,15 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+
+from aragora.nomic.dev_coordination import IntegrationDecisionType
 from aragora.swarm.pr_registry import PullRequestRegistry
 from aragora.swarm.tranche_integrate import (
+    assess_lane_integration,
     classify_check_results,
     discover_lane_pr,
+    record_lane_integration,
     register_pr,
 )
 
@@ -102,3 +107,74 @@ def test_classify_checks_advisory_noise():
     ]
     result = classify_check_results(checks)
     assert result == "checks_passed"
+
+
+def test_assess_returns_recommendation_without_merging():
+    result = assess_lane_integration(
+        artifact=_make_artifact(),
+        checks="checks_passed",
+        review_status="passed",
+        merge_policy="confirm",
+    )
+    assert result["recommendation"] == "merge"
+    assert result["executed"] is False
+
+
+def test_merge_executes_with_approve_flag():
+    result = assess_lane_integration(
+        artifact=_make_artifact(),
+        checks="checks_passed",
+        review_status="passed",
+        merge_policy="auto",
+        approve=True,
+    )
+    assert result["recommendation"] == "merge"
+    assert result["executed"] is True
+
+
+@pytest.mark.asyncio
+async def test_integrate_records_decision_in_coordination_store():
+    mock_store = MagicMock()
+    artifact = _make_artifact(
+        metadata={"receipt_id": "receipt-xyz", "lease_id": "lease-abc"},
+    )
+
+    await record_lane_integration(
+        artifact=artifact,
+        decision="merge",
+        rationale="checks passed, review approved",
+        decided_by="tranche-integrate",
+        store=mock_store,
+        target_branch="main",
+    )
+
+    mock_store.record_integration_decision.assert_called_once()
+    call_kwargs = mock_store.record_integration_decision.call_args.kwargs
+    assert call_kwargs["receipt_id"] == "receipt-xyz"
+    assert call_kwargs["lease_id"] == "lease-abc"
+    assert call_kwargs["decision"] == IntegrationDecisionType.MERGE
+
+
+def test_assess_checkpoint_mode_always_awaits_confirmation():
+    result = assess_lane_integration(
+        artifact=_make_artifact(),
+        checks="checks_passed",
+        review_status="passed",
+        merge_policy="auto",
+        autonomy_mode="checkpoint",
+    )
+    assert result["recommendation"] == "merge"
+    assert result["executed"] is False
+
+
+def test_assess_fire_and_forget_auto_merges():
+    result = assess_lane_integration(
+        artifact=_make_artifact(),
+        checks="checks_passed",
+        review_status="passed",
+        merge_policy="auto",
+        autonomy_mode="fire_and_forget",
+        approve=True,
+    )
+    assert result["recommendation"] == "merge"
+    assert result["executed"] is True

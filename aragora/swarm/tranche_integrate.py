@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from aragora.nomic.dev_coordination import DevCoordinationStore, IntegrationDecisionType
 from aragora.ralph.github_control import GitHubCheck, GitHubControl
 from aragora.swarm.pr_registry import PullRequestRegistry
 
@@ -77,6 +78,94 @@ def classify_check_results(checks: list[GitHubCheck | dict[str, Any]]) -> str:
     if any(_check_is_pending(item) for item in required):
         return "checks_pending"
     return "checks_passed"
+
+
+def assess_lane_integration(
+    *,
+    artifact: Any,
+    checks: str,
+    review_status: str,
+    merge_policy: str = "confirm",
+    autonomy_mode: str = "adaptive",
+    approve: bool = False,
+) -> dict[str, Any]:
+    normalized_checks = str(checks or "").strip().lower()
+    normalized_review = str(review_status or "").strip().lower()
+    normalized_policy = str(merge_policy or "confirm").strip().lower()
+    normalized_autonomy = str(autonomy_mode or "adaptive").strip().lower()
+
+    recommendation = "request_changes"
+    executed = False
+    rationale = "Review requested changes."
+
+    if normalized_review not in {"passed", "approved"}:
+        recommendation = "request_changes"
+        rationale = "Review must pass before integration."
+    elif normalized_checks == "checks_failed":
+        recommendation = "request_changes"
+        rationale = "Required checks are failing."
+    elif normalized_checks != "checks_passed":
+        recommendation = "awaiting_confirmation"
+        rationale = "Required checks are still pending."
+    else:
+        recommendation = "merge"
+        rationale = "Review passed and required checks are green."
+        if normalized_policy == "manual":
+            rationale = "Manual merge policy requires a human merge."
+        elif normalized_autonomy == "checkpoint" and not approve:
+            rationale = "Checkpoint mode requires explicit approval before merge."
+        elif approve:
+            executed = normalized_policy in {"auto", "confirm"}
+            rationale = "Explicit approval granted for merge execution."
+
+    return {
+        "recommendation": recommendation,
+        "executed": executed,
+        "checks": normalized_checks,
+        "review_status": normalized_review,
+        "merge_policy": normalized_policy,
+        "autonomy_mode": normalized_autonomy,
+        "rationale": rationale,
+        "lane_id": str(getattr(artifact, "lane_id", "") or "").strip() or None,
+    }
+
+
+async def record_lane_integration(
+    *,
+    artifact: Any,
+    decision: str,
+    rationale: str,
+    decided_by: str,
+    store: DevCoordinationStore,
+    target_branch: str = "main",
+) -> dict[str, Any]:
+    metadata = getattr(artifact, "metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    receipt_id = str(metadata.get("receipt_id", "") or "").strip()
+    lease_id = str(metadata.get("lease_id", "") or "").strip()
+    if not receipt_id:
+        raise ValueError("Lane artifact is missing receipt_id metadata.")
+
+    decision_enum = IntegrationDecisionType(str(decision or "").strip().lower())
+    result = store.record_integration_decision(
+        receipt_id=receipt_id,
+        lease_id=lease_id or None,
+        decision=decision_enum,
+        decided_by=str(decided_by or "").strip() or "tranche-integrate",
+        rationale=str(rationale or "").strip() or "Integration decision recorded.",
+        target_branch=str(target_branch or "main").strip() or "main",
+    )
+    if hasattr(result, "to_dict"):
+        return result.to_dict()
+    if isinstance(result, dict):
+        return dict(result)
+    return {
+        "receipt_id": receipt_id,
+        "lease_id": lease_id or None,
+        "decision": decision_enum.value,
+        "target_branch": str(target_branch or "main").strip() or "main",
+    }
 
 
 def _normalize_check(check: GitHubCheck | dict[str, Any]) -> GitHubCheck:
