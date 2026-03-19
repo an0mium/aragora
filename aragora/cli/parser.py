@@ -2443,6 +2443,11 @@ def _add_swarm_parser(subparsers) -> None:
         help="Operate on all ready, claimable tranche lanes instead of one lane",
     )
     swarm_parser.add_argument(
+        "--all-completed",
+        action="store_true",
+        help="Operate on all completed tranche lanes instead of one lane",
+    )
+    swarm_parser.add_argument(
         "--owner-agent",
         default=None,
         help="Owner agent recorded for tranche prepare/run (defaults to lane target agent)",
@@ -2462,6 +2467,12 @@ def _add_swarm_parser(subparsers) -> None:
         type=int,
         default=2,
         help="Maximum bounded rounds for tranche design-review (default: 2)",
+    )
+    swarm_parser.add_argument(
+        "--tier",
+        choices=("auto", "1", "2", "3"),
+        default="auto",
+        help="Review tier for tranche review (default: auto)",
     )
     swarm_parser.add_argument(
         "--max-parallel-ready-projects",

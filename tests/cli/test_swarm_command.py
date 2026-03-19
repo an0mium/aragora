@@ -62,6 +62,8 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "manifest": ".aragora/campaign_manifest.yaml",
         "intake": None,
         "rounds": 2,
+        "all_completed": False,
+        "tier": "auto",
         "from_prompts": None,
         "all_ready": False,
         "owner_agent": None,
@@ -268,6 +270,31 @@ class TestSwarmParser:
         assert args.rounds == 2
         assert args.json is True
 
+    def test_swarm_tranche_review_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "tranche",
+                "review",
+                "--manifest",
+                "docs/examples/boss-lane-manifest-2026-03-19.yaml",
+                "--lane-id",
+                "lane_a",
+                "--tier",
+                "1",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "tranche"
+        assert args.swarm_goal == "review"
+        assert args.lane_id == "lane_a"
+        assert args.tier == "1"
+        assert args.json is True
+
     def test_swarm_parser_accepts_spec_dispatch_options(self):
         from aragora.cli.parser import build_parser
 
@@ -447,6 +474,53 @@ class TestSwarmCommand:
         assert '"recommendation": "approved"' in out
         assert '"action": "design-review"' in out
         mock_save.assert_called_once()
+
+    def test_cmd_swarm_tranche_review_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="review",
+            manifest="docs/examples/boss-lane-manifest-2026-03-19.yaml",
+            lane_id="lane_a",
+            tier="1",
+            json=True,
+        )
+        fake_manifest = SimpleNamespace(
+            manifest_id="pmf-tranche",
+            lane=lambda _lane_id: SimpleNamespace(allowed_write_scope=["aragora/live/**"]),
+        )
+        fake_artifact = SimpleNamespace(
+            lane_id="lane_a",
+            status="completed",
+            run_id="run-1",
+            metadata={},
+        )
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch("aragora.swarm.tranche.load_tranche_manifest", return_value=fake_manifest),
+            patch("aragora.swarm.tranche.TrancheArtifactStore") as store_cls,
+            patch("aragora.swarm.supervisor.SwarmSupervisor") as supervisor_cls,
+            patch("aragora.swarm.tranche_review.review_lane") as mock_review,
+        ):
+            store_cls.return_value.load.return_value = fake_artifact
+            store_cls.return_value.list.return_value = [fake_artifact]
+            supervisor_cls.return_value.refresh_run.return_value.to_dict.return_value = {
+                "run_id": "run-1",
+                "status": "completed",
+                "work_orders": [],
+            }
+            mock_review.return_value = {
+                "status": "passed",
+                "tier": 1,
+                "findings": [],
+                "retry_count": 0,
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"mode": "tranche-review"' in out
+        assert '"status": "passed"' in out
+        assert '"action": "review"' in out
 
     def test_cmd_swarm_tranche_prepare_json(self, capsys):
         args = _swarm_args(

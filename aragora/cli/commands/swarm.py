@@ -815,12 +815,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
 
     if action == "tranche":
         from aragora.swarm.tranche import (
+            TrancheArtifactStore,
             TrancheExecutor,
             TrancheInspector,
             TranchePlanner,
             load_tranche_manifest,
             render_tranche_inspection_text,
         )
+        from aragora.swarm.tranche_review import review_lane, select_review_tier
         from aragora.swarm.tranche_submit import submit_intake_bundle
 
         subaction = str(goal or "inspect").strip().lower() or "inspect"
@@ -945,6 +947,77 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 print(json.dumps(payload, indent=2))
             return
 
+        if subaction == "review":
+            from aragora.swarm.supervisor import SwarmSupervisor
+
+            artifact_store = TrancheArtifactStore(repo_root=repo_root)
+            lane_id = str(getattr(args, "lane_id", "") or "").strip()
+            all_completed = bool(getattr(args, "all_completed", False))
+            if lane_id:
+                artifact = artifact_store.load(manifest.manifest_id, lane_id)
+                selected_artifacts = [artifact] if artifact is not None else []
+            elif all_completed:
+                selected_artifacts = [
+                    item
+                    for item in artifact_store.list(manifest.manifest_id)
+                    if str(item.status).strip()
+                    in {"completed", "review_passed", "changes_requested", "review_blocked"}
+                ]
+            else:
+                raise ValueError("tranche review requires --lane-id <id> or --all-completed")
+            if not selected_artifacts:
+                raise ValueError("No matching tranche artifacts found for review.")
+            supervisor = SwarmSupervisor(repo_root=repo_root)
+            results: list[dict[str, object]] = []
+            for artifact in selected_artifacts:
+                run_id = str(getattr(artifact, "run_id", None) or "").strip()
+                if not run_id:
+                    raise ValueError(f"Artifact {artifact.lane_id} has no run_id.")
+                try:
+                    run_dict = supervisor.refresh_run(run_id).to_dict()
+                except Exception:
+                    record = supervisor.store.get_supervisor_run(run_id)
+                    if not isinstance(record, dict):
+                        raise ValueError(f"Supervisor run {run_id} is not available.") from None
+                    run_dict = dict(record)
+                tier_arg = str(getattr(args, "tier", "auto") or "auto").strip()
+                if tier_arg == "auto":
+                    lane = manifest.lane(artifact.lane_id)
+                    tier = select_review_tier(
+                        write_scope=list(getattr(lane, "allowed_write_scope", [])),
+                        diff_lines=int(getattr(artifact, "metadata", {}).get("diff_lines", 0) or 0),
+                        verification_passed=bool(getattr(artifact, "commands", [])),
+                        risk_tolerance=str(
+                            getattr(artifact, "metadata", {}).get("risk_tolerance", "") or ""
+                        ).strip()
+                        or None,
+                    )
+                else:
+                    tier = int(tier_arg)
+                review_payload = asyncio.run(
+                    review_lane(
+                        manifest=manifest,
+                        lane_id=artifact.lane_id,
+                        artifact=artifact,
+                        run_dict=run_dict,
+                        tier=tier,
+                        repo_root=repo_root,
+                    )
+                )
+                results.append({"lane_id": artifact.lane_id, **review_payload})
+            payload = {
+                "mode": "tranche-review",
+                "action": subaction,
+                "manifest_id": manifest.manifest_id,
+                "manifest_path": str(manifest_path),
+                "results": results,
+            }
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(json.dumps(payload, indent=2))
+            return
+
         executor = TrancheExecutor(repo_root=repo_root)
         lane_id = str(getattr(args, "lane_id", "") or "").strip()
         all_ready = bool(getattr(args, "all_ready", False))
@@ -975,7 +1048,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             )
         else:
             raise ValueError(
-                "tranche action must be one of: submit, plan, inspect, design-review, prepare, run"
+                "tranche action must be one of: submit, plan, inspect, design-review, review, prepare, run"
             )
         payload["action"] = subaction
         payload["manifest_path"] = str(manifest_path)
