@@ -20,6 +20,7 @@ import asyncio
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import sys
 from uuid import uuid4
 
 
@@ -71,6 +72,22 @@ def _run_supervised_or_report(awaitable: object) -> object | None:
     except ValueError as exc:
         print(f"Error: {exc}")
         return None
+
+
+def _load_structured_object(source: str) -> dict[str, object]:
+    if source == "-":
+        raw = sys.stdin.read()
+    else:
+        raw = Path(source).read_text(encoding="utf-8")
+    try:
+        import yaml
+
+        payload = yaml.safe_load(raw) or {}
+    except ImportError:
+        payload = json.loads(raw)
+    if not isinstance(payload, dict):
+        raise ValueError("structured input must deserialize to an object")
+    return dict(payload)
 
 
 def _build_boss_payload(
@@ -804,9 +821,34 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             load_tranche_manifest,
             render_tranche_inspection_text,
         )
+        from aragora.swarm.tranche_submit import submit_intake_bundle
 
         subaction = str(goal or "inspect").strip().lower() or "inspect"
         repo_root = resolve_repo_root(Path.cwd())
+        if subaction == "submit":
+            intake_arg = str(getattr(args, "intake", "") or "").strip()
+            if not intake_arg:
+                raise ValueError("tranche submit requires --intake <path|->")
+            intake_path: Path | None = None
+            if intake_arg != "-":
+                intake_path = Path(intake_arg).resolve()
+                if not intake_path.exists():
+                    raise ValueError(f"intake bundle not found: {intake_path}")
+            bundle = _load_structured_object(intake_arg)
+            payload = submit_intake_bundle(
+                bundle,
+                repo_root=repo_root,
+                autonomy_mode=_optional_text(getattr(args, "autonomy", None)),
+            )
+            payload["mode"] = "tranche-submit"
+            payload["action"] = subaction
+            if intake_path is not None:
+                payload["intake_path"] = str(intake_path)
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(json.dumps(payload, indent=2))
+            return
         if subaction == "plan":
             prompt_arg = str(getattr(args, "from_prompts", "") or "").strip()
             if not prompt_arg:
@@ -889,7 +931,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 )
             )
         else:
-            raise ValueError("tranche action must be one of: plan, inspect, prepare, run")
+            raise ValueError("tranche action must be one of: submit, plan, inspect, prepare, run")
         payload["action"] = subaction
         payload["manifest_path"] = str(manifest_path)
         if as_json:

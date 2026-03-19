@@ -2191,9 +2191,18 @@ def _add_swarm_parser(subparsers) -> None:
     )
     swarm_parser.add_argument(
         "--autonomy",
-        choices=["full-auto", "propose", "guided", "metrics"],
+        choices=[
+            "full-auto",
+            "propose",
+            "guided",
+            "metrics",
+            "adaptive",
+            "fire_and_forget",
+            "checkpoint",
+            "spectator",
+        ],
         default="propose",
-        help="Self-improvement autonomy level (default: propose)",
+        help="Autonomy mode for swarm and tranche flows (default: propose)",
     )
     swarm_parser.add_argument(
         "--require-approval",
@@ -2417,6 +2426,11 @@ def _add_swarm_parser(subparsers) -> None:
         "--output",
         default=None,
         help="Output path for campaign planning (defaults to --manifest)",
+    )
+    swarm_parser.add_argument(
+        "--intake",
+        default=None,
+        help="Intake bundle YAML/JSON input for 'swarm tranche submit' (use - for stdin)",
     )
     swarm_parser.add_argument(
         "--from-prompts",

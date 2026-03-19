@@ -60,6 +60,7 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "dispatch_only": False,
         "no_wait": False,
         "manifest": ".aragora/campaign_manifest.yaml",
+        "intake": None,
         "from_prompts": None,
         "all_ready": False,
         "owner_agent": None,
@@ -220,6 +221,29 @@ class TestSwarmParser:
         assert args.from_prompts == "docs/examples/pmf-prompt-pack.yaml"
         assert args.output == ".aragora/tranches/pmf/tranche.yaml"
 
+    def test_swarm_tranche_submit_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "tranche",
+                "submit",
+                "--intake",
+                "docs/examples/pmf-tranche-prompt-pack.yaml",
+                "--autonomy",
+                "adaptive",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "tranche"
+        assert args.swarm_goal == "submit"
+        assert args.intake == "docs/examples/pmf-tranche-prompt-pack.yaml"
+        assert args.autonomy == "adaptive"
+        assert args.json is True
+
     def test_swarm_parser_accepts_spec_dispatch_options(self):
         from aragora.cli.parser import build_parser
 
@@ -324,6 +348,36 @@ class TestSwarmCommand:
         assert '"manifest_id": "pmf-tranche"' in out
         assert '"lane_count": 2' in out
         assert '"action": "plan"' in out
+
+    def test_cmd_swarm_tranche_submit_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="submit",
+            intake="/tmp/bundle.yaml",
+            autonomy="adaptive",
+            json=True,
+        )
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch(
+                "aragora.cli.commands.swarm._load_structured_object",
+                return_value={"objective": "Submit tranche"},
+            ),
+            patch("aragora.swarm.tranche_submit.submit_intake_bundle") as mock_submit,
+        ):
+            mock_submit.return_value = {
+                "inspection_status": "ok",
+                "submission_status": "ready_to_prepare",
+                "recommended_action": "prepare",
+                "manifest_id": "test-123",
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"submission_status": "ready_to_prepare"' in out
+        assert '"manifest_id": "test-123"' in out
+        assert '"action": "submit"' in out
 
     def test_cmd_swarm_tranche_prepare_json(self, capsys):
         args = _swarm_args(
