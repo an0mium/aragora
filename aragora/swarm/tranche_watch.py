@@ -56,7 +56,6 @@ def refresh_tranche_state(
         repo_root=repo_root,
     )
 
-    lease_map = _lease_map(resolved_store)
     for lane_id, lane_state in list(refreshed.lane_states.items()):
         artifact = artifact_map.get(lane_id)
         if artifact is not None:
@@ -66,6 +65,15 @@ def refresh_tranche_state(
         if run_dict is not None:
             _apply_run_projection(lane_state, run_dict)
 
+    lease_map = _lease_map(
+        resolved_store,
+        lease_ids={
+            lease_id
+            for lane_state in refreshed.lane_states.values()
+            if (lease_id := _optional_text(lane_state.lease_id)) is not None
+        },
+    )
+    for lane_state in refreshed.lane_states.values():
         lease = lease_map.get(str(lane_state.lease_id or "").strip())
         if lease is not None:
             _apply_lease_projection(lane_state, lease)
@@ -246,13 +254,16 @@ def _artifact_pr_url(artifact: TrancheLaneArtifact) -> str | None:
     return None
 
 
-def _lease_map(store: Any | None) -> dict[str, Any]:
+def _lease_map(store: Any | None, *, lease_ids: set[str] | None = None) -> dict[str, Any]:
     if store is None or not hasattr(store, "list_leases"):
+        return {}
+    relevant_lease_ids = {item for item in (lease_ids or set()) if _optional_text(item)}
+    if not relevant_lease_ids:
         return {}
     return {
         str(item.lease_id): item
         for item in store.list_leases(limit=None)
-        if getattr(item, "lease_id", None)
+        if getattr(item, "lease_id", None) and str(item.lease_id) in relevant_lease_ids
     }
 
 

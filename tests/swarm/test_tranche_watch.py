@@ -59,6 +59,7 @@ class _FakeCoordinationStore:
         self._leases = leases or []
         self._receipts = receipts or {}
         self._decisions = decisions or {}
+        self.list_leases_calls = 0
 
     def get_supervisor_run(self, run_id: str) -> dict | None:
         return self._runs.get(run_id)
@@ -66,6 +67,7 @@ class _FakeCoordinationStore:
     def list_leases(
         self, *, statuses: list[str] | None = None, limit: int | None = 500
     ) -> list[WorkLease]:
+        self.list_leases_calls += 1
         items = list(self._leases)
         if statuses is None:
             return items
@@ -102,6 +104,30 @@ def test_refresh_updates_lane_status_from_artifact_store():
 
     assert refreshed.lane_states["a"].status == "completed"
     assert refreshed.lane_states["a"].run_id == "run-1"
+
+
+def test_refresh_skips_lease_lookup_without_known_lease_ids() -> None:
+    state = _make_state(lane_statuses={"a": "completed"})
+    artifact = _make_artifact(lane_id="a", status="completed", run_id="run-1")
+    store = _FakeCoordinationStore(
+        leases=[
+            WorkLease(
+                lease_id="lease-1",
+                task_id="task-1",
+                title="task-1",
+                owner_agent="codex",
+                owner_session_id="sess-1",
+                branch="feat-branch",
+                worktree_path="/tmp/worktree",
+                status="active",
+            )
+        ]
+    )
+
+    refreshed = refresh_tranche_state(state, artifacts={"a": artifact}, store=store)
+
+    assert refreshed.lane_states["a"].lease_id is None
+    assert store.list_leases_calls == 0
 
 
 def test_refresh_uses_receipt_and_integration_state_for_waiting_for_merge():
