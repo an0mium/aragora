@@ -118,6 +118,71 @@ def test_start_run_creates_leased_work_orders(repo: Path, store: DevCoordination
     assert store.status_summary()["counts"]["active_leases"] == 2
 
 
+def test_start_run_applies_default_target_agent_and_fallback_reviewer(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+    )
+    mock_work_order = MagicMock()
+    mock_work_order.to_dict.return_value = {
+        "work_order_id": "wo-1",
+        "title": "bounded lane",
+        "file_scope": ["README.md"],
+        "target_agent": "codex",
+        "reviewer_agent": "",
+    }
+    supervisor._build_supervised_work_orders = MagicMock(return_value=[mock_work_order])
+
+    spec = MagicMock()
+    spec.raw_goal = "Goal"
+    spec.refined_goal = "Goal"
+    spec.to_dict.return_value = {}
+
+    run = supervisor.start_run(
+        spec=spec,
+        refresh_scaling=False,
+        default_target_agent="claude",
+    )
+
+    assert run.work_orders[0]["target_agent"] == "claude"
+    assert run.work_orders[0]["reviewer_agent"] == "codex"
+
+
+def test_start_run_preserves_existing_target_agent_without_override(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+    )
+    mock_work_order = MagicMock()
+    mock_work_order.to_dict.return_value = {
+        "work_order_id": "wo-1",
+        "title": "bounded lane",
+        "file_scope": ["README.md"],
+        "target_agent": "codex",
+        "reviewer_agent": "claude",
+    }
+    supervisor._build_supervised_work_orders = MagicMock(return_value=[mock_work_order])
+
+    spec = MagicMock()
+    spec.raw_goal = "Goal"
+    spec.refined_goal = "Goal"
+    spec.to_dict.return_value = {}
+
+    run = supervisor.start_run(
+        spec=spec,
+        refresh_scaling=False,
+    )
+
+    assert run.work_orders[0]["target_agent"] == "codex"
+    assert run.work_orders[0]["reviewer_agent"] == "claude"
+
+
 def test_refresh_run_scales_queued_work_after_completion(
     repo: Path, store: DevCoordinationStore
 ) -> None:

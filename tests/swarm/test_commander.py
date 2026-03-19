@@ -126,6 +126,32 @@ class TestSwarmCommanderRunFromSpec:
         mock_reconciler_cls.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_run_supervised_from_spec_forwards_default_target_and_reviewer_agents(self):
+        spec = SwarmSpec(
+            raw_goal="Test goal",
+            refined_goal="Test goal refined",
+            file_scope_hints=["aragora/swarm/spec.py"],
+        )
+        commander = SwarmCommander()
+        fake_run = MagicMock()
+        fake_run.run_id = "test-run-id"
+
+        with patch("aragora.swarm.commander.SwarmSupervisor") as mock_supervisor_cls:
+            mock_sup = mock_supervisor_cls.return_value
+            mock_sup.start_run.return_value = fake_run
+            mock_sup.dispatch_workers = AsyncMock(return_value=[])
+            mock_sup.refresh_run.return_value = fake_run
+
+            await commander.run_supervised_from_spec(
+                spec,
+                default_target_agent="claude",
+                default_reviewer_agent="codex",
+            )
+
+        assert mock_sup.start_run.call_args.kwargs["default_target_agent"] == "claude"
+        assert mock_sup.start_run.call_args.kwargs["default_reviewer_agent"] == "codex"
+
+    @pytest.mark.asyncio
     async def test_run_supervised_from_spec_watches_when_workers_launch(self):
         spec = SwarmSpec(
             raw_goal="Dogfood the swarm with explicit work orders",
