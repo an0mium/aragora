@@ -72,10 +72,11 @@ This is "Aragora will execute this."
 | 0 | `prepare` | On branch (not yet on main) | Workspace-prep: managed worktree + branch + prepared artifact. Optional — `run` auto-prepares if needed. Does NOT claim leases. |
 | 0 | `run` | On branch (not yet on main) | Dispatch lanes through `dispatch_bounded_spec`. Includes conditional inline review via `_review_lane()` when dispatch returns a completed lane with a usable `run_dict`. |
 | 1 | `submit` | To build | Intake bundle → enrich → normalize → compile → inspect → persist 3 layers + tranche run state |
-| 2 | `review` | To build | First-class review command with adaptive tiering |
-| 3 | `integrate` | To build | Assess-first PR/check state, merge only with `--approve` or permitted autonomy |
-| 4 | `TrancheRunState` schema | To build | Durable tranche projection dataclasses (`TrancheRunState`, `LaneRunState`). Prerequisite for `watch`. |
-| 4 | `watch`/`list` | To build | Durable projection, observer/driver split, session reattach |
+| 2 | `design-review` | To build | Bounded proposer/critic/synthesizer challenge loop over the normalized bundle + inspected manifest before any mutating lane starts |
+| 3 | `review` | To build | First-class review command with adaptive tiering |
+| 4 | `integrate` | To build | Assess-first PR/check state, merge only with `--approve` or permitted autonomy |
+| 5 | `TrancheRunState` schema | To build | Durable tranche projection dataclasses (`TrancheRunState`, `LaneRunState`). Prerequisite for `watch`. |
+| 5 | `watch`/`list` | To build | Durable projection, observer/driver split, session reattach |
 
 ### Prerequisites
 
@@ -100,11 +101,15 @@ in the normal flow.
 Human (vague) → Intake Session (Claude/Codex)
     │
     ▼
- submit ─────── Intake bundle → enrich → normalize
+submit ─────── Intake bundle → enrich → normalize
     │            → [plan] compile bundle → manifest
     │            → [inspect] validate gates/scope
     │            → persist 3 layers + run state
     │            Returns: {inspection_status, submission_status, recommended_action}
+    ▼
+design-review ─ Bounded proposer/critic/synthesizer loop
+    │            → challenge weak assumptions against live repo/ref state
+    │            → persist findings + revised manifest or unresolved assumptions
     ▼
  prepare ────── (On branch) Workspace-prep, optional (run auto-prepares)
     │
@@ -195,6 +200,61 @@ command (`run` or explicit approval).
 ```bash
 aragora swarm tranche submit --intake <path|-> \
     [--autonomy adaptive|fire_and_forget|checkpoint|spectator] \
+    [--json]
+```
+
+---
+
+## Design Review
+
+This stage captures the productive pattern from the Claude/Codex collaboration in this
+session: one model proposes, another challenges that proposal against the live repo and
+reference state, and a final pass synthesizes the revision before implementation starts.
+
+### Purpose
+
+Catch weak assumptions and role drift **before** `prepare`/`run` launches mutating work.
+This is a bounded pre-implementation challenge loop, not open-ended agent chat.
+
+### Shape
+
+- **Proposer:** Presents the normalized prompt bundle and compiled tranche manifest as
+  the current execution proposal.
+- **Critic:** Challenges the proposal against live repo/code/reference state. Findings
+  must be grounded in concrete evidence, not generic objections.
+- **Synthesizer:** Produces the revised manifest plus unresolved assumptions from the
+  proposer + critic outputs.
+
+### Bounds
+
+- Max **2 rounds**.
+- If the synthesizer cannot converge after the bounded rounds, return
+  `awaiting_confirmation` or `needs_human`.
+- This stage must not mutate tracked repo files or launch workers.
+
+### Persisted outputs
+
+`design-review` persists:
+
+- proposed manifest snapshot
+- critique findings
+- revised manifest snapshot
+- unresolved assumptions
+- final recommendation (`approved` / `awaiting_confirmation` / `needs_human`)
+
+### Default policy
+
+- **adaptive** and **checkpoint** modes: run `design-review` by default before the first
+  writable lane is prepared.
+- **fire_and_forget**: may skip `design-review` only for low-risk, clearly bounded
+  tranches.
+- **spectator**: defaults to running it, but the driver may explicitly bypass.
+
+### CLI
+
+```bash
+aragora swarm tranche design-review --manifest <path> \
+    [--rounds 2] \
     [--json]
 ```
 
@@ -422,6 +482,7 @@ Applied at the tranche level, governing how each lifecycle step advances.
 
 ## Non-Goals for v1
 
+- Open-ended multi-agent chat with no bounded stop condition before execution
 - Full adversarial debate for code review (Tier 2 is multi-reviewer consensus only)
 - Structured `ReviewFinding` model with file/line/issue/fix granularity
 - Same-worktree corrective execution in Tier 3

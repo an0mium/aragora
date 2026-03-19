@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Enable prompt-driven multi-lane execution through the Tranche orchestration spine — from vague human intake through adaptive review and PR integration with durable watch/reattach.
+**Goal:** Enable prompt-driven multi-lane execution through the Tranche orchestration spine — from vague human intake through bounded pre-implementation design review, adaptive review, and PR integration with durable watch/reattach.
 
 **Architecture:** Tranche is the orchestration spine and lifecycle state machine. Campaign provides decomposition and cross-model review. Boss-loop stays the bounded dispatch engine. DevCoordinationStore provides durable state for leases, receipts, and integration decisions.
 
@@ -16,11 +16,13 @@
 
 ### New files
 - `aragora/swarm/tranche_submit.py` — Submit pipeline: validate, enrich, decompose, normalize, compile, inspect, persist
+- `aragora/swarm/tranche_design_review.py` — Bounded proposer/critic/synthesizer loop over normalized bundle + inspected manifest
 - `aragora/swarm/tranche_review.py` — Adaptive review: tier selection, multi-reviewer consensus, bounded retry
 - `aragora/swarm/tranche_integrate.py` — PR discovery, check classification, merge recommendation/execution
 - `aragora/swarm/tranche_state.py` — TrancheRunState, LaneRunState dataclasses + persistence
 - `aragora/swarm/tranche_watch.py` — Watch loop: observer/driver modes, state refresh, autonomous advancement
 - `tests/swarm/test_tranche_submit.py`
+- `tests/swarm/test_tranche_design_review.py`
 - `tests/swarm/test_tranche_review.py`
 - `tests/swarm/test_tranche_integrate.py`
 - `tests/swarm/test_tranche_state.py`
@@ -423,7 +425,8 @@ In `tranche_submit.py`, implement the full pipeline:
    - `fire_and_forget` with `inspection_status == "ok"` → `submission_status = "ready_to_prepare"`
    - `adaptive` → derive from inspection result and risk tier (high confidence + ok → `ready_to_prepare`, otherwise `awaiting_confirmation`)
 7. Persist all three layers + run state to `<repo_root>/.aragora/tranches/<manifest_id>/`
-8. Return dual-status dict
+8. Return dual-status dict, with `recommended_action = "design-review"` for
+   adaptive/checkpoint tranches that have writable lanes and passed inspection
 
 - [ ] **Step 4: Run tests**
 
@@ -485,6 +488,166 @@ Expected: PASS
 ```bash
 git add aragora/cli/commands/swarm.py aragora/cli/parser.py tests/cli/test_swarm_command.py
 git commit -m "feat(cli): wire swarm tranche submit command"
+```
+
+---
+
+## Phase 1A: Design Review
+
+### Task 1A.1: Bounded proposer/critic/synthesizer design review
+
+**Files:**
+- Create: `aragora/swarm/tranche_design_review.py`
+- Test: `tests/swarm/test_tranche_design_review.py`
+
+- [ ] **Step 1: Write failing tests for the bounded challenge loop**
+
+```python
+# tests/swarm/test_tranche_design_review.py
+@pytest.mark.asyncio
+async def test_design_review_runs_proposer_critic_and_synthesizer():
+    proposer = AsyncMock(return_value={"proposal": {"objective": "ship it"}})
+    critic = AsyncMock(return_value={"findings": ["Scope is too broad"]})
+    synthesizer = AsyncMock(return_value={
+        "recommendation": "awaiting_confirmation",
+        "revised_manifest": {"manifest_id": "m1"},
+        "unresolved_assumptions": ["Need narrower write scope"],
+    })
+
+    result = await run_design_review(
+        manifest=_make_manifest(),
+        normalized_bundle={"objective": "ship it"},
+        inspection={"preflight_status": "ok"},
+        proposer_fn=proposer,
+        critic_fn=critic,
+        synthesizer_fn=synthesizer,
+        max_rounds=2,
+    )
+
+    assert result["recommendation"] == "awaiting_confirmation"
+    proposer.assert_awaited_once()
+    critic.assert_awaited_once()
+    synthesizer.assert_awaited_once()
+
+@pytest.mark.asyncio
+async def test_design_review_stops_after_two_rounds():
+    proposer = AsyncMock(side_effect=[
+        {"proposal": {"round": 1}},
+        {"proposal": {"round": 2}},
+    ])
+    critic = AsyncMock(side_effect=[
+        {"findings": ["Issue 1"]},
+        {"findings": ["Issue 2"]},
+    ])
+    synthesizer = AsyncMock(side_effect=[
+        {"recommendation": "revise", "revised_manifest": {"round": 1}, "unresolved_assumptions": []},
+        {"recommendation": "needs_human", "revised_manifest": {"round": 2}, "unresolved_assumptions": ["Still disputed"]},
+    ])
+
+    result = await run_design_review(
+        manifest=_make_manifest(),
+        normalized_bundle={"objective": "ship it"},
+        inspection={"preflight_status": "ok"},
+        proposer_fn=proposer,
+        critic_fn=critic,
+        synthesizer_fn=synthesizer,
+        max_rounds=2,
+    )
+
+    assert result["rounds_completed"] == 2
+    assert result["recommendation"] == "needs_human"
+```
+
+- [ ] **Step 2: Run to verify failure**
+
+Run: `python3 -m pytest tests/swarm/test_tranche_design_review.py -v`
+Expected: FAIL
+
+- [ ] **Step 3: Implement run_design_review and persisted review record**
+
+Create `aragora/swarm/tranche_design_review.py` with:
+- `DesignReviewRecord` dataclass: manifest_id, status, rounds, proposed_manifest, critique_findings, revised_manifest, unresolved_assumptions, created_at, updated_at
+- `run_design_review(...) -> dict` — bounded max-2-round proposer/critic/synthesizer loop
+- `save_design_review(path)` / `load_design_review(path)` helpers storing
+  `design_review.yaml` beside the tranche manifest/run state
+- hard rule: critique findings must be grounded in manifest/ref/repo state passed into the adapter
+
+- [ ] **Step 4: Run tests**
+
+Run: `python3 -m pytest tests/swarm/test_tranche_design_review.py -v`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add aragora/swarm/tranche_design_review.py tests/swarm/test_tranche_design_review.py
+git commit -m "feat(tranche): add bounded pre-implementation design review"
+```
+
+### Task 1A.2: Wire design-review CLI and submit recommendation
+
+**Files:**
+- Modify: `aragora/swarm/tranche_submit.py`
+- Modify: `aragora/cli/commands/swarm.py`
+- Modify: `aragora/cli/parser.py`
+- Test: `tests/swarm/test_tranche_submit.py`
+- Test: `tests/cli/test_swarm_command.py`
+
+- [ ] **Step 1: Write failing tests**
+
+```python
+def test_submit_recommends_design_review_for_adaptive_writable_tranche():
+    result = submit_intake_bundle(
+        {
+            "objective": "Ship feature",
+            "candidate_lanes": [{
+                "lane_id": "lane_a",
+                "title": "Build it",
+                "owner_role": "engineer",
+                "prompt": "Implement the feature",
+                "allowed_write_scope": ["aragora/server/**"],
+            }],
+            "autonomy_mode": "adaptive",
+        },
+        repo_root=Path("/tmp/repo"),
+        skip_github_resolution=True,
+    )
+    assert result["recommended_action"] == "design-review"
+
+def test_swarm_tranche_design_review_action(capsys):
+    with patch("aragora.swarm.tranche_design_review.run_design_review") as mock_run:
+        mock_run.return_value = {"recommendation": "approved", "rounds_completed": 1}
+        cmd_swarm({
+            "action": "tranche",
+            "tranche_action": "design-review",
+            "manifest": "/tmp/tranche.yaml",
+            "json": True,
+        })
+    assert '"recommendation"' in capsys.readouterr().out
+```
+
+- [ ] **Step 2: Run to verify failure**
+
+Run: `python3 -m pytest tests/swarm/test_tranche_submit.py tests/cli/test_swarm_command.py -v -k design_review`
+Expected: FAIL
+
+- [ ] **Step 3: Implement**
+
+- add `design-review` tranche subcommand
+- add `--rounds` parser argument
+- make `submit` return `recommended_action = "design-review"` for adaptive/checkpoint
+  tranches with writable lanes and `inspection_status == "ok"`
+
+- [ ] **Step 4: Run tests**
+
+Run: `python3 -m pytest tests/swarm/test_tranche_submit.py tests/cli/test_swarm_command.py -v -k design_review`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add aragora/swarm/tranche_submit.py aragora/cli/commands/swarm.py aragora/cli/parser.py tests/swarm/test_tranche_submit.py tests/cli/test_swarm_command.py
+git commit -m "feat(cli): wire tranche design-review command and submit recommendation"
 ```
 
 ---
@@ -1036,7 +1199,7 @@ git commit -m "feat(cli): wire swarm tranche watch and list commands"
 
 ## Phase 5: Integration Testing & CLI Reference
 
-### Task 5.1: End-to-end submit → run → review → integrate test
+### Task 5.1: End-to-end submit → design-review → run → review → integrate test
 
 **Files:**
 - Create: `tests/swarm/test_tranche_e2e.py`
@@ -1046,7 +1209,7 @@ git commit -m "feat(cli): wire swarm tranche watch and list commands"
 ```python
 @pytest.mark.asyncio
 async def test_tranche_lifecycle_e2e(tmp_path):
-    """Submit a bundle, mock-dispatch a lane, review it, and assess integration."""
+    """Submit a bundle, design-review it, mock-dispatch a lane, review it, and assess integration."""
     bundle = {
         "objective": "Test e2e flow",
         "candidate_lanes": [{
@@ -1064,6 +1227,7 @@ async def test_tranche_lifecycle_e2e(tmp_path):
     submit_result = submit_intake_bundle(bundle, repo_root=tmp_path,
                                           skip_github_resolution=True)
     assert submit_result["submission_status"] == "awaiting_confirmation"
+    assert submit_result["recommended_action"] == "design-review"
 
     # Load state
     state = TrancheRunState.load(
