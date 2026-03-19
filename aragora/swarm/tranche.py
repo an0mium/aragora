@@ -18,6 +18,7 @@ UTC = timezone.utc
 DEFAULT_TRANCHE_ARTIFACT_ROOT = ".aragora/tranche_artifacts"
 DEFAULT_TRANCHE_MANIFEST_DIR = ".aragora/tranches"
 _GITHUB_REF_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/(pull|issues)/(\d+)$")
+_REUSABLE_PREPARED_STATUSES = {"prepared", "running"}
 
 
 def _utcnow() -> datetime:
@@ -562,7 +563,11 @@ class TrancheExecutor:
         for lane_payload in lanes:
             lane = manifest.lane(str(lane_payload["lane_id"]))
             prepared = self.artifact_store.load(manifest.manifest_id, lane.lane_id)
-            if prepared is None or not prepared.worktree_path:
+            if (
+                prepared is None
+                or not prepared.worktree_path
+                or prepared.status not in _REUSABLE_PREPARED_STATUSES
+            ):
                 prepared = self._prepare_lane_workspace(
                     manifest,
                     lane,
@@ -1499,8 +1504,8 @@ def _metadata_string_list(lane: TrancheLane, key: str) -> list[str]:
 
 def _manifest_base_branch(manifest: TrancheManifest, *, fallback: str) -> str:
     base_ref = str(manifest.repo.get("base_ref") or fallback).strip() or fallback
-    if "/" in base_ref:
-        return base_ref.rsplit("/", 1)[-1] or fallback
+    if base_ref.startswith("origin/"):
+        return base_ref[len("origin/") :] or fallback
     return base_ref
 
 
