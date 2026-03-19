@@ -194,6 +194,7 @@ Examples:
     _add_triage_parser(subparsers)
     _add_ralph_parser(subparsers)
     _add_assess_parser(subparsers)
+    _add_shift_parser(subparsers)
 
     return parser
 
@@ -2460,3 +2461,40 @@ def _add_assess_parser(subparsers) -> None:
         help="Show delta from previous assessment",
     )
     p.set_defaults(func=_lazy("aragora.cli.commands.assess", "cmd_assess"))
+
+
+def _add_shift_parser(subparsers) -> None:
+    """Add the 'shift' subcommand for bounded autonomous improvement shifts."""
+    p = subparsers.add_parser(
+        "shift",
+        help="Run a bounded autonomous improvement shift",
+    )
+    p.add_argument(
+        "--max-duration",
+        type=int,
+        default=480,
+        help="Maximum shift duration in minutes (default: 480 = 8 hours)",
+    )
+    p.add_argument(
+        "--max-items",
+        type=int,
+        default=10,
+        help="Maximum items to process per shift (default: 10)",
+    )
+    p.add_argument(
+        "--budget",
+        type=float,
+        default=50.0,
+        help="Budget limit in USD (default: 50.0)",
+    )
+    p.add_argument(
+        "--skip-assessment",
+        action="store_true",
+        help="Skip pre-shift assessment",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run assessment only, don't execute goals",
+    )
+    p.set_defaults(func=_lazy("aragora.cli.commands.shift", "cmd_shift"))
