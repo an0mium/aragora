@@ -701,6 +701,7 @@ class TestProjectMergeTargets:
                     pr_url="https://github.com/org/repo/pull/301",
                     disposition="wait_for_review",
                     blocker_detail="review required",
+                    required_checks_green=False,
                 ),
             ),
             patch.object(supervisor, "_merge_pr") as mock_merge,
