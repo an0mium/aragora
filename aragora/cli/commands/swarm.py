@@ -534,6 +534,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             freshness_ttl_seconds=float(getattr(args, "freshness_ttl", 3600.0) or 3600.0),
             repo=getattr(args, "boss_repo", None),
             label_filter=getattr(args, "boss_label_filter", None),
+            issue_number=getattr(args, "boss_issue_number", None),
             target_branch=target_branch,
             budget_limit_usd=budget_limit,
             max_consecutive_failures=int(getattr(args, "max_consecutive_failures", 3) or 3),

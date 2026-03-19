@@ -2344,6 +2344,12 @@ def _add_swarm_parser(subparsers) -> None:
         help="Only consider issues with this label in boss-loop",
     )
     swarm_parser.add_argument(
+        "--boss-issue-number",
+        type=int,
+        default=None,
+        help="Target one specific GitHub issue number in boss-loop instead of selecting from the feed",
+    )
+    swarm_parser.add_argument(
         "--max-consecutive-failures",
         type=int,
         default=3,

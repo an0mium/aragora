@@ -498,6 +498,7 @@ class BossLoopConfig:
     # Issue feed
     repo: str | None = None
     label_filter: str | None = None
+    issue_number: int | None = None
     issue_limit: int = 25
     skip_labels: set[str] = field(default_factory=lambda: {"wontfix", "duplicate", "invalid"})
     require_labels: set[str] | None = None
@@ -959,14 +960,42 @@ class BossLoop:
             if count >= self.config.max_retries_per_issue
         }
         candidate_issues = [i for i in issues if i.number not in already_maxed]
-
-        selected = select_eligible_issue(
-            candidate_issues,
-            skip_labels=self.config.skip_labels,
-            require_labels=self.config.require_labels,
-        )
+        if self.config.issue_number is not None:
+            target_issue = next(
+                (issue for issue in candidate_issues if issue.number == self.config.issue_number),
+                None,
+            )
+            selected = (
+                select_eligible_issue(
+                    [target_issue],
+                    skip_labels=self.config.skip_labels,
+                    require_labels=self.config.require_labels,
+                )
+                if target_issue is not None
+                else None
+            )
+        else:
+            selected = select_eligible_issue(
+                candidate_issues,
+                skip_labels=self.config.skip_labels,
+                require_labels=self.config.require_labels,
+            )
 
         if selected is None:
+            if self.config.issue_number is not None:
+                needs_human_reasons = [
+                    f"Target issue #{self.config.issue_number} was not found in the issue feed or is not eligible under current filters/retry state."
+                ]
+                next_actions = [
+                    f"Verify issue #{self.config.issue_number} is still open, eligible, and has not exceeded retry limits.",
+                    "Remove --boss-issue-number to return to feed-driven selection.",
+                ]
+            else:
+                needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
+                next_actions = [
+                    "Create a new issue with actionable scope, or adjust label filters.",
+                    f"Issues checked: {len(issues)}, already maxed retries: {len(already_maxed)}",
+                ]
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -975,11 +1004,8 @@ class BossLoop:
                 selected_issue=None,
                 worker_status="idle",
                 stop_reason=BossStopReason.NO_SUITABLE_ISSUE.value,
-                needs_human_reasons=["No suitable open issue found in the GitHub feed."],
-                next_actions=[
-                    "Create a new issue with actionable scope, or adjust label filters.",
-                    f"Issues checked: {len(issues)}, already maxed retries: {len(already_maxed)}",
-                ],
+                needs_human_reasons=needs_human_reasons,
+                next_actions=next_actions,
                 elapsed_seconds=time.monotonic() - iter_start,
             )
 

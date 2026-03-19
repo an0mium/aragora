@@ -462,6 +462,46 @@ class TestBossLoop:
         assert len(result.issues_attempted) == 0
         assert "No suitable open issue" in result.needs_human_reasons[0]
 
+    def test_specific_issue_number_selects_target_issue(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [
+            _make_issue(909, "Meta benchmark issue"),
+            _make_issue(873, "Bounded execution issue"),
+        ]
+
+        config = _boss_config(max_iterations=1, issue_number=873)
+
+        async def _complete(issue, freshness):
+            assert issue.number == 873
+            return {"status": "completed"}
+
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _complete
+
+        result = asyncio.run(loop.run())
+
+        assert result.iterations_completed == 1
+        assert result.issues_attempted[0]["number"] == 873
+
+    def test_specific_issue_number_missing_stops_truthfully(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(909, "Meta benchmark issue")]
+
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1, issue_number=873),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.NO_SUITABLE_ISSUE.value
+        assert "Target issue #873" in result.needs_human_reasons[0]
+
     def test_bounded_iteration_limit(self):
         """Loop respects max_iterations even when issues keep flowing."""
         feed = MagicMock(spec=GitHubIssueFeed)
@@ -846,6 +886,7 @@ class TestBossLoopCLI:
             "freshness_ttl": 3600.0,
             "boss_repo": None,
             "boss_label_filter": None,
+            "boss_issue_number": None,
             "max_consecutive_failures": 3,
         }
         defaults.update(overrides)
@@ -924,6 +965,8 @@ class TestBossLoopCLI:
                 "synaptent/aragora",
                 "--boss-label-filter",
                 "boss-ready",
+                "--boss-issue-number",
+                "873",
                 "--max-consecutive-failures",
                 "5",
                 "--allow-missing-validation-contract",
@@ -936,6 +979,7 @@ class TestBossLoopCLI:
         assert args.freshness_ttl == 1800.0
         assert args.boss_repo == "synaptent/aragora"
         assert args.boss_label_filter == "boss-ready"
+        assert args.boss_issue_number == 873
         assert args.max_consecutive_failures == 5
         assert args.allow_missing_validation_contract is True
         assert args.json is True
