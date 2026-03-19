@@ -537,6 +537,10 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             target_branch=target_branch,
             budget_limit_usd=budget_limit,
             max_consecutive_failures=int(getattr(args, "max_consecutive_failures", 3) or 3),
+            require_validation_contract=not bool(
+                getattr(args, "allow_missing_validation_contract", False)
+            ),
+            dispatch_enabled=not no_dispatch,
         )
         loop = BossLoop(config=boss_loop_config)
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import subprocess
 import time
 import uuid
@@ -170,6 +171,96 @@ def select_eligible_issue(
             continue
         return issue
     return None
+
+
+_VALIDATION_SECTION_PREFIXES = (
+    "acceptance criteria",
+    "validation",
+    "validation contract",
+    "definition of done",
+    "done when",
+    "test plan",
+)
+_VALIDATION_INLINE_PREFIXES = (
+    "acceptance",
+    "acceptance criteria",
+    "validation",
+    "validation contract",
+    "definition of done",
+    "done when",
+    "test plan",
+)
+_VALIDATION_BULLET_RE = re.compile(r"^\s*(?:[-*]|\d+\.)\s*(?:\[(?: |x|X)\]\s*)?(?P<text>.+?)\s*$")
+
+
+def _ordered_unique_strings(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in items:
+        text = str(item).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        ordered.append(text)
+    return ordered
+
+
+def extract_issue_validation_contract(issue_body: str) -> list[str]:
+    """Extract an explicit validation contract from a GitHub issue body.
+
+    Supported forms:
+    - bullets/checklists under headings such as "Acceptance Criteria" or "Validation"
+    - inline markers such as "Validation: pytest -q ..."
+    - standalone pytest commands anywhere in the issue body
+    """
+    lines = [str(line).rstrip() for line in str(issue_body or "").splitlines()]
+    criteria: list[str] = []
+    in_validation_section = False
+
+    for raw_line in lines:
+        stripped = raw_line.strip()
+        normalized = stripped.lstrip("#").strip()
+        normalized_lower = normalized.rstrip(":").strip().lower()
+
+        if any(
+            normalized_lower == prefix or normalized_lower.startswith(f"{prefix} ")
+            for prefix in _VALIDATION_SECTION_PREFIXES
+        ):
+            in_validation_section = True
+            continue
+
+        inline_prefix, _, inline_value = normalized.partition(":")
+        if inline_value and inline_prefix.strip().lower() in _VALIDATION_INLINE_PREFIXES:
+            criteria.append(inline_value.strip())
+            in_validation_section = False
+            continue
+
+        if stripped.startswith("pytest ") or stripped.startswith("python -m pytest"):
+            criteria.append(stripped)
+            continue
+
+        if not in_validation_section:
+            continue
+
+        if stripped.startswith("#"):
+            in_validation_section = False
+            continue
+
+        bullet_match = _VALIDATION_BULLET_RE.match(stripped)
+        if bullet_match:
+            criteria.append(bullet_match.group("text"))
+            continue
+
+        if not stripped:
+            continue
+
+        if normalized.endswith(":"):
+            in_validation_section = False
+            continue
+
+        criteria.append(stripped)
+
+    return _ordered_unique_strings(criteria)
 
 
 # ---------------------------------------------------------------------------
@@ -410,6 +501,7 @@ class BossLoopConfig:
     issue_limit: int = 25
     skip_labels: set[str] = field(default_factory=lambda: {"wontfix", "duplicate", "invalid"})
     require_labels: set[str] | None = None
+    require_validation_contract: bool = True
 
     # Retry / self-correction
     max_consecutive_failures: int = 3
@@ -418,6 +510,7 @@ class BossLoopConfig:
     # Dispatch
     target_branch: str = "main"
     budget_limit_usd: float = 5.0
+    dispatch_enabled: bool = True
 
     # Reporting
     status_report_interval: int = 5  # every N iterations
@@ -919,6 +1012,11 @@ class BossLoop:
 
         if worker_result.get("status") == "needs_human":
             self._failed_issues.append(issue_dict)
+            next_actions = [
+                str(item).strip()
+                for item in worker_result.get("next_actions", [])
+                if str(item).strip()
+            ] or ["Review the worker output and decide next steps."]
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -928,7 +1026,7 @@ class BossLoop:
                 worker_status="needs_human",
                 stop_reason=BossStopReason.NEEDS_HUMAN.value,
                 needs_human_reasons=worker_result.get("reasons", ["Worker requires human input."]),
-                next_actions=["Review the worker output and decide next steps."],
+                next_actions=next_actions,
                 elapsed_seconds=elapsed,
             )
 
@@ -996,12 +1094,45 @@ class BossLoop:
             requires_approval=True,
             user_expertise="developer",
         )
+        validation_contract = extract_issue_validation_contract(issue.body)
+        if validation_contract:
+            spec.acceptance_criteria = list(validation_contract)
+
+        if self.config.require_validation_contract and not bool(
+            getattr(spec, "acceptance_criteria", None)
+        ):
+            return {
+                "status": "needs_human",
+                "reasons": [
+                    f"Issue #{issue.number} lacks an explicit validation contract or acceptance criteria."
+                ],
+                "next_actions": [
+                    "Add an Acceptance Criteria, Validation, Definition of Done, or Test Plan section to the issue body.",
+                    "Include at least one concrete verification step such as a pytest command or observable success criterion.",
+                ],
+            }
 
         if not spec.is_dispatch_bounded():
             return {
-                "status": "failed",
-                "error": f"Issue #{issue.number} produced an under-specified spec: "
-                f"{spec.dispatch_gate_reason()}",
+                "status": "needs_human",
+                "reasons": [
+                    f"Issue #{issue.number} is not safely dispatchable: {spec.dispatch_gate_reason()}"
+                ],
+                "next_actions": [
+                    "Add file-scope hints, constraints, acceptance criteria, or explicit work orders before dispatch.",
+                ],
+            }
+
+        if not self.config.dispatch_enabled:
+            return {
+                "status": "needs_human",
+                "reasons": [
+                    f"No-dispatch preview only for issue #{issue.number}; supervised execution was intentionally skipped."
+                ],
+                "next_actions": [
+                    "Review the selected issue and derived validation contract.",
+                    "Rerun without --no-dispatch to execute the bounded Boss loop lane.",
+                ],
             }
 
         result = await dispatch_bounded_spec(
@@ -1046,6 +1177,9 @@ class BossLoop:
                 "Investigate the last failures before resuming.",
             ]
         if self._stop_reason == BossStopReason.NEEDS_HUMAN.value:
+            for status in reversed(self._iteration_statuses):
+                if status.stop_reason == BossStopReason.NEEDS_HUMAN.value and status.next_actions:
+                    return list(status.next_actions)
             return [
                 "Worker reached a decision boundary requiring human input.",
                 "Review the worker output and decide next steps.",

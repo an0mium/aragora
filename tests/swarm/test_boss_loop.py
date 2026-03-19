@@ -33,6 +33,7 @@ from aragora.swarm.boss_loop import (
     RunnerFreshnessResult,
     check_runner_freshness,
     dispatch_bounded_spec,
+    extract_issue_validation_contract,
     select_eligible_issue,
 )
 
@@ -47,7 +48,12 @@ UTC = timezone.utc
 def _make_issue(
     number: int = 1,
     title: str = "Fix the dashboard",
-    body: str = "The dashboard is slow, improve query performance in aragora/analytics/dashboard.py",
+    body: str = (
+        "The dashboard is slow, improve query performance in aragora/analytics/dashboard.py\n\n"
+        "Acceptance Criteria:\n"
+        "- pytest -q tests/swarm/test_boss_loop.py\n"
+        "- Dashboard query path remains bounded to aragora/analytics/dashboard.py\n"
+    ),
     labels: list[str] | None = None,
     state: str = "OPEN",
 ) -> GitHubIssue:
@@ -220,6 +226,34 @@ class TestSelectEligibleIssue:
         selected = select_eligible_issue(issues, require_labels={"boss-ready"})
         assert selected is not None
         assert selected.number == 2
+
+
+class TestValidationContractExtraction:
+    def test_extracts_bullets_from_acceptance_section(self):
+        body = """
+Summary text.
+
+Acceptance Criteria:
+- pytest -q tests/swarm/test_boss_loop.py
+- No files outside aragora/swarm/ are changed
+"""
+
+        assert extract_issue_validation_contract(body) == [
+            "pytest -q tests/swarm/test_boss_loop.py",
+            "No files outside aragora/swarm/ are changed",
+        ]
+
+    def test_extracts_inline_validation_and_pytest_lines(self):
+        body = """
+Validation: verify JSON output includes stop_reason
+
+python -m pytest tests/swarm/test_boss_loop.py -q
+"""
+
+        assert extract_issue_validation_contract(body) == [
+            "verify JSON output includes stop_reason",
+            "python -m pytest tests/swarm/test_boss_loop.py -q",
+        ]
 
     def test_returns_none_when_no_eligible_issue(self):
         issues = [_make_issue(1, "Invalid", labels=["wontfix"])]
@@ -596,6 +630,43 @@ class TestBossLoop:
         assert len(result.issues_completed) == 2
         assert len(result.issues_failed) == 1
 
+    def test_missing_validation_contract_stops_with_needs_human(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [
+            _make_issue(
+                7,
+                "Issue missing validation",
+                body="Tighten the boss loop selection logic in aragora/swarm/boss_loop.py",
+            )
+        ]
+
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.NEEDS_HUMAN.value
+        assert "lacks an explicit validation contract" in result.needs_human_reasons[0]
+
+    def test_no_dispatch_preview_stops_truthfully(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(8, "Preview only issue")]
+
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1, dispatch_enabled=False),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.NEEDS_HUMAN.value
+        assert "No-dispatch preview only" in result.needs_human_reasons[0]
+        assert "Rerun without --no-dispatch" in result.next_actions[1]
+
 
 # ---------------------------------------------------------------------------
 # Status payload shape tests
@@ -855,6 +926,7 @@ class TestBossLoopCLI:
                 "boss-ready",
                 "--max-consecutive-failures",
                 "5",
+                "--allow-missing-validation-contract",
                 "--json",
             ]
         )
@@ -865,6 +937,7 @@ class TestBossLoopCLI:
         assert args.boss_repo == "synaptent/aragora"
         assert args.boss_label_filter == "boss-ready"
         assert args.max_consecutive_failures == 5
+        assert args.allow_missing_validation_contract is True
         assert args.json is True
 
 

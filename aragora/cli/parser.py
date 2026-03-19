@@ -2350,6 +2350,11 @@ def _add_swarm_parser(subparsers) -> None:
         help="Stop boss-loop after N consecutive worker failures (default: 3)",
     )
     swarm_parser.add_argument(
+        "--allow-missing-validation-contract",
+        action="store_true",
+        help="Allow boss-loop dispatch even when the issue body lacks explicit validation criteria",
+    )
+    swarm_parser.add_argument(
         "--source-file",
         help="Campaign planner input markdown/text file",
     )
