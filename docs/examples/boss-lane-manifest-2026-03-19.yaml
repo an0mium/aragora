@@ -1,0 +1,218 @@
+manifest_version: 1
+manifest_id: boss-live-proof-tranche-2026-03-19
+generated_on: 2026-03-19
+repo:
+  name: synaptent/aragora
+  root: /Users/armand/Development/aragora
+  base_ref: origin/main
+  base_sha: 1eb030814
+objective: >-
+  Captured pre-execution tranche snapshot for the first bounded Boss-loop live
+  proof. Current main has since advanced; use `swarm tranche inspect` to detect
+  drift from this snapshot instead of assuming the declared states still match.
+shared_constraints:
+  start_from_fresh_worktree: true
+  worktree_convention: .worktrees/{agent}-auto/<session-id>
+  ignore_untracked_paths:
+    - /Users/armand/Development/aragora/Aragora Idea-to-Execution Strategy.docx
+  root_main_policy: do_not_use_as_work_lane
+  report_requirements:
+    - exact commands run
+    - url list for PRs, issues, or docs touched
+    - residual risk
+references:
+  gates:
+    pr_1061:
+      kind: pull_request
+      url: https://github.com/synaptent/aragora/pull/1061
+      state: merged
+      meaning: Base one-tick Boss-loop live-stop fix landed on main.
+    pr_1065:
+      kind: pull_request
+      url: https://github.com/synaptent/aragora/pull/1065
+      state: open
+      meaning: Follow-up worker-launch and PTY/stdin hardening.
+    pr_1060:
+      kind: pull_request
+      url: https://github.com/synaptent/aragora/pull/1060
+      state: closed
+      meaning: Treat as superseded; do not merge unchanged.
+  live_target:
+    issue_1064:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/1064
+      state: open
+      label: boss-loop-test
+      meaning: First bounded live Boss-loop proof target.
+  retired_targets:
+    issue_873:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/873
+      state: closed
+      label: boss-loop-test
+      meaning: "Stale after PR #857 merged."
+    issue_909:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/909
+      state: closed
+      label: boss-loop-test
+      meaning: "Stale benchmark issue tied to #873 and the closed #907 contract."
+gates:
+  gate_1061:
+    source_ref: pr_1061
+    state: satisfied
+    required_for:
+      - codex_a_live_gate
+      - claude_a_runtime_verifier
+    satisfy_when: merged_to_main
+  gate_1065:
+    source_ref: pr_1065
+    state: pending
+    required_for:
+      - codex_a_live_gate
+      - codex_b_gatekeeper
+      - claude_a_runtime_verifier
+      - claude_b_operator_brief
+    satisfy_when: >-
+      merged to main or explicitly superseded by a narrower swarm runtime fix
+      that preserves the same intent
+  replace_1060:
+    source_ref: pr_1060
+    state: satisfied
+    required_for:
+      - codex_b_gatekeeper
+    satisfy_when: closed without merge and excluded from the live-proof critical path
+lanes:
+  - lane_id: codex_a_live_gate
+    owner_role: critical_path_engineer
+    branch:
+      current: codex/worker-launch-followup
+      convention: codex/<swarm-fix-or-live-proof>
+    worktree:
+      convention: .worktrees/codex-auto/<session-id>
+    allowed_write_scope:
+      - aragora/swarm/**
+      - aragora/swarm/worker_launcher.py
+      - tests/swarm/**
+    dependencies:
+      - gate_1061
+      - gate_1065
+      - issue_1064
+    success_criteria:
+      - "PR #1065 is merged or replaced by a narrower equivalent fix"
+      - "A live boss-loop run against #1064 terminates with truthful terminal JSON"
+      - Any created deliverable includes branch and commit metadata or a PR URL
+    verification_commands:
+      - gh -R synaptent/aragora pr view 1065 --json state,mergeable,url
+      - >-
+        ARAGORA_USER_ID=an0mium python -m aragora.cli.main swarm boss-loop
+        --boss-label-filter boss-loop-test --boss-issue-number 1064
+        --no-dispatch --max-ticks 1 --json
+      - >-
+        ARAGORA_USER_ID=an0mium python -m aragora.cli.main swarm boss-loop
+        --boss-label-filter boss-loop-test --boss-issue-number 1064
+        --max-ticks 1 --json
+    stop_conditions:
+      - The live run returns non-terminal output or hangs past the bounded observation window
+      - "Issue #1064 lacks an explicit validation contract or becomes stale"
+      - needs_human is returned without deliverable metadata and without a new truthful next action
+    expected_receipts_artifacts:
+      - Boss-loop terminal JSON containing run_id, stop_reason, needs_human_reasons, next_actions
+      - Operational receipt emission with source=boss_loop and action=run_completed
+      - Worker receipt_id if dispatch produces a worker run
+      - Worker worktree_path and branch metadata if a deliverable lane is created
+  - lane_id: codex_b_gatekeeper
+    owner_role: pr_gate_and_repo_ops
+    branch:
+      current: none_required
+      convention: codex/<repo-ops-or-gate-task>
+    worktree:
+      convention: .worktrees/codex-auto/<session-id>
+    allowed_write_scope: []
+    allowed_operations:
+      - GitHub PR review and merge decisions outside Codex A's write scope
+      - Root fast-forward after merge
+      - Safe worktree cleanup outside active lanes
+    dependencies:
+      - gate_1065
+      - replace_1060
+    success_criteria:
+      - "Gate status for #1065 is recorded accurately and root main is synced after merge"
+      - "#1060 remains excluded from merge flow"
+      - Cleanup touches only provably safe inactive worktrees and merged branches
+    verification_commands:
+      - gh -R synaptent/aragora pr view 1065 --json state,mergeable,url,statusCheckRollup
+      - git -C /Users/armand/Development/aragora fetch origin --prune --quiet
+      - git -C /Users/armand/Development/aragora rev-parse --short main
+      - git -C /Users/armand/Development/aragora rev-parse --short origin/main
+    stop_conditions:
+      - "#1065 has unresolved failing required checks or reviewer blockers"
+      - Cleanup candidate contains unmerged commits not proven superseded
+    expected_receipts_artifacts:
+      - "Merge or hold decision summary for #1065"
+      - Root-sync command transcript
+      - Keep/delete ledger for worktrees and branches touched
+  - lane_id: claude_a_runtime_verifier
+    owner_role: read_only_runtime_forensics
+    branch:
+      current: none_required
+      convention: claude/<forensics-task>
+    worktree:
+      convention: .worktrees/claude-auto/<session-id>
+    allowed_write_scope: []
+    dependencies:
+      - gate_1061
+      - gate_1065
+      - issue_1064
+    success_criteria:
+      - "Independent confirmation of where the first live #1064 run stops"
+      - Clear attribution of any wait point to worker routing, PTY, GitHub/API, or issue hygiene
+    verification_commands:
+      - gh -R synaptent/aragora pr view 1065 --json state,mergeable,url
+      - >-
+        ARAGORA_USER_ID=an0mium python -m aragora.cli.main swarm boss-loop
+        --boss-label-filter boss-loop-test --boss-issue-number 1064
+        --max-ticks 1 --json
+    stop_conditions:
+      - Another active session owns the live process and cannot be safely observed
+      - "The run target changes from #1064 before observation starts"
+    expected_receipts_artifacts:
+      - Read-only memo with exact command, wait point, likely root cause, and implicated file/function
+      - Captured terminal JSON if the run terminates
+  - lane_id: claude_b_operator_brief
+    owner_role: read_only_target_readiness
+    branch:
+      current: none_required
+      convention: claude/<brief-task>
+    worktree:
+      convention: .worktrees/claude-auto/<session-id>
+    allowed_write_scope: []
+    dependencies:
+      - gate_1065
+      - issue_1064
+    success_criteria:
+      - "Operator brief for #1064 is current and bounded"
+      - Acceptance evidence required for #871, #990, and #1036 is explicit
+    verification_commands:
+      - gh -R synaptent/aragora issue view 1064 --json state,title,url,body,labels
+      - sed -n '1,220p' aragora/live/package.json
+      - rg -n '"@supabase/supabase-js"|node_modules/@supabase/supabase-js' aragora/live/package-lock.json
+    stop_conditions:
+      - "Validation commands in #1064 drift from the current package surface"
+      - The issue stops being a single-package bounded lane
+    expected_receipts_artifacts:
+      - Short operator brief or comment-ready memo
+      - Validation command list and bounded file-scope confirmation
+terminal_outcomes:
+  success:
+    definition: >-
+      Gate #1065 is resolved and a live boss-loop run against #1064 completes
+      with truthful terminal output and captured artifacts.
+  needs_human:
+    definition: >-
+      Any lane returns explicit needs_human reasons or blocked gate state without
+      a safe automated next action.
+  stop_and_replan:
+    definition: >-
+      #1065 changes scope materially, #1064 becomes stale, or live-proof runtime
+      behavior falls outside the bounded one-tick contract.

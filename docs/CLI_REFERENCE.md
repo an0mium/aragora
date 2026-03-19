@@ -498,7 +498,7 @@ aragora skills list
 
 **Purpose:** Launch the full swarm lifecycle: interrogate a goal → generate a spec → dispatch to agents → report results. Supervisor-backed with lease coordination, managed worktrees, and periodic reconciliation.
 
-**Usage:** `aragora swarm [run|status|reconcile] "<goal>" [options]`
+**Usage:** `aragora swarm [run|status|reconcile|campaign|integrator|tranche] "<goal>" [options]`
 
 **Subcommands:**
 - `run "<goal>"` — decompose goal, provision worktrees, dispatch workers (default)
@@ -556,6 +556,24 @@ aragora swarm campaign plan --source-file roadmap.md --json
 ```
 
 See `docs/guides/CAMPAIGN_OPERATOR.md` for the full operator guide including Ralph loop usage, prebuilt manifest workflow, and stop-reason semantics.
+
+#### `aragora swarm tranche`
+
+**Purpose:** Inspect a manifest-captured boss tranche against live GitHub and local repo state without mutating worktrees or dispatching agents.
+
+**Subcommands:**
+- `inspect` — resolve reference freshness, gate satisfaction, lane readiness, scope overlap, and the recommended next action
+
+**Key options:**
+- `--manifest <path>` — tranche manifest path
+- `--json` — emit machine-readable inspection payload
+
+**Example:**
+```bash
+aragora swarm tranche inspect \
+  --manifest docs/examples/boss-lane-manifest-2026-03-19.yaml \
+  --json
+```
 
 ---
 

@@ -59,6 +59,7 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "all_runs": False,
         "dispatch_only": False,
         "no_wait": False,
+        "manifest": ".aragora/campaign_manifest.yaml",
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -172,6 +173,26 @@ class TestSwarmParser:
         assert args.lane_id == "lane-1"
         assert args.rationale == "Ship it"
 
+    def test_swarm_tranche_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "tranche",
+                "inspect",
+                "--manifest",
+                "docs/examples/boss-lane-manifest-2026-03-19.yaml",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "tranche"
+        assert args.swarm_goal == "inspect"
+        assert args.manifest == "docs/examples/boss-lane-manifest-2026-03-19.yaml"
+        assert args.json is True
+
     def test_swarm_parser_accepts_spec_dispatch_options(self):
         from aragora.cli.parser import build_parser
 
@@ -218,8 +239,34 @@ class TestSwarmCommand:
         assert '"runner_id": "codex-runner-123"' in out
         assert '"auth_mode": "chatgpt_login"' in out
         assert '"availability": "available"' in out
+
+    def test_cmd_swarm_tranche_inspect_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="inspect",
+            manifest="docs/examples/boss-lane-manifest-2026-03-19.yaml",
+            json=True,
+        )
+
+        fake_manifest = object()
+        with (
+            patch("aragora.swarm.tranche.load_tranche_manifest", return_value=fake_manifest),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch("aragora.swarm.tranche.TrancheInspector") as inspector_cls,
+        ):
+            inspector_cls.return_value.inspect.return_value = {
+                "mode": "tranche-inspect",
+                "manifest_id": "boss-live-proof-tranche-2026-03-19",
+                "preflight_status": "ok",
+                "recommended_action": {"kind": "run_lane", "lane_id": "codex_a_live_gate"},
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"mode": "tranche-inspect"' in out
+        assert '"manifest_id": "boss-live-proof-tranche-2026-03-19"' in out
+        assert '"lane_id": "codex_a_live_gate"' in out
         assert '"action": "inspect"' in out
-        assert '"freshness_status": "fresh"' in out
 
     def test_cmd_swarm_runner_register_rejects_unknown_auth(self, capsys):
         args = _swarm_args(

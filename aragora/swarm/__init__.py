@@ -35,6 +35,16 @@ from aragora.swarm.reconciler import SwarmReconciler, SwarmReconcilerConfig
 from aragora.swarm.reporter import SwarmReport, SwarmReporter
 from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.supervisor import SupervisorRun, SwarmApprovalPolicy, SwarmSupervisor
+from aragora.swarm.tranche import (
+    TrancheArtifactStore,
+    TrancheGate,
+    TrancheInspector,
+    TrancheLane,
+    TrancheLaneArtifact,
+    TrancheManifest,
+    load_tranche_manifest,
+    save_tranche_manifest,
+)
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
 
 __all__ = [
@@ -48,6 +58,12 @@ __all__ = [
     "LaunchConfig",
     "SwarmCommander",
     "SwarmCommanderConfig",
+    "TrancheArtifactStore",
+    "TrancheGate",
+    "TrancheInspector",
+    "TrancheLane",
+    "TrancheLaneArtifact",
+    "TrancheManifest",
     "SwarmReconciler",
     "SwarmReconcilerConfig",
     "SupervisorRun",
@@ -58,4 +74,6 @@ __all__ = [
     "SwarmSupervisor",
     "WorkerLauncher",
     "WorkerProcess",
+    "load_tranche_manifest",
+    "save_tranche_manifest",
 ]

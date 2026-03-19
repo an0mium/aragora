@@ -35,6 +35,7 @@ def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | Non
         "reconcile",
         "campaign",
         "integrator",
+        "tranche",
     }:
         return str(first), second
     return "run", first
@@ -786,6 +787,33 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     )
             else:
                 print(json.dumps(payload, indent=2))
+        return
+
+    if action == "tranche":
+        from aragora.swarm.tranche import (
+            TrancheInspector,
+            load_tranche_manifest,
+            render_tranche_inspection_text,
+        )
+
+        subaction = str(goal or "inspect").strip().lower() or "inspect"
+        if subaction != "inspect":
+            raise ValueError("tranche action must be 'inspect'")
+        manifest_arg = str(getattr(args, "manifest", "") or "").strip()
+        if not manifest_arg:
+            raise ValueError("tranche inspect requires --manifest <path>")
+        manifest_path = Path(manifest_arg).resolve()
+        if not manifest_path.exists():
+            raise ValueError(f"tranche manifest not found: {manifest_path}")
+        manifest = load_tranche_manifest(manifest_path)
+        repo_root = resolve_repo_root(Path.cwd())
+        payload = TrancheInspector(repo_root=repo_root).inspect(manifest)
+        payload["action"] = subaction
+        payload["manifest_path"] = str(manifest_path)
+        if as_json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(render_tranche_inspection_text(payload))
         return
 
     if boss_mode:

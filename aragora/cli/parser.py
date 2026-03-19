@@ -2130,7 +2130,7 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "swarm_action_or_goal",
         nargs="?",
-        help="Action (run/status/reconcile/campaign/integrator) or your goal in plain language",
+        help="Action (run/status/reconcile/campaign/integrator/tranche) or your goal in plain language",
     )
     swarm_parser.add_argument(
         "swarm_goal",
@@ -2411,7 +2411,7 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "--manifest",
         default=DEFAULT_CAMPAIGN_MANIFEST,
-        help="Campaign manifest path (default: .aragora/campaign_manifest.yaml)",
+        help="Campaign or tranche manifest path (default: .aragora/campaign_manifest.yaml)",
     )
     swarm_parser.add_argument(
         "--output",
