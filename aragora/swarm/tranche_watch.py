@@ -36,6 +36,86 @@ from aragora.swarm.tranche_state import (
 )
 
 
+class DriverAlreadyClaimedError(RuntimeError):
+    """Raised when another session already holds the tranche driver lease."""
+
+
+def claim_driver(
+    state: TrancheRunState,
+    *,
+    session_id: str,
+    takeover_timeout_seconds: float = 300.0,
+) -> TrancheRunState:
+    refreshed = TrancheRunState.from_dict(state.to_dict())
+    session = _optional_text(session_id)
+    if not session:
+        raise ValueError("session_id is required")
+    now = _utcnow()
+
+    active_session = _optional_text(refreshed.driver_session)
+    active_heartbeat = refreshed.driver_heartbeat
+    if active_session and active_session != session and active_heartbeat is not None:
+        age = (now - active_heartbeat).total_seconds()
+        if age < float(takeover_timeout_seconds):
+            raise DriverAlreadyClaimedError(
+                f"driver already claimed by {active_session} ({age:.1f}s old heartbeat)"
+            )
+        _close_session_history(refreshed, active_session, now=now)
+
+    if active_session == session:
+        refreshed.driver_heartbeat = now
+        refreshed.updated_at = now
+        return refreshed
+
+    refreshed.driver_session = session
+    refreshed.driver_heartbeat = now
+    refreshed.updated_at = now
+    refreshed.session_history.append(
+        {
+            "session_id": session,
+            "attached_at": now.isoformat(),
+            "detached_at": None,
+            "mode": "driver",
+        }
+    )
+    return refreshed
+
+
+def release_driver(
+    state: TrancheRunState,
+    *,
+    session_id: str | None = None,
+) -> TrancheRunState:
+    refreshed = TrancheRunState.from_dict(state.to_dict())
+    session = _optional_text(session_id) or _optional_text(refreshed.driver_session)
+    now = _utcnow()
+    if session and _optional_text(refreshed.driver_session) == session:
+        refreshed.driver_session = None
+        refreshed.driver_heartbeat = None
+        refreshed.updated_at = now
+        _close_session_history(refreshed, session, now=now)
+    return refreshed
+
+
+def heartbeat_driver(
+    state: TrancheRunState,
+    *,
+    session_id: str,
+) -> TrancheRunState:
+    refreshed = TrancheRunState.from_dict(state.to_dict())
+    session = _optional_text(session_id)
+    if not session:
+        raise ValueError("session_id is required")
+    if _optional_text(refreshed.driver_session) != session:
+        raise DriverAlreadyClaimedError(
+            f"driver is held by {_optional_text(refreshed.driver_session) or 'no session'}"
+        )
+    now = _utcnow()
+    refreshed.driver_heartbeat = now
+    refreshed.updated_at = now
+    return refreshed
+
+
 def refresh_tranche_state(
     state: TrancheRunState,
     *,
@@ -286,3 +366,13 @@ def _prefer_text(current: Any, candidate: Any) -> str | None:
 def _optional_text(value: Any) -> str | None:
     text = str(value or "").strip()
     return text or None
+
+
+def _close_session_history(state: TrancheRunState, session_id: str, *, now: Any) -> None:
+    for item in reversed(state.session_history):
+        if str(item.get("session_id", "")).strip() != session_id:
+            continue
+        if item.get("detached_at"):
+            continue
+        item["detached_at"] = now.isoformat()
+        return

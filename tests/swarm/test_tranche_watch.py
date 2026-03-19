@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+
+import pytest
 
 from aragora.nomic.dev_coordination import (
     CompletionReceipt,
@@ -10,7 +12,13 @@ from aragora.nomic.dev_coordination import (
 )
 from aragora.swarm.tranche import TrancheLaneArtifact
 from aragora.swarm.tranche_state import LaneRunState, TrancheRunState
-from aragora.swarm.tranche_watch import refresh_tranche_state
+from aragora.swarm.tranche_watch import (
+    DriverAlreadyClaimedError,
+    claim_driver,
+    heartbeat_driver,
+    refresh_tranche_state,
+    release_driver,
+)
 
 
 def _utc(value: str) -> str:
@@ -218,3 +226,69 @@ def test_refresh_marks_needs_human_for_request_changes_decision():
 
     assert refreshed.lane_states["a"].status == "needs_human"
     assert refreshed.status == "needs_human"
+
+
+def test_driver_claim_succeeds_when_no_active_driver():
+    state = TrancheRunState(manifest_id="m1", status="running", autonomy_mode="adaptive")
+
+    updated = claim_driver(state, session_id="sess-1")
+
+    assert updated.driver_session == "sess-1"
+    assert updated.driver_heartbeat is not None
+    assert updated.session_history[-1]["session_id"] == "sess-1"
+
+
+def test_driver_claim_fails_when_active_driver_with_heartbeat():
+    state = TrancheRunState(
+        manifest_id="m1",
+        status="running",
+        autonomy_mode="adaptive",
+        driver_session="sess-1",
+        driver_heartbeat=datetime.now(UTC),
+    )
+
+    with pytest.raises(DriverAlreadyClaimedError):
+        claim_driver(state, session_id="sess-2")
+
+
+def test_stale_driver_can_be_taken_over():
+    state = TrancheRunState(
+        manifest_id="m1",
+        status="running",
+        autonomy_mode="adaptive",
+        driver_session="sess-1",
+        driver_heartbeat=datetime.now(UTC) - timedelta(minutes=10),
+    )
+
+    updated = claim_driver(state, session_id="sess-2", takeover_timeout_seconds=300)
+
+    assert updated.driver_session == "sess-2"
+    assert updated.session_history[-1]["session_id"] == "sess-2"
+
+
+def test_release_driver_clears_driver_session():
+    state = claim_driver(
+        TrancheRunState(manifest_id="m1", status="running", autonomy_mode="adaptive"),
+        session_id="sess-1",
+    )
+
+    updated = release_driver(state, session_id="sess-1")
+
+    assert updated.driver_session is None
+    assert updated.driver_heartbeat is None
+    assert updated.session_history[-1]["detached_at"]
+
+
+def test_heartbeat_driver_updates_timestamp():
+    state = claim_driver(
+        TrancheRunState(manifest_id="m1", status="running", autonomy_mode="adaptive"),
+        session_id="sess-1",
+    )
+    before = state.driver_heartbeat
+
+    updated = heartbeat_driver(state, session_id="sess-1")
+
+    assert updated.driver_session == "sess-1"
+    assert updated.driver_heartbeat is not None
+    assert before is not None
+    assert updated.driver_heartbeat >= before
