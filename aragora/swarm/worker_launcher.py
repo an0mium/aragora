@@ -187,6 +187,7 @@ class WorkerLauncher:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 cwd=worktree_path,
+                stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=worker_env,

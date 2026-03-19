@@ -278,6 +278,62 @@ class TestLaunch:
         assert worker.is_running
 
     @pytest.mark.asyncio
+    async def test_launch_non_detached_sets_stdin_devnull(self, tmp_path: Path):
+        """Non-detached workers must close stdin to prevent PTY/interactive stalls."""
+        launcher = WorkerLauncher(LaunchConfig(detach=False))
+        mock_proc = AsyncMock()
+        mock_proc.pid = 99
+        worktree = tmp_path / "wt"
+        (worktree / "scripts").mkdir(parents=True)
+        (worktree / "scripts" / "codex_session.sh").write_text(
+            "#!/usr/bin/env bash\n", encoding="utf-8"
+        )
+
+        wo = {
+            "work_order_id": "wo-stdin",
+            "target_agent": "claude",
+            "title": "Stdin guard test",
+        }
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/claude"),
+            patch.object(WorkerLauncher, "_git_output", return_value=""),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+        ):
+            await launcher.launch(wo, worktree_path=str(worktree), branch="feat")
+
+        call_kwargs = mock_exec.call_args
+        assert call_kwargs.kwargs.get("stdin") == asyncio.subprocess.DEVNULL
+
+    @pytest.mark.asyncio
+    async def test_launch_detached_sets_stdin_devnull(self, tmp_path: Path):
+        """Detached workers also close stdin."""
+        launcher = WorkerLauncher(LaunchConfig(detach=True))
+        mock_proc = AsyncMock()
+        mock_proc.pid = 100
+        worktree = tmp_path / "wt"
+        (worktree / "scripts").mkdir(parents=True)
+        (worktree / "scripts" / "codex_session.sh").write_text(
+            "#!/usr/bin/env bash\n", encoding="utf-8"
+        )
+
+        wo = {
+            "work_order_id": "wo-stdin-detach",
+            "target_agent": "codex",
+            "title": "Stdin guard detached",
+        }
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/codex"),
+            patch.object(WorkerLauncher, "_git_output", return_value=""),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+        ):
+            await launcher.launch(wo, worktree_path=str(worktree), branch="feat")
+
+        call_kwargs = mock_exec.call_args
+        assert call_kwargs.kwargs.get("stdin") == asyncio.subprocess.DEVNULL
+
+    @pytest.mark.asyncio
     async def test_launch_raises_on_missing_cli(self):
         launcher = WorkerLauncher()
         wo = {"work_order_id": "wo-1", "target_agent": "claude"}

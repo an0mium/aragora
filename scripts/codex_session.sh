@@ -334,7 +334,7 @@ PY
 }
 trap cleanup_lock EXIT INT TERM
 
-if command -v script >/dev/null 2>&1; then
+if command -v script >/dev/null 2>&1 && [ -t 0 ]; then
     if [[ $# -eq 0 ]]; then
         script -q "${LOG_FILE}" codex
     else
