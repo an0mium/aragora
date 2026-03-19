@@ -814,6 +814,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         return
 
     if action == "tranche":
+        import os
+
         from aragora.nomic.dev_coordination import DevCoordinationStore
         from aragora.ralph.github_control import GitHubControl
         from aragora.swarm.pr_registry import PullRequestRegistry
@@ -834,6 +836,14 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         )
         from aragora.swarm.tranche_review import review_lane, select_review_tier
         from aragora.swarm.tranche_submit import submit_intake_bundle
+        from aragora.swarm.tranche_watch import (
+            claim_driver,
+            list_tranche_states,
+            load_tranche_run_state,
+            release_driver,
+            run_state_path_for_manifest,
+            watch_loop,
+        )
 
         subaction = str(goal or "inspect").strip().lower() or "inspect"
         repo_root = resolve_repo_root(Path.cwd())
@@ -856,6 +866,19 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             payload["action"] = subaction
             if intake_path is not None:
                 payload["intake_path"] = str(intake_path)
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(json.dumps(payload, indent=2))
+            return
+        if subaction == "list":
+            items = list_tranche_states(repo_root)
+            payload = {
+                "mode": "tranche-list",
+                "action": subaction,
+                "count": len(items),
+                "items": items,
+            }
             if as_json:
                 print(json.dumps(payload, indent=2))
             else:
@@ -912,6 +935,174 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 print(json.dumps(payload, indent=2))
             else:
                 print(render_tranche_inspection_text(payload))
+            return
+
+        if subaction == "watch":
+            state_path = run_state_path_for_manifest(manifest_path)
+            state = load_tranche_run_state(manifest_path)
+            artifact_store = TrancheArtifactStore(repo_root=repo_root)
+            driver_mode = bool(getattr(args, "driver", False))
+            session_id = str(
+                getattr(args, "owner_session_id", None) or f"cli-watch-{os.getpid()}"
+            ).strip()
+            supervisor = None
+            github = None
+            registry = None
+
+            async def _watch_review_fn(*, manifest, lane_id, artifact):
+                nonlocal supervisor
+                from aragora.swarm.supervisor import SwarmSupervisor
+
+                if artifact is None:
+                    return {
+                        "status": "blocked_nonreviewable",
+                        "findings": ["Missing tranche artifact."],
+                    }
+                run_id = str(getattr(artifact, "run_id", None) or "").strip()
+                if not run_id:
+                    return {
+                        "status": "blocked_nonreviewable",
+                        "findings": ["Artifact has no run_id."],
+                    }
+                if supervisor is None:
+                    supervisor = SwarmSupervisor(repo_root=repo_root)
+                try:
+                    run_dict = supervisor.refresh_run(run_id).to_dict()
+                except Exception:
+                    record = supervisor.store.get_supervisor_run(run_id)
+                    if not isinstance(record, dict):
+                        return {
+                            "status": "blocked_nonreviewable",
+                            "findings": [f"Supervisor run {run_id} is not available."],
+                        }
+                    run_dict = dict(record)
+                lane = manifest.lane(lane_id)
+                tier = select_review_tier(
+                    write_scope=list(getattr(lane, "allowed_write_scope", [])),
+                    diff_lines=int(getattr(artifact, "metadata", {}).get("diff_lines", 0) or 0),
+                    verification_passed=bool(getattr(artifact, "commands", [])),
+                    risk_tolerance=str(
+                        getattr(artifact, "metadata", {}).get("risk_tolerance", "") or ""
+                    ).strip()
+                    or None,
+                )
+                return await review_lane(
+                    manifest=manifest,
+                    lane_id=lane_id,
+                    artifact=artifact,
+                    run_dict=run_dict,
+                    tier=tier,
+                    repo_root=repo_root,
+                )
+
+            async def _watch_integrate_fn(*, manifest, lane_id, artifact, approve):
+                nonlocal github, registry
+                if artifact is None:
+                    return {"recommendation": "needs_human", "executed": False}
+                if github is None:
+                    github = GitHubControl(repo_root=repo_root)
+                if registry is None:
+                    registry = PullRequestRegistry()
+                metadata = artifact.metadata if isinstance(artifact.metadata, dict) else {}
+                review_payload = metadata.get("review", {})
+                if isinstance(review_payload, dict):
+                    review_status = str(review_payload.get("status", "") or "").strip() or "pending"
+                else:
+                    review_status = "pending"
+                if review_status == "pending":
+                    artifact_status = str(getattr(artifact, "status", "") or "").strip()
+                    if artifact_status == "review_passed":
+                        review_status = "passed"
+                    elif artifact_status == "changes_requested":
+                        review_status = "changes_requested"
+                    elif artifact_status == "review_blocked":
+                        review_status = "blocked_nonreviewable"
+
+                pr_url = discover_lane_pr(artifact, github=github, repo_root=repo_root)
+                branch = str(
+                    metadata.get("branch")
+                    or (
+                        metadata.get("deliverable", {}).get("branch")
+                        if isinstance(metadata.get("deliverable"), dict)
+                        else ""
+                    )
+                    or ""
+                ).strip()
+                if pr_url and branch:
+                    register_pr(pr_url, branch, registry)
+
+                checks = "checks_pending"
+                merge_result = None
+                if pr_url:
+                    snapshot = github.fetch_gate_snapshot(pr_url)
+                    checks = classify_check_results(
+                        list(getattr(snapshot, "required_checks", []))
+                        + list(getattr(snapshot, "advisory_checks", []))
+                    )
+                assessment = assess_lane_integration(
+                    artifact=artifact,
+                    checks=checks,
+                    review_status=review_status,
+                    merge_policy=str(metadata.get("merge_policy", "confirm") or "confirm"),
+                    autonomy_mode=str(state.autonomy_mode or "adaptive"),
+                    approve=bool(approve),
+                )
+                if approve and assessment.get("recommendation") == "merge":
+                    coord_store = DevCoordinationStore(repo_root=repo_root)
+                    await record_lane_integration(
+                        artifact=artifact,
+                        decision="merge",
+                        rationale="Tranche watch approved merge after green checks and review.",
+                        decided_by="tranche-watch",
+                        store=coord_store,
+                        target_branch=str(getattr(args, "target_branch", "main") or "main"),
+                    )
+                    if pr_url and assessment.get("executed"):
+                        merge_call = github.merge_pr(
+                            pr_url,
+                            required_checks_green=checks == "checks_passed",
+                            allow_admin=False,
+                        )
+                        merge_result = (
+                            merge_call.to_dict() if hasattr(merge_call, "to_dict") else None
+                        )
+                        if isinstance(merge_result, dict):
+                            assessment["executed"] = bool(merge_result.get("merged", False))
+                if merge_result is not None:
+                    assessment["merge_result"] = merge_result
+                return assessment
+
+            if driver_mode:
+                state = claim_driver(state, session_id=session_id)
+                state.save(state_path)
+            final_state = asyncio.run(
+                watch_loop(
+                    state,
+                    manifest=manifest,
+                    interval_seconds=interval_seconds,
+                    max_ticks=max_ticks,
+                    state_path=state_path,
+                    artifact_store=artifact_store,
+                    repo_root=repo_root,
+                    review_fn=_watch_review_fn if driver_mode else None,
+                    integrate_fn=_watch_integrate_fn if driver_mode else None,
+                )
+            )
+            if driver_mode:
+                final_state = release_driver(final_state, session_id=session_id)
+                final_state.save(state_path)
+            payload = {
+                "mode": "tranche-watch",
+                "action": subaction,
+                "manifest_id": manifest.manifest_id,
+                "manifest_path": str(manifest_path),
+                "driver": driver_mode,
+                **final_state.to_dict(),
+            }
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(json.dumps(payload, indent=2))
             return
 
         if subaction == "design-review":
@@ -1183,7 +1374,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             )
         else:
             raise ValueError(
-                "tranche action must be one of: submit, plan, inspect, design-review, review, integrate, prepare, run"
+                "tranche action must be one of: submit, plan, inspect, watch, list, design-review, review, integrate, prepare, run"
             )
         payload["action"] = subaction
         payload["manifest_path"] = str(manifest_path)

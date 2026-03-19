@@ -2301,10 +2301,17 @@ def _add_swarm_parser(subparsers) -> None:
         help="Keep reconciling the run until it reaches a stable stop condition",
     )
     swarm_parser.add_argument(
+        "--interval",
         "--interval-seconds",
+        dest="interval_seconds",
         type=float,
         default=5.0,
         help="Reconciler polling interval for --watch or reconcile (default: 5.0)",
+    )
+    swarm_parser.add_argument(
+        "--driver",
+        action="store_true",
+        help="Claim driver mode for tranche watch and allow autonomous advancement",
     )
     swarm_parser.add_argument(
         "--max-ticks",

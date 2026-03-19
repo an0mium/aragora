@@ -9,7 +9,11 @@ from aragora.nomic.dev_coordination import (
     IntegrationDecisionType,
     LeaseStatus,
 )
-from aragora.swarm.tranche import TrancheArtifactStore, TrancheLaneArtifact
+from aragora.swarm.tranche import (
+    DEFAULT_TRANCHE_MANIFEST_DIR,
+    TrancheArtifactStore,
+    TrancheLaneArtifact,
+)
 from aragora.swarm.tranche_state import (
     LANE_STATUS_ABORTED,
     LANE_STATUS_COMPLETED,
@@ -249,6 +253,43 @@ async def watch_loop(
         if max_ticks is not None and ticks >= max(1, int(max_ticks)):
             return current
         await asyncio.sleep(max(0.0, float(interval_seconds)))
+
+
+def run_state_path_for_manifest(manifest_path: str | Path) -> Path:
+    return Path(manifest_path).resolve().with_name("run_state.yaml")
+
+
+def load_tranche_run_state(manifest_path: str | Path) -> TrancheRunState:
+    return TrancheRunState.load(run_state_path_for_manifest(manifest_path))
+
+
+def list_tranche_states(repo_root: Path) -> list[dict[str, Any]]:
+    root = (Path(repo_root).resolve() / DEFAULT_TRANCHE_MANIFEST_DIR).resolve()
+    if not root.exists():
+        return []
+    results: list[dict[str, Any]] = []
+    for path in sorted(root.glob("*/run_state.yaml")):
+        try:
+            state = TrancheRunState.load(path)
+        except (OSError, ValueError):
+            continue
+        results.append(
+            {
+                "manifest_id": state.manifest_id,
+                "status": state.status,
+                "autonomy_mode": state.autonomy_mode,
+                "driver_session": state.driver_session,
+                "driver_heartbeat": (
+                    state.driver_heartbeat.isoformat() if state.driver_heartbeat else None
+                ),
+                "lane_states": {
+                    lane_id: lane.to_dict() for lane_id, lane in sorted(state.lane_states.items())
+                },
+                "path": str(path),
+                "updated_at": state.updated_at.isoformat(),
+            }
+        )
+    return results
 
 
 def _resolve_artifacts(

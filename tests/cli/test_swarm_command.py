@@ -65,6 +65,7 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "all_completed": False,
         "all_mergeable": False,
         "approve": False,
+        "driver": False,
         "tier": "auto",
         "from_prompts": None,
         "all_ready": False,
@@ -319,6 +320,40 @@ class TestSwarmParser:
         assert args.swarm_goal == "integrate"
         assert args.lane_id == "lane_a"
         assert args.approve is True
+        assert args.json is True
+
+    def test_swarm_tranche_watch_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "tranche",
+                "watch",
+                "--manifest",
+                "docs/examples/boss-lane-manifest-2026-03-19.yaml",
+                "--driver",
+                "--interval",
+                "3",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "tranche"
+        assert args.swarm_goal == "watch"
+        assert args.driver is True
+        assert args.interval_seconds == 3
+        assert args.json is True
+
+    def test_swarm_tranche_list_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["swarm", "tranche", "list", "--json"])
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "tranche"
+        assert args.swarm_goal == "list"
         assert args.json is True
 
     def test_swarm_parser_accepts_spec_dispatch_options(self):
@@ -604,6 +639,107 @@ class TestSwarmCommand:
         assert '"action": "integrate"' in out
         mock_register_pr.assert_called_once()
         mock_record.assert_not_called()
+
+    def test_cmd_swarm_tranche_watch_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="watch",
+            manifest="docs/examples/boss-lane-manifest-2026-03-19.yaml",
+            driver=True,
+            interval_seconds=3.0,
+            max_ticks=2,
+            json=True,
+        )
+        fake_manifest = SimpleNamespace(manifest_id="pmf-tranche")
+        fake_state = SimpleNamespace(
+            manifest_id="pmf-tranche",
+            status="running",
+            autonomy_mode="adaptive",
+            lane_states={},
+            to_dict=lambda: {
+                "manifest_id": "pmf-tranche",
+                "status": "running",
+                "autonomy_mode": "adaptive",
+                "lane_states": {},
+            },
+            save=lambda _path: None,
+        )
+        watched_state = SimpleNamespace(
+            manifest_id="pmf-tranche",
+            status="completed",
+            autonomy_mode="adaptive",
+            lane_states={},
+            to_dict=lambda: {
+                "manifest_id": "pmf-tranche",
+                "status": "completed",
+                "autonomy_mode": "adaptive",
+                "lane_states": {},
+            },
+        )
+        released_state = SimpleNamespace(
+            manifest_id="pmf-tranche",
+            status="completed",
+            autonomy_mode="adaptive",
+            lane_states={},
+            to_dict=lambda: {
+                "manifest_id": "pmf-tranche",
+                "status": "completed",
+                "autonomy_mode": "adaptive",
+                "lane_states": {},
+            },
+            save=lambda _path: None,
+        )
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch("aragora.swarm.tranche.load_tranche_manifest", return_value=fake_manifest),
+            patch("aragora.swarm.tranche_watch.load_tranche_run_state", return_value=fake_state),
+            patch(
+                "aragora.swarm.tranche_watch.claim_driver", return_value=fake_state
+            ) as mock_claim,
+            patch("aragora.swarm.tranche_watch.release_driver", return_value=released_state),
+            patch(
+                "aragora.swarm.tranche_watch.watch_loop", new_callable=AsyncMock
+            ) as mock_watch_loop,
+        ):
+            mock_watch_loop.return_value = watched_state
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"mode": "tranche-watch"' in out
+        assert '"status": "completed"' in out
+        assert '"action": "watch"' in out
+        mock_claim.assert_called_once()
+        mock_watch_loop.assert_awaited_once()
+
+    def test_cmd_swarm_tranche_list_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="list",
+            json=True,
+        )
+        with (
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch(
+                "aragora.swarm.tranche_watch.list_tranche_states",
+                return_value=[
+                    {
+                        "manifest_id": "pmf-tranche",
+                        "status": "running",
+                        "autonomy_mode": "adaptive",
+                        "path": "/tmp/repo/.aragora/tranches/pmf-tranche/run_state.yaml",
+                        "lane_states": {},
+                        "updated_at": "2026-03-19T00:00:00+00:00",
+                    }
+                ],
+            ),
+        ):
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"mode": "tranche-list"' in out
+        assert '"manifest_id": "pmf-tranche"' in out
+        assert '"action": "list"' in out
 
     def test_cmd_swarm_tranche_prepare_json(self, capsys):
         args = _swarm_args(
