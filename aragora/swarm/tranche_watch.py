@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -165,6 +166,89 @@ def refresh_tranche_state(
     )
     refreshed.updated_at = _utcnow()
     return refreshed
+
+
+async def watch_tick(
+    state: TrancheRunState,
+    *,
+    manifest: Any,
+    autonomy_mode: str | None = None,
+    artifact_store: TrancheArtifactStore | None = None,
+    artifacts: dict[str, TrancheLaneArtifact] | None = None,
+    store: DevCoordinationStore | Any | None = None,
+    repo_root: Path | None = None,
+    review_fn: Any | None = None,
+    integrate_fn: Any | None = None,
+) -> TrancheRunState:
+    mode = str(autonomy_mode or state.autonomy_mode or "adaptive").strip().lower() or "adaptive"
+    artifact_map = _resolve_artifacts(
+        state.manifest_id,
+        artifacts=artifacts,
+        artifact_store=artifact_store,
+        repo_root=repo_root,
+    )
+    refreshed = refresh_tranche_state(
+        state,
+        artifacts=artifact_map,
+        artifact_store=artifact_store,
+        store=store,
+        repo_root=repo_root,
+    )
+
+    if mode in {"adaptive", "fire_and_forget"}:
+        for lane_id, lane_state in refreshed.lane_states.items():
+            artifact = artifact_map.get(lane_id)
+            if lane_state.status == LANE_STATUS_COMPLETED and review_fn is not None:
+                lane_state.status = LANE_STATUS_REVIEWING
+                review_payload = await review_fn(
+                    manifest=manifest,
+                    lane_id=lane_id,
+                    artifact=artifact,
+                )
+                review_status = str(
+                    review_payload.get("status", "") if isinstance(review_payload, dict) else ""
+                ).strip()
+                lane_state.status = _watch_review_status(review_status)
+            if lane_state.status == LANE_STATUS_REVIEW_PASSED and integrate_fn is not None:
+                integrate_payload = await integrate_fn(
+                    manifest=manifest,
+                    lane_id=lane_id,
+                    artifact=artifact,
+                    approve=(mode == "fire_and_forget"),
+                )
+                lane_state.status = _watch_integrate_status(
+                    lane_state.status,
+                    integrate_payload if isinstance(integrate_payload, dict) else {},
+                )
+
+    refreshed.status = _aggregate_tranche_status(
+        refreshed.lane_states.values(), current=refreshed.status
+    )
+    refreshed.updated_at = _utcnow()
+    return refreshed
+
+
+async def watch_loop(
+    state: TrancheRunState,
+    *,
+    manifest: Any,
+    interval_seconds: float = 10.0,
+    max_ticks: int | None = None,
+    state_path: str | Path | None = None,
+    **kwargs: Any,
+) -> TrancheRunState:
+    current = TrancheRunState.from_dict(state.to_dict())
+    ticks = 0
+    while True:
+        current = await watch_tick(current, manifest=manifest, **kwargs)
+        if state_path is not None:
+            current.save(state_path)
+        if current.status in {TRANCHE_STATUS_COMPLETED, TRANCHE_STATUS_NEEDS_HUMAN}:
+            return current
+        ticks += 1
+        if max_ticks is not None and ticks >= max(1, int(max_ticks)):
+            return current
+        await asyncio.sleep(max(0.0, float(interval_seconds)))
 
 
 def _resolve_artifacts(
@@ -366,6 +450,27 @@ def _prefer_text(current: Any, candidate: Any) -> str | None:
 def _optional_text(value: Any) -> str | None:
     text = str(value or "").strip()
     return text or None
+
+
+def _watch_review_status(status: str) -> str:
+    lowered = str(status or "").strip().lower()
+    if lowered == "passed":
+        return LANE_STATUS_REVIEW_PASSED
+    if lowered == "changes_requested":
+        return LANE_STATUS_REVIEW_FAILED
+    return LANE_STATUS_NEEDS_HUMAN
+
+
+def _watch_integrate_status(current_status: str, payload: dict[str, Any]) -> str:
+    recommendation = str(payload.get("recommendation", "") or "").strip().lower()
+    executed = bool(payload.get("executed", False))
+    if recommendation == "merge" and executed:
+        return LANE_STATUS_COMPLETED
+    if recommendation == "merge":
+        return LANE_STATUS_WAITING_FOR_MERGE
+    if recommendation in {"request_changes", "blocked", "needs_human"}:
+        return LANE_STATUS_NEEDS_HUMAN
+    return current_status
 
 
 def _close_session_history(state: TrancheRunState, session_id: str, *, now: Any) -> None:

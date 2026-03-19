@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -52,6 +54,15 @@ def _make_artifact(
         timestamp=timestamp,
         metadata=metadata or {},
     )
+
+
+class _FakeArtifactStore:
+    def __init__(self, artifacts: dict[str, TrancheLaneArtifact]) -> None:
+        self._artifacts = dict(artifacts)
+
+    def list(self, manifest_id: str) -> list[TrancheLaneArtifact]:
+        assert manifest_id == "m1"
+        return list(self._artifacts.values())
 
 
 class _FakeCoordinationStore:
@@ -292,3 +303,65 @@ def test_heartbeat_driver_updates_timestamp():
     assert updated.driver_heartbeat is not None
     assert before is not None
     assert updated.driver_heartbeat >= before
+
+
+@pytest.mark.asyncio
+async def test_watch_tick_triggers_review_when_lane_completes():
+    from aragora.swarm.tranche_watch import watch_tick
+
+    state = _make_state(lane_statuses={"a": "completed"})
+    artifact_store = _FakeArtifactStore({"a": _make_artifact(lane_id="a", status="completed")})
+    mock_rev = AsyncMock(return_value={"status": "passed", "tier": 1})
+
+    new_state = await watch_tick(
+        state,
+        manifest=SimpleNamespace(manifest_id="m1"),
+        autonomy_mode="adaptive",
+        review_fn=mock_rev,
+        artifact_store=artifact_store,
+    )
+
+    assert new_state.lane_states["a"].status in ("reviewing", "review_passed")
+    mock_rev.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_watch_tick_marks_tranche_completed_when_all_lanes_done():
+    from aragora.swarm.tranche_watch import watch_tick
+
+    state = _make_state(lane_statuses={"a": "completed", "b": "completed"})
+    artifact_store = _FakeArtifactStore(
+        {
+            "a": _make_artifact(lane_id="a", status="completed", run_id="run-a"),
+            "b": _make_artifact(lane_id="b", status="completed", run_id="run-b"),
+        }
+    )
+
+    new_state = await watch_tick(
+        state,
+        manifest=SimpleNamespace(manifest_id="m1"),
+        autonomy_mode="adaptive",
+        artifact_store=artifact_store,
+    )
+
+    assert new_state.status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_watch_tick_fire_and_forget_auto_advances():
+    from aragora.swarm.tranche_watch import watch_tick
+
+    state = _make_state(lane_statuses={"a": "review_passed"})
+    artifact_store = _FakeArtifactStore({"a": _make_artifact(lane_id="a", status="review_passed")})
+    mock_integrate = AsyncMock(return_value={"recommendation": "merge", "executed": True})
+
+    new_state = await watch_tick(
+        state,
+        manifest=SimpleNamespace(manifest_id="m1"),
+        autonomy_mode="fire_and_forget",
+        integrate_fn=mock_integrate,
+        artifact_store=artifact_store,
+    )
+
+    mock_integrate.assert_awaited_once()
+    assert new_state.lane_states["a"].status == "completed"
