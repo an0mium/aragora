@@ -653,3 +653,75 @@ async def test_run_dispatches_prepared_lane_and_records_review(tmp_path: Path) -
     assert saved is not None
     assert saved.status == "review_passed"
     assert saved.worktree_path == "/tmp/worker-worktree"
+
+
+@pytest.mark.asyncio
+async def test_artifact_from_run_result_persists_receipt_and_lease_ids(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    manifest = TrancheManifest.from_dict(
+        {
+            "manifest_id": "pmf-tranche",
+            "repo": {"name": "synaptent/aragora", "root": str(repo), "base_ref": "origin/main"},
+            "references": {
+                "source_refs": {
+                    "issue_1046": {
+                        "kind": "issue",
+                        "url": "https://github.com/synaptent/aragora/issues/1046",
+                        "state": "open",
+                    }
+                }
+            },
+            "gates": {},
+            "lanes": [
+                {
+                    "lane_id": "pmf_impl",
+                    "owner_role": "critical_path_engineer",
+                    "title": "Implement PMF path",
+                    "prompt": "Make the end-to-end PMF flow work.",
+                    "target_agent": "codex",
+                    "source_refs": ["https://github.com/synaptent/aragora/issues/1046"],
+                    "allowed_write_scope": ["aragora/api/**"],
+                    "dependencies": ["issue_1046"],
+                    "verification_commands": ["pytest tests/api/test_pmf.py -q"],
+                    "stop_conditions": ["needs_human returned"],
+                    "expected_receipts_artifacts": ["PR URL"],
+                }
+            ],
+            "terminal_outcomes": {"success": {"definition": "done"}},
+        }
+    )
+    executor = TrancheExecutor(repo_root=repo, artifact_store=TrancheArtifactStore(repo))
+    prepared = TrancheLaneArtifact(
+        lane_id="pmf_impl",
+        source_ref="issue_1046",
+        status="prepared",
+        worktree_path="/tmp/controller-worktree",
+        metadata={"branch": "codex/pmf-impl", "target_agent": "codex"},
+    )
+
+    artifact = await executor._artifact_from_run_result(
+        manifest,
+        manifest.lane("pmf_impl"),
+        prepared=prepared,
+        result={
+            "status": "completed",
+            "outcome": "deliverable_created",
+            "run_id": "run-123",
+            "run": {
+                "run_id": "run-123",
+                "status": "completed",
+                "work_orders": [
+                    {
+                        "worktree_path": "/tmp/worker-worktree",
+                        "receipt_id": "receipt-xyz",
+                        "lease_id": "lease-abc",
+                    }
+                ],
+            },
+        },
+        review_model="claude",
+        skip_review=True,
+    )
+
+    assert artifact.metadata["receipt_id"] == "receipt-xyz"
+    assert artifact.metadata["lease_id"] == "lease-abc"

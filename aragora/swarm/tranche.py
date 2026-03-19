@@ -710,6 +710,10 @@ class TrancheExecutor:
         )
         if run_dict:
             metadata["run_status"] = str(run_dict.get("status", "")).strip()
+            for key in ("receipt_id", "lease_id"):
+                value = _first_work_order_text(run_dict, key)
+                if value:
+                    metadata[key] = value
         worker_worktree_path = _first_worker_worktree_path(run_dict) or prepared.worktree_path
         artifact = TrancheLaneArtifact(
             lane_id=lane.lane_id,
@@ -1637,12 +1641,16 @@ def _deliverable_urls(deliverable: dict[str, Any]) -> list[str]:
 
 
 def _first_worker_worktree_path(run_dict: dict[str, Any]) -> str | None:
+    return _first_work_order_text(run_dict, "worktree_path")
+
+
+def _first_work_order_text(run_dict: dict[str, Any], key: str) -> str | None:
     for item in run_dict.get("work_orders", []):
         if not isinstance(item, dict):
             continue
-        path = _optional_text(item.get("worktree_path"))
-        if path:
-            return path
+        value = _optional_text(item.get(key))
+        if value:
+            return value
     return None
 
 
