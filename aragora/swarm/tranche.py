@@ -1,9 +1,10 @@
-"""Manifest-driven tranche inspection and artifact persistence for swarm work."""
+"""Manifest-driven tranche inspection, planning, and bounded lane execution."""
 
 from __future__ import annotations
 
 import json
 import re
+import shlex
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -15,6 +16,7 @@ from aragora.swarm.campaign import locked_manifest_path
 
 UTC = timezone.utc
 DEFAULT_TRANCHE_ARTIFACT_ROOT = ".aragora/tranche_artifacts"
+DEFAULT_TRANCHE_MANIFEST_DIR = ".aragora/tranches"
 _GITHUB_REF_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/(pull|issues)/(\d+)$")
 
 
@@ -448,6 +450,338 @@ class TrancheArtifactStore:
         return sorted(artifacts, key=lambda item: item.timestamp, reverse=True)
 
 
+class TranchePlanner:
+    """Compile prompt bundles into tranche manifests."""
+
+    def __init__(self, *, repo_root: Path) -> None:
+        self.repo_root = repo_root.resolve()
+
+    def default_manifest_path(self, manifest_id: str) -> Path:
+        return (
+            self.repo_root / DEFAULT_TRANCHE_MANIFEST_DIR / manifest_id / "tranche.yaml"
+        ).resolve()
+
+    def plan_from_prompt_bundle(
+        self,
+        bundle_path: Path,
+        *,
+        output_path: Path | None = None,
+    ) -> tuple[TrancheManifest, Path]:
+        payload = _load_yaml_like(bundle_path)
+        manifest = TrancheManifest.from_dict(
+            _prompt_bundle_to_manifest_dict(payload, repo_root=self.repo_root)
+        )
+        destination = (output_path or self.default_manifest_path(manifest.manifest_id)).resolve()
+        save_tranche_manifest(destination, manifest)
+        return manifest, destination
+
+
+class TrancheExecutor:
+    """Prepare and run claimable tranche lanes through the bounded boss path."""
+
+    def __init__(
+        self,
+        *,
+        repo_root: Path,
+        artifact_store: TrancheArtifactStore | None = None,
+        reference_client: GhReferenceClient | None = None,
+        reviewer: Any | None = None,
+    ) -> None:
+        self.repo_root = repo_root.resolve()
+        self.artifact_store = artifact_store or TrancheArtifactStore(self.repo_root)
+        self.reference_client = reference_client or GhReferenceClient()
+        self.reviewer = reviewer
+
+    def prepare(
+        self,
+        manifest: TrancheManifest,
+        *,
+        lane_id: str = "",
+        all_ready: bool = False,
+        owner_agent: str | None = None,
+        owner_session_id: str | None = None,
+        base_branch: str | None = None,
+    ) -> dict[str, Any]:
+        inspector = TrancheInspector(
+            repo_root=self.repo_root,
+            reference_client=self.reference_client,
+            artifact_store=self.artifact_store,
+        )
+        inspection = inspector.inspect(manifest)
+        lanes = _select_claimable_lanes(
+            manifest,
+            inspection=inspection,
+            lane_id=lane_id,
+            all_ready=all_ready,
+        )
+        prepared: list[dict[str, Any]] = []
+        for lane_payload in lanes:
+            lane = manifest.lane(str(lane_payload["lane_id"]))
+            artifact = self._prepare_lane_workspace(
+                manifest,
+                lane,
+                owner_agent=owner_agent,
+                owner_session_id=owner_session_id,
+                base_branch=base_branch,
+            )
+            prepared.append(artifact.to_dict())
+        return {
+            "mode": "tranche-prepare",
+            "manifest_id": manifest.manifest_id,
+            "prepared_lanes": prepared,
+        }
+
+    async def run(
+        self,
+        manifest: TrancheManifest,
+        *,
+        lane_id: str = "",
+        all_ready: bool = False,
+        owner_agent: str | None = None,
+        owner_session_id: str | None = None,
+        target_branch: str = "main",
+        max_ticks: int = 360,
+        wait_for_completion: bool = True,
+        skip_review: bool = False,
+    ) -> dict[str, Any]:
+        from aragora.swarm.boss_loop import dispatch_bounded_spec
+
+        inspector = TrancheInspector(
+            repo_root=self.repo_root,
+            reference_client=self.reference_client,
+            artifact_store=self.artifact_store,
+        )
+        inspection = inspector.inspect(manifest)
+        lanes = _select_claimable_lanes(
+            manifest,
+            inspection=inspection,
+            lane_id=lane_id,
+            all_ready=all_ready,
+        )
+        results: list[dict[str, Any]] = []
+        for lane_payload in lanes:
+            lane = manifest.lane(str(lane_payload["lane_id"]))
+            prepared = self.artifact_store.load(manifest.manifest_id, lane.lane_id)
+            if prepared is None or not prepared.worktree_path:
+                prepared = self._prepare_lane_workspace(
+                    manifest,
+                    lane,
+                    owner_agent=owner_agent,
+                    owner_session_id=owner_session_id,
+                    base_branch=target_branch,
+                )
+            spec = _lane_spec_from_manifest(manifest, lane)
+            target_agent = _lane_target_agent(lane, fallback=owner_agent or "codex")
+            review_model = _lane_review_model(lane, target_agent=target_agent)
+            result = await dispatch_bounded_spec(
+                spec,
+                target_branch=target_branch,
+                budget_limit_usd=_lane_budget_limit_usd(lane),
+                max_ticks=max(1, int(max_ticks)),
+                wait_for_completion=wait_for_completion,
+                repo_path=self.repo_root,
+                default_target_agent=target_agent,
+                default_reviewer_agent=review_model,
+                use_managed_session_script=bool(
+                    lane.metadata.get("use_managed_session_script", True)
+                ),
+            )
+            artifact = await self._artifact_from_run_result(
+                manifest,
+                lane,
+                prepared=prepared,
+                result=result,
+                review_model=review_model,
+                skip_review=skip_review,
+            )
+            self.artifact_store.save(manifest.manifest_id, artifact)
+            results.append(
+                {
+                    "lane_id": lane.lane_id,
+                    "status": artifact.status,
+                    "run_id": artifact.run_id,
+                    "worktree_path": artifact.worktree_path,
+                    "urls": list(artifact.urls),
+                    "next_actions": list(artifact.next_actions),
+                    "metadata": dict(artifact.metadata),
+                }
+            )
+        return {
+            "mode": "tranche-run",
+            "manifest_id": manifest.manifest_id,
+            "wait_for_completion": wait_for_completion,
+            "results": results,
+        }
+
+    def _prepare_lane_workspace(
+        self,
+        manifest: TrancheManifest,
+        lane: TrancheLane,
+        *,
+        owner_agent: str | None,
+        owner_session_id: str | None,
+        base_branch: str | None,
+    ) -> TrancheLaneArtifact:
+        base = _manifest_base_branch(manifest, fallback=base_branch or "main")
+        target_agent = _lane_target_agent(lane, fallback=owner_agent or "codex")
+        ensure_cmd = [
+            "python3",
+            str(self.repo_root / "scripts" / "codex_worktree_autopilot.py"),
+            "ensure",
+            "--agent",
+            target_agent,
+            "--base",
+            base,
+            "--force-new",
+            "--reconcile",
+            "--print-path",
+        ]
+        ensure_proc = subprocess.run(
+            ensure_cmd,
+            cwd=self.repo_root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if ensure_proc.returncode != 0:
+            raise RuntimeError(
+                ensure_proc.stderr.strip()
+                or ensure_proc.stdout.strip()
+                or f"Failed to prepare worktree for lane {lane.lane_id}"
+            )
+        worktree_path = str(ensure_proc.stdout.strip())
+        if not worktree_path:
+            raise RuntimeError(f"Worktree autopilot returned no path for lane {lane.lane_id}")
+        branch = _lane_branch_name(manifest, lane, target_agent=target_agent)
+        branch_cmd = ["git", "switch", "-C", branch, f"origin/{base}"]
+        branch_proc = subprocess.run(
+            branch_cmd,
+            cwd=worktree_path,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if branch_proc.returncode != 0:
+            raise RuntimeError(
+                branch_proc.stderr.strip()
+                or branch_proc.stdout.strip()
+                or f"Failed to switch worktree branch for lane {lane.lane_id}"
+            )
+        return TrancheLaneArtifact(
+            lane_id=lane.lane_id,
+            source_ref=_lane_primary_source_ref(manifest, lane),
+            status="prepared",
+            commands=[shlex.join(ensure_cmd), shlex.join(branch_cmd)],
+            urls=_lane_source_urls(lane),
+            worktree_path=worktree_path,
+            residual_risk="Workspace prepared; execution and review are still pending.",
+            next_actions=[f"Run tranche lane {lane.lane_id} when ready."],
+            metadata={
+                "branch": branch,
+                "target_agent": target_agent,
+                "owner_agent": owner_agent or target_agent,
+                "owner_session_id": owner_session_id or Path(worktree_path).name,
+                "prepared_scope": list(lane.allowed_write_scope),
+                "controller_worktree_path": worktree_path,
+            },
+        )
+
+    async def _artifact_from_run_result(
+        self,
+        manifest: TrancheManifest,
+        lane: TrancheLane,
+        *,
+        prepared: TrancheLaneArtifact,
+        result: dict[str, Any],
+        review_model: str,
+        skip_review: bool,
+    ) -> TrancheLaneArtifact:
+        run_dict = result.get("run") if isinstance(result.get("run"), dict) else {}
+        deliverable = (
+            result.get("deliverable") if isinstance(result.get("deliverable"), dict) else {}
+        )
+        urls = list(dict.fromkeys(_lane_source_urls(lane) + _deliverable_urls(deliverable)))
+        metadata = dict(prepared.metadata)
+        metadata.update(
+            {
+                "result_status": str(result.get("status", "")).strip(),
+                "result_outcome": str(result.get("outcome", "")).strip(),
+            }
+        )
+        if run_dict:
+            metadata["run_status"] = str(run_dict.get("status", "")).strip()
+        worker_worktree_path = _first_worker_worktree_path(run_dict) or prepared.worktree_path
+        artifact = TrancheLaneArtifact(
+            lane_id=lane.lane_id,
+            source_ref=_lane_primary_source_ref(manifest, lane),
+            status=_artifact_status_from_dispatch_result(result),
+            commands=list(dict.fromkeys(prepared.commands + list(lane.verification_commands))),
+            urls=urls,
+            run_id=_optional_text(result.get("run_id")),
+            worktree_path=worker_worktree_path,
+            residual_risk=_residual_risk_from_dispatch_result(result),
+            next_actions=_next_actions_from_dispatch_result(result),
+            metadata=metadata,
+        )
+        if run_dict:
+            artifact.metadata["run"] = {
+                "run_id": run_dict.get("run_id"),
+                "status": run_dict.get("status"),
+            }
+        if deliverable:
+            artifact.metadata["deliverable"] = dict(deliverable)
+        if (
+            not skip_review
+            and artifact.status == "completed"
+            and run_dict
+            and isinstance(run_dict, dict)
+        ):
+            gate = await self._review_lane(
+                manifest,
+                lane,
+                run_dict=run_dict,
+                review_model=review_model,
+            )
+            artifact.metadata["review"] = gate.to_dict()
+            artifact.next_actions = _review_next_actions(gate)
+            artifact.residual_risk = _review_residual_risk(gate)
+            artifact.status = _artifact_status_from_review(gate.status)
+        return artifact
+
+    async def _review_lane(
+        self,
+        manifest: TrancheManifest,
+        lane: TrancheLane,
+        *,
+        run_dict: dict[str, Any],
+        review_model: str,
+    ) -> Any:
+        from aragora.swarm.campaign import CampaignProject, CampaignReviewer
+
+        reviewer = self.reviewer or CampaignReviewer()
+        spec = _lane_spec_from_manifest(manifest, lane)
+        project = CampaignProject(
+            project_id=lane.lane_id,
+            title=_lane_title(lane),
+            source_refs=list(_lane_source_urls(lane)),
+            spec=spec,
+            file_scope_hints=list(spec.file_scope_hints),
+            acceptance_criteria=list(spec.acceptance_criteria),
+            constraints=list(spec.constraints),
+        )
+        worker_model = _lane_target_agent(lane, fallback="codex")
+        return await reviewer.review(
+            project=project,
+            worker_model=worker_model,
+            review_model=review_model,
+            enforce_cross_model_review=bool(lane.metadata.get("enforce_cross_model_review", True)),
+            run_dict=dict(run_dict),
+            budget_context={"project_estimated_cost_usd": _lane_budget_limit_usd(lane)},
+            repo_root=self.repo_root,
+            target_branch=_manifest_base_branch(manifest, fallback="main"),
+        )
+
+
 @dataclass(slots=True)
 class GitHubReferenceTarget:
     owner: str
@@ -642,6 +976,12 @@ class TrancheInspector:
         observed = observed_state.lower()
         if group == "retired_targets":
             return "stale" if observed in {"closed", "merged"} else "unexpectedly_open"
+        if group == "source_refs":
+            if observed == "open":
+                return "actionable"
+            if observed in {"closed", "merged"}:
+                return "resolved"
+            return observed
         if group == "live_target":
             if kind == "issue":
                 return "actionable" if observed == "open" else "blocked"
@@ -930,3 +1270,418 @@ def _reference_reason(group: str, kind: str, observed_state: str, status: str) -
     if group == "live_target":
         return f"Live target is {observed_state}; dispatch should not proceed"
     return f"Reference is {observed_state}"
+
+
+def _prompt_bundle_to_manifest_dict(
+    payload: dict[str, Any],
+    *,
+    repo_root: Path,
+) -> dict[str, Any]:
+    manifest_id = _optional_text(payload.get("manifest_id")) or _optional_text(
+        payload.get("bundle_id")
+    )
+    if not manifest_id:
+        raise ValueError("Prompt bundle is missing manifest_id or bundle_id.")
+    lanes_raw = payload.get("lanes")
+    if not isinstance(lanes_raw, list) or not lanes_raw:
+        raise ValueError("Prompt bundle lanes must be a non-empty list.")
+
+    repo = _dict_value(payload.get("repo"), field_name="repo")
+    base_ref = str(repo.get("base_ref") or payload.get("base_ref") or "origin/main").strip()
+    repo.setdefault("root", str(repo_root.resolve()))
+    repo.setdefault("base_ref", base_ref)
+    repo.setdefault(
+        "base_sha", _git_rev_parse(repo_root, base_ref) or _git_rev_parse(repo_root, "HEAD")
+    )
+    repo.setdefault("name", _repo_name_from_remote(repo_root) or repo_root.name)
+
+    references = {
+        str(group): {
+            str(ref_id): dict(ref_data)
+            for ref_id, ref_data in items.items()
+            if isinstance(ref_data, dict)
+        }
+        for group, items in _dict_value(payload.get("references"), field_name="references").items()
+        if isinstance(items, dict)
+    }
+    references.setdefault("source_refs", {})
+    known_ref_ids = {ref_id for refs in references.values() for ref_id in refs}
+
+    planned_lanes: list[dict[str, Any]] = []
+    for index, item in enumerate(lanes_raw, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"Prompt bundle lane #{index} must be an object.")
+        lane = dict(item)
+        lane_id = str(lane.get("lane_id", "")).strip() or f"lane-{index}"
+        prompt = _optional_text(lane.get("prompt"))
+        if not prompt:
+            raise ValueError(f"Prompt bundle lane {lane_id!r} is missing prompt.")
+        owner_role = str(lane.get("owner_role", "")).strip()
+        if not owner_role:
+            raise ValueError(f"Prompt bundle lane {lane_id!r} is missing owner_role.")
+        source_refs = _string_list(lane.get("source_refs"), field_name="source_refs")
+        derived_dependencies: list[str] = []
+        for source_url in source_refs:
+            try:
+                target = parse_github_reference_url(source_url)
+            except ValueError:
+                continue
+            ref_id = _reference_id_for_target(target)
+            if ref_id not in known_ref_ids:
+                references["source_refs"][ref_id] = {
+                    "kind": target.kind,
+                    "url": source_url,
+                    "state": "open",
+                    "meaning": f"Source ref for lane {lane_id}",
+                }
+                known_ref_ids.add(ref_id)
+            derived_dependencies.append(ref_id)
+        dependencies = _string_list(lane.get("dependencies"), field_name="dependencies")
+        if not dependencies and derived_dependencies:
+            lane["dependencies"] = derived_dependencies
+        target_agent = (
+            _optional_text(lane.get("target_agent"))
+            or _optional_text(lane.get("worker_model"))
+            or "codex"
+        )
+        lane.setdefault("branch", {"convention": f"{target_agent}/<{_slugify(lane_id)}>"})
+        lane.setdefault("worktree", {"convention": f".worktrees/{target_agent}-auto/<session-id>"})
+        lane["lane_id"] = lane_id
+        lane["prompt"] = prompt
+        planned_lanes.append(lane)
+
+    terminal_outcomes = _dict_value(
+        payload.get("terminal_outcomes"), field_name="terminal_outcomes"
+    ) or {
+        "success": {"definition": "All required tranche lanes completed and reviewed."},
+        "needs_human": {"definition": "A lane or gate blocked without a safe automated next step."},
+        "stop_and_replan": {
+            "definition": "Targets drifted or execution fell outside the bounded contract."
+        },
+    }
+    return {
+        "manifest_version": int(payload.get("manifest_version", 1) or 1),
+        "manifest_id": manifest_id,
+        "generated_on": _optional_text(payload.get("generated_on")) or _utcnow().date().isoformat(),
+        "repo": repo,
+        "objective": str(payload.get("objective", "")).strip(),
+        "shared_constraints": _dict_value(
+            payload.get("shared_constraints"), field_name="shared_constraints"
+        ),
+        "references": references,
+        "gates": _dict_value(payload.get("gates"), field_name="gates"),
+        "lanes": planned_lanes,
+        "terminal_outcomes": terminal_outcomes,
+    }
+
+
+def _select_claimable_lanes(
+    manifest: TrancheManifest,
+    *,
+    inspection: dict[str, Any],
+    lane_id: str,
+    all_ready: bool,
+) -> list[dict[str, Any]]:
+    lanes = [item for item in inspection.get("lanes", []) if isinstance(item, dict)]
+    lane_map = {str(item.get("lane_id", "")): item for item in lanes}
+    selected_id = str(lane_id or "").strip()
+    if selected_id:
+        lane = lane_map.get(selected_id)
+        if lane is None:
+            raise KeyError(f"Unknown tranche lane: {selected_id}")
+        if not bool(lane.get("claimable")):
+            raise ValueError(f"Lane {selected_id} is read-only and cannot be prepared or run.")
+        if str(lane.get("readiness", "")).strip() != "ready":
+            blockers = [str(item) for item in lane.get("blockers", []) if str(item).strip()]
+            raise ValueError(blockers[0] if blockers else f"Lane {selected_id} is not ready.")
+        return [lane]
+    if all_ready:
+        ready = [
+            lane
+            for lane in lanes
+            if bool(lane.get("claimable")) and str(lane.get("readiness", "")).strip() == "ready"
+        ]
+        if ready:
+            return ready
+        raise ValueError("No ready claimable lanes found in tranche manifest.")
+
+    recommended = inspection.get("recommended_action")
+    if not isinstance(recommended, dict):
+        raise ValueError("Tranche inspection did not return a recommended action.")
+    if recommended.get("kind") != "run_lane":
+        raise ValueError(str(recommended.get("reason", "Tranche is not ready to run.")))
+    recommended_lane_id = str(recommended.get("lane_id", "")).strip()
+    lane = lane_map.get(recommended_lane_id)
+    if lane is None:
+        raise KeyError(f"Recommended tranche lane {recommended_lane_id!r} was not found.")
+    if not bool(lane.get("claimable")):
+        raise ValueError(f"Recommended lane {recommended_lane_id} is read-only.")
+    return [lane]
+
+
+def _lane_spec_from_manifest(manifest: TrancheManifest, lane: TrancheLane) -> Any:
+    from aragora.swarm.spec import SwarmSpec
+
+    prompt = _optional_text(lane.metadata.get("prompt"))
+    if not prompt:
+        raise ValueError(f"Lane {lane.lane_id} is missing prompt metadata.")
+    acceptance = _metadata_string_list(lane, "acceptance_criteria") or [
+        f"Run and satisfy: {item}" for item in lane.verification_commands
+    ]
+    constraints = _metadata_string_list(lane, "constraints")
+    constraints.extend(_shared_constraints_as_list(manifest.shared_constraints))
+    file_scope_hints = _metadata_string_list(lane, "file_scope_hints") or list(
+        lane.allowed_write_scope
+    )
+    return SwarmSpec(
+        raw_goal=_lane_execution_prompt(manifest, lane, prompt=prompt),
+        refined_goal=_lane_execution_prompt(manifest, lane, prompt=prompt),
+        acceptance_criteria=list(dict.fromkeys(acceptance)),
+        constraints=list(dict.fromkeys(constraints)),
+        budget_limit_usd=_lane_budget_limit_usd(lane),
+        file_scope_hints=list(dict.fromkeys(file_scope_hints)),
+        requires_approval=bool(lane.metadata.get("requires_approval", True)),
+        user_expertise="developer",
+        estimated_complexity=str(lane.metadata.get("estimated_complexity", "medium")).strip()
+        or "medium",
+        track_hints=[lane.owner_role] if lane.owner_role else [],
+    )
+
+
+def _lane_execution_prompt(manifest: TrancheManifest, lane: TrancheLane, *, prompt: str) -> str:
+    parts = [prompt.strip()]
+    if manifest.objective:
+        parts.append(f"Tranche objective: {manifest.objective}")
+    source_urls = _lane_source_urls(lane)
+    if source_urls:
+        parts.append("Source refs:\n- " + "\n- ".join(source_urls))
+    if lane.allowed_write_scope:
+        parts.append("Allowed write scope:\n- " + "\n- ".join(lane.allowed_write_scope))
+    if lane.verification_commands:
+        parts.append("Verification commands:\n- " + "\n- ".join(lane.verification_commands))
+    if lane.stop_conditions:
+        parts.append("Stop and escalate when:\n- " + "\n- ".join(lane.stop_conditions))
+    if lane.expected_receipts_artifacts:
+        parts.append(
+            "Expected receipts/artifacts:\n- " + "\n- ".join(lane.expected_receipts_artifacts)
+        )
+    return "\n\n".join(part for part in parts if part.strip())
+
+
+def _shared_constraints_as_list(shared_constraints: dict[str, Any]) -> list[str]:
+    result: list[str] = []
+    for key, value in sorted(shared_constraints.items()):
+        if isinstance(value, list):
+            for item in value:
+                text = str(item).strip()
+                if text:
+                    result.append(f"{key}: {text}")
+            continue
+        text = str(value).strip()
+        if text:
+            result.append(f"{key}: {text}")
+    return result
+
+
+def _metadata_string_list(lane: TrancheLane, key: str) -> list[str]:
+    value = lane.metadata.get(key)
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def _manifest_base_branch(manifest: TrancheManifest, *, fallback: str) -> str:
+    base_ref = str(manifest.repo.get("base_ref") or fallback).strip() or fallback
+    if "/" in base_ref:
+        return base_ref.rsplit("/", 1)[-1] or fallback
+    return base_ref
+
+
+def _lane_target_agent(lane: TrancheLane, *, fallback: str) -> str:
+    return (
+        _optional_text(lane.metadata.get("target_agent"))
+        or _optional_text(lane.metadata.get("worker_model"))
+        or fallback
+    )
+
+
+def _lane_review_model(lane: TrancheLane, *, target_agent: str) -> str:
+    requested = _optional_text(lane.metadata.get("review_model"))
+    if requested:
+        if (
+            bool(lane.metadata.get("enforce_cross_model_review", True))
+            and requested == target_agent
+        ):
+            return "claude" if target_agent == "codex" else "codex"
+        return requested
+    return "claude" if target_agent == "codex" else "codex"
+
+
+def _lane_budget_limit_usd(lane: TrancheLane) -> float:
+    value = lane.metadata.get("budget_limit_usd", 5.0)
+    try:
+        return float(value or 5.0)
+    except (TypeError, ValueError):
+        return 5.0
+
+
+def _lane_title(lane: TrancheLane) -> str:
+    return _optional_text(lane.metadata.get("title")) or lane.lane_id
+
+
+def _lane_source_urls(lane: TrancheLane) -> list[str]:
+    value = lane.metadata.get("source_refs")
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value or "").strip()
+    return [text] if text else []
+
+
+def _lane_primary_source_ref(manifest: TrancheManifest, lane: TrancheLane) -> str:
+    source_urls = _lane_source_urls(lane)
+    if source_urls:
+        return source_urls[0]
+    for dependency in lane.dependencies:
+        if manifest.reference(dependency) is not None:
+            return dependency
+    return lane.lane_id
+
+
+def _lane_branch_name(manifest: TrancheManifest, lane: TrancheLane, *, target_agent: str) -> str:
+    current = _optional_text(lane.branch.get("current")) if isinstance(lane.branch, dict) else None
+    if current:
+        return current
+    convention = (
+        _optional_text(lane.branch.get("convention")) if isinstance(lane.branch, dict) else None
+    )
+    slug = _slugify(f"{manifest.manifest_id}-{lane.lane_id}")
+    if convention:
+        if "<" in convention and ">" in convention:
+            return re.sub(r"<[^>]+>", slug, convention)
+        return convention
+    return f"{target_agent}/{slug}"
+
+
+def _artifact_status_from_dispatch_result(result: dict[str, Any]) -> str:
+    status = str(result.get("status", "")).strip().lower()
+    return {
+        "running": "running",
+        "completed": "completed",
+        "needs_human": "needs_human",
+        "failed": "failed",
+    }.get(status, status or "unknown")
+
+
+def _artifact_status_from_review(status: str) -> str:
+    lowered = str(status).strip().lower()
+    if lowered == "passed":
+        return "review_passed"
+    if lowered == "changes_requested":
+        return "changes_requested"
+    return "review_blocked"
+
+
+def _residual_risk_from_dispatch_result(result: dict[str, Any]) -> str:
+    status = str(result.get("status", "")).strip().lower()
+    if status == "running":
+        return "Lane dispatched and is still executing."
+    if status == "needs_human":
+        reasons = [str(item).strip() for item in result.get("reasons", []) if str(item).strip()]
+        return reasons[0] if reasons else "Lane requires human follow-up."
+    if status == "failed":
+        return str(result.get("error", "")).strip() or "Lane execution failed."
+    return ""
+
+
+def _next_actions_from_dispatch_result(result: dict[str, Any]) -> list[str]:
+    status = str(result.get("status", "")).strip().lower()
+    run_id = _optional_text(result.get("run_id"))
+    if status == "running":
+        if run_id:
+            return [f"Inspect active supervisor run {run_id} before starting another tranche tick."]
+        return ["Inspect the active supervisor run before starting another tranche tick."]
+    if status == "needs_human":
+        reasons = [str(item).strip() for item in result.get("reasons", []) if str(item).strip()]
+        return reasons or ["Review the reported blockers and decide whether to replan."]
+    if status == "completed":
+        return ["Run cross-model review and integrate the resulting deliverable."]
+    if status == "failed":
+        error = str(result.get("error", "")).strip()
+        return [error] if error else ["Inspect the failed lane result and replan."]
+    return []
+
+
+def _review_next_actions(gate: Any) -> list[str]:
+    findings = [str(item).strip() for item in getattr(gate, "findings", []) if str(item).strip()]
+    status = str(getattr(gate, "status", "")).strip().lower()
+    if status == "passed":
+        return ["Review passed; proceed with PR validation and merge gating."]
+    return findings or ["Review returned a blocking decision."]
+
+
+def _review_residual_risk(gate: Any) -> str:
+    findings = [str(item).strip() for item in getattr(gate, "findings", []) if str(item).strip()]
+    return findings[0] if findings else ""
+
+
+def _deliverable_urls(deliverable: dict[str, Any]) -> list[str]:
+    urls: list[str] = []
+    for key in ("pr_url", "adopted_pr"):
+        value = str(deliverable.get(key, "")).strip()
+        if value:
+            urls.append(value)
+    return list(dict.fromkeys(urls))
+
+
+def _first_worker_worktree_path(run_dict: dict[str, Any]) -> str | None:
+    for item in run_dict.get("work_orders", []):
+        if not isinstance(item, dict):
+            continue
+        path = _optional_text(item.get("worktree_path"))
+        if path:
+            return path
+    return None
+
+
+def _reference_id_for_target(target: GitHubReferenceTarget) -> str:
+    prefix = "pr" if target.kind == "pull_request" else "issue"
+    return f"{prefix}_{target.number}"
+
+
+def _git_rev_parse(repo_root: Path, ref: str) -> str | None:
+    proc = subprocess.run(
+        ["git", "rev-parse", ref],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    value = proc.stdout.strip()
+    return value or None
+
+
+def _repo_name_from_remote(repo_root: Path) -> str | None:
+    proc = subprocess.run(
+        ["git", "config", "--get", "remote.origin.url"],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    remote = proc.stdout.strip()
+    match = re.search(r"github\.com[:/]+([^/]+)/([^/.]+)(?:\.git)?$", remote)
+    if not match:
+        return None
+    return f"{match.group(1)}/{match.group(2)}"
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", str(value).strip().lower()).strip("-")
+    return slug or "lane"

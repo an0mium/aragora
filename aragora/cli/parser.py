@@ -2419,6 +2419,31 @@ def _add_swarm_parser(subparsers) -> None:
         help="Output path for campaign planning (defaults to --manifest)",
     )
     swarm_parser.add_argument(
+        "--from-prompts",
+        default=None,
+        help="Prompt-pack YAML/JSON input for 'swarm tranche plan'",
+    )
+    swarm_parser.add_argument(
+        "--all-ready",
+        action="store_true",
+        help="Operate on all ready, claimable tranche lanes instead of one lane",
+    )
+    swarm_parser.add_argument(
+        "--owner-agent",
+        default=None,
+        help="Owner agent recorded for tranche prepare/run (defaults to lane target agent)",
+    )
+    swarm_parser.add_argument(
+        "--owner-session-id",
+        default=None,
+        help="Owner session id recorded for tranche prepare/run artifacts",
+    )
+    swarm_parser.add_argument(
+        "--skip-review",
+        action="store_true",
+        help="Skip cross-model tranche review after a completed lane run",
+    )
+    swarm_parser.add_argument(
         "--max-parallel-ready-projects",
         type=int,
         default=1,

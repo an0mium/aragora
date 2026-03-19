@@ -37,11 +37,13 @@ from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.supervisor import SupervisorRun, SwarmApprovalPolicy, SwarmSupervisor
 from aragora.swarm.tranche import (
     TrancheArtifactStore,
+    TrancheExecutor,
     TrancheGate,
     TrancheInspector,
     TrancheLane,
     TrancheLaneArtifact,
     TrancheManifest,
+    TranchePlanner,
     load_tranche_manifest,
     save_tranche_manifest,
 )
@@ -59,11 +61,13 @@ __all__ = [
     "SwarmCommander",
     "SwarmCommanderConfig",
     "TrancheArtifactStore",
+    "TrancheExecutor",
     "TrancheGate",
     "TrancheInspector",
     "TrancheLane",
     "TrancheLaneArtifact",
     "TrancheManifest",
+    "TranchePlanner",
     "SwarmReconciler",
     "SwarmReconcilerConfig",
     "SupervisorRun",

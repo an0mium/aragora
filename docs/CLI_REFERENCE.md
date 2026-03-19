@@ -559,19 +559,45 @@ See `docs/guides/CAMPAIGN_OPERATOR.md` for the full operator guide including Ral
 
 #### `aragora swarm tranche`
 
-**Purpose:** Inspect a manifest-captured boss tranche against live GitHub and local repo state without mutating worktrees or dispatching agents.
+**Purpose:** Plan, inspect, prepare, and run bounded tranche lanes from a manifest or prompt pack.
 
 **Subcommands:**
+- `plan` — compile a prompt-pack YAML/JSON file into a tracked tranche manifest
 - `inspect` — resolve reference freshness, gate satisfaction, lane readiness, scope overlap, and the recommended next action
+- `prepare` — create managed worktrees for ready, claimable tranche lanes and record tranche artifacts
+- `run` — dispatch ready, claimable tranche lanes through the bounded supervisor path with optional cross-model review
 
 **Key options:**
-- `--manifest <path>` — tranche manifest path
-- `--json` — emit machine-readable inspection payload
+- `--from-prompts <path>` — prompt-pack input for `tranche plan`
+- `--manifest <path>` — tranche manifest path (input for inspect/prepare/run, output override for plan)
+- `--output <path>` — explicit output path for `tranche plan`
+- `--lane-id <id>` — operate on one tranche lane
+- `--all-ready` — operate on every ready, claimable lane
+- `--skip-review` — skip post-run cross-model review
+- `--json` — emit machine-readable payloads
 
-**Example:**
+**Examples:**
 ```bash
+# Compile a prompt bundle into a tranche manifest
+aragora swarm tranche plan \
+  --from-prompts docs/examples/pmf-tranche-prompt-pack.yaml \
+  --output .aragora/tranches/pmf-tranche-example/tranche.yaml \
+  --json
+
+# Inspect the resulting tranche against live repo / GitHub state
 aragora swarm tranche inspect \
-  --manifest docs/examples/boss-lane-manifest-2026-03-19.yaml \
+  --manifest .aragora/tranches/pmf-tranche-example/tranche.yaml \
+  --json
+
+# Prepare one ready writable lane
+aragora swarm tranche prepare \
+  --manifest .aragora/tranches/pmf-tranche-example/tranche.yaml \
+  --lane-id pmf_impl \
+  --json
+
+# Run the recommended ready lane and wait for completion + review
+aragora swarm tranche run \
+  --manifest .aragora/tranches/pmf-tranche-example/tranche.yaml \
   --json
 ```
 

@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from aragora.nomic.dev_coordination import LeaseConflictError
 from aragora.swarm.tranche import (
     TrancheArtifactStore,
+    TrancheExecutor,
     TrancheInspector,
     TrancheLaneArtifact,
     TrancheManifest,
+    TranchePlanner,
     load_tranche_manifest,
     parse_github_reference_url,
 )
@@ -431,3 +435,221 @@ def test_lane_artifact_round_trip_preserves_receipt_fields(tmp_path: Path) -> No
     assert loaded.run_id == artifact.run_id
     assert loaded.worktree_path == artifact.worktree_path
     assert loaded.next_actions == artifact.next_actions
+
+
+def test_plan_from_prompt_bundle_compiles_manifest_and_derives_source_refs(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    bundle = tmp_path / "prompt-pack.yaml"
+    bundle.write_text(
+        """
+bundle_id: pmf-tranche
+objective: Ship the PMF tranche
+lanes:
+  - lane_id: pmf_impl
+    owner_role: critical_path_engineer
+    title: Implement PMF path
+    prompt: |
+      Make the end-to-end PMF flow work.
+    source_refs:
+      - https://github.com/synaptent/aragora/issues/1046
+    target_agent: codex
+    allowed_write_scope:
+      - aragora/api/**
+    verification_commands:
+      - pytest tests/api/test_pmf.py -q
+    stop_conditions:
+      - needs_human returned
+    expected_receipts_artifacts:
+      - PR URL
+""".strip(),
+        encoding="utf-8",
+    )
+    planner = TranchePlanner(repo_root=repo)
+
+    manifest, output_path = planner.plan_from_prompt_bundle(bundle)
+
+    assert manifest.manifest_id == "pmf-tranche"
+    assert output_path.exists()
+    lane = manifest.lane("pmf_impl")
+    assert lane.dependencies == ["issue_1046"]
+    assert lane.metadata["prompt"].startswith("Make the end-to-end PMF flow work.")
+    assert manifest.references["source_refs"]["issue_1046"].url.endswith("/issues/1046")
+
+
+def test_prepare_creates_workspace_artifact_for_ready_lane(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    manifest = TrancheManifest.from_dict(
+        {
+            "manifest_id": "pmf-tranche",
+            "repo": {"name": "synaptent/aragora", "root": str(repo), "base_ref": "origin/main"},
+            "references": {
+                "source_refs": {
+                    "issue_1046": {
+                        "kind": "issue",
+                        "url": "https://github.com/synaptent/aragora/issues/1046",
+                        "state": "open",
+                    }
+                }
+            },
+            "gates": {},
+            "lanes": [
+                {
+                    "lane_id": "pmf_impl",
+                    "owner_role": "critical_path_engineer",
+                    "prompt": "Make the end-to-end PMF flow work.",
+                    "target_agent": "codex",
+                    "source_refs": ["https://github.com/synaptent/aragora/issues/1046"],
+                    "allowed_write_scope": ["aragora/api/**"],
+                    "dependencies": ["issue_1046"],
+                    "verification_commands": ["pytest tests/api/test_pmf.py -q"],
+                    "stop_conditions": ["needs_human returned"],
+                    "expected_receipts_artifacts": ["PR URL"],
+                }
+            ],
+            "terminal_outcomes": {"success": {"definition": "done"}},
+        }
+    )
+    executor = TrancheExecutor(
+        repo_root=repo,
+        artifact_store=TrancheArtifactStore(repo),
+        reference_client=_FakeReferenceClient(
+            issues={
+                1046: {
+                    "number": 1046,
+                    "state": "OPEN",
+                    "closedAt": None,
+                    "title": "PMF issue",
+                    "labels": [],
+                }
+            }
+        ),
+    )
+
+    def _fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
+        if "codex_worktree_autopilot.py" in " ".join(cmd):
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout=f"{repo}/.worktrees/codex-auto/lane-1\n"
+            )
+        if cmd[:3] == ["git", "switch", "-C"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="")
+        raise AssertionError(f"Unexpected command: {cmd}")
+
+    with patch("aragora.swarm.tranche.subprocess.run", side_effect=_fake_run):
+        payload = executor.prepare(manifest, lane_id="pmf_impl")
+
+    prepared = payload["prepared_lanes"][0]
+    assert prepared["status"] == "prepared"
+    assert prepared["metadata"]["branch"].startswith("codex/")
+    assert prepared["worktree_path"].endswith("/lane-1")
+
+
+@pytest.mark.asyncio
+async def test_run_dispatches_prepared_lane_and_records_review(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    manifest = TrancheManifest.from_dict(
+        {
+            "manifest_id": "pmf-tranche",
+            "repo": {"name": "synaptent/aragora", "root": str(repo), "base_ref": "origin/main"},
+            "references": {
+                "source_refs": {
+                    "issue_1046": {
+                        "kind": "issue",
+                        "url": "https://github.com/synaptent/aragora/issues/1046",
+                        "state": "open",
+                    }
+                }
+            },
+            "gates": {},
+            "lanes": [
+                {
+                    "lane_id": "pmf_impl",
+                    "owner_role": "critical_path_engineer",
+                    "title": "Implement PMF path",
+                    "prompt": "Make the end-to-end PMF flow work.",
+                    "target_agent": "codex",
+                    "review_model": "claude",
+                    "source_refs": ["https://github.com/synaptent/aragora/issues/1046"],
+                    "allowed_write_scope": ["aragora/api/**"],
+                    "dependencies": ["issue_1046"],
+                    "verification_commands": ["pytest tests/api/test_pmf.py -q"],
+                    "stop_conditions": ["needs_human returned"],
+                    "expected_receipts_artifacts": ["PR URL"],
+                    "acceptance_criteria": ["pytest tests/api/test_pmf.py -q passes"],
+                }
+            ],
+            "terminal_outcomes": {"success": {"definition": "done"}},
+        }
+    )
+    store = TrancheArtifactStore(repo)
+    store.save(
+        manifest.manifest_id,
+        TrancheLaneArtifact(
+            lane_id="pmf_impl",
+            source_ref="issue_1046",
+            status="prepared",
+            commands=["prepare"],
+            urls=["https://github.com/synaptent/aragora/issues/1046"],
+            worktree_path="/tmp/controller-worktree",
+            metadata={"branch": "codex/pmf-impl", "target_agent": "codex"},
+        ),
+    )
+    fake_reviewer = AsyncMock(
+        return_value=SimpleNamespace(
+            status="passed",
+            findings=[],
+            to_dict=lambda: {
+                "required": True,
+                "review_model": "claude",
+                "status": "passed",
+                "findings": [],
+                "reviewed_at": "2026-03-19T00:00:00+00:00",
+                "raw_review": {},
+            },
+        )
+    )
+    executor = TrancheExecutor(
+        repo_root=repo,
+        artifact_store=store,
+        reference_client=_FakeReferenceClient(
+            issues={
+                1046: {
+                    "number": 1046,
+                    "state": "OPEN",
+                    "closedAt": None,
+                    "title": "PMF issue",
+                    "labels": [],
+                }
+            }
+        ),
+        reviewer=SimpleNamespace(review=fake_reviewer),
+    )
+
+    with patch(
+        "aragora.swarm.boss_loop.dispatch_bounded_spec",
+        new=AsyncMock(
+            return_value={
+                "status": "completed",
+                "outcome": "deliverable_created",
+                "run_id": "run-123",
+                "deliverable": {
+                    "type": "pr",
+                    "pr_url": "https://github.com/synaptent/aragora/pull/2000",
+                },
+                "run": {
+                    "run_id": "run-123",
+                    "status": "completed",
+                    "work_orders": [{"worktree_path": "/tmp/worker-worktree"}],
+                },
+            }
+        ),
+    ):
+        payload = await executor.run(manifest, lane_id="pmf_impl")
+
+    result = payload["results"][0]
+    assert result["status"] == "review_passed"
+    assert result["run_id"] == "run-123"
+    assert "https://github.com/synaptent/aragora/pull/2000" in result["urls"]
+    saved = store.load(manifest.manifest_id, "pmf_impl")
+    assert saved is not None
+    assert saved.status == "review_passed"
+    assert saved.worktree_path == "/tmp/worker-worktree"

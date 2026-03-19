@@ -1,0 +1,126 @@
+bundle_id: pmf-tranche-example
+objective: Ship the next PMF tranche through bounded multi-lane execution.
+repo:
+  name: synaptent/aragora
+  root: /Users/armand/Development/aragora
+  base_ref: origin/main
+shared_constraints:
+  report_requirements:
+    - exact commands run
+    - URLs for PRs, issues, or docs touched
+    - residual risk
+references:
+  source_refs:
+    issue_1046:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/1046
+      state: open
+      meaning: End-to-end user path tranche
+    issue_1049:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/1049
+      state: open
+      meaning: Knowledge retrieval wiring tranche
+    issue_1047:
+      kind: issue
+      url: https://github.com/synaptent/aragora/issues/1047
+      state: open
+      meaning: Results/UI tranche
+lanes:
+  - lane_id: pmf_impl
+    owner_role: critical_path_engineer
+    title: Make the end-to-end PMF flow real
+    prompt: >-
+      Implement the next PMF-critical backend and orchestration path so a user can
+      connect the system, run a debate, and retrieve a truthful result without
+      manual repo spelunking.
+    source_refs:
+      - https://github.com/synaptent/aragora/issues/1046
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - aragora/api/**
+      - aragora/server/**
+      - tests/api/**
+    dependencies:
+      - issue_1046
+    acceptance_criteria:
+      - The end-to-end PMF path works without hidden manual steps.
+      - Focused validation commands are recorded in the final receipt.
+    constraints:
+      - Keep the tranche bounded and do not widen into broad repo cleanup.
+    verification_commands:
+      - python3 -m pytest tests/ -q
+    stop_conditions:
+      - needs_human is returned without a safe bounded next action
+    expected_receipts_artifacts:
+      - supervisor run id
+      - PR URL or adopted PR URL
+      - validation command transcript
+  - lane_id: results_ui
+    owner_role: ui_results_engineer
+    title: Expose results cleanly in the product
+    prompt: >-
+      Build or refine the PMF-facing results surfaces so the core outcome is visible
+      and understandable to a user without operator context.
+    source_refs:
+      - https://github.com/synaptent/aragora/issues/1047
+    target_agent: codex
+    review_model: claude
+    allowed_write_scope:
+      - aragora/live/**
+      - tests/live/**
+    dependencies:
+      - issue_1047
+    verification_commands:
+      - cd aragora/live && npm run lint
+      - cd aragora/live && npm run build:local
+    stop_conditions:
+      - The UI change requires a broader design-system rewrite
+    expected_receipts_artifacts:
+      - screenshots or a PR URL
+      - validation command transcript
+  - lane_id: repo_gap_scan
+    owner_role: read_only_gap_analyst
+    title: Identify repo-level blockers for PMF completion
+    prompt: >-
+      Review the PMF tranche and identify only the concrete repo gaps that would
+      block the implementation lanes from shipping truthfully.
+    source_refs:
+      - https://github.com/synaptent/aragora/issues/1049
+    target_agent: claude
+    review_model: codex
+    allowed_write_scope: []
+    dependencies:
+      - issue_1049
+    verification_commands:
+      - python3 -m aragora.cli.main swarm tranche inspect --manifest .aragora/tranches/pmf-tranche-example/tranche.yaml --json
+    stop_conditions:
+      - The gap scan starts proposing unrelated product work
+    expected_receipts_artifacts:
+      - blocker memo
+  - lane_id: acceptance_runbook
+    owner_role: acceptance_operator
+    title: Prepare PMF acceptance and evidence checklist
+    prompt: >-
+      Produce the operator-ready acceptance checklist, evidence bundle shape, and
+      stop conditions for the PMF tranche once the implementation lanes land.
+    target_agent: claude
+    review_model: codex
+    allowed_write_scope: []
+    dependencies:
+      - issue_1046
+      - issue_1047
+    verification_commands:
+      - python3 -m aragora.cli.main swarm tranche inspect --manifest .aragora/tranches/pmf-tranche-example/tranche.yaml --json
+    stop_conditions:
+      - Acceptance criteria drift from the implementation lanes
+    expected_receipts_artifacts:
+      - operator checklist
+terminal_outcomes:
+  success:
+    definition: The PMF tranche ships with implementation, review, and evidence recorded.
+  needs_human:
+    definition: A lane or gate blocks without a safe bounded automated next step.
+  stop_and_replan:
+    definition: Source issues drift or lane scope stops matching the tranche objective.

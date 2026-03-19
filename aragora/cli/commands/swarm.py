@@ -41,6 +41,13 @@ def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | Non
     return "run", first
 
 
+def _optional_text(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def _print_supervisor_run(run: dict[str, object]) -> None:
     work_orders = (
         list(run.get("work_orders", [])) if isinstance(run.get("work_orders"), list) else []
@@ -791,29 +798,104 @@ def cmd_swarm(args: argparse.Namespace) -> None:
 
     if action == "tranche":
         from aragora.swarm.tranche import (
+            TrancheExecutor,
             TrancheInspector,
+            TranchePlanner,
             load_tranche_manifest,
             render_tranche_inspection_text,
         )
 
         subaction = str(goal or "inspect").strip().lower() or "inspect"
-        if subaction != "inspect":
-            raise ValueError("tranche action must be 'inspect'")
+        repo_root = resolve_repo_root(Path.cwd())
+        if subaction == "plan":
+            prompt_arg = str(getattr(args, "from_prompts", "") or "").strip()
+            if not prompt_arg:
+                raise ValueError("tranche plan requires --from-prompts <path>")
+            prompt_path = Path(prompt_arg).resolve()
+            if not prompt_path.exists():
+                raise ValueError(f"prompt bundle not found: {prompt_path}")
+            manifest_arg = str(getattr(args, "manifest", "") or "").strip()
+            output_arg = str(getattr(args, "output", "") or "").strip()
+            output_path: Path | None = None
+            if output_arg:
+                output_path = Path(output_arg).resolve()
+            elif manifest_arg and manifest_arg != ".aragora/campaign_manifest.yaml":
+                output_path = Path(manifest_arg).resolve()
+            planner = TranchePlanner(repo_root=repo_root)
+            manifest, saved_path = planner.plan_from_prompt_bundle(
+                prompt_path,
+                output_path=output_path,
+            )
+            payload = {
+                "mode": "tranche-plan",
+                "action": subaction,
+                "manifest_id": manifest.manifest_id,
+                "manifest_path": str(saved_path),
+                "lane_count": len(manifest.lanes),
+                "reference_groups": sorted(manifest.references),
+            }
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(f"manifest_id={manifest.manifest_id}")
+                print(f"manifest_path={saved_path}")
+                print(f"lanes={len(manifest.lanes)}")
+            return
+
         manifest_arg = str(getattr(args, "manifest", "") or "").strip()
         if not manifest_arg:
-            raise ValueError("tranche inspect requires --manifest <path>")
+            raise ValueError(f"tranche {subaction} requires --manifest <path>")
         manifest_path = Path(manifest_arg).resolve()
         if not manifest_path.exists():
             raise ValueError(f"tranche manifest not found: {manifest_path}")
         manifest = load_tranche_manifest(manifest_path)
-        repo_root = resolve_repo_root(Path.cwd())
-        payload = TrancheInspector(repo_root=repo_root).inspect(manifest)
+
+        if subaction == "inspect":
+            payload = TrancheInspector(repo_root=repo_root).inspect(manifest)
+            payload["action"] = subaction
+            payload["manifest_path"] = str(manifest_path)
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(render_tranche_inspection_text(payload))
+            return
+
+        executor = TrancheExecutor(repo_root=repo_root)
+        lane_id = str(getattr(args, "lane_id", "") or "").strip()
+        all_ready = bool(getattr(args, "all_ready", False))
+        owner_agent = _optional_text(getattr(args, "owner_agent", None))
+        owner_session_id = _optional_text(getattr(args, "owner_session_id", None))
+        if subaction == "prepare":
+            payload = executor.prepare(
+                manifest,
+                lane_id=lane_id,
+                all_ready=all_ready,
+                owner_agent=owner_agent,
+                owner_session_id=owner_session_id,
+                base_branch=str(getattr(args, "target_branch", "main") or "main"),
+            )
+        elif subaction == "run":
+            payload = asyncio.run(
+                executor.run(
+                    manifest,
+                    lane_id=lane_id,
+                    all_ready=all_ready,
+                    owner_agent=owner_agent,
+                    owner_session_id=owner_session_id,
+                    target_branch=str(getattr(args, "target_branch", "main") or "main"),
+                    max_ticks=int(getattr(args, "max_ticks", 360) or 360),
+                    wait_for_completion=not bool(getattr(args, "no_wait", False)),
+                    skip_review=bool(getattr(args, "skip_review", False)),
+                )
+            )
+        else:
+            raise ValueError("tranche action must be one of: plan, inspect, prepare, run")
         payload["action"] = subaction
         payload["manifest_path"] = str(manifest_path)
         if as_json:
             print(json.dumps(payload, indent=2))
         else:
-            print(render_tranche_inspection_text(payload))
+            print(json.dumps(payload, indent=2))
         return
 
     if boss_mode:
