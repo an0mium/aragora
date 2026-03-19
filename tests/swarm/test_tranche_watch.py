@@ -1,0 +1,220 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime
+
+from aragora.nomic.dev_coordination import (
+    CompletionReceipt,
+    IntegrationDecision,
+    IntegrationDecisionType,
+    WorkLease,
+)
+from aragora.swarm.tranche import TrancheLaneArtifact
+from aragora.swarm.tranche_state import LaneRunState, TrancheRunState
+from aragora.swarm.tranche_watch import refresh_tranche_state
+
+
+def _utc(value: str) -> str:
+    return datetime.fromisoformat(value).astimezone(UTC).isoformat()
+
+
+def _make_state(*, lane_statuses: dict[str, str]) -> TrancheRunState:
+    state = TrancheRunState(
+        manifest_id="m1",
+        status="running",
+        autonomy_mode="adaptive",
+    )
+    for lane_id, status in lane_statuses.items():
+        state.lane_states[lane_id] = LaneRunState(lane_id=lane_id, status=status)
+    return state
+
+
+def _make_artifact(
+    *,
+    lane_id: str,
+    status: str,
+    run_id: str | None = None,
+    timestamp: str = "2026-03-19T12:00:00+00:00",
+    metadata: dict | None = None,
+) -> TrancheLaneArtifact:
+    return TrancheLaneArtifact(
+        lane_id=lane_id,
+        source_ref=f"lane:{lane_id}",
+        status=status,
+        run_id=run_id,
+        timestamp=timestamp,
+        metadata=metadata or {},
+    )
+
+
+class _FakeCoordinationStore:
+    def __init__(
+        self,
+        *,
+        runs: dict[str, dict] | None = None,
+        leases: list[WorkLease] | None = None,
+        receipts: dict[str, CompletionReceipt] | None = None,
+        decisions: dict[str, list[IntegrationDecision]] | None = None,
+    ) -> None:
+        self._runs = runs or {}
+        self._leases = leases or []
+        self._receipts = receipts or {}
+        self._decisions = decisions or {}
+
+    def get_supervisor_run(self, run_id: str) -> dict | None:
+        return self._runs.get(run_id)
+
+    def list_leases(
+        self, *, statuses: list[str] | None = None, limit: int | None = 500
+    ) -> list[WorkLease]:
+        items = list(self._leases)
+        if statuses is None:
+            return items
+        allowed = set(statuses)
+        return [item for item in items if item.status in allowed]
+
+    def get_completion_receipt(self, receipt_id: str) -> CompletionReceipt | None:
+        return self._receipts.get(receipt_id)
+
+    def list_integration_decisions(
+        self,
+        *,
+        only_pending: bool = False,
+        receipt_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[IntegrationDecision]:
+        items = list(self._decisions.get(receipt_id or "", []))
+        if only_pending:
+            items = [
+                item
+                for item in items
+                if item.decision == IntegrationDecisionType.PENDING_REVIEW.value
+            ]
+        if isinstance(limit, int) and limit > 0:
+            return items[:limit]
+        return items
+
+
+def test_refresh_updates_lane_status_from_artifact_store():
+    state = _make_state(lane_statuses={"a": "dispatched"})
+    artifact = _make_artifact(lane_id="a", status="completed", run_id="run-1")
+
+    refreshed = refresh_tranche_state(state, artifacts={"a": artifact})
+
+    assert refreshed.lane_states["a"].status == "completed"
+    assert refreshed.lane_states["a"].run_id == "run-1"
+
+
+def test_refresh_uses_receipt_and_integration_state_for_waiting_for_merge():
+    state = _make_state(lane_statuses={"a": "review_passed"})
+    artifact = _make_artifact(
+        lane_id="a",
+        status="review_passed",
+        run_id="run-1",
+        metadata={"receipt_id": "receipt-1", "lease_id": "lease-1"},
+    )
+    receipt = CompletionReceipt(
+        receipt_id="receipt-1",
+        lease_id="lease-1",
+        task_id="task-1",
+        owner_agent="codex",
+        owner_session_id="sess-1",
+        branch="feat-branch",
+        worktree_path="/tmp/worktree",
+        pr_url="https://github.com/org/repo/pull/42",
+    )
+    decision = IntegrationDecision(
+        decision_id="decision-1",
+        lease_id="lease-1",
+        receipt_id="receipt-1",
+        decision=IntegrationDecisionType.MERGE.value,
+        target_branch="main",
+        rationale="approved",
+    )
+    store = _FakeCoordinationStore(
+        receipts={"receipt-1": receipt},
+        decisions={"receipt-1": [decision]},
+    )
+
+    refreshed = refresh_tranche_state(state, artifacts={"a": artifact}, store=store)
+
+    lane = refreshed.lane_states["a"]
+    assert lane.receipt_id == "receipt-1"
+    assert lane.lease_id == "lease-1"
+    assert lane.pr_url == "https://github.com/org/repo/pull/42"
+    assert lane.status == "waiting_for_merge"
+
+
+def test_refresh_marks_tranche_completed_when_all_lanes_completed():
+    state = _make_state(lane_statuses={"a": "running", "b": "review_passed"})
+    artifacts = {
+        "a": _make_artifact(lane_id="a", status="completed", run_id="run-a"),
+        "b": _make_artifact(
+            lane_id="b",
+            status="review_passed",
+            run_id="run-b",
+            metadata={"receipt_id": "receipt-b", "lease_id": "lease-b"},
+        ),
+    }
+    receipt = CompletionReceipt(
+        receipt_id="receipt-b",
+        lease_id="lease-b",
+        task_id="task-b",
+        owner_agent="codex",
+        owner_session_id="sess-b",
+        branch="feat-b",
+        worktree_path="/tmp/worktree-b",
+        pr_url="https://github.com/org/repo/pull/99",
+    )
+    decision = IntegrationDecision(
+        decision_id="decision-b",
+        lease_id="lease-b",
+        receipt_id="receipt-b",
+        decision=IntegrationDecisionType.CHERRY_PICK.value,
+        target_branch="main",
+        rationale="approved",
+    )
+    store = _FakeCoordinationStore(
+        receipts={"receipt-b": receipt},
+        decisions={"receipt-b": [decision]},
+    )
+
+    refreshed = refresh_tranche_state(state, artifacts=artifacts, store=store)
+
+    assert refreshed.lane_states["a"].status == "completed"
+    assert refreshed.lane_states["b"].status == "waiting_for_merge"
+    assert refreshed.status == "integrating"
+
+
+def test_refresh_marks_needs_human_for_request_changes_decision():
+    state = _make_state(lane_statuses={"a": "review_passed"})
+    artifact = _make_artifact(
+        lane_id="a",
+        status="review_passed",
+        metadata={"receipt_id": "receipt-1", "lease_id": "lease-1"},
+    )
+    receipt = CompletionReceipt(
+        receipt_id="receipt-1",
+        lease_id="lease-1",
+        task_id="task-1",
+        owner_agent="codex",
+        owner_session_id="sess-1",
+        branch="feat-branch",
+        worktree_path="/tmp/worktree",
+    )
+    decision = IntegrationDecision(
+        decision_id="decision-1",
+        lease_id="lease-1",
+        receipt_id="receipt-1",
+        decision=IntegrationDecisionType.REQUEST_CHANGES.value,
+        target_branch="main",
+        rationale="follow-up required",
+    )
+    store = _FakeCoordinationStore(
+        receipts={"receipt-1": receipt},
+        decisions={"receipt-1": [decision]},
+    )
+
+    refreshed = refresh_tranche_state(state, artifacts={"a": artifact}, store=store)
+
+    assert refreshed.lane_states["a"].status == "needs_human"
+    assert refreshed.status == "needs_human"
