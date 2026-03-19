@@ -283,6 +283,33 @@ class RalphSupervisor:
             self._pr_registry = PullRequestRegistry(state_dir=state_dir)
         return self._pr_registry
 
+    def _emit_operational_receipt(
+        self,
+        *,
+        state: SupervisorState,
+        action: str,
+        verdict: str,
+        outputs: dict[str, Any],
+    ) -> None:
+        try:
+            from aragora.receipts.provenance import emit_operational_receipt
+
+            emit_operational_receipt(
+                source="ralph",
+                action=action,
+                actor=state.supervisor_id or "ralph-supervisor",
+                inputs={
+                    "campaign_id": state.campaign_id,
+                    "campaign_manifest_path": state.campaign_manifest_path,
+                    "supervisor_id": state.supervisor_id,
+                    "current_step": state.current_step,
+                },
+                outputs=outputs,
+                verdict=verdict,
+            )
+        except Exception as exc:
+            logger.debug("Ralph operational receipt skipped: %s", exc)
+
     # -- public API --
 
     @classmethod
@@ -576,6 +603,17 @@ class RalphSupervisor:
 
         if stop_reason == "campaign_complete":
             state.status = SupervisorStatus.COMPLETED.value
+            self._emit_operational_receipt(
+                state=state,
+                action=SupervisorAction.CAMPAIGN_COMPLETED.value,
+                verdict="pass",
+                outputs={
+                    "status": SupervisorStatus.COMPLETED.value,
+                    "stop_reason": stop_reason,
+                    "budget_spent_usd": state.budget_spent_usd,
+                    "merge_ready_projects": len(merge_ready_projects),
+                },
+            )
             return StepResult(
                 action=SupervisorAction.CAMPAIGN_COMPLETED.value,
                 status=SupervisorStatus.COMPLETED.value,
@@ -1293,6 +1331,17 @@ class RalphSupervisor:
         state.status = SupervisorStatus.ESCALATED.value
         state.escalation_reason = reason
         logger.warning("Ralph supervisor escalating: %s", reason)
+        self._emit_operational_receipt(
+            state=state,
+            action=SupervisorAction.ESCALATED.value,
+            verdict="escalated",
+            outputs={
+                "status": SupervisorStatus.ESCALATED.value,
+                "reason": reason,
+                "active_blocker": state.active_blocker,
+                "repair_attempts": state.repair_attempts,
+            },
+        )
         return StepResult(
             action=SupervisorAction.ESCALATED.value,
             status=SupervisorStatus.ESCALATED.value,

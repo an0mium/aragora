@@ -688,6 +688,53 @@ class BossLoop:
         self._issue_attempt_counts: dict[int, int] = {}
         self._stop_reason: str | None = None
 
+    def _emit_terminal_receipt(self, result: BossLoopResult) -> None:
+        try:
+            from aragora.receipts.provenance import emit_operational_receipt
+
+            attempted = len(result.issues_attempted)
+            completed = len(result.issues_completed)
+            failed = len(result.issues_failed)
+            if completed > 0:
+                verdict = "pass"
+            elif result.stop_reason in {
+                BossStopReason.NO_FRESH_RUNNER.value,
+                BossStopReason.NO_SUITABLE_ISSUE.value,
+                BossStopReason.NEEDS_HUMAN.value,
+            }:
+                verdict = "blocked"
+            else:
+                verdict = "fail"
+
+            emit_operational_receipt(
+                source="boss_loop",
+                action="run_completed",
+                actor="boss-loop",
+                inputs={
+                    "run_id": self.run_id,
+                    "repo": self.config.repo,
+                    "label_filter": self.config.label_filter,
+                    "max_iterations": self.config.max_iterations,
+                    "max_retries_per_issue": self.config.max_retries_per_issue,
+                    "max_consecutive_failures": self.config.max_consecutive_failures,
+                    "budget_limit_usd": self.config.budget_limit_usd,
+                },
+                outputs={
+                    "iterations_completed": result.iterations_completed,
+                    "stop_reason": result.stop_reason,
+                    "issues_attempted": attempted,
+                    "issues_completed": completed,
+                    "issues_failed": failed,
+                    "needs_human_reasons": list(result.needs_human_reasons),
+                    "next_actions": list(result.next_actions),
+                },
+                verdict=verdict,
+                confidence=(completed / attempted) if attempted else 0.0,
+                duration_seconds=result.total_elapsed_seconds,
+            )
+        except Exception as exc:
+            logger.debug("Boss loop operational receipt skipped: %s", exc)
+
     async def run(
         self,
         *,
@@ -742,7 +789,7 @@ class BossLoop:
             self._stop_reason = BossStopReason.MAX_ITERATIONS.value
 
         total_elapsed = time.monotonic() - start_time
-        return BossLoopResult(
+        result = BossLoopResult(
             run_id=self.run_id,
             iterations_completed=iteration,
             total_elapsed_seconds=total_elapsed,
@@ -754,6 +801,8 @@ class BossLoop:
             needs_human_reasons=self._collect_needs_human_reasons(),
             next_actions=self._derive_next_actions(),
         )
+        self._emit_terminal_receipt(result)
+        return result
 
     async def _run_iteration(self, iteration: int) -> BossIterationStatus:
         """Execute a single Boss loop iteration."""
