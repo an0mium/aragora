@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from aragora.ralph.github_control import GitHubCheck, GitHubControl
+from aragora.ralph.github_control import (
+    GitHubCheck,
+    GitHubControl,
+    _check_is_green,
+    _partition_checks,
+)
 from aragora.swarm.pr_registry import PullRequestRegistry
 
 
@@ -70,11 +75,16 @@ def register_pr(
 
 def classify_check_results(checks: list[GitHubCheck | dict[str, Any]]) -> str:
     normalized = [_normalize_check(item) for item in checks]
-    required = [item for item in normalized if item.required]
+    required_contexts = {item.name for item in normalized if item.required}
+    required, _, _required_green = _partition_checks(
+        normalized,
+        required_contexts=required_contexts,
+        required_known=bool(required_contexts),
+    )
 
     if any(_check_is_failed(item) for item in required):
         return "checks_failed"
-    if any(_check_is_pending(item) for item in required):
+    if any(not _check_is_green(item) for item in required):
         return "checks_pending"
     return "checks_passed"
 
@@ -110,16 +120,6 @@ def _check_is_failed(check: GitHubCheck) -> bool:
     if conclusion in {"FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED"}:
         return True
     return check.status in {"FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED"}
-
-
-def _check_is_pending(check: GitHubCheck) -> bool:
-    if _check_is_failed(check):
-        return False
-    status = str(check.status or "").strip().upper()
-    conclusion = str(check.conclusion or "").strip().upper()
-    return status in {"QUEUED", "IN_PROGRESS", "PENDING", "EXPECTED", "MISSING", "UNKNOWN"} or (
-        status == "COMPLETED" and not conclusion
-    )
 
 
 def _looks_like_pr_url(value: str) -> bool:

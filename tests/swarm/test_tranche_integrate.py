@@ -102,3 +102,14 @@ def test_classify_checks_advisory_noise():
     ]
     result = classify_check_results(checks)
     assert result == "checks_passed"
+
+
+def test_classify_checks_completed_without_conclusion_is_green() -> None:
+    checks = [
+        {"name": "lint", "status": "COMPLETED", "required": True},
+        {"name": "typecheck", "conclusion": "SUCCESS", "required": True},
+    ]
+
+    result = classify_check_results(checks)
+
+    assert result == "checks_passed"
