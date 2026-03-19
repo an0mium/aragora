@@ -47,7 +47,10 @@ from aragora.swarm.tranche import (
     load_tranche_manifest,
     save_tranche_manifest,
 )
+from aragora.swarm.tranche_integrate import assess_lane_integration
+from aragora.swarm.tranche_review import review_lane
 from aragora.swarm.tranche_state import LaneRunState, TrancheRunState
+from aragora.swarm.tranche_submit import submit_intake_bundle
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
 
 __all__ = [
@@ -82,5 +85,8 @@ __all__ = [
     "LaneRunState",
     "TrancheRunState",
     "load_tranche_manifest",
+    "review_lane",
     "save_tranche_manifest",
+    "submit_intake_bundle",
+    "assess_lane_integration",
 ]

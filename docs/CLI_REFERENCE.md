@@ -559,25 +559,45 @@ See `docs/guides/CAMPAIGN_OPERATOR.md` for the full operator guide including Ral
 
 #### `aragora swarm tranche`
 
-**Purpose:** Plan, inspect, prepare, and run bounded tranche lanes from a manifest or prompt pack.
+**Purpose:** Submit, validate, review, execute, integrate, and watch prompt-driven tranche workflows with durable state.
 
 **Subcommands:**
+- `submit` — intake bundle to normalized bundle, manifest, inspection result, and durable tranche state
 - `plan` — compile a prompt-pack YAML/JSON file into a tracked tranche manifest
 - `inspect` — resolve reference freshness, gate satisfaction, lane readiness, scope overlap, and the recommended next action
+- `design-review` — run the bounded proposer/critic/synthesizer loop before writable execution
 - `prepare` — create managed worktrees for ready, claimable tranche lanes and record tranche artifacts
 - `run` — dispatch ready, claimable tranche lanes through the bounded supervisor path with optional cross-model review
+- `review` — run first-class tranche review with tier selection
+- `integrate` — assess PR/check state and optionally record or execute merge decisions
+- `watch` — poll durable tranche state in observer or driver mode
+- `list` — list known tranche run states under `.aragora/tranches/`
 
 **Key options:**
+- `--intake <path|->` — intake bundle input for `tranche submit`
 - `--from-prompts <path>` — prompt-pack input for `tranche plan`
 - `--manifest <path>` — tranche manifest path (input for inspect/prepare/run, output override for plan)
 - `--output <path>` — explicit output path for `tranche plan`
 - `--lane-id <id>` — operate on one tranche lane
+- `--all-completed` — review every completed lane
 - `--all-ready` — operate on every ready, claimable lane
+- `--all-mergeable` — integrate every mergeable lane
+- `--approve` — permit integration execution when policy allows it
+- `--driver` — claim the tranche driver role for `watch`
+- `--interval <seconds>` — watch polling interval
+- `--autonomy <mode>` — tranche autonomy mode (`adaptive`, `fire_and_forget`, `checkpoint`, `spectator`)
+- `--tier <auto|1|2|3>` — explicit review tier selection
 - `--skip-review` — skip post-run cross-model review
 - `--json` — emit machine-readable payloads
 
 **Examples:**
 ```bash
+# Submit a loose intake bundle and persist tranche state
+aragora swarm tranche submit \
+  --intake docs/examples/pmf-tranche-prompt-pack.yaml \
+  --autonomy adaptive \
+  --json
+
 # Compile a prompt bundle into a tranche manifest
 aragora swarm tranche plan \
   --from-prompts docs/examples/pmf-tranche-prompt-pack.yaml \
@@ -586,6 +606,11 @@ aragora swarm tranche plan \
 
 # Inspect the resulting tranche against live repo / GitHub state
 aragora swarm tranche inspect \
+  --manifest .aragora/tranches/pmf-tranche-example/tranche.yaml \
+  --json
+
+# Run bounded design review before execution
+aragora swarm tranche design-review \
   --manifest .aragora/tranches/pmf-tranche-example/tranche.yaml \
   --json
 
@@ -599,6 +624,28 @@ aragora swarm tranche prepare \
 aragora swarm tranche run \
   --manifest .aragora/tranches/pmf-tranche-example/tranche.yaml \
   --json
+
+# Review and integrate completed tranche work
+aragora swarm tranche review \
+  --manifest .aragora/tranches/pmf-tranche-example/tranche.yaml \
+  --all-completed \
+  --tier auto \
+  --json
+
+aragora swarm tranche integrate \
+  --manifest .aragora/tranches/pmf-tranche-example/tranche.yaml \
+  --all-mergeable \
+  --approve \
+  --json
+
+# Watch durable tranche state and list known tranche runs
+aragora swarm tranche watch \
+  --manifest .aragora/tranches/pmf-tranche-example/tranche.yaml \
+  --driver \
+  --interval 5 \
+  --json
+
+aragora swarm tranche list --json
 ```
 
 ---
