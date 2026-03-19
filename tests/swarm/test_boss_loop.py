@@ -707,6 +707,36 @@ class TestBossLoop:
         assert "No-dispatch preview only" in result.needs_human_reasons[0]
         assert "Rerun without --no-dispatch" in result.next_actions[1]
 
+    def test_single_tick_live_dispatch_returns_after_launch(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(873, "Bounded live issue")]
+
+        loop = BossLoop(
+            config=_boss_config(max_iterations=1),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        async def _running_dispatch(issue, freshness):
+            return {
+                "status": "running",
+                "outcome": "dispatched",
+                "run_id": "run-873",
+            }
+
+        loop._dispatch_issue = _running_dispatch
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
+        assert result.iterations_completed == 1
+        assert len(result.issues_attempted) == 1
+        assert len(result.issues_completed) == 0
+        assert len(result.issues_failed) == 0
+        assert "Supervisor run run-873 is active" in result.next_actions[0]
+        assert result.iteration_statuses[0]["worker_status"] == "running"
+        assert result.iteration_statuses[0]["worker_outcome"] == "dispatched"
+
 
 # ---------------------------------------------------------------------------
 # Status payload shape tests
@@ -1011,6 +1041,38 @@ async def test_dispatch_bounded_spec_enables_force_collect_on_max_ticks() -> Non
     kwargs = mock_commander_cls.return_value.run_supervised_from_spec.await_args.kwargs
     assert kwargs["max_ticks"] == 7
     assert kwargs["force_collect_on_max_ticks"] is True
+
+
+@pytest.mark.asyncio
+async def test_dispatch_bounded_spec_wait_false_returns_running_after_launch() -> None:
+    spec = MagicMock()
+    spec.is_dispatch_bounded.return_value = True
+
+    active_run = MagicMock()
+    active_run.to_dict.return_value = {
+        "status": "active",
+        "run_id": "run-873",
+        "work_orders": [
+            {
+                "status": "dispatched",
+                "branch": "",
+                "commit_shas": [],
+            }
+        ],
+    }
+
+    with patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls:
+        mock_commander_cls.return_value.run_supervised_from_spec = AsyncMock(
+            return_value=active_run
+        )
+
+        result = await dispatch_bounded_spec(spec, wait_for_completion=False)
+
+    kwargs = mock_commander_cls.return_value.run_supervised_from_spec.await_args.kwargs
+    assert kwargs["wait"] is False
+    assert result["status"] == "running"
+    assert result["outcome"] == "dispatched"
+    assert result["run_id"] == "run-873"
 
 
 # ---------------------------------------------------------------------------

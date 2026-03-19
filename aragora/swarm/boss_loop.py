@@ -586,6 +586,7 @@ async def dispatch_bounded_spec(
     target_branch: str = "main",
     budget_limit_usd: float = 5.0,
     max_ticks: int = 360,
+    wait_for_completion: bool = True,
     repo_path: Any | None = None,
     default_target_agent: str | None = None,
     default_reviewer_agent: str | None = None,
@@ -623,7 +624,7 @@ async def dispatch_bounded_spec(
                 require_external_action_approval=True,
             ),
             dispatch=True,
-            wait=True,
+            wait=wait_for_completion,
             interval_seconds=5.0,
             max_ticks=max_ticks,
             force_collect_on_max_ticks=True,
@@ -632,6 +633,14 @@ async def dispatch_bounded_spec(
             use_managed_session_script=use_managed_session_script,
         )
         run_dict = run.to_dict()
+        run_status = str(run_dict.get("status", "")).strip().lower()
+        if not wait_for_completion and run_status not in {"completed", "needs_human"}:
+            return {
+                "status": "running",
+                "outcome": "dispatched",
+                "run": run_dict,
+                "run_id": run_dict.get("run_id"),
+            }
         outcome = _classify_terminal_run_outcome(run_dict)
         deliverable = _extract_deliverable(run_dict)
         if outcome in {"deliverable_created", "pr_adopted"}:
@@ -1020,6 +1029,35 @@ class BossLoop:
 
         elapsed = time.monotonic() - iter_start
 
+        if worker_result.get("status") == "running":
+            self._consecutive_failures = 0
+            worker_run_id = str(worker_result.get("run_id", "")).strip()
+            next_actions = [
+                (
+                    f"Supervisor run {worker_run_id} is active for issue #{selected.number}; "
+                    "the boss loop returned after this bounded dispatch tick."
+                )
+                if worker_run_id
+                else (
+                    f"Issue #{selected.number} dispatched successfully; "
+                    "the boss loop returned after this bounded dispatch tick."
+                ),
+                "Inspect the active supervisor run before starting another live boss-loop tick.",
+            ]
+            return BossIterationStatus(
+                iteration=iteration,
+                run_id=self.run_id,
+                timestamp=now,
+                runner_freshness=freshness_dict,
+                selected_issue=issue_dict,
+                worker_status="running",
+                stop_reason=None,
+                needs_human_reasons=[],
+                next_actions=next_actions,
+                elapsed_seconds=elapsed,
+                worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+            )
+
         if worker_result.get("status") == "completed":
             self._completed_issues.append(issue_dict)
             self._consecutive_failures = 0
@@ -1166,6 +1204,7 @@ class BossLoop:
             target_branch=self.config.target_branch,
             budget_limit_usd=self.config.budget_limit_usd,
             max_ticks=360,
+            wait_for_completion=self.config.max_iterations > 1,
         )
         if result.get("status") == "failed":
             error = str(result.get("error", "")).strip()
@@ -1183,6 +1222,9 @@ class BossLoop:
     def _derive_next_actions(self) -> list[str]:
         """Derive final next actions based on stop reason."""
         if self._stop_reason == BossStopReason.MAX_ITERATIONS.value:
+            for status in reversed(self._iteration_statuses):
+                if status.worker_status == "running" and status.next_actions:
+                    return list(status.next_actions)
             return [
                 f"Boss loop completed {len(self._iteration_statuses)} iterations.",
                 "Review completed and failed issues, then restart if needed.",
