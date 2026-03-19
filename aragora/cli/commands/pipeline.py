@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import re
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -215,6 +216,204 @@ def _extract_pipeline_objectives(
     return objectives
 
 
+def _json_dump(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+
+
+def _dogfood_pipeline_payload(pipeline_result: Any) -> dict[str, Any]:
+    if hasattr(pipeline_result, "to_dict"):
+        return pipeline_result.to_dict()
+    if isinstance(pipeline_result, dict):
+        return dict(pipeline_result)
+    return {
+        "pipeline_id": getattr(pipeline_result, "pipeline_id", None),
+        "duration": getattr(pipeline_result, "duration", None),
+        "metadata": dict(getattr(pipeline_result, "metadata", {}) or {}),
+    }
+
+
+def _dogfood_summary_text(summary: dict[str, Any]) -> str:
+    lines = [
+        "",
+        "DOGFOOD HANDOFF",
+        "-" * 60,
+        f"Source kind:    {summary['source_kind']}",
+        f"Source ref:     {summary['source_ref']}",
+        f"Pipeline ID:    {summary['pipeline_id']}",
+        f"Output dir:     {summary['output_dir']}",
+        f"Manifest:       {summary['manifest_path']}",
+        f"Objectives:     {len(summary['objectives'])}",
+    ]
+    assessment_id = summary.get("assessment_id")
+    if assessment_id:
+        lines.append(f"Assessment ID:  {assessment_id}")
+    if summary["objectives"]:
+        lines.append("")
+        lines.append("Selected objectives:")
+        for i, objective in enumerate(summary["objectives"], 1):
+            lines.append(f"  {i}. {objective}")
+    if summary.get("ralph_state_path"):
+        lines.append("")
+        lines.append(f"Ralph state:    {summary['ralph_state_path']}")
+        lines.append(f"Ralph status:   {summary.get('ralph_status', 'unknown')}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+async def _run_pipeline_dogfood(args: argparse.Namespace) -> dict[str, Any]:
+    from aragora.pipeline.idea_to_execution import IdeaToExecutionPipeline
+    from aragora.swarm.campaign import CampaignPlanner, save_campaign_manifest
+
+    source_file = getattr(args, "source_file", None)
+    assessment_id = getattr(args, "assessment_id", None)
+    latest_assessment = bool(getattr(args, "latest_assessment", False))
+    save_assessment_flag = bool(getattr(args, "save_assessment", False))
+    max_goals = max(1, int(getattr(args, "max_goals", 1)))
+
+    if source_file and (assessment_id or latest_assessment):
+        raise ValueError(
+            "--source-file cannot be combined with --assessment-id or --latest-assessment"
+        )
+
+    assessment = None
+    assessment_payload: dict[str, Any] | None = None
+
+    if source_file:
+        from aragora.pipeline.brain_dump_parser import BrainDumpParser
+
+        source_path = Path(source_file).resolve()
+        source_kind = "source_file"
+        source_ref = str(source_path)
+        enriched = BrainDumpParser().parse_enriched(source_path.read_text(encoding="utf-8"))
+        if not getattr(enriched, "ideas", None):
+            raise ValueError(f"No pipeline-ready ideas could be parsed from {source_path}")
+        pipeline_result = IdeaToExecutionPipeline().from_ideas(
+            list(enriched.ideas),
+            auto_advance=True,
+        )
+    else:
+        from aragora.nomic.canonical_assessment import (
+            CanonicalAssessmentCompiler,
+            load_assessment,
+            load_latest_assessment,
+            save_assessment,
+        )
+
+        if assessment_id:
+            assessment = load_assessment(assessment_id)
+            if assessment is None:
+                raise ValueError(f"Assessment not found: {assessment_id}")
+        elif latest_assessment:
+            assessment = load_latest_assessment()
+            if assessment is None:
+                raise ValueError("No saved canonical assessment found")
+        else:
+            compiler = CanonicalAssessmentCompiler()
+            assessment = await compiler.compile()
+            if save_assessment_flag:
+                save_assessment(assessment)
+
+        source_kind = "assessment"
+        source_ref = assessment.assessment_id
+        assessment_payload = assessment.to_dict()
+        pipeline_result = await IdeaToExecutionPipeline.from_assessment(assessment)
+
+    objectives = _extract_pipeline_objectives(pipeline_result, max_goals=max_goals)
+    if not objectives:
+        raise ValueError("No dogfood objectives could be extracted from the pipeline result")
+
+    pipeline_id = str(getattr(pipeline_result, "pipeline_id", "")).strip() or "dogfood-pipeline"
+    output_dir_arg = getattr(args, "output_dir", None)
+    output_dir = (
+        Path(output_dir_arg).resolve()
+        if output_dir_arg
+        else (Path.cwd() / ".aragora" / "dogfood" / pipeline_id).resolve()
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    planner = CampaignPlanner(
+        repo_root=Path.cwd(),
+        planner_model=getattr(args, "planner_model", "claude"),
+        worker_model=getattr(args, "worker_model", "codex"),
+        review_model=getattr(args, "review_model", "claude"),
+        budget_limit_usd=float(getattr(args, "budget_limit", 10.0)),
+        max_parallel_ready_projects=max(
+            1,
+            int(getattr(args, "max_parallel_ready_projects", 1)),
+        ),
+    )
+    manifest = planner.plan_from_items(
+        objectives,
+        source_kind=source_kind,
+        source_ref=source_ref,
+    )
+    manifest.budget_limit_usd = float(getattr(args, "budget_limit", manifest.budget_limit_usd))
+    manifest.time_limit_hours = float(getattr(args, "time_limit_hours", manifest.time_limit_hours))
+    manifest.max_parallel_ready_projects = max(
+        1,
+        int(
+            getattr(
+                args,
+                "max_parallel_ready_projects",
+                manifest.max_parallel_ready_projects,
+            )
+        ),
+    )
+    manifest.max_retries_per_project = max(
+        0,
+        int(
+            getattr(
+                args,
+                "max_retries_per_project",
+                manifest.max_retries_per_project,
+            )
+        ),
+    )
+    manifest.planning_findings.append(f"dogfood_pipeline_id={pipeline_id}")
+    if assessment is not None:
+        manifest.planning_findings.append(f"dogfood_assessment_id={assessment.assessment_id}")
+
+    manifest_path = output_dir / "campaign_manifest.yaml"
+    state_path = output_dir / "supervisor_state.yaml"
+    save_campaign_manifest(manifest_path, manifest)
+
+    _json_dump(output_dir / "pipeline_result.json", _dogfood_pipeline_payload(pipeline_result))
+    _json_dump(output_dir / "objectives.json", {"objectives": objectives})
+    _json_dump(output_dir / "manifest.json", manifest.to_dict())
+    if assessment_payload is not None:
+        _json_dump(output_dir / "assessment.json", assessment_payload)
+
+    summary: dict[str, Any] = {
+        "source_kind": source_kind,
+        "source_ref": source_ref,
+        "assessment_id": getattr(assessment, "assessment_id", None),
+        "pipeline_id": pipeline_id,
+        "output_dir": str(output_dir),
+        "manifest_path": str(manifest_path),
+        "state_path": str(state_path),
+        "objectives": objectives,
+        "project_count": len(manifest.projects),
+    }
+
+    if getattr(args, "start_ralph", False):
+        from aragora.ralph.supervisor import RalphSupervisor
+
+        supervisor = RalphSupervisor.start(
+            manifest_path=manifest_path,
+            state_path=state_path,
+            repo_root=Path.cwd(),
+            merge_policy=getattr(args, "merge_policy", "manual_review_required"),
+            max_repair_attempts=max(0, int(getattr(args, "max_repair_attempts", 2))),
+        )
+        ralph_state = supervisor.status()
+        summary["ralph_state_path"] = str(state_path)
+        summary["ralph_status"] = ralph_state.get("status")
+        summary["ralph_supervisor_id"] = ralph_state.get("supervisor_id")
+
+    return summary
+
+
 def _count_live_stages_completed(pipeline_result: Any) -> int:
     """Count completed stages from a live pipeline result."""
     stage_results = getattr(pipeline_result, "stage_results", None) or []
@@ -316,10 +515,12 @@ def cmd_pipeline(args: argparse.Namespace) -> None:
         _cmd_pipeline_run(args)
     elif subcommand == "self-improve":
         _cmd_pipeline_self_improve(args)
+    elif subcommand == "dogfood":
+        _cmd_pipeline_dogfood(args)
     elif subcommand == "status":
         _cmd_pipeline_status(args)
     else:
-        print("Usage: aragora pipeline {run,self-improve,status}")
+        print("Usage: aragora pipeline {run,self-improve,dogfood,status}")
         print("Run 'aragora pipeline --help' for details.")
 
 
@@ -941,6 +1142,15 @@ def _cmd_pipeline_status(args: argparse.Namespace) -> None:
     print()
 
 
+def _cmd_pipeline_dogfood(args: argparse.Namespace) -> None:
+    """Compile a dogfood handoff directory and optionally start Ralph."""
+    summary = asyncio.run(_run_pipeline_dogfood(args))
+    if getattr(args, "json", False):
+        print(json.dumps(summary, indent=2, default=str))
+        return
+    print(_dogfood_summary_text(summary))
+
+
 def add_pipeline_parser(subparsers) -> None:
     """Register the 'pipeline' subcommand parser."""
     pipeline_parser = subparsers.add_parser(
@@ -954,12 +1164,14 @@ Run the four-stage idea-to-execution pipeline:
 Subcommands:
   run           - Run the pipeline from raw ideas
   self-improve  - Combine TaskDecomposer + MetaPlanner + Pipeline for self-improvement
+  dogfood       - Build a Ralph-ready handoff from assessment or roadmap input
   status        - Show active pipeline status
 
 Examples:
   aragora pipeline run "Build rate limiter, Add caching"
   aragora pipeline run "Improve error handling" --dry-run
   aragora pipeline self-improve "Maximize utility for SMEs" --budget-limit 5
+  aragora pipeline dogfood --latest-assessment --start-ralph
   aragora pipeline status
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1072,6 +1284,100 @@ Examples:
         type=float,
         default=5.0,
         help="Minimum practicality score (0-10) required for handoff (default: 5.0).",
+    )
+
+    dogfood_parser = pipeline_sub.add_parser(
+        "dogfood",
+        help="Compile pipeline artifacts into a Ralph-ready handoff",
+    )
+    dogfood_parser.add_argument(
+        "--source-file",
+        help="Optional roadmap/source document to parse into ideas instead of using a canonical assessment",
+    )
+    dogfood_parser.add_argument(
+        "--assessment-id",
+        help="Specific saved canonical assessment ID to use",
+    )
+    dogfood_parser.add_argument(
+        "--latest-assessment",
+        action="store_true",
+        help="Use the latest saved canonical assessment instead of compiling a new one",
+    )
+    dogfood_parser.add_argument(
+        "--save-assessment",
+        action="store_true",
+        help="Persist a newly compiled canonical assessment before handoff",
+    )
+    dogfood_parser.add_argument(
+        "--output-dir",
+        help="Directory to write assessment, pipeline, objectives, and manifest artifacts",
+    )
+    dogfood_parser.add_argument(
+        "--max-goals",
+        type=int,
+        default=1,
+        help="Maximum number of ranked pipeline objectives to hand off (default: 1)",
+    )
+    dogfood_parser.add_argument(
+        "--budget-limit",
+        type=float,
+        default=10.0,
+        help="Campaign budget limit in USD (default: 10.0)",
+    )
+    dogfood_parser.add_argument(
+        "--time-limit-hours",
+        type=float,
+        default=4.0,
+        help="Campaign time limit in hours (default: 4.0)",
+    )
+    dogfood_parser.add_argument(
+        "--max-parallel-ready-projects",
+        type=int,
+        default=1,
+        help="Maximum ready projects Ralph may run in parallel (default: 1)",
+    )
+    dogfood_parser.add_argument(
+        "--max-retries-per-project",
+        type=int,
+        default=2,
+        help="Maximum retries per project in the generated manifest (default: 2)",
+    )
+    dogfood_parser.add_argument(
+        "--planner-model",
+        default="claude",
+        help="Campaign planner model (default: claude)",
+    )
+    dogfood_parser.add_argument(
+        "--worker-model",
+        default="codex",
+        help="Worker model for generated projects (default: codex)",
+    )
+    dogfood_parser.add_argument(
+        "--review-model",
+        default="claude",
+        help="Review model for generated projects (default: claude)",
+    )
+    dogfood_parser.add_argument(
+        "--start-ralph",
+        action="store_true",
+        help="Start Ralph supervisor immediately against the generated manifest",
+    )
+    dogfood_parser.add_argument(
+        "--merge-policy",
+        default="manual_review_required",
+        choices=["manual_review_required", "admin_merge_allowed"],
+        help="Ralph merge policy when --start-ralph is used (default: manual_review_required)",
+    )
+    dogfood_parser.add_argument(
+        "--max-repair-attempts",
+        type=int,
+        default=2,
+        help="Ralph max repair attempts when --start-ralph is used (default: 2)",
+    )
+    dogfood_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON summary",
     )
 
     # pipeline status
