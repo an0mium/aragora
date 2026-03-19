@@ -2448,6 +2448,11 @@ def _add_swarm_parser(subparsers) -> None:
         help="Operate on all completed tranche lanes instead of one lane",
     )
     swarm_parser.add_argument(
+        "--all-mergeable",
+        action="store_true",
+        help="Operate on all mergeable tranche lanes instead of one lane",
+    )
+    swarm_parser.add_argument(
         "--owner-agent",
         default=None,
         help="Owner agent recorded for tranche prepare/run (defaults to lane target agent)",
@@ -2473,6 +2478,11 @@ def _add_swarm_parser(subparsers) -> None:
         choices=("auto", "1", "2", "3"),
         default="auto",
         help="Review tier for tranche review (default: auto)",
+    )
+    swarm_parser.add_argument(
+        "--approve",
+        action="store_true",
+        help="Allow tranche integrate to record and execute the recommended integration action",
     )
     swarm_parser.add_argument(
         "--max-parallel-ready-projects",

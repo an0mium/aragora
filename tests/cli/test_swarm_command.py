@@ -63,6 +63,8 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "intake": None,
         "rounds": 2,
         "all_completed": False,
+        "all_mergeable": False,
+        "approve": False,
         "tier": "auto",
         "from_prompts": None,
         "all_ready": False,
@@ -295,6 +297,30 @@ class TestSwarmParser:
         assert args.tier == "1"
         assert args.json is True
 
+    def test_swarm_tranche_integrate_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "tranche",
+                "integrate",
+                "--manifest",
+                "docs/examples/boss-lane-manifest-2026-03-19.yaml",
+                "--lane-id",
+                "lane_a",
+                "--approve",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "tranche"
+        assert args.swarm_goal == "integrate"
+        assert args.lane_id == "lane_a"
+        assert args.approve is True
+        assert args.json is True
+
     def test_swarm_parser_accepts_spec_dispatch_options(self):
         from aragora.cli.parser import build_parser
 
@@ -521,6 +547,63 @@ class TestSwarmCommand:
         assert '"mode": "tranche-review"' in out
         assert '"status": "passed"' in out
         assert '"action": "review"' in out
+
+    def test_cmd_swarm_tranche_integrate_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="integrate",
+            manifest="docs/examples/boss-lane-manifest-2026-03-19.yaml",
+            lane_id="lane_a",
+            json=True,
+        )
+        fake_manifest = SimpleNamespace(manifest_id="pmf-tranche")
+        fake_artifact = SimpleNamespace(
+            lane_id="lane_a",
+            status="review_passed",
+            metadata={
+                "branch": "feat-branch",
+                "review": {"status": "passed"},
+                "receipt_id": "receipt-123",
+                "lease_id": "lease-123",
+            },
+        )
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch("aragora.swarm.tranche.load_tranche_manifest", return_value=fake_manifest),
+            patch("aragora.swarm.tranche.TrancheArtifactStore") as store_cls,
+            patch("aragora.swarm.tranche_integrate.discover_lane_pr") as mock_discover_pr,
+            patch("aragora.swarm.tranche_integrate.register_pr") as mock_register_pr,
+            patch("aragora.swarm.tranche_integrate.classify_check_results") as mock_classify,
+            patch("aragora.swarm.tranche_integrate.assess_lane_integration") as mock_assess,
+            patch(
+                "aragora.swarm.tranche_integrate.record_lane_integration", new_callable=AsyncMock
+            ) as mock_record,
+            patch("aragora.ralph.github_control.GitHubControl") as github_cls,
+        ):
+            store_cls.return_value.load.return_value = fake_artifact
+            mock_discover_pr.return_value = "https://github.com/org/repo/pull/42"
+            mock_classify.return_value = "checks_passed"
+            mock_assess.return_value = {
+                "recommendation": "merge",
+                "executed": False,
+                "checks": "checks_passed",
+                "review_status": "passed",
+            }
+            github_cls.return_value.fetch_gate_snapshot.return_value = SimpleNamespace(
+                required_checks=[],
+                advisory_checks=[],
+                required_checks_green=True,
+                to_dict=lambda: {"required_checks_green": True},
+            )
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"mode": "tranche-integrate"' in out
+        assert '"recommendation": "merge"' in out
+        assert '"action": "integrate"' in out
+        mock_register_pr.assert_called_once()
+        mock_record.assert_not_called()
 
     def test_cmd_swarm_tranche_prepare_json(self, capsys):
         args = _swarm_args(

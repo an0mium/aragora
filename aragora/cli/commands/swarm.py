@@ -814,6 +814,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         return
 
     if action == "tranche":
+        from aragora.nomic.dev_coordination import DevCoordinationStore
+        from aragora.ralph.github_control import GitHubControl
+        from aragora.swarm.pr_registry import PullRequestRegistry
         from aragora.swarm.tranche import (
             TrancheArtifactStore,
             TrancheExecutor,
@@ -821,6 +824,13 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             TranchePlanner,
             load_tranche_manifest,
             render_tranche_inspection_text,
+        )
+        from aragora.swarm.tranche_integrate import (
+            assess_lane_integration,
+            classify_check_results,
+            discover_lane_pr,
+            record_lane_integration,
+            register_pr,
         )
         from aragora.swarm.tranche_review import review_lane, select_review_tier
         from aragora.swarm.tranche_submit import submit_intake_bundle
@@ -1018,6 +1028,131 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 print(json.dumps(payload, indent=2))
             return
 
+        if subaction == "integrate":
+            artifact_store = TrancheArtifactStore(repo_root=repo_root)
+            lane_id = str(getattr(args, "lane_id", "") or "").strip()
+            all_mergeable = bool(getattr(args, "all_mergeable", False))
+            approve = bool(getattr(args, "approve", False))
+            if lane_id:
+                artifact = artifact_store.load(manifest.manifest_id, lane_id)
+                selected_artifacts = [artifact] if artifact is not None else []
+            elif all_mergeable:
+                selected_artifacts = [
+                    item
+                    for item in artifact_store.list(manifest.manifest_id)
+                    if str(item.status).strip() in {"review_passed", "completed"}
+                ]
+            else:
+                raise ValueError("tranche integrate requires --lane-id <id> or --all-mergeable")
+            if not selected_artifacts:
+                raise ValueError("No matching tranche artifacts found for integrate.")
+
+            github = GitHubControl(repo_root=repo_root)
+            registry = PullRequestRegistry()
+            store = DevCoordinationStore(repo_root=repo_root) if approve else None
+            results: list[dict[str, object]] = []
+            for artifact in selected_artifacts:
+                metadata = getattr(artifact, "metadata", {})
+                if not isinstance(metadata, dict):
+                    metadata = {}
+                review_payload = metadata.get("review", {})
+                if isinstance(review_payload, dict):
+                    review_status = str(review_payload.get("status", "") or "").strip() or "pending"
+                else:
+                    review_status = "pending"
+                if review_status == "pending":
+                    status_text = str(getattr(artifact, "status", "") or "").strip()
+                    if status_text == "review_passed":
+                        review_status = "passed"
+                    elif status_text == "changes_requested":
+                        review_status = "changes_requested"
+                    elif status_text == "review_blocked":
+                        review_status = "blocked_nonreviewable"
+
+                pr_url = discover_lane_pr(artifact, github=github, repo_root=repo_root)
+                branch = str(
+                    metadata.get("branch")
+                    or (
+                        metadata.get("deliverable", {}).get("branch")
+                        if isinstance(metadata.get("deliverable"), dict)
+                        else ""
+                    )
+                    or ""
+                ).strip()
+                if pr_url and branch:
+                    register_pr(pr_url, branch, registry)
+
+                gate_payload: dict[str, object] | None = None
+                checks = "checks_pending"
+                merge_result: dict[str, object] | None = None
+                if pr_url:
+                    snapshot = github.fetch_gate_snapshot(pr_url)
+                    gate_payload = snapshot.to_dict() if hasattr(snapshot, "to_dict") else None
+                    checks = classify_check_results(
+                        list(getattr(snapshot, "required_checks", []))
+                        + list(getattr(snapshot, "advisory_checks", []))
+                    )
+
+                assessment = assess_lane_integration(
+                    artifact=artifact,
+                    checks=checks,
+                    review_status=review_status,
+                    merge_policy=str(metadata.get("merge_policy", "confirm") or "confirm"),
+                    autonomy_mode=str(getattr(args, "autonomy", "adaptive") or "adaptive"),
+                    approve=approve,
+                )
+                if approve and assessment.get("recommendation") == "merge":
+                    awaitable = record_lane_integration(
+                        artifact=artifact,
+                        decision="merge",
+                        rationale=str(
+                            getattr(args, "rationale", None)
+                            or "Tranche integrate approved merge after green checks and review."
+                        ),
+                        decided_by=str(getattr(args, "decided_by", None) or "tranche-integrate"),
+                        store=store,
+                        target_branch=str(getattr(args, "target_branch", "main") or "main"),
+                    )
+                    asyncio.run(awaitable)
+                    if pr_url and assessment.get("executed"):
+                        merge_call = github.merge_pr(
+                            pr_url,
+                            required_checks_green=checks == "checks_passed",
+                            allow_admin=False,
+                        )
+                        merge_result = (
+                            merge_call.to_dict() if hasattr(merge_call, "to_dict") else None
+                        )
+                        if isinstance(merge_result, dict):
+                            assessment["executed"] = bool(merge_result.get("merged", False))
+
+                results.append(
+                    {
+                        "lane_id": artifact.lane_id,
+                        "status": getattr(artifact, "status", None),
+                        "pr_url": pr_url,
+                        "checks": checks,
+                        "review_status": review_status,
+                        "gate": gate_payload,
+                        "merge_result": merge_result,
+                        **assessment,
+                    }
+                )
+
+            payload = {
+                "mode": "tranche-integrate",
+                "action": subaction,
+                "manifest_id": manifest.manifest_id,
+                "manifest_path": str(manifest_path),
+                "approve": approve,
+                "results": results,
+            }
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(json.dumps(payload, indent=2))
+            return
+
         executor = TrancheExecutor(repo_root=repo_root)
         lane_id = str(getattr(args, "lane_id", "") or "").strip()
         all_ready = bool(getattr(args, "all_ready", False))
@@ -1048,7 +1183,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             )
         else:
             raise ValueError(
-                "tranche action must be one of: submit, plan, inspect, design-review, review, prepare, run"
+                "tranche action must be one of: submit, plan, inspect, design-review, review, integrate, prepare, run"
             )
         payload["action"] = subaction
         payload["manifest_path"] = str(manifest_path)
