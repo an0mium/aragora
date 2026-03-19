@@ -225,3 +225,25 @@ def test_submit_persists_three_layers(tmp_path) -> None:
     assert (tranche_dir / "normalized_bundle.yaml").exists()
     assert (tranche_dir / "tranche.yaml").exists()
     assert (tranche_dir / "run_state.yaml").exists()
+
+
+def test_submit_recommends_design_review_for_adaptive_writable_tranche(tmp_path) -> None:
+    result = submit_intake_bundle(
+        {
+            "objective": "Ship feature",
+            "candidate_lanes": [
+                {
+                    "lane_id": "lane_a",
+                    "title": "Build it",
+                    "owner_role": "engineer",
+                    "prompt": "Implement the feature",
+                    "allowed_write_scope": ["aragora/server/**"],
+                }
+            ],
+            "autonomy_mode": "adaptive",
+        },
+        repo_root=tmp_path,
+        skip_github_resolution=True,
+    )
+
+    assert result["recommended_action"] == "design-review"

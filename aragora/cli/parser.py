@@ -2458,6 +2458,12 @@ def _add_swarm_parser(subparsers) -> None:
         help="Skip cross-model tranche review after a completed lane run",
     )
     swarm_parser.add_argument(
+        "--rounds",
+        type=int,
+        default=2,
+        help="Maximum bounded rounds for tranche design-review (default: 2)",
+    )
+    swarm_parser.add_argument(
         "--max-parallel-ready-projects",
         type=int,
         default=1,

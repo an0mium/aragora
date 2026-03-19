@@ -902,6 +902,49 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 print(render_tranche_inspection_text(payload))
             return
 
+        if subaction == "design-review":
+            from aragora.swarm.tranche_design_review import (
+                DesignReviewRecord,
+                run_design_review,
+                save_design_review,
+            )
+
+            inspection = TrancheInspector(repo_root=repo_root).inspect(manifest)
+            normalized_path = manifest_path.with_name("normalized_bundle.yaml")
+            if normalized_path.exists():
+                normalized_bundle = _load_structured_object(str(normalized_path))
+            else:
+                normalized_bundle = {
+                    "manifest_id": getattr(manifest, "manifest_id", ""),
+                    "objective": getattr(manifest, "objective", ""),
+                    "lanes": [
+                        lane.to_dict()
+                        for lane in getattr(manifest, "lanes", [])
+                        if hasattr(lane, "to_dict")
+                    ],
+                }
+            payload = asyncio.run(
+                run_design_review(
+                    manifest=manifest,
+                    normalized_bundle=normalized_bundle,
+                    inspection=inspection,
+                    max_rounds=int(getattr(args, "rounds", 2) or 2),
+                )
+            )
+            record_payload = payload.get("record")
+            if isinstance(record_payload, dict):
+                save_design_review(
+                    manifest_path.with_name("design_review.yaml"),
+                    DesignReviewRecord.from_dict(record_payload),
+                )
+            payload["action"] = subaction
+            payload["manifest_path"] = str(manifest_path)
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(json.dumps(payload, indent=2))
+            return
+
         executor = TrancheExecutor(repo_root=repo_root)
         lane_id = str(getattr(args, "lane_id", "") or "").strip()
         all_ready = bool(getattr(args, "all_ready", False))
@@ -931,7 +974,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 )
             )
         else:
-            raise ValueError("tranche action must be one of: submit, plan, inspect, prepare, run")
+            raise ValueError(
+                "tranche action must be one of: submit, plan, inspect, design-review, prepare, run"
+            )
         payload["action"] = subaction
         payload["manifest_path"] = str(manifest_path)
         if as_json:
