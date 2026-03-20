@@ -57,6 +57,42 @@ class KnowledgeMoundOperations:
         self._last_km_item_ids: list[str] = []  # IDs of KM items used in last fetch
         self._warned_missing_query_capability = False
 
+    @staticmethod
+    def _extract_query_items(results: Any) -> list[Any] | None:
+        """Normalize the different query result envelopes returned by KM implementations."""
+        if results is None:
+            return None
+
+        if isinstance(results, list):
+            return results
+
+        if isinstance(results, dict):
+            dict_items = results.get("items")
+            if isinstance(dict_items, list):
+                return dict_items
+            dict_nodes = results.get("nodes")
+            if isinstance(dict_nodes, list):
+                return dict_nodes
+            return None
+
+        for attr in ("items", "nodes"):
+            value = getattr(results, attr, None)
+            if isinstance(value, list):
+                return value
+
+        return None
+
+    @staticmethod
+    def _get_item_value(item: Any, *names: str, default: Any = None) -> Any:
+        """Read a field from object-style or dict-style KM items."""
+        for name in names:
+            if isinstance(item, dict) and name in item:
+                return item[name]
+            value = getattr(item, name, None)
+            if value is not None:
+                return value
+        return default
+
     def _has_query_capability(self) -> bool:
         """Check whether the configured KM object supports retrieval operations."""
         return bool(self.knowledge_mound) and any(
@@ -157,11 +193,7 @@ class KnowledgeMoundOperations:
                 else:
                     raise
 
-            items = None
-            if isinstance(results, list):
-                items = results
-            elif hasattr(results, "items"):
-                items = results.items
+            items = self._extract_query_items(results)
 
             if not items:
                 self._last_km_item_ids = []
@@ -169,9 +201,9 @@ class KnowledgeMoundOperations:
 
             # Track item IDs for outcome validation feedback loop
             self._last_km_item_ids = [
-                getattr(item, "id", None) or getattr(item, "item_id", "")
+                self._get_item_value(item, "id", "item_id", default="")
                 for item in items[:limit]
-                if getattr(item, "id", None) or getattr(item, "item_id", "")
+                if self._get_item_value(item, "id", "item_id", default="")
             ]
 
             # Format knowledge for agent context
@@ -196,9 +228,13 @@ class KnowledgeMoundOperations:
                 return 0.5
 
             for item in items[:limit]:
-                source = getattr(item, "source", "unknown")
-                confidence = _confidence_to_float(getattr(item, "confidence", 0.0))
-                content = getattr(item, "content", str(item))[:300]
+                source = self._get_item_value(item, "source", "node_type", default="unknown")
+                if hasattr(source, "value"):
+                    source = source.value
+                confidence = _confidence_to_float(
+                    self._get_item_value(item, "confidence", default=0.0)
+                )
+                content = str(self._get_item_value(item, "content", default=item))[:300]
                 lines.append(f"**[{source}]** (confidence: {confidence:.0%})")
                 lines.append(f"{content}")
                 lines.append("")

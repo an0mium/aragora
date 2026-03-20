@@ -163,6 +163,20 @@ class TestFetchKnowledgeContext:
         assert "KNOWLEDGE MOUND CONTEXT" in result
 
     @pytest.mark.asyncio
+    async def test_results_with_nodes_attribute(self):
+        items = [_make_item(source="fact", item_id="node-1")]
+        results_obj = SimpleNamespace(nodes=items)
+        mound = _make_mound()
+        mound.query_semantic.return_value = results_obj
+
+        ops = KnowledgeMoundOperations(knowledge_mound=mound)
+        result = await ops.fetch_knowledge_context("task")
+
+        assert result is not None
+        assert "**[fact]**" in result
+        assert ops._last_km_item_ids == ["node-1"]
+
+    @pytest.mark.asyncio
     async def test_empty_results_returns_none(self):
         mound = _make_mound()
         mound.query_semantic.return_value = []

@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import logging
 from typing import Any
 
 from aragora.core import Critique, DebateResult, Environment, Message, Vote
+from aragora.debate.knowledge_mound_ops import KnowledgeMoundOperations
 from aragora.debate.protocol import DebateProtocol, resolve_default_protocol
+
+logger = logging.getLogger(__name__)
 
 
 async def _maybe_await(value: Any) -> Any:
@@ -50,6 +54,10 @@ class Arena:
         environment: Environment,
         agents: list[Any],
         protocol: DebateProtocol | None = None,
+        *,
+        knowledge_mound: Any | None = None,
+        enable_knowledge_retrieval: bool = True,
+        enable_knowledge_ingestion: bool = True,
         **_: Any,
     ) -> None:
         if not agents:
@@ -57,6 +65,23 @@ class Arena:
         self.env = environment
         self.agents = agents
         self.protocol = resolve_default_protocol(protocol)
+        self.knowledge_mound = knowledge_mound
+        self.enable_knowledge_retrieval = enable_knowledge_retrieval
+        self.enable_knowledge_ingestion = enable_knowledge_ingestion
+        self._knowledge_ops = KnowledgeMoundOperations(
+            knowledge_mound=knowledge_mound,
+            enable_retrieval=enable_knowledge_retrieval,
+            enable_ingestion=enable_knowledge_ingestion,
+        )
+        self._last_knowledge_context: str = ""
+
+    async def _fetch_knowledge_context(self, task: str, limit: int = 10) -> str | None:
+        """Fetch debate background evidence from the Knowledge Mound."""
+        return await self._knowledge_ops.fetch_knowledge_context(task, limit=limit)
+
+    async def _ingest_debate_outcome(self, result: DebateResult) -> None:
+        """Feed the debate outcome back into the Knowledge Mound."""
+        await self._knowledge_ops.ingest_debate_outcome(result, env=self.env)
 
     @classmethod
     def from_config(
@@ -101,11 +126,18 @@ class Arena:
         critiques: list[Critique] = []
         votes: list[Vote] = []
         proposals: dict[str, str] = {}
+        knowledge_context = await self._fetch_knowledge_context(self.env.task, limit=5)
+        self._last_knowledge_context = knowledge_context or ""
+        prompt = self.env.task
+        if knowledge_context:
+            prompt = (
+                f"{self.env.task}\n\nBackground evidence from Knowledge Mound:\n{knowledge_context}"
+            )
 
         for round_number in range(1, self.protocol.rounds + 1):
             for agent in self.agents:
                 name = getattr(agent, "name", f"agent_{len(proposals) + 1}")
-                content = await _maybe_await(agent.generate(self.env.task))
+                content = await _maybe_await(agent.generate(prompt))
                 content_text = str(content)
                 proposals[name] = content_text
                 messages.append(
@@ -172,7 +204,7 @@ class Arena:
                 )
                 confidence = winner_counts[final_answer] / len(votes)
 
-        return DebateResult(
+        result = DebateResult(
             debate_id="standalone-debate",
             task=self.env.task,
             final_answer=final_answer,
@@ -187,6 +219,23 @@ class Arena:
             critiques=critiques,
             votes=votes,
         )
+        km_item_ids = list(self._knowledge_ops._last_km_item_ids)
+        result.metadata.update(
+            {
+                "knowledge_mound_context_applied": bool(knowledge_context),
+                "knowledge_mound_read_hits": len(km_item_ids),
+                "knowledge_mound_item_ids": km_item_ids,
+            }
+        )
+        if knowledge_context:
+            result.metadata["knowledge_mound_context_chars"] = len(knowledge_context)
+
+        try:
+            await self._ingest_debate_outcome(result)
+        except Exception as exc:  # noqa: BLE001 - standalone wedge should not fail closed on KM
+            logger.debug("Knowledge Mound outcome ingestion failed: %s", exc)
+
+        return result
 
     async def _gather_trending_context(self) -> None:
         """Compatibility stub for integration-test fixtures."""
