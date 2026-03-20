@@ -19,6 +19,7 @@ from aragora.swarm.campaign import (
     _DIFF_MAX_CHARS,
     _fetch_diff_content,
 )
+from aragora.swarm.review_routing import ReviewRoutingError
 
 
 def _make_run_dict(*, branch: str = "codex/worker-branch", commit: str = "abc123") -> dict:
@@ -225,10 +226,10 @@ class TestReviewerBillingErrorDetection:
             stderr="Credit balance is too low",
         )
 
-        mock_agent = AsyncMock()
-        mock_agent.generate = AsyncMock(side_effect=billing_error)
-
-        with patch("aragora.swarm.campaign.create_agent", return_value=mock_agent):
+        with patch(
+            "aragora.swarm.campaign.generate_review_response",
+            new=AsyncMock(side_effect=billing_error),
+        ):
             gate = await reviewer.review(
                 project=project,
                 worker_model="codex",
@@ -255,15 +256,23 @@ class TestReviewerBillingErrorDetection:
         diff_result.returncode = 0
         diff_result.stdout = diff_text
 
-        mock_agent = AsyncMock()
-        mock_agent.generate = AsyncMock(return_value='{"status":"passed","findings":[]}')
-
         with (
             patch(
                 "aragora.swarm.campaign.subprocess.run",
                 side_effect=[fetch_result, diff_result],
             ) as mock_run,
-            patch("aragora.swarm.campaign.create_agent", return_value=mock_agent),
+            patch(
+                "aragora.swarm.campaign.generate_review_response",
+                new=AsyncMock(
+                    return_value={
+                        "candidate": {"provider": "claude", "label": "claude:max-12"},
+                        "response": '{"status":"passed","findings":[]}',
+                        "attempts": [
+                            {"candidate": "claude:max-12", "stage": "generate", "detail": "ok"}
+                        ],
+                    }
+                ),
+            ) as mock_route,
         ):
             gate = await reviewer.review(
                 project=project,
@@ -275,7 +284,7 @@ class TestReviewerBillingErrorDetection:
             )
 
         assert gate.status == CampaignReviewStatus.PASSED.value
-        prompt = mock_agent.generate.await_args.args[0]
+        prompt = mock_route.await_args.args[0]
         assert "ACTUAL DIFF" in prompt
         assert diff_text in prompt
         assert "hello from git diff" in prompt
@@ -299,10 +308,10 @@ class TestReviewerBillingErrorDetection:
             stderr="connection refused",
         )
 
-        mock_agent = AsyncMock()
-        mock_agent.generate = AsyncMock(side_effect=cli_error)
-
-        with patch("aragora.swarm.campaign.create_agent", return_value=mock_agent):
+        with patch(
+            "aragora.swarm.campaign.generate_review_response",
+            new=AsyncMock(side_effect=cli_error),
+        ):
             gate = await reviewer.review(
                 project=project,
                 worker_model="codex",
@@ -321,10 +330,10 @@ class TestReviewerBillingErrorDetection:
         project = _make_project()
         run_dict = _make_run_dict()
 
-        mock_agent = AsyncMock()
-        mock_agent.generate = AsyncMock(side_effect=ValueError("secret internal detail"))
-
-        with patch("aragora.swarm.campaign.create_agent", return_value=mock_agent):
+        with patch(
+            "aragora.swarm.campaign.generate_review_response",
+            new=AsyncMock(side_effect=ValueError("secret internal detail")),
+        ):
             gate = await reviewer.review(
                 project=project,
                 worker_model="codex",
@@ -351,10 +360,10 @@ class TestReviewerBillingErrorDetection:
             cause=RuntimeError("certificate verify failed"),
         )
 
-        mock_agent = AsyncMock()
-        mock_agent.generate = AsyncMock(side_effect=review_error)
-
-        with patch("aragora.swarm.campaign.create_agent", return_value=mock_agent):
+        with patch(
+            "aragora.swarm.campaign.generate_review_response",
+            new=AsyncMock(side_effect=review_error),
+        ):
             gate = await reviewer.review(
                 project=project,
                 worker_model="codex",
@@ -366,3 +375,34 @@ class TestReviewerBillingErrorDetection:
         assert gate.findings == ["Review failed: AgentConnectionError"]
         assert gate.raw_review["error"] == "AgentConnectionError"
         assert "certificate verify failed" in gate.raw_review["detail"]
+
+    @pytest.mark.asyncio
+    async def test_review_routing_error_surfaces_attempt_chain(self) -> None:
+        reviewer = CampaignReviewer()
+        project = _make_project()
+        run_dict = _make_run_dict()
+        routing_error = ReviewRoutingError(
+            [
+                {"candidate": "codex", "detail": "codex CLI not found"},
+                {"candidate": "claude:max-01", "detail": "Credit balance is too low"},
+                {"candidate": "openrouter", "detail": "OpenRouter TLS check failed"},
+            ]
+        )
+
+        with patch(
+            "aragora.swarm.campaign.generate_review_response",
+            new=AsyncMock(side_effect=routing_error),
+        ):
+            gate = await reviewer.review(
+                project=project,
+                worker_model="codex",
+                review_model="claude",
+                run_dict=run_dict,
+            )
+
+        assert gate.status == CampaignReviewStatus.BLOCKED_NONREVIEWABLE.value
+        assert gate.findings == [
+            "Review blocked: codex: codex CLI not found; claude:max-01: Credit balance is too low; openrouter: OpenRouter TLS check failed"
+        ]
+        assert gate.raw_review["error"] == "ReviewRoutingError"
+        assert len(gate.raw_review["attempts"]) == 3

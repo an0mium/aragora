@@ -23,6 +23,7 @@ from aragora.swarm.boss_loop import (
     _classify_terminal_run_outcome,
     dispatch_bounded_spec,
 )
+from aragora.swarm.review_routing import ReviewRoutingError, generate_review_response
 from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.supervisor import (
     CAMPAIGN_BLOCKERS_METADATA_KEY,
@@ -991,8 +992,13 @@ class CampaignReviewer:
             budget_context=budget_context,
         )
         try:
-            agent = create_agent(chosen_review_model, name="campaign-review", role="critic")
-            raw = await agent.generate(prompt)
+            routing = await generate_review_response(
+                prompt,
+                worker_model=worker_model,
+                preferred_review_model=chosen_review_model,
+                repo_root=(repo_root or Path.cwd()).resolve(),
+            )
+            raw = str(routing.get("response", "")).strip()
             parsed = _extract_first_json_object(raw)
             status = str(parsed.get("status", "")).strip().lower()
             findings = [str(item) for item in parsed.get("findings", []) if str(item).strip()]
@@ -1009,7 +1015,26 @@ class CampaignReviewer:
                 status=status,
                 findings=findings,
                 reviewed_at=_now_iso(),
-                raw_review={"response": raw},
+                raw_review={
+                    "response": raw,
+                    "routing": {
+                        "candidate": routing.get("candidate"),
+                        "attempts": routing.get("attempts", []),
+                    },
+                },
+            )
+        except ReviewRoutingError as exc:
+            return CampaignReviewGate(
+                required=True,
+                review_model=chosen_review_model,
+                status=CampaignReviewStatus.BLOCKED_NONREVIEWABLE.value,
+                findings=[f"Review blocked: {str(exc)}"],
+                reviewed_at=_now_iso(),
+                raw_review={
+                    "error": type(exc).__name__,
+                    "detail": str(exc)[:500],
+                    "attempts": exc.attempts,
+                },
             )
         except CLISubprocessError as exc:
             error_str = str(exc).lower()
