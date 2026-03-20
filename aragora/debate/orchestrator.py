@@ -16,6 +16,28 @@ async def _maybe_await(value: Any) -> Any:
     return value
 
 
+def _compute_domain_from_task(task_lower: str) -> str:
+    """Compatibility helper retained for legacy orchestrator tests/imports."""
+    task_lower = task_lower.lower()
+    if any(w in task_lower for w in ("security", "hack", "vulnerability", "auth", "encrypt")):
+        return "security"
+    if any(w in task_lower for w in ("performance", "speed", "optimize", "cache", "latency")):
+        return "performance"
+    if any(w in task_lower for w in ("test", "testing", "coverage", "regression")):
+        return "testing"
+    if any(w in task_lower for w in ("design", "architecture", "pattern", "structure")):
+        return "architecture"
+    if any(w in task_lower for w in ("bug", "error", "fix", "crash", "exception")):
+        return "debugging"
+    if any(w in task_lower for w in ("api", "endpoint", "rest", "graphql")):
+        return "api"
+    if any(w in task_lower for w in ("database", "sql", "query", "schema")):
+        return "database"
+    if any(w in task_lower for w in ("ui", "frontend", "react", "css", "layout")):
+        return "frontend"
+    return "general"
+
+
 class Arena:
     """Run a bounded offline debate with mock or real agents.
 

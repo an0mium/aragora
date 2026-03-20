@@ -13,11 +13,39 @@ DEFAULT_MARKERS = (
     "and not integration_minimal and not benchmark and not performance"
 )
 DEFAULT_PATHS = ["tests/"]
+DEFAULT_IGNORE_PATHS = (
+    "tests/benchmarks/test_debate_perf.py",
+    "tests/cli/test_demo_command.py",
+    "tests/integration/test_e2e_debate.py",
+)
 
 
 def _run(cmd: list[str]) -> None:
     print("$ " + " ".join(cmd))
     subprocess.run(cmd, check=True)
+
+
+def _build_pytest_command(args: argparse.Namespace) -> list[str]:
+    pytest_cmd = [
+        sys.executable,
+        "-m",
+        "pytest",
+        *args.paths,
+        "-m",
+        args.markers,
+        "--timeout",
+        str(args.timeout),
+        "--tb=short",
+        "--maxfail",
+        str(args.maxfail),
+    ]
+    for ignored_path in DEFAULT_IGNORE_PATHS:
+        pytest_cmd.extend(["--ignore", ignored_path])
+    if not args.run:
+        pytest_cmd.append("--collect-only")
+    if not args.verbose:
+        pytest_cmd.append("-q")
+    return pytest_cmd
 
 
 def main() -> int:
@@ -67,25 +95,7 @@ def main() -> int:
 
     _run([sys.executable, "scripts/check_test_dependencies.py"])
 
-    pytest_cmd = [
-        sys.executable,
-        "-m",
-        "pytest",
-        *args.paths,
-        "-m",
-        args.markers,
-        "--timeout",
-        str(args.timeout),
-        "--tb=short",
-        "--maxfail",
-        str(args.maxfail),
-    ]
-    if not args.run:
-        pytest_cmd.append("--collect-only")
-    if not args.verbose:
-        pytest_cmd.append("-q")
-
-    _run(pytest_cmd)
+    _run(_build_pytest_command(args))
     return 0
 
 

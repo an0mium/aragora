@@ -123,6 +123,15 @@ def test_readiness_candidates_require_readyz() -> None:
     assert module.LIVENESS_PATH_CANDIDATES == ["/healthz"]
 
 
+def test_default_core_services_wait_for_otel_before_aragora() -> None:
+    module = _load_script_module()
+
+    assert "otel-collector" in module.DEFAULT_CORE_SERVICES
+    assert module.DEFAULT_CORE_SERVICES.index(
+        "otel-collector"
+    ) < module.DEFAULT_CORE_SERVICES.index("aragora")
+
+
 def test_resolve_runtime_base_url_uses_container_ip_when_no_host_port() -> None:
     module = _load_script_module()
 

@@ -29,6 +29,7 @@ DEFAULT_CORE_SERVICES = [
     "sentinel-1",
     "sentinel-2",
     "sentinel-3",
+    "otel-collector",
     "aragora",
 ]
 

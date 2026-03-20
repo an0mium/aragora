@@ -18,6 +18,7 @@ import itertools
 import json
 import logging
 import os
+from dataclasses import fields
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
@@ -85,7 +86,6 @@ def _demo_agent_factory() -> Callable[[str], Any]:
 
 
 def _protocol_overrides(mode: str, enable_trending: bool) -> dict[str, Any]:
-    # Keep these in sync with DebateProtocol fields.
     overrides = {
         "enable_research": False,
         "enable_trending_injection": enable_trending,
@@ -113,7 +113,8 @@ def _protocol_overrides(mode: str, enable_trending: bool) -> dict[str, Any]:
             }
         )
 
-    return overrides
+    supported_fields = {field.name for field in fields(DebateProtocol)}
+    return {key: value for key, value in overrides.items() if key in supported_fields}
 
 
 def _configure_trending(enable_trending: bool) -> None:

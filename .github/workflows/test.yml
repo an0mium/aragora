@@ -269,7 +269,7 @@ jobs:
       - name: Install baseline test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,research,test]"
+          bash scripts/ci_install_project.sh --extras test,monitoring,observability
 
       - name: Verify deterministic baseline command
         run: python scripts/run_test_baseline.py
