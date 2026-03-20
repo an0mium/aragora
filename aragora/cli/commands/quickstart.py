@@ -14,13 +14,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import logging
 import os
 import sys
 import tempfile
 import time
+import uuid
 import webbrowser
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
@@ -413,6 +416,8 @@ def _build_live_receipt(
     team: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Shape a live debate result into one deterministic receipt payload."""
+    from aragora.gauntlet.receipt_models import ConsensusProof, DecisionReceipt, ProvenanceRecord
+
     participants = list(getattr(result, "participants", []) or [])
     if not participants:
         participants = [str(agent["name"]) for agent in team]
@@ -420,11 +425,23 @@ def _build_live_receipt(
     final_answer = str(getattr(result, "final_answer", "") or "")
     confidence = float(getattr(result, "confidence", 0.0) or 0.0)
     consensus_reached = bool(getattr(result, "consensus_reached", False))
-    verdict = "consensus" if consensus_reached else "no_consensus"
+    verdict = (
+        "PASS"
+        if consensus_reached and confidence >= 0.75
+        else "CONDITIONAL"
+        if confidence >= 0.45
+        else "FAIL"
+    )
     dissenting_views = [str(view) for view in list(getattr(result, "dissenting_views", []) or [])]
     dissent = _summarize_dissenting_views(dissenting_views, participants)
-    receipt_id = str(getattr(result, "debate_id", "") or getattr(result, "id", "") or "")
+    receipt_id = str(
+        getattr(result, "debate_id", "")
+        or getattr(result, "id", "")
+        or f"quickstart-{uuid.uuid4().hex[:12]}"
+    )
     proposals = dict(getattr(result, "proposals", {}) or {})
+    timestamp = datetime.now(timezone.utc).isoformat()
+    input_hash = hashlib.sha256(question.encode("utf-8")).hexdigest()
 
     supporting_agents: list[str] = []
     dissenting_agents: list[str] = []
@@ -442,33 +459,81 @@ def _build_live_receipt(
     if not vote_records and consensus_reached:
         supporting_agents = participants[:]
 
-    return {
-        "question": question,
-        "verdict": verdict,
-        "confidence": confidence,
-        "rounds": int(getattr(result, "rounds_used", 0) or rounds),
-        "agents": participants,
-        "summary": final_answer,
-        "dissent": dissent,
-        "dissenting_views": dissenting_views,
-        "mode": "live",
-        "receipt_id": receipt_id,
-        "receipt": {
-            "id": receipt_id,
-            "consensus_reached": consensus_reached,
-            "confidence": confidence,
+    rounds_used = int(getattr(result, "rounds_used", 0) or rounds)
+    receipt = DecisionReceipt(
+        receipt_id=receipt_id,
+        gauntlet_id=receipt_id,
+        timestamp=timestamp,
+        input_summary=question,
+        input_hash=input_hash,
+        risk_summary={
+            "critical": 0 if consensus_reached else int(bool(dissenting_views)),
+            "high": len(dissenting_agents),
+            "medium": len(dissenting_views),
+            "low": max(0, len(participants) - len(dissenting_views)),
+        },
+        attacks_attempted=rounds_used * max(1, len(participants)),
+        attacks_successful=0 if consensus_reached else max(1, len(dissenting_views)),
+        probes_run=len(vote_records),
+        vulnerabilities_found=len(dissenting_views),
+        verdict=verdict,
+        confidence=confidence,
+        robustness_score=confidence,
+        verdict_reasoning=final_answer,
+        dissenting_views=dissenting_views,
+        consensus_proof=ConsensusProof(
+            reached=consensus_reached,
+            confidence=confidence,
+            supporting_agents=supporting_agents,
+            dissenting_agents=dissenting_agents,
+            method="majority",
+            evidence_hash=input_hash,
+        ),
+        provenance_chain=[
+            ProvenanceRecord(
+                timestamp=timestamp,
+                event_type="task",
+                description=question,
+            ),
+            ProvenanceRecord(
+                timestamp=timestamp,
+                event_type="verdict",
+                description=final_answer or verdict,
+            ),
+        ],
+        cost_summary={
+            "cost_usd": float(getattr(result, "total_cost_usd", 0.0) or 0.0),
+            "tokens_used": int(getattr(result, "total_tokens", 0) or 0),
+        },
+        config_used={
+            "mode": "quickstart-live",
+            "rounds": rounds_used,
             "participants": participants,
         },
-        "consensus_proof": {
-            "reached": consensus_reached,
-            "method": "majority",
-            "confidence": confidence,
-            "supporting_agents": supporting_agents,
-            "dissenting_agents": dissenting_agents,
-        },
-        "proposals": proposals,
-        "votes": vote_records,
-    }
+    )
+
+    payload = receipt.to_dict()
+    payload.update(
+        {
+            "question": question,
+            "rounds": rounds_used,
+            "agents": participants,
+            "summary": final_answer,
+            "dissent": dissent,
+            "mode": "live",
+            "receipt": {
+                "id": receipt.receipt_id,
+                "artifact_hash": receipt.artifact_hash,
+                "consensus_reached": consensus_reached,
+                "confidence": confidence,
+                "participants": participants,
+            },
+            "proposals": proposals,
+            "votes": vote_records,
+            "consensus_reached": consensus_reached,
+        }
+    )
+    return payload
 
 
 async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
@@ -639,8 +704,13 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     print(f"  Agents:     {', '.join(result['agents'])}")
     print(f"  Rounds:     {result['rounds']}")
     print(f"  Elapsed:    {elapsed:.1f}s")
+    if "consensus_proof" in result:
+        consensus_text = "Reached" if result["consensus_proof"].get("reached") else "Not reached"
+        print(f"  Consensus:  {consensus_text}")
     if result.get("receipt_id"):
         print(f"  Receipt:    {result['receipt_id']}")
+    if result.get("artifact_hash"):
+        print(f"  Artifact:   {str(result['artifact_hash'])[:16]}...")
 
     if result.get("summary"):
         print(f"\n  Summary:\n  {result['summary'][:500]}")

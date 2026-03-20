@@ -312,6 +312,8 @@ class TestLiveQuickstartHelpers:
         assert [agent["api_key"] for agent in team] == ["sk-inline"] * 3
 
     def test_build_live_receipt_surfaces_consensus_dissent_and_receipt(self):
+        from aragora.gauntlet.receipt_models import DecisionReceipt
+
         vote_for = argparse.Namespace(agent="alpha", choice="Ship it", reasoning="Best option")
         vote_against = argparse.Namespace(
             agent="beta",
@@ -342,10 +344,13 @@ class TestLiveQuickstartHelpers:
         )
 
         assert receipt["receipt_id"] == "debate-123"
+        assert receipt["artifact_hash"]
         assert receipt["consensus_proof"]["reached"] is True
         assert receipt["consensus_proof"]["supporting_agents"] == ["alpha"]
         assert receipt["consensus_proof"]["dissenting_agents"] == ["beta"]
         assert receipt["dissent"][0]["reason"] == "Timeline risk remains unresolved."
+        assert receipt["receipt"]["artifact_hash"] == receipt["artifact_hash"]
+        assert DecisionReceipt.from_dict(receipt).verify_integrity() is True
 
 
 # =============================================================================
