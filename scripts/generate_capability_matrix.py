@@ -12,12 +12,16 @@ Inputs:
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import sys
 from pathlib import Path
 
-from capability_gap_report import build_report
+try:
+    from scripts.capability_gap_report import build_report
+except ImportError:
+    from capability_gap_report import build_report
 
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "head", "options", "trace"}
 
@@ -62,10 +66,87 @@ def _count_cli_commands(repo_root: Path) -> int:
             if getattr(action, "choices", None):
                 return len(action.choices)
     except Exception:
-        # Fallback to static scan to avoid hard failure if parser imports change.
-        parser_path = repo_root / "aragora" / "cli" / "parser.py"
-        text = parser_path.read_text(encoding="utf-8")
-        return len(re.findall(r"\bsubparsers\.add_parser\(", text))
+        return _count_cli_commands_static(repo_root)
+    return 0
+
+
+def _count_cli_commands_static(repo_root: Path) -> int:
+    """Count top-level CLI command invocations without importing the parser module.
+
+    The top-level CLI is assembled in `build_parser()` by calling helper functions
+    that each register either one command, one command plus aliases, or a bounded
+    bundle of external command parsers. We walk that AST so CI jobs that only
+    install core deps do not undercount commands.
+    """
+
+    parser_path = repo_root / "aragora" / "cli" / "parser.py"
+    module = ast.parse(parser_path.read_text(encoding="utf-8"), filename=str(parser_path))
+    functions = {node.name: node for node in module.body if isinstance(node, ast.FunctionDef)}
+    build_parser = functions.get("build_parser")
+    if build_parser is None:
+        return 0
+
+    helper_names: list[str] = []
+    for node in ast.walk(build_parser):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Name):
+            continue
+        if not node.func.id.startswith("_add_"):
+            continue
+        if len(node.args) != 1:
+            continue
+        if not isinstance(node.args[0], ast.Name) or node.args[0].id != "subparsers":
+            continue
+        helper_names.append(node.func.id)
+
+    count = 0
+    for helper_name in helper_names:
+        helper = functions.get(helper_name)
+        if helper is None:
+            continue
+        count += _count_top_level_commands_in_helper(helper)
+    return count
+
+
+def _count_top_level_commands_in_helper(helper: ast.FunctionDef) -> int:
+    direct_count = 0
+    delegate_count = 0
+
+    for node in ast.walk(helper):
+        if not isinstance(node, ast.Call):
+            continue
+
+        if (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "add_parser"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "subparsers"
+        ):
+            direct_count += 1 + _alias_count(node)
+            continue
+
+        if not node.args:
+            continue
+        if not isinstance(node.args[0], ast.Name) or node.args[0].id != "subparsers":
+            continue
+        if isinstance(node.func, ast.Name):
+            delegate_count += 1
+
+    return direct_count or delegate_count
+
+
+def _alias_count(call: ast.Call) -> int:
+    for keyword in call.keywords:
+        if keyword.arg != "aliases":
+            continue
+        value = keyword.value
+        if isinstance(value, (ast.List, ast.Tuple)):
+            return sum(
+                1
+                for element in value.elts
+                if isinstance(element, ast.Constant) and isinstance(element.value, str)
+            )
     return 0
 
 

@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+import inspect
 from functools import wraps
 from typing import Any, TypeVar, cast
 from collections.abc import Callable
@@ -221,7 +222,7 @@ def api_endpoint(
         op_id = operation_id or func.__name__
 
         # Use docstring as description if not provided
-        desc = description or (func.__doc__.strip() if func.__doc__ else "")
+        desc = description or inspect.getdoc(func) or ""
 
         # Build security requirement
         security: list[dict[str, list[str]]] = []

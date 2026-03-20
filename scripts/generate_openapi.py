@@ -188,13 +188,9 @@ def _ast_extract_endpoints_from_file(filepath: Path) -> list[dict[str, Any]]:
             if not isinstance(operation_id, str):
                 operation_id = node.name
 
-            # Use function docstring as description fallback
-            if not description and isinstance(node.body, list) and node.body:
-                first_stmt = node.body[0]
-                if isinstance(first_stmt, ast.Expr) and isinstance(first_stmt.value, ast.Constant):
-                    doc = first_stmt.value.value
-                    if isinstance(doc, str):
-                        description = doc.strip()
+            # Use a cleaned docstring fallback so AST output matches runtime imports.
+            if not description:
+                description = ast.get_docstring(node, clean=True) or ""
 
             if not summary:
                 summary = node.name.replace("_", " ").title()
