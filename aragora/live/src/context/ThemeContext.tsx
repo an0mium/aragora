@@ -59,7 +59,11 @@ function isValidTheme(value: string): value is Theme {
 
 function getSystemDefaultTheme(): Theme {
   if (typeof window === 'undefined') return DEFAULT_THEME;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'warm';
+  const mediaQuery =
+    typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-color-scheme: dark)')
+      : null;
+  return mediaQuery?.matches ? 'dark' : 'warm';
 }
 
 function applyTheme(theme: Theme): void {
@@ -143,7 +147,13 @@ export function ThemeProvider({
 
   // Listen for system preference changes (when no explicit choice was stored)
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaQuery =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-color-scheme: dark)')
+        : null;
+    if (!mediaQuery) {
+      return;
+    }
 
     const handleChange = (e: MediaQueryListEvent) => {
       // Only auto-switch if user hasn't explicitly set a theme
@@ -155,8 +165,19 @@ export function ThemeProvider({
       }
     };
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    if (typeof mediaQuery.addEventListener === 'function' &&
+        typeof mediaQuery.removeEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+
+    if (typeof mediaQuery.addListener === 'function' &&
+        typeof mediaQuery.removeListener === 'function') {
+      mediaQuery.addListener(handleChange);
+      return () => mediaQuery.removeListener(handleChange);
+    }
+
+    return;
   }, []);
 
   // Set theme handler — also accepts legacy 'light'/'system' values

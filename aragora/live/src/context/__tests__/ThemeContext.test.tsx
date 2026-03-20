@@ -2,10 +2,10 @@
  * Tests for ThemeContext
  *
  * Tests cover:
- * - Default theme (light)
+ * - Default theme resolution
  * - Theme initialization from localStorage
  * - setTheme changes preference and effective theme
- * - toggleTheme cycles between dark and light
+ * - toggleTheme cycles between dark and warm/light
  * - System preference handling
  * - useTheme hook throws outside provider
  * - localStorage persistence
@@ -64,15 +64,15 @@ describe('ThemeContext', () => {
   });
 
   describe('Initialization', () => {
-    it('starts with light theme by default', async () => {
+    it('starts with the system dark theme by default', async () => {
       const { result } = renderHook(() => useTheme(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isInitialized).toBe(true);
       });
 
-      expect(result.current.preference).toBe('light');
-      expect(result.current.effectiveTheme).toBe('light');
+      expect(result.current.preference).toBe('dark');
+      expect(result.current.effectiveTheme).toBe('dark');
     });
 
     it('loads theme from legacy storage key', async () => {
@@ -84,11 +84,11 @@ describe('ThemeContext', () => {
         expect(result.current.isInitialized).toBe(true);
       });
 
-      expect(result.current.preference).toBe('light');
+      expect(result.current.preference).toBe('warm');
       expect(result.current.effectiveTheme).toBe('light');
     });
 
-    it('loads theme from preferences object', async () => {
+    it('ignores the legacy preferences object key', async () => {
       localStorageMock['aragora_preferences'] = JSON.stringify({ theme: 'light' });
 
       const { result } = renderHook(() => useTheme(), { wrapper });
@@ -97,7 +97,7 @@ describe('ThemeContext', () => {
         expect(result.current.isInitialized).toBe(true);
       });
 
-      expect(result.current.preference).toBe('light');
+      expect(result.current.preference).toBe('dark');
     });
 
     it('uses defaultPreference prop when no storage', async () => {
@@ -111,12 +111,13 @@ describe('ThemeContext', () => {
         expect(result.current.isInitialized).toBe(true);
       });
 
-      expect(result.current.preference).toBe('light');
+      expect(result.current.preference).toBe('warm');
+      expect(result.current.effectiveTheme).toBe('light');
     });
   });
 
   describe('setTheme', () => {
-    it('changes preference to light', async () => {
+    it('changes preference to warm when set to legacy light', async () => {
       const { result } = renderHook(() => useTheme(), { wrapper });
 
       await waitFor(() => {
@@ -127,11 +128,11 @@ describe('ThemeContext', () => {
         result.current.setTheme('light');
       });
 
-      expect(result.current.preference).toBe('light');
+      expect(result.current.preference).toBe('warm');
       expect(result.current.effectiveTheme).toBe('light');
     });
 
-    it('changes preference to system', async () => {
+    it('resolves system to the current system theme', async () => {
       const { result } = renderHook(() => useTheme(), { wrapper });
 
       await waitFor(() => {
@@ -142,8 +143,7 @@ describe('ThemeContext', () => {
         result.current.setTheme('system');
       });
 
-      expect(result.current.preference).toBe('system');
-      // Effective theme should be resolved from system (dark in our mock)
+      expect(result.current.preference).toBe('dark');
       expect(result.current.effectiveTheme).toBe('dark');
     });
 
@@ -158,11 +158,11 @@ describe('ThemeContext', () => {
         result.current.setTheme('light');
       });
 
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('aragora-theme', 'light');
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('aragora-theme', 'warm');
     });
 
-    it('removes legacy key when set to system', async () => {
-      localStorageMock['aragora-theme'] = 'light';
+    it('persists the resolved system theme to localStorage', async () => {
+      localStorageMock['aragora-theme'] = 'warm';
 
       const { result } = renderHook(() => useTheme(), { wrapper });
 
@@ -174,12 +174,13 @@ describe('ThemeContext', () => {
         result.current.setTheme('system');
       });
 
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('aragora-theme');
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('aragora-theme', 'dark');
     });
   });
 
   describe('toggleTheme', () => {
-    it('toggles from light to dark', async () => {
+    it('toggles from warm/light to dark', async () => {
+      localStorageMock['aragora-theme'] = 'light';
       const { result } = renderHook(() => useTheme(), { wrapper });
 
       await waitFor(() => {
@@ -196,7 +197,7 @@ describe('ThemeContext', () => {
       expect(result.current.effectiveTheme).toBe('dark');
     });
 
-    it('toggles from dark to light', async () => {
+    it('toggles from dark to warm/light', async () => {
       localStorageMock['aragora-theme'] = 'dark';
 
       const { result } = renderHook(() => useTheme(), { wrapper });
@@ -211,11 +212,11 @@ describe('ThemeContext', () => {
         result.current.toggleTheme();
       });
 
-      expect(result.current.preference).toBe('light');
+      expect(result.current.preference).toBe('warm');
       expect(result.current.effectiveTheme).toBe('light');
     });
 
-    it('toggle overrides system preference', async () => {
+    it('toggle switches an implicit system-dark theme to explicit warm', async () => {
       const { result } = renderHook(() => useTheme(), { wrapper });
 
       await waitFor(() => {
@@ -226,15 +227,15 @@ describe('ThemeContext', () => {
         result.current.setTheme('system');
       });
 
-      expect(result.current.preference).toBe('system');
-      expect(result.current.effectiveTheme).toBe('dark'); // System is dark
+      expect(result.current.preference).toBe('dark');
+      expect(result.current.effectiveTheme).toBe('dark');
 
       act(() => {
         result.current.toggleTheme();
       });
 
-      // Should now be explicit light (not system anymore)
-      expect(result.current.preference).toBe('light');
+      expect(result.current.preference).toBe('warm');
+      expect(result.current.effectiveTheme).toBe('light');
     });
   });
 
@@ -304,8 +305,7 @@ describe('ThemeContext', () => {
         expect(result.current.isInitialized).toBe(true);
       });
 
-      // Should fallback to default (light)
-      expect(result.current.preference).toBe('light');
+      expect(result.current.preference).toBe('dark');
     });
 
     it('handles invalid theme value in localStorage', async () => {
@@ -317,8 +317,7 @@ describe('ThemeContext', () => {
         expect(result.current.isInitialized).toBe(true);
       });
 
-      // Should fallback to default (light)
-      expect(result.current.preference).toBe('light');
+      expect(result.current.preference).toBe('dark');
     });
   });
 });

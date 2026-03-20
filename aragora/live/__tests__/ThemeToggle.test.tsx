@@ -105,7 +105,7 @@ describe('ThemeToggle', () => {
 
       fireEvent.click(screen.getByRole('button'));
 
-      expect(localStorageMock.getItem('aragora-theme')).toBe('light');
+      expect(localStorageMock.getItem('aragora-theme')).toBe('warm');
     });
   });
 
@@ -173,7 +173,7 @@ describe('ThemeToggle', () => {
       expect(button).toHaveAttribute('aria-label', 'Switch to light mode');
     });
 
-    it('sets data-theme attribute on body for light mode', async () => {
+    it('sets data-theme attribute on the document element for warm mode', async () => {
       renderWithProviders(<ThemeToggle />);
 
       await act(async () => {
@@ -182,12 +182,12 @@ describe('ThemeToggle', () => {
 
       fireEvent.click(screen.getByRole('button'));
 
-      expect(document.body.getAttribute('data-theme')).toBe('light');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('warm');
     });
 
-    it('removes data-theme attribute for dark mode', async () => {
+    it('sets data-theme attribute on the document element for dark mode', async () => {
       localStorageMock.setItem('aragora-theme', 'light');
-      document.body.setAttribute('data-theme', 'light');
+      document.documentElement.setAttribute('data-theme', 'warm');
 
       renderWithProviders(<ThemeToggle />);
 
@@ -197,7 +197,7 @@ describe('ThemeToggle', () => {
 
       fireEvent.click(screen.getByRole('button'));
 
-      expect(document.body.getAttribute('data-theme')).toBeNull();
+      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
     });
   });
 

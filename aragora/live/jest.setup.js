@@ -10,6 +10,13 @@ if (typeof window !== 'undefined') {
 }
 
 jest.mock('next/navigation');
+jest.mock('react-markdown', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ children }) => React.createElement(React.Fragment, null, children),
+  };
+});
 
 // Mock fetch globally
 global.fetch = jest.fn();

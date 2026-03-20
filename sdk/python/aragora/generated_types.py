@@ -264,6 +264,39 @@ class TrendingCategory(StrEnum):
     health = "health"
 
 
+class QualityPipeline(BaseModel):
+    enabled: Annotated[
+        bool | None,
+        Field(description="Enable the quality pipeline (default true when this object is present)"),
+    ] = True
+    required_sections: Annotated[
+        list[str] | None,
+        Field(
+            description="Explicit section headings to require in the output",
+            example=[
+                "Ranked High-Level Tasks",
+                "Suggested Subtasks",
+                "Owner module / file paths",
+                "Test Plan",
+                "Rollback Plan",
+                "Gate Criteria",
+                "JSON Payload",
+            ],
+        ),
+    ] = None
+    output_contract_file: Annotated[
+        str | None, Field(description="Server-side path to a JSON output contract file")
+    ] = None
+    quality_min_score: Annotated[
+        float | None,
+        Field(description="Minimum quality score (0-10) for the gate to pass"),
+    ] = 9.0
+    practicality_min_score: Annotated[
+        float | None,
+        Field(description="Minimum practicality score (0-10) for the gate to pass"),
+    ] = 6.0
+
+
 class DebateCreateRequest(BaseModel):
     task: Annotated[
         str,
@@ -350,6 +383,12 @@ class DebateCreateRequest(BaseModel):
     metadata: Annotated[
         dict[str, Any] | None,
         Field(description="Optional metadata for tracking and integrations"),
+    ] = None
+    quality_pipeline: Annotated[
+        QualityPipeline | None,
+        Field(
+            description="Post-consensus quality pipeline configuration. When present, the server applies deterministic quality checks and repairs to the consensus answer."
+        ),
     ] = None
 
 

@@ -259,7 +259,7 @@ describe('DebateViewerWrapper', () => {
       renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
-        expect(screen.getByText('[RETURN TO DASHBOARD]')).toBeInTheDocument();
+        expect(screen.getByText('[RETURN HOME]')).toBeInTheDocument();
       });
     });
 
@@ -269,8 +269,8 @@ describe('DebateViewerWrapper', () => {
       renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
-        const link = screen.getByText('[RETURN TO DASHBOARD]').closest('a');
-        expect(link).toHaveAttribute('href', '/');
+        const link = screen.getByText('[RETURN HOME]').closest('a');
+        expect(link).toHaveAttribute('href', '/landing/');
       });
     });
   });

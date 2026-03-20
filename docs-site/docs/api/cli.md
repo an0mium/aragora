@@ -1,6 +1,6 @@
 ---
 title: Aragora CLI Reference
-description: Aragora CLI Reference
+description: Generated Aragora CLI command catalog from live parser
 ---
 
 # Aragora CLI Reference
@@ -11,8 +11,8 @@ description: Aragora CLI Reference
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **75**
-- Total top-level invocations (including aliases): **76**
+- Canonical top-level commands: **82**
+- Total top-level invocations (including aliases): **83**
 
 ## Installation
 
@@ -44,6 +44,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `agents` | - | List available agents and their configuration | - |
 | `analytics` | - | View debate analytics and platform usage | `agents`, `costs`, `summary`, `trends` |
 | `ask` | - | Run a decision stress-test (debate engine) | - |
+| `assess` | - | Run canonical repository assessment | - |
 | `audit` | - | Document compliance and audit commands | `create`, `export`, `findings`, `preset`, `presets`, `report`, `start`, `status`, `types` |
 | `autopilot` | - | Autonomous GTM task orchestration | - |
 | `backup` | - | Database backup and restore commands | `cleanup`, `create`, `list`, `restore`, `verify` |
@@ -51,7 +52,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `batch` | - | Process multiple debates from a file | - |
 | `bench` | - | Benchmark agents | - |
 | `billing` | - | Manage billing, usage, and subscriptions | `invoices`, `portal`, `status`, `subscribe`, `usage` |
-| `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `report`, `status` |
+| `compliance` | - | Compliance framework and EU AI Act tools | `audit`, `check`, `classify`, `eu-ai-act`, `evidence`, `export`, `report`, `status` |
 | `computer-use` | - | Computer use task management | `list`, `run`, `status` |
 | `config` | - | Manage configuration | - |
 | `connectors` | - | Connector management commands | `list`, `status`, `test` |
@@ -73,7 +74,9 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `gauntlet` | - | Adversarial stress-test a specification, architecture, or policy | - |
 | `handlers` | - | List registered HTTP handlers and routes | `list`, `routes` |
 | `healthcare` | - | Healthcare vertical: adversarial clinical decision review | `review` |
+| `ideacloud` | - | Manage the Idea Cloud knowledge graph | `cluster`, `export`, `link`, `list`, `load`, `promote`, `pulse`, `rss`, `search`, `show`, `stats`, `sync-km` |
 | `improve` | - | Self-improvement mode using AutonomousOrchestrator | - |
+| `inbox-wedge` | - | Receipt-gated inbox trust wedge commands | `create`, `execute`, `export`, `list`, `report`, `review`, `show` |
 | `init` | - | Initialize Aragora project | - |
 | `km` | - | Knowledge Mound management commands | `query`, `stats`, `store` |
 | `knowledge` | - | Knowledge base operations | `facts`, `jobs`, `process`, `query`, `search`, `stats` |
@@ -82,14 +85,15 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `memory` | - | Memory management commands | `promote`, `query`, `stats`, `store` |
 | `modes` | - | List available operational modes | - |
 | `nomic` | - | Nomic loop self-improvement commands | `history`, `resume`, `run`, `status` |
-| `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `next-steps`, `policy`, `review`, `serve`, `status` |
+| `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `next-steps`, `policy`, `review`, `serve`, `status`, `watch` |
 | `outcome` | - | Record and search decision outcomes | `record`, `search` |
 | `patterns` | - | Show learned patterns | - |
-| `pipeline` | - | Run idea-to-execution pipeline operations | `run`, `self-improve`, `status` |
+| `pipeline` | - | Run idea-to-execution pipeline operations | `dogfood`, `run`, `self-improve`, `status` |
 | `plans` | - | Manage decision plans | `approve`, `execute`, `list`, `reject`, `show` |
 | `playbook` | - | List and run decision playbooks | `list`, `run` |
 | `publish` | - | Build, test, and publish packages to PyPI/npm | - |
 | `quickstart` | - | Guided zero-to-receipt first debate (new user onboarding) | - |
+| `ralph` | - | Ralph campaign supervisor — autonomous incident commander | - |
 | `rbac` | - | RBAC management commands | `assign`, `check`, `check-local`, `list-permissions`, `list-roles`, `permissions`, `roles` |
 | `receipt` | - | View, verify, and export decision receipts | `export`, `inspect`, `list`, `show`, `verify`, `view` |
 | `repl` | - | Interactive debate mode | - |
@@ -100,21 +104,24 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `self-improve` | - | Run self-improvement pipeline with worktree isolation and validation | - |
 | `serve` | - | Run live debate server | - |
 | `setup` | - | Interactive setup wizard for API keys and configuration | - |
+| `signing` | - | Sign and verify context files for Nomic Loop provenance (G1) | `show`, `sign`, `verify` |
 | `skills` | - | Skill marketplace commands | `info`, `install`, `list`, `scan`, `search`, `stats`, `uninstall` |
 | `starter` | - | SME Starter Pack -- install to decision receipt in 15 minutes | - |
 | `stats` | - | Show memory statistics | - |
 | `status` | - | Show environment health and agent availability | - |
 | `swarm` | - | Launch a swarm of AI agents to accomplish a goal | - |
+| `tasks` | - | Inspect and operate the developer task queue | `claim`, `complete`, `heartbeat`, `leases`, `list`, `release`, `salvage`, `show`, `stats`, `sync` |
 | `template` | - | Manage workflow templates | `list`, `package`, `run`, `show`, `validate` |
 | `templates` | - | List available debate templates | - |
 | `tenant` | - | Manage multi-tenant deployments | `activate`, `create`, `delete`, `export`, `list`, `quota-get`, `quota-set`, `suspend` |
 | `testfixer` | - | Run automated test-fix loop | - |
+| `triage` | - | Inbox triage via adversarial debate with receipt-gated actions | `run`, `status` |
 | `validate` | - | Validate API keys by making test calls | - |
 | `validate-env` | - | Validate environment configuration and backend connectivity | - |
 | `verify` | - | Verify a decision receipt's integrity | - |
 | `verticals` | - | Manage vertical specialist configurations | - |
 | `workflow` | - | Workflow engine commands | `categories`, `list`, `patterns`, `run`, `status`, `templates` |
-| `worktree` | - | Manage git worktrees for parallel agent sessions | `autopilot`, `cleanup`, `conflicts`, `create`, `fleet-claim`, `fleet-claims`, `fleet-queue-add`, `fleet-queue-list`, `fleet-release`, `fleet-status`, `list`, `merge`, `merge-all` |
+| `worktree` | - | Manage git worktrees for parallel agent sessions | `autopilot`, `cleanup`, `conflicts`, `create`, `fleet-claim`, `fleet-claims`, `fleet-queue-add`, `fleet-queue-list`, `fleet-queue-process-next`, `fleet-release`, `fleet-status`, `list`, `merge`, `merge-all` |
 
 ## Core Workflows
 
