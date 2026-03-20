@@ -109,6 +109,17 @@ def test_classify_checks_advisory_noise():
     assert result == "checks_passed"
 
 
+def test_classify_checks_completed_without_conclusion_is_green() -> None:
+    checks = [
+        {"name": "lint", "status": "COMPLETED", "required": True},
+        {"name": "typecheck", "conclusion": "SUCCESS", "required": True},
+    ]
+
+    result = classify_check_results(checks)
+
+    assert result == "checks_passed"
+
+
 def test_assess_returns_recommendation_without_merging():
     result = assess_lane_integration(
         artifact=_make_artifact(),
@@ -174,7 +185,19 @@ def test_assess_fire_and_forget_auto_merges():
         review_status="passed",
         merge_policy="auto",
         autonomy_mode="fire_and_forget",
-        approve=True,
     )
     assert result["recommendation"] == "merge"
     assert result["executed"] is True
+
+
+def test_assess_fire_and_forget_confirm_policy_still_waits() -> None:
+    result = assess_lane_integration(
+        artifact=_make_artifact(),
+        checks="checks_passed",
+        review_status="passed",
+        merge_policy="confirm",
+        autonomy_mode="fire_and_forget",
+    )
+
+    assert result["recommendation"] == "merge"
+    assert result["executed"] is False
