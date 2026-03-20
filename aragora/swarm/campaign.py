@@ -1024,15 +1024,28 @@ class CampaignReviewer:
                 },
             )
         except ReviewRoutingError as exc:
+            logger.warning("review routing failed for project %s: %s", project.project_id, exc)
+            if exc.category == "billing_exhausted":
+                detail = (
+                    "CLI subscription usage exhausted. "
+                    "Run 'claude auth status' to check the active account, "
+                    "then 'claude auth logout && claude auth login' to switch "
+                    "to an account with available capacity."
+                )
+                findings = [f"Review blocked (billing): {detail}"]
+            else:
+                findings = [
+                    "Review blocked: no configured reviewer candidate succeeded. Check logs for detail."
+                ]
             return CampaignReviewGate(
                 required=True,
                 review_model=chosen_review_model,
                 status=CampaignReviewStatus.BLOCKED_NONREVIEWABLE.value,
-                findings=[f"Review blocked: {str(exc)}"],
+                findings=findings,
                 reviewed_at=_now_iso(),
                 raw_review={
                     "error": type(exc).__name__,
-                    "detail": str(exc)[:500],
+                    "detail": exc.public_message,
                     "attempts": exc.attempts,
                 },
             )

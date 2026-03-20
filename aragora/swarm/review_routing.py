@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import shutil
 import socket
@@ -13,8 +14,11 @@ from typing import Any
 from aragora.agents.base import create_agent
 from aragora.agents.errors.exceptions import CLISubprocessError
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_REVIEW_PROVIDER_ORDER = ("codex", "claude", "openrouter")
 DEFAULT_CLAUDE_REVIEW_PROFILES = tuple(f"max-{index:02d}" for index in range(1, 13))
+_BILLING_MARKERS = ("credit balance", "billing", "payment required", "purchase credits")
 _MODEL_FAMILY_OVERRIDES = {
     "anthropic-api": "claude",
     "claude": "claude",
@@ -42,13 +46,19 @@ class ReviewCandidate:
 
 
 class ReviewRoutingError(RuntimeError):
-    def __init__(self, attempts: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        attempts: list[dict[str, Any]],
+        *,
+        category: str = "unavailable",
+        public_message: str | None = None,
+    ) -> None:
         self.attempts = attempts
-        summary = "; ".join(
-            f"{item.get('candidate', 'unknown')}: {item.get('detail', 'unavailable')}"
-            for item in attempts
+        self.category = str(category or "unavailable").strip() or "unavailable"
+        self.public_message = str(public_message or "").strip() or _review_routing_public_message(
+            self.category
         )
-        super().__init__(summary or "No review candidate succeeded.")
+        super().__init__(self.public_message)
 
 
 def resolve_review_candidates(
@@ -130,13 +140,24 @@ async def generate_review_response(
             continue
         try:
             response = await _run_review_candidate(candidate, prompt, repo_root=repo_root)
-        except Exception as exc:
+        except CLISubprocessError as exc:
+            logger.warning("review candidate %s failed: %s", candidate.label, exc)
             attempts.append(
-                {
-                    "candidate": candidate.label,
-                    "stage": "generate",
-                    "detail": _candidate_failure_detail(exc),
-                }
+                _failure_attempt(
+                    candidate.label,
+                    stage="generate",
+                    exc=exc,
+                )
+            )
+            continue
+        except Exception as exc:
+            logger.warning("review candidate %s failed: %s", candidate.label, exc)
+            attempts.append(
+                _failure_attempt(
+                    candidate.label,
+                    stage="generate",
+                    exc=exc,
+                )
             )
             continue
         attempts.append(
@@ -151,7 +172,10 @@ async def generate_review_response(
             "response": response,
             "attempts": attempts,
         }
-    raise ReviewRoutingError(attempts)
+    raise ReviewRoutingError(
+        attempts,
+        category=_review_routing_category(attempts),
+    )
 
 
 async def _run_review_candidate(
@@ -284,12 +308,35 @@ def _strip_claude_profile_wrapper(output: str) -> str:
     return "\n".join(lines).strip()
 
 
-def _candidate_failure_detail(exc: Exception) -> str:
+def _candidate_failure_detail(exc: Exception) -> tuple[str, str]:
     if isinstance(exc, CLISubprocessError):
-        detail = str(exc.stderr or exc).strip()
-        return detail or exc.__class__.__name__
-    text = str(exc).strip()
-    return text or exc.__class__.__name__
+        raw = str(exc.stderr or exc).strip().lower()
+        if any(marker in raw for marker in _BILLING_MARKERS):
+            return ("billing_exhausted", "Reviewer credits are exhausted.")
+        return ("cli_failure", "Reviewer CLI command failed.")
+    return (exc.__class__.__name__, exc.__class__.__name__)
+
+
+def _failure_attempt(candidate: str, *, stage: str, exc: Exception) -> dict[str, Any]:
+    kind, detail = _candidate_failure_detail(exc)
+    return {
+        "candidate": candidate,
+        "stage": stage,
+        "kind": kind,
+        "detail": detail,
+    }
+
+
+def _review_routing_category(attempts: list[dict[str, Any]]) -> str:
+    if any(str(item.get("kind", "")).strip() == "billing_exhausted" for item in attempts):
+        return "billing_exhausted"
+    return "unavailable"
+
+
+def _review_routing_public_message(category: str) -> str:
+    if category == "billing_exhausted":
+        return "Reviewer capacity is exhausted. Check the active reviewer account and available credits."
+    return "No configured review candidate succeeded. Check logs for detail."
 
 
 def _review_provider_order() -> list[str]:

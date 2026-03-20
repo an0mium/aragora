@@ -73,6 +73,7 @@ async def test_generate_review_response_fails_over_to_next_candidate() -> None:
 
     assert result["candidate"]["label"] == "claude:max-01"
     assert result["attempts"][0]["candidate"] == "codex"
+    assert result["attempts"][0]["kind"] == "cli_failure"
     assert result["attempts"][1]["candidate"] == "claude:max-01"
 
 
@@ -102,8 +103,7 @@ async def test_generate_review_response_raises_with_attempt_history() -> None:
                 repo_root=Path("/tmp/repo"),
             )
 
-    assert "codex: codex CLI not found" in str(exc_info.value)
-    assert "openrouter: OpenRouter TLS check failed" in str(exc_info.value)
+    assert str(exc_info.value) == "No configured review candidate succeeded. Check logs for detail."
     assert exc_info.value.attempts == [
         {
             "candidate": "codex",
@@ -115,4 +115,51 @@ async def test_generate_review_response_raises_with_attempt_history() -> None:
             "stage": "preflight",
             "detail": "OpenRouter TLS check failed",
         },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_generate_review_response_marks_billing_exhaustion() -> None:
+    with (
+        patch(
+            "aragora.swarm.review_routing.resolve_review_candidates",
+            return_value=[
+                ReviewCandidate(provider="claude", label="claude:max-01", profile="max-01")
+            ],
+        ),
+        patch(
+            "aragora.swarm.review_routing.preflight_review_candidate",
+            return_value={"ok": True, "detail": "claude available"},
+        ),
+        patch(
+            "aragora.swarm.review_routing._run_review_candidate",
+            new=AsyncMock(
+                side_effect=CLISubprocessError(
+                    message="CLI command failed with return code 1",
+                    agent_name="claude:max-01",
+                    returncode=1,
+                    stderr="Credit balance is too low",
+                )
+            ),
+        ),
+    ):
+        with pytest.raises(ReviewRoutingError) as exc_info:
+            await generate_review_response(
+                "review this",
+                worker_model="codex",
+                preferred_review_model="claude",
+                repo_root=Path("/tmp/repo"),
+            )
+
+    assert exc_info.value.category == "billing_exhausted"
+    assert str(exc_info.value) == (
+        "Reviewer capacity is exhausted. Check the active reviewer account and available credits."
+    )
+    assert exc_info.value.attempts == [
+        {
+            "candidate": "claude:max-01",
+            "stage": "generate",
+            "kind": "billing_exhausted",
+            "detail": "Reviewer credits are exhausted.",
+        }
     ]

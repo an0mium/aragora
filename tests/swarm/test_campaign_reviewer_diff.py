@@ -383,10 +383,19 @@ class TestReviewerBillingErrorDetection:
         run_dict = _make_run_dict()
         routing_error = ReviewRoutingError(
             [
-                {"candidate": "codex", "detail": "codex CLI not found"},
-                {"candidate": "claude:max-01", "detail": "Credit balance is too low"},
-                {"candidate": "openrouter", "detail": "OpenRouter TLS check failed"},
-            ]
+                {"candidate": "codex", "detail": "codex CLI not found", "kind": "preflight"},
+                {
+                    "candidate": "claude:max-01",
+                    "detail": "Reviewer credits are exhausted.",
+                    "kind": "billing_exhausted",
+                },
+                {
+                    "candidate": "openrouter",
+                    "detail": "OpenRouter TLS check failed",
+                    "kind": "preflight",
+                },
+            ],
+            category="billing_exhausted",
         )
 
         with patch(
@@ -401,8 +410,7 @@ class TestReviewerBillingErrorDetection:
             )
 
         assert gate.status == CampaignReviewStatus.BLOCKED_NONREVIEWABLE.value
-        assert gate.findings == [
-            "Review blocked: codex: codex CLI not found; claude:max-01: Credit balance is too low; openrouter: OpenRouter TLS check failed"
-        ]
+        assert any("billing" in item.lower() for item in gate.findings)
+        assert any("claude auth status" in item.lower() for item in gate.findings)
         assert gate.raw_review["error"] == "ReviewRoutingError"
         assert len(gate.raw_review["attempts"]) == 3
