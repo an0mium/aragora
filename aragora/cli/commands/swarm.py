@@ -822,7 +822,11 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             load_tranche_manifest,
             render_tranche_inspection_text,
         )
-        from aragora.swarm.tranche_review import review_lane, select_review_tier
+        from aragora.swarm.tranche_review import (
+            review_lane,
+            run_verification_passed,
+            select_review_tier,
+        )
         from aragora.swarm.tranche_submit import submit_intake_bundle
 
         subaction = str(goal or "inspect").strip().lower() or "inspect"
@@ -986,7 +990,12 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     tier = select_review_tier(
                         write_scope=list(getattr(lane, "allowed_write_scope", [])),
                         diff_lines=int(getattr(artifact, "metadata", {}).get("diff_lines", 0) or 0),
-                        verification_passed=bool(getattr(artifact, "commands", [])),
+                        verification_passed=run_verification_passed(
+                            run_dict,
+                            has_verification_commands=bool(
+                                getattr(lane, "verification_commands", [])
+                            ),
+                        ),
                         risk_tolerance=str(
                             getattr(artifact, "metadata", {}).get("risk_tolerance", "") or ""
                         ).strip()
