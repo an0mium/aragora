@@ -78,6 +78,7 @@ class _FakeCoordinationStore:
         self._leases = leases or []
         self._receipts = receipts or {}
         self._decisions = decisions or {}
+        self.list_leases_calls = 0
 
     def get_supervisor_run(self, run_id: str) -> dict | None:
         return self._runs.get(run_id)
@@ -85,6 +86,7 @@ class _FakeCoordinationStore:
     def list_leases(
         self, *, statuses: list[str] | None = None, limit: int | None = 500
     ) -> list[WorkLease]:
+        self.list_leases_calls += 1
         items = list(self._leases)
         if statuses is None:
             return items
@@ -121,6 +123,30 @@ def test_refresh_updates_lane_status_from_artifact_store():
 
     assert refreshed.lane_states["a"].status == "completed"
     assert refreshed.lane_states["a"].run_id == "run-1"
+
+
+def test_refresh_skips_lease_lookup_without_known_lease_ids() -> None:
+    state = _make_state(lane_statuses={"a": "completed"})
+    artifact = _make_artifact(lane_id="a", status="completed", run_id="run-1")
+    store = _FakeCoordinationStore(
+        leases=[
+            WorkLease(
+                lease_id="lease-1",
+                task_id="task-1",
+                title="task-1",
+                owner_agent="codex",
+                owner_session_id="sess-1",
+                branch="feat-branch",
+                worktree_path="/tmp/worktree",
+                status="active",
+            )
+        ]
+    )
+
+    refreshed = refresh_tranche_state(state, artifacts={"a": artifact}, store=store)
+
+    assert refreshed.lane_states["a"].lease_id is None
+    assert store.list_leases_calls == 0
 
 
 def test_refresh_uses_receipt_and_integration_state_for_waiting_for_merge():
@@ -365,3 +391,60 @@ async def test_watch_tick_fire_and_forget_auto_advances():
 
     mock_integrate.assert_awaited_once()
     assert new_state.lane_states["a"].status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_watch_tick_integrates_when_receipt_projection_precedes_integrate() -> None:
+    from aragora.swarm.tranche_watch import watch_tick
+
+    state = _make_state(lane_statuses={"a": "review_passed"})
+    artifact_store = _FakeArtifactStore(
+        {
+            "a": _make_artifact(
+                lane_id="a",
+                status="review_passed",
+                metadata={"receipt_id": "receipt-1", "lease_id": "lease-1"},
+            )
+        }
+    )
+    receipt = CompletionReceipt(
+        receipt_id="receipt-1",
+        lease_id="lease-1",
+        task_id="task-1",
+        owner_agent="codex",
+        owner_session_id="sess-1",
+        branch="feat-branch",
+        worktree_path="/tmp/worktree",
+        pr_url="https://github.com/org/repo/pull/42",
+    )
+    store = _FakeCoordinationStore(receipts={"receipt-1": receipt})
+    mock_integrate = AsyncMock(return_value={"recommendation": "merge", "executed": True})
+
+    new_state = await watch_tick(
+        state,
+        manifest=SimpleNamespace(manifest_id="m1"),
+        autonomy_mode="fire_and_forget",
+        integrate_fn=mock_integrate,
+        artifact_store=artifact_store,
+        store=store,
+    )
+
+    mock_integrate.assert_awaited_once()
+    assert new_state.lane_states["a"].status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_watch_loop_exits_on_aborted_status() -> None:
+    from aragora.swarm.tranche_watch import watch_loop
+
+    state = _make_state(lane_statuses={"a": "running"})
+    state.status = "aborted"
+
+    result = await watch_loop(
+        state,
+        manifest=SimpleNamespace(manifest_id="m1"),
+        interval_seconds=0,
+        max_ticks=5,
+    )
+
+    assert result.status == "aborted"
