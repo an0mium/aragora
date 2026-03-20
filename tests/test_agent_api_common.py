@@ -665,9 +665,11 @@ class TestConnectionPoolRobustness:
         """Reset global connector state."""
         import aragora.agents.api_agents.common as common_module
 
+        common_module._pool_state.reset()
         common_module._shared_connector = None
         common_module._connector_loop_id = None
         yield
+        common_module._pool_state.reset()
         common_module._shared_connector = None
         common_module._connector_loop_id = None
 
