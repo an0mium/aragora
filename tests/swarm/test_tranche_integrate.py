@@ -367,6 +367,69 @@ def test_assess_low_risk_missing_changed_files_fails_closed() -> None:
     assert "changed files were not recorded" in result["rationale"]
 
 
+def test_assess_low_risk_checks_pending_does_not_emit_merge_signal() -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={"merge_class": "low_risk", "merge_policy": "auto"},
+        )
+    )
+    artifact = _make_artifact(
+        metadata={
+            "review": {
+                "status": "passed",
+                "tier": 1,
+                "changed_files": ["aragora/live/src/app/page.tsx"],
+            }
+        }
+    )
+
+    result = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_pending",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+    )
+
+    assert result["recommendation"] == "awaiting_checks"
+    assert result["executed"] is False
+    assert result["low_risk_policy"]["eligible"] is True
+
+
+def test_assess_low_risk_cross_model_review_disabled_blocks_auto_merge() -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={
+                "merge_class": "low_risk",
+                "merge_policy": "auto",
+                "enforce_cross_model_review": False,
+            },
+        )
+    )
+    artifact = _make_artifact(
+        metadata={
+            "review": {
+                "status": "passed",
+                "tier": 1,
+                "changed_files": ["aragora/live/src/app/page.tsx"],
+            }
+        }
+    )
+
+    result = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_passed",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+    )
+
+    assert result["recommendation"] == "needs_human"
+    assert "cross-model review is disabled" in result["rationale"]
+
+
 @pytest.mark.parametrize(
     ("review_status", "checks", "expected_phrase"),
     [
@@ -563,7 +626,7 @@ async def test_integrate_lane_returns_needs_human_when_controller_publish_fails(
     assert result["pr_url"] is None
     assert result["publish_result"]["action"] == "push_failed"
     assert result["recommendation"] == "needs_human"
-    assert "Could not resolve host" in result["rationale"]
+    assert result["rationale"] == "git push failed. Check logs for detail."
 
 
 @pytest.mark.asyncio

@@ -175,7 +175,7 @@ def assess_lane_integration(
             recommendation = "needs_human"
             rationale = "Low-risk auto-merge requires green required checks."
         elif normalized_checks != "checks_passed":
-            recommendation = "merge"
+            recommendation = "awaiting_checks"
             rationale = "Required checks are still pending before low-risk auto-merge can proceed."
         elif isinstance(low_risk_policy, dict) and not bool(low_risk_policy.get("eligible", False)):
             recommendation = "needs_human"
@@ -929,6 +929,9 @@ def _push_branch_to_origin(repo_root: Path, branch: str) -> dict[str, Any]:
             "detail": "git push failed before completion. Check logs for detail.",
         }
     detail = (result.stdout or result.stderr or "").strip()
+    if result.returncode != 0:
+        logger.warning("git push failed for branch %s: %s", normalized_branch, detail)
+        detail = "git push failed. Check logs for detail."
     return {
         "pushed": result.returncode == 0,
         "branch": normalized_branch,

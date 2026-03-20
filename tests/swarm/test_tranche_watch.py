@@ -383,6 +383,21 @@ async def test_watch_tick_persists_review_payload_to_artifact() -> None:
     assert saved.metadata["review"]["changed_files"] == ["aragora/live/src/app/page.tsx"]
 
 
+def test_watch_integrate_status_waits_for_green_checks_once_pr_exists() -> None:
+    from aragora.swarm.tranche_watch import _watch_integrate_status
+
+    status = _watch_integrate_status(
+        "review_passed",
+        {
+            "recommendation": "awaiting_checks",
+            "executed": False,
+            "pr_url": "https://github.com/org/repo/pull/42",
+        },
+    )
+
+    assert status == "waiting_for_merge"
+
+
 @pytest.mark.asyncio
 async def test_watch_tick_dispatches_pending_lane_when_idle() -> None:
     from aragora.swarm.tranche_watch import watch_tick

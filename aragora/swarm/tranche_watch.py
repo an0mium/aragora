@@ -609,6 +609,12 @@ def _watch_integrate_status(current_status: str, payload: dict[str, Any]) -> str
         return LANE_STATUS_COMPLETED
     if recommendation == "merge":
         return LANE_STATUS_WAITING_FOR_MERGE
+    if recommendation == "awaiting_checks":
+        return (
+            LANE_STATUS_WAITING_FOR_MERGE
+            if _optional_text(payload.get("pr_url"))
+            else current_status
+        )
     if recommendation in {"request_changes", "blocked", "needs_human"}:
         return LANE_STATUS_NEEDS_HUMAN
     return current_status
