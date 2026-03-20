@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import builtins
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,7 @@ from aragora.cli.commands.quickstart import (
     _detect_agents,
     _get_question,
     _load_dotenv,
+    _open_receipt_in_browser,
     _save_receipt,
     add_quickstart_parser,
     cmd_quickstart,
@@ -218,10 +220,35 @@ class TestReceiptFormatting:
         content = saved_path.read_text()
         assert "<!DOCTYPE html>" in content
 
+    def test_save_html_falls_back_to_json_when_formatter_import_fails(self, tmp_path):
+        path = tmp_path / "receipt.html"
+        real_import = builtins.__import__
+
+        def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "aragora.cli.receipt_formatter":
+                raise ImportError("formatter unavailable")
+            return real_import(name, globals, locals, fromlist, level)
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            saved_path = _save_receipt(self.SAMPLE, path, "html")
+
+        assert json.loads(saved_path.read_text())["verdict"] == "Yes"
+
     def test_save_creates_parent_directories(self, tmp_path):
         path = tmp_path / "nested" / "deep" / "receipt.json"
         saved_path = _save_receipt(self.SAMPLE, path, "json")
         assert saved_path.exists()
+
+    def test_open_browser_returns_none_when_formatter_import_fails(self):
+        real_import = builtins.__import__
+
+        def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "aragora.cli.receipt_formatter":
+                raise ImportError("formatter unavailable")
+            return real_import(name, globals, locals, fromlist, level)
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            assert _open_receipt_in_browser(self.SAMPLE) is None
 
 
 # =============================================================================

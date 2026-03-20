@@ -163,22 +163,31 @@ def _default_receipt_path(mode: str, fmt: str) -> Path:
 
 def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
     """Save receipt to file in the specified format."""
-    from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
-
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     suffix = output_path.suffix.lower()
+    fallback_json = json.dumps(receipt_data, indent=2, default=str)
 
     if fmt == "json" or suffix == ".json":
-        output_path.write_text(json.dumps(receipt_data, indent=2, default=str))
+        output_path.write_text(fallback_json)
     elif fmt == "md" or suffix == ".md":
-        md = receipt_to_markdown(receipt_data)
-        output_path.write_text(md)
+        try:
+            from aragora.cli.receipt_formatter import receipt_to_markdown
+
+            output_path.write_text(receipt_to_markdown(receipt_data))
+        except ImportError as e:
+            logger.debug("Receipt markdown formatter unavailable, writing JSON fallback: %s", e)
+            output_path.write_text(fallback_json)
     elif fmt == "html" or suffix == ".html":
-        html = receipt_to_html(receipt_data)
-        output_path.write_text(html)
+        try:
+            from aragora.cli.receipt_formatter import receipt_to_html
+
+            output_path.write_text(receipt_to_html(receipt_data))
+        except ImportError as e:
+            logger.debug("Receipt HTML formatter unavailable, writing JSON fallback: %s", e)
+            output_path.write_text(fallback_json)
     else:
-        output_path.write_text(json.dumps(receipt_data, indent=2, default=str))
+        output_path.write_text(fallback_json)
 
     return output_path.resolve()
 
@@ -205,7 +214,7 @@ def _open_receipt_in_browser(
             f.write(html)
         webbrowser.open(f"file://{path}")
         return path
-    except (OSError, RuntimeError, ValueError) as e:
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
         logger.debug("Failed to open receipt in browser: %s", e)
         return None
 
