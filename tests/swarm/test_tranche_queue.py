@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -15,6 +17,7 @@ from aragora.swarm.tranche_queue import (
     TrancheQueueItemRunState,
     TrancheQueueManifest,
     TrancheQueueRunState,
+    compile_tranche_queue,
     _queue_merge_policy,
     _resolve_queue_autonomy_mode,
     queue_state_path_for_queue,
@@ -40,6 +43,126 @@ def _write_queue(queue_path: Path) -> TrancheQueueManifest:
     )
     queue_path.write_text(manifest.to_yaml(), encoding="utf-8")
     return manifest
+
+
+def test_compile_queue_writes_execute_doc_source_as_intake_bundle(tmp_path: Path) -> None:
+    sources_path = tmp_path / "sources.yaml"
+    doc_path = tmp_path / "roadmap.md"
+    output_path = tmp_path / "overnight.yaml"
+    doc_path.write_text("# Roadmap\n\nShip tranche queue.\n", encoding="utf-8")
+    sources_path.write_text(
+        """
+queue_id: overnight
+sources:
+  - id: roadmap-doc
+    kind: doc
+    mode: execute
+    path: roadmap.md
+    objective: Ship the roadmap tranche work.
+    merge_class: manual
+""".strip(),
+        encoding="utf-8",
+    )
+
+    payload = compile_tranche_queue(
+        sources_path=sources_path,
+        output_path=output_path,
+        repo_root=tmp_path,
+    )
+
+    assert payload["item_count"] == 1
+    assert payload["proposal_count"] == 0
+    manifest = TrancheQueueManifest.load(output_path)
+    assert manifest.items[0].kind == "intake"
+    bundle_path = (output_path.parent / manifest.items[0].source).resolve()
+    assert bundle_path.exists()
+    bundle = bundle_path.read_text(encoding="utf-8")
+    assert "Ship the roadmap tranche work." in bundle
+    assert "merge_policy: manual" in bundle
+
+
+def test_compile_queue_records_proposal_for_synthesize_doc_source(tmp_path: Path) -> None:
+    sources_path = tmp_path / "sources.yaml"
+    output_path = tmp_path / "overnight.yaml"
+    sources_path.write_text(
+        """
+queue_id: overnight
+sources:
+  - id: goals-doc
+    kind: doc
+    mode: synthesize
+    path: goals.md
+    merge_class: manual
+""".strip(),
+        encoding="utf-8",
+    )
+
+    payload = compile_tranche_queue(
+        sources_path=sources_path,
+        output_path=output_path,
+        repo_root=tmp_path,
+    )
+
+    assert payload["item_count"] == 0
+    assert payload["proposal_count"] == 1
+    assert payload["proposals"][0]["status"] == "needs_human"
+    assert "not executable yet" in payload["proposals"][0]["reason"]
+
+
+def test_compile_queue_expands_issue_query_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sources_path = tmp_path / "sources.yaml"
+    output_path = tmp_path / "overnight.yaml"
+    sources_path.write_text(
+        """
+queue_id: overnight
+sources:
+  - id: autonomy-query
+    kind: issue_query
+    mode: execute
+    query: "label:autonomy sort:created-asc"
+    repo: synaptent/aragora
+    limit: 2
+""".strip(),
+        encoding="utf-8",
+    )
+
+    def fake_run(cmd, text, capture_output, timeout, check):
+        assert cmd[:3] == ["gh", "issue", "list"]
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 1046,
+                        "title": "A",
+                        "url": "https://github.com/org/repo/issues/1046",
+                    },
+                    {
+                        "number": 1047,
+                        "title": "B",
+                        "url": "https://github.com/org/repo/issues/1047",
+                    },
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr("aragora.swarm.tranche_queue.subprocess.run", fake_run)
+
+    payload = compile_tranche_queue(
+        sources_path=sources_path,
+        output_path=output_path,
+        repo_root=tmp_path,
+    )
+
+    assert payload["item_count"] == 2
+    manifest = TrancheQueueManifest.load(output_path)
+    assert [item.kind for item in manifest.items] == ["issue", "issue"]
+    assert manifest.items[0].source == "https://github.com/org/repo/issues/1046"
+    assert manifest.items[1].source == "https://github.com/org/repo/issues/1047"
 
 
 def test_low_risk_queue_item_keeps_fire_and_forget_and_sets_auto_merge_policy(

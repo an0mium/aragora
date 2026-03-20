@@ -831,6 +831,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             integrate_lane,
         )
         from aragora.swarm.tranche_queue import (
+            compile_tranche_queue,
             reconcile_tranche_queue,
             run_tranche_queue,
         )
@@ -879,6 +880,28 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 "count": len(items),
                 "items": items,
             }
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(json.dumps(payload, indent=2))
+            return
+        if subaction == "compile-queue":
+            sources_arg = str(getattr(args, "sources", "") or "").strip()
+            if not sources_arg:
+                raise ValueError("tranche compile-queue requires --sources <path>")
+            output_arg = str(getattr(args, "output", "") or "").strip()
+            if not output_arg:
+                raise ValueError("tranche compile-queue requires --output <path>")
+            sources_path = Path(sources_arg).resolve()
+            if not sources_path.exists():
+                raise ValueError(f"tranche queue source manifest not found: {sources_path}")
+            output_path = Path(output_arg).resolve()
+            payload = compile_tranche_queue(
+                sources_path=sources_path,
+                output_path=output_path,
+                repo_root=repo_root,
+            )
+            payload["action"] = subaction
             if as_json:
                 print(json.dumps(payload, indent=2))
             else:
@@ -1332,7 +1355,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             )
         else:
             raise ValueError(
-                "tranche action must be one of: submit, plan, inspect, watch, list, design-review, review, integrate, prepare, run, run-queue, reconcile-queue"
+                "tranche action must be one of: submit, plan, inspect, watch, list, design-review, review, integrate, prepare, run, compile-queue, run-queue, reconcile-queue"
             )
         payload["action"] = subaction
         payload["manifest_path"] = str(manifest_path)

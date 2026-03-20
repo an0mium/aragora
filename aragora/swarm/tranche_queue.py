@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import subprocess
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -270,6 +271,131 @@ class TrancheQueueManifest:
 
 
 @dataclass(slots=True)
+class TrancheQueueSource:
+    source_id: str
+    kind: str
+    mode: str
+    source: str
+    merge_class: str = "manual"
+    priority: int = 100
+    repo: str | None = None
+    limit: int = 10
+    objective: str | None = None
+    allowed_write_scope: list[str] = field(default_factory=list)
+    autonomy_mode: str | None = None
+    verification_commands: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "id": self.source_id,
+            "kind": self.kind,
+            "mode": self.mode,
+            "source": self.source,
+            "merge_class": self.merge_class,
+            "priority": self.priority,
+        }
+        if self.repo:
+            payload["repo"] = self.repo
+        if self.limit != 10:
+            payload["limit"] = self.limit
+        if self.objective:
+            payload["objective"] = self.objective
+        if self.allowed_write_scope:
+            payload["allowed_write_scope"] = list(self.allowed_write_scope)
+        if self.autonomy_mode:
+            payload["autonomy_mode"] = self.autonomy_mode
+        if self.verification_commands:
+            payload["verification_commands"] = list(self.verification_commands)
+        return payload
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> TrancheQueueSource:
+        kind = str(data.get("kind", "")).strip().lower()
+        mode = str(data.get("mode", "execute")).strip().lower() or "execute"
+        if kind not in {"doc", "issue", "issue_query"}:
+            raise ValueError(f"Unsupported queue source kind: {kind!r}")
+        if mode not in {"execute", "synthesize"}:
+            raise ValueError(f"Unsupported queue source mode: {mode!r}")
+        source = _optional_text(data.get("source"))
+        if kind == "doc":
+            source = _optional_text(data.get("path")) or _optional_text(data.get("url")) or source
+        elif kind == "issue":
+            source = _optional_text(data.get("url")) or source
+        else:
+            source = _optional_text(data.get("query")) or source
+        if not source:
+            raise ValueError(f"Queue source {kind!r} is missing its locator.")
+        source_id = _optional_text(data.get("id")) or _default_queue_source_id(kind, source)
+        merge_class = str(data.get("merge_class", "manual")).strip().lower() or "manual"
+        if merge_class not in {"low_risk", "manual"}:
+            raise ValueError(
+                f"Queue source {source_id} has unsupported merge_class: {merge_class!r}"
+            )
+        return cls(
+            source_id=source_id,
+            kind=kind,
+            mode=mode,
+            source=source,
+            merge_class=merge_class,
+            priority=int(data.get("priority", 100) or 100),
+            repo=_optional_text(data.get("repo")),
+            limit=max(1, int(data.get("limit", 10) or 10)),
+            objective=_optional_text(data.get("objective")),
+            allowed_write_scope=_normalize_scope(_string_list(data.get("allowed_write_scope"))),
+            autonomy_mode=_optional_text(data.get("autonomy_mode")),
+            verification_commands=_string_list(data.get("verification_commands")),
+        )
+
+
+@dataclass(slots=True)
+class TrancheQueueSourceManifest:
+    queue_id: str
+    sources: list[TrancheQueueSource]
+    manifest_version: int = 1
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "manifest_version": self.manifest_version,
+            "queue_id": self.queue_id,
+            "sources": [source.to_dict() for source in self.sources],
+        }
+
+    @classmethod
+    def from_dict(
+        cls, data: dict[str, Any], *, default_queue_id: str | None = None
+    ) -> TrancheQueueSourceManifest:
+        sources_raw = data.get("sources") or []
+        if not isinstance(sources_raw, list):
+            raise ValueError("Queue source manifest sources must be a list.")
+        sources = [
+            TrancheQueueSource.from_dict(item) for item in sources_raw if isinstance(item, dict)
+        ]
+        if not sources:
+            raise ValueError("Queue source manifest must contain at least one source.")
+        seen: set[str] = set()
+        for source in sources:
+            if source.source_id in seen:
+                raise ValueError(
+                    f"Queue source manifest has duplicate source id: {source.source_id}"
+                )
+            seen.add(source.source_id)
+        queue_id = str(data.get("queue_id", "")).strip() or (default_queue_id or "").strip()
+        if not queue_id:
+            raise ValueError("Queue source manifest is missing queue_id.")
+        return cls(
+            queue_id=queue_id,
+            sources=sources,
+            manifest_version=max(1, int(data.get("manifest_version", 1) or 1)),
+        )
+
+    @classmethod
+    def load(cls, path: str | Path) -> TrancheQueueSourceManifest:
+        target = Path(path).resolve()
+        payload = _load_structured_object(target)
+        return cls.from_dict(payload, default_queue_id=target.stem)
+
+
+@dataclass(slots=True)
 class TrancheQueueItemRunState:
     item_id: str
     status: str = QUEUE_ITEM_STATUS_PENDING
@@ -442,6 +568,12 @@ class _IssueSource:
     source_url: str | None
 
 
+def _default_queue_source_id(kind: str, source: str) -> str:
+    if kind == "issue_query":
+        return f"query-{_slugify_text(source)[:40] or 'issues'}"
+    return f"{kind}-{_slugify_text(source)[:40] or 'source'}"
+
+
 def _parse_issue_source(value: str) -> _IssueSource:
     text = str(value or "").strip()
     if not text:
@@ -487,6 +619,208 @@ def _fetch_issue_payload(source: str) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise RuntimeError("gh issue view did not return a JSON object")
     return payload
+
+
+def _query_issue_payloads(*, query: str, repo: str | None, limit: int) -> list[dict[str, Any]]:
+    cmd = [
+        "gh",
+        "issue",
+        "list",
+        "--json",
+        "number,title,url",
+        "--limit",
+        str(max(1, int(limit))),
+        "--search",
+        str(query),
+    ]
+    if repo:
+        cmd.extend(["--repo", repo])
+    proc = subprocess.run(
+        cmd,
+        text=True,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh issue list failed")
+    payload = json.loads(proc.stdout or "[]")
+    if not isinstance(payload, list):
+        raise RuntimeError("gh issue list did not return a JSON array")
+    return [dict(item) for item in payload if isinstance(item, dict)]
+
+
+def _compile_bundle_dir(output_path: Path) -> Path:
+    return output_path.parent / f"{output_path.stem}_compiled"
+
+
+def _slugify_text(value: str) -> str:
+    lowered = str(value or "").strip().lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+    return slug or "item"
+
+
+def _proposal_record(
+    source: TrancheQueueSource,
+    *,
+    reason: str,
+    locator: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "source_id": source.source_id,
+        "kind": source.kind,
+        "mode": source.mode,
+        "merge_class": source.merge_class,
+        "status": "needs_human",
+        "reason": str(reason or "").strip() or "Queue source requires human clarification.",
+        "source": locator or source.source,
+    }
+
+
+def _resolve_doc_source(source: TrancheQueueSource, *, sources_path: Path) -> str:
+    candidate = Path(source.source)
+    if candidate.exists() or "://" not in source.source:
+        if not candidate.is_absolute():
+            candidate = (sources_path.parent / candidate).resolve()
+        return str(candidate)
+    return source.source
+
+
+def _compile_doc_source_to_bundle(
+    source: TrancheQueueSource,
+    *,
+    sources_path: Path,
+    bundle_dir: Path,
+    queue_output_path: Path,
+    seen_item_ids: set[str],
+) -> tuple[TrancheQueueItem | None, dict[str, Any] | None]:
+    source_ref = _resolve_doc_source(source, sources_path=sources_path)
+    if source.mode == "synthesize":
+        return None, _proposal_record(
+            source,
+            reason=(
+                "Synthesize doc sources are not executable yet; provide an explicit objective or "
+                "curate this source into a bounded intake bundle."
+            ),
+            locator=source_ref,
+        )
+    if "://" not in source_ref and not Path(source_ref).exists():
+        return None, _proposal_record(
+            source,
+            reason="Execute doc source path was not found.",
+            locator=source_ref,
+        )
+    if not source.objective:
+        return None, _proposal_record(
+            source,
+            reason="Execute doc sources require an explicit objective.",
+            locator=source_ref,
+        )
+
+    item_id = _unique_compiled_item_id(source.source_id, seen_item_ids)
+    bundle: dict[str, Any] = {
+        "objective": source.objective,
+        "autonomy_mode": source.autonomy_mode or "adaptive",
+        "source_refs": [
+            {
+                "url": source_ref,
+                "meaning": f"Compiled queue source {source.source_id}",
+            }
+        ],
+    }
+    lane: dict[str, Any] = {
+        "lane_id": item_id,
+        "title": source.objective,
+        "prompt": source.objective,
+        "owner_role": "implementation_engineer",
+        "merge_class": source.merge_class,
+        "merge_policy": _queue_merge_policy(merge_class=source.merge_class),
+        "queue_item_id": item_id,
+        "source_refs": [source_ref],
+    }
+    if source.allowed_write_scope:
+        lane["allowed_write_scope"] = list(source.allowed_write_scope)
+    if source.verification_commands:
+        lane["verification_commands"] = list(source.verification_commands)
+    bundle["candidate_lanes"] = [lane]
+
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    bundle_path = bundle_dir / f"{item_id}.intake.yaml"
+    bundle_path.write_text(_dump_structured_object(bundle), encoding="utf-8")
+    relative_bundle = str(bundle_path.relative_to(queue_output_path.parent))
+    return (
+        TrancheQueueItem(
+            item_id=item_id,
+            kind="intake",
+            source=relative_bundle,
+            merge_class=source.merge_class,
+            allowed_write_scope=list(source.allowed_write_scope),
+            autonomy_mode=source.autonomy_mode,
+        ),
+        None,
+    )
+
+
+def _compile_issue_source(
+    source: TrancheQueueSource,
+    *,
+    seen_item_ids: set[str],
+) -> tuple[list[TrancheQueueItem], list[dict[str, Any]]]:
+    item_id = _unique_compiled_item_id(source.source_id, seen_item_ids)
+    return (
+        [
+            TrancheQueueItem(
+                item_id=item_id,
+                kind="issue",
+                source=source.source,
+                objective_override=source.objective,
+                merge_class=source.merge_class,
+                allowed_write_scope=list(source.allowed_write_scope),
+                autonomy_mode=source.autonomy_mode,
+            )
+        ],
+        [],
+    )
+
+
+def _compile_issue_query_source(
+    source: TrancheQueueSource,
+    *,
+    seen_item_ids: set[str],
+) -> tuple[list[TrancheQueueItem], list[dict[str, Any]]]:
+    issues = _query_issue_payloads(query=source.source, repo=source.repo, limit=source.limit)
+    items: list[TrancheQueueItem] = []
+    for issue in issues:
+        number = int(issue.get("number", 0) or 0)
+        issue_url = _optional_text(issue.get("url")) or str(number)
+        base_item_id = f"{source.source_id}-issue-{number}" if number else source.source_id
+        items.append(
+            TrancheQueueItem(
+                item_id=_unique_compiled_item_id(base_item_id, seen_item_ids),
+                kind="issue",
+                source=issue_url,
+                objective_override=source.objective,
+                merge_class=source.merge_class,
+                allowed_write_scope=list(source.allowed_write_scope),
+                autonomy_mode=source.autonomy_mode,
+            )
+        )
+    if items:
+        return items, []
+    return [], [
+        _proposal_record(source, reason="Issue query returned no issues.", locator=source.source)
+    ]
+
+
+def _unique_compiled_item_id(candidate: str, seen: set[str]) -> str:
+    base = _slugify_text(candidate)
+    item_id = base
+    suffix = 2
+    while item_id in seen:
+        item_id = f"{base}-{suffix}"
+        suffix += 1
+    seen.add(item_id)
+    return item_id
 
 
 def _fallback_issue_lane(item: TrancheQueueItem, *, objective: str, context: str) -> dict[str, Any]:
@@ -550,6 +884,91 @@ def _truncate_events(events: list[dict[str, Any]], limit: int = 25) -> list[dict
     if len(events) <= limit:
         return [dict(item) for item in events]
     return [dict(item) for item in events[-limit:]]
+
+
+def compile_tranche_queue(
+    *,
+    sources_path: str | Path,
+    output_path: str | Path,
+    repo_root: str | Path,
+) -> dict[str, Any]:
+    repo = Path(repo_root).resolve()
+    resolved_sources_path = Path(sources_path).resolve()
+    resolved_output_path = Path(output_path).resolve()
+    source_manifest = TrancheQueueSourceManifest.load(resolved_sources_path)
+    ordered_sources = sorted(
+        enumerate(source_manifest.sources),
+        key=lambda item: (item[1].priority, item[0]),
+    )
+    bundle_dir = _compile_bundle_dir(resolved_output_path)
+    seen_item_ids: set[str] = set()
+    items: list[TrancheQueueItem] = []
+    proposals: list[dict[str, Any]] = []
+
+    for _, source in ordered_sources:
+        try:
+            if source.kind == "issue":
+                compiled_items, source_proposals = _compile_issue_source(
+                    source,
+                    seen_item_ids=seen_item_ids,
+                )
+            elif source.kind == "issue_query":
+                compiled_items, source_proposals = _compile_issue_query_source(
+                    source,
+                    seen_item_ids=seen_item_ids,
+                )
+            else:
+                compiled_item, proposal = _compile_doc_source_to_bundle(
+                    source,
+                    sources_path=resolved_sources_path,
+                    bundle_dir=bundle_dir,
+                    queue_output_path=resolved_output_path,
+                    seen_item_ids=seen_item_ids,
+                )
+                compiled_items = [compiled_item] if compiled_item is not None else []
+                source_proposals = [proposal] if proposal is not None else []
+        except Exception as exc:
+            logger.warning("compile-queue source %s failed: %s", source.source_id, exc)
+            compiled_items = []
+            source_proposals = [
+                _proposal_record(
+                    source,
+                    reason="Queue source compilation failed. Check logs for detail.",
+                )
+            ]
+        items.extend(compiled_items)
+        proposals.extend(source_proposals)
+
+    queue_manifest = TrancheQueueManifest(
+        queue_id=source_manifest.queue_id,
+        items=items,
+    )
+    compiled_payload = queue_manifest.to_dict()
+    compiled_payload.update(
+        {
+            "compiled_at": _utcnow().isoformat(),
+            "sources_manifest": str(resolved_sources_path),
+            "compiled_bundle_dir": (str(bundle_dir) if bundle_dir.exists() else None),
+            "proposals": proposals,
+        }
+    )
+    resolved_output_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_output_path.write_text(
+        _dump_structured_object(compiled_payload),
+        encoding="utf-8",
+    )
+    return {
+        "mode": "tranche-queue-compile",
+        "queue_id": source_manifest.queue_id,
+        "sources_path": str(resolved_sources_path),
+        "output_path": str(resolved_output_path),
+        "compiled_bundle_dir": str(bundle_dir) if bundle_dir.exists() else None,
+        "item_count": len(items),
+        "proposal_count": len(proposals),
+        "items": [item.to_dict() for item in items],
+        "proposals": proposals,
+        "repo_root": str(repo),
+    }
 
 
 class TrancheQueueExecutor:

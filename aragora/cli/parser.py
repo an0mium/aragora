@@ -2435,6 +2435,11 @@ def _add_swarm_parser(subparsers) -> None:
         help="Queue manifest path for 'swarm tranche run-queue' and 'reconcile-queue'",
     )
     swarm_parser.add_argument(
+        "--sources",
+        default=None,
+        help="Queue source manifest path for 'swarm tranche compile-queue'",
+    )
+    swarm_parser.add_argument(
         "--output",
         default=None,
         help="Output path for campaign planning (defaults to --manifest)",
