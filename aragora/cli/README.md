@@ -5,6 +5,10 @@ Command-line interface for orchestrating multi-agent debates and managing Aragor
 ## Quick Start
 
 ```bash
+# First run with your own provider key
+aragora quickstart --provider openai --api-key sk-... --save-key \
+  --question "Should we ship this release?"
+
 # Run a debate
 aragora ask "Design a rate limiter" --agents grok,anthropic-api,openai-api,gemini
 
@@ -73,6 +77,9 @@ cli/
 ### Debate Commands
 
 ```bash
+# Fastest zero-to-result path with a real provider
+aragora quickstart --provider anthropic --api-key sk-ant-... --save-key
+
 # Basic debate
 aragora ask "Your question here"
 
