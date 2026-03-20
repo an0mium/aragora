@@ -939,6 +939,27 @@ def compile_tranche_queue(
         items.extend(compiled_items)
         proposals.extend(source_proposals)
 
+    if not items:
+        try:
+            resolved_output_path.unlink()
+        except FileNotFoundError:
+            pass
+        return {
+            "mode": "tranche-queue-compile",
+            "queue_id": source_manifest.queue_id,
+            "status": "needs_human",
+            "detail": "All sources produced proposals. Review proposals before running.",
+            "sources_path": str(resolved_sources_path),
+            "output_path": str(resolved_output_path),
+            "compiled_bundle_dir": str(bundle_dir) if bundle_dir.exists() else None,
+            "item_count": 0,
+            "proposal_count": len(proposals),
+            "items": [],
+            "proposals": proposals,
+            "repo_root": str(repo),
+            "wrote_queue": False,
+        }
+
     queue_manifest = TrancheQueueManifest(
         queue_id=source_manifest.queue_id,
         items=items,
@@ -960,6 +981,7 @@ def compile_tranche_queue(
     return {
         "mode": "tranche-queue-compile",
         "queue_id": source_manifest.queue_id,
+        "status": "compiled",
         "sources_path": str(resolved_sources_path),
         "output_path": str(resolved_output_path),
         "compiled_bundle_dir": str(bundle_dir) if bundle_dir.exists() else None,
@@ -968,6 +990,7 @@ def compile_tranche_queue(
         "items": [item.to_dict() for item in items],
         "proposals": proposals,
         "repo_root": str(repo),
+        "wrote_queue": True,
     }
 
 

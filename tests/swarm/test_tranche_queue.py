@@ -105,8 +105,44 @@ sources:
 
     assert payload["item_count"] == 0
     assert payload["proposal_count"] == 1
+    assert payload["status"] == "needs_human"
+    assert payload["wrote_queue"] is False
     assert payload["proposals"][0]["status"] == "needs_human"
     assert "not executable yet" in payload["proposals"][0]["reason"]
+    assert payload["detail"] == "All sources produced proposals. Review proposals before running."
+    assert output_path.exists() is False
+
+
+def test_compile_queue_records_proposal_for_missing_execute_doc_source(tmp_path: Path) -> None:
+    sources_path = tmp_path / "sources.yaml"
+    output_path = tmp_path / "overnight.yaml"
+    sources_path.write_text(
+        """
+queue_id: overnight
+sources:
+  - id: missing-doc
+    kind: doc
+    mode: execute
+    path: does-not-exist.md
+    objective: Ship the missing doc work.
+    merge_class: manual
+""".strip(),
+        encoding="utf-8",
+    )
+
+    payload = compile_tranche_queue(
+        sources_path=sources_path,
+        output_path=output_path,
+        repo_root=tmp_path,
+    )
+
+    assert payload["item_count"] == 0
+    assert payload["proposal_count"] == 1
+    assert payload["status"] == "needs_human"
+    assert payload["wrote_queue"] is False
+    assert payload["proposals"][0]["reason"] == "Execute doc source path was not found."
+    assert payload["detail"] == "All sources produced proposals. Review proposals before running."
+    assert output_path.exists() is False
 
 
 def test_compile_queue_expands_issue_query_sources(
