@@ -1624,6 +1624,7 @@ export {
   type PipelineGraphResponse,
   type PipelineReceiptResponse,
 } from './pipeline';
+export { PipelineTransitionsNamespace } from './pipeline-transitions';
 
 // DAG Operations (Pipeline graph-level automation)
 export {

@@ -459,6 +459,13 @@ export class MarketplaceAPI {
   }
 
   /**
+   * Get marketplace status via the legacy v1 compatibility route.
+   */
+  async getMarketplaceStatusLegacy(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/marketplace/status', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
    * Get marketplace circuit breaker status.
    */
   async getCircuitBreaker(params?: Record<string, unknown>): Promise<Record<string, unknown>> {

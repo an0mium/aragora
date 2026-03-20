@@ -234,6 +234,17 @@ class MarketplaceAPI:
         """
         return self._client.request("GET", "/api/v2/marketplace/status")
 
+    def get_marketplace_status_legacy(self) -> dict[str, Any]:
+        """
+        Get marketplace status via the legacy v1 compatibility route.
+
+        GET /api/v1/marketplace/status
+
+        Returns:
+            Dict with marketplace status information
+        """
+        return self._client.request("GET", "/api/v1/marketplace/status")
+
     def get_circuit_breaker(self) -> dict[str, Any]:
         """
         Get marketplace circuit breaker status.
@@ -381,6 +392,10 @@ class AsyncMarketplaceAPI:
     async def get_marketplace_status(self) -> dict[str, Any]:
         """Get marketplace status. GET /api/v2/marketplace/status"""
         return await self._client.request("GET", "/api/v2/marketplace/status")
+
+    async def get_marketplace_status_legacy(self) -> dict[str, Any]:
+        """Get marketplace status via the legacy v1 route. GET /api/v1/marketplace/status"""
+        return await self._client.request("GET", "/api/v1/marketplace/status")
 
     async def get_circuit_breaker(self) -> dict[str, Any]:
         """Get marketplace circuit breaker status. GET /api/v1/marketplace/circuit-breaker"""

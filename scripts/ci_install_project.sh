@@ -48,7 +48,7 @@ LEGACY_CONTROL_PLANE_DEV_DEPS=(
   "mypy>=1.8,<2.0"
   "mutmut>=3.0,<4.0"
   "pre-commit>=3.6,<5.0"
-  "datamodel-code-generator>=0.25,<1.0"
+  "datamodel-code-generator==0.54.0"
   "async-timeout>=4.0,<6.0"
   "python3-saml>=1.15,<2.0"
   "tiktoken>=0.5,<1.0"

@@ -115,7 +115,6 @@ jobs:
 
       - name: Check Python SDK types are up to date
         run: |
-          python -m pip install datamodel-code-generator
           python scripts/generate_python_sdk_types.py --openapi docs/api/openapi_generated.json --check
 
       - name: Check capability matrix is up to date

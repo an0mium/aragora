@@ -25,19 +25,28 @@ from pathlib import Path
 
 DEFAULT_OPENAPI = Path("docs/api/openapi.json")
 DEFAULT_OUTPUT = Path("sdk/python/aragora/generated_types.py")
+REQUIRED_DATAMODEL_CODEGEN_VERSION = "0.54.0"
 
 
-def check_datamodel_codegen() -> bool:
-    """Check if datamodel-code-generator is installed."""
+def get_datamodel_codegen_version() -> str | None:
+    """Return the installed datamodel-code-generator version, if available."""
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["datamodel-codegen", "--version"],
-            capture_output=True,
             check=True,
+            capture_output=True,
+            text=True,
         )
-        return True
+        parts = result.stdout.strip().split()
+        return parts[-1] if parts else None
     except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
+        return None
+
+
+def check_datamodel_codegen() -> tuple[bool, str | None]:
+    """Check if the pinned datamodel-code-generator is installed."""
+    version = get_datamodel_codegen_version()
+    return version == REQUIRED_DATAMODEL_CODEGEN_VERSION, version
 
 
 def generate_types(openapi_path: Path, output_path: Path) -> int:
@@ -156,12 +165,24 @@ def main() -> None:
     args = parser.parse_args()
 
     # Check dependencies
-    if not check_datamodel_codegen():
+    valid_codegen, installed_version = check_datamodel_codegen()
+    if not valid_codegen:
         print(
-            "datamodel-code-generator not installed. Install with:",
+            "datamodel-code-generator is missing or the wrong version is installed.",
             file=sys.stderr,
         )
-        print("  pip install datamodel-code-generator", file=sys.stderr)
+        print(
+            f"  Required: {REQUIRED_DATAMODEL_CODEGEN_VERSION}",
+            file=sys.stderr,
+        )
+        print(
+            f"  Installed: {installed_version or 'not installed'}",
+            file=sys.stderr,
+        )
+        print(
+            f'  Install with: pip install "datamodel-code-generator=={REQUIRED_DATAMODEL_CODEGEN_VERSION}"',
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # Check input exists
