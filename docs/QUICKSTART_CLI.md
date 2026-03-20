@@ -1,27 +1,17 @@
-# Your First Debate in 10 Minutes
+# Quickstart CLI
 
-Get Aragora running and see your first multi-agent debate in under 10 minutes.
+`aragora quickstart` is the narrowest CLI-first path from a question to a saved debate artifact.
+It does one short run, tells you whether that run was `live` or `demo`, and writes the result to disk.
 
 ## Prerequisites
 
 - Python 3.11 or later
-- At least one API key: `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`
-  (skip if using the zero-config demo)
+- Optional for live mode: at least one supported API key such as `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`
 
-## Quick Install
-
-**From PyPI:**
+Install Aragora:
 
 ```bash
 pip install aragora
-```
-
-**From source:**
-
-```bash
-git clone https://github.com/your-org/aragora.git
-cd aragora
-pip install -e .
 ```
 
 Verify the install:
@@ -30,111 +20,85 @@ Verify the install:
 aragora --version
 ```
 
-## Zero-Config Demo (No API Keys Required)
+## What Quickstart Does
 
-Run an offline debate with mock agents to see how Aragora works before committing any API keys:
+When you run `aragora quickstart`, the command:
+
+1. Loads `.env` from the current directory or its parent if present.
+2. Uses `--question`, or prompts interactively for one.
+3. Runs a short debate in `live` mode when supported API keys are detected.
+4. Falls back to `demo` mode with local mock agents when no supported API keys are found.
+5. Saves one result artifact to disk and prints the exact path.
+6. Optionally opens an HTML view in the browser unless `--no-browser` is set.
+
+The default saved artifact path is:
+
+```text
+.aragora/receipts/quickstart-<live|demo>-receipt.<format>
+```
+
+The default format is `json`. Use `--format md` or `--format html` to change it, or `--output` to choose the exact path.
+
+## Demo Run
+
+Use demo mode when you want an offline, no-key first run:
 
 ```bash
+aragora quickstart --demo --no-browser
+```
+
+If you omit `--question` in demo mode, quickstart uses a built-in sample question.
+
+Expected behavior:
+
+- The terminal reports `Run mode: demo`
+- The debate uses local mock agents
+- A saved artifact is written to `.aragora/receipts/quickstart-demo-receipt.json` by default
+
+## Live Run
+
+Export a supported API key, then run quickstart:
+
+```bash
+export OPENAI_API_KEY=sk-...
+aragora quickstart --no-browser
+```
+
+Or provide the question directly:
+
+```bash
+aragora quickstart --question "Should we rewrite this service in Go?" --no-browser
+```
+
+Expected behavior:
+
+- The terminal reports `Run mode: live`
+- Quickstart lists the detected live agent providers it will use
+- A saved artifact is written to `.aragora/receipts/quickstart-live-receipt.json` by default
+
+If no supported API keys are detected and you did not pass `--demo`, quickstart says it is falling back to demo mode and the saved artifact will reflect `mode: "demo"`.
+
+## Browser Behavior
+
+- If the saved artifact is HTML, quickstart opens that saved file in the browser.
+- If the saved artifact is JSON or Markdown, quickstart can still open a temporary HTML preview unless `--no-browser` is set.
+- The saved artifact path printed in the terminal is the durable result path. A browser preview path, when shown, is separate.
+
+## Common Flags
+
+```bash
+aragora quickstart --question "Should we adopt microservices?"
 aragora quickstart --demo
+aragora quickstart --format md --no-browser
+aragora quickstart --output ./my-first-receipt.html
+aragora quickstart --rounds 3
 ```
-
-What you will see:
-
-- A three-round debate between two mock agents on a sample decision topic
-- Per-round proposals, critiques, and revisions printed to the terminal
-- A consensus summary with a confidence score at the end
-- A decision receipt (JSON) saved to `./aragora_receipts/` showing the full audit trail
-
-The demo uses locally generated responses and makes no external API calls. It is safe to run in restricted environments.
-
-## First Real Debate
-
-Set your API key, then run the interactive quickstart:
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-aragora quickstart
-```
-
-The quickstart wizard will:
-
-1. Detect your available API keys and select agents automatically
-2. Prompt you for a decision topic (or use the built-in default)
-3. Run a three-round debate with live streaming output
-4. Print the winning position, confidence score, and dissenting views
-5. Save a cryptographically signed receipt to `./aragora_receipts/`
-
-To use OpenAI instead:
-
-```bash
-export OPENAI_API_KEY=sk-...
-aragora quickstart
-```
-
-To use both providers together (heterogeneous consensus):
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-export OPENAI_API_KEY=sk-...
-aragora quickstart
-```
-
-## Start the Server
-
-Launch the full HTTP and WebSocket API server:
-
-```bash
-aragora serve --api-port 8080
-```
-
-The server starts in roughly 15 seconds. Once running:
-
-- Interactive API explorer: http://localhost:8080/api/v2/docs
-- Health check: http://localhost:8080/health
-- WebSocket stream: `ws://localhost:8080/ws`
-
-Start a debate via the REST API:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/debate \
-  -H "Content-Type: application/json" \
-  -d '{"task": "Should we adopt GraphQL or REST?", "rounds": 3}'
-```
-
-## Python SDK Quick Example
-
-```python
-import asyncio
-from aragora import Arena, Environment, DebateProtocol
-
-async def main():
-    env = Environment(task="Should we use microservices or a monolith?")
-    protocol = DebateProtocol(rounds=3, consensus="majority")
-    arena = Arena(env, agents=["claude", "gpt4"], protocol=protocol)
-
-    result = await arena.run()
-
-    print(result.winner)      # winning position summary
-    print(result.confidence)  # float 0.0–1.0
-    print(result.receipt)     # audit trail dict
-
-asyncio.run(main())
-```
-
-The `result` object also exposes:
-
-| Attribute | Type | Description |
-|---|---|---|
-| `result.winner` | str | Winning position |
-| `result.confidence` | float | Consensus confidence (0–1) |
-| `result.rounds` | list | Full per-round transcripts |
-| `result.receipt` | dict | Signed audit receipt |
-| `result.dissents` | list | Minority positions |
 
 ## Next Steps
 
-| Resource | Description |
-|---|---|
-| `docs/EXTENDED_README.md` | Full technical reference covering all five pillars |
-| `docs/SDK_GUIDE.md` | Python and TypeScript SDK usage with advanced examples |
-| `docs/api/API_REFERENCE.md` | Complete REST API documentation (3,000+ operations) |
+After quickstart, use the broader CLI commands for fuller workflows:
+
+```bash
+aragora ask "Your question" --agents anthropic-api,openai-api
+aragora decide "Your question"
+```

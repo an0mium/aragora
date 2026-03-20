@@ -412,16 +412,24 @@ aragora publish debate
 
 ### `aragora quickstart`
 
-**Purpose:** Zero-to-receipt onboarding: auto-detects API keys, runs a short debate, displays the verdict, and opens an HTML receipt in the browser.
+**Purpose:** CLI-first onboarding: load `.env`, get a question, run a short `live` debate when supported API keys are available or fall back to `demo`, save one result artifact, and optionally open an HTML view in the browser.
 
 **Usage:** `aragora quickstart [options]`
 
-**Key options:** `--question "<text>"`, `--no-browser`
+**Key options:**
+- `--question "<text>"` — provide the question directly instead of using the interactive prompt
+- `--demo` — force demo mode with local mock agents
+- `--output <path>` — choose the saved artifact path explicitly
+- `--format json|md|html` — saved artifact format (default: `json`)
+- `--rounds <n>` — number of debate rounds (default: `2`)
+- `--no-browser` — skip the HTML browser view
+
+By default quickstart saves the result artifact to `.aragora/receipts/quickstart-<live|demo>-receipt.<format>`.
 
 **Example:**
 ```bash
-aragora quickstart
-aragora quickstart --question "Should we rewrite in Go?"
+aragora quickstart --demo --no-browser
+aragora quickstart --question "Should we rewrite in Go?" --output ./receipt.html
 ```
 
 ---

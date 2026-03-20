@@ -1,13 +1,13 @@
 """
-Quickstart CLI command: zero-to-receipt onboarding in one command.
+Quickstart CLI command: truthful first-run onboarding in one command.
 
-Guides new users through their first adversarial debate:
-1. Checks for API keys (loads .env if present)
-2. Accepts a question via --question or interactive prompt (default provided)
-3. Runs a 2-round demo debate with auto-detected or mock agents
-4. Displays verdict with confidence and elapsed time
-5. Generates HTML receipt and opens in browser (unless --no-browser)
-6. Optionally saves the decision receipt
+Guides new users through a short debate:
+1. Checks for supported API keys (loads .env if present)
+2. Accepts a question via --question or interactive prompt
+3. Runs a live debate when keys are available, otherwise falls back to demo
+4. Displays verdict, confidence, mode, and elapsed time
+5. Saves one deterministic result artifact
+6. Optionally opens an HTML view in the browser
 """
 
 from __future__ import annotations
@@ -149,34 +149,55 @@ def _get_question(args: argparse.Namespace) -> str | None:
         return None
 
 
-def _save_receipt(receipt_data: dict[str, Any], path: str, fmt: str) -> None:
+def _default_receipt_path(mode: str, fmt: str) -> Path:
+    """Return the default saved artifact path for quickstart results."""
+    receipts_dir = Path.cwd() / ".aragora" / "receipts"
+    suffix = {
+        "json": ".json",
+        "md": ".md",
+        "html": ".html",
+    }.get(fmt, ".json")
+    normalized_mode = (mode or "demo").strip().lower()
+    return receipts_dir / f"quickstart-{normalized_mode}-receipt{suffix}"
+
+
+def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
     """Save receipt to file in the specified format."""
     from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
 
     output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    suffix = output_path.suffix.lower()
 
-    if fmt == "json" or output_path.suffix == ".json":
+    if fmt == "json" or suffix == ".json":
         output_path.write_text(json.dumps(receipt_data, indent=2, default=str))
-    elif fmt == "md" or output_path.suffix == ".md":
+    elif fmt == "md" or suffix == ".md":
         md = receipt_to_markdown(receipt_data)
         output_path.write_text(md)
-    elif fmt == "html" or output_path.suffix == ".html":
+    elif fmt == "html" or suffix == ".html":
         html = receipt_to_html(receipt_data)
         output_path.write_text(html)
     else:
         output_path.write_text(json.dumps(receipt_data, indent=2, default=str))
 
-    print(f"\nReceipt saved to: {output_path}")
+    return output_path.resolve()
 
 
-def _open_receipt_in_browser(receipt_data: dict[str, Any]) -> str | None:
+def _open_receipt_in_browser(
+    receipt_data: dict[str, Any], html_path: str | Path | None = None
+) -> str | None:
     """Generate HTML receipt and open in browser.
 
     Returns the path to the saved HTML file, or None on failure.
     """
-    from aragora.cli.receipt_formatter import receipt_to_html
-
     try:
+        if html_path is not None:
+            resolved_path = str(Path(html_path).resolve())
+            webbrowser.open(f"file://{resolved_path}")
+            return resolved_path
+
+        from aragora.cli.receipt_formatter import receipt_to_html
+
         html = receipt_to_html(receipt_data)
         # Create a persistent temp file (not auto-deleted)
         fd, path = tempfile.mkstemp(suffix=".html", prefix="aragora-receipt-")
@@ -296,18 +317,20 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     rounds = getattr(args, "rounds", 2)
 
     if use_demo:
-        print("\n[*] Demo mode: using mock agents (no API keys needed)")
+        print("\n[*] Run mode: demo (requested with --demo)")
         print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
     else:
         detected = _detect_agents()
         if not detected:
-            print("\n[!] No API keys found. Falling back to demo mode.")
+            print("\n[!] No supported API keys detected. Falling back to demo mode.")
+            print("    This run will use local mock agents, not live model calls.")
             print("    Set ANTHROPIC_API_KEY or OPENAI_API_KEY for live debates.")
             print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
             use_demo = True
         else:
             providers = [p for p, _ in detected[:4]]
-            print(f"\n[+] Detected agents: {', '.join(providers)}")
+            print("\n[+] Run mode: live")
+            print(f"    Agents: {', '.join(providers)}")
 
     print(f"[*] Running {rounds}-round debate...\n")
 
@@ -334,6 +357,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     verdict_display = str(result["verdict"]).replace("_", " ").title()
     print(f"\n  Verdict:    {verdict_display}")
     print(f"  Confidence: {result['confidence']:.0%}")
+    print(f"  Mode:       {str(result.get('mode', 'demo')).title()}")
     print(f"  Agents:     {', '.join(result['agents'])}")
     print(f"  Rounds:     {result['rounds']}")
     print(f"  Elapsed:    {elapsed:.1f}s")
@@ -351,20 +375,28 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     # Step 6: Save receipt
     output_path = getattr(args, "output", None)
     fmt = getattr(args, "format", "json")
-
-    if output_path:
-        _save_receipt(result, output_path, fmt)
+    saved_artifact = _save_receipt(
+        result,
+        output_path or _default_receipt_path(str(result.get("mode", "demo")), fmt),
+        fmt,
+    )
+    artifact_format = saved_artifact.suffix.lstrip(".") or fmt
+    print(f"\nResult artifact ({result.get('mode', 'demo')}/{artifact_format}): {saved_artifact}")
 
     # Step 7: Open receipt in browser
     no_browser = getattr(args, "no_browser", False)
     if not no_browser:
-        receipt_path = _open_receipt_in_browser(result)
-        if receipt_path:
-            print(f"\nReceipt opened in browser. Saved to {receipt_path}")
+        browser_path = _open_receipt_in_browser(
+            result,
+            saved_artifact if saved_artifact.suffix.lower() == ".html" else None,
+        )
+        if browser_path:
+            if Path(browser_path) == saved_artifact:
+                print("\nOpened saved artifact in browser.")
+            else:
+                print(f"\nOpened HTML preview in browser: {browser_path}")
         else:
-            print("\nCould not open browser. Save receipt with --output receipt.html")
-    elif not output_path:
-        print("\nTip: Save receipt with --output receipt.html")
+            print("\nCould not open browser. View the saved artifact directly.")
 
     print("\nNext steps:")
     print("  aragora ask 'Your question' --agents anthropic-api,openai-api  # Full debate")
