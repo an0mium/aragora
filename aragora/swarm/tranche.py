@@ -525,6 +525,7 @@ class TrancheExecutor:
                 owner_session_id=owner_session_id,
                 base_branch=base_branch,
             )
+            self.artifact_store.save(manifest.manifest_id, artifact)
             prepared.append(artifact.to_dict())
         return {
             "mode": "tranche-prepare",

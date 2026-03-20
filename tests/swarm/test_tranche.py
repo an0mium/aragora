@@ -541,6 +541,10 @@ def test_prepare_creates_workspace_artifact_for_ready_lane(tmp_path: Path) -> No
     assert prepared["status"] == "prepared"
     assert prepared["metadata"]["branch"].startswith("codex/")
     assert prepared["worktree_path"].endswith("/lane-1")
+    saved = executor.artifact_store.load(manifest.manifest_id, "pmf_impl")
+    assert saved is not None
+    assert saved.status == "prepared"
+    assert saved.worktree_path == f"{repo}/.worktrees/codex-auto/lane-1"
 
 
 def test_prepare_preserves_nested_base_branch_names(tmp_path: Path) -> None:
