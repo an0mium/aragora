@@ -28,6 +28,7 @@ from aragora.swarm.tranche_state import (
     LANE_STATUS_RUNNING,
     LANE_STATUS_WAITING_FOR_MERGE,
     LANE_STATUS_WAITING_FOR_PR,
+    TRANCHE_STATUS_ABORTED,
     TRANCHE_STATUS_COMPLETED,
     TRANCHE_STATUS_INTEGRATING,
     TRANCHE_STATUS_NEEDS_HUMAN,
@@ -130,6 +131,10 @@ def refresh_tranche_state(
     repo_root: Path | None = None,
 ) -> TrancheRunState:
     refreshed = TrancheRunState.from_dict(state.to_dict())
+    if str(refreshed.status or "").strip() == TRANCHE_STATUS_ABORTED:
+        refreshed.updated_at = _utcnow()
+        return refreshed
+
     resolved_store = store
     if resolved_store is None and repo_root is not None:
         resolved_store = DevCoordinationStore(repo_root=Path(repo_root).resolve())
@@ -141,7 +146,6 @@ def refresh_tranche_state(
         repo_root=repo_root,
     )
 
-    lease_map = _lease_map(resolved_store)
     for lane_id, lane_state in list(refreshed.lane_states.items()):
         artifact = artifact_map.get(lane_id)
         if artifact is not None:
@@ -151,6 +155,16 @@ def refresh_tranche_state(
         if run_dict is not None:
             _apply_run_projection(lane_state, run_dict)
 
+    lease_map = _lease_map(
+        resolved_store,
+        lease_ids={
+            lease_id
+            for lane_state in refreshed.lane_states.values()
+            if (lease_id := _optional_text(lane_state.lease_id))
+        },
+    )
+
+    for lane_state in refreshed.lane_states.values():
         lease = lease_map.get(str(lane_state.lease_id or "").strip())
         if lease is not None:
             _apply_lease_projection(lane_state, lease)
@@ -213,7 +227,15 @@ async def watch_tick(
                     review_payload.get("status", "") if isinstance(review_payload, dict) else ""
                 ).strip()
                 lane_state.status = _watch_review_status(review_status)
-            if lane_state.status == LANE_STATUS_REVIEW_PASSED and integrate_fn is not None:
+            if (
+                lane_state.status
+                in {
+                    LANE_STATUS_REVIEW_PASSED,
+                    LANE_STATUS_WAITING_FOR_PR,
+                    LANE_STATUS_WAITING_FOR_MERGE,
+                }
+                and integrate_fn is not None
+            ):
                 integrate_payload = await integrate_fn(
                     manifest=manifest,
                     lane_id=lane_id,
@@ -242,12 +264,18 @@ async def watch_loop(
     **kwargs: Any,
 ) -> TrancheRunState:
     current = TrancheRunState.from_dict(state.to_dict())
+    if current.status == TRANCHE_STATUS_ABORTED:
+        return current
     ticks = 0
     while True:
         current = await watch_tick(current, manifest=manifest, **kwargs)
         if state_path is not None:
             current.save(state_path)
-        if current.status in {TRANCHE_STATUS_COMPLETED, TRANCHE_STATUS_NEEDS_HUMAN}:
+        if current.status in {
+            TRANCHE_STATUS_ABORTED,
+            TRANCHE_STATUS_COMPLETED,
+            TRANCHE_STATUS_NEEDS_HUMAN,
+        }:
             return current
         ticks += 1
         if max_ticks is not None and ticks >= max(1, int(max_ticks)):
@@ -451,13 +479,14 @@ def _artifact_pr_url(artifact: TrancheLaneArtifact) -> str | None:
     return None
 
 
-def _lease_map(store: Any | None) -> dict[str, Any]:
-    if store is None or not hasattr(store, "list_leases"):
+def _lease_map(store: Any | None, *, lease_ids: set[str] | None = None) -> dict[str, Any]:
+    normalized_ids = {item for item in (lease_ids or set()) if str(item).strip()}
+    if store is None or not hasattr(store, "list_leases") or not normalized_ids:
         return {}
     return {
         str(item.lease_id): item
         for item in store.list_leases(limit=None)
-        if getattr(item, "lease_id", None)
+        if getattr(item, "lease_id", None) and str(item.lease_id) in normalized_ids
     }
 
 
