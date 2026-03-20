@@ -2369,7 +2369,7 @@ def _add_swarm_parser(subparsers) -> None:
         "--max-consecutive-failures",
         type=int,
         default=3,
-        help="Stop boss-loop after N consecutive worker failures (default: 3)",
+        help="Stop boss-loop or tranche queue after N consecutive hard failures (default: 3)",
     )
     swarm_parser.add_argument(
         "--allow-missing-validation-contract",
@@ -2428,6 +2428,11 @@ def _add_swarm_parser(subparsers) -> None:
         "--manifest",
         default=DEFAULT_CAMPAIGN_MANIFEST,
         help="Campaign or tranche manifest path (default: .aragora/campaign_manifest.yaml)",
+    )
+    swarm_parser.add_argument(
+        "--queue",
+        default=None,
+        help="Queue manifest path for 'swarm tranche run-queue' and 'reconcile-queue'",
     )
     swarm_parser.add_argument(
         "--output",
@@ -2490,6 +2495,12 @@ def _add_swarm_parser(subparsers) -> None:
         "--approve",
         action="store_true",
         help="Allow tranche integrate to record and execute the recommended integration action",
+    )
+    swarm_parser.add_argument(
+        "--max-hours",
+        type=float,
+        default=12.0,
+        help="Maximum wall-clock hours for tranche queue execution (default: 12.0)",
     )
     swarm_parser.add_argument(
         "--max-parallel-ready-projects",

@@ -830,6 +830,10 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         from aragora.swarm.tranche_integrate import (
             integrate_lane,
         )
+        from aragora.swarm.tranche_queue import (
+            reconcile_tranche_queue,
+            run_tranche_queue,
+        )
         from aragora.swarm.tranche_review import review_lane, select_review_tier
         from aragora.swarm.tranche_submit import submit_intake_bundle
         from aragora.swarm.tranche_watch import (
@@ -875,6 +879,47 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 "count": len(items),
                 "items": items,
             }
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(json.dumps(payload, indent=2))
+            return
+        if subaction in {"run-queue", "reconcile-queue"}:
+            queue_arg = str(getattr(args, "queue", "") or "").strip()
+            if not queue_arg:
+                raise ValueError(f"tranche {subaction} requires --queue <path>")
+            queue_path = Path(queue_arg).resolve()
+            if not queue_path.exists():
+                raise ValueError(f"tranche queue manifest not found: {queue_path}")
+            if subaction == "run-queue":
+                payload = asyncio.run(
+                    run_tranche_queue(
+                        queue_path=queue_path,
+                        repo_root=repo_root,
+                        target_branch=str(getattr(args, "target_branch", "main") or "main"),
+                        interval_seconds=interval_seconds,
+                        max_hours=float(getattr(args, "max_hours", 12.0) or 12.0),
+                        max_consecutive_failures=int(
+                            getattr(args, "max_consecutive_failures", 3) or 3
+                        ),
+                        planner_model=str(getattr(args, "planner_model", "claude") or "claude"),
+                        planner_strategy=str(
+                            getattr(args, "planner_strategy", "heuristic") or "heuristic"
+                        ),
+                        worker_model=str(getattr(args, "worker_model", "codex") or "codex"),
+                        review_model=str(getattr(args, "review_model", "claude") or "claude"),
+                        enforce_cross_model_review=not bool(
+                            getattr(args, "allow_same_model_review", False)
+                        ),
+                    )
+                )
+            else:
+                payload = reconcile_tranche_queue(
+                    queue_path=queue_path,
+                    repo_root=repo_root,
+                )
+            payload["action"] = subaction
+            payload["queue_path"] = str(queue_path)
             if as_json:
                 print(json.dumps(payload, indent=2))
             else:
@@ -1287,7 +1332,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             )
         else:
             raise ValueError(
-                "tranche action must be one of: submit, plan, inspect, watch, list, design-review, review, integrate, prepare, run"
+                "tranche action must be one of: submit, plan, inspect, watch, list, design-review, review, integrate, prepare, run, run-queue, reconcile-queue"
             )
         payload["action"] = subaction
         payload["manifest_path"] = str(manifest_path)

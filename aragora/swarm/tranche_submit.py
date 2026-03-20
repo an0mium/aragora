@@ -456,6 +456,14 @@ def _planner_items(bundle: dict[str, Any], *, action: str, objective: str) -> li
     return items or [objective]
 
 
+def campaign_projects_to_candidate_lanes(
+    projects: list[Any],
+    *,
+    planner: Any,
+) -> list[dict[str, Any]]:
+    return [_campaign_project_to_lane(project, planner=planner) for project in projects]
+
+
 def _campaign_project_to_lane(project: Any, *, planner: Any) -> dict[str, Any]:
     source_refs = [
         value

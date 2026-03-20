@@ -60,11 +60,13 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "dispatch_only": False,
         "no_wait": False,
         "manifest": ".aragora/campaign_manifest.yaml",
+        "queue": None,
         "intake": None,
         "rounds": 2,
         "all_completed": False,
         "all_mergeable": False,
         "approve": False,
+        "max_hours": 12.0,
         "driver": False,
         "tier": "auto",
         "from_prompts": None,
@@ -354,6 +356,49 @@ class TestSwarmParser:
         assert args.command == "swarm"
         assert args.swarm_action_or_goal == "tranche"
         assert args.swarm_goal == "list"
+        assert args.json is True
+
+    def test_swarm_tranche_run_queue_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "tranche",
+                "run-queue",
+                "--queue",
+                "docs/examples/overnight-queue.yaml",
+                "--max-hours",
+                "8",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "tranche"
+        assert args.swarm_goal == "run-queue"
+        assert args.queue == "docs/examples/overnight-queue.yaml"
+        assert args.max_hours == 8
+        assert args.json is True
+
+    def test_swarm_tranche_reconcile_queue_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "tranche",
+                "reconcile-queue",
+                "--queue",
+                "docs/examples/overnight-queue.yaml",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "tranche"
+        assert args.swarm_goal == "reconcile-queue"
+        assert args.queue == "docs/examples/overnight-queue.yaml"
         assert args.json is True
 
     def test_swarm_parser_accepts_spec_dispatch_options(self):
@@ -756,6 +801,61 @@ class TestSwarmCommand:
         assert '"mode": "tranche-list"' in out
         assert '"manifest_id": "pmf-tranche"' in out
         assert '"action": "list"' in out
+
+    def test_cmd_swarm_tranche_run_queue_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="run-queue",
+            queue="/tmp/overnight-queue.yaml",
+            json=True,
+        )
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch(
+                "aragora.swarm.tranche_queue.run_tranche_queue",
+                new_callable=AsyncMock,
+            ) as mock_run_queue,
+        ):
+            mock_run_queue.return_value = {
+                "mode": "tranche-queue",
+                "queue_id": "overnight",
+                "status": "completed",
+                "counts": {"completed": 2},
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"mode": "tranche-queue"' in out
+        assert '"queue_id": "overnight"' in out
+        assert '"action": "run-queue"' in out
+        mock_run_queue.assert_awaited_once()
+
+    def test_cmd_swarm_tranche_reconcile_queue_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="reconcile-queue",
+            queue="/tmp/overnight-queue.yaml",
+            json=True,
+        )
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch("aragora.swarm.tranche_queue.reconcile_tranche_queue") as mock_reconcile,
+        ):
+            mock_reconcile.return_value = {
+                "mode": "tranche-queue",
+                "queue_id": "overnight",
+                "status": "running",
+                "counts": {"running": 1},
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"mode": "tranche-queue"' in out
+        assert '"queue_id": "overnight"' in out
+        assert '"action": "reconcile-queue"' in out
+        mock_reconcile.assert_called_once()
 
     def test_cmd_swarm_tranche_prepare_json(self, capsys):
         args = _swarm_args(
