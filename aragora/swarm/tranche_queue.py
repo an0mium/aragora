@@ -566,7 +566,7 @@ class TrancheQueueExecutor:
         self.review_model = review_model
         self.enforce_cross_model_review = bool(enforce_cross_model_review)
         self._github: GitHubControl | None = None
-        self._registry: PullRequestRegistry | None = None
+        self._registry_client_obj: PullRequestRegistry | None = None
         self._supervisor = None
 
     async def run(self) -> dict[str, Any]:
@@ -597,14 +597,30 @@ class TrancheQueueExecutor:
             state.updated_at = _utcnow()
             state.save(self.state_path)
 
-            systemic_reason = await self._process_item(
-                manifest=manifest,
-                item=item,
-                item_state=item_state,
-                deadline=deadline,
-            )
+            try:
+                systemic_reason = await self._process_item(
+                    manifest=manifest,
+                    item=item,
+                    item_state=item_state,
+                    deadline=deadline,
+                )
+            except Exception as exc:
+                logger.exception("tranche queue item %s crashed", item.item_id)
+                systemic_reason = None
+                item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
+                item_state.stop_reason = "processing_error"
+                item_state.finished_at = _utcnow()
+                item_state.updated_at = _utcnow()
+                item_state.result["processing_error"] = {"error_type": type(exc).__name__}
+                self._append_finding(
+                    item_state,
+                    "Queue item processing failed. Check logs for detail.",
+                )
 
-            if item_state.status == QUEUE_ITEM_STATUS_COMPLETED:
+            if item_state.status in {
+                QUEUE_ITEM_STATUS_COMPLETED,
+                QUEUE_ITEM_STATUS_NEEDS_HUMAN,
+            }:
                 state.consecutive_failures = 0
             else:
                 state.consecutive_failures += 1
@@ -709,10 +725,10 @@ class TrancheQueueExecutor:
             self._github = GitHubControl(repo_root=self.repo_root)
         return self._github
 
-    def _registry(self) -> PullRequestRegistry:
-        if self._registry is None:
-            self._registry = PullRequestRegistry()
-        return self._registry
+    def _registry_client(self) -> PullRequestRegistry:
+        if self._registry_client_obj is None:
+            self._registry_client_obj = PullRequestRegistry()
+        return self._registry_client_obj
 
     def _supervisor_store(self):
         if self._supervisor is None:
@@ -948,7 +964,7 @@ class TrancheQueueExecutor:
         executor = TrancheExecutor(repo_root=self.repo_root)
         session_id = f"tranche-queue-{manifest_path.stem}-{os.getpid()}"
         github = self._github_client()
-        registry = self._registry()
+        registry = self._registry_client()
         events = list(item_state.events)
 
         async def _watch_run_fn(*, manifest):
