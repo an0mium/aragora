@@ -22,6 +22,7 @@ REQUIRED_KEEP_WORKFLOW_PATHS = {
     ".github/workflows/lint.yml",
     ".github/workflows/sdk-parity.yml",
     ".github/workflows/sdk-test.yml",
+    ".github/workflows/test.yml",
     ".github/workflows/openapi.yml",
     ".github/workflows/required-check-priority.yml",
 }
@@ -32,6 +33,7 @@ REQUIRED_KEEP_WORKFLOW_NAMES = {
     "Lint",
     "SDK Parity Check",
     "SDK Tests",
+    "Tests",
     "OpenAPI Spec",
 }
 

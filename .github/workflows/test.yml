@@ -1942,13 +1942,38 @@ jobs:
 
   # Test Analytics - Generate flakiness report
   quality-gates:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always())
     name: Quality Gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [test-fast, test-summary, epistemic-settlement-gate, v1-scope-lock-gate]
 
     steps:
+      - name: Check prerequisite results
+        shell: bash
+        run: |
+          check_result() {
+            local label="$1"
+            local result="$2"
+            case "$result" in
+              success)
+                echo "$label passed."
+                ;;
+              skipped|cancelled)
+                echo "::warning::$label was $result; continuing quality gates without failing the workflow."
+                ;;
+              *)
+                echo "::error::$label completed with result: $result"
+                exit 1
+                ;;
+            esac
+          }
+
+          check_result "test-fast" "${{ needs.test-fast.result }}"
+          check_result "test-summary" "${{ needs.test-summary.result }}"
+          check_result "epistemic-settlement-gate" "${{ needs.epistemic-settlement-gate.result }}"
+          check_result "v1-scope-lock-gate" "${{ needs.v1-scope-lock-gate.result }}"
+
       - name: Checkout
         uses: actions/checkout@v4
 

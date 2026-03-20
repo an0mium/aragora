@@ -36,13 +36,15 @@ jobs:
             const sweeps = 4;
             const sweepDelayMs = 10000;
 
-            // Required checks are currently produced by these workflows.
-            // Keep this list in sync with branch protection required contexts.
+            // Required checks are produced by these workflows, and we also keep
+            // Tests so PR CI reflects real test outcomes instead of looking
+            // cancelled after prioritization sweeps.
             const alwaysKeepWorkflowPaths = new Set([
               '.github/workflows/aragora-review-gate.yml',
               '.github/workflows/lint.yml',
               '.github/workflows/sdk-parity.yml',
               '.github/workflows/sdk-test.yml',
+              '.github/workflows/test.yml',
               '.github/workflows/openapi.yml',
               '.github/workflows/self-host-readiness.yml',
               '.github/workflows/required-check-priority.yml',
@@ -53,6 +55,7 @@ jobs:
               'Lint',
               'SDK Parity Check',
               'SDK Tests',
+              'Tests',
               'OpenAPI Spec',
               'Self-Host Readiness',
             ]);
