@@ -141,6 +141,41 @@ class GitHubControl:
             raise GitHubControlError("gh pr create succeeded but returned no PR URL")
         return url
 
+    def retarget_pr_base(self, pr_ref: str, base_branch: str) -> dict[str, Any]:
+        normalized_pr_ref = str(pr_ref or "").strip()
+        normalized_base = str(base_branch or "").strip()
+        if not normalized_pr_ref:
+            return {
+                "retargeted": False,
+                "pr_url": None,
+                "base_branch": normalized_base or None,
+                "action": "retarget_failed",
+                "detail": "PR reference is required.",
+            }
+        if not normalized_base:
+            return {
+                "retargeted": False,
+                "pr_url": normalized_pr_ref,
+                "base_branch": None,
+                "action": "retarget_failed",
+                "detail": "Base branch is required.",
+            }
+
+        result = self._run_gh(
+            ["pr", "edit", normalized_pr_ref, "--base", normalized_base],
+            raise_on_error=False,
+            timeout=30,
+        )
+        detail = (result.stdout or result.stderr or "").strip()
+        return {
+            "retargeted": result.returncode == 0,
+            "pr_url": normalized_pr_ref,
+            "base_branch": normalized_base,
+            "action": "retarget" if result.returncode == 0 else "retarget_failed",
+            "detail": detail
+            or ("gh pr edit succeeded" if result.returncode == 0 else "gh pr edit failed"),
+        }
+
     def fetch_gate_snapshot(self, pr_ref: str) -> GitHubGateSnapshot:
         view = self._pr_view(pr_ref)
         pr_url = _optional_text(view.get("url")) or str(pr_ref).strip()

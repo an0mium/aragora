@@ -602,43 +602,48 @@ class TestSwarmCommand:
                 "lease_id": "lease-123",
             },
         )
+        fake_state = SimpleNamespace(save=lambda _path: None)
         with (
             patch("pathlib.Path.exists", return_value=True),
             patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
             patch("aragora.swarm.tranche.load_tranche_manifest", return_value=fake_manifest),
             patch("aragora.swarm.tranche.TrancheArtifactStore") as store_cls,
-            patch("aragora.swarm.tranche_integrate.discover_lane_pr") as mock_discover_pr,
-            patch("aragora.swarm.tranche_integrate.register_pr") as mock_register_pr,
-            patch("aragora.swarm.tranche_integrate.classify_check_results") as mock_classify,
-            patch("aragora.swarm.tranche_integrate.assess_lane_integration") as mock_assess,
+            patch("aragora.swarm.tranche_watch.load_tranche_run_state", return_value=fake_state),
             patch(
-                "aragora.swarm.tranche_integrate.record_lane_integration", new_callable=AsyncMock
-            ) as mock_record,
-            patch("aragora.ralph.github_control.GitHubControl") as github_cls,
+                "aragora.swarm.tranche_integrate.integrate_lane",
+                new_callable=AsyncMock,
+            ) as mock_integrate,
         ):
             store_cls.return_value.load.return_value = fake_artifact
-            mock_discover_pr.return_value = "https://github.com/org/repo/pull/42"
-            mock_classify.return_value = "checks_passed"
-            mock_assess.return_value = {
+            mock_integrate.return_value = {
+                "lane_id": "lane_a",
                 "recommendation": "merge",
                 "executed": False,
                 "checks": "checks_passed",
                 "review_status": "passed",
+                "cascade_report": {
+                    "merged_lane_id": "lane_a",
+                    "downstream": [
+                        {
+                            "lane_id": "lane_b",
+                            "pr_url": "https://github.com/org/repo/pull/99",
+                            "action": "retargeted",
+                            "reason": "Retargeted downstream PR from stack-base to main.",
+                        }
+                    ],
+                    "clean": True,
+                    "needs_human": False,
+                },
             }
-            github_cls.return_value.fetch_gate_snapshot.return_value = SimpleNamespace(
-                required_checks=[],
-                advisory_checks=[],
-                required_checks_green=True,
-                to_dict=lambda: {"required_checks_green": True},
-            )
             cmd_swarm(args)
 
         out = capsys.readouterr().out
         assert '"mode": "tranche-integrate"' in out
         assert '"recommendation": "merge"' in out
         assert '"action": "integrate"' in out
-        mock_register_pr.assert_called_once()
-        mock_record.assert_not_called()
+        assert '"cascade_report"' in out
+        assert '"action": "retargeted"' in out
+        mock_integrate.assert_awaited_once()
 
     def test_cmd_swarm_tranche_watch_json(self, capsys):
         args = _swarm_args(

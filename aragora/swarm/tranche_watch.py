@@ -241,7 +241,13 @@ async def watch_tick(
                     lane_id=lane_id,
                     artifact=artifact,
                     approve=(mode == "fire_and_forget"),
+                    run_state=refreshed,
                 )
+                if isinstance(integrate_payload, dict):
+                    _apply_cascade_report_to_state(
+                        refreshed,
+                        integrate_payload.get("cascade_report"),
+                    )
                 lane_state.status = _watch_integrate_status(
                     lane_state.status,
                     integrate_payload if isinstance(integrate_payload, dict) else {},
@@ -541,6 +547,39 @@ def _watch_integrate_status(current_status: str, payload: dict[str, Any]) -> str
     if recommendation in {"request_changes", "blocked", "needs_human"}:
         return LANE_STATUS_NEEDS_HUMAN
     return current_status
+
+
+def _apply_cascade_report_to_state(
+    state: TrancheRunState,
+    report: dict[str, Any] | None,
+) -> None:
+    if not isinstance(report, dict):
+        return
+    now = _utcnow()
+    merged_lane_id = _optional_text(report.get("merged_lane_id"))
+    if merged_lane_id and merged_lane_id in state.lane_states:
+        state.lane_states[merged_lane_id].status = LANE_STATUS_COMPLETED
+        state.lane_states[merged_lane_id].last_updated = now
+
+    needs_human = False
+    for item in report.get("downstream", []):
+        if not isinstance(item, dict):
+            continue
+        lane_id = _optional_text(item.get("lane_id"))
+        action = str(item.get("action", "") or "").strip()
+        if not lane_id or action not in {"needs_restack", "missing_pr"}:
+            continue
+        lane_state = state.lane_states.get(lane_id)
+        if lane_state is None:
+            lane_state = LaneRunState(lane_id=lane_id, status=LANE_STATUS_NEEDS_HUMAN)
+            state.lane_states[lane_id] = lane_state
+        lane_state.status = LANE_STATUS_NEEDS_HUMAN
+        lane_state.last_updated = now
+        needs_human = True
+
+    if needs_human:
+        state.status = TRANCHE_STATUS_NEEDS_HUMAN
+    state.updated_at = now
 
 
 def _close_session_history(state: TrancheRunState, session_id: str, *, now: Any) -> None:

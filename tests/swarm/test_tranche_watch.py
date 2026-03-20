@@ -434,6 +434,51 @@ async def test_watch_tick_integrates_when_receipt_projection_precedes_integrate(
 
 
 @pytest.mark.asyncio
+async def test_watch_tick_marks_tranche_needs_human_when_cascade_flags_manual_repair() -> None:
+    from aragora.swarm.tranche_watch import watch_tick
+
+    state = _make_state(lane_statuses={"a": "review_passed", "b": "waiting_for_merge"})
+    artifact_store = _FakeArtifactStore(
+        {
+            "a": _make_artifact(lane_id="a", status="review_passed"),
+            "b": _make_artifact(lane_id="b", status="waiting_for_merge"),
+        }
+    )
+    mock_integrate = AsyncMock(
+        return_value={
+            "recommendation": "merge",
+            "executed": True,
+            "cascade_report": {
+                "merged_lane_id": "a",
+                "downstream": [
+                    {
+                        "lane_id": "b",
+                        "pr_url": "https://github.com/org/repo/pull/99",
+                        "action": "needs_restack",
+                        "reason": "Downstream PR was closed after the upstream merge.",
+                    }
+                ],
+                "clean": False,
+                "needs_human": True,
+            },
+        }
+    )
+
+    new_state = await watch_tick(
+        state,
+        manifest=SimpleNamespace(manifest_id="m1"),
+        autonomy_mode="fire_and_forget",
+        integrate_fn=mock_integrate,
+        artifact_store=artifact_store,
+    )
+
+    mock_integrate.assert_awaited_once()
+    assert new_state.lane_states["a"].status == "completed"
+    assert new_state.lane_states["b"].status == "needs_human"
+    assert new_state.status == "needs_human"
+
+
+@pytest.mark.asyncio
 async def test_watch_loop_exits_on_aborted_status() -> None:
     from aragora.swarm.tranche_watch import watch_loop
 
