@@ -320,6 +320,49 @@ def test_publish_lane_deliverable_pushes_branch_and_creates_pr() -> None:
     artifact_store.save.assert_called_once()
 
 
+def test_publish_lane_deliverable_sanitizes_pr_create_exception() -> None:
+    artifact = _make_artifact(
+        status="completed",
+        metadata={
+            "branch": "feat-branch",
+            "deliverable": {
+                "type": "branch",
+                "branch": "feat-branch",
+                "commit_shas": ["abc123"],
+            },
+        },
+    )
+    github = MagicMock()
+    github.find_pr_for_branch.side_effect = [None, None, None]
+    github.create_pr_for_branch.side_effect = RuntimeError(
+        "token=secret gh pr create failed from /private/tmp/path"
+    )
+    registry = MagicMock(spec=PullRequestRegistry)
+    artifact_store = MagicMock()
+
+    with patch("aragora.swarm.tranche_integrate.subprocess.run") as mock_run:
+        mock_run.return_value = SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
+        result = publish_lane_deliverable(
+            artifact,
+            manifest_id="m1",
+            github=github,
+            registry=registry,
+            repo_root=Path("/tmp/repo"),
+            target_branch="main",
+            artifact_store=artifact_store,
+        )
+
+    assert result == {
+        "published": False,
+        "action": "pr_create_failed",
+        "branch": "feat-branch",
+        "pr_url": None,
+        "detail": "gh pr create failed. Check logs for detail.",
+    }
+    assert artifact.metadata["publish"]["detail"] == "gh pr create failed. Check logs for detail."
+    artifact_store.save.assert_called_once()
+
+
 @pytest.mark.asyncio
 async def test_integrate_lane_returns_needs_human_when_controller_publish_fails() -> None:
     manifest = _make_manifest(_make_lane("lane-a"))

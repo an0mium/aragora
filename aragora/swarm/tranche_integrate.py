@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,8 @@ from aragora.swarm.tranche_state import (
     TRANCHE_STATUS_NEEDS_HUMAN,
     _utcnow,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def discover_lane_pr(
@@ -258,12 +261,13 @@ def publish_lane_deliverable(
     try:
         created_pr = github.create_pr_for_branch(branch, target_branch)
     except Exception as exc:
+        logger.warning("pr create failed for branch %s: %s", branch, exc)
         failure = {
             "published": False,
             "action": "pr_create_failed",
             "branch": branch,
             "pr_url": None,
-            "detail": str(exc),
+            "detail": "gh pr create failed. Check logs for detail.",
         }
         _record_publish_attempt(
             artifact,
@@ -706,10 +710,11 @@ def _push_branch_to_origin(repo_root: Path, branch: str) -> dict[str, Any]:
             check=False,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+        logger.warning("git push failed for branch %s: %s", normalized_branch, exc)
         return {
             "pushed": False,
             "branch": normalized_branch,
-            "detail": f"git push failed: {exc}",
+            "detail": "git push failed before completion. Check logs for detail.",
         }
     detail = (result.stdout or result.stderr or "").strip()
     return {
