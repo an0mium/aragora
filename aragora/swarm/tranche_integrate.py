@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from aragora.nomic.dev_coordination import DevCoordinationStore, IntegrationDecisionType
@@ -22,6 +22,42 @@ from aragora.swarm.tranche_state import (
 )
 
 logger = logging.getLogger(__name__)
+
+_LOW_RISK_PROTECTED_PREFIXES = (
+    ".github/workflows/",
+    "deploy/",
+    "infra/",
+    "infrastructure/",
+    "terraform/",
+    "k8s/",
+    "kubernetes/",
+    "helm/",
+    "docker/",
+    "migrations/",
+    "alembic/",
+)
+_LOW_RISK_PROTECTED_PARTS = frozenset(
+    {
+        "auth",
+        "oauth",
+        "sso",
+        "security",
+        "billing",
+        "payment",
+        "payments",
+        "migrations",
+        "migration",
+        "schema",
+        "schemas",
+        "alembic",
+        "secret",
+        "secrets",
+        "credential",
+        "credentials",
+        "token",
+        "tokens",
+    }
+)
 
 
 def discover_lane_pr(
@@ -106,20 +142,61 @@ def assess_lane_integration(
     artifact: Any,
     checks: str,
     review_status: str,
+    manifest: Any | None = None,
     merge_policy: str = "confirm",
     autonomy_mode: str = "adaptive",
     approve: bool = False,
 ) -> dict[str, Any]:
     normalized_checks = str(checks or "").strip().lower()
     normalized_review = str(review_status or "").strip().lower()
-    normalized_policy = str(merge_policy or "confirm").strip().lower()
+    normalized_policy = _lane_policy_value(
+        manifest,
+        artifact,
+        key="merge_policy",
+        fallback=str(merge_policy or "confirm").strip().lower() or "confirm",
+    )
     normalized_autonomy = str(autonomy_mode or "adaptive").strip().lower()
+    merge_class = _lane_policy_value(manifest, artifact, key="merge_class", fallback="manual")
+    low_risk_policy = (
+        _evaluate_low_risk_merge_policy(manifest=manifest, artifact=artifact)
+        if merge_class == "low_risk"
+        else None
+    )
 
     recommendation = "request_changes"
     executed = False
     rationale = "Review requested changes."
 
-    if normalized_review not in {"passed", "approved"}:
+    if merge_class == "low_risk":
+        if normalized_review not in {"passed", "approved"}:
+            recommendation = "needs_human"
+            rationale = "Low-risk auto-merge requires a passing review."
+        elif normalized_checks == "checks_failed":
+            recommendation = "needs_human"
+            rationale = "Low-risk auto-merge requires green required checks."
+        elif normalized_checks != "checks_passed":
+            recommendation = "merge"
+            rationale = "Required checks are still pending before low-risk auto-merge can proceed."
+        elif isinstance(low_risk_policy, dict) and not bool(low_risk_policy.get("eligible", False)):
+            recommendation = "needs_human"
+            rationale = (
+                "Low-risk auto-merge is not eligible; leave the PR for human review: "
+                + _format_low_risk_reasons(low_risk_policy)
+            )
+        elif normalized_autonomy == "fire_and_forget" and normalized_policy == "auto":
+            recommendation = "merge"
+            executed = True
+            rationale = "Low-risk auto-merge policy passed and fire-and-forget executed the merge."
+        elif approve and normalized_policy in {"auto", "confirm"}:
+            recommendation = "merge"
+            executed = True
+            rationale = (
+                "Low-risk auto-merge policy passed and explicit approval executed the merge."
+            )
+        else:
+            recommendation = "needs_human"
+            rationale = "Low-risk lane is merge-eligible, but explicit approval is required."
+    elif normalized_review not in {"passed", "approved"}:
         recommendation = "request_changes"
         rationale = "Review must pass before integration."
     elif normalized_checks == "checks_failed":
@@ -147,9 +224,11 @@ def assess_lane_integration(
         "executed": executed,
         "checks": normalized_checks,
         "review_status": normalized_review,
+        "merge_class": merge_class,
         "merge_policy": normalized_policy,
         "autonomy_mode": normalized_autonomy,
         "rationale": rationale,
+        "low_risk_policy": low_risk_policy,
         "lane_id": str(getattr(artifact, "lane_id", "") or "").strip() or None,
     }
 
@@ -453,6 +532,7 @@ async def integrate_lane(
         metadata = {}
     assessment = assess_lane_integration(
         artifact=artifact,
+        manifest=manifest,
         checks=checks,
         review_status=review_status,
         merge_policy=str(metadata.get("merge_policy", "confirm") or "confirm"),
@@ -598,14 +678,8 @@ def _looks_like_pr_url(value: str) -> bool:
 
 
 def _artifact_review_status(artifact: Any) -> str:
-    metadata = getattr(artifact, "metadata", {})
-    if not isinstance(metadata, dict):
-        metadata = {}
-    review_payload = metadata.get("review", {})
-    if isinstance(review_payload, dict):
-        review_status = str(review_payload.get("status", "") or "").strip() or "pending"
-    else:
-        review_status = "pending"
+    review_payload = _artifact_review_payload(artifact)
+    review_status = str(review_payload.get("status", "") or "").strip() or "pending"
     if review_status != "pending":
         return review_status
 
@@ -617,6 +691,31 @@ def _artifact_review_status(artifact: Any) -> str:
     if artifact_status == "review_blocked":
         return "blocked_nonreviewable"
     return "pending"
+
+
+def _artifact_review_payload(artifact: Any) -> dict[str, Any]:
+    metadata = getattr(artifact, "metadata", {})
+    if not isinstance(metadata, dict):
+        return {}
+    review_payload = metadata.get("review")
+    return dict(review_payload) if isinstance(review_payload, dict) else {}
+
+
+def _artifact_review_tier(artifact: Any) -> int | None:
+    review_payload = _artifact_review_payload(artifact)
+    value = review_payload.get("tier")
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _artifact_changed_files(artifact: Any) -> list[str]:
+    review_payload = _artifact_review_payload(artifact)
+    value = review_payload.get("changed_files", [])
+    if not isinstance(value, list):
+        return []
+    return [text for text in (_normalize_repo_path(item) for item in value) if text]
 
 
 def _artifact_branch(artifact: Any) -> str | None:
@@ -639,6 +738,119 @@ def _artifact_commit_shas(artifact: Any) -> list[str]:
     if not isinstance(deliverable, dict):
         return []
     return [str(item).strip() for item in deliverable.get("commit_shas", []) if str(item).strip()]
+
+
+def _manifest_lane(manifest: Any | None, lane_id: str) -> Any | None:
+    normalized_lane_id = str(lane_id or "").strip()
+    if not normalized_lane_id or manifest is None:
+        return None
+    lane_getter = getattr(manifest, "lane", None)
+    if callable(lane_getter):
+        try:
+            lane = lane_getter(normalized_lane_id)
+        except Exception:
+            lane = None
+        if lane is not None:
+            return lane
+    for lane in getattr(manifest, "lanes", []) or []:
+        if str(getattr(lane, "lane_id", "") or "").strip() == normalized_lane_id:
+            return lane
+    return None
+
+
+def _lane_metadata(manifest: Any | None, artifact: Any) -> dict[str, Any]:
+    lane = _manifest_lane(manifest, str(getattr(artifact, "lane_id", "") or "").strip())
+    metadata = getattr(lane, "metadata", {}) if lane is not None else {}
+    return dict(metadata) if isinstance(metadata, dict) else {}
+
+
+def _lane_policy_value(
+    manifest: Any | None,
+    artifact: Any,
+    *,
+    key: str,
+    fallback: str,
+) -> str:
+    metadata = getattr(artifact, "metadata", {})
+    if isinstance(metadata, dict):
+        value = _optional_text(metadata.get(key))
+        if value:
+            return value.lower()
+    lane_metadata = _lane_metadata(manifest, artifact)
+    value = _optional_text(lane_metadata.get(key))
+    if value:
+        return value.lower()
+    return str(fallback or "").strip().lower() or fallback
+
+
+def _evaluate_low_risk_merge_policy(*, manifest: Any | None, artifact: Any) -> dict[str, Any]:
+    lane_metadata = _lane_metadata(manifest, artifact)
+    lane_count = len(getattr(manifest, "lanes", []) or []) if manifest is not None else 0
+    tier = _artifact_review_tier(artifact)
+    changed_files = _artifact_changed_files(artifact)
+    protected_paths = _protected_paths(changed_files)
+    reasons: list[str] = []
+    if lane_count != 1:
+        reasons.append("tranche contains multiple lanes")
+    if tier != 1:
+        reasons.append(f"review tier is {tier if tier is not None else 'unknown'} instead of 1")
+    if not bool(lane_metadata.get("enforce_cross_model_review", True)):
+        reasons.append("cross-model review is disabled for this lane")
+    if not changed_files:
+        reasons.append("changed files were not recorded for the reviewed run")
+    if protected_paths:
+        reasons.append(
+            "touched protected paths: " + ", ".join(sorted(dict.fromkeys(protected_paths)))
+        )
+    return {
+        "eligible": not reasons,
+        "lane_count": lane_count,
+        "review_tier": tier,
+        "changed_files": changed_files,
+        "protected_paths": protected_paths,
+        "reasons": reasons,
+    }
+
+
+def _format_low_risk_reasons(policy: dict[str, Any] | None) -> str:
+    if not isinstance(policy, dict):
+        return "low-risk policy details are unavailable."
+    reasons = policy.get("reasons", [])
+    if not isinstance(reasons, list) or not reasons:
+        return "low-risk policy details are unavailable."
+    return "; ".join(str(item).strip() for item in reasons if str(item).strip())
+
+
+def _protected_paths(paths: list[str]) -> list[str]:
+    protected: list[str] = []
+    seen: set[str] = set()
+    for item in paths:
+        normalized = _normalize_repo_path(item)
+        if not normalized or normalized in seen:
+            continue
+        if _is_protected_path(normalized):
+            seen.add(normalized)
+            protected.append(normalized)
+    return protected
+
+
+def _is_protected_path(path: str) -> bool:
+    lowered = _normalize_repo_path(path).lower()
+    if not lowered:
+        return False
+    if any(lowered.startswith(prefix) for prefix in _LOW_RISK_PROTECTED_PREFIXES):
+        return True
+    parts = [part for part in PurePosixPath(lowered).parts if part not in {"", "."}]
+    return any(part in _LOW_RISK_PROTECTED_PARTS for part in parts)
+
+
+def _normalize_repo_path(value: Any) -> str:
+    text = str(value or "").strip().replace("\\", "/")
+    if not text:
+        return ""
+    while text.startswith("./"):
+        text = text[2:]
+    return text.strip("/")
 
 
 def _persist_published_pr(

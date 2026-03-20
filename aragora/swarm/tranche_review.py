@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from aragora.swarm.campaign import CampaignProject, CampaignReviewer
+from aragora.swarm.campaign import CampaignProject, CampaignReviewer, _changed_files_from_run
 from aragora.swarm.tranche import (
     TrancheLaneArtifact,
     TrancheManifest,
@@ -128,6 +128,7 @@ async def _tier_1_review(
     reviewer_obj = reviewer or CampaignReviewer()
     worker_model = _lane_target_agent(lane, fallback="codex")
     review_model = _lane_review_model(lane, target_agent=worker_model)
+    changed_files = _changed_files_from_run(run_dict)
     gate = await reviewer_obj.review(
         project=project,
         worker_model=worker_model,
@@ -142,6 +143,7 @@ async def _tier_1_review(
         "status": gate.status,
         "tier": tier,
         "findings": list(gate.findings),
+        "changed_files": changed_files,
         "review": gate.to_dict(),
         "retry_count": 0,
     }
@@ -182,12 +184,17 @@ async def _tier_2_review(
     else:
         status = statuses[0] if statuses else "blocked_nonreviewable"
     findings: list[str] = []
+    changed_files: list[str] = []
     for item in results:
         findings.extend(str(f).strip() for f in item.get("findings", []) if str(f).strip())
+        changed_files.extend(
+            str(path).strip() for path in item.get("changed_files", []) if str(path).strip()
+        )
     return {
         "status": status,
         "tier": 2,
         "findings": list(dict.fromkeys(findings)),
+        "changed_files": list(dict.fromkeys(changed_files)),
         "reviews": [item.get("review", {}) for item in results],
         "retry_count": 0,
     }
@@ -237,6 +244,7 @@ async def _tier_3_review(
                 "status": "needs_human",
                 "tier": 3,
                 "findings": list(accumulated_findings),
+                "changed_files": _changed_files_from_run(current_run),
                 "retry_count": retry_count,
             }
         retry_count += 1
@@ -263,6 +271,7 @@ async def _tier_3_review(
                 "status": "needs_human",
                 "tier": 3,
                 "findings": list(accumulated_findings),
+                "changed_files": _changed_files_from_run(current_run),
                 "retry_count": retry_count,
             }
         current_run = dict(next_run)

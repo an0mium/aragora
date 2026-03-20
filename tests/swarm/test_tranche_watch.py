@@ -64,6 +64,10 @@ class _FakeArtifactStore:
         assert manifest_id == "m1"
         return list(self._artifacts.values())
 
+    def save(self, manifest_id: str, artifact: TrancheLaneArtifact) -> None:
+        assert manifest_id == "m1"
+        self._artifacts[artifact.lane_id] = artifact
+
 
 class _FakeCoordinationStore:
     def __init__(
@@ -349,6 +353,34 @@ async def test_watch_tick_triggers_review_when_lane_completes():
 
     assert new_state.lane_states["a"].status in ("reviewing", "review_passed")
     mock_rev.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_watch_tick_persists_review_payload_to_artifact() -> None:
+    from aragora.swarm.tranche_watch import watch_tick
+
+    artifact = _make_artifact(lane_id="a", status="completed", run_id="run-a")
+    artifact_store = _FakeArtifactStore({"a": artifact})
+    mock_rev = AsyncMock(
+        return_value={
+            "status": "passed",
+            "tier": 1,
+            "changed_files": ["aragora/live/src/app/page.tsx"],
+        }
+    )
+
+    await watch_tick(
+        _make_state(lane_statuses={"a": "completed"}),
+        manifest=SimpleNamespace(manifest_id="m1"),
+        autonomy_mode="adaptive",
+        review_fn=mock_rev,
+        artifact_store=artifact_store,
+    )
+
+    saved = artifact_store._artifacts["a"]
+    assert saved.status == "review_passed"
+    assert saved.metadata["review"]["tier"] == 1
+    assert saved.metadata["review"]["changed_files"] == ["aragora/live/src/app/page.tsx"]
 
 
 @pytest.mark.asyncio

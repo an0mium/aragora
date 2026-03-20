@@ -49,12 +49,16 @@ def _make_lane(
     *,
     dependencies: list[str] | None = None,
     branch: dict | None = None,
+    allowed_write_scope: list[str] | None = None,
+    metadata: dict | None = None,
 ) -> TrancheLane:
     return TrancheLane(
         lane_id=lane_id,
         owner_role="critical_path_engineer",
         branch=branch or {},
+        allowed_write_scope=allowed_write_scope or [],
         dependencies=dependencies or [],
+        metadata=metadata or {},
     )
 
 
@@ -246,6 +250,162 @@ def test_assess_fire_and_forget_confirm_policy_still_waits() -> None:
 
     assert result["recommendation"] == "merge"
     assert result["executed"] is False
+
+
+def test_assess_low_risk_fire_and_forget_auto_merges_for_single_lane_tier_1() -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={
+                "merge_class": "low_risk",
+                "merge_policy": "auto",
+                "enforce_cross_model_review": True,
+            },
+        )
+    )
+    artifact = _make_artifact(
+        metadata={
+            "review": {
+                "status": "passed",
+                "tier": 1,
+                "changed_files": ["aragora/live/src/app/page.tsx"],
+            }
+        }
+    )
+
+    result = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_passed",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+    )
+
+    assert result["merge_class"] == "low_risk"
+    assert result["recommendation"] == "merge"
+    assert result["executed"] is True
+    assert result["low_risk_policy"]["eligible"] is True
+
+
+def test_assess_low_risk_tier_two_fails_closed_to_needs_human() -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={"merge_class": "low_risk", "merge_policy": "auto"},
+        )
+    )
+    artifact = _make_artifact(
+        metadata={
+            "review": {
+                "status": "passed",
+                "tier": 2,
+                "changed_files": ["aragora/live/src/app/page.tsx"],
+            }
+        }
+    )
+
+    result = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_passed",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+    )
+
+    assert result["recommendation"] == "needs_human"
+    assert result["executed"] is False
+    assert "review tier is 2 instead of 1" in result["rationale"]
+
+
+def test_assess_low_risk_protected_paths_fail_closed_to_needs_human() -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={"merge_class": "low_risk", "merge_policy": "auto"},
+        )
+    )
+    artifact = _make_artifact(
+        metadata={
+            "review": {
+                "status": "passed",
+                "tier": 1,
+                "changed_files": [".github/workflows/test.yml"],
+            }
+        }
+    )
+
+    result = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_passed",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+    )
+
+    assert result["recommendation"] == "needs_human"
+    assert result["low_risk_policy"]["protected_paths"] == [".github/workflows/test.yml"]
+
+
+def test_assess_low_risk_missing_changed_files_fails_closed() -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={"merge_class": "low_risk", "merge_policy": "auto"},
+        )
+    )
+    artifact = _make_artifact(metadata={"review": {"status": "passed", "tier": 1}})
+
+    result = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks="checks_passed",
+        review_status="passed",
+        autonomy_mode="fire_and_forget",
+    )
+
+    assert result["recommendation"] == "needs_human"
+    assert "changed files were not recorded" in result["rationale"]
+
+
+@pytest.mark.parametrize(
+    ("review_status", "checks", "expected_phrase"),
+    [
+        ("changes_requested", "checks_passed", "passing review"),
+        ("blocked_nonreviewable", "checks_passed", "passing review"),
+        ("passed", "checks_failed", "green required checks"),
+    ],
+)
+def test_assess_low_risk_failed_review_or_checks_becomes_needs_human(
+    review_status: str,
+    checks: str,
+    expected_phrase: str,
+) -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={"merge_class": "low_risk", "merge_policy": "auto"},
+        )
+    )
+    artifact = _make_artifact(
+        metadata={
+            "review": {
+                "status": review_status,
+                "tier": 1,
+                "changed_files": ["aragora/live/src/app/page.tsx"],
+            }
+        }
+    )
+
+    result = assess_lane_integration(
+        artifact=artifact,
+        manifest=manifest,
+        checks=checks,
+        review_status=review_status,
+        autonomy_mode="fire_and_forget",
+    )
+
+    assert result["recommendation"] == "needs_human"
+    assert expected_phrase in result["rationale"]
 
 
 def test_execute_lane_merge_reuses_github_control_and_closes_registry() -> None:
@@ -705,6 +865,68 @@ async def test_integrate_lane_returns_merge_and_cascade_payload() -> None:
     registry.close.assert_called_once_with("feat-a", outcome="merged")
     assert run_state.lane_states["lane-a"].status == "completed"
     assert run_state.lane_states["lane-b"].status == "waiting_for_merge"
+
+
+@pytest.mark.asyncio
+async def test_integrate_lane_uses_manifest_low_risk_metadata_for_auto_merge() -> None:
+    manifest = _make_manifest(
+        _make_lane(
+            "lane-a",
+            metadata={
+                "merge_class": "low_risk",
+                "merge_policy": "auto",
+                "enforce_cross_model_review": True,
+            },
+        )
+    )
+    artifact = _make_artifact(
+        metadata={
+            "branch": "feat-a",
+            "review": {
+                "status": "passed",
+                "tier": 1,
+                "changed_files": ["aragora/live/src/app/page.tsx"],
+            },
+            "receipt_id": "receipt-a",
+            "lease_id": "lease-a",
+            "deliverable": {"pr_url": "https://github.com/org/repo/pull/42"},
+        }
+    )
+    github = MagicMock()
+    github.fetch_gate_snapshot.return_value = SimpleNamespace(
+        required_checks=[{"name": "lint", "conclusion": "SUCCESS", "required": True}],
+        advisory_checks=[],
+        required_checks_green=True,
+        to_dict=lambda: {"required_checks_green": True},
+        state="OPEN",
+        base_branch="main",
+        merge_state_status="CLEAN",
+    )
+    github.merge_pr.return_value = SimpleNamespace(
+        to_dict=lambda: {
+            "merged": True,
+            "action": "merge",
+            "used_admin": False,
+            "detail": "merged",
+        }
+    )
+
+    result = await integrate_lane(
+        manifest=manifest,
+        artifact=artifact,
+        approve=True,
+        github=github,
+        registry=MagicMock(spec=PullRequestRegistry),
+        store=MagicMock(),
+        artifact_store=_FakeArtifactStore({}),
+        target_branch="main",
+        autonomy_mode="fire_and_forget",
+    )
+
+    assert result["merge_class"] == "low_risk"
+    assert result["recommendation"] == "merge"
+    assert result["executed"] is True
+    assert result["merge_result"]["merged"] is True
 
 
 @pytest.mark.asyncio

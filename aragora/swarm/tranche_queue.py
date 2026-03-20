@@ -112,6 +112,21 @@ def _normalize_scope(scope: list[str]) -> list[str]:
     return list(dict.fromkeys(normalized))
 
 
+def _resolve_queue_autonomy_mode(
+    requested_mode: str | None, *, merge_class: str
+) -> tuple[str, bool]:
+    requested = _optional_text(requested_mode) or "adaptive"
+    if requested == "fire_and_forget" and str(merge_class or "").strip().lower() == "low_risk":
+        return requested, False
+    if requested not in _SAFE_QUEUE_AUTONOMY_MODES:
+        return "adaptive", True
+    return requested, False
+
+
+def _queue_merge_policy(*, merge_class: str) -> str:
+    return "auto" if str(merge_class or "").strip().lower() == "low_risk" else "manual"
+
+
 def _coerce_datetime(value: Any) -> datetime:
     if isinstance(value, datetime):
         return value.astimezone(UTC) if value.tzinfo else value.replace(tzinfo=UTC)
@@ -753,12 +768,11 @@ class TrancheQueueExecutor:
         item_state.stop_reason = None
         item_state.events = _truncate_events(item_state.events)
 
-        downgraded_autonomy = False
         requested_autonomy = _optional_text(item.autonomy_mode) or "adaptive"
-        effective_autonomy = requested_autonomy
-        if effective_autonomy not in _SAFE_QUEUE_AUTONOMY_MODES:
-            effective_autonomy = "adaptive"
-            downgraded_autonomy = True
+        effective_autonomy, downgraded_autonomy = _resolve_queue_autonomy_mode(
+            requested_autonomy,
+            merge_class=item.merge_class,
+        )
         item_state.requested_autonomy_mode = requested_autonomy
         item_state.effective_autonomy_mode = effective_autonomy
         if downgraded_autonomy:
@@ -889,7 +903,7 @@ class TrancheQueueExecutor:
                 if item.allowed_write_scope:
                     updated["allowed_write_scope"] = list(item.allowed_write_scope)
                 updated["merge_class"] = item.merge_class
-                updated["merge_policy"] = "manual"
+                updated["merge_policy"] = _queue_merge_policy(merge_class=item.merge_class)
                 updated["queue_item_id"] = item.item_id
                 normalized_lanes.append(updated)
             if normalized_lanes:
@@ -935,7 +949,7 @@ class TrancheQueueExecutor:
             if item.allowed_write_scope:
                 updated["allowed_write_scope"] = list(item.allowed_write_scope)
             updated["merge_class"] = item.merge_class
-            updated["merge_policy"] = "manual"
+            updated["merge_policy"] = _queue_merge_policy(merge_class=item.merge_class)
             updated["queue_item_id"] = item.item_id
             normalized_lanes.append(updated)
         return {

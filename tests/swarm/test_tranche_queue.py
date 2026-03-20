@@ -11,9 +11,12 @@ from aragora.swarm.tranche_queue import (
     QUEUE_STATUS_COMPLETED,
     QUEUE_STATUS_STOPPED,
     TrancheQueueExecutor,
+    TrancheQueueItem,
     TrancheQueueItemRunState,
     TrancheQueueManifest,
     TrancheQueueRunState,
+    _queue_merge_policy,
+    _resolve_queue_autonomy_mode,
     queue_state_path_for_queue,
     reconcile_tranche_queue,
 )
@@ -37,6 +40,72 @@ def _write_queue(queue_path: Path) -> TrancheQueueManifest:
     )
     queue_path.write_text(manifest.to_yaml(), encoding="utf-8")
     return manifest
+
+
+def test_low_risk_queue_item_keeps_fire_and_forget_and_sets_auto_merge_policy(
+    tmp_path: Path,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    queue_path.write_text(
+        "queue_id: overnight\nitems:\n- id: one\n  kind: intake\n  source: bundle.yaml\n"
+    )
+    bundle_path = tmp_path / "bundle.yaml"
+    bundle_path.write_text(
+        "objective: test\ncandidate_lanes:\n- lane_id: lane-a\n  owner_role: critical_path_engineer\n",
+        encoding="utf-8",
+    )
+    executor = TrancheQueueExecutor(queue_path=queue_path, repo_root=tmp_path)
+    item = TrancheQueueItem(
+        item_id="one",
+        kind="intake",
+        source="bundle.yaml",
+        merge_class="low_risk",
+        autonomy_mode="fire_and_forget",
+    )
+
+    effective_autonomy, downgraded = _resolve_queue_autonomy_mode(
+        item.autonomy_mode,
+        merge_class=item.merge_class,
+    )
+    bundle = executor._bundle_from_intake_item(item, effective_autonomy_mode=effective_autonomy)
+
+    assert effective_autonomy == "fire_and_forget"
+    assert downgraded is False
+    assert bundle["autonomy_mode"] == "fire_and_forget"
+    assert bundle["candidate_lanes"][0]["merge_policy"] == "auto"
+
+
+def test_manual_queue_item_downgrades_fire_and_forget_and_keeps_manual_policy(
+    tmp_path: Path,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    queue_path.write_text(
+        "queue_id: overnight\nitems:\n- id: one\n  kind: intake\n  source: bundle.yaml\n"
+    )
+    bundle_path = tmp_path / "bundle.yaml"
+    bundle_path.write_text(
+        "objective: test\ncandidate_lanes:\n- lane_id: lane-a\n  owner_role: critical_path_engineer\n",
+        encoding="utf-8",
+    )
+    executor = TrancheQueueExecutor(queue_path=queue_path, repo_root=tmp_path)
+    item = TrancheQueueItem(
+        item_id="one",
+        kind="intake",
+        source="bundle.yaml",
+        merge_class="manual",
+        autonomy_mode="fire_and_forget",
+    )
+
+    effective_autonomy, downgraded = _resolve_queue_autonomy_mode(
+        item.autonomy_mode,
+        merge_class=item.merge_class,
+    )
+    bundle = executor._bundle_from_intake_item(item, effective_autonomy_mode=effective_autonomy)
+
+    assert effective_autonomy == "adaptive"
+    assert downgraded is True
+    assert bundle["autonomy_mode"] == "adaptive"
+    assert bundle["candidate_lanes"][0]["merge_policy"] == _queue_merge_policy(merge_class="manual")
 
 
 @pytest.mark.asyncio
