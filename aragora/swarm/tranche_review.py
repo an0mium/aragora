@@ -207,6 +207,7 @@ async def _tier_3_review(
     lane = manifest.lane(lane_id)
     retry_count = 0
     current_run = dict(run_dict)
+    accumulated_findings: list[str] = []
     while True:
         first_pass = await _tier_1_review(
             manifest=manifest,
@@ -217,21 +218,32 @@ async def _tier_3_review(
             repo_root=repo_root,
             tier=3,
         )
+        accumulated_findings = list(
+            dict.fromkeys(
+                accumulated_findings
+                + [
+                    str(item).strip()
+                    for item in first_pass.get("findings", [])
+                    if str(item).strip()
+                ]
+            )
+        )
         if first_pass["status"] == "passed":
+            first_pass["findings"] = list(accumulated_findings)
             first_pass["retry_count"] = retry_count
             return first_pass
         if retry_count >= max(0, int(max_retries)):
             return {
                 "status": "needs_human",
                 "tier": 3,
-                "findings": list(first_pass.get("findings", [])),
+                "findings": list(accumulated_findings),
                 "retry_count": retry_count,
             }
         retry_count += 1
         retry_spec = _retry_spec_from_findings(
             manifest=manifest,
             lane_id=lane_id,
-            findings=list(first_pass.get("findings", [])),
+            findings=list(accumulated_findings),
         )
         dispatch = dispatch_fn or _default_dispatch
         result = await dispatch(
@@ -250,10 +262,28 @@ async def _tier_3_review(
             return {
                 "status": "needs_human",
                 "tier": 3,
-                "findings": list(first_pass.get("findings", [])),
+                "findings": list(accumulated_findings),
                 "retry_count": retry_count,
             }
         current_run = dict(next_run)
+
+
+def run_verification_passed(run_dict: dict[str, Any], *, has_verification_commands: bool) -> bool:
+    work_orders = [item for item in run_dict.get("work_orders", []) if isinstance(item, dict)]
+    verification_results = [
+        entry
+        for item in work_orders
+        for entry in item.get("verification_results", [])
+        if isinstance(entry, dict)
+    ]
+    if verification_results:
+        return all(bool(entry.get("passed", False)) for entry in verification_results)
+    exit_codes = [
+        item.get("exit_code") for item in work_orders if item.get("exit_code") is not None
+    ]
+    if exit_codes:
+        return all(int(code) == 0 for code in exit_codes)
+    return not has_verification_commands
 
 
 def _retry_spec_from_findings(
