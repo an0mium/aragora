@@ -941,9 +941,32 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             session_id = str(
                 getattr(args, "owner_session_id", None) or f"cli-watch-{os.getpid()}"
             ).strip()
+            executor = TrancheExecutor(repo_root=repo_root) if driver_mode else None
             supervisor = None
             github = None
             registry = None
+
+            async def _watch_run_fn(*, manifest):
+                if executor is None:
+                    return None
+                try:
+                    return await executor.run(
+                        manifest,
+                        owner_session_id=session_id,
+                        target_branch=str(getattr(args, "target_branch", "main") or "main"),
+                        max_ticks=int(getattr(args, "max_ticks", 360) or 360),
+                        wait_for_completion=False,
+                        skip_review=True,
+                    )
+                except ValueError as exc:
+                    detail = str(exc or "").strip()
+                    if (
+                        "No ready claimable lanes found" in detail
+                        or "Tranche is not ready to run." in detail
+                        or detail.endswith("is not ready.")
+                    ):
+                        return None
+                    raise
 
             async def _watch_review_fn(*, manifest, lane_id, artifact):
                 nonlocal supervisor
@@ -1025,8 +1048,10 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     interval_seconds=interval_seconds,
                     max_ticks=max_ticks,
                     state_path=state_path,
+                    driver_session_id=session_id if driver_mode else None,
                     artifact_store=artifact_store,
                     repo_root=repo_root,
+                    run_fn=_watch_run_fn if driver_mode else None,
                     review_fn=_watch_review_fn if driver_mode else None,
                     integrate_fn=_watch_integrate_fn if driver_mode else None,
                 )

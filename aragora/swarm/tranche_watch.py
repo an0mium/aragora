@@ -195,10 +195,14 @@ async def watch_tick(
     artifacts: dict[str, TrancheLaneArtifact] | None = None,
     store: DevCoordinationStore | Any | None = None,
     repo_root: Path | None = None,
+    run_fn: Any | None = None,
     review_fn: Any | None = None,
     integrate_fn: Any | None = None,
 ) -> TrancheRunState:
     mode = str(autonomy_mode or state.autonomy_mode or "adaptive").strip().lower() or "adaptive"
+    resolved_store = store
+    if resolved_store is None and repo_root is not None:
+        resolved_store = DevCoordinationStore(repo_root=Path(repo_root).resolve())
     artifact_map = _resolve_artifacts(
         state.manifest_id,
         artifacts=artifacts,
@@ -209,14 +213,34 @@ async def watch_tick(
         state,
         artifacts=artifact_map,
         artifact_store=artifact_store,
-        store=store,
+        store=resolved_store,
         repo_root=repo_root,
     )
 
     if mode in {"adaptive", "fire_and_forget"}:
+        if run_fn is not None and _should_attempt_dispatch(refreshed, store=resolved_store):
+            dispatch_payload = await run_fn(manifest=manifest)
+            _apply_dispatch_payload(refreshed, dispatch_payload)
+            artifact_map = _resolve_artifacts(
+                state.manifest_id,
+                artifacts=artifacts,
+                artifact_store=artifact_store,
+                repo_root=repo_root,
+            )
+            refreshed = refresh_tranche_state(
+                refreshed,
+                artifacts=artifact_map,
+                artifact_store=artifact_store,
+                store=resolved_store,
+                repo_root=repo_root,
+            )
         for lane_id, lane_state in refreshed.lane_states.items():
             artifact = artifact_map.get(lane_id)
-            if lane_state.status == LANE_STATUS_COMPLETED and review_fn is not None:
+            if (
+                lane_state.status == LANE_STATUS_COMPLETED
+                and review_fn is not None
+                and not _completed_lane_is_terminal(lane_state, store=resolved_store)
+            ):
                 lane_state.status = LANE_STATUS_REVIEWING
                 review_payload = await review_fn(
                     manifest=manifest,
@@ -267,6 +291,7 @@ async def watch_loop(
     interval_seconds: float = 10.0,
     max_ticks: int | None = None,
     state_path: str | Path | None = None,
+    driver_session_id: str | None = None,
     **kwargs: Any,
 ) -> TrancheRunState:
     current = TrancheRunState.from_dict(state.to_dict())
@@ -274,7 +299,11 @@ async def watch_loop(
         return current
     ticks = 0
     while True:
+        if driver_session_id:
+            current = heartbeat_driver(current, session_id=driver_session_id)
         current = await watch_tick(current, manifest=manifest, **kwargs)
+        if driver_session_id:
+            current = heartbeat_driver(current, session_id=driver_session_id)
         if state_path is not None:
             current.save(state_path)
         if current.status in {
@@ -423,6 +452,8 @@ def _apply_receipt_projection(lane_state: LaneRunState, receipt: Any) -> None:
 def _apply_integration_projection(lane_state: LaneRunState, decision: Any) -> None:
     value = str(getattr(decision, "decision", "")).strip()
     if value in {IntegrationDecisionType.MERGE.value, IntegrationDecisionType.CHERRY_PICK.value}:
+        if lane_state.status == LANE_STATUS_COMPLETED:
+            return
         lane_state.status = (
             LANE_STATUS_WAITING_FOR_MERGE if lane_state.pr_url else LANE_STATUS_WAITING_FOR_PR
         )
@@ -547,6 +578,90 @@ def _watch_integrate_status(current_status: str, payload: dict[str, Any]) -> str
     if recommendation in {"request_changes", "blocked", "needs_human"}:
         return LANE_STATUS_NEEDS_HUMAN
     return current_status
+
+
+def _should_attempt_dispatch(
+    state: TrancheRunState,
+    *,
+    store: Any | None,
+) -> bool:
+    lane_states = list(state.lane_states.values())
+    if not any(str(item.status).strip() == LANE_STATUS_PENDING for item in lane_states):
+        return False
+    return not any(_lane_blocks_dispatch(item, store=store) for item in lane_states)
+
+
+def _lane_blocks_dispatch(
+    lane_state: LaneRunState,
+    *,
+    store: Any | None,
+) -> bool:
+    status = str(lane_state.status or "").strip()
+    if status == LANE_STATUS_PENDING:
+        return False
+    if status == LANE_STATUS_COMPLETED:
+        return not _completed_lane_is_terminal(lane_state, store=store)
+    return status not in {
+        LANE_STATUS_ABORTED,
+        LANE_STATUS_NEEDS_HUMAN,
+        LANE_STATUS_REVIEW_FAILED,
+    }
+
+
+def _completed_lane_is_terminal(
+    lane_state: LaneRunState,
+    *,
+    store: Any | None,
+) -> bool:
+    if str(lane_state.status or "").strip() != LANE_STATUS_COMPLETED:
+        return False
+    decision = _latest_integration_decision(store, lane_state.receipt_id)
+    value = str(getattr(decision, "decision", "") or "").strip()
+    return value in {
+        IntegrationDecisionType.MERGE.value,
+        IntegrationDecisionType.CHERRY_PICK.value,
+    }
+
+
+def _apply_dispatch_payload(state: TrancheRunState, payload: Any) -> None:
+    if not isinstance(payload, dict):
+        return
+    results = payload.get("results")
+    if not isinstance(results, list):
+        return
+    now = _utcnow()
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        lane_id = _optional_text(item.get("lane_id"))
+        if not lane_id:
+            continue
+        lane_state = state.lane_states.get(lane_id)
+        if lane_state is None:
+            lane_state = LaneRunState(lane_id=lane_id, status=LANE_STATUS_PENDING)
+            state.lane_states[lane_id] = lane_state
+        lane_state.status = _watch_dispatch_status(item)
+        lane_state.run_id = _prefer_text(lane_state.run_id, item.get("run_id"))
+        lane_state.worktree_path = _prefer_text(
+            lane_state.worktree_path,
+            item.get("worktree_path"),
+        )
+        metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+        lane_state.receipt_id = _prefer_text(lane_state.receipt_id, metadata.get("receipt_id"))
+        lane_state.lease_id = _prefer_text(lane_state.lease_id, metadata.get("lease_id"))
+        lane_state.pr_url = _prefer_text(lane_state.pr_url, metadata.get("pr_url"))
+        lane_state.last_updated = now
+
+
+def _watch_dispatch_status(payload: dict[str, Any]) -> str:
+    lowered = str(payload.get("status", "") or "").strip().lower()
+    if lowered == "running":
+        return LANE_STATUS_RUNNING
+    if lowered == "completed":
+        return LANE_STATUS_COMPLETED
+    if lowered in {"needs_human", "failed"}:
+        return LANE_STATUS_NEEDS_HUMAN
+    return LANE_STATUS_DISPATCHED
 
 
 def _apply_cascade_report_to_state(

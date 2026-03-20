@@ -659,6 +659,7 @@ class TestSwarmCommand:
             swarm_goal="watch",
             manifest="docs/examples/boss-lane-manifest-2026-03-19.yaml",
             driver=True,
+            owner_session_id="sess-1",
             interval_seconds=3.0,
             max_ticks=2,
             json=True,
@@ -724,6 +725,8 @@ class TestSwarmCommand:
         assert '"action": "watch"' in out
         mock_claim.assert_called_once()
         mock_watch_loop.assert_awaited_once()
+        assert mock_watch_loop.await_args.kwargs["driver_session_id"] == "sess-1"
+        assert callable(mock_watch_loop.await_args.kwargs["run_fn"])
 
     def test_cmd_swarm_tranche_list_json(self, capsys):
         args = _swarm_args(

@@ -352,6 +352,97 @@ async def test_watch_tick_triggers_review_when_lane_completes():
 
 
 @pytest.mark.asyncio
+async def test_watch_tick_dispatches_pending_lane_when_idle() -> None:
+    from aragora.swarm.tranche_watch import watch_tick
+
+    state = _make_state(lane_statuses={"a": "pending"})
+    mock_run = AsyncMock(
+        return_value={
+            "results": [
+                {
+                    "lane_id": "a",
+                    "status": "running",
+                    "run_id": "run-1",
+                    "worktree_path": "/tmp/worktree-a",
+                }
+            ]
+        }
+    )
+
+    new_state = await watch_tick(
+        state,
+        manifest=SimpleNamespace(manifest_id="m1"),
+        autonomy_mode="adaptive",
+        run_fn=mock_run,
+    )
+
+    mock_run.assert_awaited_once()
+    lane = new_state.lane_states["a"]
+    assert lane.status == "running"
+    assert lane.run_id == "run-1"
+    assert lane.worktree_path == "/tmp/worktree-a"
+
+
+@pytest.mark.asyncio
+async def test_watch_tick_skips_dispatch_when_lane_is_already_active() -> None:
+    from aragora.swarm.tranche_watch import watch_tick
+
+    state = _make_state(lane_statuses={"a": "running", "b": "pending"})
+    mock_run = AsyncMock()
+
+    new_state = await watch_tick(
+        state,
+        manifest=SimpleNamespace(manifest_id="m1"),
+        autonomy_mode="adaptive",
+        run_fn=mock_run,
+    )
+
+    mock_run.assert_not_awaited()
+    assert new_state.lane_states["b"].status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_watch_tick_skips_rereview_for_terminal_completed_lane_and_dispatches_next() -> None:
+    from aragora.swarm.tranche_watch import watch_tick
+
+    state = _make_state(lane_statuses={"a": "completed", "b": "pending"})
+    state.lane_states["a"].receipt_id = "receipt-a"
+    state.lane_states["a"].pr_url = "https://github.com/org/repo/pull/42"
+    store = _FakeCoordinationStore(
+        decisions={
+            "receipt-a": [
+                IntegrationDecision(
+                    decision_id="decision-a",
+                    lease_id="lease-a",
+                    receipt_id="receipt-a",
+                    decision=IntegrationDecisionType.MERGE.value,
+                    target_branch="main",
+                    rationale="merged",
+                )
+            ]
+        }
+    )
+    mock_review = AsyncMock()
+    mock_run = AsyncMock(
+        return_value={"results": [{"lane_id": "b", "status": "running", "run_id": "run-b"}]}
+    )
+
+    new_state = await watch_tick(
+        state,
+        manifest=SimpleNamespace(manifest_id="m1"),
+        autonomy_mode="adaptive",
+        run_fn=mock_run,
+        review_fn=mock_review,
+        store=store,
+    )
+
+    mock_run.assert_awaited_once()
+    mock_review.assert_not_awaited()
+    assert new_state.lane_states["a"].status == "completed"
+    assert new_state.lane_states["b"].status == "running"
+
+
+@pytest.mark.asyncio
 async def test_watch_tick_marks_tranche_completed_when_all_lanes_done():
     from aragora.swarm.tranche_watch import watch_tick
 
@@ -493,3 +584,26 @@ async def test_watch_loop_exits_on_aborted_status() -> None:
     )
 
     assert result.status == "aborted"
+
+
+@pytest.mark.asyncio
+async def test_watch_loop_refreshes_driver_heartbeat() -> None:
+    from aragora.swarm.tranche_watch import watch_loop
+
+    state = claim_driver(
+        TrancheRunState(manifest_id="m1", status="running", autonomy_mode="adaptive"),
+        session_id="sess-1",
+    )
+    before = state.driver_heartbeat
+
+    result = await watch_loop(
+        state,
+        manifest=SimpleNamespace(manifest_id="m1"),
+        interval_seconds=0,
+        max_ticks=1,
+        driver_session_id="sess-1",
+    )
+
+    assert before is not None
+    assert result.driver_heartbeat is not None
+    assert result.driver_heartbeat >= before
