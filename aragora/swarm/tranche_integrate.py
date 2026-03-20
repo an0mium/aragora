@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -172,6 +173,123 @@ def execute_lane_merge(
     return result
 
 
+def publish_lane_deliverable(
+    artifact: Any,
+    *,
+    manifest_id: str,
+    github: GitHubControl | Any,
+    registry: PullRequestRegistry | Any,
+    repo_root: Path,
+    target_branch: str,
+    artifact_store: TrancheArtifactStore | Any | None = None,
+) -> dict[str, Any]:
+    branch = _artifact_branch(artifact)
+    if not branch:
+        return {
+            "published": False,
+            "action": "skipped",
+            "branch": None,
+            "pr_url": None,
+            "detail": "Lane artifact has no branch deliverable to publish.",
+        }
+
+    existing_pr = discover_lane_pr(artifact, github=github, repo_root=repo_root)
+    if existing_pr:
+        register_pr(existing_pr, branch, registry)
+        _persist_published_pr(
+            artifact,
+            manifest_id=manifest_id,
+            pr_url=existing_pr,
+            branch=branch,
+            artifact_store=artifact_store,
+        )
+        return {
+            "published": True,
+            "action": "existing_pr",
+            "branch": branch,
+            "pr_url": existing_pr,
+            "detail": "Existing PR discovered for lane branch.",
+        }
+
+    commit_shas = _artifact_commit_shas(artifact)
+    if not commit_shas:
+        return {
+            "published": False,
+            "action": "skipped",
+            "branch": branch,
+            "pr_url": None,
+            "detail": "Lane artifact has no committed branch deliverable to publish.",
+        }
+
+    push_result = _push_branch_to_origin(repo_root, branch)
+    if not push_result["pushed"]:
+        _record_publish_attempt(
+            artifact,
+            manifest_id=manifest_id,
+            publish_result=push_result,
+            artifact_store=artifact_store,
+        )
+        return {
+            "published": False,
+            "action": "push_failed",
+            "branch": branch,
+            "pr_url": None,
+            "detail": str(push_result.get("detail", "") or "Failed to push branch."),
+        }
+
+    discovered_pr = _optional_text(github.find_pr_for_branch(branch))
+    if discovered_pr:
+        register_pr(discovered_pr, branch, registry)
+        _persist_published_pr(
+            artifact,
+            manifest_id=manifest_id,
+            pr_url=discovered_pr,
+            branch=branch,
+            artifact_store=artifact_store,
+        )
+        return {
+            "published": True,
+            "action": "discovered_after_push",
+            "branch": branch,
+            "pr_url": discovered_pr,
+            "detail": "Branch pushed and existing PR discovered.",
+        }
+
+    try:
+        created_pr = github.create_pr_for_branch(branch, target_branch)
+    except Exception as exc:
+        failure = {
+            "published": False,
+            "action": "pr_create_failed",
+            "branch": branch,
+            "pr_url": None,
+            "detail": str(exc),
+        }
+        _record_publish_attempt(
+            artifact,
+            manifest_id=manifest_id,
+            publish_result=failure,
+            artifact_store=artifact_store,
+        )
+        return failure
+
+    register_pr(created_pr, branch, registry)
+    _persist_published_pr(
+        artifact,
+        manifest_id=manifest_id,
+        pr_url=created_pr,
+        branch=branch,
+        artifact_store=artifact_store,
+    )
+    return {
+        "published": True,
+        "action": "pr_created",
+        "branch": branch,
+        "pr_url": created_pr,
+        "detail": f"Branch pushed and PR created against {target_branch}.",
+    }
+
+
 def cascade_after_merge(
     manifest: Any,
     merged_lane_id: str,
@@ -301,6 +419,18 @@ async def integrate_lane(
     review_status = _artifact_review_status(artifact)
     pr_url = discover_lane_pr(artifact, github=github_obj, repo_root=repo)
     branch = _artifact_branch(artifact)
+    publish_result: dict[str, Any] | None = None
+    if not pr_url:
+        publish_result = publish_lane_deliverable(
+            artifact,
+            manifest_id=str(getattr(manifest, "manifest_id", "") or "").strip(),
+            github=github_obj,
+            registry=registry_obj,
+            repo_root=repo,
+            target_branch=str(target_branch or "main").strip() or "main",
+            artifact_store=artifact_store_obj,
+        )
+        pr_url = _optional_text(publish_result.get("pr_url")) if publish_result else None
     if pr_url and branch:
         register_pr(pr_url, branch, registry_obj)
 
@@ -325,6 +455,19 @@ async def integrate_lane(
         autonomy_mode=str(autonomy_mode or "adaptive").strip() or "adaptive",
         approve=approve,
     )
+    if not pr_url:
+        detail = (
+            str(publish_result.get("detail", "")).strip()
+            if isinstance(publish_result, dict)
+            else "No PR could be discovered or published for the lane deliverable."
+        )
+        assessment = {
+            **assessment,
+            "recommendation": "needs_human",
+            "executed": False,
+            "rationale": detail
+            or "No PR could be discovered or published for the lane deliverable.",
+        }
 
     merge_result: dict[str, Any] | None = None
     cascade_report: dict[str, Any] | None = None
@@ -368,6 +511,7 @@ async def integrate_lane(
         "checks": checks,
         "review_status": review_status,
         "gate": gate_payload,
+        "publish_result": publish_result,
         "merge_result": merge_result,
         "cascade_report": cascade_report,
         **assessment,
@@ -481,6 +625,98 @@ def _artifact_branch(artifact: Any) -> str | None:
     return _optional_text(
         deliverable.get("branch") or metadata.get("branch") or getattr(artifact, "branch", None)
     )
+
+
+def _artifact_commit_shas(artifact: Any) -> list[str]:
+    metadata = getattr(artifact, "metadata", {})
+    if not isinstance(metadata, dict):
+        return []
+    deliverable = metadata.get("deliverable", {})
+    if not isinstance(deliverable, dict):
+        return []
+    return [str(item).strip() for item in deliverable.get("commit_shas", []) if str(item).strip()]
+
+
+def _persist_published_pr(
+    artifact: Any,
+    *,
+    manifest_id: str,
+    pr_url: str,
+    branch: str,
+    artifact_store: TrancheArtifactStore | Any | None,
+) -> None:
+    metadata = getattr(artifact, "metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+        artifact.metadata = metadata
+    deliverable = metadata.get("deliverable", {})
+    if not isinstance(deliverable, dict):
+        deliverable = {}
+        metadata["deliverable"] = deliverable
+    deliverable["branch"] = branch
+    deliverable["pr_url"] = pr_url
+    metadata["branch"] = branch
+    metadata["pr_url"] = pr_url
+    metadata["publish"] = {
+        "published": True,
+        "action": "pr_available",
+        "branch": branch,
+        "pr_url": pr_url,
+        "detail": "Controller confirmed PR availability for the lane branch.",
+    }
+    urls = list(getattr(artifact, "urls", []) or [])
+    if pr_url not in urls:
+        urls.append(pr_url)
+        artifact.urls = urls
+    if artifact_store is not None and manifest_id:
+        artifact_store.save(manifest_id, artifact)
+
+
+def _record_publish_attempt(
+    artifact: Any,
+    *,
+    manifest_id: str,
+    publish_result: dict[str, Any],
+    artifact_store: TrancheArtifactStore | Any | None,
+) -> None:
+    metadata = getattr(artifact, "metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+        artifact.metadata = metadata
+    metadata["publish"] = dict(publish_result)
+    if artifact_store is not None and manifest_id:
+        artifact_store.save(manifest_id, artifact)
+
+
+def _push_branch_to_origin(repo_root: Path, branch: str) -> dict[str, Any]:
+    normalized_branch = str(branch or "").strip()
+    if not normalized_branch:
+        return {
+            "pushed": False,
+            "branch": None,
+            "detail": "Branch name is required.",
+        }
+    try:
+        result = subprocess.run(
+            ["git", "push", "origin", normalized_branch],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+        return {
+            "pushed": False,
+            "branch": normalized_branch,
+            "detail": f"git push failed: {exc}",
+        }
+    detail = (result.stdout or result.stderr or "").strip()
+    return {
+        "pushed": result.returncode == 0,
+        "branch": normalized_branch,
+        "detail": detail or ("git push succeeded" if result.returncode == 0 else "git push failed"),
+    }
 
 
 def _lane_branch_hint(lane: Any) -> str | None:

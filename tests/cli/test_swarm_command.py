@@ -621,6 +621,13 @@ class TestSwarmCommand:
                 "executed": False,
                 "checks": "checks_passed",
                 "review_status": "passed",
+                "publish_result": {
+                    "published": True,
+                    "action": "pr_created",
+                    "branch": "feat-branch",
+                    "pr_url": "https://github.com/org/repo/pull/42",
+                    "detail": "Branch pushed and PR created against main.",
+                },
                 "cascade_report": {
                     "merged_lane_id": "lane_a",
                     "downstream": [
@@ -641,6 +648,7 @@ class TestSwarmCommand:
         assert '"mode": "tranche-integrate"' in out
         assert '"recommendation": "merge"' in out
         assert '"action": "integrate"' in out
+        assert '"publish_result"' in out
         assert '"cascade_report"' in out
         assert '"action": "retargeted"' in out
         mock_integrate.assert_awaited_once()

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -15,6 +16,7 @@ from aragora.swarm.tranche_integrate import (
     discover_lane_pr,
     execute_lane_merge,
     integrate_lane,
+    publish_lane_deliverable,
     record_lane_integration,
     register_pr,
 )
@@ -273,6 +275,138 @@ def test_execute_lane_merge_reuses_github_control_and_closes_registry() -> None:
     )
     registry.close.assert_called_once_with("feat-branch", outcome="merged")
     assert result["merged"] is True
+
+
+def test_publish_lane_deliverable_pushes_branch_and_creates_pr() -> None:
+    artifact = _make_artifact(
+        status="completed",
+        metadata={
+            "branch": "feat-branch",
+            "deliverable": {
+                "type": "branch",
+                "branch": "feat-branch",
+                "commit_shas": ["abc123"],
+            },
+        },
+    )
+    github = MagicMock()
+    github.find_pr_for_branch.side_effect = [None, None, None]
+    github.create_pr_for_branch.return_value = "https://github.com/org/repo/pull/77"
+    registry = MagicMock(spec=PullRequestRegistry)
+    artifact_store = MagicMock()
+
+    with patch("aragora.swarm.tranche_integrate.subprocess.run") as mock_run:
+        mock_run.return_value = SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
+        result = publish_lane_deliverable(
+            artifact,
+            manifest_id="m1",
+            github=github,
+            registry=registry,
+            repo_root=Path("/tmp/repo"),
+            target_branch="main",
+            artifact_store=artifact_store,
+        )
+
+    assert result["published"] is True
+    assert result["action"] == "pr_created"
+    assert result["pr_url"] == "https://github.com/org/repo/pull/77"
+    assert artifact.metadata["deliverable"]["pr_url"] == "https://github.com/org/repo/pull/77"
+    assert "https://github.com/org/repo/pull/77" in artifact.urls
+    registry.register.assert_called_once_with(
+        "feat-branch",
+        "https://github.com/org/repo/pull/77",
+        creator="tranche-integrate",
+    )
+    artifact_store.save.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_integrate_lane_returns_needs_human_when_controller_publish_fails() -> None:
+    manifest = _make_manifest(_make_lane("lane-a"))
+    artifact = _make_artifact(
+        metadata={
+            "branch": "feat-a",
+            "review": {"status": "passed"},
+            "merge_policy": "auto",
+            "receipt_id": "receipt-a",
+            "lease_id": "lease-a",
+            "deliverable": {
+                "type": "branch",
+                "branch": "feat-a",
+                "commit_shas": ["abc123"],
+            },
+        }
+    )
+    github = MagicMock()
+    github.find_pr_for_branch.return_value = None
+
+    with patch("aragora.swarm.tranche_integrate.subprocess.run") as mock_run:
+        mock_run.return_value = SimpleNamespace(
+            returncode=1,
+            stdout="",
+            stderr="Could not resolve host: github.com",
+        )
+        result = await integrate_lane(
+            manifest=manifest,
+            artifact=artifact,
+            approve=False,
+            repo_root=Path("/tmp/repo"),
+            github=github,
+            registry=MagicMock(spec=PullRequestRegistry),
+            artifact_store=MagicMock(),
+            target_branch="main",
+        )
+
+    assert result["pr_url"] is None
+    assert result["publish_result"]["action"] == "push_failed"
+    assert result["recommendation"] == "needs_human"
+    assert "Could not resolve host" in result["rationale"]
+
+
+@pytest.mark.asyncio
+async def test_integrate_lane_publishes_branch_before_gate_assessment() -> None:
+    manifest = _make_manifest(_make_lane("lane-a"))
+    artifact = _make_artifact(
+        metadata={
+            "branch": "feat-a",
+            "review": {"status": "passed"},
+            "merge_policy": "auto",
+            "deliverable": {
+                "type": "branch",
+                "branch": "feat-a",
+                "commit_shas": ["abc123"],
+            },
+        }
+    )
+    github = MagicMock()
+    github.find_pr_for_branch.side_effect = [None, None, None]
+    github.create_pr_for_branch.return_value = "https://github.com/org/repo/pull/42"
+    github.fetch_gate_snapshot.return_value = SimpleNamespace(
+        required_checks=[{"name": "lint", "conclusion": "SUCCESS", "required": True}],
+        advisory_checks=[],
+        required_checks_green=True,
+        to_dict=lambda: {"required_checks_green": True},
+        state="OPEN",
+        base_branch="main",
+        merge_state_status="CLEAN",
+    )
+
+    with patch("aragora.swarm.tranche_integrate.subprocess.run") as mock_run:
+        mock_run.return_value = SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
+        result = await integrate_lane(
+            manifest=manifest,
+            artifact=artifact,
+            approve=False,
+            repo_root=Path("/tmp/repo"),
+            github=github,
+            registry=MagicMock(spec=PullRequestRegistry),
+            artifact_store=MagicMock(),
+            target_branch="main",
+        )
+
+    assert result["pr_url"] == "https://github.com/org/repo/pull/42"
+    assert result["publish_result"]["action"] == "pr_created"
+    assert result["recommendation"] == "merge"
 
 
 def test_cascade_retargets_open_downstream_prs_and_ignores_reference_dependencies() -> None:
