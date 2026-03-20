@@ -106,9 +106,11 @@ class TestGetSharedConnector:
         assert mock_connector.call_args.kwargs["ssl"] is sentinel_context
 
     @pytest.mark.asyncio
-    async def test_connector_falls_back_to_certifi_bundle(self):
+    async def test_connector_uses_certifi_bundle_only_when_opted_in(self, tmp_path):
         import aragora.agents.api_agents.common as common_module
 
+        bundle = tmp_path / "certifi.pem"
+        bundle.write_text("test bundle")
         sentinel_context = ssl.create_default_context()
 
         with (
@@ -117,14 +119,15 @@ class TestGetSharedConnector:
             ) as mock_context,
             patch.object(common_module.aiohttp, "TCPConnector") as mock_connector,
             patch.object(common_module, "certifi") as mock_certifi,
-            patch.dict(common_module.os.environ, {}, clear=True),
-            patch.object(common_module.os.path, "exists", return_value=True),
+            patch.dict(
+                common_module.os.environ, {"ARAGORA_USE_CERTIFI_CA_BUNDLE": "1"}, clear=True
+            ),
         ):
-            mock_certifi.where.return_value = "/tmp/certifi.pem"
+            mock_certifi.where.return_value = str(bundle)
             mock_connector.return_value = MagicMock(closed=False)
             get_shared_connector()
 
-        mock_context.assert_called_once_with(cafile="/tmp/certifi.pem")
+        mock_context.assert_called_once_with(cafile=str(bundle))
         assert mock_connector.call_args.kwargs["ssl"] is sentinel_context
 
     @pytest.mark.asyncio
@@ -141,6 +144,37 @@ class TestGetSharedConnector:
             patch.object(common_module, "certifi", None),
             patch.dict(common_module.os.environ, {}, clear=True),
         ):
+            mock_connector.return_value = MagicMock(closed=False)
+            get_shared_connector()
+
+        mock_context.assert_called_once_with()
+        assert mock_connector.call_args.kwargs["ssl"] is sentinel_context
+
+    @pytest.mark.asyncio
+    async def test_connector_uses_system_context_when_configured_bundle_is_missing(self, tmp_path):
+        import aragora.agents.api_agents.common as common_module
+
+        missing_bundle = tmp_path / "missing-ca.pem"
+        fallback_bundle = tmp_path / "certifi.pem"
+        fallback_bundle.write_text("test bundle")
+        sentinel_context = ssl.create_default_context()
+
+        with (
+            patch.object(
+                common_module.ssl, "create_default_context", return_value=sentinel_context
+            ) as mock_context,
+            patch.object(common_module.aiohttp, "TCPConnector") as mock_connector,
+            patch.object(common_module, "certifi") as mock_certifi,
+            patch.dict(
+                common_module.os.environ,
+                {
+                    "REQUESTS_CA_BUNDLE": str(missing_bundle),
+                    "ARAGORA_USE_CERTIFI_CA_BUNDLE": "1",
+                },
+                clear=True,
+            ),
+        ):
+            mock_certifi.where.return_value = str(fallback_bundle)
             mock_connector.return_value = MagicMock(closed=False)
             get_shared_connector()
 

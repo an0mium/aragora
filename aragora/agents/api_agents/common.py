@@ -94,6 +94,15 @@ def _resolve_ca_bundle_path() -> str | None:
         if os.path.exists(configured):
             return configured
         logger.warning("%s points to a missing CA bundle: %s", env_name, configured)
+        return None
+
+    if str(os.environ.get("ARAGORA_USE_CERTIFI_CA_BUNDLE", "")).strip().lower() not in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        return None
 
     if certifi is not None:
         try:
