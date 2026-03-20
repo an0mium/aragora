@@ -10,15 +10,21 @@ import json
 import logging
 import os
 import random
-import secrets
 import re
+import secrets
+import ssl
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
 from collections.abc import AsyncGenerator, Callable
+from typing import Any, Optional
 
 import aiohttp
+
+try:
+    import certifi
+except ImportError:  # pragma: no cover - optional dependency
+    certifi = None
 
 from aragora.agents.base import CritiqueMixin
 from aragora.agents.errors import (
@@ -77,6 +83,35 @@ def _get_connection_limits() -> tuple[int, int]:
     per_host: int = getattr(settings.agent, "connections_per_host", DEFAULT_CONNECTIONS_PER_HOST)
     total: int = getattr(settings.agent, "total_connections", DEFAULT_TOTAL_CONNECTIONS)
     return per_host, total
+
+
+def _resolve_ca_bundle_path() -> str | None:
+    """Resolve the CA bundle used for outbound API TLS verification."""
+    for env_name in ("REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"):
+        configured = str(os.environ.get(env_name, "")).strip()
+        if not configured:
+            continue
+        if os.path.exists(configured):
+            return configured
+        logger.warning("%s points to a missing CA bundle: %s", env_name, configured)
+
+    if certifi is not None:
+        try:
+            bundle = certifi.where()
+        except (OSError, RuntimeError) as exc:
+            logger.debug("Unable to resolve certifi CA bundle: %s", exc)
+        else:
+            if bundle and os.path.exists(bundle):
+                return bundle
+    return None
+
+
+def _build_api_ssl_context() -> ssl.SSLContext:
+    """Create the shared TLS context for provider API sessions."""
+    ca_bundle = _resolve_ca_bundle_path()
+    if ca_bundle:
+        return ssl.create_default_context(cafile=ca_bundle)
+    return ssl.create_default_context()
 
 
 @dataclass
@@ -185,6 +220,7 @@ def get_shared_connector() -> aiohttp.TCPConnector:
                 limit_per_host=per_host,
                 ttl_dns_cache=300,  # Cache DNS for 5 minutes
                 enable_cleanup_closed=True,  # Clean up closed connections
+                ssl=_build_api_ssl_context(),
             )
             _pool_state.loop_id = current_loop_id
             logger.debug(
