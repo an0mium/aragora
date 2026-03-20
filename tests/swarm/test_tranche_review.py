@@ -8,7 +8,11 @@ import pytest
 
 from aragora.swarm.campaign import CampaignReviewGate
 from aragora.swarm.tranche import TrancheLaneArtifact, TrancheManifest
-from aragora.swarm.tranche_review import review_lane, select_review_tier
+from aragora.swarm.tranche_review import (
+    review_lane,
+    run_verification_passed,
+    select_review_tier,
+)
 
 
 def _make_manifest(*, lanes: list[dict[str, object]]) -> TrancheManifest:
@@ -230,3 +234,85 @@ async def test_tier_3_stops_after_max_retries() -> None:
 
     assert result["status"] == "needs_human"
     assert result["retry_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_tier_3_accumulates_findings_across_retries() -> None:
+    manifest = _make_manifest(lanes=[_make_lane(lane_id="a", write_scope=["aragora/server/**"])])
+    artifact = _make_artifact(lane_id="a", status="completed", run_id="run-1")
+    run_dict = {"run_id": "run-1", "status": "completed", "work_orders": []}
+
+    reviewer = AsyncMock()
+    reviewer.review.side_effect = [
+        CampaignReviewGate(
+            status="changes_requested",
+            findings=["Missing error handling"],
+            review_model="claude",
+        ),
+        CampaignReviewGate(
+            status="changes_requested",
+            findings=["Add regression test"],
+            review_model="claude",
+        ),
+        CampaignReviewGate(
+            status="passed",
+            findings=[],
+            review_model="claude",
+        ),
+    ]
+    mock_dispatch = AsyncMock(
+        side_effect=[
+            {
+                "status": "completed",
+                "outcome": "deliverable_created",
+                "run_id": "retry-run-1",
+                "run": {"run_id": "retry-run-1", "status": "completed"},
+            },
+            {
+                "status": "completed",
+                "outcome": "deliverable_created",
+                "run_id": "retry-run-2",
+                "run": {"run_id": "retry-run-2", "status": "completed"},
+            },
+        ]
+    )
+
+    result = await review_lane(
+        manifest=manifest,
+        lane_id="a",
+        artifact=artifact,
+        run_dict=run_dict,
+        reviewer=reviewer,
+        tier=3,
+        dispatch_fn=mock_dispatch,
+        max_retries=2,
+        repo_root=Path("/tmp/repo"),
+    )
+
+    first_spec = mock_dispatch.await_args_list[0].args[0]
+    second_spec = mock_dispatch.await_args_list[1].args[0]
+    assert "Missing error handling" in str(first_spec.constraints)
+    assert "Missing error handling" in str(second_spec.constraints)
+    assert "Add regression test" in str(second_spec.constraints)
+    assert result["status"] == "passed"
+    assert result["findings"] == ["Missing error handling", "Add regression test"]
+
+
+def test_run_verification_passed_uses_actual_results() -> None:
+    run_dict = {
+        "work_orders": [
+            {
+                "verification_results": [
+                    {"command": "pytest -q", "passed": False, "exit_code": 1},
+                ]
+            }
+        ]
+    }
+
+    assert run_verification_passed(run_dict, has_verification_commands=True) is False
+
+
+def test_run_verification_passed_defaults_false_when_expected_results_missing() -> None:
+    run_dict = {"work_orders": [{"status": "completed"}]}
+
+    assert run_verification_passed(run_dict, has_verification_commands=True) is False
