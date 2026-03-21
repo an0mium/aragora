@@ -709,6 +709,11 @@ class SwarmSupervisor:
                 pid=item.get("pid"),
                 initial_head=str(item.get("initial_head", "")),
                 auto_commit=self.launcher.config.auto_commit,
+                expected_tests=[
+                    str(test).strip()
+                    for test in item.get("expected_tests", [])
+                    if str(test).strip()
+                ],
             )
             if result is not None:
                 finished.append(result)

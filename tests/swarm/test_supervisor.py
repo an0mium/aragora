@@ -7,7 +7,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -20,7 +20,7 @@ from aragora.swarm.supervisor import (
     WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY,
     SwarmSupervisor,
 )
-from aragora.swarm.worker_launcher import WorkerLauncher
+from aragora.swarm.worker_launcher import WorkerLauncher, WorkerProcess
 from aragora.worktree.lifecycle import ManagedWorktreeSession
 
 
@@ -691,9 +691,6 @@ def test_start_run_initializes_worker_type_circuit_breaker_metadata(
 
 # ---------- dispatch_workers / collect_results tests ----------
 
-from unittest.mock import patch
-from aragora.swarm.worker_launcher import WorkerProcess
-
 UTC = timezone.utc
 
 
@@ -1247,6 +1244,102 @@ async def test_collect_finished_results_uses_terminal_session_meta_even_when_pid
     summary = store.status_summary()
     assert summary["counts"]["active_leases"] == 0
     assert summary["counts"]["scope_violations"] == 0
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_passes_expected_tests_to_detached_collection(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    expected_test = "python -m pytest tests/swarm/test_supervisor.py -q"
+    lease = store.claim_lease(
+        task_id="detached-merge-pass",
+        title="Detached merge pass lane",
+        owner_agent="codex",
+        owner_session_id="detached-merge-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        expected_tests=[expected_test],
+    )
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    run_record = store.create_supervisor_run(
+        goal="detached merge gate pass",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "detached merge gate pass"},
+        work_orders=[
+            {
+                "work_order_id": "wo-detached-merge-pass",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "owner_session_id": "detached-merge-session",
+                "lease_id": lease.lease_id,
+                "pid": 424242,
+                "initial_head": initial_head,
+                "review_status": "pending",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "expected_tests": [expected_test],
+            }
+        ],
+        status="active",
+    )
+
+    detached_worker = WorkerProcess(
+        work_order_id="wo-detached-merge-pass",
+        agent="codex",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="detached-merge-session",
+        pid=424242,
+        initial_head=initial_head,
+        exit_code=0,
+        completed_at="2026-03-21T01:00:00+00:00",
+        diff="diff --git a/aragora/swarm/supervisor.py",
+        changed_paths=["aragora/swarm/supervisor.py"],
+        commit_shas=["abc12345"],
+        head_sha="abc12345",
+        stdout="worker stdout",
+        stderr="",
+        tests_run=[expected_test],
+        verification_results=[
+            {
+                "command": expected_test,
+                "exit_code": 0,
+                "passed": True,
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": 0.2,
+            }
+        ],
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[])
+    mock_launcher.snapshot_progress = AsyncMock()
+    mock_launcher.config = SimpleNamespace(auto_commit=False, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    collect_detached = AsyncMock(return_value=detached_worker)
+    with patch.object(WorkerLauncher, "collect_detached_result", new=collect_detached):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert len(completed) == 1
+    collect_detached.assert_awaited_once()
+    assert collect_detached.await_args.kwargs["expected_tests"] == [expected_test]
+    mock_launcher.snapshot_progress.assert_not_awaited()
+
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "completed"
+    assert work_order["review_status"] == "pending_heterogeneous_review"
+    assert work_order["merge_gate"]["checks_passed"] is True
+    assert work_order["tests_run"] == [expected_test]
+    assert work_order["verification_results"][0]["command"] == expected_test
 
 
 @pytest.mark.asyncio
