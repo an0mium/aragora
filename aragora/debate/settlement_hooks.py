@@ -36,6 +36,15 @@ from aragora.debate.settlement import (
 logger = logging.getLogger(__name__)
 
 
+def _linked_receipt_id(record: SettlementRecord) -> str | None:
+    """Return the persisted receipt ID linked to a settlement claim, if any."""
+    metadata = record.claim.metadata if isinstance(record.claim.metadata, dict) else {}
+    receipt_id = metadata.get("receipt_id")
+    if not receipt_id:
+        return None
+    return str(receipt_id)
+
+
 # ---------------------------------------------------------------------------
 # Hook protocol
 # ---------------------------------------------------------------------------
@@ -149,6 +158,7 @@ class ERC8004SettlementHook:
             return
 
         agent = record.claim.author
+        receipt_id = _linked_receipt_id(record)
         brier_component = (record.claim.confidence - record.score) ** 2
         # Convert Brier component to reputation: 0=worst, 100=perfect
         reputation = max(0, min(100, int((1.0 - brier_component) * 100)))
@@ -180,6 +190,7 @@ class ERC8004SettlementHook:
                         "brier_component": round(brier_component, 4),
                         "confidence": record.claim.confidence,
                         "content_hash": content_hash,
+                        **({"receipt_id": receipt_id} if receipt_id else {}),
                     },
                 )
                 logger.info(
@@ -233,13 +244,15 @@ class EventBusSettlementHook:
         if self._event_bus is None:
             return
         try:
-            self._event_bus.emit(
-                "settlement_claims_extracted",
-                debate_id=batch.debate_id,
-                settlements_created=batch.settlements_created,
-                settlement_ids=batch.settlement_ids,
-                claims_skipped=batch.claims_skipped,
-            )
+            payload: dict[str, Any] = {
+                "debate_id": batch.debate_id,
+                "settlements_created": batch.settlements_created,
+                "settlement_ids": batch.settlement_ids,
+                "claims_skipped": batch.claims_skipped,
+            }
+            if batch.receipt_id:
+                payload["receipt_id"] = batch.receipt_id
+            self._event_bus.emit("settlement_claims_extracted", **payload)
         except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.debug("EventBus emit failed for claims_extracted: %s", e)
 
@@ -247,16 +260,19 @@ class EventBusSettlementHook:
         if self._event_bus is None:
             return
         try:
-            self._event_bus.emit(
-                "settlement_resolved",
-                settlement_id=record.settlement_id,
-                debate_id=record.claim.debate_id,
-                agent=record.claim.author,
-                outcome=result.outcome.value,
-                score=result.score,
-                elo_updates=result.elo_updates,
-                calibration_recorded=result.calibration_recorded,
-            )
+            payload: dict[str, Any] = {
+                "settlement_id": record.settlement_id,
+                "debate_id": record.claim.debate_id,
+                "agent": record.claim.author,
+                "outcome": result.outcome.value,
+                "score": result.score,
+                "elo_updates": result.elo_updates,
+                "calibration_recorded": result.calibration_recorded,
+            }
+            receipt_id = _linked_receipt_id(record)
+            if receipt_id:
+                payload["receipt_id"] = receipt_id
+            self._event_bus.emit("settlement_resolved", **payload)
         except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.debug("EventBus emit failed for settlement_resolved: %s", e)
 

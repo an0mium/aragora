@@ -1109,7 +1109,41 @@ async def handle_debate_completion(
         try:
             from aragora.debate.post_debate_coordinator import PostDebateCoordinator
 
-            coordinator = PostDebateCoordinator(config=effective_config)
+            settlement_tracker = None
+            if getattr(effective_config, "auto_settlement_tracking", False):
+                try:
+                    settlement_tracker = getattr(arena, "settlement_tracker", None)
+                    if settlement_tracker is None:
+                        from aragora.debate.settlement import SettlementTracker
+                        from aragora.debate.settlement_hooks import (
+                            EventBusSettlementHook,
+                            LoggingSettlementHook,
+                            SettlementHookRegistry,
+                        )
+
+                        hook_registry = SettlementHookRegistry()
+                        hook_registry.register(LoggingSettlementHook())
+                        event_bus = getattr(arena, "event_bus", None)
+                        if event_bus is not None:
+                            hook_registry.register(EventBusSettlementHook(event_bus))
+
+                        settlement_tracker = SettlementTracker(
+                            elo_system=getattr(arena, "elo_system", None),
+                            calibration_tracker=getattr(arena, "calibration_tracker", None),
+                            knowledge_mound=getattr(arena, "knowledge_mound", None),
+                            hooks=hook_registry,
+                        )
+                        setattr(arena, "settlement_tracker", settlement_tracker)
+                except ImportError:
+                    logger.debug("Settlement tracker wiring unavailable")
+                except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as st_err:
+                    logger.debug("Settlement tracker wiring unavailable: %s", st_err)
+                    settlement_tracker = None
+
+            coordinator = PostDebateCoordinator(
+                config=effective_config,
+                settlement_tracker=settlement_tracker,
+            )
             task = getattr(ctx.env, "task", "") if ctx.env else ""
             confidence = getattr(ctx.result, "confidence", 0.0)
             post_result = coordinator.run(

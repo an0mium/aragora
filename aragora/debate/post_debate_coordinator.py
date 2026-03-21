@@ -147,8 +147,13 @@ class PostDebateCoordinator:
     records the error but doesn't prevent subsequent steps from running.
     """
 
-    def __init__(self, config: PostDebateConfig | None = None):
+    def __init__(
+        self,
+        config: PostDebateConfig | None = None,
+        settlement_tracker: Any | None = None,
+    ):
         self.config = config or PostDebateConfig()
+        self._settlement_tracker = settlement_tracker
 
     @staticmethod
     def _run_async_callable(async_fn: Any, /, *args: Any, **kwargs: Any) -> Any:
@@ -181,6 +186,22 @@ class PostDebateCoordinator:
         if "error" in error:
             raise error["error"]
         return result.get("value")
+
+    @staticmethod
+    def _coerce_receipt_id(candidate: Any) -> str | None:
+        """Normalize receipt IDs while ignoring mock objects and empty values."""
+        if not isinstance(candidate, str):
+            return None
+        normalized = candidate.strip()
+        return normalized or None
+
+    def _get_settlement_tracker(self) -> Any:
+        """Reuse an injected/shared settlement tracker when available."""
+        if self._settlement_tracker is None:
+            from aragora.debate.settlement import SettlementTracker
+
+            self._settlement_tracker = SettlementTracker()
+        return self._settlement_tracker
 
     def run(
         self,
@@ -325,7 +346,14 @@ class PostDebateCoordinator:
 
         # Step 7.9: Settlement tracking — extract verifiable claims for future resolution
         if self.config.auto_settlement_tracking:
-            result.settlement_batch = self._step_settlement_tracking(debate_id, debate_result)
+            result.settlement_batch = self._step_settlement_tracking(
+                debate_id,
+                debate_result,
+                receipt_id=(
+                    result.receipt_id
+                    or self._coerce_receipt_id(getattr(debate_result, "receipt_id", None))
+                ),
+            )
 
         # Step 8.5: Canvas pipeline — auto-trigger idea-to-execution visualization
         if self.config.auto_trigger_canvas and confidence >= self.config.canvas_min_confidence:
@@ -1389,21 +1417,22 @@ class PostDebateCoordinator:
         self,
         debate_id: str,
         debate_result: Any,
+        receipt_id: str | None = None,
     ) -> dict[str, Any] | None:
         """Step 7.9: Extract verifiable claims for future settlement.
 
         Scans the debate result for claims that contain measurable predictions,
-        registers them in the SettlementTracker for later resolution.
+        registers them in the SettlementTracker for later resolution, keeping
+        a truthful link to the persisted debate receipt when one exists.
         """
         try:
-            from aragora.debate.settlement import SettlementTracker
-
-            tracker = SettlementTracker()
+            tracker = self._get_settlement_tracker()
             batch = tracker.extract_verifiable_claims(
                 debate_id=debate_id,
                 debate_result=debate_result,
                 min_confidence=self.config.settlement_min_confidence,
                 domain=self.config.settlement_domain,
+                receipt_id=receipt_id,
             )
 
             if batch.settlements_created > 0:

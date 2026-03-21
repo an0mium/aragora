@@ -10,10 +10,12 @@ Validates that:
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.debate.post_debate_coordinator import PostDebateConfig, PostDebateCoordinator
 from aragora.debate.settlement import (
     SettlementBatch,
     SettlementOutcome,
@@ -41,6 +43,7 @@ def _make_claim(
     statement: str = "Revenue will increase by 20%",
     author: str = "claude",
     confidence: float = 0.8,
+    metadata: dict[str, Any] | None = None,
 ) -> VerifiableClaim:
     return VerifiableClaim(
         claim_id="clm-1",
@@ -48,6 +51,7 @@ def _make_claim(
         statement=statement,
         author=author,
         confidence=confidence,
+        metadata=metadata or {},
     )
 
 
@@ -75,12 +79,13 @@ def _make_settle_result() -> SettleResult:
     )
 
 
-def _make_batch() -> SettlementBatch:
+def _make_batch(receipt_id: str | None = None) -> SettlementBatch:
     return SettlementBatch(
         debate_id="d-1",
         settlements_created=2,
         settlement_ids=["stl-abc123", "stl-def456"],
         claims_skipped=1,
+        receipt_id=receipt_id,
     )
 
 
@@ -192,6 +197,32 @@ class TestSettlementTrackerHooks:
         batch = tracker.extract_verifiable_claims("d-1", debate_result)
         assert batch.settlements_created == 0
         hook.on_claims_extracted.assert_not_called()
+
+    def test_extract_preserves_receipt_linkage(self):
+        hooks = SettlementHookRegistry()
+        hook = MagicMock()
+        hooks.register(hook)
+
+        tracker = SettlementTracker(hooks=hooks)
+        debate_result = _make_debate_result()
+
+        with patch(
+            "aragora.reasoning.claims.fast_extract_claims",
+            return_value=[
+                {"text": "Revenue will increase by 20%", "author": "claude", "confidence": 0.8}
+            ],
+        ):
+            batch = tracker.extract_verifiable_claims(
+                "d-1",
+                debate_result,
+                receipt_id="rcpt-123",
+            )
+
+        assert batch.receipt_id == "rcpt-123"
+        pending = tracker.get_pending(debate_id="d-1")
+        assert pending[0].claim.metadata["receipt_id"] == "rcpt-123"
+        fired_batch = hook.on_claims_extracted.call_args[0][0]
+        assert fired_batch.receipt_id == "rcpt-123"
 
     def test_settle_fires_hook(self):
         hooks = SettlementHookRegistry()
@@ -309,6 +340,21 @@ class TestEventBusSettlementHook:
             claims_skipped=1,
         )
 
+    def test_on_claims_extracted_emits_receipt_id_when_present(self):
+        bus = MagicMock()
+        hook = EventBusSettlementHook(bus)
+
+        hook.on_claims_extracted(_make_batch(receipt_id="rcpt-123"))
+
+        bus.emit.assert_called_once_with(
+            "settlement_claims_extracted",
+            debate_id="d-1",
+            settlements_created=2,
+            settlement_ids=["stl-abc123", "stl-def456"],
+            claims_skipped=1,
+            receipt_id="rcpt-123",
+        )
+
     def test_on_settled_emits_event(self):
         bus = MagicMock()
         hook = EventBusSettlementHook(bus)
@@ -326,6 +372,25 @@ class TestEventBusSettlementHook:
             score=1.0,
             elo_updates={"claude": 12.5},
             calibration_recorded=True,
+        )
+
+    def test_on_settled_emits_receipt_id_when_present(self):
+        bus = MagicMock()
+        hook = EventBusSettlementHook(bus)
+
+        claim = _make_claim(metadata={"receipt_id": "rcpt-123"})
+        hook.on_settled(_make_record(claim=claim), _make_settle_result())
+
+        bus.emit.assert_called_once_with(
+            "settlement_resolved",
+            settlement_id="stl-abc123",
+            debate_id="d-1",
+            agent="claude",
+            outcome="correct",
+            score=1.0,
+            elo_updates={"claude": 12.5},
+            calibration_recorded=True,
+            receipt_id="rcpt-123",
         )
 
     def test_none_bus_does_not_error(self):
@@ -351,3 +416,50 @@ class TestLoggingSettlementHook:
         with caplog.at_level("INFO"):
             hook.on_settled(_make_record(), _make_settle_result())
         assert "settled as correct" in caplog.text
+
+
+class TestPostDebateCoordinatorSettlementHooks:
+    def test_real_post_debate_path_fires_hooks_with_receipt_linkage(self):
+        hooks = SettlementHookRegistry()
+        hook = MagicMock()
+        hooks.register(hook)
+
+        tracker = SettlementTracker(hooks=hooks)
+        config = PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=False,
+            auto_notify=False,
+            auto_persist_receipt=True,
+            auto_queue_improvement=False,
+            auto_outcome_feedback=False,
+            auto_execution_bridge=False,
+            enforce_execution_safety_gate=False,
+            auto_settlement_tracking=True,
+            auto_llm_judge=False,
+            auto_trigger_canvas=False,
+        )
+        coordinator = PostDebateCoordinator(config=config, settlement_tracker=tracker)
+
+        with patch.object(coordinator, "_step_persist_signed_receipt", return_value="rcpt-789"):
+            with patch(
+                "aragora.reasoning.claims.fast_extract_claims",
+                return_value=[
+                    {
+                        "text": "Revenue will increase by 20%",
+                        "author": "claude",
+                        "confidence": 0.8,
+                    }
+                ],
+            ):
+                result = coordinator.run("d-1", _make_debate_result(), confidence=0.8)
+
+        assert result.receipt_id == "rcpt-789"
+        assert result.settlement_batch is not None
+        assert result.settlement_batch["receipt_id"] == "rcpt-789"
+
+        hook.on_claims_extracted.assert_called_once()
+        fired_batch = hook.on_claims_extracted.call_args[0][0]
+        assert fired_batch.receipt_id == "rcpt-789"
+
+        pending = tracker.get_pending(debate_id="d-1")
+        assert pending[0].claim.metadata["receipt_id"] == "rcpt-789"

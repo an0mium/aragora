@@ -132,6 +132,7 @@ class SettlementBatch:
     settlements_created: int
     settlement_ids: list[str]
     claims_skipped: int = 0
+    receipt_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -238,6 +239,7 @@ class SettlementTracker:
         *,
         min_confidence: float = 0.3,
         domain: str = "general",
+        receipt_id: str | None = None,
     ) -> SettlementBatch:
         """Extract verifiable claims from a debate result and register them.
 
@@ -249,11 +251,18 @@ class SettlementTracker:
             debate_result: The debate result object (has messages, claims, etc.).
             min_confidence: Minimum confidence to consider a claim verifiable.
             domain: Problem domain for calibration bucketing.
+            receipt_id: Persisted decision receipt ID for truthful linkage to
+                the debate outcome path, when available.
 
         Returns:
             SettlementBatch summarising what was created.
         """
-        claims = self._extract_claims_from_result(debate_result, debate_id, domain)
+        claims = self._extract_claims_from_result(
+            debate_result,
+            debate_id,
+            domain,
+            receipt_id=receipt_id,
+        )
 
         settlement_ids: list[str] = []
         skipped = 0
@@ -286,6 +295,7 @@ class SettlementTracker:
             settlements_created=len(settlement_ids),
             settlement_ids=settlement_ids,
             claims_skipped=skipped,
+            receipt_id=receipt_id,
         )
 
         if settlement_ids:
@@ -651,6 +661,9 @@ class SettlementTracker:
 
             confidence_level = ConfidenceLevel.from_float(record.claim.confidence)
             now = dt_cls.now(timezone.utc)
+            claim_metadata = (
+                record.claim.metadata if isinstance(record.claim.metadata, dict) else {}
+            )
 
             item = KnowledgeItem(
                 id=f"settlement:{record.settlement_id}",
@@ -675,6 +688,11 @@ class SettlementTracker:
                     "domain": record.claim.domain,
                     "settled_at": record.settled_at or "",
                     "brier_component": (record.claim.confidence - record.score) ** 2,
+                    **(
+                        {"receipt_id": str(claim_metadata["receipt_id"])}
+                        if claim_metadata.get("receipt_id")
+                        else {}
+                    ),
                 },
             )
 
@@ -703,11 +721,24 @@ class SettlementTracker:
     # Internal: claim extraction from debate result
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _with_receipt_link(
+        metadata: dict[str, Any] | None,
+        receipt_id: str | None,
+    ) -> dict[str, Any]:
+        """Attach a real receipt link without fabricating one."""
+        merged = dict(metadata or {})
+        if receipt_id:
+            merged["receipt_id"] = receipt_id
+        return merged
+
     def _extract_claims_from_result(
         self,
         debate_result: Any,
         debate_id: str,
         domain: str,
+        *,
+        receipt_id: str | None = None,
     ) -> list[VerifiableClaim]:
         """Extract VerifiableClaim objects from a debate result.
 
@@ -732,10 +763,13 @@ class SettlementTracker:
                             author=getattr(tc, "author", "unknown"),
                             confidence=getattr(tc, "confidence", 0.5),
                             domain=domain,
-                            metadata={
-                                "claim_type": getattr(tc, "claim_type", "assertion"),
-                                "round_num": getattr(tc, "round_num", 0),
-                            },
+                            metadata=self._with_receipt_link(
+                                {
+                                    "claim_type": getattr(tc, "claim_type", "assertion"),
+                                    "round_num": getattr(tc, "round_num", 0),
+                                },
+                                receipt_id,
+                            ),
                         )
                     )
             except (AttributeError, TypeError) as e:
@@ -762,6 +796,7 @@ class SettlementTracker:
                                 author=ec.get("author", "unknown"),
                                 confidence=ec.get("confidence", 0.5),
                                 domain=domain,
+                                metadata=self._with_receipt_link(None, receipt_id),
                             )
                         )
             except ImportError:
@@ -785,6 +820,7 @@ class SettlementTracker:
                             author="consensus",
                             confidence=getattr(debate_result, "confidence", 0.5),
                             domain=domain,
+                            metadata=self._with_receipt_link(None, receipt_id),
                         )
                     )
             except ImportError:
