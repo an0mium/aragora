@@ -301,6 +301,19 @@ class OpenClawExecutionRuntime:
         policy = create_enterprise_policy()
         policy.add_rule(
             PolicyRule(
+                name="allow_safe_runtime_shell",
+                action_types=[ActionType.SHELL],
+                decision=PolicyDecision.ALLOW,
+                priority=110,
+                command_patterns=[
+                    r"^(ls|cat|head|tail|grep|find|wc|echo|pwd|cd)\b",
+                    r"^(python|python3|node|npm|pip|git)\b",
+                ],
+                description="Allow the sandbox-backed shell commands used by the public handler",
+            )
+        )
+        policy.add_rule(
+            PolicyRule(
                 name="allow_keyboard_actions",
                 action_types=[ActionType.KEYBOARD],
                 decision=PolicyDecision.ALLOW,
@@ -345,7 +358,7 @@ class OpenClawExecutionRuntime:
                 or "python"
             ).lower()
             if language in {"python", "python3"}:
-                command = f"python -c {shlex.quote(code)}"
+                command = f"python3 -c {shlex.quote(code)}"
             elif language in {"node", "javascript", "js"}:
                 command = f"node -e {shlex.quote(code)}"
             else:
