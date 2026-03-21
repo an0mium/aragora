@@ -1,368 +1,202 @@
 ---
-title: Data Classification Policy
-description: Data Classification Policy
+title: Data Classification — Compliance Reference
+description: Data Classification — Compliance Reference
 ---
 
-# Data Classification Policy
+# Data Classification — Compliance Reference
 
-**Effective Date:** January 14, 2026
-**Last Updated:** January 14, 2026
-**Version:** 1.0.0
-**Owner:** Security Team
-
----
-
-## Purpose
-
-This document defines data classification levels, handling requirements, and access controls for all data processed by Aragora. Proper data classification ensures appropriate protection based on sensitivity and regulatory requirements.
-
-**SOC 2 Control:** CC6-01 - Data classification and handling
+**Issue:** Enterprise Assurance #511
+**Effective Date:** 2026-03-05
+**Owner:** Security / Compliance Team
+**Controls:** SOC 2 CC6-01, GDPR Art. 32, EU AI Act Art. 13
 
 ---
 
-## Classification Levels
+## Overview
 
-### Level 1: Public
+Aragora classifies all data it processes into one of four standard levels.
+Each level carries mandatory handling rules enforced at the platform layer by
+`aragora/compliance/data_classification.py` and validated at every API boundary
+by `aragora/compliance/data_classification.py::PolicyEnforcer`.
 
-| Attribute | Description |
-|-----------|-------------|
-| Definition | Information intended for public disclosure |
-| Impact if Exposed | None - already public |
-| Examples | Marketing materials, public documentation, blog posts, API docs |
-| Access | Anyone |
-| Storage | Standard |
-| Transmission | Standard |
-| Disposal | No special requirements |
-
-### Level 2: Internal
-
-| Attribute | Description |
-|-----------|-------------|
-| Definition | Business information for internal use |
-| Impact if Exposed | Minor business impact, competitive disadvantage |
-| Examples | Internal procedures, meeting notes, non-sensitive metrics, feature roadmaps |
-| Access | Authenticated employees |
-| Storage | Standard with access controls |
-| Transmission | Standard encryption (TLS) |
-| Disposal | Delete from storage when no longer needed |
-
-### Level 3: Confidential
-
-| Attribute | Description |
-|-----------|-------------|
-| Definition | Sensitive business or customer data |
-| Impact if Exposed | Significant business/legal impact, customer trust damage |
-| Examples | Customer data, API keys, usage analytics, debate content, financial data |
-| Access | Need-to-know basis, role-based access |
-| Storage | Encrypted at rest (AES-256) |
-| Transmission | Encrypted (TLS 1.3) |
-| Disposal | Secure deletion, audit trail |
-
-### Level 4: Restricted
-
-| Attribute | Description |
-|-----------|-------------|
-| Definition | Highly sensitive data requiring maximum protection |
-| Impact if Exposed | Severe legal, financial, or reputational damage |
-| Examples | PII (email, name), authentication secrets, encryption keys, credentials, payment data |
-| Access | Strictly limited, MFA required, audited |
-| Storage | Encrypted, access-logged, isolated |
-| Transmission | Encrypted, authenticated endpoints only |
-| Disposal | Cryptographic erasure, certificate of destruction |
+Hardcoded secrets and PII patterns are blocked at CI time by
+`.github/workflows/security-gate.yml` ("Hardcoded secrets pattern scan" step,
+which calls `scripts/pre_release_check.py --gate secrets-only`).
 
 ---
 
-## Data Inventory
+## Classification Matrix
 
-### Customer Data (Confidential/Restricted)
+| Level | Label | Sensitivity | Encryption | Audit Log | Retention | Consent |
+|-------|-------|------------|------------|-----------|-----------|---------|
+| 1 | PUBLIC | None | No | No | 365 days | No |
+| 2 | INTERNAL | Low | No | Yes | 365 days | No |
+| 3 | CONFIDENTIAL | Medium | Yes (AES-256-GCM) | Yes | 180 days | No |
+| 4 | RESTRICTED | High | Yes (AES-256-GCM) | Yes | 90 days | Yes |
 
-| Data Element | Classification | Storage Location | Retention |
-|--------------|---------------|------------------|-----------|
-| User email | Restricted (PII) | users table | Account lifetime + 30 days |
-| User name | Restricted (PII) | users table | Account lifetime + 30 days |
-| Password hash | Restricted | users table | Account lifetime |
-| API keys | Restricted | users table (hashed) | Until revoked |
-| MFA secrets | Restricted | users table (encrypted) | Until disabled |
-| Organization name | Confidential | organizations table | Account lifetime + 30 days |
-| Debate content | Confidential | debates table | Configurable (default 90 days) |
-| Usage records | Confidential | usage_events table | 2 years |
-| Audit logs | Confidential | audit_events table | 7 years |
+A fifth level, **PII**, maps onto the same controls as RESTRICTED and is used
+when the platform detects personally-identifiable information via regex scanning
+(email, phone, SSN, credit-card patterns). PII data is always treated with the
+strictest handling requirements.
 
-### Operational Data (Internal/Confidential)
+### Allowed Operations per Level
 
-| Data Element | Classification | Storage Location | Retention |
-|--------------|---------------|------------------|-----------|
-| Application logs | Internal | Log files/Elasticsearch | 30 days |
-| Error logs | Internal | Log files/Sentry | 30 days |
-| Performance metrics | Internal | Prometheus/Grafana | 90 days |
-| Session tokens | Confidential | Redis/memory | Session duration |
-| Request traces | Internal | Jaeger/traces | 7 days |
+| Operation | PUBLIC | INTERNAL | CONFIDENTIAL | RESTRICTED |
+|-----------|--------|----------|--------------|------------|
+| read      | Yes    | Yes      | Yes          | Yes        |
+| write     | Yes    | Yes      | Yes          | Yes        |
+| export    | Yes    | Yes      | No           | No         |
+| share     | Yes    | No       | No           | No         |
+| delete    | Yes    | Yes      | Yes          | Yes        |
+| archive   | Yes    | Yes      | Yes          | No         |
 
-### Infrastructure Data (Restricted)
+### Region Restrictions
 
-| Data Element | Classification | Storage Location | Retention |
-|--------------|---------------|------------------|-----------|
-| Database credentials | Restricted | Secrets manager | Until rotated |
-| API provider keys | Restricted | Secrets manager | Until rotated |
-| TLS certificates | Restricted | Certificate store | Until expired |
-| SSH keys | Restricted | Secrets manager | Until rotated |
-| JWT signing keys | Restricted | Secrets manager | Until rotated |
+| Level | Allowed Regions |
+|-------|----------------|
+| PUBLIC | Unrestricted |
+| INTERNAL | Unrestricted |
+| CONFIDENTIAL | `us`, `eu`, `uk` |
+| RESTRICTED | `us`, `eu` |
 
 ---
 
-## Handling Requirements
+## Implementation
 
-### Level 1: Public
+### Classification Engine
 
-- No special handling required
-- May be shared externally without approval
-- No encryption requirements
+`aragora/compliance/data_classification.py` provides:
 
-### Level 2: Internal
+- `DataClassification` — enum of all levels (`PUBLIC`, `INTERNAL`,
+  `CONFIDENTIAL`, `RESTRICTED`, `PII`).
+- `DataClassifier.classify(data, context)` — rule-based classification
+  that inspects field names, values, and context keywords, then scans
+  string values for PII patterns.
+- `DataClassifier.validate_handling(data, classification, operation, ...)` —
+  checks an operation against the policy for the given level.
+- `DataClassifier.scan_for_pii(text)` — regex scanner returning
+  `PIIDetection` objects with type, position, and confidence.
+- `PolicyEnforcer.enforce_access(data, source, target, ...)` — prevents
+  higher-classified data from flowing into a lower-classified context.
+- `PolicyEnforcer.audit_label(data)` — generates a classification label
+  for audit log entries.
+- `PolicyEnforcer.classify_debate_result(result)` — enriches debate
+  results with `_classification` metadata.
 
-- Share only with authenticated employees
-- May be stored in standard systems
-- Basic access logging recommended
-- No approval required for internal sharing
+### Sensitive Pattern Keywords (auto-classify to RESTRICTED or PII)
 
-### Level 3: Confidential
+Restricted keywords: `secret`, `api_key`, `password`, `token`,
+`credential`, `private key`, `encryption_key`.
+
+PII keywords: `email`, `phone`, `ssn`, `social_security`, `date_of_birth`,
+`dob`, `passport`, `driver_license`, `credit_card`, `address`, `national_id`.
+
+Confidential keywords: `salary`, `revenue`, `financial`, `proprietary`,
+`trade_secret`, `internal_only`, `contract`, `medical`, `health`, `diagnosis`.
+
+---
+
+## CI Enforcement
+
+### Hardcoded Secrets Scan (Blocking)
+
+`.github/workflows/security-gate.yml` runs on every PR to `main`:
 
 ```
-Required Controls:
-[ ] Encryption at rest
-[ ] TLS for transmission
-[ ] Access logging
-[ ] Need-to-know access
-[ ] Manager approval for external sharing
-[ ] Secure deletion when no longer needed
+- name: "BLOCKING: Hardcoded secrets pattern scan"
+  run: python scripts/pre_release_check.py --gate secrets-only
 ```
 
-### Level 4: Restricted
+`scripts/pre_release_check.py` scans all non-test Python source files for:
 
-```
-Required Controls:
-[ ] AES-256 encryption at rest
-[ ] TLS 1.3 for transmission
-[ ] MFA for access
-[ ] Complete audit trail
-[ ] Quarterly access review
-[ ] VP approval for any external sharing
-[ ] Cryptographic erasure on disposal
-[ ] No local copies
-[ ] No email transmission (use secure portal)
-```
+| Pattern | Description |
+|---------|-------------|
+| `AKIA[0-9A-Z]\{16\}` | AWS access key ID |
+| `aws_secret_access_key = "..."` | AWS secret key |
+| PEM key header (`BEGIN ... KEY`) | Embedded private key |
+| `api_key = "..."` (20+ chars) | Generic API key assignment |
+| `token = "..."` (20+ chars) | Generic token assignment |
+| `password = "..."` (8+ chars) | Hardcoded password |
 
----
+The scan **fails the CI gate** (non-zero exit code) if any pattern is found
+outside test files, fixtures, or documentation strings. Results are uploaded
+as a Bandit report artifact for 30 days.
 
-## Access Control Matrix
+### Static Security Analysis
 
-### By Role
-
-| Role | Public | Internal | Confidential | Restricted |
-|------|--------|----------|--------------|------------|
-| Anonymous | Read | No | No | No |
-| User | Read | No | Own data only | Own data only |
-| Support | Read | Read | Customer data (cases) | Limited (with audit) |
-| Developer | Read | Read/Write | Read (non-PII) | No (without approval) |
-| Admin | Read | Read/Write | Read/Write | Read/Write (audited) |
-| Security | Read | Read/Write | Read/Write | Full access (audited) |
-
-### By System
-
-| System | Confidential | Restricted | Controls |
-|--------|--------------|------------|----------|
-| Production Database | Yes | Yes | VPC, encryption, IAM |
-| Staging Database | Yes (masked) | No | VPC, separate credentials |
-| Development | No | No | Synthetic data only |
-| CI/CD | No | Secrets only | Secret injection, no logs |
-| Logging | Redacted PII | No | Automatic redaction |
-| Backups | Yes | Yes | Encrypted, access-logged |
+`bandit -r aragora/ -lll` (HIGH severity, configured in `pyproject.toml`)
+runs in the same workflow and blocks PRs on any high-severity finding.
 
 ---
 
-## Labeling and Marking
+## Data Handling Rules
 
-### Document Labeling
+### RESTRICTED and PII
 
-Documents containing Confidential or Restricted data should include:
+- All secrets (API keys, credentials, tokens) MUST be sourced from environment
+  variables or the AWS Secrets Manager (`aragora/config/secrets.py`). Never
+  committed to source control.
+- Encryption: AES-256-GCM at rest, TLS 1.3 in transit.
+- MFA required for admin access to restricted data stores.
+- Quarterly access reviews via `aragora/rbac/` audit log.
+- Retention: 90 days maximum unless a longer period is legally required.
+- Disposal: cryptographic erasure; log erasure event in audit trail.
 
-```
-Classification: [CONFIDENTIAL/RESTRICTED]
-Owner: [Team/Individual]
-Handling: See DATA_CLASSIFICATION.md
-```
+### CONFIDENTIAL
 
-### Database Field Marking
+- Encryption at rest required.
+- Accessible only on a need-to-know basis with RBAC enforcement.
+- Region restriction: `us`, `eu`, `uk`.
+- Retention: 180 days maximum.
 
-Sensitive fields are documented in schema:
+### INTERNAL
 
-```sql
--- Classification: Restricted (PII)
-email VARCHAR(255) NOT NULL,
+- Accessible to authenticated users only.
+- Audit logging recommended.
+- No region restriction.
 
--- Classification: Restricted
-password_hash VARCHAR(255) NOT NULL,
+### PUBLIC
 
--- Classification: Confidential
-debate_content TEXT,
-```
-
-### API Response Handling
-
-Sensitive fields are redacted in logs:
-
-```python
-# Automatically redacted in SecurityBarrier
-REDACTED_FIELDS = [
-    "password", "api_key", "token", "secret",
-    "email", "credit_card", "ssn"
-]
-```
-
-### Logging Redaction
-
-Structured logging redacts values by field name and secret patterns, covering
-auth tokens, payment data, PII, session identifiers, and key material. See
-`aragora/server/middleware/structured_logging.py` for the canonical list.
+- No special handling requirements.
+- Data at this level may be freely shared or published.
 
 ---
 
-## Data Lifecycle
+## Debate Content Classification
 
-### Creation
-
-1. Classify data before storage
-2. Apply appropriate encryption
-3. Set retention policy
-4. Document in data inventory
-
-### Processing
-
-1. Minimize data collection
-2. Use least privilege access
-3. Log access to Confidential/Restricted
-4. Apply redaction in logs
-
-### Storage
-
-1. Encrypt based on classification
-2. Apply access controls
-3. Regular access audits
-4. Backup according to classification
-
-### Transmission
-
-1. Use TLS for all transmission
-2. Additional encryption for Restricted
-3. Authenticated endpoints only
-4. Log transmission events
-
-### Disposal
-
-| Classification | Disposal Method |
-|----------------|-----------------|
-| Public | Standard deletion |
-| Internal | Standard deletion |
-| Confidential | Secure deletion with audit |
-| Restricted | Cryptographic erasure, certificate |
+Debate results and arguments are automatically classified by
+`PolicyEnforcer.classify_debate_result()` when the debate contains sensitive
+keywords or PII. The `_classification` key is added to every result dict so
+downstream handlers can enforce appropriate controls.
 
 ---
 
-## Incident Response
+## Compliance Controls Mapping
 
-### Data Exposure Levels
-
-| Level | Impact | Response |
-|-------|--------|----------|
-| Public | None | No action required |
-| Internal | Low | Security team notification |
-| Confidential | Medium | Security team + legal review |
-| Restricted | High | Full incident response + breach assessment |
-
-### Breach Notification
-
-For Confidential/Restricted data exposure:
-
-1. **Containment** (immediate)
-2. **Assessment** (within 24 hours)
-3. **Internal notification** (within 24 hours)
-4. **Legal review** (within 48 hours)
-5. **Customer notification** (within 72 hours if required)
-6. **Regulatory notification** (as required by law)
+| Framework | Control | Requirement | Implementation |
+|-----------|---------|-------------|----------------|
+| SOC 2 | CC6-01 | Data classification | `DataClassifier`, `PolicyEnforcer` |
+| SOC 2 | CC6-06 | Restrict sensitive outputs | `PolicyEnforcer.enforce_access()` |
+| GDPR | Art. 25 | Privacy by design | PII auto-detection, encryption defaults |
+| GDPR | Art. 32 | Technical measures | AES-256-GCM, TLS 1.3, access logging |
+| EU AI Act | Art. 13 | Transparency | Classification metadata on AI outputs |
+| ISO 27001 | A.8.2 | Information classification | Four-level scheme |
 
 ---
 
-## Training and Awareness
+## Related Files
 
-### Required Training
-
-| Role | Training | Frequency |
-|------|----------|-----------|
-| All Employees | Data handling basics | Annual |
-| Developers | Secure coding, data handling | Annual + onboarding |
-| Support | Customer data handling | Annual + onboarding |
-| Admins | Full classification training | Annual + on change |
-| Security | Advanced data protection | Quarterly |
-
-### Acknowledgment
-
-All employees must acknowledge:
-- Understanding of classification levels
-- Handling requirements for each level
-- Incident reporting procedures
-- Consequences of mishandling
-
----
-
-## Compliance Mapping
-
-### SOC 2 Trust Service Criteria
-
-| Criteria | How This Policy Addresses |
-|----------|---------------------------|
-| CC6.1 | Defines classification levels |
-| CC6.2 | Access control matrix |
-| CC6.3 | Handling requirements |
-| CC6.4 | Transmission controls |
-| CC6.5 | Disposal procedures |
-
-### GDPR
-
-| Article | How This Policy Addresses |
-|---------|---------------------------|
-| Art. 5 | Data minimization, storage limitation |
-| Art. 25 | Privacy by design (classification) |
-| Art. 32 | Technical measures (encryption) |
-| Art. 33 | Breach notification procedures |
-
----
-
-## Exceptions
-
-### Exception Process
-
-1. Submit request to security@aragora.ai
-2. Include business justification
-3. Document compensating controls
-4. VP approval required
-5. Time-limited (max 90 days)
-6. Quarterly review
-
-### Approved Exceptions
-
-Document all approved exceptions here:
-
-| Date | Data | Exception | Compensating Control | Expiry |
-|------|------|-----------|---------------------|--------|
-| - | - | - | - | - |
-
----
-
-## Review and Updates
-
-- **Quarterly:** Review access patterns and exceptions
-- **Annually:** Full policy review and update
-- **On Change:** Update for new data types or systems
+| File | Purpose |
+|------|---------|
+| `aragora/compliance/data_classification.py` | Classification engine and policy enforcer |
+| `aragora/privacy/classifier.py` | Privacy-layer PII classifier |
+| `aragora/privacy/anonymization.py` | PII anonymization for GDPR |
+| `aragora/security/encryption.py` | AES-256-GCM encryption primitives |
+| `aragora/rbac/types.py` | `data_classification.read/classify/update` permissions |
+| `scripts/pre_release_check.py` | CI secrets/PII pattern scanner |
+| `.github/workflows/security-gate.yml` | CI workflow running the scan |
+| `docs/enterprise/DATA_CLASSIFICATION.md` | Enterprise policy reference (full lifecycle) |
+| `tests/compliance/test_data_classification.py` | Classification engine test suite |
 
 ---
 
@@ -370,4 +204,4 @@ Document all approved exceptions here:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0.0 | 2026-01-14 | Initial release |
+| 1.0.0 | 2026-03-05 | Initial compliance reference (issue #511) |

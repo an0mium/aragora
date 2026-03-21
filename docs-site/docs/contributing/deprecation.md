@@ -411,7 +411,7 @@ Before final removal:
 ### Deprecated
 
 - `aragora.crawlers` module - Use `aragora.connectors` instead. Will be removed in v2.3.0.
-  See [Migration Guide](docs/CRAWLERS_MIGRATION.md).
+  See `docs/guides/V1_TO_V2_MIGRATION.md` for migration guidance.
 
 - `ARAGORA_REQUIRE_DISTRIBUTED_STATE` environment variable - Use `ARAGORA_REQUIRE_DISTRIBUTED`.
   Will be removed in v2.3.0.
@@ -439,18 +439,6 @@ See [Deprecation Policy](./deprecation) for migration guides.
 
 ## Currently Deprecated Items
 
-The following items are currently deprecated and scheduled for removal:
-
-### API Endpoints (Remove in v2.0)
-
-| Endpoint | Replacement | Deprecated Since |
-|----------|-------------|------------------|
-| `GET /api/debates/list` | `GET /api/debates` | v1.5 |
-| `POST /api/debate/new` | `POST /api/debates/start` | v1.5 |
-| `GET /api/elo/rankings` | `GET /api/agent/leaderboard` | v1.5 |
-| `GET /api/agent/elo` | `GET /api/agent/\{name\}/profile` | v1.5 |
-| `POST /api/stream/start` | WebSocket `/ws` connection | v1.5 |
-
 ### API Versions
 
 | Version | Status | Sunset Date |
@@ -458,22 +446,13 @@ The following items are currently deprecated and scheduled for removal:
 | v1 | Deprecated | 2026-06-01 |
 | v2 | Current | - |
 
-### Python Modules (Remove in v2.2)
+> **Historical removals (completed):** The following were deprecated in v1.5–v2.0 and removed by v2.3–v2.8:
+>
+> - API endpoints: `GET /api/debates/list`, `POST /api/debate/new`, `GET /api/elo/rankings`, `GET /api/agent/elo`, `POST /api/stream/start` — all removed; use v2 equivalents
+> - Python modules: `aragora.modes.gauntlet` (→ `aragora.gauntlet`), `aragora.crawlers` (→ `aragora.connectors`) — both removed
+> - Config option: `ARAGORA_REQUIRE_DISTRIBUTED_STATE` (→ `ARAGORA_REQUIRE_DISTRIBUTED`) — removed
 
-| Module | Replacement | Deprecated Since |
-|--------|-------------|------------------|
-| `aragora.modes.gauntlet` | `aragora.gauntlet` | v2.0 |
-| `aragora.crawlers` | `aragora.connectors` | v2.0 |
-
-### Configuration Options
-
-| Option | Replacement | Deprecated Since | Remove In |
-|--------|-------------|------------------|-----------|
-| `ARAGORA_REQUIRE_DISTRIBUTED_STATE` | `ARAGORA_REQUIRE_DISTRIBUTED` | v2.0 | v2.2 |
-
-### SDK Methods
-
-See [GAUNTLET_ARCHITECTURE.md](../guides/gauntlet-architecture) for Gauntlet migration details.
+No items are currently in an active deprecation window. The v1 API sunset date is June 1, 2026.
 
 ---
 
@@ -481,7 +460,7 @@ See [GAUNTLET_ARCHITECTURE.md](../guides/gauntlet-architecture) for Gauntlet mig
 
 ### Example 1: Module Deprecation
 
-See `aragora/modes/gauntlet.py` for a complete example:
+*(Historical example — `aragora/modes/gauntlet.py` was removed in v2.3.0 after deprecation was complete. The pattern below shows how the deprecation warning was implemented.)*
 
 ```python
 """
@@ -519,7 +498,7 @@ warnings.warn(
 
 ### Example 2: Package Deprecation
 
-See `aragora/crawlers/__init__.py`:
+*(Historical example — `aragora/crawlers/` was removed in v2.3.0 after deprecation was complete. Use `aragora.connectors` instead.)*
 
 ```python
 """
@@ -590,4 +569,4 @@ For deprecation questions or migration assistance:
 
 ---
 
-*Last updated: 2026-01-23*
+*Last updated: 2026-03-05*

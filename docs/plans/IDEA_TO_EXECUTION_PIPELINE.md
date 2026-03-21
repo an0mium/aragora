@@ -1,5 +1,8 @@
 # Idea-to-Execution Pipeline: Strategic Plan
 
+> Historical strategic plan from the early March 2026 pipeline audit.
+> For the maintained strategy document converted from the Word working draft and updated to the March 20, 2026 repo state, see [ARAGORA_IDEA_TO_EXECUTION_STRATEGY](./ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md).
+
 ## The Vision
 
 A unified visual interface where users:

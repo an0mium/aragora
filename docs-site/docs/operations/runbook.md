@@ -89,10 +89,10 @@ This runbook covers day-to-day operations, deployment procedures, incident respo
 
 | Name | Instance ID | AMI | Role | Notes |
 |------|-------------|-----|------|-------|
-| aragora-api-server | `i-0dbd51f74a9a11fcc` | Amazon Linux 2 (original) | Primary | Original fleet, `/home/ec2-user/aragora` |
-| aragora-api-2 | `i-016b3e32625bf967e` | Amazon Linux 2 (original) | Secondary | Original fleet, `/home/ec2-user/aragora` |
-| aragora-al2023-1 | *(check AWS console)* | Amazon Linux 2023 | Primary (AL2023) | New fleet, `/opt/aragora` or `/home/ec2-user/aragora` |
-| aragora-al2023-2 | *(check AWS console)* | Amazon Linux 2023 | Secondary (AL2023) | New fleet, `/opt/aragora` or `/home/ec2-user/aragora` |
+| aragora-api-server-al2023 | `i-0823e60c7c4b924e1` | Amazon Linux 2023 | Staging | Replaced AL2 `i-0823e60c7c4b924e1` (stopped) |
+| aragora-api-2-al2023 | `i-07e538fafbe61696d` | Amazon Linux 2023 | Production | Replaced AL2 `i-07e538fafbe61696d` (stopped) |
+| aragora-al2023-1 | *(check AWS console)* | Amazon Linux 2023 | Primary (AL2023) | `/home/ec2-user/aragora` |
+| aragora-al2023-2 | *(check AWS console)* | Amazon Linux 2023 | Secondary (AL2023) | `/home/ec2-user/aragora` |
 
 **To retrieve current instance IDs dynamically:**
 
@@ -111,8 +111,8 @@ aws ec2 describe-instances \
 Set these in your shell for the runbook commands below. The original two instance IDs are known:
 
 ```bash
-export ORIG_1="i-0dbd51f74a9a11fcc"   # aragora-api-server
-export ORIG_2="i-016b3e32625bf967e"   # aragora-api-2
+export ORIG_1="i-0823e60c7c4b924e1"   # aragora-api-server-al2023
+export ORIG_2="i-07e538fafbe61696d"   # aragora-api-2-al2023
 export REGION="us-east-2"
 
 # Discover AL2023 IDs dynamically
@@ -190,7 +190,7 @@ For urgent fixes that cannot wait for CI, deploy directly via SSM. Deploy to one
 ```bash
 # Step 1: Deploy to one instance
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --comment "Hotfix deploy - <describe change>" \
   --parameters 'commands=[
@@ -220,7 +220,7 @@ aws ssm send-command \
 # Step 2: Get the result
 aws ssm get-command-invocation \
   --command-id "<COMMAND_ID>" \
-  --instance-id "i-0dbd51f74a9a11fcc" \
+  --instance-id "i-0823e60c7c4b924e1" \
   --query '[Status,StandardOutputContent]' \
   --output text \
   --region us-east-2
@@ -230,7 +230,7 @@ aws ssm get-command-invocation \
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-016b3e32625bf967e" \
+  --instance-ids "i-07e538fafbe61696d" \
   --document-name "AWS-RunShellScript" \
   --comment "Hotfix deploy - rolling to instance 2" \
   --parameters 'commands=[...]' \
@@ -244,7 +244,7 @@ Repeat for each AL2023 instance. Adjust the working directory if the AL2023 inst
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" "i-016b3e32625bf967e" \
+  --instance-ids "i-0823e60c7c4b924e1" "i-07e538fafbe61696d" \
   --document-name "AWS-RunShellScript" \
   --comment "Fleet deploy to all instances" \
   --parameters 'commands=[
@@ -277,7 +277,7 @@ The deploy script writes the previous commit hash to `/tmp/aragora_deploy_state`
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" "i-016b3e32625bf967e" \
+  --instance-ids "i-0823e60c7c4b924e1" "i-07e538fafbe61696d" \
   --document-name "AWS-RunShellScript" \
   --comment "Rollback aragora to previous commit" \
   --parameters 'commands=[
@@ -305,7 +305,7 @@ aws ssm send-command \
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
     "set -e",
@@ -362,7 +362,7 @@ Check health on a specific instance by running curl locally via SSM:
 ```bash
 # Single instance
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["curl -s http://localhost:8080/api/health | jq"]' \
   --output text --query "Command.CommandId" \
@@ -371,7 +371,7 @@ aws ssm send-command \
 # Retrieve output
 aws ssm get-command-invocation \
   --command-id "<COMMAND_ID>" \
-  --instance-id "i-0dbd51f74a9a11fcc" \
+  --instance-id "i-0823e60c7c4b924e1" \
   --query 'StandardOutputContent' \
   --output text \
   --region us-east-2
@@ -384,7 +384,7 @@ Run the version check across all instances and compare the git SHA:
 ```bash
 # Check deployed git commit on all instances
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" "i-016b3e32625bf967e" \
+  --instance-ids "i-0823e60c7c4b924e1" "i-07e538fafbe61696d" \
   --document-name "AWS-RunShellScript" \
   --comment "Version check across fleet" \
   --parameters 'commands=[
@@ -406,7 +406,7 @@ Add AL2023 instance IDs to the `--instance-ids` list. Then retrieve output per i
 
 ```bash
 # Check each instance's output
-for INSTANCE in i-0dbd51f74a9a11fcc i-016b3e32625bf967e; do
+for INSTANCE in i-0823e60c7c4b924e1 i-07e538fafbe61696d; do
   echo "=== $INSTANCE ==="
   aws ssm get-command-invocation \
     --command-id "<COMMAND_ID>" \
@@ -441,21 +441,21 @@ echo | openssl s_client -servername api.aragora.ai -connect api.aragora.ai:443 2
 ```bash
 # 1. Check instance state in AWS
 aws ec2 describe-instance-status \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --query 'InstanceStatuses[*].[InstanceId,InstanceState.Name,SystemStatus.Status,InstanceStatus.Status]' \
   --output table \
   --region us-east-2
 
 # 2. Check SSM agent connectivity
 aws ssm describe-instance-information \
-  --filters "Key=InstanceIds,Values=i-0dbd51f74a9a11fcc" \
+  --filters "Key=InstanceIds,Values=i-0823e60c7c4b924e1" \
   --query 'InstanceInformationList[*].[InstanceId,PingStatus,LastPingDateTime,PlatformName]' \
   --output table \
   --region us-east-2
 
 # 3. If SSM is reachable, check the service
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
     "systemctl status aragora --no-pager",
@@ -475,7 +475,7 @@ aws ssm send-command \
 
 # 4. Check recent service logs for crash reasons
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["sudo journalctl -u aragora -n 50 --no-pager"]' \
   --timeout-seconds 30 \
@@ -483,7 +483,7 @@ aws ssm send-command \
 
 # 5. Check if the process is actually running and listening
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
     "ss -tlnp | grep -E \"8080|8765|80\"",
@@ -561,7 +561,7 @@ Or re-run the CI deploy to all instances: Go to Actions > "Deploy (Secure)" > Ru
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
     "sudo systemctl restart aragora",
@@ -580,7 +580,7 @@ The systemd unit has `StartLimitBurst=5` within `StartLimitIntervalSec=300`, mea
 ```bash
 # Check crash loop status and reset
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
     "sudo journalctl -u aragora -n 100 --no-pager | tail -50",
@@ -613,7 +613,7 @@ aws ssm send-command \
 ```bash
 # Last 200 lines
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["sudo journalctl -u aragora -n 200 --no-pager"]' \
   --timeout-seconds 30 \
@@ -621,7 +621,7 @@ aws ssm send-command \
 
 # Logs since a specific time
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["sudo journalctl -u aragora --since \"2 hours ago\" --no-pager | tail -500"]' \
   --timeout-seconds 60 \
@@ -629,7 +629,7 @@ aws ssm send-command \
 
 # Error-only logs
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["sudo journalctl -u aragora -p err --since \"1 hour ago\" --no-pager"]' \
   --timeout-seconds 30 \
@@ -637,7 +637,7 @@ aws ssm send-command \
 
 # nginx access logs
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["sudo tail -100 /var/log/nginx/access.log"]' \
   --timeout-seconds 30 \
@@ -645,7 +645,7 @@ aws ssm send-command \
 
 # nginx error logs
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["sudo tail -50 /var/log/nginx/error.log"]' \
   --timeout-seconds 30 \
@@ -681,7 +681,7 @@ aws logs filter-log-events \
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" "i-016b3e32625bf967e" \
+  --instance-ids "i-0823e60c7c4b924e1" "i-07e538fafbe61696d" \
   --document-name "AWS-RunShellScript" \
   --comment "Emergency fleet restart" \
   --parameters 'commands=[
@@ -699,7 +699,7 @@ aws ssm send-command \
 
 ```bash
 aws ec2 reboot-instances \
-  --instance-ids "i-0dbd51f74a9a11fcc" "i-016b3e32625bf967e" \
+  --instance-ids "i-0823e60c7c4b924e1" "i-07e538fafbe61696d" \
   --region us-east-2
 ```
 
@@ -752,7 +752,7 @@ Check resource utilization on a specific instance:
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
     "echo === CPU & MEMORY ===",
@@ -780,7 +780,7 @@ The CloudWatch agent runs on each instance and sends logs to the `/aragora/produ
 ```bash
 # Check CloudWatch agent status
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["sudo systemctl status amazon-cloudwatch-agent --no-pager | head -10"]' \
   --timeout-seconds 15 \
@@ -799,7 +799,7 @@ All commands below use `AWS-RunShellScript` and should include `--region us-east
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
     "cd /home/ec2-user/aragora 2>/dev/null || cd /opt/aragora",
@@ -818,7 +818,7 @@ aws ssm send-command \
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
     "sudo systemctl restart aragora",
@@ -835,7 +835,7 @@ aws ssm send-command \
 ```bash
 # Last 100 lines
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["sudo journalctl -u aragora -n 100 --no-pager"]' \
   --output text --query "Command.CommandId" \
@@ -843,7 +843,7 @@ aws ssm send-command \
 
 # Streaming tail (captures ~200 lines then exits)
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["sudo journalctl -u aragora -f --no-pager | head -200"]' \
   --output text --query "Command.CommandId" \
@@ -854,7 +854,7 @@ aws ssm send-command \
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
     "export HOME=/home/ec2-user",
@@ -875,7 +875,7 @@ aws ssm send-command \
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
     "echo === SERVICE FILE ===",
@@ -895,7 +895,7 @@ aws ssm send-command \
 
 ```bash
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" \
+  --instance-ids "i-0823e60c7c4b924e1" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=[
     "curl -s http://localhost:8080/api/health | jq \"{database: .checks.database, redis: .checks.redis}\""
@@ -910,7 +910,7 @@ For interactive troubleshooting, use SSM Session Manager instead of Run Command:
 
 ```bash
 aws ssm start-session \
-  --target "i-0dbd51f74a9a11fcc" \
+  --target "i-0823e60c7c4b924e1" \
   --region us-east-2
 ```
 
@@ -1110,7 +1110,7 @@ aws secretsmanager put-secret-value \
 
 # 4. Restart services on all instances to pick up new secrets
 aws ssm send-command \
-  --instance-ids "i-0dbd51f74a9a11fcc" "i-016b3e32625bf967e" \
+  --instance-ids "i-0823e60c7c4b924e1" "i-07e538fafbe61696d" \
   --document-name "AWS-RunShellScript" \
   --parameters 'commands=["sudo systemctl restart aragora"]' \
   --region us-east-2

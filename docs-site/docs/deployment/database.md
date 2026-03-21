@@ -21,8 +21,8 @@ Aragora uses a dual-storage architecture: SQLite for local development and persi
 
 | Aspect | Value |
 |--------|-------|
-| **Default Mode** | `legacy` (multiple SQLite files) |
-| **Consolidated Mode** | `consolidated` (4 databases, optional) |
+| **Default Mode** | `consolidated` (4 databases) |
+| **Legacy Mode** | `legacy` (multiple SQLite files, opt-in via `ARAGORA_DB_MODE=legacy`) |
 | **PostgreSQL** | Full support via `psycopg2` |
 | **Connection Pooling** | Built-in (10-20 per DB) |
 
@@ -60,10 +60,9 @@ Use `ARAGORA_DB_*` overrides or `aragora.config.legacy.DB_NAMES` for the full li
 ## Database Mode Configuration
 
 ```bash
-# Use consolidated mode (optional)
-export ARAGORA_DB_MODE=consolidated
+# Consolidated mode is the default — no env var needed
 
-# Use legacy mode (default)
+# Use legacy mode (opt-in, multiple individual SQLite files)
 export ARAGORA_DB_MODE=legacy
 ```
 

@@ -1,9 +1,52 @@
 # Aragora Project Status
 
-*Last updated: March 6, 2026*
+*Last updated: March 20, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](../INDEX.md) for the curated technical reference map.
 > For roadmap extraction, doc drift, and partial-feature tracking, see [DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md](DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md).
+
+## March 19-20, 2026 — Current State
+
+### Canonical Current Reality
+
+- `main` now contains the tranche queue / overnight autonomy hardening through [#1117](https://github.com/synaptent/aragora/pull/1117).
+- The system has moved beyond a single Ralph proof. Aragora can now compile curated queue manifests, dispatch bounded tranche work, watch it, review it, and truthfully surface several classes of failure that were invisible a week earlier.
+- The first real queue artifact is already merged as [#1108](https://github.com/synaptent/aragora/pull/1108).
+- The strongest later autonomous outputs are currently open as [#1110](https://github.com/synaptent/aragora/pull/1110) and [#1111](https://github.com/synaptent/aragora/pull/1111), with alternates [#1113](https://github.com/synaptent/aragora/pull/1113) and [#1114](https://github.com/synaptent/aragora/pull/1114).
+
+### What Was Fixed On `main`
+
+The March 19-20 overnight dogfood cycle found and fixed a concrete sequence of control-plane bugs:
+
+1. queue items expanding into overlapping multi-lane tranches
+2. dead workers not terminalizing truthfully
+3. single-lane specs being re-decomposed inside the supervisor
+4. verification commands being dropped before merge gates
+5. stale fleet claims blocking fresh `aragora/live` work
+6. queue resume losing `manifest_path` and spawning duplicate tranches
+
+Those fixes landed across [#1109](https://github.com/synaptent/aragora/pull/1109), [#1112](https://github.com/synaptent/aragora/pull/1112), [#1115](https://github.com/synaptent/aragora/pull/1115), [#1116](https://github.com/synaptent/aragora/pull/1116), and [#1117](https://github.com/synaptent/aragora/pull/1117).
+
+### Current Frontier
+
+The reduced `queue-v4b` proof is still the active frontier for unresolved product slices:
+
+- [#1047](https://github.com/synaptent/aragora/issues/1047): latest queue attempt is truthfully `needs_human` / review-blocked
+- [#819](https://github.com/synaptent/aragora/issues/819): still pending behind the first lane
+
+This means the current problem is no longer "can the queue dispatch?" It is:
+
+- can every blocker terminate truthfully,
+- can deliverables flow cleanly into publish/integrate,
+- and can the PMF slices complete without hidden operator repair.
+
+### Strategic Direction
+
+The strategy document is now [ARAGORA_IDEA_TO_EXECUTION_STRATEGY](../plans/ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md). The short version:
+
+- finish truthful unattended execution,
+- harvest the PMF outputs already generated,
+- then invest in the unified idea-to-execution GUI and stage-transition UX.
 
 ## March 2026 Sprint — Closed-Loop Backbone, Trust Wedge & Infrastructure
 

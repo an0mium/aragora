@@ -5,9 +5,131 @@ description: Aragora Project Status
 
 # Aragora Project Status
 
-*Last updated: February 23, 2026*
+*Last updated: March 20, 2026*
 
+> Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](./status).
 > See [README](../analysis/adr) for the five pillars framework. See [Documentation Index](./documentation-index) for the curated technical reference map.
+
+## March 19-20, 2026 — Tranche Queue And Overnight Autonomy Hardening
+
+### What Landed On `main`
+
+- **Sequential tranche queue** and **curated queue compiler** landed, making it possible to turn issue/source manifests into a real ordered overnight run.
+- **Low-risk auto-merge policy** landed for suitable single-lane, clean review outcomes.
+- Hardening fixes landed across `main` through [#1109](https://github.com/synaptent/aragora/pull/1109), [#1112](https://github.com/synaptent/aragora/pull/1112), [#1115](https://github.com/synaptent/aragora/pull/1115), [#1116](https://github.com/synaptent/aragora/pull/1116), and [#1117](https://github.com/synaptent/aragora/pull/1117):
+  - dead-worker reconciliation and deliverable recovery
+  - single-lane queue behavior for broad issue sources
+  - verification-command propagation through queue compilation
+  - stale fleet-claim reaping before conflicts
+  - truthful queue-item persistence before long watch loops
+
+### What The Overnight Runs Produced
+
+- **PR #1108 merged**: design partner program refresh, recovered and published from the first queue run.
+- **PRs #1110 and #1111 open**: canonical candidate outputs from later overnight runs.
+- **PRs #1113 and #1114 open**: alternate implementations for the same issue pair from a later run.
+
+### What The Overnight Runs Exposed
+
+The March 19-20 dogfood loop found and fixed a chain of real control-plane bugs:
+
+1. queue items were over-expanding into overlapping multi-lane tranches
+2. dead workers could leave watch loops polling forever
+3. single-lane tranche specs were being re-decomposed inside the supervisor
+4. verification commands were dropped before the merge gate
+5. stale fleet claims could permanently block `aragora/live`
+6. queue resume could lose `manifest_path` and create duplicate tranches
+
+### Current Runtime Frontier
+
+The active reduced proof run is `queue-v4b` for [#1047](https://github.com/synaptent/aragora/issues/1047) and [#819](https://github.com/synaptent/aragora/issues/819).
+
+- `#1047` has already reached a truthful `needs_human` / review-blocked state in the queue.
+- `#819` is still pending behind it.
+- The current autonomy frontier is no longer preflight decomposition. It is truthful finalization, publish edge cases, and preserving blocker reasons without operator guesswork.
+
+### Strategy Reality
+
+The older March narrative of "finish the clean Ralph rerun, then pivot" is no longer current. The backend has moved forward into queue-backed unattended execution. The next strategic leverage is:
+
+- finish truthful unattended execution,
+- harvest the real PMF outputs already generated,
+- and package the whole system behind a unified idea-to-execution interface.
+
+## March 12-18, 2026 — Ralph Autonomous Loop Validation
+
+### Ralph Campaign Supervisor (V14 Benchmark)
+- **V14 benchmark validated**: Full autonomous loop — spec→deliverable→review→blocker classification→repair→PR→admin merge (zero operator intervention)
+- **3 worker attempts**: Cross-model review (codex worker, claude reviewer) correctly rejected 2 attempts with actionable feedback, passed 3rd
+- **Autonomous PR creation**: PR #1005 created and merged without human intervention
+- **11 supervisor steps**, $15 cost within $20 budget across 3 worker attempts
+- **Stale lease auto-release** (PR #1004, merged): `_orphaned_conflict_reason()` replaces `Path.exists()` with PID-based liveness; `refresh_run` proactively reaps expired leases; `reap_stale_leases()` detects dead worker PIDs
+- **Reconciler lease reaping** (PR #1005, merged): `tick_run()` calls `reap_stale_leases()` then `reap_expired_leases()` before refresh/dispatch
+- **Admin merge bypass** (PR #1006, merged): When `merge_policy=admin_merge_allowed` and required checks green, supervisor auto-merges via `--admin` even when `disposition=wait_for_review`
+
+### Blocker Taxonomy Expansion
+- `campaign_stalled` stop reason now classified (not UNKNOWN)
+- `needs_human` outcome classified as worker stall (same family as `clean_exit_no_deliverable`)
+- Reviewer infra failure diagnostics surfaced through `attempt_history`
+- CLI billing errors surfaced in reviewer diagnostics (PR #950)
+
+### Ralph Infrastructure PRs
+- PR #946: Classify `needs_human` as worker stall in blocker taxonomy
+- PR #947: Place JSON summary after diff in reviewer prompt
+- PR #948: Reconcile manifest projects after repair merge/resume
+- PR #950: Surface Claude CLI billing errors in reviewer diagnostics
+
+---
+
+## March 2026 Sprint — Closed-Loop Backbone, Trust Wedge & Infrastructure
+
+### Closed-Loop Backbone (CLB) — 14/14 Issues Complete
+- `backbone_contracts.py`: IntakeBundle, SpecBundle, DeliberationBundle, ExecutionAttemptRecord, ReceiptEnvelope, OutcomeFeedbackRecord, ComputerUseActionBundle
+- Pipeline receipt normalization, outcome feedback automation, external verifier gate
+- Golden-path backbone test validating end-to-end contract flow
+
+### Infrastructure & CI
+- **Runner fleet**: 12 total (3 Hetzner + 6 EC2 + 3 local Macs), all self-hosted GitHub Actions
+- **CI hardening**: `setup-python-safe` composite action, main-branch workflow reduction (35→6), `cancel-in-progress: false` on all non-required workflows
+- **EC2 production fix**: crash-loop resolved (strict=False secret hydration, sqlite single-instance mode)
+
+### Feature Delivery
+- **Semantic convergence** (PR #723): 5 modules migrated from difflib to embedding-based similarity
+- **Smart provider routing Phase 1** (PR #724): Pareto optimizer, 8-model pricing database, ProviderRouter
+- **EU AI Act playbook** (PR #725): GTM polish, customer compliance playbook
+- **Comms Hub completion** (PR #726): Template persistence, router event wiring, E2E tests (Epic #293 closed)
+- **OpenClaw E2E core loop** (PR #727): CodeImplementationTask, SpecExtractor, ComputerUseActionBundle
+
+### Inbox Trust Wedge — All Blocking Gaps Closed
+- **Trust Wedge Core**: Gmail → adversarial debate → signed receipt → CLI approval → gmail.modify
+- **Contracts**: AllowedAction enum (ARCHIVE/STAR/LABEL/IGNORE), TriageDecision, ReceiptState lifecycle (CREATED→APPROVED→EXECUTED→EXPIRED)
+- **Attestation**: Receipt persisted BEFORE execution gate, DurableFileSigner at `~/.aragora/signing.key`
+- **Demo fallback removal**: SharedInboxView, TriageRulesPanel stripped of silent fallbacks (fail-closed)
+- **Session circuit-breaker** (PR #736, #740): Auth-state pinning on 401/403, QuotaFallbackMixin wired
+- **Gmail OAuth setup** (PR #741): One-time credential setup via `scripts/gmail_oauth_setup.py`
+- **CLI**: `aragora triage run --batch 5 [--auto-approve]`, `aragora triage status`
+- **PRs merged**: #730, #731→#742, #732, #733→#742, #736, #740, #741
+
+### Swarm System — Supervisor-Backed Orchestration
+- **Supervisor** (PR #744): SupervisorRun lifecycle (PLANNED→ACTIVE→COMPLETED), bounded work orders, lease coordination
+- **Worker Launcher** (PR #744): Spawns `claude -p` / `codex exec --full-auto` in managed worktrees
+- **E2E Dispatch** (PR #745): `run_supervised_from_spec()` chains dispatch + collect after start_run
+- **Reconciler** (PR #746): Periodic loop — top up leases, dispatch ready workers, collect finished results
+- **Dev Coordination** (PR #744): WorkLease, CompletionReceipt, IntegrationDecision, SalvageCandidate
+- **CLI**: `aragora swarm run "goal"`, `aragora swarm status [--json]`, `aragora swarm reconcile --all-runs`
+- **98 tests** (89 swarm + 9 reconciler)
+
+### Codebase Metrics (March 6, 2026)
+- **Python modules**: 3,700+
+- **Tests**: 210,000+ across 5,000+ test files
+- **HTTP handlers**: 700+
+- **KM adapters**: 42 registered adapter specs
+- **Agent types**: 43
+- **API operations**: 3,100+ across 2,600+ paths
+- **RBAC permissions**: 420+
+- **Version**: v2.8.0
+
+---
 
 ## Production Hardening & Test Expansion (February 18-23, 2026)
 
@@ -40,7 +162,7 @@ Massive production hardening sprint: 205,000+ tests (up from 129,000+), comprehe
 - **Type safety**: Fixed RepositoryCrawler API usage, resolve_db_path imports, float/dict type annotations
 - **CDC password**: Replaced example credential with placeholder
 
-### SDK Expansion (184 Python / 183 TypeScript namespaces)
+### SDK Expansion (186 Python / 185 TypeScript namespaces)
 - **13 new TypeScript namespaces**: agent_dashboard, playground, partner, selection, expenses, github, and more
 - **6 new Python namespaces**: control_plane, partner, selection, expenses, github SDK methods
 - **SDK types regenerated** from updated OpenAPI spec
@@ -355,9 +477,9 @@ All 18 items from the 8-agent comprehensive assessment have been addressed (see 
 - `aragora/memory/continuum/crud.py` - Added async wrappers for all blocking SQLite operations
 - `aragora/server/openapi/endpoints/__init__.py` - Registered OpenClaw endpoints
 
-### GA Readiness Verification Audit (February 3, 2026)
+### Launch Readiness Verification Audit (February 3, 2026)
 
-Independent verification of production readiness found the project is **98% GA-ready** (up from 95% after resolving SDK parity, slash commands, and decision receipts gaps). Key findings:
+Independent verification found substantial launch-ready infrastructure, but Aragora remains pre-GA until the remaining launch work and release-truthfulness gates are closed. Key findings:
 
 | Area | Previous Estimate | Verified Status |
 |------|-------------------|-----------------|
@@ -368,7 +490,7 @@ Independent verification of production readiness found the project is **98% GA-r
 | Self-Hosted Deployment | Missing production setup | Docker Compose + .env.example comprehensive (193 + 125 lines) |
 | Knowledge Handler Tests | Partial | 97 tests passing (whitespace validation fix applied) |
 
-**Remaining GA Gaps (genuine):**
+**Remaining launch-readiness gaps tracked at the time:**
 - External penetration test (requires third-party vendor)
 - ~~TypeScript SDK parity at ~70% (target: 95%)~~ → **RESOLVED**: 99.3% parity (136/136 namespaces matched)
 - ~~Slack/Teams OAuth wizard and slash commands~~ → **RESOLVED**: 7+ slash commands per platform fully implemented
@@ -2611,7 +2733,7 @@ All stabilization items addressed:
 | MemoryGateway | Active | `aragora/memory/gateway.py` (unified fan-out query across all 5 memory systems) |
 | RetentionGate | Active | `aragora/memory/retention_gate.py` (Titans/MIRAS surprise-driven retention) |
 | CrossSystemDedupEngine | Active | `aragora/memory/dedup.py` (SHA-256 + Jaccard near-duplicate detection) |
-| ClaudeMemAdapter | Active | `aragora/knowledge/mound/adapters/claude_mem_adapter.py` (KM adapter for claude-mem) |
+| ClaudeMemAdapter | Active | `aragora/knowledge/mound/adapters/claude_mem_adapter.py` (41st KM adapter) |
 | RLMMemoryNavigator | Active | `aragora/rlm/memory_navigator.py` (REPL helpers for cross-system memory) |
 
 ### Recently Surfaced (6)
@@ -2770,7 +2892,7 @@ The nomic loop (`scripts/nomic_loop.py`) implements a 6-phase self-improvement c
 - `on_meta_analyzed`, `on_elo_recorded`, `on_claims_extracted`, `on_belief_network_built`
 
 The codebase is **feature-rich with improving exposure**:
-- 3,000+ API operations across 2,900+ paths, 700+ HTTP handler modules
+- 3,100+ API operations across 2,600+ paths, 580+ HTTP handler modules
 - Many sophisticated features now surfaced via new APIs
 - WebSocket-first architecture for real-time, REST for data access
 

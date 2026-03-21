@@ -38,6 +38,13 @@ This index intentionally links to actively maintained docs with validated paths.
 - [Security Deployment](../deployment/security)
 - [Runbook](../operations/runbook)
 - [Incident Response](../operations/incident-response)
+- [Aragora Conductor Workflow](guides/CONDUCTOR_WORKFLOW.md)
+- [Aragora Worker Prompt Pack](guides/WORKER_PROMPT_PACK.md)
+- [Dev Swarm Coordination](architecture/DEV_SWARM_COORDINATION.md)
+
+## Architecture and Planning
+
+- [Conductor Control Plane Implementation Spec](plans/2026-03-07-conductor-control-plane.md)
 
 ## Security and Compliance
 
@@ -50,6 +57,12 @@ This index intentionally links to actively maintained docs with validated paths.
 ## Product Status and Planning
 
 - [Status](./status)
+- [Feature Discovery](status/FEATURE_DISCOVERY.md)
+- [Feature Gap List](FEATURE_GAP_LIST.md)
+- [Next Steps (Canonical)](status/NEXT_STEPS_CANONICAL.md)
+- [Active 6-Week Execution Plan](status/EXECUTION_NEXT_6_WEEKS_2026-03-05.md)
+- [Documentation Hygiene Register](status/DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md)
+- [Roadmap](../ROADMAP.md)
 
 ## Reference
 
