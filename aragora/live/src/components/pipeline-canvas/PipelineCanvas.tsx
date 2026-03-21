@@ -65,6 +65,41 @@ const STAGE_OFFSET_X: Record<string, number> = {
   orchestration: 1800,
 };
 
+const PROVENANCE_STAGES: PipelineStageType[] = ['ideas', 'principles', 'goals', 'actions', 'orchestration'];
+
+function buildTransitionQuestions(
+  provenance: ProvenanceLink[],
+  stageNodes: Record<PipelineStageType, Node[]>,
+): string[] {
+  const prompts: string[] = [];
+
+  for (const link of provenance) {
+    const sourceNode = (stageNodes[link.source_stage] ?? []).find((node) => node.id === link.source_node_id);
+    const data = (sourceNode?.data as Record<string, unknown> | undefined) ?? {};
+    const label = (data.label as string) || sourceNode?.id || link.source_node_id;
+    const ideaType = String(data.ideaType ?? data.idea_type ?? '');
+    const description = String(data.fullContent ?? data.full_content ?? data.description ?? '').trim();
+
+    if (ideaType === 'question' || label.includes('?')) {
+      prompts.push(`Answer the open question "${label}" before approval.`);
+      continue;
+    }
+    if (ideaType === 'constraint') {
+      prompts.push(`Confirm "${label}" remains a hard constraint in goals.`);
+      continue;
+    }
+    if (ideaType === 'assumption') {
+      prompts.push(`Validate the assumption "${label}" before promoting it.`);
+      continue;
+    }
+    if (!description || description === label) {
+      prompts.push(`Define the success condition for "${label}".`);
+    }
+  }
+
+  return Array.from(new Set(prompts)).slice(0, 3);
+}
+
 // =============================================================================
 // Props
 // =============================================================================
@@ -239,7 +274,7 @@ function PipelineCanvasInner({
   const nodeLookup = useMemo(() => {
     const lookup: Record<string, { label: string; stage: PipelineStageType }> = {};
     // Gather from all stages to build complete lookup
-    for (const stage of ALL_STAGES) {
+    for (const stage of PROVENANCE_STAGES) {
       for (const n of stageNodes[stage]) {
         const data = n.data as Record<string, unknown>;
         lookup[n.id] = {
@@ -738,7 +773,18 @@ function PipelineCanvasInner({
             {/* Pending transition gates */}
             {pendingTransitions.length > 0 && !readOnly && (
               <Panel position="bottom-right" className="space-y-2">
-                {pendingTransitions.map((transition, idx) => (
+                {pendingTransitions.map((transition, idx) => {
+                  const transitionProvenance = (
+                    Array.isArray(transition.provenance) && transition.provenance.length > 0
+                      ? transition.provenance
+                      : allProvenance.filter(
+                          (link) =>
+                            link.source_stage === transition.from_stage &&
+                            link.target_stage === transition.to_stage,
+                        )
+                  ) as ProvenanceLink[];
+
+                  return (
                   <StageTransitionGate
                     key={(transition.id as string) || idx}
                     transition={{
@@ -748,8 +794,13 @@ function PipelineCanvasInner({
                       ai_rationale: transition.ai_rationale as string | undefined,
                       confidence: transition.confidence as number | undefined,
                       status: transition.status as string | undefined,
+                      human_notes: transition.human_notes as string | undefined,
+                      reviewed_at: transition.reviewed_at as number | null | undefined,
                     }}
                     pipelineId={pipelineId || ''}
+                    provenance={transitionProvenance}
+                    nodeLookup={nodeLookup}
+                    questions={buildTransitionQuestions(transitionProvenance, stageNodes)}
                     onApprove={(pid, tid) => {
                       approveTransition(tid);
                       onTransitionApprove?.(pid, tid);
@@ -759,7 +810,8 @@ function PipelineCanvasInner({
                       onTransitionReject?.(pid, tid);
                     }}
                   />
-                ))}
+                  );
+                })}
               </Panel>
             )}
 

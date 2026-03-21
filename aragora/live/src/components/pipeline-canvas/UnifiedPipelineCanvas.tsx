@@ -35,8 +35,11 @@ import {
   PIPELINE_STAGE_CONFIG,
   type PipelineStageType,
   type PipelineResultResponse,
+  type ProvenanceLink,
+  type StageTransition,
 } from './types';
 import { usePipelineCanvas } from '../../hooks/usePipelineCanvas';
+import { StageTransitionGate } from '../pipeline/StageTransitionGate';
 
 // =============================================================================
 // Constants
@@ -105,6 +108,35 @@ function getStageForNodeType(type: string): PipelineStageType | null {
     case 'orchestrationNode': return 'orchestration';
     default: return null;
   }
+}
+
+function buildIdeaClarifyingQuestions(nodes: Node[]): string[] {
+  const prompts: string[] = [];
+
+  for (const node of nodes) {
+    const data = (node.data as Record<string, unknown> | undefined) ?? {};
+    const label = (data.label as string) || node.id;
+    const ideaType = String(data.ideaType ?? data.idea_type ?? '');
+    const description = String(data.fullContent ?? data.full_content ?? '').trim();
+
+    if (ideaType === 'question' || label.includes('?')) {
+      prompts.push(`Answer the open question "${label}" before approval.`);
+      continue;
+    }
+    if (ideaType === 'constraint') {
+      prompts.push(`Confirm "${label}" remains a hard constraint in goals.`);
+      continue;
+    }
+    if (ideaType === 'assumption') {
+      prompts.push(`Validate the assumption "${label}" before promoting it.`);
+      continue;
+    }
+    if (!description || description === label) {
+      prompts.push(`Define the success condition for "${label}".`);
+    }
+  }
+
+  return Array.from(new Set(prompts)).slice(0, 3);
 }
 
 // =============================================================================
@@ -329,6 +361,8 @@ function UnifiedPipelineCanvasInner({
     stageEdges,
     loading,
     aiGenerate,
+    approveTransition,
+    rejectTransition,
   } = usePipelineCanvas(pipelineId ?? null, initialData);
 
   const { fitView } = useReactFlow();
@@ -398,6 +432,20 @@ function UnifiedPipelineCanvasInner({
     }
     return stages;
   }, [selectedNodeIds, stageNodes]);
+
+  const transitionNodeLookup = useMemo(() => {
+    const lookup: Record<string, { label: string; stage: PipelineStageType }> = {};
+    for (const stage of ALL_STAGES) {
+      for (const node of stageNodes[stage]) {
+        const data = node.data as Record<string, unknown>;
+        lookup[node.id] = {
+          label: (data.label as string) || node.id,
+          stage,
+        };
+      }
+    }
+    return lookup;
+  }, [stageNodes]);
 
   // -- Compute visible stages: intersection of semantic zoom + filter -------
   const semanticVisible = useMemo(() => getVisibleStages(zoomLevel), [zoomLevel]);
@@ -500,6 +548,58 @@ function UnifiedPipelineCanvasInner({
     return (node?.data as Record<string, unknown>)?.label as string || selectedNodeId;
   }, [selectedNodeId, displayNodes]);
 
+  const selectedIdeaNodes = useMemo(
+    () => stageNodes.ideas.filter((node) => selectedNodeIds.has(node.id)),
+    [selectedNodeIds, stageNodes],
+  );
+
+  const ideasToGoalsTransition = useMemo<StageTransition | null>(
+    () => initialData?.transitions?.find(
+      (transition) => transition.from_stage === 'ideas' && transition.to_stage === 'goals',
+    ) ?? null,
+    [initialData],
+  );
+
+  const ideasToGoalsProvenance = useMemo(() => {
+    const baseLinks = (
+      ideasToGoalsTransition?.provenance?.length
+        ? ideasToGoalsTransition.provenance
+        : initialData?.provenance ?? []
+    ) as ProvenanceLink[];
+
+    const stageLinks = baseLinks.filter(
+      (link) => link.source_stage === 'ideas' && link.target_stage === 'goals',
+    );
+
+    if (selectedIdeaNodes.length === 0) {
+      return stageLinks;
+    }
+
+    const selectedIdeaIds = new Set(selectedIdeaNodes.map((node) => node.id));
+    return stageLinks.filter((link) => selectedIdeaIds.has(link.source_node_id));
+  }, [ideasToGoalsTransition, initialData, selectedIdeaNodes]);
+
+  const focusedGoalLabels = useMemo(
+    () => Array.from(
+      new Set(
+        ideasToGoalsProvenance.map(
+          (link) => transitionNodeLookup[link.target_node_id]?.label ?? link.target_node_id,
+        ),
+      ),
+    ).slice(0, 3),
+    [ideasToGoalsProvenance, transitionNodeLookup],
+  );
+
+  const ideaClarifyingQuestions = useMemo(
+    () => buildIdeaClarifyingQuestions(selectedIdeaNodes),
+    [selectedIdeaNodes],
+  );
+
+  const ideasToGoalsFocusLabel = useMemo(() => {
+    if (selectedIdeaNodes.length === 0) return null;
+    return `${selectedIdeaNodes.length} idea${selectedIdeaNodes.length === 1 ? '' : 's'} selected for promotion`;
+  }, [selectedIdeaNodes]);
+
   // -- Node click -----------------------------------------------------------
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -598,6 +698,79 @@ function UnifiedPipelineCanvasInner({
                   onGenerateTasks={handleGenerateTasks}
                   onGenerateWorkflow={handleGenerateWorkflow}
                 />
+              </Panel>
+            )}
+
+            {!readOnly && selectedIdeaNodes.length > 0 && (
+              <Panel position="bottom-right">
+                <div className="w-80 space-y-2" data-testid="ideas-to-goals-panel">
+                  <div className="rounded-lg border border-border bg-surface/95 p-3">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+                          Ideas -> Goals
+                        </p>
+                        <h3 className="text-sm font-mono font-bold text-text">
+                          Promote focused ideas
+                        </h3>
+                      </div>
+                      <button
+                        onClick={handleGenerateGoals}
+                        className="px-2 py-1 text-[11px] font-mono rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                        disabled={loading}
+                        data-testid="btn-refresh-goal-draft"
+                      >
+                        {loading ? 'Generating...' : 'Refresh goal draft'}
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedIdeaNodes.slice(0, 3).map((node) => (
+                        <span
+                          key={node.id}
+                          className="px-2 py-1 rounded-full bg-indigo-500/15 text-indigo-200 text-[11px] font-mono"
+                        >
+                          {((node.data as Record<string, unknown>)?.label as string) || node.id}
+                        </span>
+                      ))}
+                    </div>
+
+                    {focusedGoalLabels.length > 0 ? (
+                      <div
+                        className="mt-3 rounded border border-border bg-bg/60 p-2"
+                        data-testid="ideas-to-goals-goal-preview"
+                      >
+                        <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted mb-1">
+                          Goal Draft
+                        </p>
+                        <p className="text-xs text-text">
+                          {focusedGoalLabels.join(', ')}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-xs text-text-muted font-mono">
+                        Generate or refresh the goal draft to inspect provenance before approval.
+                      </p>
+                    )}
+                  </div>
+
+                  {ideasToGoalsTransition && (
+                    <StageTransitionGate
+                      transition={ideasToGoalsTransition}
+                      pipelineId={pipelineId || ''}
+                      provenance={ideasToGoalsProvenance}
+                      nodeLookup={transitionNodeLookup}
+                      questions={ideaClarifyingQuestions}
+                      focusLabel={ideasToGoalsFocusLabel ?? undefined}
+                      onApprove={(_, transitionId) => {
+                        approveTransition(transitionId);
+                      }}
+                      onReject={() => {
+                        rejectTransition('ideas', 'goals');
+                      }}
+                    />
+                  )}
+                </div>
               </Panel>
             )}
 

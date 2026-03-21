@@ -128,6 +128,17 @@ class TestIdeasToGoals:
         assert t.from_stage == PipelineStage.IDEAS
         assert t.to_stage == PipelineStage.GOALS
 
+    def test_transition_keeps_review_defaults_and_provenance_bundle(self, idea_graph):
+        goals = ideas_to_goals(idea_graph, ["idea-0"])
+        transition = idea_graph.transitions[0]
+
+        assert transition.status == "pending"
+        assert transition.human_notes == ""
+        assert transition.reviewed_at is None
+        assert len(transition.provenance) == 1
+        assert transition.provenance[0].source_node_id == "idea-0"
+        assert transition.provenance[0].target_node_id == goals[0].id
+
     def test_creates_cross_stage_edges(self, idea_graph):
         ideas_to_goals(idea_graph, ["idea-0"])
         cross = idea_graph.get_cross_stage_edges()

@@ -6,7 +6,7 @@
  */
 
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import type { PipelineStageType } from '../types';
+import type { PipelineResultResponse, PipelineStageType } from '../types';
 
 // ---------------------------------------------------------------------------
 // Track onViewportChange callback so tests can simulate zoom
@@ -67,9 +67,14 @@ jest.mock('@xyflow/react', () => ({
 
 jest.mock('../nodes', () => ({
   IdeaNode: () => <div />,
+  PrincipleNode: () => <div />,
   GoalNode: () => <div />,
   ActionNode: () => <div />,
   OrchestrationNode: () => <div />,
+}));
+
+jest.mock('../../DebateThisButton', () => ({
+  DebateThisButton: () => <div data-testid="debate-this-button" />,
 }));
 
 // ---------------------------------------------------------------------------
@@ -165,6 +170,8 @@ function makeMockCanvas(overrides: Record<string, unknown> = {}) {
     },
     savePipeline: jest.fn(),
     aiGenerate: jest.fn(),
+    approveTransition: jest.fn(),
+    rejectTransition: jest.fn(),
     clearStage: jest.fn(),
     populateFromResult: jest.fn(),
     loading: false,
@@ -186,6 +193,26 @@ import { UnifiedPipelineCanvas } from '../UnifiedPipelineCanvas';
 // ---------------------------------------------------------------------------
 
 describe('UnifiedPipelineCanvas', () => {
+  const baseInitialData: PipelineResultResponse = {
+    pipeline_id: 'pipe-1',
+    ideas: { nodes: [], edges: [], metadata: {} },
+    principles: { nodes: [], edges: [], metadata: {} },
+    goals: { nodes: [], edges: [], metadata: {} },
+    actions: { nodes: [], edges: [], metadata: {} },
+    orchestration: { nodes: [], edges: [], metadata: {} },
+    transitions: [],
+    provenance: [],
+    provenance_count: 0,
+    stage_status: {
+      ideas: 'pending',
+      principles: 'pending',
+      goals: 'pending',
+      actions: 'pending',
+      orchestration: 'pending',
+    },
+    integrity_hash: 'hash-1234',
+  };
+
   beforeEach(() => {
     jest.useFakeTimers();
     capturedOnViewportChange = null;
@@ -491,5 +518,90 @@ describe('UnifiedPipelineCanvas', () => {
     fireEvent.click(screen.getByTestId('node-action-1'));
     fireEvent.click(screen.getByTestId('btn-generate-workflow'));
     expect(aiGenerate).toHaveBeenCalledWith('orchestration');
+  });
+
+  it('shows an ideas-to-goals transition slice with provenance and approval', () => {
+    const aiGenerate = jest.fn();
+    const approveTransition = jest.fn();
+    const ideaNode = makeIdeaNode('idea-1', 'What latency budget do we need?');
+    ideaNode.data.ideaType = 'question';
+    const goalNode = makeGoalNode('goal-1', 'Protect API latency');
+
+    mockedUsePipelineCanvas.mockReturnValue(
+      makeMockCanvas({
+        aiGenerate,
+        approveTransition,
+        stageNodes: {
+          ideas: [ideaNode],
+          principles: [],
+          goals: [goalNode],
+          actions: [],
+          orchestration: [],
+        },
+      }),
+    );
+
+    render(
+      <UnifiedPipelineCanvas
+        pipelineId="pipe-1"
+        initialData={{
+          ...baseInitialData,
+          transitions: [
+            {
+              id: 'trans-ideas-goals',
+              from_stage: 'ideas',
+              to_stage: 'goals',
+              provenance: [
+                {
+                  source_node_id: 'idea-1',
+                  source_stage: 'ideas',
+                  target_node_id: 'goal-1',
+                  target_stage: 'goals',
+                  content_hash: 'abc12345',
+                  timestamp: 1710000000,
+                  method: 'structural_promotion',
+                },
+              ],
+              status: 'pending',
+              confidence: 0.81,
+              ai_rationale: 'Synthesized a goal draft from the latency question.',
+              human_notes: '',
+              created_at: 1710000000,
+              reviewed_at: null,
+            },
+          ],
+          provenance: [
+            {
+              source_node_id: 'idea-1',
+              source_stage: 'ideas',
+              target_node_id: 'goal-1',
+              target_stage: 'goals',
+              content_hash: 'abc12345',
+              timestamp: 1710000000,
+              method: 'structural_promotion',
+            },
+          ],
+          provenance_count: 1,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('node-idea-1'));
+
+    expect(screen.getByTestId('ideas-to-goals-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('ideas-to-goals-goal-preview')).toHaveTextContent('Protect API latency');
+    expect(screen.getByTestId('transition-focus-trans-ideas-goals')).toHaveTextContent(
+      '1 idea selected for promotion',
+    );
+    expect(screen.getByTestId('transition-questions-trans-ideas-goals')).toHaveTextContent(
+      'Answer the open question "What latency budget do we need?" before approval.',
+    );
+
+    fireEvent.click(screen.getByTestId('btn-refresh-goal-draft'));
+    expect(aiGenerate).toHaveBeenCalledWith('goals');
+
+    fireEvent.click(screen.getByTestId('transition-approve-trans-ideas-goals'));
+    expect(approveTransition).toHaveBeenCalledWith('trans-ideas-goals');
+    expect(screen.getByTestId('transition-status-trans-ideas-goals')).toHaveTextContent('Approved');
   });
 });

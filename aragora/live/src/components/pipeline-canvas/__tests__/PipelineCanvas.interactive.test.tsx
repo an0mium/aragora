@@ -6,7 +6,7 @@
  */
 
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import type { PipelineStageType } from '../types';
+import type { PipelineResultResponse, PipelineStageType } from '../types';
 
 // ---------------------------------------------------------------------------
 // Mock @xyflow/react -- requires browser APIs unavailable in jsdom
@@ -143,8 +143,8 @@ jest.mock('../ProgressIndicator', () => ({
   ProgressIndicator: () => <div data-testid="progress-indicator" />,
 }));
 
-jest.mock('../../pipeline/StageTransitionGate', () => ({
-  StageTransitionGate: () => <div data-testid="stage-transition-gate" />,
+jest.mock('../../DebateThisButton', () => ({
+  DebateThisButton: () => <div data-testid="debate-this-button" />,
 }));
 
 // ---------------------------------------------------------------------------
@@ -168,12 +168,14 @@ function makeMockCanvas(overrides: Record<string, unknown> = {}) {
     setActiveStage: jest.fn(),
     stageStatus: {
       ideas: 'pending',
+      principles: 'pending',
       goals: 'pending',
       actions: 'pending',
       orchestration: 'pending',
     },
     stageNodes: {
       ideas: [] as unknown[],
+      principles: [] as unknown[],
       goals: [] as unknown[],
       actions: [] as unknown[],
       orchestration: [] as unknown[],
@@ -208,6 +210,26 @@ import { PipelineCanvas } from '../PipelineCanvas';
 // ---------------------------------------------------------------------------
 
 describe('PipelineCanvas Interactive', () => {
+  const baseInitialData: PipelineResultResponse = {
+    pipeline_id: 'test-pipe',
+    ideas: { nodes: [], edges: [], metadata: {} },
+    principles: { nodes: [], edges: [], metadata: {} },
+    goals: { nodes: [], edges: [], metadata: {} },
+    actions: { nodes: [], edges: [], metadata: {} },
+    orchestration: { nodes: [], edges: [], metadata: {} },
+    transitions: [],
+    provenance: [],
+    provenance_count: 0,
+    stage_status: {
+      ideas: 'pending',
+      principles: 'pending',
+      goals: 'pending',
+      actions: 'pending',
+      orchestration: 'pending',
+    },
+    integrity_hash: 'hash-1234',
+  };
+
   beforeEach(() => {
     jest.useFakeTimers();
     mockedUsePipelineCanvas.mockReturnValue(makeMockCanvas());
@@ -371,5 +393,97 @@ describe('PipelineCanvas Interactive', () => {
     expect(screen.getByTestId('template-selector')).toBeInTheDocument();
     // Should NOT render the main canvas
     expect(screen.queryByTestId('stage-navigator')).not.toBeInTheDocument();
+  });
+
+  it('renders inline transition approval state with provenance context', () => {
+    const approveTransition = jest.fn();
+    const ideaNode = {
+      id: 'idea-1',
+      type: 'ideaNode',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Latency budget',
+        ideaType: 'constraint',
+        fullContent: 'Keep P99 under 200ms.',
+      },
+    };
+    const goalNode = {
+      id: 'goal-1',
+      type: 'goalNode',
+      position: { x: 0, y: 0 },
+      data: { label: 'Protect API latency' },
+    };
+
+    mockedUsePipelineCanvas.mockReturnValue(
+      makeMockCanvas({
+        approveTransition,
+        stageNodes: {
+          ideas: [ideaNode],
+          principles: [],
+          goals: [goalNode],
+          actions: [],
+          orchestration: [],
+        },
+      }),
+    );
+
+    render(
+      <PipelineCanvas
+        pipelineId="test-pipe"
+        initialData={{
+          ...baseInitialData,
+          transitions: [
+            {
+              id: 'trans-ideas-goals',
+              from_stage: 'ideas',
+              to_stage: 'goals',
+              provenance: [
+                {
+                  source_node_id: 'idea-1',
+                  source_stage: 'ideas',
+                  target_node_id: 'goal-1',
+                  target_stage: 'goals',
+                  content_hash: 'abc12345',
+                  timestamp: 1710000000,
+                  method: 'structural_promotion',
+                },
+              ],
+              status: 'pending',
+              confidence: 0.84,
+              ai_rationale: 'Converted the latency constraint into a goal draft.',
+              human_notes: '',
+              created_at: 1710000000,
+              reviewed_at: null,
+            },
+          ],
+          provenance: [
+            {
+              source_node_id: 'idea-1',
+              source_stage: 'ideas',
+              target_node_id: 'goal-1',
+              target_stage: 'goals',
+              content_hash: 'abc12345',
+              timestamp: 1710000000,
+              method: 'structural_promotion',
+            },
+          ],
+          provenance_count: 1,
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('stage-transition-gate-trans-ideas-goals')).toBeInTheDocument();
+    expect(screen.getByTestId('transition-status-trans-ideas-goals')).toHaveTextContent('Awaiting approval');
+    expect(screen.getByTestId('transition-provenance-trans-ideas-goals')).toHaveTextContent('1 source -> 1 draft');
+    expect(screen.getByTestId('transition-provenance-trans-ideas-goals')).toHaveTextContent('Latency budget');
+    expect(screen.getByTestId('transition-provenance-trans-ideas-goals')).toHaveTextContent('Protect API latency');
+    expect(screen.getByTestId('transition-questions-trans-ideas-goals')).toHaveTextContent(
+      'Confirm "Latency budget" remains a hard constraint in goals.',
+    );
+
+    fireEvent.click(screen.getByTestId('transition-approve-trans-ideas-goals'));
+
+    expect(approveTransition).toHaveBeenCalledWith('trans-ideas-goals');
+    expect(screen.getByTestId('transition-status-trans-ideas-goals')).toHaveTextContent('Approved');
   });
 });
