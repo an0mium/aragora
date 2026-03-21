@@ -1,8 +1,10 @@
 # Aragora
 
-Aragora orchestrates 43 AI agents to adversarially vet decisions through structured debate, delivering audit-ready decision receipts. Built for enterprises where AI decisions carry real consequences.
+Aragora is an auditable execution control plane for AI-assisted work. It uses
+structured multi-model debate, review, receipts, and truthful gates to govern
+consequential decisions and execution flows.
 
-### The Decision Integrity Platform
+### Auditable Execution Control Plane
 
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
 [![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
@@ -12,7 +14,7 @@ Aragora orchestrates 43 AI agents to adversarially vet decisions through structu
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll have a working debate in under a minute. For a deeper overview, see [Start Here](docs/START_HERE.md).
+**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll have a working debate in under a minute. For a deeper overview, see [Start Here](docs/START_HERE.md). For strategic framing, see [Competitive Positioning (March 2026)](docs/strategy/COMPETITIVE_POSITIONING_2026_03.md) and [When To Use Aragora Vs Execution Substrates](docs/strategy/WHEN_TO_USE_ARAGORA_VS_EXECUTION_SUBSTRATES.md).
 
 | I want to... | Install |
 |--------------|---------|
@@ -20,9 +22,9 @@ Aragora orchestrates 43 AI agents to adversarially vet decisions through structu
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
-**Individual LLMs are unreliable. Their personas shift with context, their confidence doesn't correlate with accuracy, and they say what you want to hear. For consequential decisions, you need infrastructure that treats this as a feature to be engineered around, not a problem to be ignored.**
+**Individual LLMs are unreliable. Their personas shift with context, their confidence does not correlate with accuracy, and they often optimize for plausible agreement instead of truth.**
 
-Aragora orchestrates 43 agent types in structured adversarial debates -- forcing models to challenge each other's reasoning, surface blind spots, and produce decisions with complete audit trails showing where they agreed, where they disagreed, and why.
+Aragora treats that as a systems problem. It coordinates heterogeneous models through structured debate and review, preserves receipts and provenance, and stops truthfully when evidence is insufficient. The goal is not just faster AI output, but governed AI-assisted execution you can actually inspect.
 
 ## Try It Now
 
@@ -114,7 +116,7 @@ aragora self-improve "Maximize utility for SME businesses" --dry-run
 aragora self-improve "Harden security" --require-approval --budget-limit 20 --receipt
 ```
 
-Each subtask gets an isolated git worktree, cross-agent code review, sandbox validation, and a cryptographic decision receipt before merge.
+Each subtask gets an isolated git worktree, cross-agent review, sandbox validation, and a receipt trail before merge or truthful escalation.
 
 ### Add to Your CI Pipeline (1 minute)
 
@@ -169,7 +171,7 @@ The Nomic Loop is Aragora's autonomous self-improvement system: agents debate im
 
 A single LLM will confidently give you a wrong answer and you won't know it. Research shows that LLM personas are context-dependent, fragile under adversarial pressure, and prone to sycophantic agreement with whoever is asking. [Stanford's taxonomy of LLM reasoning failures](https://arxiv.org/abs/2602.06176) documents systematic breakdowns in formal logic, unfaithful chain-of-thought, and robustness failures under minor prompt variations -- exactly the failure modes that structured adversarial debate is designed to surface. When the decision matters -- hiring, architecture, compliance, strategy -- one model's opinion is insufficient.
 
-Aragora treats each model as an **unreliable witness** and uses structured debate protocols to extract signal from their disagreements:
+Aragora treats each model as an **unreliable witness** and uses structured debate, review, and receipts to extract signal from disagreement instead of hiding it behind a single routed answer:
 
 | What you get | How it works |
 |---|---|

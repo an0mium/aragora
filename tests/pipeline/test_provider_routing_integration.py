@@ -49,6 +49,17 @@ async def test_provider_router_selects_before_debate(mock_arena_factory, mock_pr
     call_kwargs = mock_arena_factory.call_args
     assert call_kwargs is not None
     assert "provider_hints" in (call_kwargs.kwargs or {})
+    assert result.debate_result is not None
+    assert result.debate_result.metadata["provider_hints"] == [
+        "claude-sonnet-4",
+        "gpt-4o",
+        "deepseek-r1",
+    ]
+    assert result.debate_result.metadata["provider_names"] == [
+        "claude-sonnet-4",
+        "gpt-4o",
+        "deepseek-r1",
+    ]
 
 
 @pytest.mark.asyncio
@@ -95,6 +106,48 @@ async def test_provider_router_does_not_break_factory_without_provider_hints_kwa
 
     assert "debate" in result.stages_completed
     assert result.errors == []
+    assert result.debate_result is not None
+    assert result.debate_result.metadata["provider_names"] == [
+        "claude-sonnet-4",
+        "gpt-4o",
+        "deepseek-r1",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_provider_router_does_not_overwrite_existing_provider_metadata(
+    mock_provider_router,
+):
+    """If the debate runtime already stamps provider metadata, preserve it."""
+
+    async def arena_factory(
+        prompt: str,
+        agents=None,
+        rounds: int = 3,
+        agent_count: int = 3,
+        consensus_threshold: float = 0.6,
+        provider_hints=None,
+    ):
+        result = MagicMock()
+        result.final_answer = "Use approach A"
+        result.participants = ["agent-claude", "agent-gpt"]
+        result.consensus_reached = True
+        result.metadata = {
+            "provider_names": ["preexisting-provider"],
+            "provider_hints": ["preexisting-provider"],
+        }
+        return result
+
+    orch = UnifiedOrchestrator(
+        arena_factory=arena_factory,
+        provider_router=mock_provider_router,
+    )
+
+    result = await orch.run("Design a rate limiter")
+
+    assert result.debate_result is not None
+    assert result.debate_result.metadata["provider_names"] == ["preexisting-provider"]
+    assert result.debate_result.metadata["provider_hints"] == ["preexisting-provider"]
 
 
 @pytest.mark.asyncio

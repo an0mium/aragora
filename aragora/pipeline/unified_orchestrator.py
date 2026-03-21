@@ -247,6 +247,10 @@ class UnifiedOrchestrator:
                 consensus_threshold=consensus_threshold,
                 provider_hints=provider_hints,
             )
+            self._annotate_provider_metadata(
+                result.debate_result,
+                provider_hints=provider_hints,
+            )
             result.stages_completed.append("debate")
 
             # Update phase ELO from debate
@@ -508,6 +512,35 @@ class UnifiedOrchestrator:
         if provider_hints:
             return [str(item) for item in provider_hints if str(item)]
         return []
+
+    @staticmethod
+    def _annotate_provider_metadata(
+        debate_result: Any,
+        *,
+        provider_hints: list[str] | None = None,
+    ) -> None:
+        """Persist routed provider choices into debate metadata when available.
+
+        Some injected arena factories already surface provider routing in their
+        result metadata, while others only consume ``provider_hints`` during
+        selection. Stamping the selected providers here makes routing decisions
+        observable to downstream receipts and telemetry without overwriting
+        richer metadata from the debate runtime itself.
+        """
+        if debate_result is None or not provider_hints:
+            return
+        metadata = getattr(debate_result, "metadata", None)
+        if not isinstance(metadata, dict):
+            metadata = {}
+            try:
+                setattr(debate_result, "metadata", metadata)
+            except (AttributeError, TypeError):
+                return
+        provider_names = [str(item) for item in provider_hints if str(item)]
+        if not provider_names:
+            return
+        metadata.setdefault("provider_hints", list(provider_names))
+        metadata.setdefault("provider_names", list(provider_names))
 
     def _update_phase_elo(self, debate_result: Any, domain: str) -> None:
         """Update phase ELO ratings from debate results."""
