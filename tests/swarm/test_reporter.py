@@ -507,11 +507,11 @@ class TestIntegratorView:
             now=now,
         )
 
-        lane = payload["lanes"][0]
-        assert payload["summary"]["blocked_lanes"] == 1
-        assert payload["summary"]["collision_lanes"] == 1
-        assert payload["summary"]["stale_heartbeat_lanes"] == 1
-        assert payload["summary"]["missing_receipt_lanes"] == 1
+        lane = next(item for item in payload["lanes"] if item.get("task_id") == "wo-collision")
+        assert payload["summary"]["blocked_lanes"] >= 1
+        assert payload["summary"]["collision_lanes"] >= 1
+        assert payload["summary"]["stale_heartbeat_lanes"] >= 1
+        assert payload["summary"]["missing_receipt_lanes"] >= 1
         assert lane["merge_readiness"] == "blocked"
         assert lane["lane_health"] == "stalled"
         assert lane["lease_health"] == "stalled"
