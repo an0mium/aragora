@@ -6,7 +6,7 @@
 
 ## Current Status (March 2026)
 
-Aragora has shipped most of the closed-loop backbone (CLB) infrastructure and completed the 14/14 issue sprint, but launch readiness remains gated by truthfulness, self-host validation, and the remaining tracked launch work below.
+Aragora has shipped most of the closed-loop backbone (CLB) infrastructure and completed the 14/14 issue sprint, but the March 2026 product cohesion assessment found the product loop is still broken. Launch readiness is now gated first by PMF closure, not by enterprise certification.
 
 **By the numbers:**
 - 208,000+ tests across 5,000+ test files (0 failures on main)
@@ -33,11 +33,13 @@ Aragora has shipped most of the closed-loop backbone (CLB) infrastructure and co
 - File-scope propagation fix for swarm work orders (#884)
 - LLM-first vague-goal expansion replacing keyword templates (#888)
 
-**Remaining tracked launch work:**
-- External penetration test and audit engagement (vendor-dependent; scheduling still pending confirmation)
-- Decision-Integrity Kernel scale-out beyond the base kernel already on `main`
-- Developer swarm control plane and autonomous self-improvement hardening
-- Sequential productization of exposed proof/demo/inbox surfaces
+**Remaining tracked priority work:**
+- Wire provider routing into Arena agent selection ([#813](https://github.com/synaptent/aragora/issues/813))
+- Complete one end-to-end user journey from setup to value delivery ([#1046](https://github.com/synaptent/aragora/issues/1046))
+- Feed Knowledge Mound reads into debate context so memory is not write-only ([#1048](https://github.com/synaptent/aragora/issues/1048))
+- Finish OpenClaw dispatch and the five functional frontend paths that prove the value prop ([#814](https://github.com/synaptent/aragora/issues/814), [#1047](https://github.com/synaptent/aragora/issues/1047))
+- Demonstrate 10+ agent coordination once the loop works end to end ([#815](https://github.com/synaptent/aragora/issues/815))
+- Keep pentest / SOC 2 preparation warm, but after PMF proof ([#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509))
 
 **EU AI Act enforcement date: August 2, 2026** — the compliance CLI and audit trail infrastructure
 position Aragora as a natural adoption path for enterprises facing this deadline.
@@ -107,8 +109,8 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 - [x] Backup & restore CLI
 - [x] Helm chart for Kubernetes
 
-### Enterprise Readiness (Ongoing)
-- [ ] Complete third-party penetration testing (vendor-dependent scheduling still pending)
+### Enterprise Readiness (After PMF)
+- [ ] Complete third-party penetration testing after provider routing, one working user journey, and KM retrieval are live end-to-end
 - [ ] Deploy public status page at status.aragora.ai
 - [x] Implement quarterly disaster recovery drills (BackupScheduler with DR integration)
 - [x] Finalize data classification policy (runtime enforcement, CI PII gate, evidence bundles)
@@ -199,29 +201,33 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 This section captures the prioritized forward roadmap as of March 2026, organized by quarter and theme.
 Execution priority source of truth: [docs/status/NEXT_STEPS_CANONICAL.md](docs/status/NEXT_STEPS_CANONICAL.md). This roadmap summarizes quarter-level themes and does not supersede canonical execution priorities.
 
-**EU AI Act enforcement: August 2, 2026.** This is a hard external forcing function. The compliance CLI
-(`aragora compliance export`) is already shipping artifact bundles for GPAI transparency requirements.
-Enterprise teams evaluating AI governance solutions will be making decisions in Q2 2026 — the window
-for capturing this cohort is now.
+The March 2026 product cohesion assessment found ~25% effective feature completeness for actual use, no complete user journey, provider routing still not wired to Arena, Knowledge Mound retrieval not enriching debates, and roughly 140 of 149 frontend pages still acting as shells. The near-term roadmap therefore prioritizes closing the product loop before widening enterprise-readiness work.
+
+**EU AI Act enforcement: August 2, 2026.** This remains a real forcing function, but the compliance package only matters commercially if the core PMF loop is usable enough to demo and adopt.
 
 ### Q2 2026 Priorities
+- [ ] Wire provider routing to Arena agent selection ([#813](https://github.com/synaptent/aragora/issues/813))
+- [ ] Complete one working user journey from setup to result ([#1046](https://github.com/synaptent/aragora/issues/1046))
+- [ ] Feed Knowledge Mound reads into debate context ([#1048](https://github.com/synaptent/aragora/issues/1048))
+- [ ] OpenClaw dispatch completion ([#814](https://github.com/synaptent/aragora/issues/814))
+- [ ] Productize five functional frontend paths instead of expanding shell coverage ([#1047](https://github.com/synaptent/aragora/issues/1047))
 - [x] Agent-first beta: OpenClaw fleet deployed on 3 machines, running `aragora review` on real PRs via REST API
 - [x] GitHub Actions pre-merge gate (`aragora-review-gate.yml` shipped)
 - [x] Public demo at aragora.ai/demo (PR #705; standalone demo page live)
-- [ ] EU AI Act compliance package — final packaging polish, regulator-ready validation, and customer rollout hardening
-- [ ] SOC 2 Type II audit engagement kickoff (controls are ready; external auditor engagement pending)
+- [ ] EU AI Act compliance package — keep packaging warm without displacing PMF loop closure
 
 ### Q3 2026 Priorities
+- [ ] 10+ agent coordination at enterprise scale ([#815](https://github.com/synaptent/aragora/issues/815))
+- [ ] Pentest / SOC 2 engagement kickoff after PMF proof ([#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509))
+- [ ] ERC-8004 on-chain deployment ([#816](https://github.com/synaptent/aragora/issues/816))
 - [ ] Cloud marketplace listings: AWS Marketplace and Azure Marketplace
 - [ ] Vertical packages: Healthcare (FHIR/HIPAA), Financial Services (SOX/audit), Legal
 - [ ] Skills marketplace pilot (community agent templates)
 - [ ] Kubernetes Operator for automated horizontal scaling
 
 ### Q4 2026 Priorities
-- [ ] 10+ agent coordination at enterprise scale
 - [ ] Cross-organization federation foundation
 - [ ] Decision-Integrity UI Workbench (visual debate canvas)
-- [ ] OpenClaw E2E demo production-ready
 
 ### 2027 Horizon
 - Prover-Estimator debate protocol

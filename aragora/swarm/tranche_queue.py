@@ -43,6 +43,7 @@ from aragora.swarm.tranche_watch import (
     DriverAlreadyClaimedError,
     claim_driver,
     load_tranche_run_state,
+    refresh_tranche_state,
     release_driver,
     run_state_path_for_manifest,
     watch_loop,
@@ -1185,6 +1186,12 @@ class TrancheQueueExecutor:
     def reconcile(self) -> dict[str, Any]:
         manifest = TrancheQueueManifest.load(self.queue_path)
         state = TrancheQueueRunState.load(self.state_path, manifest=manifest)
+        artifact_store = TrancheArtifactStore(repo_root=self.repo_root)
+        try:
+            store: DevCoordinationStore | None = DevCoordinationStore(repo_root=self.repo_root)
+        except RuntimeError:
+            store = None
+        changed = False
         counts: dict[str, int] = {}
         items: list[dict[str, Any]] = []
         for item in manifest.items:
@@ -1194,9 +1201,47 @@ class TrancheQueueExecutor:
             tranche_status = item_state.tranche_status
             if item_state.manifest_path:
                 try:
-                    tranche_status = load_tranche_run_state(item_state.manifest_path).status
+                    current = load_tranche_run_state(item_state.manifest_path)
+                    refreshed = refresh_tranche_state(
+                        current,
+                        artifact_store=artifact_store,
+                        store=store,
+                        repo_root=self.repo_root,
+                    )
+                    if refreshed.to_dict() != current.to_dict():
+                        refreshed.save(run_state_path_for_manifest(item_state.manifest_path))
+                        changed = True
+                    tranche_status = refreshed.status
+                    lane_pr_urls = [
+                        url
+                        for lane_state in refreshed.lane_states.values()
+                        if (url := _optional_text(getattr(lane_state, "pr_url", None)))
+                    ]
+                    if lane_pr_urls != item_state.pr_urls:
+                        item_state.pr_urls = lane_pr_urls
+                        changed = True
                 except (OSError, ValueError):
                     tranche_status = item_state.tranche_status
+            if tranche_status != item_state.tranche_status:
+                item_state.tranche_status = tranche_status
+                changed = True
+            if item_state.status not in _QUEUE_ITEM_TERMINAL_STATUSES and tranche_status in {
+                TRANCHE_STATUS_COMPLETED,
+                TRANCHE_STATUS_NEEDS_HUMAN,
+            }:
+                item_state.status = (
+                    QUEUE_ITEM_STATUS_COMPLETED
+                    if tranche_status == TRANCHE_STATUS_COMPLETED
+                    else QUEUE_ITEM_STATUS_NEEDS_HUMAN
+                )
+                if tranche_status == TRANCHE_STATUS_NEEDS_HUMAN and not item_state.stop_reason:
+                    item_state.stop_reason = tranche_status
+                item_state.finished_at = item_state.finished_at or _utcnow()
+                item_state.updated_at = _utcnow()
+                status = item_state.status
+                changed = True
+            else:
+                status = item_state.status
             items.append(
                 {
                     "item_id": item.item_id,
@@ -1223,6 +1268,50 @@ class TrancheQueueExecutor:
                     ),
                 }
             )
+        running_items = [
+            item_id
+            for item_id, item_state in state.item_states.items()
+            if item_state.status == QUEUE_ITEM_STATUS_RUNNING
+        ]
+        pending_items = [
+            item_id
+            for item_id, item_state in state.item_states.items()
+            if item_state.status == QUEUE_ITEM_STATUS_PENDING
+        ]
+        if running_items:
+            next_current = running_items[0]
+            if state.current_item_id != next_current:
+                state.current_item_id = next_current
+                changed = True
+            if state.status != QUEUE_STATUS_RUNNING:
+                state.status = QUEUE_STATUS_RUNNING
+                state.stop_reason = None
+                state.finished_at = None
+                changed = True
+        elif pending_items:
+            if state.current_item_id is not None:
+                state.current_item_id = None
+                changed = True
+            if state.status == QUEUE_STATUS_RUNNING:
+                state.status = QUEUE_STATUS_STOPPED
+                state.stop_reason = state.stop_reason or "driver_stopped"
+                state.finished_at = state.finished_at or _utcnow()
+                changed = True
+        else:
+            if state.current_item_id is not None:
+                state.current_item_id = None
+                changed = True
+            if state.status != QUEUE_STATUS_COMPLETED:
+                state.status = QUEUE_STATUS_COMPLETED
+                state.stop_reason = None
+                state.finished_at = state.finished_at or _utcnow()
+                changed = True
+        if changed:
+            state.updated_at = _utcnow()
+            state.save(self.state_path)
+        counts = {}
+        for item_state in state.item_states.values():
+            counts[item_state.status] = counts.get(item_state.status, 0) + 1
         return {
             "mode": "tranche-queue",
             "queue_id": manifest.queue_id,
