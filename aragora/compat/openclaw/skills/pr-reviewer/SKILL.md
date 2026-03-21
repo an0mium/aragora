@@ -51,6 +51,27 @@ Unlike single-model code review, Aragora uses adversarial consensus:
 - **Split opinions** = documented with majority/minority positions
 - An **agreement score** (0-1) measures overall consensus
 
+## Remote Head Discipline
+
+Always review the pull request's remote head, not the ambient local worktree.
+
+Required practice:
+
+1. Fetch the PR branch or use GitHub's diff API before reading file contents.
+2. Treat `gh pr diff`, `gh pr view --json`, `git diff origin/<base>...origin/<head>`,
+   and `git show origin/<head>:<path>` as the source of truth.
+3. When quoting or inspecting a file in a finding, confirm it against the PR
+   head SHA or remote branch ref first.
+
+Do not:
+
+- read the current checkout and assume it matches the PR branch
+- review against a stale local branch snapshot
+- issue blocking findings that are not reproducible from the remote PR head
+
+If the remote branch cannot be fetched, report `blocked_nonreviewable` instead
+of silently falling back to local workspace files.
+
 ## Output Format
 
 Each review produces:
