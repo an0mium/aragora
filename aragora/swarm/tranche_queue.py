@@ -1797,6 +1797,22 @@ class TrancheQueueExecutor:
             except Exception as exc:
                 logger.warning("tranche queue release driver failed for %s: %s", item.item_id, exc)
 
+        if current.status in {
+            TRANCHE_STATUS_ABORTED,
+            TRANCHE_STATUS_COMPLETED,
+            TRANCHE_STATUS_NEEDS_HUMAN,
+        }:
+            await self._publish_terminal_lane_deliverables(
+                current=current,
+                tranche_manifest=tranche_manifest,
+                artifact_store=artifact_store,
+                github=github,
+                registry=registry,
+                state_path=state_path,
+                item_state=item_state,
+                events=events,
+            )
+
         if item_state.status not in _QUEUE_ITEM_TERMINAL_STATUSES:
             if current.status == TRANCHE_STATUS_COMPLETED:
                 item_state.status = QUEUE_ITEM_STATUS_COMPLETED
@@ -1825,6 +1841,84 @@ class TrancheQueueExecutor:
         }
 
         return systemic_reason or self._classify_systemic_reason(events, item_state)
+
+    async def _publish_terminal_lane_deliverables(
+        self,
+        *,
+        current: Any,
+        tranche_manifest: Any,
+        artifact_store: TrancheArtifactStore | Any,
+        github: Any,
+        registry: Any,
+        state_path: Path,
+        item_state: TrancheQueueItemRunState,
+        events: list[dict[str, Any]],
+    ) -> None:
+        updated = False
+        for lane_id, lane_state in current.lane_states.items():
+            if _optional_text(getattr(lane_state, "pr_url", None)):
+                continue
+            artifact = self._load_artifact_for_lane(artifact_store, current.manifest_id, lane_id)
+            if artifact is None or not self._artifact_has_publishable_deliverable(artifact):
+                continue
+            payload = await integrate_lane(
+                artifact=artifact,
+                manifest=tranche_manifest,
+                approve=False,
+                repo_root=self.repo_root,
+                github=github,
+                registry=registry,
+                store=DevCoordinationStore(repo_root=self.repo_root),
+                target_branch=self.target_branch,
+                decided_by="tranche-queue-terminal-publish",
+                rationale=(
+                    "Tranche queue published a completed lane deliverable after watch "
+                    "terminated without recording a PR."
+                ),
+                run_state=current,
+                autonomy_mode=str(item_state.effective_autonomy_mode or "adaptive"),
+            )
+            if not isinstance(payload, dict):
+                continue
+            payload = {"lane_id": lane_id, **payload}
+            events.append(_event_summary("integrate", payload))
+            pr_url = _optional_text(payload.get("pr_url"))
+            if pr_url:
+                lane_state.pr_url = pr_url
+                updated = True
+        if updated:
+            current.updated_at = _utcnow()
+            current.save(state_path)
+
+    @staticmethod
+    def _artifact_has_publishable_deliverable(artifact: Any) -> bool:
+        metadata = getattr(artifact, "metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+        deliverable = metadata.get("deliverable", {})
+        if not isinstance(deliverable, dict):
+            deliverable = {}
+        branch = _optional_text(deliverable.get("branch")) or _optional_text(metadata.get("branch"))
+        commit_shas = [
+            str(item).strip() for item in deliverable.get("commit_shas", []) if str(item).strip()
+        ]
+        return bool(branch and commit_shas)
+
+    @staticmethod
+    def _load_artifact_for_lane(
+        artifact_store: TrancheArtifactStore | Any,
+        manifest_id: str,
+        lane_id: str,
+    ) -> Any | None:
+        if hasattr(artifact_store, "load"):
+            artifact = artifact_store.load(manifest_id, lane_id)
+            if artifact is not None:
+                return artifact
+        if hasattr(artifact_store, "list"):
+            for artifact in artifact_store.list(manifest_id):
+                if getattr(artifact, "lane_id", None) == lane_id:
+                    return artifact
+        return None
 
     def _classify_systemic_reason(
         self,

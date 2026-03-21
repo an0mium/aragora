@@ -26,6 +26,13 @@ from aragora.swarm.tranche_queue import (
     queue_state_path_for_queue,
     reconcile_tranche_queue,
 )
+from aragora.swarm.tranche import TrancheLaneArtifact
+from aragora.swarm.tranche_state import (
+    LANE_STATUS_NEEDS_HUMAN,
+    TRANCHE_STATUS_NEEDS_HUMAN,
+    LaneRunState,
+    TrancheRunState,
+)
 
 
 def _write_queue(queue_path: Path) -> TrancheQueueManifest:
@@ -823,3 +830,107 @@ async def test_run_queue_stops_on_systemic_reasons(
     assert result["status"] == QUEUE_STATUS_STOPPED
     assert result["stop_reason"] == expected_stop_reason
     assert result["counts"] == {"stopped": 1, "pending": 2}
+
+
+@pytest.mark.asyncio
+async def test_drive_manifest_publishes_terminal_deliverable_without_recorded_pr(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    _write_queue(queue_path)
+    executor = TrancheQueueExecutor(queue_path=queue_path, repo_root=tmp_path)
+    manifest_path = tmp_path / "tranche.yaml"
+    manifest_path.write_text("manifest_id: tranche-test\n", encoding="utf-8")
+    item = TrancheQueueItem(
+        item_id="issue-1046",
+        kind="issue",
+        source="1046",
+        merge_class="manual",
+    )
+    item_state = TrancheQueueItemRunState(
+        item_id=item.item_id,
+        status=QUEUE_ITEM_STATUS_RUNNING,
+        effective_autonomy_mode="adaptive",
+    )
+    current = TrancheRunState(
+        manifest_id="tranche-test",
+        status=TRANCHE_STATUS_NEEDS_HUMAN,
+        autonomy_mode="adaptive",
+        lane_states={
+            "lane-a": LaneRunState(
+                lane_id="lane-a",
+                status=LANE_STATUS_NEEDS_HUMAN,
+                run_id="run-123",
+            )
+        },
+    )
+    artifact = TrancheLaneArtifact(
+        lane_id="lane-a",
+        source_ref="issue-1046",
+        status="completed",
+        run_id="run-123",
+        metadata={
+            "deliverable": {
+                "branch": "codex/swarm-lane-a",
+                "commit_shas": ["abc123"],
+            }
+        },
+    )
+
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.load_tranche_run_state",
+        lambda _: current,
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.claim_driver",
+        lambda state, **kwargs: state,
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.release_driver",
+        lambda state, **kwargs: state,
+    )
+
+    async def fake_watch_loop(state, **kwargs):
+        return state
+
+    monkeypatch.setattr("aragora.swarm.tranche_queue.watch_loop", fake_watch_loop)
+    monkeypatch.setattr(
+        TrancheQueueExecutor,
+        "_load_artifact_for_lane",
+        staticmethod(lambda *args, **kwargs: artifact),
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.DevCoordinationStore",
+        lambda repo_root: object(),
+    )
+
+    async def fake_integrate_lane(**kwargs):
+        return {
+            "pr_url": "https://example.test/pr/42",
+            "publish_result": {"action": "pr_created"},
+            "recommendation": "needs_human",
+            "executed": False,
+        }
+
+    monkeypatch.setattr("aragora.swarm.tranche_queue.integrate_lane", fake_integrate_lane)
+
+    tranche_manifest = SimpleNamespace(manifest_id="tranche-test")
+    deadline = datetime.now(UTC) + timedelta(minutes=5)
+
+    result = await executor._drive_manifest(
+        item=item,
+        item_state=item_state,
+        manifest_path=manifest_path,
+        tranche_manifest=tranche_manifest,
+        deadline=deadline,
+    )
+
+    assert result is None
+    assert item_state.status == QUEUE_ITEM_STATUS_NEEDS_HUMAN
+    assert item_state.pr_urls == ["https://example.test/pr/42"]
+    assert current.lane_states["lane-a"].pr_url == "https://example.test/pr/42"
+    assert any(
+        event.get("type") == "integrate" and event.get("pr_url") == "https://example.test/pr/42"
+        for event in item_state.events
+    )
