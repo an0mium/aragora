@@ -3,31 +3,37 @@
 > **Living document** — tracks features planned, partially built, or in need of hardening. Updated as items are completed or priorities shift.
 > Active execution status now lives in [docs/status/ACTIVE_EXECUTION_ISSUES.md](status/ACTIVE_EXECUTION_ISSUES.md) and the linked GitHub issues. This file remains the capability and productization backlog truth.
 > Last updated: March 2026
+> March 2026 priority reframe: product cohesion and PMF proof come before certification. Pentest / SOC 2 stay tracked, but they are no longer the first blocker lane.
 
 ## How to Read This List
 
-- **P0**: GA blockers — ship nothing else until resolved
-- **P1**: GTM launch (April–May 2026) — required for revenue
-- **P2**: Product hardening (Q2 2026) — required for enterprise adoption
-- **P3**: Scale & revenue (Q3–Q4 2026)
+- **P0**: PMF blockers — close the product loop before certification
+- **P1**: Value-prop proof (Q2 2026)
+- **P2**: Product hardening and enterprise readiness after PMF
+- **P3**: Scale & revenue after PMF
 - **P4**: Strategic evolution (2026+)
 - **Scaffolding**: Code exists but needs hardening/productization
 
 ---
 
-## P0 — GA Blockers
+## P0 — PMF Blockers
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| External penetration test | Vendor outreach in progress | Kickoff target: Mar 3, 2026. Tracked in [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509). Kept warm, not the main product lane. |
+| Smart provider routing | **Phase 1 shipped** | PR #724: Pareto optimizer, 8-model pricing database, ProviderRouter. Runtime integration with Arena agent selection remains the first product-loop blocker. Tracked in [#813](https://github.com/synaptent/aragora/issues/813). |
+| Complete one working user journey | Not started end-to-end | No truthful path yet from setup / API key to real debate execution to visible results. Tracked in [#1046](https://github.com/synaptent/aragora/issues/1046). |
+| Knowledge Mound reads enrich debate context | Write path shipped; retrieval not wired | KM remains effectively write-only in default product flows. Debate context is not enriched by accumulated knowledge. Tracked in [#1048](https://github.com/synaptent/aragora/issues/1048). |
 | Debate output quality | **VALIDATED — moved to Completed** | Run 012 (Mar 5): composite 8.38-9.39/10. Diverse benchmark (10 domains): 100% pass, avg composite 0.938. |
 
 ---
 
-## P1 — GTM Launch (April–May 2026)
+## P1 — Value-Prop Proof (Q2 2026)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
+| OpenClaw end-to-end demo | **Core loop shipped** | PR #727: CodeImplementationTask, SpecExtractor, ComputerUseActionBundle, receipt linkage. Production validation with live agents remaining. Tracked in [#814](https://github.com/synaptent/aragora/issues/814). |
+| Functional frontend paths (5 that matter) | Shell-heavy (~140/149 pages remain scaffolding) | Focus the frontend on five truthful surfaces: debate creation, results, knowledge, settings, and receipts. Current page count overstates usability. Tracked in [#1047](https://github.com/synaptent/aragora/issues/1047). |
+| 10+ agent coordinated debates | Scaffolding | Current practical limit: 2-6 agents. Coordination infrastructure exists; scale testing needed after the core loop works. Tracked in [#815](https://github.com/synaptent/aragora/issues/815). |
 | Agent-first beta via REST API | **Fleet deployed (12 runners)** | `aragora openclaw watch` polls repos, runs multi-agent review, posts findings. 3 Hetzner + 6 EC2 + 3 local Macs. PR watch daemon on Mac Studio via launchd. Shared operator productization is tracked in [#817](https://github.com/synaptent/aragora/issues/817) and [#819](https://github.com/synaptent/aragora/issues/819). |
 | GitHub Actions pre-merge gate | **Workflow created** | `aragora-review-gate.yml` manual-only (workflow_dispatch). Re-enable pull_request trigger when ready. |
 | Public demo at aragora.ai/demo | **Live and verified** | `/demo` (standalone debate), `/demo/pipeline` (pipeline demo), `/demo/instant` (debate replay). All return 200. Landing page CTA wired. Productization is tracked in [#818](https://github.com/synaptent/aragora/issues/818). |
@@ -37,16 +43,15 @@
 
 ---
 
-## P2 — Product Hardening (Q2 2026)
+## P2 — Product Hardening And Enterprise Readiness (After PMF)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
+| External penetration test | Vendor outreach in progress | Kickoff stays warm, but certification is intentionally sequenced after the product loop is usable. Tracked in [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509). |
 | Semantic convergence (full embedding) | **VALIDATED — moved to Completed** | PR #723 migrated 5 similarity modules from difflib to embedding-based. Remaining difflib usage is exclusively for text diff display, not similarity. |
 | ERC-8004 on-chain deployment | Contracts written | Solidity contracts exist; not deployed to any mainnet. Needs chain endpoint config + gas management. Tracked in [#816](https://github.com/synaptent/aragora/issues/816). |
-| OpenClaw end-to-end demo | **Core loop shipped** | PR #727: CodeImplementationTask, SpecExtractor, ComputerUseActionBundle, receipt linkage. Production validation with live agents remaining. Tracked in [#814](https://github.com/synaptent/aragora/issues/814). |
-| Decision-Integrity UI Workbench | **~90% done** | `(app)/decision-integrity/page.tsx` (910 lines), `(app)/leaderboard/page.tsx`, `(app)/knowledge/page.tsx` (1042 lines) all ship. Remaining: Canvas GUI 8-stage visual DAG (moved to P4). |
+| Decision-Integrity UI Workbench | Partial frontend | Existing workbench pages render, but they do not replace the PMF need for five truthful user-facing paths. Remaining canvas and data wiring work stays secondary to `#1047`. |
 | SOC 2 Type II audit engagement | Scope doc ready | 60+ controls implemented (98%); pentest scope doc v3.1.0 finalized; vendor shortlisted (NCC, Bishop Fox, Trail of Bits, Cure53). Blocker: vendor selection + engagement. |
-| Smart provider routing | **Phase 1 shipped** | PR #724: Pareto optimizer, 8-model pricing database, ProviderRouter. Runtime integration with Arena agent selection remaining. Tracked in [#813](https://github.com/synaptent/aragora/issues/813). |
 | Enterprise Communication Hub (#293) | **Epic closed** | PR #726: template persistence, router event wiring, E2E tests. Delivery log, retry queue, circuit breakers, event telemetry, user preference UI, Active Triage dashboard, TriageRulesPanel all shipped. Remaining: inbox→debate trigger wiring end-to-end validation, tracked in [#817](https://github.com/synaptent/aragora/issues/817). |
 
 ---
@@ -60,7 +65,6 @@
 | Skills Marketplace pilot | Scaffolding | SkillRegistry + SkillMarketplace code exists; no public marketplace endpoint. |
 | On-premise deployment productization | Partial | Docker Compose + Helm chart exist; on-prem installer/wizard not built. |
 | International expansion / EU data residency | Not started | Data residency controls needed for EU enterprise buyers. |
-| 10+ agent coordinated debates | Scaffolding | Current practical limit: 2-6 agents. Coordination infrastructure exists; scale testing needed. Tracked in [#815](https://github.com/synaptent/aragora/issues/815). |
 | Compute escrow mechanism | Not started | Settlement stakes via crypto compute escrow. Design in docs/plans/. |
 
 ---
