@@ -11,7 +11,9 @@ from aragora.swarm.tranche_queue import (
     QUEUE_ITEM_STATUS_COMPLETED,
     QUEUE_ITEM_STATUS_NEEDS_HUMAN,
     QUEUE_ITEM_STATUS_PENDING,
+    QUEUE_ITEM_STATUS_RUNNING,
     QUEUE_STATUS_COMPLETED,
+    QUEUE_STATUS_RUNNING,
     QUEUE_STATUS_STOPPED,
     TrancheQueueExecutor,
     TrancheQueueItem,
@@ -706,9 +708,87 @@ def test_reconcile_queue_reports_truthful_counts(tmp_path: Path) -> None:
 
     payload = reconcile_tranche_queue(queue_path=queue_path, repo_root=tmp_path)
 
-    assert payload["status"] == "running"
+    assert payload["status"] == QUEUE_STATUS_STOPPED
+    assert payload["stop_reason"] == "driver_stopped"
+    assert payload["current_item_id"] is None
     assert payload["counts"] == {"completed": 1, "needs_human": 1, "pending": 1}
     assert payload["items"][1]["findings"] == ["Missing source material."]
+
+
+def test_reconcile_queue_terminalizes_stale_running_item_and_stops_queue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    manifest = _write_queue(queue_path)
+    manifest_path = tmp_path / "tranche.yaml"
+    manifest_path.write_text("manifest_id: tranche-test\n", encoding="utf-8")
+    state = TrancheQueueRunState(
+        queue_id=manifest.queue_id,
+        status=QUEUE_STATUS_RUNNING,
+        current_item_id="intake-docs",
+    )
+    state.ensure_manifest(manifest)
+    state.item_states["issue-1046"] = TrancheQueueItemRunState(
+        item_id="issue-1046",
+        status=QUEUE_ITEM_STATUS_COMPLETED,
+    )
+    state.item_states["intake-docs"] = TrancheQueueItemRunState(
+        item_id="intake-docs",
+        status=QUEUE_ITEM_STATUS_RUNNING,
+        manifest_path=str(manifest_path),
+        tranche_status="running",
+    )
+    state.item_states["issue-1047"] = TrancheQueueItemRunState(
+        item_id="issue-1047",
+        status=QUEUE_ITEM_STATUS_PENDING,
+    )
+    state.save(queue_state_path_for_queue(queue_path))
+
+    class _FakeTrancheState:
+        def __init__(self, status: str, *, pr_url: str | None = None) -> None:
+            self.status = status
+            lane = SimpleNamespace(pr_url=pr_url)
+            self.lane_states = {"lane-a": lane}
+
+        def to_dict(self) -> dict[str, object]:
+            return {
+                "status": self.status,
+                "lane_states": {
+                    lane_id: {"pr_url": lane_state.pr_url}
+                    for lane_id, lane_state in self.lane_states.items()
+                },
+            }
+
+        def save(self, path: str | Path) -> None:
+            Path(path).write_text("status: completed\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.load_tranche_run_state",
+        lambda _: _FakeTrancheState("running"),
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.refresh_tranche_state",
+        lambda current, **kwargs: _FakeTrancheState(
+            "completed", pr_url="https://example.test/pr/1"
+        ),
+    )
+
+    payload = reconcile_tranche_queue(queue_path=queue_path, repo_root=tmp_path)
+
+    assert payload["status"] == QUEUE_STATUS_STOPPED
+    assert payload["stop_reason"] == "driver_stopped"
+    assert payload["current_item_id"] is None
+    assert payload["counts"] == {"completed": 2, "pending": 1}
+    intake = next(item for item in payload["items"] if item["item_id"] == "intake-docs")
+    assert intake["status"] == QUEUE_ITEM_STATUS_COMPLETED
+    assert intake["tranche_status"] == "completed"
+    assert intake["pr_urls"] == ["https://example.test/pr/1"]
+
+    repaired = TrancheQueueRunState.load(queue_state_path_for_queue(queue_path), manifest=manifest)
+    assert repaired.status == QUEUE_STATUS_STOPPED
+    assert repaired.stop_reason == "driver_stopped"
+    assert repaired.current_item_id is None
+    assert repaired.item_states["intake-docs"].status == QUEUE_ITEM_STATUS_COMPLETED
 
 
 @pytest.mark.asyncio
