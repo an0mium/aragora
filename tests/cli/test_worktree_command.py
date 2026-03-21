@@ -306,6 +306,9 @@ class TestWorktreeFleetStatus:
             "Integrator: ready=0 review=0 blocked=0 stale=0 collisions=0 missing_receipts=0 scope_violations=0 superseded=0"
             in out
         )
+        assert "Integrator lanes (1)" in out
+        assert "[~] codex/test-session" in out
+        assert "lane_id=codex/test-session source=fleet canonical=no readiness=in_progress" in out
         assert "dirty_files: 2 ahead/behind(main): +1/-0" in out
         assert "orchestrator: crewai" in out
         assert "lease_health: healthy merge_readiness: in_progress" in out
@@ -388,9 +391,14 @@ class TestWorktreeFleetStatus:
         ]
         mock_integrator_view.return_value = {
             "summary": {
+                "total_lanes": 1,
                 "ready_lanes": 0,
                 "review_lanes": 0,
                 "blocked_lanes": 1,
+                "in_progress_lanes": 0,
+                "healthy_lanes": 0,
+                "stalled_lanes": 0,
+                "expired_lanes": 0,
                 "stale_heartbeat_lanes": 0,
                 "collision_lanes": 0,
                 "missing_receipt_lanes": 0,
@@ -402,9 +410,14 @@ class TestWorktreeFleetStatus:
             ],
             "lanes": [
                 {
+                    "title": "Out-of-scope lane",
+                    "lane_id": "lane-1",
+                    "source": "task",
+                    "canonical_lane": True,
                     "owner_session_id": "session-a",
                     "worktree_path": str(tmp_path),
                     "lease_health": "healthy",
+                    "lane_health": "blocked",
                     "merge_readiness": "blocked",
                     "scope_violation": {
                         "violations": [
@@ -430,6 +443,8 @@ class TestWorktreeFleetStatus:
 
         out = capsys.readouterr().out
         assert "scope_violations=1" in out
+        assert "Integrator lanes (1)" in out
+        assert "scope_violation=yes" in out
         assert "merge_readiness: blocked" in out
         assert (
             "Narrow the lane scope or split ownership before it can re-enter merge review." in out
@@ -463,9 +478,14 @@ class TestWorktreeFleetStatus:
         ]
         mock_integrator_view.return_value = {
             "summary": {
+                "total_lanes": 1,
                 "ready_lanes": 0,
                 "review_lanes": 1,
                 "blocked_lanes": 0,
+                "in_progress_lanes": 0,
+                "healthy_lanes": 1,
+                "stalled_lanes": 0,
+                "expired_lanes": 0,
                 "stale_heartbeat_lanes": 0,
                 "collision_lanes": 0,
                 "missing_receipt_lanes": 0,
@@ -475,14 +495,34 @@ class TestWorktreeFleetStatus:
             "next_actions": ["Review the canonical lane."],
             "lanes": [
                 {
+                    "title": "Docs lane",
+                    "lane_id": "run-1:docs-lane",
+                    "source": "task",
+                    "status": "completed",
                     "owner_session_id": "session-a",
                     "worktree_path": str(tmp_path),
+                    "branch": "codex/test-session",
                     "lease_health": "healthy",
+                    "lane_health": "healthy",
                     "merge_readiness": "review",
                     "task_key": "run-1:docs-lane",
                     "canonical_lane": True,
                     "receipt_id": "rcpt-1",
+                    "receipt_summary": {
+                        "outcome": "deliverable_created",
+                        "confidence": 0.91,
+                        "validations_run": [
+                            "python -m pytest tests/cli/test_worktree_command.py -q"
+                        ],
+                        "tests_run": ["python -m pytest tests/cli/test_worktree_command.py -q"],
+                    },
+                    "merge_queue_status": "needs_human",
                     "integration_decision": "pending_review",
+                    "pr": {
+                        "number": 1051,
+                        "url": "https://github.com/synaptent/aragora/pull/1051",
+                        "reference": None,
+                    },
                     "available_actions": ["merge", "cherry_pick", "request_changes"],
                 }
             ],
@@ -499,9 +539,101 @@ class TestWorktreeFleetStatus:
         )
 
         out = capsys.readouterr().out
+        assert "Integrator lanes (1)" in out
+        assert "*[?] Docs lane" in out
+        assert "lane_id=run-1:docs-lane source=task canonical=yes readiness=review" in out
+        assert (
+            "receipt=rcpt-1 outcome=deliverable_created confidence=0.91 validations=1 tests=1"
+            in out
+        )
+        assert "queue=needs_human decision=pending_review" in out
+        assert "pr=#1051 https://github.com/synaptent/aragora/pull/1051" in out
         assert "task: run-1:docs-lane canonical: yes" in out
         assert "decision: pending_review" in out
         assert "actions: merge, cherry_pick, request_changes" in out
+
+    @patch("aragora.cli.commands.worktree.build_integrator_view")
+    @patch("aragora.cli.commands.worktree.FleetCoordinationStore")
+    @patch("aragora.cli.commands.worktree.build_fleet_rows")
+    def test_fleet_status_prints_canonical_lane_without_worktree_session(
+        self, mock_rows, mock_store_cls, mock_integrator_view, capsys, tmp_path: Path
+    ):
+        mock_rows.return_value = []
+        mock_integrator_view.return_value = {
+            "summary": {
+                "total_lanes": 1,
+                "ready_lanes": 0,
+                "review_lanes": 0,
+                "blocked_lanes": 1,
+                "in_progress_lanes": 0,
+                "healthy_lanes": 0,
+                "stalled_lanes": 1,
+                "expired_lanes": 0,
+                "stale_heartbeat_lanes": 1,
+                "collision_lanes": 1,
+                "missing_receipt_lanes": 1,
+                "scope_violation_lanes": 0,
+                "superseded_lanes": 0,
+            },
+            "next_actions": ["Resolve the colliding lane before integrating."],
+            "lanes": [
+                {
+                    "title": "Canonical blocked lane",
+                    "lane_id": "run-1:wo-1",
+                    "source": "task",
+                    "canonical_lane": True,
+                    "lane_health": "stalled",
+                    "lease_health": "stalled",
+                    "merge_readiness": "blocked",
+                    "task_key": "run-1:wo-1",
+                    "owner_agent": "codex",
+                    "owner_session_id": "session-a",
+                    "branch": "codex/collision",
+                    "worktree_path": str(tmp_path / "missing-row"),
+                    "lease_id": "lease-1",
+                    "lease_status": "active",
+                    "heartbeat_at": "2026-03-07T00:00:00+00:00",
+                    "heartbeat_age_seconds": 2700.0,
+                    "missing_receipt": True,
+                    "collisions": [
+                        "branch:codex/collision",
+                        "path:aragora/swarm/reporter.py",
+                    ],
+                    "blockers": [
+                        "branch:codex/collision",
+                        "missing_receipt",
+                        "stale_heartbeat",
+                    ],
+                    "available_actions": [
+                        "salvage",
+                        "reassign",
+                        "archive",
+                        "request_changes",
+                        "supersede",
+                    ],
+                    "next_action": "Resolve the branch or file-scope collision before integrating.",
+                    "pr": {"url": None, "number": 1057, "reference": "#1057"},
+                }
+            ],
+        }
+        store = MagicMock()
+        store.list_claims.return_value = []
+        store.list_merge_queue.return_value = []
+        mock_store_cls.return_value = store
+
+        _cmd_worktree_fleet_status(
+            _fleet_args(tail=0),
+            repo_path=tmp_path,
+            base_branch="main",
+        )
+
+        out = capsys.readouterr().out
+        assert "Integrator lanes (1)" in out
+        assert "*[!] Canonical blocked lane" in out
+        assert "receipt=missing" in out
+        assert "pr=#1057" in out
+        assert "collisions=branch:codex/collision, path:aragora/swarm/reporter.py" in out
+        assert "No active worktree sessions." in out
 
 
 class TestWorktreeFleetOwnership:

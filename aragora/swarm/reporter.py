@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import logging
 from dataclasses import dataclass, field
 from typing import Any
+import re
 
 from pathlib import Path
 
@@ -73,40 +74,86 @@ def _extract_receipt_id(*sources: dict[str, Any] | None) -> str:
     return ""
 
 
+def _deliverable(source: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(source, dict):
+        return {}
+    deliverable = source.get("deliverable")
+    if isinstance(deliverable, dict):
+        return deliverable
+    meta = _metadata(source)
+    deliverable = meta.get("deliverable")
+    return deliverable if isinstance(deliverable, dict) else {}
+
+
+def _extract_pr_number(value: Any) -> int | None:
+    if isinstance(value, int):
+        return value
+    text = _text(value).rstrip("/")
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    if text.startswith("#") and text[1:].isdigit():
+        return int(text[1:])
+    tail = text.rsplit("/", 1)[-1]
+    if tail.isdigit():
+        return int(tail)
+    match = re.search(r"#(\d+)$", text)
+    if match:
+        return int(match.group(1))
+    return None
+
+
 def _extract_pr_link(*sources: dict[str, Any] | None) -> dict[str, Any] | None:
     url = ""
+    reference = ""
     number: int | None = None
     for source in sources:
         if not isinstance(source, dict):
             continue
         meta = _metadata(source)
+        deliverable = _deliverable(source)
         for candidate in (
             source.get("pr_url"),
             source.get("pull_request_url"),
+            source.get("adopted_pr"),
+            deliverable.get("pr_url"),
+            deliverable.get("adopted_pr"),
             meta.get("pr_url"),
             meta.get("pull_request_url"),
+            meta.get("adopted_pr"),
         ):
             text = _text(candidate)
-            if text and not url:
+            if not text:
+                continue
+            if not url and re.match(r"^https?://", text):
                 url = text
+            elif not reference:
+                reference = text
+            if number is None:
+                number = _extract_pr_number(text)
         for candidate in (
             source.get("pr_number"),
             source.get("pull_request_number"),
+            source.get("adopted_pr"),
+            deliverable.get("pr_number"),
+            deliverable.get("pull_request_number"),
+            deliverable.get("adopted_pr"),
             meta.get("pr_number"),
             meta.get("pull_request_number"),
+            meta.get("adopted_pr"),
         ):
-            if isinstance(candidate, int):
-                number = candidate
+            parsed = _extract_pr_number(candidate)
+            if parsed is not None:
+                number = parsed
                 break
-            text = _text(candidate)
-            if text.isdigit():
-                number = int(text)
-                break
-        if url or number is not None:
-            break
-    if not url and number is None:
+    if not url and not reference and number is None:
         return None
-    return {"url": url or None, "number": number}
+    return {
+        "url": url or None,
+        "number": number,
+        "reference": reference or None,
+    }
 
 
 def _explicit_missing_receipt(*sources: dict[str, Any] | None) -> bool:

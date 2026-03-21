@@ -429,6 +429,150 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         print(f"Deleted {deleted} merged branch(es), removed {removed} worktree(s).")
 
 
+def _render_integrator_lane_section(view: dict[str, object]) -> None:
+    summary = view.get("summary", {}) if isinstance(view.get("summary"), dict) else {}
+    lanes = [item for item in view.get("lanes", []) if isinstance(item, dict)]
+    print(f"Integrator lanes ({summary.get('total_lanes', len(lanes))})")
+    print(
+        "  ready={ready} review={review} blocked={blocked} in_progress={in_progress} "
+        "healthy={healthy} stalled={stalled} expired={expired} superseded={superseded}".format(
+            ready=summary.get("ready_lanes", 0),
+            review=summary.get("review_lanes", 0),
+            blocked=summary.get("blocked_lanes", 0),
+            in_progress=summary.get("in_progress_lanes", 0),
+            healthy=summary.get("healthy_lanes", 0),
+            stalled=summary.get("stalled_lanes", 0),
+            expired=summary.get("expired_lanes", 0),
+            superseded=summary.get("superseded_lanes", 0),
+        )
+    )
+    if not lanes:
+        return
+
+    icons = {
+        "ready": "+",
+        "review": "?",
+        "blocked": "!",
+        "in_progress": "~",
+        "validating": "~",
+        "integrating": ">",
+        "merged": "=",
+        "superseded": "x",
+    }
+    for lane in lanes:
+        title = str(lane.get("title", "") or lane.get("lane_id", "lane") or "lane")
+        readiness = str(lane.get("merge_readiness", "") or "unknown")
+        icon = icons.get(readiness, " ")
+        canonical = "*" if bool(lane.get("canonical_lane")) else " "
+        print("")
+        print(f"{canonical}[{icon}] {title}")
+        print(
+            "    lane_id={lane_id} source={source} canonical={canonical} "
+            "readiness={readiness} lane_health={lane_health}".format(
+                lane_id=lane.get("lane_id", ""),
+                source=lane.get("source", "unknown"),
+                canonical="yes" if lane.get("canonical_lane") else "no",
+                readiness=readiness,
+                lane_health=lane.get("lane_health", "unknown"),
+            )
+        )
+
+        owner_parts: list[str] = []
+        if lane.get("task_key") or lane.get("task_id"):
+            owner_parts.append(f"task={lane.get('task_key') or lane.get('task_id')}")
+        if lane.get("owner_agent"):
+            owner_parts.append(f"owner={lane['owner_agent']}")
+        if lane.get("reviewer_agent"):
+            owner_parts.append(f"reviewer={lane['reviewer_agent']}")
+        if lane.get("owner_session_id"):
+            owner_parts.append(f"session={lane['owner_session_id']}")
+        if owner_parts:
+            print("    " + " ".join(owner_parts))
+
+        location_parts: list[str] = []
+        if lane.get("branch"):
+            location_parts.append(f"branch={lane['branch']}")
+        if lane.get("worktree_path"):
+            location_parts.append(f"worktree={lane['worktree_path']}")
+        if location_parts:
+            print("    " + " ".join(location_parts))
+
+        lease_parts: list[str] = []
+        if lane.get("lease_id"):
+            lease_parts.append(f"lease={lane['lease_id']}")
+        if lane.get("lease_status"):
+            lease_parts.append(f"status={lane['lease_status']}")
+        if lane.get("lease_health"):
+            lease_parts.append(f"health={lane['lease_health']}")
+        heartbeat_at = str(lane.get("heartbeat_at", "") or "").strip()
+        if heartbeat_at:
+            lease_parts.append(f"heartbeat={heartbeat_at}")
+        heartbeat_age = lane.get("heartbeat_age_seconds")
+        if isinstance(heartbeat_age, (int, float)):
+            lease_parts.append(f"age={heartbeat_age:.0f}s")
+        if lease_parts:
+            print("    " + " ".join(lease_parts))
+
+        if lane.get("missing_receipt"):
+            print("    receipt=missing")
+        elif lane.get("receipt_id"):
+            receipt_summary = (
+                lane.get("receipt_summary", {})
+                if isinstance(lane.get("receipt_summary"), dict)
+                else {}
+            )
+            receipt_parts = [f"receipt={lane['receipt_id']}"]
+            outcome = str(receipt_summary.get("outcome", "") or "").strip()
+            if outcome:
+                receipt_parts.append(f"outcome={outcome}")
+            confidence = receipt_summary.get("confidence")
+            if isinstance(confidence, (int, float)):
+                receipt_parts.append(f"confidence={confidence:.2f}")
+            validations = receipt_summary.get("validations_run")
+            if isinstance(validations, list) and validations:
+                receipt_parts.append(f"validations={len(validations)}")
+            tests = receipt_summary.get("tests_run")
+            if isinstance(tests, list) and tests:
+                receipt_parts.append(f"tests={len(tests)}")
+            print("    " + " ".join(receipt_parts))
+
+        queue_parts: list[str] = []
+        if lane.get("merge_queue_status"):
+            queue_parts.append(f"queue={lane['merge_queue_status']}")
+        if lane.get("integration_decision"):
+            queue_parts.append(f"decision={lane['integration_decision']}")
+        if queue_parts:
+            print("    " + " ".join(queue_parts))
+
+        pr = lane.get("pr", {}) if isinstance(lane.get("pr"), dict) else {}
+        pr_parts: list[str] = []
+        if pr.get("number") is not None:
+            pr_parts.append(f"pr=#{pr['number']}")
+        elif pr.get("reference"):
+            pr_parts.append(f"pr={pr['reference']}")
+        if pr.get("url"):
+            pr_parts.append(str(pr["url"]))
+        if pr_parts:
+            print("    " + " ".join(pr_parts))
+
+        collisions = lane.get("collisions")
+        if isinstance(collisions, list) and collisions:
+            print(f"    collisions={', '.join(str(item) for item in collisions)}")
+        if isinstance(lane.get("scope_violation"), dict):
+            print("    scope_violation=yes")
+        blockers = lane.get("blockers")
+        if isinstance(blockers, list) and blockers:
+            print(f"    blockers={', '.join(str(item) for item in blockers[:8])}")
+        actions = lane.get("available_actions")
+        if isinstance(actions, list) and actions:
+            print(f"    actions={', '.join(str(item) for item in actions[:5])}")
+        if lane.get("salvage_candidate_id"):
+            print(f"    salvage={lane['salvage_candidate_id']}")
+        next_action = str(lane.get("next_action", "") or "").strip()
+        if next_action:
+            print(f"    next={next_action}")
+
+
 def _cmd_worktree_fleet_status(
     args: argparse.Namespace, *, repo_path: Path, base_branch: str
 ) -> None:
@@ -508,7 +652,11 @@ def _cmd_worktree_fleet_status(
     )
     for action in integrator_view.get("next_actions", [])[:3]:
         print(f"  next: {action}")
+    print("")
+    _render_integrator_lane_section(integrator_view)
     if not rows:
+        print("")
+        print("No active worktree sessions.")
         return
 
     for row in rows:

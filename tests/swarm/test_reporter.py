@@ -439,3 +439,112 @@ class TestIntegratorView:
         assert superseded["merge_readiness"] == "superseded"
         assert superseded["lane_health"] == "superseded"
         assert superseded["available_actions"] == ["archive"]
+
+    def test_build_integrator_view_blocks_stale_colliding_lane_without_receipt(self):
+        now = datetime(2026, 3, 18, 12, 0, tzinfo=UTC)
+        payload = build_integrator_view(
+            worktrees=[
+                {
+                    "session_id": "sess-1",
+                    "path": "/tmp/repo/.worktrees/conflict-a",
+                    "branch": "codex/collision",
+                    "has_lock": True,
+                    "pid_alive": True,
+                    "agent": "codex",
+                    "last_activity": (now - timedelta(minutes=45)).isoformat(),
+                },
+                {
+                    "session_id": "sess-2",
+                    "path": "/tmp/repo/.worktrees/conflict-b",
+                    "branch": "codex/collision",
+                    "has_lock": True,
+                    "pid_alive": True,
+                    "agent": "claude",
+                    "last_activity": (now - timedelta(minutes=1)).isoformat(),
+                },
+            ],
+            claims=[
+                {"session_id": "sess-1", "path": "aragora/swarm/reporter.py"},
+                {"session_id": "sess-2", "path": "aragora/swarm/reporter.py"},
+            ],
+            coordination={
+                "integrator": {
+                    "developer_tasks": [
+                        {
+                            "task_key": "run-1:wo-collision",
+                            "task_id": "wo-collision",
+                            "run_id": "run-1",
+                            "goal": "Resolve the colliding lane",
+                            "title": "Resolve the colliding lane",
+                            "status": "completed",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-1",
+                            "branch": "codex/collision",
+                            "worktree_path": "/tmp/repo/.worktrees/conflict-a",
+                            "lease_id": "lease-collision",
+                            "updated_at": (now - timedelta(minutes=45)).isoformat(),
+                        }
+                    ],
+                    "leases": [
+                        {
+                            "lease_id": "lease-collision",
+                            "task_id": "wo-collision",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-1",
+                            "branch": "codex/collision",
+                            "worktree_path": "/tmp/repo/.worktrees/conflict-a",
+                            "claimed_paths": ["aragora/swarm/reporter.py"],
+                            "status": "active",
+                            "updated_at": (now - timedelta(minutes=45)).isoformat(),
+                            "expires_at": (now + timedelta(hours=1)).isoformat(),
+                        }
+                    ],
+                    "completion_receipts": [],
+                    "integration_decisions": [],
+                    "salvage_candidates": [],
+                }
+            },
+            now=now,
+        )
+
+        lane = payload["lanes"][0]
+        assert payload["summary"]["blocked_lanes"] == 1
+        assert payload["summary"]["collision_lanes"] == 1
+        assert payload["summary"]["stale_heartbeat_lanes"] == 1
+        assert payload["summary"]["missing_receipt_lanes"] == 1
+        assert lane["merge_readiness"] == "blocked"
+        assert lane["lane_health"] == "stalled"
+        assert lane["lease_health"] == "stalled"
+        assert lane["missing_receipt"] is True
+        assert lane["stale_heartbeat"] is True
+        assert lane["collisions"] == [
+            "branch:codex/collision",
+            "path:aragora/swarm/reporter.py",
+        ]
+        assert "attach_receipt" in lane["available_actions"]
+        assert "supersede" in lane["available_actions"]
+
+    def test_build_integrator_view_extracts_adopted_pr_reference(self):
+        payload = build_integrator_view(
+            runs=[
+                {
+                    "run_id": "run-1",
+                    "goal": "Surface adopted PR evidence",
+                    "work_orders": [
+                        {
+                            "work_order_id": "wo-1",
+                            "title": "Carry forward the adopted PR",
+                            "status": "completed",
+                            "branch": "codex/adopted-pr",
+                            "worktree_path": "/tmp/repo/.worktrees/adopted-pr",
+                            "target_agent": "codex",
+                            "adopted_pr": "#1057",
+                        }
+                    ],
+                }
+            ]
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["pr"] == {"url": None, "number": 1057, "reference": "#1057"}
+        assert lane["missing_receipt"] is True

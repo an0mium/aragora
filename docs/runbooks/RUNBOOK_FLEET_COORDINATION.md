@@ -35,6 +35,13 @@ python -m aragora.cli.main worktree fleet-queue-add \
 python -m aragora.cli.main worktree fleet-queue-list
 ```
 
+`fleet-status` now prints an `Integrator lanes` section before raw session rows.
+
+- Treat that lane section as the authoritative integrator view for canonical ownership, merge readiness, lease health, receipt presence, collisions, and PR linkage.
+- A leading `*` marks the canonical lane for a task.
+- Raw worktree/session rows and log tails remain supporting evidence, not a second source of truth.
+- If `No active worktree sessions.` appears, the lane section can still show canonical task or queue state that needs merge/supersede/archive action.
+
 ## API Endpoints
 
 - `GET /api/v1/coordination/fleet/status`
@@ -75,4 +82,3 @@ python -m aragora.cli.main worktree fleet-queue-list
    - `60-79`: CI or security unblock
    - `40-59`: normal feature work
    - `0-39`: backlog/refactor
-
