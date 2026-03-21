@@ -301,14 +301,14 @@ function normalizeProvenanceChain(value: unknown): ProvenanceRecord[] {
   if (!Array.isArray(value)) return [];
 
   return value
-    .map((entry) => {
+    .map((entry): ProvenanceRecord | null => {
       const record = asRecord(entry);
       if (!record) return null;
 
       return {
         timestamp: normalizeTimestamp(record.timestamp ?? record.created_at),
         event_type: safeString(record.event_type) ?? safeString(record.type) ?? 'event',
-        agent: safeString(record.agent) ?? safeString(record.actor),
+        agent: safeString(record.agent) ?? safeString(record.actor) ?? undefined,
         description:
           safeString(record.description) ??
           safeString(record.message) ??

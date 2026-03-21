@@ -176,7 +176,7 @@ export function StageTransitionGate({
             Provenance
           </p>
           <p className="text-xs text-text-muted font-mono">
-            {provenanceSummary.sourceCount} source{provenanceSummary.sourceCount === 1 ? '' : 's'} ->{' '}
+            {provenanceSummary.sourceCount} source{provenanceSummary.sourceCount === 1 ? '' : 's'} {'->'}{' '}
             {provenanceSummary.targetCount} draft{provenanceSummary.targetCount === 1 ? '' : 's'}
           </p>
           {provenanceSummary.sourceLabels.length > 0 && (

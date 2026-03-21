@@ -708,7 +708,7 @@ function UnifiedPipelineCanvasInner({
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
                         <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
-                          Ideas -> Goals
+                          Ideas {'->'} Goals
                         </p>
                         <h3 className="text-sm font-mono font-bold text-text">
                           Promote focused ideas

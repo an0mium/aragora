@@ -341,6 +341,7 @@ describe('PipelineCanvas Interactive', () => {
       nodes: [testNode],
       stageNodes: {
         ideas: [testNode],
+        principles: [],
         goals: [],
         actions: [],
         orchestration: [],
