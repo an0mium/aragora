@@ -662,7 +662,7 @@ export function usePipelineCanvas(
 
   // ---- API: reject transition -------------------------------------------
   const rejectTransition = useCallback(
-    async (fromStage: PipelineStageType, toStage: PipelineStageType, comment?: string) => {
+    async (transitionId: string, reason?: string) => {
       if (!pipelineId) return;
       setLoading(true);
       setError(null);
@@ -670,7 +670,7 @@ export function usePipelineCanvas(
         const res = await fetch(`${API_PREFIX}/${pipelineId}/approve-transition`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ from_stage: fromStage, to_stage: toStage, approved: false, comment: comment ?? '' }),
+          body: JSON.stringify({ transition_id: transitionId, approved: false, reason: reason ?? '' }),
         });
         if (!res.ok) {
           setError(`Transition rejection failed: ${res.status}`);

@@ -397,6 +397,7 @@ describe('PipelineCanvas Interactive', () => {
 
   it('renders inline transition approval state with provenance context', () => {
     const approveTransition = jest.fn();
+    const rejectTransition = jest.fn();
     const ideaNode = {
       id: 'idea-1',
       type: 'ideaNode',
@@ -417,6 +418,7 @@ describe('PipelineCanvas Interactive', () => {
     mockedUsePipelineCanvas.mockReturnValue(
       makeMockCanvas({
         approveTransition,
+        rejectTransition,
         stageNodes: {
           ideas: [ideaNode],
           principles: [],
@@ -485,5 +487,43 @@ describe('PipelineCanvas Interactive', () => {
 
     expect(approveTransition).toHaveBeenCalledWith('trans-ideas-goals');
     expect(screen.getByTestId('transition-status-trans-ideas-goals')).toHaveTextContent('Approved');
+  });
+
+  it('rejects a transition by transition id', () => {
+    const rejectTransition = jest.fn();
+
+    mockedUsePipelineCanvas.mockReturnValue(
+      makeMockCanvas({
+        rejectTransition,
+      }),
+    );
+
+    render(
+      <PipelineCanvas
+        pipelineId="test-pipe"
+        initialData={{
+          ...baseInitialData,
+          transitions: [
+            {
+              id: 'trans-ideas-goals',
+              from_stage: 'ideas',
+              to_stage: 'goals',
+              provenance: [],
+              status: 'pending',
+              confidence: 0.51,
+              ai_rationale: 'Needs a human decision.',
+              human_notes: '',
+              created_at: 1710000000,
+              reviewed_at: null,
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('transition-reject-trans-ideas-goals'));
+
+    expect(rejectTransition).toHaveBeenCalledWith('trans-ideas-goals');
+    expect(screen.getByTestId('transition-status-trans-ideas-goals')).toHaveTextContent('Rejected');
   });
 });

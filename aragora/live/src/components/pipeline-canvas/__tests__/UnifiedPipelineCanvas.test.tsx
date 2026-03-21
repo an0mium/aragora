@@ -523,6 +523,7 @@ describe('UnifiedPipelineCanvas', () => {
   it('shows an ideas-to-goals transition slice with provenance and approval', () => {
     const aiGenerate = jest.fn();
     const approveTransition = jest.fn();
+    const rejectTransition = jest.fn();
     const ideaNode = makeIdeaNode('idea-1', 'What latency budget do we need?');
     ideaNode.data.ideaType = 'question';
     const goalNode = makeGoalNode('goal-1', 'Protect API latency');
@@ -531,6 +532,7 @@ describe('UnifiedPipelineCanvas', () => {
       makeMockCanvas({
         aiGenerate,
         approveTransition,
+        rejectTransition,
         stageNodes: {
           ideas: [ideaNode],
           principles: [],
@@ -603,5 +605,52 @@ describe('UnifiedPipelineCanvas', () => {
     fireEvent.click(screen.getByTestId('transition-approve-trans-ideas-goals'));
     expect(approveTransition).toHaveBeenCalledWith('trans-ideas-goals');
     expect(screen.getByTestId('transition-status-trans-ideas-goals')).toHaveTextContent('Approved');
+  });
+
+  it('rejects the focused ideas-to-goals transition by id', () => {
+    const rejectTransition = jest.fn();
+    const ideaNode = makeIdeaNode('idea-1', 'What latency budget do we need?');
+
+    mockedUsePipelineCanvas.mockReturnValue(
+      makeMockCanvas({
+        rejectTransition,
+        stageNodes: {
+          ideas: [ideaNode],
+          principles: [],
+          goals: [],
+          actions: [],
+          orchestration: [],
+        },
+      }),
+    );
+
+    render(
+      <UnifiedPipelineCanvas
+        pipelineId="pipe-1"
+        initialData={{
+          ...baseInitialData,
+          transitions: [
+            {
+              id: 'trans-ideas-goals',
+              from_stage: 'ideas',
+              to_stage: 'goals',
+              provenance: [],
+              status: 'pending',
+              confidence: 0.42,
+              ai_rationale: 'Needs revision before promotion.',
+              human_notes: '',
+              created_at: 1710000000,
+              reviewed_at: null,
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('node-idea-1'));
+    fireEvent.click(screen.getByTestId('transition-reject-trans-ideas-goals'));
+
+    expect(rejectTransition).toHaveBeenCalledWith('trans-ideas-goals');
+    expect(screen.getByTestId('transition-status-trans-ideas-goals')).toHaveTextContent('Rejected');
   });
 });

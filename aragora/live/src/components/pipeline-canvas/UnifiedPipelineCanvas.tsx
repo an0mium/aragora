@@ -765,8 +765,8 @@ function UnifiedPipelineCanvasInner({
                       onApprove={(_, transitionId) => {
                         approveTransition(transitionId);
                       }}
-                      onReject={() => {
-                        rejectTransition('ideas', 'goals');
+                      onReject={(_, transitionId) => {
+                        rejectTransition(transitionId);
                       }}
                     />
                   )}
