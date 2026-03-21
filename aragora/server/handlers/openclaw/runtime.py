@@ -345,7 +345,7 @@ class OpenClawExecutionRuntime:
                 or "python"
             ).lower()
             if language in {"python", "python3"}:
-                command = f"python3 -c {shlex.quote(code)}"
+                command = f"python -c {shlex.quote(code)}"
             elif language in {"node", "javascript", "js"}:
                 command = f"node -e {shlex.quote(code)}"
             else:

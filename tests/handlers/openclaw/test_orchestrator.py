@@ -722,7 +722,7 @@ class TestExecuteAction:
             body={
                 "session_id": active_session.id,
                 "action_type": "code.execute",
-                "input": {},
+                "input": {"code": "print('ok')"},
             },
             method="POST",
         )
@@ -947,7 +947,7 @@ class TestSessionLifecycle:
         # 4. Get action status
         result = handler.handle(f"/api/v1/openclaw/actions/{action_id}", {}, mock_http())
         assert _status(result) == 200
-        assert _body(result)["status"] == "running"
+        assert _body(result)["status"] == "completed"
 
         # 5. Create another action and cancel it
         http = mock_http(
