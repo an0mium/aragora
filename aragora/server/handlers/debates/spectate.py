@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from aragora.rbac.decorators import require_permission
@@ -16,6 +17,9 @@ from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
+
+_RECENT_ACTIVITY_WINDOW_SECONDS = 120
+_STATUS_ACTIVITY_SCAN_LIMIT = 200
 
 # Active SSE collectors keyed by debate_id -> set of queues
 # Each client gets its own queue; events are fanned out.
@@ -77,6 +81,73 @@ def push_spectator_event(
     return pushed
 
 
+def _parse_event_timestamp(timestamp: str | None) -> datetime | None:
+    """Parse an ISO-8601 timestamp into an aware UTC datetime."""
+    if not timestamp:
+        return None
+
+    normalized = timestamp.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+
+    return parsed.astimezone(timezone.utc)
+
+
+def _debate_bridge_activity(debate_id: str) -> dict[str, Any]:
+    """Summarize currently observed live activity for a specific debate."""
+    try:
+        from aragora.spectate.ws_bridge import get_spectate_bridge
+    except ImportError:
+        return {
+            "bridge_active": False,
+            "availability_state": "bridge_inactive",
+            "observed_live": False,
+            "recent_event_count": 0,
+            "last_event_at": None,
+            "recent_activity_window_seconds": _RECENT_ACTIVITY_WINDOW_SECONDS,
+        }
+
+    bridge = get_spectate_bridge()
+    now = datetime.now(timezone.utc)
+    recent_cutoff = now - timedelta(seconds=_RECENT_ACTIVITY_WINDOW_SECONDS)
+
+    recent_event_count = 0
+    last_event_at: str | None = None
+    last_event_dt: datetime | None = None
+
+    for event in bridge.get_recent_events(_STATUS_ACTIVITY_SCAN_LIMIT):
+        if getattr(event, "debate_id", None) != debate_id:
+            continue
+
+        event_timestamp = getattr(event, "timestamp", None)
+        event_dt = _parse_event_timestamp(event_timestamp)
+        if event_dt and (last_event_dt is None or event_dt > last_event_dt):
+            last_event_dt = event_dt
+            last_event_at = event_timestamp
+
+        if event_dt and event_dt >= recent_cutoff:
+            recent_event_count += 1
+
+    observed_live = recent_event_count > 0
+    availability_state = (
+        "live" if observed_live else "standby" if bridge.running else "bridge_inactive"
+    )
+
+    return {
+        "bridge_active": bridge.running,
+        "availability_state": availability_state,
+        "observed_live": observed_live,
+        "recent_event_count": recent_event_count,
+        "last_event_at": last_event_at,
+        "recent_activity_window_seconds": _RECENT_ACTIVITY_WINDOW_SECONDS,
+    }
+
+
 @require_permission("debates:read")
 async def handle_spectate(
     debate_id: str,
@@ -89,11 +160,17 @@ async def handle_spectate(
     that reports whether spectating is available.
     """
     n_clients = len(_active_collectors.get(debate_id, set()))
+    activity = _debate_bridge_activity(debate_id)
+    observed_live = activity["observed_live"] or n_clients > 0
+    availability_state = "live" if observed_live else activity["availability_state"]
     return json_response(
         {
             "debate_id": debate_id,
             "spectate_available": True,
             "active_viewers": n_clients,
+            **activity,
+            "availability_state": availability_state,
+            "observed_live": observed_live,
             "sse_url": f"/api/v1/debates/{debate_id}/spectate",
         }
     )

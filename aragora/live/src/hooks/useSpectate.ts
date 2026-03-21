@@ -16,10 +16,30 @@ export interface SpectateEvent {
   round_number: number | null;
 }
 
-interface SpectateStatus {
+export interface SpectateLiveDebateSummary {
+  debate_id: string;
+  recent_event_count: number;
+  last_event_at: string | null;
+  event_types: string[];
+}
+
+export interface SpectateStatus {
   active: boolean;
   subscribers: number;
   buffer_size: number;
+  bridge_state:
+    | 'inactive'
+    | 'idle'
+    | 'activity_unattributed'
+    | 'live_debates_available';
+  last_event_at: string | null;
+  activity_age_seconds: number | null;
+  recent_activity_window_seconds: number;
+  recent_event_count: number;
+  live_debate_count: number;
+  live_debate_ids: string[];
+  live_debates: SpectateLiveDebateSummary[];
+  unattributed_recent_event_count: number;
 }
 
 interface UseSpectateOptions {
@@ -34,8 +54,10 @@ interface UseSpectateOptions {
 interface UseSpectateReturn {
   /** Array of spectate events, newest last */
   events: SpectateEvent[];
-  /** Whether the hook has successfully connected to the API */
+  /** Whether the polling endpoints are currently reachable */
   connected: boolean;
+  /** Whether the hook has completed its first fetch cycle */
+  loaded: boolean;
   /** Bridge status (active, subscriber count, buffer size) */
   status: SpectateStatus | null;
   /** Manually trigger a refresh */
@@ -77,6 +99,7 @@ export function useSpectate(
 
   const [events, setEvents] = useState<SpectateEvent[]>([]);
   const [connected, setConnected] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<SpectateStatus | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -92,12 +115,14 @@ export function useSpectate(
       if (res.ok) {
         const data = await res.json();
         setEvents(data.events || []);
-        setConnected(true);
+        return true;
       } else {
-        setConnected(false);
+        setEvents([]);
+        return false;
       }
     } catch {
-      setConnected(false);
+      setEvents([]);
+      return false;
     }
   }, [debateId, pipelineId, maxEvents]);
 
@@ -107,25 +132,37 @@ export function useSpectate(
       if (res.ok) {
         const data = await res.json();
         setStatus(data);
+        return true;
       }
     } catch {
       // Status fetch is best-effort
     }
+
+    setStatus(null);
+    return false;
   }, []);
+
+  const refresh = useCallback(async () => {
+    const [recentOk] = await Promise.all([
+      fetchRecent(),
+      fetchStatus(),
+    ]);
+    setConnected(recentOk);
+    setLoaded(true);
+  }, [fetchRecent, fetchStatus]);
 
   useEffect(() => {
     if (!enabled) return;
 
-    fetchRecent();
-    fetchStatus();
+    void refresh();
     intervalRef.current = setInterval(() => {
-      fetchRecent();
+      void refresh();
     }, pollInterval);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [fetchRecent, fetchStatus, pollInterval, enabled]);
+  }, [refresh, pollInterval, enabled]);
 
-  return { events, connected, status, refresh: fetchRecent };
+  return { events, connected, loaded, status, refresh };
 }

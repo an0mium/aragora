@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -22,6 +23,7 @@ from aragora.server.handlers.debates.spectate import (
     push_spectator_event,
     spectate_sse_generator,
 )
+from aragora.spectate.ws_bridge import SpectateEvent, get_spectate_bridge, reset_spectate_bridge
 
 
 def _body(result) -> dict:
@@ -42,9 +44,11 @@ def _body(result) -> dict:
 @pytest.fixture(autouse=True)
 def _clear_collectors():
     """Clear active collectors between tests."""
+    reset_spectate_bridge()
     _active_collectors.clear()
     yield
     _active_collectors.clear()
+    reset_spectate_bridge()
 
 
 @pytest.fixture
@@ -240,6 +244,8 @@ class TestHandleSpectate:
         body = _body(result)
         assert body["spectate_available"] is True
         assert body["active_viewers"] == 0
+        assert body["observed_live"] is False
+        assert body["availability_state"] == "bridge_inactive"
 
     @pytest.mark.asyncio
     async def test_spectate_status_with_viewers(self, auth_context):
@@ -249,4 +255,31 @@ class TestHandleSpectate:
         body = _body(result)
         assert body["active_viewers"] == 2
         assert body["debate_id"] == "debate-1"
+        assert body["observed_live"] is True
+        assert body["availability_state"] == "live"
         assert "/spectate" in body["sse_url"]
+
+    @pytest.mark.asyncio
+    async def test_spectate_status_reports_recent_bridge_activity(self, auth_context):
+        """Marks a debate as observed live when recent bridge activity is present."""
+        bridge = get_spectate_bridge()
+        bridge.start()
+        bridge._event_buffer.append(
+            SpectateEvent(
+                event_type="proposal",
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                debate_id="debate-1",
+                agent_name="claude",
+            )
+        )
+
+        try:
+            result = await handle_spectate("debate-1", auth_context)
+            body = _body(result)
+            assert body["bridge_active"] is True
+            assert body["observed_live"] is True
+            assert body["availability_state"] == "live"
+            assert body["recent_event_count"] == 1
+            assert body["last_event_at"] is not None
+        finally:
+            bridge.stop()
