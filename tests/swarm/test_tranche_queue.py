@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -538,6 +539,88 @@ async def test_run_queue_resumes_from_existing_state(
 
     assert seen == ["intake-docs", "issue-1047"]
     assert result["status"] == QUEUE_STATUS_COMPLETED
+
+
+@pytest.mark.asyncio
+async def test_process_item_persists_manifest_path_before_drive_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    manifest = _write_queue(queue_path)
+    executor = TrancheQueueExecutor(queue_path=queue_path, repo_root=tmp_path)
+    item = manifest.items[0]
+    item_state = TrancheQueueItemRunState(item_id=item.item_id)
+
+    queue_state = TrancheQueueRunState(queue_id=manifest.queue_id, status="running")
+    queue_state.ensure_manifest(manifest)
+    queue_state.current_item_id = item.item_id
+    queue_state.save(queue_state_path_for_queue(queue_path))
+
+    tranche_dir = tmp_path / "tranches" / "tranche-a"
+    tranche_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = tranche_dir / "tranche.yaml"
+    manifest_path.write_text("manifest_id: tranche-a\n", encoding="utf-8")
+    normalized_path = tranche_dir / "normalized_bundle.yaml"
+    normalized_path.write_text("{}\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        executor,
+        "_bundle_for_item",
+        lambda item, effective_autonomy_mode: {"objective": "test"},
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.submit_intake_bundle",
+        lambda *args, **kwargs: {
+            "manifest_id": "tranche-a",
+            "manifest_path": str(manifest_path),
+            "tranche_dir": str(tranche_dir),
+            "submission_status": "submitted",
+            "inspection_status": "ready",
+            "recommended_action": "run",
+        },
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.load_tranche_manifest",
+        lambda path: SimpleNamespace(manifest_id="tranche-a"),
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.TrancheInspector",
+        lambda repo_root: SimpleNamespace(
+            inspect=lambda tranche_manifest: {"preflight_status": "ready"}
+        ),
+    )
+
+    async def fake_design_review(*, manifest, normalized_bundle, inspection):
+        return {"recommendation": "approved", "record": {"recommendation": "approved"}}
+
+    monkeypatch.setattr("aragora.swarm.tranche_queue.run_design_review", fake_design_review)
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.save_design_review", lambda *args, **kwargs: None
+    )
+
+    async def fake_drive_manifest(*, item, item_state, manifest_path, tranche_manifest, deadline):
+        state = TrancheQueueRunState.load(queue_state_path_for_queue(queue_path), manifest=manifest)
+        persisted = state.item_states[item.item_id]
+        assert persisted.status == "running"
+        assert persisted.manifest_id == "tranche-a"
+        assert persisted.manifest_path == str(manifest_path)
+        assert state.current_item_id == item.item_id
+        item_state.status = QUEUE_ITEM_STATUS_COMPLETED
+        item_state.finished_at = item_state.updated_at = item_state.started_at
+        return None
+
+    monkeypatch.setattr(executor, "_drive_manifest", fake_drive_manifest)
+
+    result = await executor._process_item(
+        manifest=manifest,
+        item=item,
+        item_state=item_state,
+        deadline=datetime.now(UTC) + timedelta(minutes=10),
+    )
+
+    assert result is None
+    assert item_state.status == QUEUE_ITEM_STATUS_COMPLETED
 
 
 @pytest.mark.asyncio

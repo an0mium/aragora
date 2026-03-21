@@ -1268,6 +1268,22 @@ class TrancheQueueExecutor:
             self._supervisor = SwarmSupervisor(repo_root=self.repo_root)
         return self._supervisor
 
+    def _persist_item_progress(
+        self,
+        *,
+        manifest: TrancheQueueManifest,
+        item_state: TrancheQueueItemRunState,
+        current_item_id: str | None,
+    ) -> None:
+        state = TrancheQueueRunState.load(self.state_path, manifest=manifest)
+        state.status = QUEUE_STATUS_RUNNING
+        state.current_item_id = current_item_id
+        state.item_states[item_state.item_id] = TrancheQueueItemRunState.from_dict(
+            item_state.to_dict()
+        )
+        state.updated_at = _utcnow()
+        state.save(self.state_path)
+
     async def _process_item(
         self,
         *,
@@ -1296,6 +1312,11 @@ class TrancheQueueExecutor:
                 item_state,
                 "Queue auto-merge policy is not enabled yet; requested fire_and_forget was downgraded to adaptive.",
             )
+        self._persist_item_progress(
+            manifest=manifest,
+            item_state=item_state,
+            current_item_id=item.item_id,
+        )
 
         if not item_state.manifest_path:
             bundle = self._bundle_for_item(item, effective_autonomy_mode=effective_autonomy)
@@ -1313,6 +1334,11 @@ class TrancheQueueExecutor:
             item_state.recommended_action = _optional_text(submit_payload.get("recommended_action"))
             item_state.result["submit"] = dict(submit_payload)
             item_state.updated_at = _utcnow()
+            self._persist_item_progress(
+                manifest=manifest,
+                item_state=item_state,
+                current_item_id=item.item_id,
+            )
 
         if not item_state.manifest_path:
             item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
@@ -1369,6 +1395,11 @@ class TrancheQueueExecutor:
                 f"Design review did not approve execution: {design_review_recommendation or 'unknown'}.",
             )
             return None
+        self._persist_item_progress(
+            manifest=manifest,
+            item_state=item_state,
+            current_item_id=item.item_id,
+        )
 
         systemic_reason = await self._drive_manifest(
             item=item,
