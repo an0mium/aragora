@@ -578,9 +578,11 @@ class TestExecuteAction:
         body = _body(result)
         assert body["action_type"] == "code.execute"
         assert body["session_id"] == active_session.id
-        # Action should be RUNNING (handler updates from PENDING to RUNNING)
+        assert body["status"] == "completed"
         action = store.get_action(body["id"])
-        assert action.status == ActionStatus.RUNNING
+        assert action.status == ActionStatus.COMPLETED
+        assert action.started_at is not None
+        assert action.completed_at is not None
 
     def test_execute_action_missing_session_id(self, handler, mock_http):
         http = mock_http(
@@ -727,7 +729,7 @@ class TestExecuteAction:
         handler.handle_post("/api/v1/openclaw/actions", {}, http)
         entries, total = store.get_audit_log(action="action.execute")
         assert total >= 1
-        assert entries[0].result == "pending"
+        assert entries[0].result == "success"
         assert entries[0].details["action_type"] == "code.execute"
 
     def test_execute_action_store_error(self, handler, mock_http, active_session):

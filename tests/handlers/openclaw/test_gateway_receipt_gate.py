@@ -39,8 +39,8 @@ def _base_body(receipt_id: str | None = None) -> dict:
     """Minimal valid body for execute action."""
     body = {
         "session_id": "session-1",
-        "action_type": "click",
-        "input": {"x": 100, "y": 200},
+        "action_type": "code.execute",
+        "input": {"code": "print('ok')"},
         "metadata": {},
     }
     if receipt_id is not None:
@@ -54,14 +54,27 @@ def _mock_store():
 
     store = MagicMock()
     session = MagicMock()
+    session.id = "session-1"
     session.user_id = "user-1"
+    session.tenant_id = "tenant-1"
     session.status = SessionStatus.ACTIVE
+    session.config = {"timeout": 30}
     store.get_session.return_value = session
 
     action = MagicMock()
     action.id = "action-1"
-    action.to_dict.return_value = {"id": "action-1", "status": "running"}
+    action.action_type = "code.execute"
+    action.session_id = "session-1"
+    action.input_data = {"code": "print('ok')"}
+    action.metadata = {}
+    action.to_dict.return_value = {
+        "id": "action-1",
+        "session_id": "session-1",
+        "action_type": "code.execute",
+        "status": "completed",
+    }
     store.create_action.return_value = action
+    store.get_action.return_value = action
 
     return store
 

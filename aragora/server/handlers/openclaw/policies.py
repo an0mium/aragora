@@ -22,6 +22,8 @@ from aragora.server.handlers.base import (
     safe_error_message,
 )
 from aragora.server.handlers.openclaw._base import OpenClawMixinBase
+from aragora.server.handlers.openclaw.models import ActionStatus
+from aragora.server.handlers.openclaw.runtime import get_openclaw_execution_runtime
 from aragora.server.handlers.openclaw.store import _get_store
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
@@ -31,6 +33,48 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_metadata(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    return {}
+
+
+def _update_action_record(
+    store: Any,
+    action_id: str,
+    *,
+    status: ActionStatus | None = None,
+    output_data: dict[str, Any] | None = None,
+    error: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> Any:
+    """Update an action while tolerating legacy mocks."""
+    try:
+        return store.update_action(
+            action_id,
+            status=status,
+            output_data=output_data,
+            error=error,
+            metadata=metadata,
+        )
+    except TypeError:
+        try:
+            updated = store.update_action(action_id, status)
+        except TypeError:
+            updated = store.update_action(action_id, status=status)
+        target = updated
+        if target is None and hasattr(store, "get_action"):
+            target = store.get_action(action_id)
+        if target is not None:
+            if output_data is not None and hasattr(target, "output_data"):
+                target.output_data = output_data
+            if error is not None and hasattr(target, "error"):
+                target.error = error
+            if metadata is not None and hasattr(target, "metadata"):
+                target.metadata = metadata
+        return target
 
 
 # =============================================================================
@@ -176,7 +220,11 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                     offset=offset,
                 )
             else:
-                approvals, total = [], 0
+                approvals, total = get_openclaw_execution_runtime().list_approvals(
+                    tenant_id=tenant_id,
+                    limit=limit,
+                    offset=offset,
+                )
 
             return json_response(
                 {
@@ -211,8 +259,63 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                     reason=reason,
                 )
                 success = result if isinstance(result, bool) else True
+                action_id = None
+                action_status = None
             else:
-                success = True
+                runtime = get_openclaw_execution_runtime()
+                dispatch_result = runtime.approve_action(
+                    approval_id=approval_id,
+                    approver_id=approver_id,
+                    reason=reason,
+                )
+                action_id = dispatch_result.action_id or None
+                action_status = dispatch_result.status.value
+                success = dispatch_result.status == ActionStatus.COMPLETED
+
+                if action_id and hasattr(store, "get_action"):
+                    action = store.get_action(action_id)
+                    if action is not None:
+                        metadata = _normalize_metadata(getattr(action, "metadata", {}))
+                        runtime_metadata = _normalize_metadata(metadata.get("runtime"))
+                        runtime_metadata.update(
+                            {
+                                "status": dispatch_result.status.value,
+                                "approval_status": "approved",
+                                "approval_id": approval_id,
+                                "execution_time_ms": dispatch_result.execution_time_ms,
+                            }
+                        )
+                        metadata["runtime"] = runtime_metadata
+
+                        if dispatch_result.executed:
+                            _update_action_record(
+                                store,
+                                action_id,
+                                status=ActionStatus.RUNNING,
+                                metadata=metadata,
+                            )
+
+                        _update_action_record(
+                            store,
+                            action_id,
+                            status=dispatch_result.status,
+                            output_data=dispatch_result.output_data,
+                            error=dispatch_result.error,
+                            metadata=metadata,
+                        )
+
+                        receipt_id = metadata.get("receipt_id")
+                        if receipt_id and dispatch_result.executed:
+                            try:
+                                from aragora.pipeline.receipt_enforcement import (
+                                    is_receipt_enforcement_enabled,
+                                    transition_receipt_executed,
+                                )
+
+                                if is_receipt_enforcement_enabled("openclaw"):
+                                    transition_receipt_executed(receipt_id)
+                            except ImportError:
+                                pass
 
             # Audit
             store.add_audit_entry(
@@ -220,12 +323,22 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                 actor_id=user_id,
                 resource_type="approval",
                 resource_id=approval_id,
-                result="success",
-                details={"approver_id": approver_id, "reason": reason},
+                result="success" if success else "failed",
+                details={
+                    "approver_id": approver_id,
+                    "reason": reason,
+                    "action_id": action_id,
+                    "status": action_status,
+                },
             )
 
             logger.info("Approved action %s by %s", approval_id, approver_id)
-            return json_response({"success": success, "approval_id": approval_id})
+            response = {"success": success, "approval_id": approval_id}
+            if action_id:
+                response["action_id"] = action_id
+            if action_status:
+                response["status"] = action_status
+            return json_response(response)
 
         except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error("Error approving action %s: %s", approval_id, e)
@@ -251,8 +364,37 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                     reason=reason,
                 )
                 success = result if isinstance(result, bool) else True
+                action_id = None
             else:
-                success = True
+                runtime = get_openclaw_execution_runtime()
+                approval = runtime.get_approval(approval_id)
+                success = runtime.deny_action(
+                    approval_id=approval_id,
+                    denier_id=approver_id,
+                    reason=reason,
+                )
+                action_id = approval.action_id if approval is not None else None
+
+                if success and action_id and hasattr(store, "get_action"):
+                    action = store.get_action(action_id)
+                    if action is not None:
+                        metadata = _normalize_metadata(getattr(action, "metadata", {}))
+                        runtime_metadata = _normalize_metadata(metadata.get("runtime"))
+                        runtime_metadata.update(
+                            {
+                                "status": ActionStatus.FAILED.value,
+                                "approval_status": "denied",
+                                "approval_id": approval_id,
+                            }
+                        )
+                        metadata["runtime"] = runtime_metadata
+                        _update_action_record(
+                            store,
+                            action_id,
+                            status=ActionStatus.FAILED,
+                            error=f"approval_denied: {reason or 'Denied'}",
+                            metadata=metadata,
+                        )
 
             # Audit
             store.add_audit_entry(
@@ -260,12 +402,19 @@ class PolicyHandlerMixin(OpenClawMixinBase):
                 actor_id=user_id,
                 resource_type="approval",
                 resource_id=approval_id,
-                result="success",
-                details={"approver_id": approver_id, "reason": reason},
+                result="success" if success else "failed",
+                details={
+                    "approver_id": approver_id,
+                    "reason": reason,
+                    "action_id": action_id,
+                },
             )
 
             logger.info("Denied action %s by %s", approval_id, approver_id)
-            return json_response({"success": success, "approval_id": approval_id})
+            response = {"success": success, "approval_id": approval_id}
+            if action_id:
+                response["action_id"] = action_id
+            return json_response(response)
 
         except (KeyError, ValueError, TypeError, OSError) as e:
             logger.error("Error denying action %s: %s", approval_id, e)

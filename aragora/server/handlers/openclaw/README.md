@@ -71,7 +71,7 @@ status = get_openclaw_circuit_breaker_status()
 ## Features
 
 - **Session Management**: Create, track, and close gateway sessions
-- **Action Execution**: Execute actions with input validation and timeout
+- **Action Execution**: Dispatch supported actions into the sandbox runtime, return real completion or failure state, and leave approval-gated actions pending until an approver resolves them
 - **Credential Security**: Encrypted storage with rotation and rate limiting
 - **Policy Enforcement**: Rule-based approval workflows
 - **Circuit Breaker**: Fault tolerance for upstream gateway failures

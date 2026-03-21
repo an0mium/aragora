@@ -25,6 +25,7 @@ from aragora.server.handlers.openclaw.models import (
     ActionStatus,
     SessionStatus,
 )
+from aragora.server.handlers.openclaw.runtime import get_openclaw_execution_runtime
 from aragora.server.handlers.openclaw.store import _get_store
 from aragora.server.handlers.openclaw.validation import (
     MAX_SESSION_METADATA_SIZE,
@@ -45,6 +46,75 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_metadata(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    return {}
+
+
+def _update_action_record(
+    store: Any,
+    action_id: str,
+    *,
+    status: ActionStatus | None = None,
+    output_data: dict[str, Any] | None = None,
+    error: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> Any:
+    """Update an action record while tolerating legacy mock stores in tests."""
+    try:
+        return store.update_action(
+            action_id,
+            status=status,
+            output_data=output_data,
+            error=error,
+            metadata=metadata,
+        )
+    except TypeError:
+        try:
+            updated = store.update_action(action_id, status)
+        except TypeError:
+            updated = store.update_action(action_id, status=status)
+        target = updated
+        if target is None and hasattr(store, "get_action"):
+            target = store.get_action(action_id)
+        if target is not None:
+            if output_data is not None and hasattr(target, "output_data"):
+                target.output_data = output_data
+            if error is not None and hasattr(target, "error"):
+                target.error = error
+            if metadata is not None and hasattr(target, "metadata"):
+                target.metadata = metadata
+        return target
+
+
+def _build_runtime_metadata(
+    action: Any,
+    *,
+    status: ActionStatus,
+    approval_id: str | None = None,
+    audit_result: str | None = None,
+    execution_time_ms: int = 0,
+) -> dict[str, Any]:
+    metadata = _normalize_metadata(getattr(action, "metadata", {}))
+    runtime_metadata = _normalize_metadata(metadata.get("runtime"))
+    runtime_metadata.update(
+        {
+            "status": status.value,
+            "execution_time_ms": execution_time_ms,
+        }
+    )
+    if audit_result:
+        runtime_metadata["audit_result"] = audit_result
+    if approval_id:
+        runtime_metadata["approval_id"] = approval_id
+        runtime_metadata["approval_status"] = "pending"
+    elif runtime_metadata.get("approval_status") == "pending":
+        runtime_metadata["approval_status"] = status.value
+    metadata["runtime"] = runtime_metadata
+    return metadata
 
 
 # =============================================================================
@@ -199,6 +269,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
 
             # Close the session
             store.update_session_status(session_id, SessionStatus.CLOSED)
+            get_openclaw_execution_runtime().close_session(session_id)
 
             # Audit
             store.add_audit_entry(
@@ -239,6 +310,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
 
             # Close the session
             store.update_session_status(session_id, SessionStatus.CLOSED)
+            get_openclaw_execution_runtime().close_session(session_id)
 
             # Audit
             store.add_audit_entry(
@@ -369,17 +441,49 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
 
             # Sanitize input data to prevent command injection
             sanitized_input = sanitize_action_parameters(input_data)
+            stored_metadata = _normalize_metadata(metadata)
+            if receipt_id:
+                stored_metadata["receipt_id"] = receipt_id
 
             # Create action with sanitized input
             action = store.create_action(
                 session_id=session_id,
                 action_type=action_type,
                 input_data=sanitized_input,
-                metadata=metadata,
+                metadata=stored_metadata,
             )
 
             # Update session activity
             session.last_activity_at = datetime.now(timezone.utc)
+
+            runtime = get_openclaw_execution_runtime()
+            dispatch_result = runtime.dispatch_action(session, action)
+
+            runtime_metadata = _build_runtime_metadata(
+                action,
+                status=dispatch_result.status,
+                approval_id=dispatch_result.approval_id,
+                audit_result=dispatch_result.audit_result,
+                execution_time_ms=dispatch_result.execution_time_ms,
+            )
+
+            if dispatch_result.executed:
+                _update_action_record(
+                    store,
+                    action.id,
+                    status=ActionStatus.RUNNING,
+                    metadata=runtime_metadata,
+                )
+
+            _update_action_record(
+                store,
+                action.id,
+                status=dispatch_result.status,
+                output_data=dispatch_result.output_data,
+                error=dispatch_result.error,
+                metadata=runtime_metadata,
+            )
+            action = store.get_action(action.id) or action
 
             # Audit
             store.add_audit_entry(
@@ -387,16 +491,16 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
                 actor_id=user_id,
                 resource_type="action",
                 resource_id=action.id,
-                result="pending",
-                details={"action_type": action_type, "session_id": session_id},
+                result=dispatch_result.audit_result,
+                details={
+                    "action_type": action_type,
+                    "session_id": session_id,
+                    **dispatch_result.audit_details,
+                },
             )
 
-            # In a real implementation, this would dispatch to the OpenClaw runtime
-            # For now, we just mark it as running
-            store.update_action(action.id, status=ActionStatus.RUNNING)
-
-            # Transition receipt to EXECUTED after successful action creation
-            if receipt_id:
+            # Transition receipt only after a real runtime attempt.
+            if receipt_id and dispatch_result.executed:
                 try:
                     from aragora.pipeline.receipt_enforcement import (
                         is_receipt_enforcement_enabled,
@@ -409,7 +513,11 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
                     pass
 
             logger.info(
-                "Created action %s (type: %s) in session %s", action.id, action_type, session_id
+                "Dispatched action %s (type: %s) in session %s with status %s",
+                action.id,
+                action_type,
+                session_id,
+                dispatch_result.status.value,
             )
             return json_response(action.to_dict(), status=202)
 
@@ -445,8 +553,13 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
                     f"Action cannot be cancelled (status: {action.status.value})", 400
                 )
 
+            runtime_metadata = _normalize_metadata(getattr(action, "metadata", {}))
+            approval_id = _normalize_metadata(runtime_metadata.get("runtime")).get("approval_id")
+            if approval_id:
+                get_openclaw_execution_runtime().cancel_pending_approval(approval_id, user_id)
+
             # Cancel the action
-            store.update_action(action.id, status=ActionStatus.CANCELLED)
+            _update_action_record(store, action.id, status=ActionStatus.CANCELLED)
 
             # Audit
             store.add_audit_entry(

@@ -181,6 +181,7 @@ class OpenClawGatewayStore:
         status: ActionStatus | None = None,
         output_data: dict[str, Any] | None = None,
         error: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Action | None:
         """Update action state."""
         action = self._actions.get(action_id)
@@ -194,12 +195,15 @@ class OpenClawGatewayStore:
                     ActionStatus.COMPLETED,
                     ActionStatus.FAILED,
                     ActionStatus.CANCELLED,
+                    ActionStatus.TIMEOUT,
                 ):
                     action.completed_at = now
             if output_data is not None:
                 action.output_data = output_data
             if error is not None:
                 action.error = error
+            if metadata is not None:
+                action.metadata = metadata
         return action
 
     # Credential methods
@@ -830,6 +834,7 @@ class OpenClawPersistentStore:
         status: ActionStatus | None = None,
         output_data: dict[str, Any] | None = None,
         error: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Action | None:
         """Update action state."""
         import json
@@ -848,7 +853,12 @@ class OpenClawPersistentStore:
             if status == ActionStatus.RUNNING and not action.started_at:
                 updates.append("started_at = ?")
                 params.append(now.isoformat())
-            elif status in (ActionStatus.COMPLETED, ActionStatus.FAILED, ActionStatus.CANCELLED):
+            elif status in (
+                ActionStatus.COMPLETED,
+                ActionStatus.FAILED,
+                ActionStatus.CANCELLED,
+                ActionStatus.TIMEOUT,
+            ):
                 updates.append("completed_at = ?")
                 params.append(now.isoformat())
 
@@ -859,6 +869,10 @@ class OpenClawPersistentStore:
         if error is not None:
             updates.append("error = ?")
             params.append(error)
+
+        if metadata is not None:
+            updates.append("metadata_json = ?")
+            params.append(json.dumps(metadata))
 
         if not updates:
             return action
