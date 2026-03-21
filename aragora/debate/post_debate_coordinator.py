@@ -26,6 +26,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import threading
 from dataclasses import dataclass, field
 from typing import Any
@@ -700,10 +701,11 @@ class PostDebateCoordinator:
         confidence: float,
         cost_breakdown: dict[str, Any] | None = None,
     ) -> bool:
-        """Step 6: Persist debate receipt to Knowledge Mound.
+        """Step 6: Persist debate completion memory to Knowledge Mound.
 
-        This creates the knowledge flywheel: each debate's outcome becomes
-        institutional memory that informs future debates on related topics.
+        This reuses the canonical receipt/outcome adapters so debate completion
+        writes both a receipt summary and an outcome summary into Knowledge
+        Mound as institutional memory.
 
         Args:
             debate_id: Unique identifier for the debate.
@@ -713,43 +715,25 @@ class PostDebateCoordinator:
             cost_breakdown: Optional per-debate cost breakdown dict from
                 _step_collect_cost_data().
         """
-        try:
-            from aragora.knowledge.mound.adapters.receipt_adapter import (
-                get_receipt_adapter,
+        receipt_persisted = self._persist_receipt_summary_to_km(
+            self._build_receipt_km_payload(
+                debate_id=debate_id,
+                debate_result=debate_result,
+                task=task,
+                confidence=confidence,
+                cost_breakdown=cost_breakdown,
             )
-
-            adapter = get_receipt_adapter()
-
-            receipt_data: dict[str, Any] = {
-                "debate_id": debate_id,
-                "task": task,
-                "confidence": confidence,
-                "consensus_reached": bool(getattr(debate_result, "consensus", None)),
-                "final_answer": str(
-                    getattr(
-                        debate_result,
-                        "final_answer",
-                        getattr(debate_result, "consensus", ""),
-                    )
-                ),
-                "participants": [
-                    str(a) for a in (getattr(debate_result, "participants", []) or [])
-                ],
-            }
-
-            # Include cost breakdown in receipt when available
-            if cost_breakdown:
-                receipt_data["cost_summary"] = cost_breakdown
-
-            adapter.ingest(receipt_data)
-            logger.info("Receipt persisted to KM for %s", debate_id)
-            return True
-        except ImportError:
-            logger.debug("ReceiptAdapter not available, skipping KM persistence")
-            return False
-        except (ValueError, TypeError, OSError, AttributeError, KeyError) as e:
-            logger.warning("Receipt KM persistence failed: %s", e)
-            return False
+        )
+        self._persist_outcome_summary_to_km(
+            self._build_outcome_km_payload(
+                debate_id=debate_id,
+                debate_result=debate_result,
+                task=task,
+                confidence=confidence,
+                cost_breakdown=cost_breakdown,
+            )
+        )
+        return receipt_persisted
 
     def _step_persist_signed_receipt(
         self,
@@ -763,7 +747,9 @@ class PostDebateCoordinator:
 
         This fixes the attestation inversion: the execution safety gate must
         validate a previously-persisted receipt rather than building and
-        signing one inline.
+        signing one inline. After the durable receipt store write succeeds,
+        the same canonical KM receipt/outcome bridge is reused for memory
+        writeback.
 
         Returns the ``receipt_id`` on success, ``None`` on failure.
         """
@@ -800,18 +786,25 @@ class PostDebateCoordinator:
             # Auto-approve if no manual approval is required
             store.transition(receipt.receipt_id, ReceiptState.APPROVED)
 
-            # Also push to Knowledge Mound for the flywheel
-            try:
-                from aragora.knowledge.mound.adapters.receipt_adapter import (
-                    get_receipt_adapter,
+            self._persist_receipt_summary_to_km(
+                self._build_receipt_km_payload(
+                    debate_id=debate_id,
+                    debate_result=debate_result,
+                    task=task,
+                    confidence=confidence,
+                    cost_breakdown=cost_breakdown,
                 )
-
-                adapter = get_receipt_adapter()
-                adapter.ingest(receipt_dict)
-            except ImportError:
-                logger.debug("ReceiptAdapter unavailable, KM flywheel skipped")
-            except (ValueError, TypeError, OSError, AttributeError, KeyError) as km_err:
-                logger.debug("KM receipt ingestion failed (non-critical): %s", km_err)
+            )
+            self._persist_outcome_summary_to_km(
+                self._build_outcome_km_payload(
+                    debate_id=debate_id,
+                    debate_result=debate_result,
+                    task=task,
+                    confidence=confidence,
+                    cost_breakdown=cost_breakdown,
+                    decision_id=receipt.receipt_id,
+                )
+            )
 
             logger.info("Signed receipt persisted: %s (debate=%s)", receipt.receipt_id, debate_id)
             return receipt.receipt_id
@@ -822,6 +815,148 @@ class PostDebateCoordinator:
         except (ValueError, TypeError, OSError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning("Signed receipt persistence failed: %s", e)
             return None
+
+    @staticmethod
+    def _debate_consensus_reached(debate_result: Any) -> bool:
+        """Return whether the debate reached consensus."""
+        consensus_reached = getattr(debate_result, "consensus_reached", None)
+        if consensus_reached is not None:
+            return bool(consensus_reached)
+        return bool(getattr(debate_result, "consensus", None))
+
+    @staticmethod
+    def _debate_final_answer(debate_result: Any) -> str:
+        """Extract the best available final answer text from a debate result."""
+        return str(
+            getattr(
+                debate_result,
+                "final_answer",
+                getattr(debate_result, "consensus", ""),
+            )
+        )
+
+    @staticmethod
+    def _task_slug(task: str) -> str:
+        """Build a stable task slug for adapter-local cache lookups."""
+        words = re.findall(r"[a-z0-9]+", str(task or "").lower())
+        if not words:
+            return "debate"
+        return "-".join(words[:6])
+
+    def _build_receipt_km_payload(
+        self,
+        debate_id: str,
+        debate_result: Any,
+        task: str,
+        confidence: float,
+        cost_breakdown: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Build the receipt summary payload for ReceiptAdapter.ingest()."""
+        resolved_task = str(task or getattr(debate_result, "task", ""))
+        resolved_confidence = float(confidence or getattr(debate_result, "confidence", 0.0) or 0.0)
+        payload: dict[str, Any] = {
+            "debate_id": debate_id,
+            "task": resolved_task,
+            "confidence": resolved_confidence,
+            "consensus_reached": self._debate_consensus_reached(debate_result),
+            "final_answer": self._debate_final_answer(debate_result),
+            "participants": [str(a) for a in (getattr(debate_result, "participants", []) or [])],
+        }
+        if cost_breakdown:
+            payload["cost_summary"] = cost_breakdown
+        return payload
+
+    def _build_outcome_km_payload(
+        self,
+        debate_id: str,
+        debate_result: Any,
+        task: str,
+        confidence: float,
+        cost_breakdown: dict[str, Any] | None = None,
+        decision_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Build the outcome summary payload for OutcomeAdapter.ingest()."""
+        resolved_task = str(task or getattr(debate_result, "task", ""))
+        resolved_confidence = float(confidence or getattr(debate_result, "confidence", 0.0) or 0.0)
+        consensus_reached = self._debate_consensus_reached(debate_result)
+        final_answer = self._debate_final_answer(debate_result)
+        outcome_type = "success" if consensus_reached else "partial"
+        task_slug = self._task_slug(resolved_task)
+        dissenting_views = [
+            str(view) for view in (getattr(debate_result, "dissenting_views", []) or [])
+        ]
+        cruxes = [
+            str(crux.get("claim", crux) if isinstance(crux, dict) else crux)
+            for crux in (getattr(debate_result, "debate_cruxes", []) or [])
+        ]
+
+        lessons: list[str] = []
+        if dissenting_views:
+            lessons.append(f"Dissent preserved: {'; '.join(dissenting_views[:2])}")
+        if cruxes:
+            lessons.append(f"Debate cruxes: {'; '.join(cruxes[:2])}")
+        if cost_breakdown and cost_breakdown.get("total_cost_usd") is not None:
+            lessons.append(f"Debate cost captured: {cost_breakdown['total_cost_usd']} USD")
+
+        return {
+            "outcome_id": f"outcome-{debate_id}-{task_slug}",
+            "decision_id": decision_id or debate_id,
+            "debate_id": debate_id,
+            "outcome_type": outcome_type,
+            "outcome_description": (
+                f"Debate outcome for '{resolved_task}': {final_answer}"
+                if resolved_task
+                else final_answer
+            ),
+            "impact_score": max(0.0, min(resolved_confidence, 1.0)),
+            "kpis_before": {},
+            "kpis_after": {},
+            "lessons_learned": "\n".join(lessons),
+            "tags": [
+                "debate_completion",
+                "institutional_memory",
+                "decision_outcome",
+                f"task:{task_slug}",
+            ],
+        }
+
+    def _persist_receipt_summary_to_km(self, receipt_data: dict[str, Any]) -> bool:
+        """Persist the canonical receipt summary through ReceiptAdapter."""
+        try:
+            from aragora.knowledge.mound.adapters.receipt_adapter import (
+                get_receipt_adapter,
+            )
+
+            adapter = get_receipt_adapter()
+            persisted = bool(adapter.ingest(receipt_data))
+            if persisted:
+                logger.info("Receipt persisted to KM for %s", receipt_data.get("debate_id", ""))
+            return persisted
+        except ImportError:
+            logger.debug("ReceiptAdapter not available, skipping KM receipt persistence")
+            return False
+        except (ValueError, TypeError, OSError, AttributeError, KeyError) as e:
+            logger.warning("Receipt KM persistence failed: %s", e)
+            return False
+
+    def _persist_outcome_summary_to_km(self, outcome_data: dict[str, Any]) -> bool:
+        """Persist the canonical debate outcome through OutcomeAdapter."""
+        try:
+            from aragora.knowledge.mound.adapters.outcome_adapter import (
+                get_outcome_adapter,
+            )
+
+            adapter = get_outcome_adapter()
+            persisted = bool(adapter.ingest(outcome_data))
+            if persisted:
+                logger.info("Outcome persisted to KM for %s", outcome_data.get("debate_id", ""))
+            return persisted
+        except ImportError:
+            logger.debug("OutcomeAdapter not available, skipping KM outcome persistence")
+            return False
+        except (ValueError, TypeError, OSError, AttributeError, KeyError) as e:
+            logger.warning("Outcome KM persistence failed: %s", e)
+            return False
 
     def _step_collect_cost_data(
         self,

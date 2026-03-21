@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 from dataclasses import dataclass, field
 from typing import Any
 
+from aragora.debate.post_debate_coordinator import PostDebateConfig, PostDebateCoordinator
 from aragora.pipeline.km_bridge import PipelineKMBridge
 
 
@@ -55,6 +56,24 @@ class MockSearchResult:
         self.title = title
         self.similarity = similarity
         self.metadata = {"outcome": outcome}
+
+
+def _make_debate_result(
+    *,
+    consensus: bool = True,
+    final_answer: str = "Use token bucket with Redis-backed counters",
+    confidence: float = 0.88,
+) -> MagicMock:
+    """Create a debate-result-like mock for KM writeback tests."""
+    result = MagicMock()
+    result.consensus = "majority" if consensus else None
+    result.consensus_reached = consensus
+    result.final_answer = final_answer
+    result.confidence = confidence
+    result.participants = ["claude", "gpt4"]
+    result.dissenting_views = ["Sliding window remains more accurate for fairness"]
+    result.debate_cruxes = [{"claim": "Redis dependency is acceptable for scale"}]
+    return result
 
 
 # =============================================================================
@@ -246,6 +265,119 @@ class TestStorePipelineResult:
             # in test env; either way the method should not raise
             result = bridge.store_pipeline_result(mock_result)
             assert isinstance(result, bool)
+
+
+class TestCanonicalDebateCompletionWriteback:
+    """Tests for canonical debate completion writeback into Knowledge Mound."""
+
+    def test_receipt_step_persists_receipt_and_outcome_summaries(self):
+        """The standard KM writeback step should reuse both adapters."""
+        coordinator = PostDebateCoordinator(config=PostDebateConfig())
+        debate_result = _make_debate_result()
+        mock_receipt_adapter = MagicMock()
+        mock_receipt_adapter.ingest.return_value = True
+        mock_outcome_adapter = MagicMock()
+        mock_outcome_adapter.ingest.return_value = True
+
+        with (
+            patch(
+                "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter",
+                return_value=mock_receipt_adapter,
+            ),
+            patch(
+                "aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter",
+                return_value=mock_outcome_adapter,
+            ),
+        ):
+            persisted = coordinator._step_persist_receipt(
+                debate_id="debate-rate-limiter",
+                debate_result=debate_result,
+                task="Rate limiter API",
+                confidence=0.88,
+                cost_breakdown={"total_cost_usd": "0.12"},
+            )
+
+        assert persisted is True
+        mock_receipt_adapter.ingest.assert_called_once()
+        mock_outcome_adapter.ingest.assert_called_once()
+
+        receipt_payload = mock_receipt_adapter.ingest.call_args[0][0]
+        outcome_payload = mock_outcome_adapter.ingest.call_args[0][0]
+
+        assert receipt_payload["debate_id"] == "debate-rate-limiter"
+        assert receipt_payload["task"] == "Rate limiter API"
+        assert receipt_payload["cost_summary"]["total_cost_usd"] == "0.12"
+        assert receipt_payload["participants"] == ["claude", "gpt4"]
+
+        assert outcome_payload["debate_id"] == "debate-rate-limiter"
+        assert outcome_payload["decision_id"] == "debate-rate-limiter"
+        assert outcome_payload["outcome_type"] == "success"
+        assert outcome_payload["impact_score"] == 0.88
+        assert "Dissent preserved" in outcome_payload["lessons_learned"]
+        assert "Debate cruxes" in outcome_payload["lessons_learned"]
+        assert "task:rate-limiter-api" in outcome_payload["tags"]
+
+    def test_signed_receipt_path_reuses_same_km_writeback(self):
+        """The signed-receipt path should write both receipt and outcome via adapters."""
+        coordinator = PostDebateCoordinator(config=PostDebateConfig())
+        debate_result = _make_debate_result()
+        mock_receipt = MagicMock()
+        mock_receipt.receipt_id = "rcpt-123"
+        mock_receipt.signature = "sig"
+        mock_receipt.signature_key_id = "key-1"
+        mock_receipt.signed_at = "2026-03-21T00:00:00Z"
+        mock_receipt.signature_algorithm = "hmac-sha256"
+        mock_receipt.to_dict.return_value = {"receipt_id": "rcpt-123"}
+        mock_store = MagicMock()
+        mock_signer = MagicMock()
+        mock_receipt_adapter = MagicMock()
+        mock_receipt_adapter.ingest.return_value = True
+        mock_outcome_adapter = MagicMock()
+        mock_outcome_adapter.ingest.return_value = True
+
+        with (
+            patch(
+                "aragora.gauntlet.receipt_models.DecisionReceipt.from_debate_result",
+                return_value=mock_receipt,
+            ),
+            patch(
+                "aragora.gauntlet.receipt_store.get_receipt_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "aragora.gauntlet.signing.get_default_signer",
+                return_value=mock_signer,
+            ),
+            patch(
+                "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter",
+                return_value=mock_receipt_adapter,
+            ),
+            patch(
+                "aragora.knowledge.mound.adapters.outcome_adapter.get_outcome_adapter",
+                return_value=mock_outcome_adapter,
+            ),
+        ):
+            receipt_id = coordinator._step_persist_signed_receipt(
+                debate_id="debate-rate-limiter",
+                debate_result=debate_result,
+                task="Rate limiter API",
+                confidence=0.88,
+                cost_breakdown={"total_cost_usd": "0.12"},
+            )
+
+        assert receipt_id == "rcpt-123"
+        mock_receipt.sign.assert_called_once_with(mock_signer)
+        mock_store.persist.assert_called_once()
+        mock_store.transition.assert_called_once()
+        mock_receipt_adapter.ingest.assert_called_once()
+        mock_outcome_adapter.ingest.assert_called_once()
+
+        receipt_payload = mock_receipt_adapter.ingest.call_args[0][0]
+        outcome_payload = mock_outcome_adapter.ingest.call_args[0][0]
+
+        assert receipt_payload["debate_id"] == "debate-rate-limiter"
+        assert outcome_payload["decision_id"] == "rcpt-123"
+        assert outcome_payload["debate_id"] == "debate-rate-limiter"
 
 
 class TestGracefulDegradation:
