@@ -46,12 +46,13 @@ async function readResponseMessage(response: Response, fallback: string) {
   return text;
 }
 
-function mapStatusLoadError(status: number, message: string) {
-  if (status === 401 || status === 403) {
-    return 'Sign in to load live integration status. Demo data is not shown here.';
+async function readErrorMessage(response: Response, fallback: string): Promise<string> {
+  const message = await readResponseMessage(response, fallback);
+  if (response.status === 401) {
+    return 'Sign in to view and manage live integrations.';
   }
-  if (status === 404) {
-    return 'This server does not expose live integration status. Demo data is not shown here.';
+  if (response.status === 403) {
+    return message || 'You do not have permission to manage integrations.';
   }
   return message;
 }
@@ -115,21 +116,42 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
   const [integrations, setIntegrations] = useState<IntegrationStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editingType, setEditingType] = useState<IntegrationType | null>(null);
+  const [loadingConfigType, setLoadingConfigType] = useState<IntegrationType | null>(null);
+
+  const buildAuthHeaders = useCallback(
+    (options: { contentType?: string; requireAuth?: boolean } = {}) => {
+      const headers: HeadersInit = {};
+
+      if (options.contentType) {
+        headers['Content-Type'] = options.contentType;
+      }
+
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+        return headers;
+      }
+
+      if (options.requireAuth) {
+        setError('Sign in to view and manage live integrations.');
+        return null;
+      }
+
+      return headers;
+    },
+    [tokens?.access_token]
+  );
 
   const fetchStatus = useCallback(async () => {
+    const headers = buildAuthHeaders({ requireAuth: true });
+    if (!headers) {
+      setIntegrations([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-
-      if (!tokens?.access_token) {
-        setIntegrations([]);
-        setError('Sign in to load live integration status. Demo data is not shown here.');
-        return;
-      }
-
-      const headers: HeadersInit = {};
-      headers['Authorization'] = `Bearer ${tokens.access_token}`;
 
       const res = await fetch(`${backendConfig.api}/api/integrations/status`, { headers });
 
@@ -137,9 +159,10 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
         const data = await res.json();
         setIntegrations(data.integrations || []);
       } else {
-        const message = await readResponseMessage(res, 'Failed to fetch integration status');
         setIntegrations([]);
-        setError(mapStatusLoadError(res.status, message));
+        setError(
+          await readErrorMessage(res, 'Live integration status is unavailable from this backend.')
+        );
       }
     } catch (err) {
       setIntegrations([]);
@@ -147,25 +170,27 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.api, tokens?.access_token]);
+  }, [backendConfig.api, buildAuthHeaders]);
 
   useEffect(() => {
-    fetchStatus();
+    void fetchStatus();
     // Refresh every 30 seconds
-    const interval = setInterval(fetchStatus, 30000);
+    const interval = setInterval(() => {
+      void fetchStatus();
+    }, 30000);
     return () => clearInterval(interval);
   }, [fetchStatus]);
 
   const handleDisable = async (type: IntegrationType) => {
     if (!confirm(`Disable ${INTEGRATION_CONFIGS[type].title} integration?`)) return;
 
-    try {
-      if (!tokens?.access_token) {
-        throw new Error('Sign in to update integrations.');
-      }
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    const headers = buildAuthHeaders({
+      contentType: 'application/json',
+      requireAuth: true,
+    });
+    if (!headers) return;
 
+    try {
       const res = await fetch(`${backendConfig.api}/api/integrations/${type}`, {
         method: 'PATCH',
         headers,
@@ -173,11 +198,12 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
       });
 
       if (res.ok) {
-        fetchStatus();
-        return;
+        void fetchStatus();
+      } else {
+        setError(
+          await readErrorMessage(res, `Failed to disable ${INTEGRATION_CONFIGS[type].title}.`)
+        );
       }
-
-      throw new Error(await readResponseMessage(res, 'Failed to disable integration'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to disable integration');
     }
@@ -186,37 +212,32 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
   const handleDelete = async (type: IntegrationType) => {
     if (!confirm(`Delete ${INTEGRATION_CONFIGS[type].title} configuration? This cannot be undone.`)) return;
 
-    try {
-      if (!tokens?.access_token) {
-        throw new Error('Sign in to delete integrations.');
-      }
-      const headers: HeadersInit = {};
-      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    const headers = buildAuthHeaders({ requireAuth: true });
+    if (!headers) return;
 
+    try {
       const res = await fetch(`${backendConfig.api}/api/integrations/${type}`, {
         method: 'DELETE',
         headers,
       });
 
       if (res.ok) {
-        fetchStatus();
-        return;
+        void fetchStatus();
+      } else {
+        setError(
+          await readErrorMessage(res, `Failed to delete ${INTEGRATION_CONFIGS[type].title}.`)
+        );
       }
-
-      throw new Error(await readResponseMessage(res, 'Failed to delete integration'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete integration');
     }
   };
 
   const handleTestConnection = async (type: IntegrationType) => {
-    try {
-      if (!tokens?.access_token) {
-        throw new Error('Sign in to test integrations.');
-      }
-      const headers: HeadersInit = {};
-      headers['Authorization'] = `Bearer ${tokens.access_token}`;
+    const headers = buildAuthHeaders({ requireAuth: true });
+    if (!headers) return;
 
+    try {
       const res = await fetch(`${backendConfig.api}/api/integrations/${type}/test`, {
         method: 'POST',
         headers,
@@ -225,32 +246,37 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
       if (res.ok) {
         const data = await res.json();
         alert(data.success ? 'Connection test successful!' : `Test failed: ${data.error}`);
-        return;
+      } else {
+        setError(
+          await readErrorMessage(res, `Failed to test ${INTEGRATION_CONFIGS[type].title}.`)
+        );
       }
-
-      throw new Error(await readResponseMessage(res, 'Connection test failed'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection test failed');
     }
   };
 
   const handleEditClick = async (type: IntegrationType) => {
+    const headers = buildAuthHeaders({ requireAuth: true });
+    if (!headers) return;
+
+    setLoadingConfigType(type);
+    setError(null);
+
     try {
-      if (!tokens?.access_token) {
-        throw new Error('Sign in to edit integrations.');
-      }
-
-      setEditingType(type);
-      setError(null);
-
-      const res = await fetch(`${backendConfig.api}/api/integrations/${type}`, {
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-        },
-      });
+      const res = await fetch(`${backendConfig.api}/api/integrations/${type}`, { headers });
 
       if (!res.ok) {
-        throw new Error(await readResponseMessage(res, `Failed to load ${INTEGRATION_CONFIGS[type].title} configuration`));
+        setError(
+          await readErrorMessage(
+            res,
+            `${INTEGRATION_CONFIGS[type].title} configuration is unavailable from this backend.`
+          )
+        );
+        if (res.status === 404) {
+          void fetchStatus();
+        }
+        return;
       }
 
       const data = await res.json();
@@ -258,7 +284,7 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load integration configuration');
     } finally {
-      setEditingType(null);
+      setLoadingConfigType(null);
     }
   };
 
@@ -271,6 +297,34 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
     return (
       <div className="p-6 border border-acid-green/20 rounded bg-surface/30">
         <p className="font-mono text-text-muted text-center">Loading integration status...</p>
+      </div>
+    );
+  }
+
+  if (integrations.length === 0) {
+    return (
+      <div className="space-y-4">
+        {error && (
+          <div className="p-3 border border-warning/30 bg-warning/10 rounded">
+            <p className="text-warning font-mono text-sm">{error}</p>
+          </div>
+        )}
+
+        <div className="p-6 border border-warning/30 rounded bg-surface/30">
+          <p className="font-mono text-text text-center">No live integration status is available.</p>
+          <p className="mt-2 font-mono text-xs text-text-muted text-center">
+            Sign in and connect to a backend that exposes the integrations API to view real status data.
+          </p>
+        </div>
+
+        <div className="text-center">
+          <button
+            onClick={() => void fetchStatus()}
+            className="text-xs font-mono text-text-muted hover:text-text transition-colors"
+          >
+            [REFRESH STATUS]
+          </button>
+        </div>
       </div>
     );
   }
@@ -302,14 +356,6 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
 
       {/* Integration List */}
       <div className="space-y-3">
-        {integrations.length === 0 && (
-          <div className="p-6 border border-acid-green/20 rounded bg-surface/20 text-center">
-            <p className="font-mono text-sm text-text-muted">
-              No live integration status is available.
-            </p>
-          </div>
-        )}
-
         {integrations.map(integration => {
           const config = INTEGRATION_CONFIGS[integration.type];
           const isConfigured = integration.status !== 'not_configured';
@@ -348,10 +394,10 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
                       </button>
                       <button
                         onClick={() => handleEditClick(integration.type)}
-                        disabled={editingType === integration.type}
+                        disabled={loadingConfigType === integration.type}
                         className="px-2 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-text transition-colors"
                       >
-                        {editingType === integration.type ? '[LOADING...]' : '[EDIT]'}
+                        {loadingConfigType === integration.type ? '[LOADING...]' : '[EDIT]'}
                       </button>
                       <button
                         onClick={() => handleDisable(integration.type)}
@@ -402,7 +448,7 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
       {/* Refresh Button */}
       <div className="text-center">
         <button
-          onClick={fetchStatus}
+          onClick={() => void fetchStatus()}
           className="text-xs font-mono text-text-muted hover:text-text transition-colors"
         >
           [REFRESH STATUS]
