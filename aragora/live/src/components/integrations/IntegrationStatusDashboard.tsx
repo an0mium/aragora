@@ -3,8 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useBackend } from '@/components/BackendSelector';
 import { useAuth } from '@/context/AuthContext';
-import { IntegrationType, INTEGRATION_CONFIGS } from './IntegrationSetupWizard';
-import { DEMO_INTEGRATIONS } from '@/fixtures';
+import {
+  IntegrationType,
+  INTEGRATION_CONFIGS,
+  MASKED_SECRET_FIELD_VALUE,
+} from './IntegrationSetupWizard';
 
 interface IntegrationStatus {
   type: IntegrationType;
@@ -18,6 +21,75 @@ interface IntegrationStatus {
 interface IntegrationStatusDashboardProps {
   onConfigure: (type: IntegrationType) => void;
   onEdit: (type: IntegrationType, config: Record<string, unknown>) => void;
+}
+
+const MASKED_SECRET_DISPLAY_VALUE = '••••••••';
+
+async function readResponseMessage(response: Response, fallback: string) {
+  const text = await response.text().catch(() => '');
+  if (!text) {
+    return fallback;
+  }
+
+  try {
+    const data = JSON.parse(text) as { error?: unknown; message?: unknown };
+    if (typeof data.error === 'string' && data.error) {
+      return data.error;
+    }
+    if (typeof data.message === 'string' && data.message) {
+      return data.message;
+    }
+  } catch {
+    return text;
+  }
+
+  return text;
+}
+
+function mapStatusLoadError(status: number, message: string) {
+  if (status === 401 || status === 403) {
+    return 'Sign in to load live integration status. Demo data is not shown here.';
+  }
+  if (status === 404) {
+    return 'This server does not expose live integration status. Demo data is not shown here.';
+  }
+  return message;
+}
+
+function buildEditConfig(
+  type: IntegrationType,
+  integration: Record<string, unknown>
+): Record<string, unknown> {
+  const settings = (
+    integration.settings && typeof integration.settings === 'object'
+      ? integration.settings
+      : {}
+  ) as Record<string, unknown>;
+  const config = INTEGRATION_CONFIGS[type];
+  const nextConfig: Record<string, unknown> = {};
+
+  for (const field of config.fields) {
+    const rawValue = settings[field.key];
+    if (rawValue === undefined) {
+      continue;
+    }
+    nextConfig[field.key] =
+      field.type === 'password' && rawValue === MASKED_SECRET_DISPLAY_VALUE
+        ? MASKED_SECRET_FIELD_VALUE
+        : rawValue;
+  }
+
+  for (const option of config.notificationOptions) {
+    if (integration[option.key] !== undefined) {
+      nextConfig[option.key] = integration[option.key];
+      continue;
+    }
+    if (settings[option.key] !== undefined) {
+      nextConfig[option.key] = settings[option.key];
+    }
+  }
+
+  return nextConfig;
 }
 
 function StatusIndicator({ status }: { status: IntegrationStatus['status'] }) {
@@ -43,35 +115,34 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
   const [integrations, setIntegrations] = useState<IntegrationStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingType, setEditingType] = useState<IntegrationType | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const headers: HeadersInit = {};
-      if (tokens?.access_token) {
-        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      if (!tokens?.access_token) {
+        setIntegrations([]);
+        setError('Sign in to load live integration status. Demo data is not shown here.');
+        return;
       }
+
+      const headers: HeadersInit = {};
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
 
       const res = await fetch(`${backendConfig.api}/api/integrations/status`, { headers });
 
       if (res.ok) {
         const data = await res.json();
         setIntegrations(data.integrations || []);
-      } else if (res.status === 404) {
-        // API not implemented yet, use mock data
-        setIntegrations(getMockIntegrations());
-      } else if (res.status === 401) {
-        // Not authenticated - show demo mode
-        setIntegrations(getMockIntegrations());
-        setError('Sign in to see your integrations');
       } else {
-        throw new Error('Failed to fetch integration status');
+        const message = await readResponseMessage(res, 'Failed to fetch integration status');
+        setIntegrations([]);
+        setError(mapStatusLoadError(res.status, message));
       }
     } catch (err) {
-      // Use mock data for demo
-      setIntegrations(getMockIntegrations());
+      setIntegrations([]);
       setError(err instanceof Error ? err.message : 'Failed to load integration status');
     } finally {
       setLoading(false);
@@ -89,10 +160,11 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
     if (!confirm(`Disable ${INTEGRATION_CONFIGS[type].title} integration?`)) return;
 
     try {
-      const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (tokens?.access_token) {
-        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      if (!tokens?.access_token) {
+        throw new Error('Sign in to update integrations.');
       }
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
 
       const res = await fetch(`${backendConfig.api}/api/integrations/${type}`, {
         method: 'PATCH',
@@ -102,7 +174,10 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
 
       if (res.ok) {
         fetchStatus();
+        return;
       }
+
+      throw new Error(await readResponseMessage(res, 'Failed to disable integration'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to disable integration');
     }
@@ -112,10 +187,11 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
     if (!confirm(`Delete ${INTEGRATION_CONFIGS[type].title} configuration? This cannot be undone.`)) return;
 
     try {
-      const headers: HeadersInit = {};
-      if (tokens?.access_token) {
-        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      if (!tokens?.access_token) {
+        throw new Error('Sign in to delete integrations.');
       }
+      const headers: HeadersInit = {};
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
 
       const res = await fetch(`${backendConfig.api}/api/integrations/${type}`, {
         method: 'DELETE',
@@ -124,7 +200,10 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
 
       if (res.ok) {
         fetchStatus();
+        return;
       }
+
+      throw new Error(await readResponseMessage(res, 'Failed to delete integration'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete integration');
     }
@@ -132,10 +211,11 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
 
   const handleTestConnection = async (type: IntegrationType) => {
     try {
-      const headers: HeadersInit = {};
-      if (tokens?.access_token) {
-        headers['Authorization'] = `Bearer ${tokens.access_token}`;
+      if (!tokens?.access_token) {
+        throw new Error('Sign in to test integrations.');
       }
+      const headers: HeadersInit = {};
+      headers['Authorization'] = `Bearer ${tokens.access_token}`;
 
       const res = await fetch(`${backendConfig.api}/api/integrations/${type}/test`, {
         method: 'POST',
@@ -145,9 +225,40 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
       if (res.ok) {
         const data = await res.json();
         alert(data.success ? 'Connection test successful!' : `Test failed: ${data.error}`);
+        return;
       }
-    } catch {
-      alert('Connection test failed');
+
+      throw new Error(await readResponseMessage(res, 'Connection test failed'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Connection test failed');
+    }
+  };
+
+  const handleEditClick = async (type: IntegrationType) => {
+    try {
+      if (!tokens?.access_token) {
+        throw new Error('Sign in to edit integrations.');
+      }
+
+      setEditingType(type);
+      setError(null);
+
+      const res = await fetch(`${backendConfig.api}/api/integrations/${type}`, {
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(await readResponseMessage(res, `Failed to load ${INTEGRATION_CONFIGS[type].title} configuration`));
+      }
+
+      const data = await res.json();
+      onEdit(type, buildEditConfig(type, data.integration || {}));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load integration configuration');
+    } finally {
+      setEditingType(null);
     }
   };
 
@@ -166,21 +277,22 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
 
   return (
     <div className="space-y-4">
-      {/* Stats Bar */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="p-4 border border-acid-green/20 rounded bg-surface/30 text-center">
-          <div className="font-mono text-2xl text-acid-green">{connectedCount}</div>
-          <div className="font-mono text-xs text-text-muted">Connected</div>
+      {integrations.length > 0 && (
+        <div className="grid grid-cols-3 gap-4">
+          <div className="p-4 border border-acid-green/20 rounded bg-surface/30 text-center">
+            <div className="font-mono text-2xl text-acid-green">{connectedCount}</div>
+            <div className="font-mono text-xs text-text-muted">Connected</div>
+          </div>
+          <div className="p-4 border border-acid-green/20 rounded bg-surface/30 text-center">
+            <div className="font-mono text-2xl text-acid-cyan">{totalMessages.toLocaleString()}</div>
+            <div className="font-mono text-xs text-text-muted">Messages Sent</div>
+          </div>
+          <div className="p-4 border border-acid-green/20 rounded bg-surface/30 text-center">
+            <div className="font-mono text-2xl text-warning">{totalErrors}</div>
+            <div className="font-mono text-xs text-text-muted">Errors (24h)</div>
+          </div>
         </div>
-        <div className="p-4 border border-acid-green/20 rounded bg-surface/30 text-center">
-          <div className="font-mono text-2xl text-acid-cyan">{totalMessages.toLocaleString()}</div>
-          <div className="font-mono text-xs text-text-muted">Messages Sent</div>
-        </div>
-        <div className="p-4 border border-acid-green/20 rounded bg-surface/30 text-center">
-          <div className="font-mono text-2xl text-warning">{totalErrors}</div>
-          <div className="font-mono text-xs text-text-muted">Errors (24h)</div>
-        </div>
-      </div>
+      )}
 
       {error && (
         <div className="p-3 border border-warning/30 bg-warning/10 rounded">
@@ -190,6 +302,14 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
 
       {/* Integration List */}
       <div className="space-y-3">
+        {integrations.length === 0 && (
+          <div className="p-6 border border-acid-green/20 rounded bg-surface/20 text-center">
+            <p className="font-mono text-sm text-text-muted">
+              No live integration status is available.
+            </p>
+          </div>
+        )}
+
         {integrations.map(integration => {
           const config = INTEGRATION_CONFIGS[integration.type];
           const isConfigured = integration.status !== 'not_configured';
@@ -227,10 +347,11 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
                         [TEST]
                       </button>
                       <button
-                        onClick={() => onEdit(integration.type, {})}
+                        onClick={() => handleEditClick(integration.type)}
+                        disabled={editingType === integration.type}
                         className="px-2 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-text transition-colors"
                       >
-                        [EDIT]
+                        {editingType === integration.type ? '[LOADING...]' : '[EDIT]'}
                       </button>
                       <button
                         onClick={() => handleDisable(integration.type)}
@@ -289,12 +410,6 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
       </div>
     </div>
   );
-}
-
-// Mock data for development/demo
-function getMockIntegrations(): IntegrationStatus[] {
-  // Use centralized demo data from @/fixtures
-  return DEMO_INTEGRATIONS as IntegrationStatus[];
 }
 
 export default IntegrationStatusDashboard;

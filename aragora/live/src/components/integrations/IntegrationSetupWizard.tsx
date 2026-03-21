@@ -11,6 +11,8 @@ export type IntegrationType =
   | 'whatsapp'
   | 'matrix';
 
+export const MASKED_SECRET_FIELD_VALUE = '__aragora_masked_secret__';
+
 interface IntegrationField {
   key: string;
   label: string;
@@ -185,6 +187,14 @@ export function IntegrationSetupWizard({
   const [error, setError] = useState<string | null>(null);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
 
+  const buildSubmissionData = () => {
+    return Object.fromEntries(
+      Object.entries(formData).filter(
+        ([key, value]) => key !== '_notificationsInitialized' && value !== MASKED_SECRET_FIELD_VALUE
+      )
+    );
+  };
+
   const handleFieldChange = (key: string, value: unknown) => {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
@@ -209,7 +219,7 @@ export function IntegrationSetupWizard({
 
       // Use the onTest callback if provided (calls real API)
       if (onTest) {
-        const result = await onTest(type, formData);
+        const result = await onTest(type, buildSubmissionData());
         if (result.success) {
           setTestStatus('success');
         } else {
@@ -231,7 +241,7 @@ export function IntegrationSetupWizard({
     setError(null);
 
     try {
-      await onSave({ ...formData, type });
+      await onSave({ ...buildSubmissionData(), type });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save configuration');
@@ -340,7 +350,11 @@ export function IntegrationSetupWizard({
                   ) : (
                     <input
                       type={field.type}
-                      value={(formData[field.key] as string) || ''}
+                      value={
+                        formData[field.key] === MASKED_SECRET_FIELD_VALUE
+                          ? '••••••••'
+                          : (formData[field.key] as string) || ''
+                      }
                       onChange={(e) => handleFieldChange(field.key, e.target.value)}
                       placeholder={field.placeholder}
                       className="w-full bg-bg border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"

@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
+import { useAuth } from '@/context/AuthContext';
 import {
   IntegrationSetupWizard,
   IntegrationStatusDashboard,
@@ -146,6 +147,7 @@ function BotStatusBadge({ status }: { status: BotStatus['status'] }) {
 
 export default function IntegrationsPage() {
   const { config: backendConfig } = useBackend();
+  const { tokens } = useAuth();
   const [activeTab, setActiveTab] = useState<'notifications' | 'bots' | 'system' | 'docs'>('notifications');
   const [wizardOpen, setWizardOpen] = useState<IntegrationType | null>(null);
   const [editingConfig, setEditingConfig] = useState<Record<string, unknown> | undefined>();
@@ -200,16 +202,27 @@ export default function IntegrationsPage() {
     setWizardOpen(type);
   }, []);
 
+  const buildAuthHeaders = useCallback((includeJson = false): HeadersInit => {
+    if (!tokens?.access_token) {
+      throw new Error('Sign in to manage integrations.');
+    }
+
+    return {
+      ...(includeJson ? { 'Content-Type': 'application/json' } : {}),
+      Authorization: `Bearer ${tokens.access_token}`,
+    };
+  }, [tokens?.access_token]);
+
   const handleSaveIntegration = async (config: Record<string, unknown>) => {
     const res = await fetch(`${backendConfig.api}/api/integrations/${config.type}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildAuthHeaders(true),
       body: JSON.stringify(config),
     });
 
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to save integration');
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || data.message || 'Failed to save integration');
     }
   };
 
@@ -220,7 +233,7 @@ export default function IntegrationsPage() {
     try {
       const res = await fetch(`${backendConfig.api}/api/integrations/${type}/test`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthHeaders(true),
         body: JSON.stringify(config),
       });
 
