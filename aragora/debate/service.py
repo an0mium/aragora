@@ -95,7 +95,7 @@ class DebateOptions:
 
     # Memory options
     enable_memory: bool = True
-    enable_knowledge_retrieval: bool = False
+    enable_knowledge_retrieval: bool = True
 
     # ML options (stable - enabled by default)
     enable_ml_delegation: bool = True

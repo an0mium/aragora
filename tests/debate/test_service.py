@@ -133,7 +133,7 @@ class TestDebateOptionsInit:
         assert opts.enable_streaming is False
         assert opts.enable_checkpointing is True
         assert opts.enable_memory is True
-        assert opts.enable_knowledge_retrieval is False
+        assert opts.enable_knowledge_retrieval is True
         assert opts.enable_ml_delegation is True
         assert opts.enable_quality_gates is True
         assert opts.enable_consensus_estimation is True
@@ -869,6 +869,22 @@ class TestDebateServiceRun:
             assert call_kwargs["enable_ml_delegation"] is False
             assert call_kwargs["enable_quality_gates"] is False
             assert call_kwargs["enable_consensus_estimation"] is False
+
+    @pytest.mark.asyncio
+    async def test_run_enables_knowledge_retrieval_by_default(
+        self, mock_agent_pair, mock_debate_result
+    ):
+        """Test that the default service path keeps KM retrieval enabled."""
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
+            arena_inst = MagicMock()
+            arena_inst.run = AsyncMock(return_value=mock_debate_result)
+            mock_arena_cls.return_value = arena_inst
+
+            service = DebateService(default_agents=mock_agent_pair)
+            await service.run("Test task")
+
+            call_kwargs = mock_arena_cls.call_args[1]
+            assert call_kwargs["enable_knowledge_retrieval"] is True
 
 
 # =============================================================================
