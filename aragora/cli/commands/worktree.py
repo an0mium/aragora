@@ -10,6 +10,7 @@ Usage:
     aragora worktree merge-all --test-first
     aragora worktree conflicts
     aragora worktree cleanup
+    aragora worktree fleet-reap-claims
 """
 
 from __future__ import annotations
@@ -140,6 +141,21 @@ Workflow:
     release_p.add_argument("--paths", nargs="*", default=None, help="Optional subset to release")
     release_p.add_argument("--json", action="store_true", help="Emit JSON output")
 
+    reap_claims_p = wt_sub.add_parser(
+        "fleet-reap-claims",
+        help="Reap stale file ownership claims for dead sessions",
+    )
+    reap_claims_p.add_argument(
+        "--stale-threshold-seconds",
+        type=float,
+        default=1800.0,
+        help=(
+            "Reap claims older than this when the session has no live heartbeat "
+            "or active lease (default: 1800)"
+        ),
+    )
+    reap_claims_p.add_argument("--json", action="store_true", help="Emit JSON output")
+
     queue_add_p = wt_sub.add_parser(
         "fleet-queue-add",
         help="Enqueue a branch in merge queue",
@@ -249,7 +265,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
     if not action:
         print(
             "Usage: aragora worktree "
-            "{create|list|merge|merge-all|conflicts|cleanup|fleet-status|fleet-claims|fleet-claim|fleet-release|fleet-queue-add|fleet-queue-list|fleet-queue-process-next|autopilot}"
+            "{create|list|merge|merge-all|conflicts|cleanup|fleet-status|fleet-claims|fleet-claim|fleet-release|fleet-reap-claims|fleet-queue-add|fleet-queue-list|fleet-queue-process-next|autopilot}"
         )
         print("Run 'aragora worktree --help' for details.")
         return
@@ -273,6 +289,9 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         return
     if action == "fleet-release":
         _cmd_worktree_fleet_release(args, repo_path=repo_root)
+        return
+    if action == "fleet-reap-claims":
+        _cmd_worktree_fleet_reap_claims(args, repo_path=repo_root)
         return
     if action == "fleet-queue-add":
         _cmd_worktree_fleet_queue_add(args, repo_path=repo_root)
@@ -773,6 +792,124 @@ def _cmd_worktree_fleet_release(args: argparse.Namespace, *, repo_path: Path) ->
         print(json.dumps(result, indent=2))
         return
     print(f"released={result.get('released', 0)} session={result.get('session_id', '')}")
+
+
+def _claim_snapshot_by_session(claims: list[dict[str, object]]) -> dict[str, dict[str, list[str]]]:
+    details_by_session: dict[str, dict[str, list[str]]] = {}
+    for claim in claims:
+        session_id = str(claim.get("session_id", "")).strip()
+        if not session_id:
+            continue
+        details = details_by_session.setdefault(session_id, {"paths": [], "branches": []})
+        path = str(claim.get("path", "")).strip()
+        if path and path not in details["paths"]:
+            details["paths"].append(path)
+        branch = str(claim.get("branch", "")).strip()
+        if branch and branch not in details["branches"]:
+            details["branches"].append(branch)
+    for details in details_by_session.values():
+        details["paths"].sort()
+        details["branches"].sort()
+    return details_by_session
+
+
+def _attach_claim_session_details(
+    rows: list[dict[str, object]],
+    details_by_session: dict[str, dict[str, list[str]]],
+) -> list[dict[str, object]]:
+    enriched: list[dict[str, object]] = []
+    for row in rows:
+        session_id = str(row.get("session_id", "")).strip()
+        entry = dict(row)
+        details = details_by_session.get(session_id, {})
+        for key in ("paths", "branches"):
+            values = details.get(key)
+            if isinstance(values, list) and values:
+                entry[key] = list(values)
+        enriched.append(entry)
+    return enriched
+
+
+def _format_claim_session_values(values: object, *, limit: int = 6) -> str:
+    if not isinstance(values, list):
+        return ""
+    clean_values = [str(value).strip() for value in values if str(value).strip()]
+    if not clean_values:
+        return ""
+    if len(clean_values) <= limit:
+        return ", ".join(clean_values)
+    return f"{', '.join(clean_values[:limit])}, +{len(clean_values) - limit} more"
+
+
+def _cmd_worktree_fleet_reap_claims(args: argparse.Namespace, *, repo_path: Path) -> None:
+    """Reap stale ownership claims and report what was cleaned up."""
+    store = FleetCoordinationStore(repo_path)
+    claim_snapshot = store.list_claims()
+    details_by_session = _claim_snapshot_by_session(
+        [claim for claim in claim_snapshot if isinstance(claim, dict)]
+    )
+    payload = {
+        "repo_root": str(repo_path),
+        **store.reap_stale_claims(
+            stale_threshold_seconds=float(getattr(args, "stale_threshold_seconds", 1800.0))
+        ),
+    }
+    payload["reaped_sessions"] = _attach_claim_session_details(
+        [row for row in payload.get("reaped_sessions", []) if isinstance(row, dict)],
+        details_by_session,
+    )
+    payload["kept_sessions"] = _attach_claim_session_details(
+        [row for row in payload.get("kept_sessions", []) if isinstance(row, dict)],
+        details_by_session,
+    )
+
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2))
+        return
+
+    reaped_sessions = payload["reaped_sessions"]
+    kept_sessions = payload["kept_sessions"]
+    print(
+        "reaped_claims={released} stale_sessions={reaped} kept_sessions={kept} threshold={threshold:.0f}s".format(
+            released=payload.get("released", 0),
+            reaped=len(reaped_sessions),
+            kept=len(kept_sessions),
+            threshold=float(payload.get("stale_threshold_seconds", 0.0)),
+        )
+    )
+    if not reaped_sessions:
+        print("  reaped: none")
+    for row in reaped_sessions:
+        parts = [
+            f"reaped: {row.get('session_id', '')}",
+            f"claims={row.get('claim_count', 0)}",
+        ]
+        age_seconds = row.get("age_seconds")
+        if isinstance(age_seconds, (int, float)):
+            parts.append(f"age={age_seconds:.0f}s")
+        last_updated = str(row.get("last_updated_at", "")).strip()
+        if last_updated:
+            parts.append(f"last_updated={last_updated}")
+        paths = _format_claim_session_values(row.get("paths"))
+        if paths:
+            parts.append(f"paths={paths}")
+        branches = _format_claim_session_values(row.get("branches"))
+        if branches:
+            parts.append(f"branches={branches}")
+        print("  " + " ".join(parts))
+    for row in kept_sessions:
+        parts = [
+            f"kept: {row.get('session_id', '')}",
+            f"claims={row.get('claim_count', 0)}",
+            f"reason={row.get('reason', 'unknown')}",
+        ]
+        paths = _format_claim_session_values(row.get("paths"))
+        if paths:
+            parts.append(f"paths={paths}")
+        branches = _format_claim_session_values(row.get("branches"))
+        if branches:
+            parts.append(f"branches={branches}")
+        print("  " + " ".join(parts))
 
 
 def _cmd_worktree_fleet_queue_add(args: argparse.Namespace, *, repo_path: Path) -> None:
