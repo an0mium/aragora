@@ -62,9 +62,9 @@ exporters:
 
   # OTLP exporter for external backends (Jaeger, Tempo, etc.)
   otlp/external:
-    endpoint: ${OTEL_EXTERNAL_ENDPOINT:-localhost:4317}
+    endpoint: ${env:OTEL_EXTERNAL_ENDPOINT:-localhost:4317}
     tls:
-      insecure: ${OTEL_INSECURE:-true}
+      insecure: ${env:OTEL_INSECURE:-true}
 
 extensions:
   health_check:
