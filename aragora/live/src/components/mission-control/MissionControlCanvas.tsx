@@ -37,8 +37,11 @@ import ActionNode from '../pipeline-canvas/nodes/ActionNode';
 import OrchestrationNode from '../pipeline-canvas/nodes/OrchestrationNode';
 import {
   PIPELINE_STAGE_CONFIG,
+  STAGE_COLOR_CLASSES,
   type PipelineStageType,
 } from '../pipeline-canvas/types';
+import { ProvenanceTrail } from '../pipeline-canvas/ProvenanceTrail';
+import { StatusBadge } from '../pipeline-canvas/StatusBadge';
 import { StageZoneHeader } from './StageZoneHeader';
 import { useMissionControl, STAGE_OFFSET_X } from '../../hooks/useMissionControl';
 
@@ -176,6 +179,17 @@ function StageFilterSidebar({ enabledStages, onToggle, onFocus, nodeCounts }: St
 interface ProvenanceSidebarProps {
   nodeId: string;
   nodeLabel: string;
+  nodeStage: PipelineStageType;
+  provenance: Array<{
+    source_node_id: string;
+    source_stage: PipelineStageType;
+    target_node_id: string;
+    target_stage: PipelineStageType;
+    content_hash: string;
+    method: string;
+    timestamp: number;
+  }>;
+  nodeLookup: Record<string, { label: string; stage: PipelineStageType }>;
   provenanceChain: Array<{
     nodeId: string;
     nodeLabel: string;
@@ -183,10 +197,33 @@ interface ProvenanceSidebarProps {
     contentHash: string;
     method: string;
   }>;
+  downstreamExecution: Array<{
+    nodeId: string;
+    label: string;
+    stage: PipelineStageType;
+    status: 'pending' | 'in_progress' | 'succeeded' | 'failed' | 'partial';
+    rawStatus: string;
+    agent?: string;
+    elapsedMs?: number;
+    outputPreview?: string;
+    navigable: boolean;
+    isSelectedNode?: boolean;
+  }>;
+  onNavigate: (nodeId: string, stage: PipelineStageType) => void;
   onClose: () => void;
 }
 
-function ProvenanceSidebar({ nodeId, nodeLabel, provenanceChain, onClose }: ProvenanceSidebarProps) {
+function ProvenanceSidebar({
+  nodeId,
+  nodeLabel,
+  nodeStage,
+  provenance,
+  nodeLookup,
+  provenanceChain,
+  downstreamExecution,
+  onNavigate,
+  onClose,
+}: ProvenanceSidebarProps) {
   return (
     <div
       className="w-72 flex-shrink-0 bg-surface border-l border-border h-full overflow-y-auto p-4"
@@ -208,42 +245,109 @@ function ProvenanceSidebar({ nodeId, nodeLabel, provenanceChain, onClose }: Prov
         <p className="text-xs text-text-muted font-mono">{nodeId}</p>
       </div>
 
-      {provenanceChain.length > 0 ? (
-        <div className="space-y-2">
+      <div className="space-y-4">
+        <div className="p-3 bg-bg rounded border border-border">
           <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-2">
-            Derivation Chain
+            Upstream Provenance
           </h4>
-          {provenanceChain.map((entry, i) => {
-            const stageColor = STAGE_COLORS[entry.stage] || '#6b7280';
-            return (
-              <div key={i} className="p-2 bg-bg rounded border border-border" data-testid="mc-provenance-entry">
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className="w-2 h-2 rounded-full inline-block"
-                    style={{ backgroundColor: stageColor }}
-                  />
-                  <span className="text-xs font-mono uppercase" style={{ color: stageColor }}>
-                    {entry.stage}
-                  </span>
-                  {entry.method && (
-                    <span className="text-xs text-text-muted font-mono">
-                      ({entry.method})
+          <ProvenanceTrail
+            selectedNodeId={nodeId}
+            selectedStage={nodeStage}
+            selectedLabel={nodeLabel}
+            provenance={provenance}
+            nodeLookup={nodeLookup}
+            onNavigate={onNavigate}
+          />
+        </div>
+
+        {provenanceChain.length > 0 ? (
+          <div className="space-y-2">
+            <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-2">
+              Derivation Chain
+            </h4>
+            {provenanceChain.map((entry, i) => {
+              const stageColor = STAGE_COLORS[entry.stage] || '#6b7280';
+              return (
+                <div key={i} className="p-2 bg-bg rounded border border-border" data-testid="mc-provenance-entry">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span
+                      className="w-2 h-2 rounded-full inline-block"
+                      style={{ backgroundColor: stageColor }}
+                    />
+                    <span className="text-xs font-mono uppercase" style={{ color: stageColor }}>
+                      {entry.stage}
                     </span>
+                    {entry.method && (
+                      <span className="text-xs text-text-muted font-mono">
+                        ({entry.method})
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text truncate mb-1">{entry.nodeLabel}</p>
+                  {entry.contentHash && (
+                    <p className="text-xs text-text-muted font-mono">
+                      #{entry.contentHash.slice(0, 12)}
+                    </p>
                   )}
                 </div>
-                <p className="text-xs text-text truncate mb-1">{entry.nodeLabel}</p>
-                {entry.contentHash && (
-                  <p className="text-xs text-text-muted font-mono">
-                    #{entry.contentHash.slice(0, 12)}
-                  </p>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-text-muted">No provenance chain for this node.</p>
+        )}
+
+        <div className="space-y-2">
+          <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-2">
+            Downstream Execution
+          </h4>
+          {downstreamExecution.length > 0 ? (
+            downstreamExecution.map((entry) => {
+              const colors = STAGE_COLOR_CLASSES[entry.stage];
+              const stageLabel = PIPELINE_STAGE_CONFIG[entry.stage].label;
+              return (
+                <button
+                  key={`${entry.nodeId}-${entry.stage}`}
+                  type="button"
+                  onClick={() => entry.navigable && onNavigate(entry.nodeId, entry.stage)}
+                  disabled={!entry.navigable}
+                  className={`w-full text-left p-2 bg-bg rounded border border-border transition-colors ${
+                    entry.navigable
+                      ? 'hover:border-acid-green/50'
+                      : 'opacity-80 cursor-default'
+                  }`}
+                  data-testid="mc-downstream-execution-entry"
+                >
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className={`px-1 py-0.5 text-xs rounded font-mono ${colors.bg} ${colors.text}`}>
+                      {stageLabel}
+                    </span>
+                    <StatusBadge status={entry.status} size="sm" agent={entry.agent} />
+                    {entry.isSelectedNode && (
+                      <span className="px-1 py-0.5 text-[10px] rounded font-mono bg-acid-green/10 text-acid-green border border-acid-green/30">
+                        selected
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text truncate mb-1">{entry.label}</p>
+                  <div className="flex items-center gap-2 text-[10px] text-text-muted font-mono flex-wrap">
+                    {entry.agent && <span>{entry.agent}</span>}
+                    {entry.elapsedMs != null && <span>{(entry.elapsedMs / 1000).toFixed(1)}s</span>}
+                    {entry.rawStatus && <span>{entry.rawStatus.replace('_', ' ')}</span>}
+                  </div>
+                  {entry.outputPreview && (
+                    <p className="mt-1 text-[10px] text-text-muted font-mono bg-surface/40 rounded px-1.5 py-1 line-clamp-2">
+                      {entry.outputPreview}
+                    </p>
+                  )}
+                </button>
+              );
+            })
+          ) : (
+            <p className="text-sm text-text-muted">No downstream execution state yet.</p>
+          )}
         </div>
-      ) : (
-        <p className="text-sm text-text-muted">No provenance chain for this node.</p>
-      )}
+      </div>
     </div>
   );
 }
@@ -260,9 +364,12 @@ function MissionControlCanvasInner() {
     stageNodeCounts,
     pipelineId,
     selectedNodeId,
-    selectedNodeData: _selectedNodeData,
+    selectedNodeData,
+    selectedNodeStage,
     onNodeSelect,
+    provenance,
     provenanceChain,
+    downstreamExecution,
     loading,
     error,
   } = useMissionControl();
@@ -335,16 +442,32 @@ function MissionControlCanvasInner() {
 
   // -- Compute visible stages -----------------------------------------------
   const semanticVisible = useMemo(() => getVisibleStages(zoomLevel), [zoomLevel]);
+  const lineageStages = useMemo(() => {
+    const stages = new Set<PipelineStageType>();
+    if (selectedNodeStage) {
+      stages.add(selectedNodeStage);
+    }
+    for (const crumb of provenanceChain) {
+      stages.add(crumb.stage);
+    }
+    for (const entry of downstreamExecution) {
+      stages.add(entry.stage);
+    }
+    return stages;
+  }, [downstreamExecution, provenanceChain, selectedNodeStage]);
 
   const visibleStages = useMemo(() => {
     const result = new Set<PipelineStageType>();
     for (const stage of ALL_STAGES) {
-      if (semanticVisible.has(stage) && stageFilterOverrides.has(stage)) {
+      if (
+        (semanticVisible.has(stage) && stageFilterOverrides.has(stage)) ||
+        (showProvenance && lineageStages.has(stage))
+      ) {
         result.add(stage);
       }
     }
     return result;
-  }, [semanticVisible, stageFilterOverrides]);
+  }, [lineageStages, semanticVisible, showProvenance, stageFilterOverrides]);
 
   // -- Filter nodes/edges to visible stages ---------------------------------
   const { displayNodes, displayEdges } = useMemo(() => {
@@ -366,6 +489,20 @@ function MissionControlCanvasInner() {
     return (node?.data as Record<string, unknown>)?.label as string || selectedNodeId;
   }, [selectedNodeId, allNodes]);
 
+  const nodeLookup = useMemo(() => {
+    const lookup: Record<string, { label: string; stage: PipelineStageType }> = {};
+    for (const node of allNodes) {
+      const data = node.data as Record<string, unknown>;
+      const stage = data.stage as PipelineStageType | undefined;
+      if (!stage) continue;
+      lookup[node.id] = {
+        label: (data.label as string) || node.id,
+        stage,
+      };
+    }
+    return lookup;
+  }, [allNodes]);
+
   // -- Node click -----------------------------------------------------------
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -379,6 +516,35 @@ function MissionControlCanvasInner() {
     onNodeSelect(null);
     setShowProvenance(false);
   }, [onNodeSelect]);
+
+  const handleSidebarNavigate = useCallback(
+    (nodeId: string, stage: PipelineStageType) => {
+      setStageFilterOverrides((prev) => {
+        const next = new Set(prev);
+        next.add(stage);
+        return next;
+      });
+      onNodeSelect(nodeId);
+      setShowProvenance(true);
+
+      const targetNode = allNodes.find((node) => node.id === nodeId);
+      setTimeout(() => {
+        if (targetNode) {
+          fitView({
+            padding: 0.3,
+            nodes: [{
+              id: targetNode.id,
+              position: targetNode.position,
+              measured: { width: 260, height: 140 },
+            }],
+          });
+          return;
+        }
+        focusStage(stage);
+      }, 50);
+    },
+    [allNodes, fitView, focusStage, onNodeSelect],
+  );
 
   // -- MiniMap color --------------------------------------------------------
   const miniMapNodeColor = useCallback((node: { type?: string }) => {
@@ -548,11 +714,16 @@ function MissionControlCanvasInner() {
       </div>
 
       {/* Right: Provenance Sidebar */}
-      {showProvenance && selectedNodeId && (
+      {showProvenance && selectedNodeId && selectedNodeData && selectedNodeStage && (
         <ProvenanceSidebar
           nodeId={selectedNodeId}
           nodeLabel={selectedNodeLabel}
+          nodeStage={selectedNodeStage}
+          provenance={provenance}
+          nodeLookup={nodeLookup}
           provenanceChain={provenanceChain}
+          downstreamExecution={downstreamExecution}
+          onNavigate={handleSidebarNavigate}
           onClose={() => {
             setShowProvenance(false);
             onNodeSelect(null);

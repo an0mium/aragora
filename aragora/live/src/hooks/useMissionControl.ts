@@ -17,6 +17,8 @@ import type {
   PipelineResultResponse,
   ReactFlowData,
   ProvenanceBreadcrumb,
+  ProvenanceLink,
+  ExecutionStatus,
 } from '../components/pipeline-canvas/types';
 import {
   getNodeTypeForStage,
@@ -26,6 +28,7 @@ import {
   usePipelineWebSocket,
   type PipelineStageEvent,
   type PipelineNodeEvent,
+  type PipelineNodeStatusEvent,
 } from './usePipelineWebSocket';
 
 // ---------------------------------------------------------------------------
@@ -69,6 +72,23 @@ const DEFAULT_STATUS: Record<PipelineStageType, string> = {
   goals: 'pending',
   actions: 'pending',
   orchestration: 'pending',
+};
+
+const EXECUTION_STATUS_MAP: Record<string, ExecutionStatus> = {
+  pending: 'pending',
+  queued: 'pending',
+  running: 'in_progress',
+  in_progress: 'in_progress',
+  active: 'in_progress',
+  complete: 'succeeded',
+  completed: 'succeeded',
+  succeeded: 'succeeded',
+  success: 'succeeded',
+  failed: 'failed',
+  error: 'failed',
+  blocked: 'partial',
+  awaiting_human: 'partial',
+  partial: 'partial',
 };
 
 export const STAGE_OFFSET_X: Record<string, number> = {
@@ -125,6 +145,37 @@ function parseStageEdges(stage: PipelineStageType, data: ReactFlowData | Record<
   }));
 }
 
+function normalizeExecutionStatus(status?: string | null): ExecutionStatus {
+  if (!status) return 'pending';
+  return EXECUTION_STATUS_MAP[status] ?? 'pending';
+}
+
+function findNodeInStages(
+  stageNodes: Record<PipelineStageType, Node[]>,
+  nodeId: string,
+): { stage: PipelineStageType; node: Node } | null {
+  for (const stage of ALL_STAGES) {
+    const node = stageNodes[stage].find((candidate) => candidate.id === nodeId);
+    if (node) {
+      return { stage, node };
+    }
+  }
+  return null;
+}
+
+export interface MissionControlExecutionState {
+  nodeId: string;
+  label: string;
+  stage: PipelineStageType;
+  status: ExecutionStatus;
+  rawStatus: string;
+  agent?: string;
+  elapsedMs?: number;
+  outputPreview?: string;
+  navigable: boolean;
+  isSelectedNode?: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Return type
 // ---------------------------------------------------------------------------
@@ -150,10 +201,13 @@ export interface UseMissionControlReturn {
   // Selection
   selectedNodeId: string | null;
   selectedNodeData: Record<string, unknown> | null;
+  selectedNodeStage: PipelineStageType | null;
   onNodeSelect: (nodeId: string | null) => void;
 
   // Provenance
+  provenance: ProvenanceLink[];
   provenanceChain: ProvenanceBreadcrumb[];
+  downstreamExecution: MissionControlExecutionState[];
 
   // WebSocket
   wsStatus: string;
@@ -183,19 +237,10 @@ export function useMissionControl(
   const [stageNodes, setStageNodes] = useState<Record<PipelineStageType, Node[]>>({ ...EMPTY_STAGE_NODES });
   const [stageEdges, setStageEdges] = useState<Record<PipelineStageType, Edge[]>>({ ...EMPTY_STAGE_EDGES });
   const [stageStatus, setStageStatus] = useState<Record<PipelineStageType, string>>({ ...DEFAULT_STATUS });
+  const [provenance, setProvenance] = useState<ProvenanceLink[]>([]);
 
   // Selection
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-
-  // Provenance links from API
-  const provenanceLinksRef = useRef<Array<{
-    source_node_id: string;
-    target_node_id: string;
-    source_stage: string;
-    target_stage: string;
-    content_hash: string;
-    method: string;
-  }>>([]);
 
   const syncCacheToState = useCallback(() => {
     setStageNodes({ ...stageNodesRef.current });
@@ -215,9 +260,7 @@ export function useMissionControl(
         stageEdgesRef.current[stage] = parseStageEdges(stage, stageData);
       }
 
-      if (result.provenance) {
-        provenanceLinksRef.current = result.provenance as typeof provenanceLinksRef.current;
-      }
+      setProvenance((result.provenance ?? []) as ProvenanceLink[]);
 
       syncCacheToState();
     },
@@ -253,6 +296,9 @@ export function useMissionControl(
       setLoading(true);
       setError(null);
       try {
+        if (automationLevel === 'full') {
+          setIsExecuting(true);
+        }
         const res = await fetch(`${API_PREFIX}/from-ideas`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -263,6 +309,9 @@ export function useMissionControl(
         });
 
         if (!res.ok) {
+          if (automationLevel === 'full') {
+            setIsExecuting(false);
+          }
           setError(`Failed to start brain dump: ${res.status}`);
           return null;
         }
@@ -277,6 +326,9 @@ export function useMissionControl(
 
         return newId;
       } catch {
+        if (automationLevel === 'full') {
+          setIsExecuting(false);
+        }
         setError('Failed to start brain dump');
         return null;
       } finally {
@@ -292,6 +344,7 @@ export function useMissionControl(
       if (!pipelineId) return;
       setLoading(true);
       setError(null);
+      setIsExecuting(true);
       try {
         const res = await fetch(`${API_PREFIX}/advance`, {
           method: 'POST',
@@ -303,6 +356,7 @@ export function useMissionControl(
         });
 
         if (!res.ok) {
+          setIsExecuting(false);
           setError(`Failed to advance to ${targetStage}: ${res.status}`);
           return;
         }
@@ -312,6 +366,7 @@ export function useMissionControl(
           populateFromResult(data.result as PipelineResultResponse);
         }
       } catch {
+        setIsExecuting(false);
         setError(`Failed to advance to ${targetStage}`);
       } finally {
         setLoading(false);
@@ -325,14 +380,18 @@ export function useMissionControl(
     setSelectedNodeId(nodeId);
   }, []);
 
-  const selectedNodeData = useMemo(() => {
+  const selectedNode = useMemo(() => {
     if (!selectedNodeId) return null;
-    for (const stage of ALL_STAGES) {
-      const node = stageNodes[stage].find((n) => n.id === selectedNodeId);
-      if (node) return node.data as Record<string, unknown>;
-    }
-    return null;
+    const result = findNodeInStages(stageNodes, selectedNodeId);
+    if (!result) return null;
+    return {
+      stage: result.stage,
+      data: result.node.data as Record<string, unknown>,
+    };
   }, [selectedNodeId, stageNodes]);
+
+  const selectedNodeData = selectedNode?.data ?? null;
+  const selectedNodeStage = selectedNode?.stage ?? null;
 
   // -- Provenance chain ---------------------------------------------------
   const provenanceChain = useMemo((): ProvenanceBreadcrumb[] => {
@@ -344,7 +403,7 @@ export function useMissionControl(
 
     while (currentId && !visited.has(currentId)) {
       visited.add(currentId);
-      const link = provenanceLinksRef.current.find((l) => l.target_node_id === currentId);
+      const link = provenance.find((entry) => entry.target_node_id === currentId);
       if (!link) break;
 
       const sourceStage = link.source_stage as PipelineStageType;
@@ -362,7 +421,97 @@ export function useMissionControl(
     }
 
     return chain;
-  }, [selectedNodeId, stageNodes]);
+  }, [selectedNodeId, provenance, stageNodes]);
+
+  const downstreamExecution = useMemo((): MissionControlExecutionState[] => {
+    if (!selectedNodeId || !selectedNodeStage) return [];
+
+    const entries = new Map<string, MissionControlExecutionState>();
+    const addExecutionState = (
+      nodeId: string,
+      stage: PipelineStageType,
+      data: Record<string, unknown>,
+      options?: { isSelectedNode?: boolean; navigable?: boolean; label?: string },
+    ) => {
+      const rawStatus =
+        (data.executionStatus as string | undefined) ??
+        (data.status as string | undefined) ??
+        stageStatus[stage] ??
+        'pending';
+      entries.set(nodeId, {
+        nodeId,
+        label: options?.label ?? (data.label as string) ?? nodeId,
+        stage,
+        status: normalizeExecutionStatus(rawStatus),
+        rawStatus,
+        agent:
+          (data.executionAgent as string | undefined) ??
+          (data.assignedAgent as string | undefined) ??
+          (data.assignee as string | undefined) ??
+          (data.agent as string | undefined),
+        elapsedMs:
+          typeof data.elapsedMs === 'number'
+            ? data.elapsedMs
+            : typeof data.elapsed_ms === 'number'
+              ? (data.elapsed_ms as number)
+              : undefined,
+        outputPreview:
+          (data.outputPreview as string | undefined) ??
+          (data.output_preview as string | undefined),
+        navigable: options?.navigable ?? true,
+        isSelectedNode: options?.isSelectedNode ?? false,
+      });
+    };
+
+    if (selectedNodeData && (selectedNodeStage === 'actions' || selectedNodeStage === 'orchestration')) {
+      addExecutionState(selectedNodeId, selectedNodeStage, selectedNodeData, {
+        isSelectedNode: true,
+      });
+    }
+
+    const queue = [selectedNodeId];
+    const visited = new Set<string>(queue);
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      if (!currentId) continue;
+
+      for (const link of provenance) {
+        if (link.source_node_id !== currentId) continue;
+
+        const nextId = link.target_node_id;
+        if (!visited.has(nextId)) {
+          visited.add(nextId);
+          queue.push(nextId);
+        }
+
+        const nodeMatch = findNodeInStages(stageNodes, nextId);
+        if (!nodeMatch) continue;
+        addExecutionState(nextId, nodeMatch.stage, nodeMatch.node.data as Record<string, unknown>);
+      }
+    }
+
+    const selectedStageIndex = ALL_STAGES.indexOf(selectedNodeStage);
+    for (const stage of ALL_STAGES.slice(selectedStageIndex + 1)) {
+      const hasStageEntry = Array.from(entries.values()).some((entry) => entry.stage === stage);
+      if (hasStageEntry) continue;
+      entries.set(`stage:${stage}`, {
+        nodeId: `stage:${stage}`,
+        label: `${PIPELINE_STAGE_CONFIG[stage].label} stage`,
+        stage,
+        status: normalizeExecutionStatus(stageStatus[stage]),
+        rawStatus: stageStatus[stage] ?? 'pending',
+        navigable: false,
+      });
+    }
+
+    return Array.from(entries.values()).sort((left, right) => {
+      if (left.isSelectedNode && !right.isSelectedNode) return -1;
+      if (right.isSelectedNode && !left.isSelectedNode) return 1;
+      const stageDelta = ALL_STAGES.indexOf(left.stage) - ALL_STAGES.indexOf(right.stage);
+      if (stageDelta !== 0) return stageDelta;
+      return left.label.localeCompare(right.label);
+    });
+  }, [selectedNodeData, selectedNodeId, selectedNodeStage, provenance, stageNodes, stageStatus]);
 
   // -- Stage node counts --------------------------------------------------
   const stageNodeCounts = useMemo(() => {
@@ -409,10 +558,18 @@ export function useMissionControl(
     return { nodes: allNodes, edges: allEdges };
   }, [stageNodes, stageEdges]);
 
+  const handleStageStarted = useCallback((event: PipelineStageEvent) => {
+    const stage = event.stage as PipelineStageType;
+    if (!ALL_STAGES.includes(stage)) return;
+    setStageStatus((prev) => ({ ...prev, [stage]: 'running' }));
+    setIsExecuting(true);
+  }, []);
+
   // -- WebSocket integration ----------------------------------------------
   const handleStageCompleted = useCallback(
     (event: PipelineStageEvent) => {
       const stage = event.stage as PipelineStageType;
+      if (!ALL_STAGES.includes(stage)) return;
       setStageStatus((prev) => ({ ...prev, [stage]: 'complete' }));
 
       // Reload stage data
@@ -432,6 +589,37 @@ export function useMissionControl(
     [pipelineId, syncCacheToState],
   );
 
+  const handleNodeStatus = useCallback(
+    (event: PipelineNodeStatusEvent) => {
+      let updated = false;
+
+      for (const stage of ALL_STAGES) {
+        stageNodesRef.current[stage] = stageNodesRef.current[stage].map((node) => {
+          if (node.id !== event.node_id) {
+            return node;
+          }
+
+          updated = true;
+          return {
+            ...node,
+            data: {
+              ...(node.data as Record<string, unknown>),
+              executionStatus: normalizeExecutionStatus(event.status),
+              ...(event.agent ? { executionAgent: event.agent } : {}),
+              ...(event.elapsed_ms != null ? { elapsedMs: event.elapsed_ms } : {}),
+              ...(event.output_preview ? { outputPreview: event.output_preview } : {}),
+            },
+          };
+        });
+      }
+
+      if (updated) {
+        syncCacheToState();
+      }
+    },
+    [syncCacheToState],
+  );
+
   const {
     status: wsStatus,
     completedStages,
@@ -439,7 +627,9 @@ export function useMissionControl(
   } = usePipelineWebSocket({
     pipelineId: pipelineId ?? undefined,
     enabled: !!pipelineId,
+    onStageStarted: handleStageStarted,
     onStageCompleted: handleStageCompleted,
+    onNodeStatus: handleNodeStatus,
     onCompleted: () => setIsExecuting(false),
     onFailed: () => setIsExecuting(false),
   });
@@ -464,8 +654,11 @@ export function useMissionControl(
     advanceStage,
     selectedNodeId,
     selectedNodeData,
+    selectedNodeStage,
     onNodeSelect,
+    provenance,
     provenanceChain,
+    downstreamExecution,
     wsStatus: wsStatus as string,
     completedStages,
     streamedNodes,
