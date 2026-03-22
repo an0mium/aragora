@@ -170,14 +170,38 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
 
 try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python <3.11 fallback
-    import tomli as tomllib  # type: ignore[no-redef]
+    import tomllib  # type: ignore[attr-defined]
+except ModuleNotFoundError:
+    tomllib = None  # type: ignore[assignment]
 
-data = tomllib.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-name = data.get("project", {}).get("name", "")
+if tomllib is not None:
+    data = tomllib.loads(text)
+    name = data.get("project", {}).get("name", "")
+else:
+    # Python 3.10 hosts may not have tomli installed yet. Fall back to a
+    # minimal parser that only needs the root [project].name field.
+    name = ""
+    in_project = False
+    for raw_line in text.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            in_project = line == "[project]"
+            continue
+        if not in_project or not line.startswith("name"):
+            continue
+        _, _, value = line.partition("=")
+        value = value.strip()
+        if (value.startswith('"') and value.endswith('"')) or (
+            value.startswith("'") and value.endswith("'")
+        ):
+            name = value[1:-1]
+        break
+
 print(name if isinstance(name, str) else "")
 PY
 }
