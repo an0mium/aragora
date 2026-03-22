@@ -124,6 +124,43 @@ def _target_pair_for_index(index: int) -> tuple[str, str]:
     return ExecutionTarget.CLAUDE.value, ExecutionTarget.CODEX.value
 
 
+def _dedupe_nonempty(values: list[str]) -> list[str]:
+    """Preserve order while removing empty and duplicate strings."""
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for value in values:
+        normalized = str(value).strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(normalized)
+    return deduped
+
+
+def _build_assessment_refresh_context(
+    work_orders: list[BoundedWorkOrder],
+) -> dict[str, Any]:
+    """Summarize what the next assessment should explicitly refresh."""
+    files_to_reassess = _dedupe_nonempty(
+        [path for work_order in work_orders for path in work_order.file_scope]
+    )
+    test_commands = _dedupe_nonempty(
+        [test for work_order in work_orders for test in work_order.expected_tests]
+    )
+    work_order_ids = _dedupe_nonempty([work_order.work_order_id for work_order in work_orders])
+
+    return {
+        "required": bool(work_orders),
+        "reason": (
+            "bounded_work_orders_changed_repo_truth" if work_orders else "no_bounded_work_orders"
+        ),
+        "files_to_reassess": files_to_reassess,
+        "test_commands": test_commands,
+        "work_order_ids": work_order_ids,
+        "approval_required": any(work_order.approval_required for work_order in work_orders),
+    }
+
+
 def _subtask_to_implement_task(
     subtask: SubTask,
     index: int,
@@ -303,6 +340,7 @@ class NomicPipelineBridge:
             "subtask_count": len(subtasks),
             "work_order_protocol": "bounded-work-order/v1",
             "bounded_work_orders": [item.to_dict() for item in work_orders],
+            "assessment_refresh": _build_assessment_refresh_context(work_orders),
         }
 
     def build_decision_plan(
