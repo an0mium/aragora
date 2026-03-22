@@ -76,6 +76,7 @@ class TestStatusPageHandler:
         assert "status" in body
         assert "components" in body
         assert "timestamp" in body
+        assert "public_surfaces_summary" in body
         assert body["status"] in [s.value for s in ServiceStatus]
 
     def test_component_status(self, handler):
@@ -86,12 +87,25 @@ class TestStatusPageHandler:
         body = _parse_json_result(result)
 
         assert "components" in body
+        assert "public_surfaces" in body
         assert len(body["components"]) > 0
 
         for component in body["components"]:
             assert "id" in component
             assert "name" in component
             assert "status" in component
+
+    def test_component_status_marks_conditional_surfaces_partial(self, handler):
+        """Public readiness inventory marks conditional surfaces as partial."""
+        result = handler.handle("/api/status/components", {}, Mock())
+        body = _parse_json_result(result)
+
+        surfaces = {surface["id"]: surface for surface in body["public_surfaces"]}
+        assert surfaces["status_page"]["readiness"] == "live"
+        assert surfaces["openapi"]["readiness"] == "partial"
+        assert surfaces["openapi"]["placeholder_backed"] is True
+        assert surfaces["memory_progressive"]["readiness"] == "partial"
+        assert surfaces["memory_progressive"]["backend_conditional"] is True
 
     def test_uptime_history(self, handler):
         """Test uptime history endpoint."""
@@ -175,6 +189,7 @@ class TestV1StatusEndpoint:
         assert "uptime_formatted" in data
         assert "timestamp" in data
         assert "components_summary" in data
+        assert "public_surfaces_summary" in data
         assert "sla" in data
 
     def test_v1_status_has_correct_status_category(self, handler):
@@ -293,6 +308,7 @@ class TestV1ComponentsEndpoint:
         assert "data" in body
         data = body["data"]
         assert "components" in data
+        assert "public_surfaces" in data
         assert "timestamp" in data
 
     def test_v1_components_have_required_fields(self, handler):
@@ -317,6 +333,16 @@ class TestV1ComponentsEndpoint:
         component_ids = {c["id"] for c in body["data"]["components"]}
         expected_ids = {c["id"] for c in handler.COMPONENTS}
         assert component_ids == expected_ids
+
+    def test_v1_components_includes_public_surface_readiness(self, handler):
+        """Versioned readiness inventory distinguishes partial public surfaces."""
+        result = handler.handle("/api/v1/status/components", {}, Mock())
+        body = _parse_json_result(result)
+
+        surfaces = {surface["id"]: surface for surface in body["data"]["public_surfaces"]}
+        assert surfaces["status_page"]["readiness"] == "live"
+        assert surfaces["openapi"]["placeholder_backed"] is True
+        assert surfaces["memory_progressive"]["backend_conditional"] is True
 
     def test_v1_components_returns_200(self, handler):
         """Test v1 components returns HTTP 200."""

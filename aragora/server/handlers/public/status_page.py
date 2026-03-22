@@ -24,12 +24,14 @@ SOC 2 Control: A1.1 - Service availability monitoring and communication
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 from ..base import (
@@ -45,6 +47,7 @@ logger = logging.getLogger(__name__)
 
 # Server start time for uptime calculation
 _SERVER_START_TIME = time.time()
+_OPENAPI_AUDIT_CACHE: dict[str, Any] | None = None
 
 
 class ServiceStatus(Enum):
@@ -81,6 +84,20 @@ class Incident:
     updated_at: datetime
     resolved_at: datetime | None = None
     updates: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class PublicSurfaceReadiness:
+    """Readiness state for an exposed status or API surface."""
+
+    id: str
+    name: str
+    readiness: str
+    paths: list[str]
+    message: str
+    backend_conditional: bool = False
+    placeholder_backed: bool = False
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 class StatusPageHandler(BaseHandler):
@@ -175,6 +192,7 @@ class StatusPageHandler(BaseHandler):
         components = self._check_all_components()
         overall = self._get_overall_status()
         uptime_seconds = time.time() - _SERVER_START_TIME
+        public_surfaces = self._get_public_surface_readiness()
 
         # Map status to simplified category
         status_category = "operational"
@@ -211,6 +229,7 @@ class StatusPageHandler(BaseHandler):
                             1 for c in components if c.status == ServiceStatus.MAJOR_OUTAGE
                         ),
                     },
+                    "public_surfaces_summary": self._summarize_public_surfaces(public_surfaces),
                     "sla": sla_metrics,
                 }
             }
@@ -219,6 +238,7 @@ class StatusPageHandler(BaseHandler):
     def _v1_components(self) -> HandlerResult:
         """GET /api/v1/status/components - Per-component status."""
         components = self._check_all_components()
+        public_surfaces = self._get_public_surface_readiness()
 
         return json_response(
             {
@@ -234,6 +254,9 @@ class StatusPageHandler(BaseHandler):
                             "message": c.message,
                         }
                         for i, c in enumerate(components)
+                    ],
+                    "public_surfaces": [
+                        self._serialize_public_surface(surface) for surface in public_surfaces
                     ],
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
@@ -556,6 +579,7 @@ class StatusPageHandler(BaseHandler):
         components = self._check_all_components()
         overall = self._get_overall_status()
         uptime_seconds = time.time() - _SERVER_START_TIME
+        public_surfaces = self._get_public_surface_readiness()
 
         return json_response(
             {
@@ -574,12 +598,14 @@ class StatusPageHandler(BaseHandler):
                     }
                     for i, c in enumerate(components)
                 ],
+                "public_surfaces_summary": self._summarize_public_surfaces(public_surfaces),
             }
         )
 
     def _component_status(self) -> HandlerResult:
         """Return detailed component status."""
         components = self._check_all_components()
+        public_surfaces = self._get_public_surface_readiness()
 
         return json_response(
             {
@@ -594,6 +620,9 @@ class StatusPageHandler(BaseHandler):
                         "message": c.message,
                     }
                     for i, c in enumerate(components)
+                ],
+                "public_surfaces": [
+                    self._serialize_public_surface(surface) for surface in public_surfaces
                 ],
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
@@ -664,6 +693,7 @@ class StatusPageHandler(BaseHandler):
         components = self._check_all_components()
         overall = self._get_overall_status()
         uptime_seconds = time.time() - _SERVER_START_TIME
+        public_surfaces = self._get_public_surface_readiness()
 
         status_colors = {
             ServiceStatus.OPERATIONAL: "#22c55e",
@@ -671,6 +701,10 @@ class StatusPageHandler(BaseHandler):
             ServiceStatus.PARTIAL_OUTAGE: "#f97316",
             ServiceStatus.MAJOR_OUTAGE: "#ef4444",
             ServiceStatus.MAINTENANCE: "#3b82f6",
+        }
+        readiness_colors = {
+            "live": "#22c55e",
+            "partial": "#eab308",
         }
 
         components_html = "\n".join(
@@ -683,6 +717,20 @@ class StatusPageHandler(BaseHandler):
             </div>
             """
             for i, c in enumerate(components)
+        )
+        readiness_html = "\n".join(
+            f"""
+            <div class="component">
+                <div>
+                    <span class="component-name">{surface.name}</span>
+                    <div class="component-note">{surface.message}</div>
+                </div>
+                <span class="status-badge" style="background-color: {readiness_colors.get(surface.readiness, "#64748b")}">
+                    {surface.readiness.title()}
+                </span>
+            </div>
+            """
+            for surface in public_surfaces
         )
 
         html = f"""<!DOCTYPE html>
@@ -741,6 +789,12 @@ class StatusPageHandler(BaseHandler):
         }}
         .component:last-child {{ border-bottom: none; }}
         .component-name {{ font-weight: 500; }}
+        .component-note {{
+            margin-top: 0.35rem;
+            color: #94a3b8;
+            font-size: 0.875rem;
+            max-width: 32rem;
+        }}
         .status-badge {{
             padding: 0.25rem 0.75rem;
             border-radius: 9999px;
@@ -772,6 +826,11 @@ class StatusPageHandler(BaseHandler):
             {components_html}
         </section>
 
+        <section class="components">
+            <h2>Public Surface Readiness</h2>
+            {readiness_html}
+        </section>
+
         <footer>
             <p>Last updated: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}</p>
             <p class="api-link">
@@ -788,6 +847,190 @@ class StatusPageHandler(BaseHandler):
             content_type="text/html; charset=utf-8",
             body=html.encode("utf-8"),
         )
+
+    def _get_public_surface_readiness(self) -> list[PublicSurfaceReadiness]:
+        """Return an honest inventory of exposed status and default-path surfaces."""
+        return [
+            PublicSurfaceReadiness(
+                id="status_page",
+                name="Status page",
+                readiness="live",
+                paths=[
+                    "/status",
+                    "/api/status",
+                    "/api/status/components",
+                    "/api/v1/status",
+                ],
+                message="Public health and uptime endpoints are backed by this handler.",
+            ),
+            self._get_openapi_surface_readiness(),
+            self._get_memory_surface_readiness(),
+        ]
+
+    def _get_openapi_surface_readiness(self) -> PublicSurfaceReadiness:
+        """Assess whether the documented OpenAPI surface is fully hardened."""
+        audit = self._audit_openapi_placeholders()
+        placeholder_count = audit.get("placeholder_operations", 0)
+        if not audit.get("spec_available", False):
+            return PublicSurfaceReadiness(
+                id="openapi",
+                name="OpenAPI and API Explorer",
+                readiness="partial",
+                paths=[
+                    "/api/v1/openapi.json",
+                    "/api/v1/docs/openapi.json",
+                    "/api/v2/explorer/openapi.json",
+                ],
+                message="OpenAPI spec generation is available, but the published audit data is unavailable.",
+                placeholder_backed=True,
+                details={"placeholder_operations": None},
+            )
+        if placeholder_count > 0:
+            return PublicSurfaceReadiness(
+                id="openapi",
+                name="OpenAPI and API Explorer",
+                readiness="partial",
+                paths=[
+                    "/api/v1/openapi.json",
+                    "/api/v1/docs/openapi.json",
+                    "/api/v2/explorer/openapi.json",
+                ],
+                message=(
+                    f"Explorer is live, but {placeholder_count} documented operations remain "
+                    "autogenerated placeholders pending hardened specs."
+                ),
+                placeholder_backed=True,
+                details={"placeholder_operations": placeholder_count},
+            )
+        return PublicSurfaceReadiness(
+            id="openapi",
+            name="OpenAPI and API Explorer",
+            readiness="live",
+            paths=[
+                "/api/v1/openapi.json",
+                "/api/v1/docs/openapi.json",
+                "/api/v2/explorer/openapi.json",
+            ],
+            message="Published OpenAPI surfaces do not report placeholder operations.",
+            details={"placeholder_operations": 0},
+        )
+
+    def _get_memory_surface_readiness(self) -> PublicSurfaceReadiness:
+        """Assess whether progressive memory routes are backed by the active memory backend."""
+        continuum = self.ctx.get("continuum_memory")
+        if continuum is None:
+            return PublicSurfaceReadiness(
+                id="memory_progressive",
+                name="Progressive memory routes",
+                readiness="partial",
+                paths=[
+                    "/api/v1/memory/search-index",
+                    "/api/v1/memory/search-timeline",
+                    "/api/v1/memory/entries",
+                ],
+                message=(
+                    "Search-index docs are exposed, but timeline and bulk-entry routes remain "
+                    "backend-conditional until a continuum memory backend is initialized."
+                ),
+                backend_conditional=True,
+            )
+
+        conditional_paths: list[str] = []
+        if not hasattr(continuum, "get_timeline_entries"):
+            conditional_paths.append("/api/v1/memory/search-timeline")
+        if not hasattr(continuum, "get_many"):
+            conditional_paths.append("/api/v1/memory/entries")
+
+        if conditional_paths:
+            return PublicSurfaceReadiness(
+                id="memory_progressive",
+                name="Progressive memory routes",
+                readiness="partial",
+                paths=[
+                    "/api/v1/memory/search-index",
+                    "/api/v1/memory/search-timeline",
+                    "/api/v1/memory/entries",
+                ],
+                message=(
+                    "Some progressive memory routes still depend on backend capabilities and "
+                    f"can return 501 on this deployment: {', '.join(conditional_paths)}."
+                ),
+                backend_conditional=True,
+                details={"conditional_paths": conditional_paths},
+            )
+
+        return PublicSurfaceReadiness(
+            id="memory_progressive",
+            name="Progressive memory routes",
+            readiness="live",
+            paths=[
+                "/api/v1/memory/search-index",
+                "/api/v1/memory/search-timeline",
+                "/api/v1/memory/entries",
+            ],
+            message="Progressive memory routes are backed by a continuum backend with timeline and batch retrieval.",
+        )
+
+    def _audit_openapi_placeholders(self) -> dict[str, Any]:
+        """Count placeholder-backed operations in the published OpenAPI spec."""
+        global _OPENAPI_AUDIT_CACHE
+
+        spec_path = Path(__file__).resolve().parents[4] / "docs" / "api" / "openapi.json"
+
+        try:
+            mtime = spec_path.stat().st_mtime
+        except OSError:
+            return {"spec_available": False, "placeholder_operations": None}
+
+        if _OPENAPI_AUDIT_CACHE and _OPENAPI_AUDIT_CACHE.get("mtime") == mtime:
+            return _OPENAPI_AUDIT_CACHE
+
+        placeholder_count = 0
+        try:
+            with spec_path.open("r", encoding="utf-8") as fh:
+                spec = json.load(fh)
+        except (OSError, ValueError, TypeError):
+            return {"spec_available": False, "placeholder_operations": None}
+
+        for methods in spec.get("paths", {}).values():
+            if not isinstance(methods, dict):
+                continue
+            for method, operation in methods.items():
+                if method == "parameters" or method.startswith("x-"):
+                    continue
+                if (
+                    isinstance(operation, dict)
+                    and operation.get("summary") == "Autogenerated placeholder (spec pending)"
+                ):
+                    placeholder_count += 1
+
+        _OPENAPI_AUDIT_CACHE = {
+            "mtime": mtime,
+            "spec_available": True,
+            "placeholder_operations": placeholder_count,
+        }
+        return _OPENAPI_AUDIT_CACHE
+
+    def _summarize_public_surfaces(self, surfaces: list[PublicSurfaceReadiness]) -> dict[str, int]:
+        """Summarize the exposed surface inventory by readiness."""
+        return {
+            "total": len(surfaces),
+            "live": sum(1 for surface in surfaces if surface.readiness == "live"),
+            "partial": sum(1 for surface in surfaces if surface.readiness == "partial"),
+        }
+
+    def _serialize_public_surface(self, surface: PublicSurfaceReadiness) -> dict[str, Any]:
+        """Convert readiness objects to JSON-safe dicts."""
+        return {
+            "id": surface.id,
+            "name": surface.name,
+            "readiness": surface.readiness,
+            "paths": surface.paths,
+            "message": surface.message,
+            "backend_conditional": surface.backend_conditional,
+            "placeholder_backed": surface.placeholder_backed,
+            "details": surface.details,
+        }
 
     # -------------------------------------------------------------------------
     # SLA Integration Helpers
@@ -885,4 +1128,5 @@ __all__ = [
     "ServiceStatus",
     "ComponentHealth",
     "Incident",
+    "PublicSurfaceReadiness",
 ]

@@ -302,6 +302,7 @@ class TestHandleDispatch:
         assert result is not None
         body = _body(result)
         assert "status" in body
+        assert "public_surfaces_summary" in body
 
     def test_api_status_summary_alias(self, handler, mock_http_handler):
         with patch.object(handler, "_check_all_components", return_value=[]):
@@ -323,6 +324,7 @@ class TestHandleDispatch:
         assert result is not None
         body = _body(result)
         assert "components" in body
+        assert "public_surfaces" in body
 
     def test_api_status_incidents(self, handler, mock_http_handler):
         result = handler.handle("/api/status/incidents", {}, mock_http_handler)
@@ -497,6 +499,60 @@ class TestCheckAllComponents:
         expected_ids = [c["id"] for c in handler.COMPONENTS]
         called_ids = [call.args[0] for call in mock_check.call_args_list]
         assert called_ids == expected_ids
+
+
+class TestPublicSurfaceReadiness:
+    """Tests for public-surface readiness inventory."""
+
+    def test_summary_counts_live_and_partial_surfaces(self, handler):
+        surfaces = handler._get_public_surface_readiness()
+        summary = handler._summarize_public_surfaces(surfaces)
+
+        assert summary["total"] == len(surfaces)
+        assert summary["live"] >= 1
+        assert summary["partial"] >= 1
+
+    def test_component_status_includes_surface_inventory(self, handler, mock_http_handler):
+        result = handler.handle("/api/status/components", {}, mock_http_handler)
+        body = _body(result)
+
+        surfaces = {surface["id"]: surface for surface in body["public_surfaces"]}
+        assert surfaces["status_page"]["readiness"] == "live"
+        assert surfaces["openapi"]["placeholder_backed"] is True
+        assert surfaces["memory_progressive"]["backend_conditional"] is True
+
+    def test_v1_component_status_includes_surface_inventory(self, handler, mock_http_handler):
+        result = handler.handle("/api/v1/status/components", {}, mock_http_handler)
+        body = _body(result)
+
+        surfaces = {surface["id"]: surface for surface in body["data"]["public_surfaces"]}
+        assert surfaces["status_page"]["readiness"] == "live"
+        assert surfaces["openapi"]["readiness"] == "partial"
+        assert surfaces["memory_progressive"]["readiness"] == "partial"
+
+    def test_memory_surface_is_live_with_capable_backend(self, handler):
+        handler.ctx["continuum_memory"] = type(
+            "ContinuumStub",
+            (),
+            {"get_timeline_entries": object(), "get_many": object()},
+        )()
+
+        surface = handler._get_memory_surface_readiness()
+
+        assert surface.readiness == "live"
+        assert surface.backend_conditional is False
+
+    def test_openapi_surface_uses_placeholder_audit(self, handler):
+        with patch.object(
+            handler,
+            "_audit_openapi_placeholders",
+            return_value={"spec_available": True, "placeholder_operations": 7},
+        ):
+            surface = handler._get_openapi_surface_readiness()
+
+        assert surface.readiness == "partial"
+        assert surface.placeholder_backed is True
+        assert surface.details["placeholder_operations"] == 7
 
 
 class TestApiHealth:
