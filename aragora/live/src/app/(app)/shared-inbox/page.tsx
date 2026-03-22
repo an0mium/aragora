@@ -45,6 +45,16 @@ interface SharedInboxMessage {
   assigned_to?: string;
   tags: string[];
   priority?: string;
+  trust_wedge?: {
+    receipt: {
+      receipt_id: string;
+      state: string;
+      canonical_receipt_id?: string | null;
+    };
+    decision: {
+      final_action: string;
+    };
+  } | null;
 }
 
 interface RoutingRule {
@@ -74,6 +84,13 @@ const STATUS_COLORS: Record<string, string> = {
   closed: 'bg-muted/20 text-muted border-muted/40',
 };
 
+const RECEIPT_STATE_COLORS: Record<string, string> = {
+  created: 'bg-acid-orange/15 text-acid-orange border-acid-orange/30',
+  approved: 'bg-acid-cyan/15 text-acid-cyan border-acid-cyan/30',
+  executed: 'bg-acid-green/15 text-acid-green border-acid-green/30',
+  expired: 'bg-acid-red/15 text-acid-red border-acid-red/30',
+};
+
 function StatusBadge({ status }: { status: string }) {
   return (
     <span
@@ -82,6 +99,18 @@ function StatusBadge({ status }: { status: string }) {
       }`}
     >
       {status.toUpperCase().replace('_', ' ')}
+    </span>
+  );
+}
+
+function ReceiptStateBadge({ state }: { state: string }) {
+  return (
+    <span
+      className={`px-2 py-0.5 text-xs font-mono rounded border ${
+        RECEIPT_STATE_COLORS[state] || RECEIPT_STATE_COLORS.created
+      }`}
+    >
+      RECEIPT {state.toUpperCase()}
     </span>
   );
 }
@@ -151,7 +180,6 @@ export default function SharedInboxPage() {
   const [debateResults, setDebateResults] = useState<Record<string, SharedInboxDebateResult>>({});
   const [debatingMessageId, setDebatingMessageId] = useState<string | null>(null);
   const [receiptActionMessageId, setReceiptActionMessageId] = useState<string | null>(null);
-
   // Get workspace ID from auth context (organization or user's org_id)
   const workspaceId = organization?.id || user?.org_id || 'default';
 
@@ -468,7 +496,6 @@ export default function SharedInboxPage() {
       setReceiptActionMessageId(null);
     }
   };
-
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -681,6 +708,9 @@ export default function SharedInboxPage() {
                         </div>
                         <div className="flex flex-col items-end gap-2">
                           <StatusBadge status={message.status} />
+                          {message.trust_wedge?.receipt?.state && (
+                            <ReceiptStateBadge state={message.trust_wedge.receipt.state} />
+                          )}
                           <span className="text-xs text-muted">
                             {formatDate(message.received_at)}
                           </span>
@@ -714,7 +744,9 @@ export default function SharedInboxPage() {
                         <button className="px-2 py-1 text-xs font-mono bg-surface hover:bg-accent/10 rounded transition-colors">
                           Reply
                         </button>
-                        {(message.priority === 'critical' || message.priority === 'high') && !debateResults[message.id]?.receipt && (
+                        {(message.priority === 'critical' || message.priority === 'high') &&
+                          !debateResults[message.id]?.receipt &&
+                          !message.trust_wedge?.receipt && (
                           <button
                             onClick={() => handleStartDebate(message.id)}
                             disabled={debatingMessageId === message.id}
@@ -724,6 +756,12 @@ export default function SharedInboxPage() {
                           </button>
                         )}
                       </div>
+
+                      {message.trust_wedge?.decision?.final_action && (
+                        <div className="mt-2 text-xs font-mono text-muted">
+                          Canonical action: {message.trust_wedge.decision.final_action.toUpperCase()}
+                        </div>
+                      )}
 
                       {/* Debate Result */}
                       {debateResults[message.id] && (

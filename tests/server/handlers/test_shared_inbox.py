@@ -15,6 +15,13 @@ from datetime import datetime, timezone
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
+from aragora.gauntlet.signing import HMACSigner, ReceiptSigner
+from aragora.inbox.trust_wedge import (
+    ActionIntent,
+    InboxTrustWedgeService,
+    InboxTrustWedgeStore,
+    TriageDecision,
+)
 from aragora.server.handlers.shared_inbox import (
     SharedInboxHandler,
     SharedInbox,
@@ -44,6 +51,7 @@ from aragora.server.handlers.shared_inbox import (
     _routing_rules,
     _storage_lock,
 )
+from aragora.services.email_actions import EmailActionsService
 
 
 @pytest.fixture
@@ -599,6 +607,80 @@ class TestGetInboxMessages:
         assert result["success"] is True
         assert "limit" in result
         assert "offset" in result
+
+    @pytest.mark.asyncio
+    async def test_get_messages_include_latest_trust_wedge_envelope(
+        self, sample_inbox, sample_message, tmp_path
+    ):
+        """Shared inbox reads should expose the canonical trust-wedge envelope."""
+        signer = ReceiptSigner(HMACSigner(secret_key=b"\x07" * 32, key_id="shared-inbox-key"))
+        store = InboxTrustWedgeStore(db_path=str(tmp_path / "shared-inbox-wedge.db"))
+        service = InboxTrustWedgeService(
+            email_actions_service=EmailActionsService(),
+            store=store,
+            signer=signer,
+        )
+
+        service.create_receipt(
+            ActionIntent.create(
+                provider="gmail",
+                user_id="user-1",
+                message_id=sample_message.email_id,
+                action="archive",
+                content_hash=ActionIntent.compute_content_hash(
+                    sample_message.subject, sample_message.snippet
+                ),
+                synthesized_rationale="Archive after review",
+                confidence=0.88,
+                provider_route="shared-inbox-test",
+            ),
+            TriageDecision.create(
+                final_action="archive",
+                confidence=0.88,
+                dissent_summary="",
+            ),
+        )
+        latest = service.create_receipt(
+            ActionIntent.create(
+                provider="gmail",
+                user_id="user-1",
+                message_id=sample_message.email_id,
+                action="star",
+                content_hash=ActionIntent.compute_content_hash(
+                    sample_message.subject, sample_message.snippet
+                ),
+                synthesized_rationale="Star for follow-up",
+                confidence=0.93,
+                provider_route="shared-inbox-test",
+            ),
+            TriageDecision.create(
+                final_action="star",
+                confidence=0.93,
+                dissent_summary="",
+            ),
+        )
+
+        try:
+            with (
+                patch(
+                    "aragora.server.handlers._shared_inbox_handler._get_store", return_value=None
+                ),
+                patch(
+                    "aragora.server.handlers.shared_inbox.inbox_handlers._get_inbox_trust_wedge_service",
+                    return_value=service,
+                ),
+            ):
+                result = await handle_get_inbox_messages(inbox_id=sample_inbox.id)
+        finally:
+            store.close()
+
+        assert result["success"] is True
+        assert (
+            result["messages"][0]["trust_wedge"]["receipt"]["receipt_id"]
+            == latest.receipt.receipt_id
+        )
+        assert result["messages"][0]["trust_wedge"]["receipt"]["state"] == "created"
+        assert result["messages"][0]["trust_wedge"]["decision"]["final_action"] == "star"
 
 
 # =============================================================================

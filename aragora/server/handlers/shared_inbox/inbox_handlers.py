@@ -102,6 +102,78 @@ def _log_activity(
     _log_activity_impl(inbox_id, org_id, actor_id, action, target_id, metadata)
 
 
+def _get_inbox_trust_wedge_service() -> Any | None:
+    """Best-effort accessor for the canonical inbox trust wedge service."""
+    try:
+        from aragora.inbox import get_inbox_trust_wedge_service
+
+        return get_inbox_trust_wedge_service()
+    except (ImportError, AttributeError, RuntimeError, OSError, ValueError, TypeError):
+        return None
+
+
+def _shared_message_provider(inbox_id: str, message: dict[str, Any]) -> str | None:
+    inbox = _shared_inboxes.get(inbox_id)
+    if inbox and inbox.connector_type:
+        connector_type = str(inbox.connector_type).strip().lower()
+        if connector_type:
+            return connector_type
+
+    metadata = message.get("metadata")
+    if isinstance(metadata, dict):
+        for key in ("provider", "connector_type"):
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip().lower()
+
+    return None
+
+
+def _shared_message_receipt_id(message: dict[str, Any]) -> str | None:
+    for key in ("email_id", "external_id"):
+        value = message.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _attach_trust_wedge_messages(
+    inbox_id: str, messages: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    service = _get_inbox_trust_wedge_service()
+    store = getattr(service, "store", None)
+    enriched_messages: list[dict[str, Any]] = []
+
+    for raw_message in messages:
+        message = dict(raw_message)
+        message["trust_wedge"] = None
+
+        receipt_message_id = _shared_message_receipt_id(message)
+        if not receipt_message_id or store is None:
+            enriched_messages.append(message)
+            continue
+
+        try:
+            envelope = store.find_latest_receipt_for_message(
+                message_id=receipt_message_id,
+                provider=_shared_message_provider(inbox_id, message),
+            )
+        except (AttributeError, RuntimeError, OSError, ValueError, TypeError, KeyError) as exc:
+            logger.debug(
+                "[SharedInbox] Failed to hydrate trust wedge data for message %s: %s",
+                message.get("id"),
+                exc,
+            )
+            enriched_messages.append(message)
+            continue
+
+        if envelope is not None:
+            message["trust_wedge"] = envelope.to_dict()
+        enriched_messages.append(message)
+
+    return enriched_messages
+
+
 @require_permission("inbox:write")
 async def handle_create_shared_inbox(
     workspace_id: str,
@@ -412,7 +484,7 @@ async def handle_get_inbox_messages(
 
                     return {
                         "success": True,
-                        "messages": messages_data,
+                        "messages": _attach_trust_wedge_messages(inbox_id, messages_data),
                         "total": total_count,
                         "limit": limit,
                         "offset": offset,
@@ -445,10 +517,11 @@ async def handle_get_inbox_messages(
         # Paginate
         total = len(messages)
         messages = messages[offset : offset + limit]
+        serialized_messages = [m.to_dict() for m in messages]
 
         return {
             "success": True,
-            "messages": [m.to_dict() for m in messages],
+            "messages": _attach_trust_wedge_messages(inbox_id, serialized_messages),
             "total": total,
             "limit": limit,
             "offset": offset,

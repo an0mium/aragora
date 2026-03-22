@@ -700,6 +700,42 @@ class InboxTrustWedgeStore:
                 receipts.append(item)
         return receipts
 
+    def find_latest_receipt_for_message(
+        self,
+        *,
+        message_id: str,
+        provider: str | None = None,
+        user_id: str | None = None,
+    ) -> StoredInboxTrustEnvelope | None:
+        """Return the newest wedge receipt for a provider message ID."""
+        normalized_message_id = str(message_id).strip()
+        if not normalized_message_id:
+            return None
+
+        conditions = ["message_id = ?"]
+        params: list[Any] = [normalized_message_id]
+
+        if provider is not None and str(provider).strip():
+            conditions.append("provider = ?")
+            params.append(str(provider).strip().lower())
+
+        if user_id is not None and str(user_id).strip():
+            conditions.append("user_id = ?")
+            params.append(str(user_id).strip())
+
+        query = f"""
+            SELECT receipt_id
+            FROM inbox_trust_receipts
+            WHERE {" AND ".join(conditions)}
+            ORDER BY created_at DESC
+            LIMIT 1
+        """
+        with self._cursor() as cursor:
+            row = cursor.execute(query, tuple(params)).fetchone()
+        if row is None:
+            return None
+        return self.get_receipt(row["receipt_id"])
+
     def approve_receipt(self, receipt_id: str, *, review_choice: str = "approve") -> bool:
         approved_at = _utcnow().isoformat()
         with self._cursor() as cursor:

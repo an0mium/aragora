@@ -238,3 +238,25 @@ async def test_label_action_uses_real_label_path(wedge):
 
     assert result.success is True
     connector.add_label.assert_called_once_with("msg-1", "TRIAGE")
+
+
+def test_store_can_find_latest_receipt_for_message(wedge):
+    store, service, _ = wedge
+    service.create_receipt(
+        _build_intent(action="archive"),
+        _build_decision(action="archive", confidence=0.91),
+    )
+    newest = service.create_receipt(
+        _build_intent(action="star"),
+        _build_decision(action="star", confidence=0.94),
+    )
+
+    found = store.find_latest_receipt_for_message(
+        message_id="msg-1",
+        provider="gmail",
+        user_id="user-1",
+    )
+
+    assert found is not None
+    assert found.receipt.receipt_id == newest.receipt.receipt_id
+    assert found.intent.action == InboxWedgeAction.STAR
