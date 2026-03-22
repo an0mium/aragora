@@ -87,3 +87,20 @@ class TestReadyzFallback:
         assert mod.is_runtime_ready() is False
         mod.mark_http_server_started()
         assert mod.is_runtime_ready() is True
+
+    def test_live_listener_readyz_short_circuits_stale_modular_503(self):
+        import aragora.server.unified_server as mod
+        from aragora.server.unified_server import UnifiedHandler
+
+        responses: list[tuple[dict, int]] = []
+        handler = MagicMock()
+        handler._send_json = lambda data, status=200: responses.append((data, status))
+        handler._try_modular_handler = MagicMock(return_value=True)
+
+        mod._server_ready = False
+        mod._http_server_started = True
+
+        UnifiedHandler._do_GET_internal(handler, "/readyz", {})
+
+        assert responses == [({"status": "ready"}, 200)]
+        handler._try_modular_handler.assert_not_called()
