@@ -427,10 +427,38 @@ class TrancheQueueItemRunState:
     findings: list[str] = field(default_factory=list)
     events: list[dict[str, Any]] = field(default_factory=list)
     stop_reason: str | None = None
+    blocked_reason: str | None = None
+    blocking_question: str | None = None
+    blocking_lane_id: str | None = None
     started_at: datetime | None = None
     updated_at: datetime | None = None
     finished_at: datetime | None = None
     result: dict[str, Any] = field(default_factory=dict)
+
+    def set_blocker(
+        self,
+        *,
+        reason: Any = None,
+        question: Any = None,
+        lane_id: Any = None,
+    ) -> None:
+        self.blocked_reason = _optional_text(reason)
+        self.blocking_question = _optional_text(question)
+        self.blocking_lane_id = _optional_text(lane_id)
+        blocker: dict[str, Any] = {}
+        if self.blocked_reason:
+            blocker["reason"] = self.blocked_reason
+        if self.blocking_question:
+            blocker["question"] = self.blocking_question
+        if self.blocking_lane_id:
+            blocker["lane_id"] = self.blocking_lane_id
+        if blocker:
+            self.result["blocker"] = blocker
+        else:
+            self.result.pop("blocker", None)
+
+    def clear_blocker(self) -> None:
+        self.set_blocker()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -452,6 +480,9 @@ class TrancheQueueItemRunState:
             "findings": list(self.findings),
             "events": [dict(item) for item in self.events],
             "stop_reason": self.stop_reason,
+            "blocked_reason": self.blocked_reason,
+            "blocking_question": self.blocking_question,
+            "blocking_lane_id": self.blocking_lane_id,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "finished_at": self.finished_at.isoformat() if self.finished_at else None,
@@ -461,6 +492,10 @@ class TrancheQueueItemRunState:
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> TrancheQueueItemRunState:
         data = data or {}
+        result = dict(data.get("result") or {})
+        blocker = result.get("blocker", {})
+        if not isinstance(blocker, dict):
+            blocker = {}
         return cls(
             item_id=str(data.get("item_id", "")).strip(),
             status=str(data.get("status", QUEUE_ITEM_STATUS_PENDING)).strip()
@@ -481,10 +516,16 @@ class TrancheQueueItemRunState:
             findings=_string_list(data.get("findings")),
             events=[dict(item) for item in data.get("events", []) if isinstance(item, dict)],
             stop_reason=_optional_text(data.get("stop_reason")),
+            blocked_reason=_optional_text(data.get("blocked_reason"))
+            or _optional_text(blocker.get("reason")),
+            blocking_question=_optional_text(data.get("blocking_question"))
+            or _optional_text(blocker.get("question")),
+            blocking_lane_id=_optional_text(data.get("blocking_lane_id"))
+            or _optional_text(blocker.get("lane_id")),
             started_at=_coerce_optional_datetime(data.get("started_at")),
             updated_at=_coerce_optional_datetime(data.get("updated_at")),
             finished_at=_coerce_optional_datetime(data.get("finished_at")),
-            result=dict(data.get("result") or {}),
+            result=result,
         )
 
 
@@ -961,6 +1002,74 @@ def _truncate_events(events: list[dict[str, Any]], limit: int = 25) -> list[dict
     return [dict(item) for item in events[-limit:]]
 
 
+def _artifact_blocked_reason(artifact: Any) -> str | None:
+    reason = _optional_text(getattr(artifact, "blocked_reason", None))
+    if reason:
+        return reason
+    metadata = getattr(artifact, "metadata", {})
+    if not isinstance(metadata, dict):
+        return None
+    blocker = metadata.get("blocker", {})
+    if isinstance(blocker, dict):
+        return _optional_text(blocker.get("reason"))
+    return None
+
+
+def _artifact_blocking_question(artifact: Any) -> str | None:
+    question = _optional_text(getattr(artifact, "blocking_question", None))
+    if question:
+        return question
+    metadata = getattr(artifact, "metadata", {})
+    if not isinstance(metadata, dict):
+        return None
+    blocker = metadata.get("blocker", {})
+    if isinstance(blocker, dict):
+        return _optional_text(blocker.get("question"))
+    return None
+
+
+def _design_review_blocking_question(payload: dict[str, Any]) -> str:
+    unresolved = _string_list(payload.get("unresolved_assumptions"))
+    if not unresolved and isinstance(payload.get("record"), dict):
+        unresolved = _string_list(payload["record"].get("unresolved_assumptions"))
+    findings = _string_list(payload.get("critique_findings"))
+    if not findings and isinstance(payload.get("record"), dict):
+        findings = _string_list(payload["record"].get("critique_findings"))
+    candidate = unresolved[0] if unresolved else (findings[0] if findings else "")
+    if candidate:
+        candidate = candidate.rstrip(".!?")
+        return f"Can you confirm this design assumption before rerunning the lane: {candidate}?"
+    return "Which design assumption must be confirmed before this lane can execute?"
+
+
+def _queue_blocker_from_tranche_state(
+    current: Any,
+    *,
+    artifact_store: TrancheArtifactStore,
+) -> tuple[str | None, str | None, str | None]:
+    lane_states = getattr(current, "lane_states", {})
+    if not isinstance(lane_states, dict):
+        return None, None, None
+    manifest_id = str(getattr(current, "manifest_id", "") or "").strip()
+    for lane_id, lane_state in sorted(lane_states.items(), key=lambda item: item[0]):
+        lane_reason = _optional_text(getattr(lane_state, "blocked_reason", None))
+        lane_question = _optional_text(getattr(lane_state, "blocking_question", None))
+        artifact = TrancheQueueExecutor._load_artifact_for_lane(
+            artifact_store,
+            manifest_id,
+            lane_id,
+        )
+        reason = lane_reason or (
+            _artifact_blocked_reason(artifact) if artifact is not None else None
+        )
+        question = lane_question or (
+            _artifact_blocking_question(artifact) if artifact is not None else None
+        )
+        if reason or question:
+            return reason, question, lane_id
+    return None, None, None
+
+
 def compile_tranche_queue(
     *,
     sources_path: str | Path,
@@ -1141,6 +1250,10 @@ class TrancheQueueExecutor:
                 systemic_reason = None
                 item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
                 item_state.stop_reason = "processing_error"
+                item_state.set_blocker(
+                    reason="processing_error",
+                    question="What input or repository state is missing before this lane can be retried?",
+                )
                 item_state.finished_at = _utcnow()
                 item_state.updated_at = _utcnow()
                 item_state.result["processing_error"] = {"error_type": type(exc).__name__}
@@ -1220,6 +1333,24 @@ class TrancheQueueExecutor:
                     if lane_pr_urls != item_state.pr_urls:
                         item_state.pr_urls = lane_pr_urls
                         changed = True
+                    if tranche_status == TRANCHE_STATUS_NEEDS_HUMAN:
+                        blocked_reason, blocking_question, blocking_lane_id = (
+                            _queue_blocker_from_tranche_state(
+                                refreshed,
+                                artifact_store=artifact_store,
+                            )
+                        )
+                        if (
+                            blocked_reason != item_state.blocked_reason
+                            or blocking_question != item_state.blocking_question
+                            or blocking_lane_id != item_state.blocking_lane_id
+                        ):
+                            item_state.set_blocker(
+                                reason=blocked_reason,
+                                question=blocking_question,
+                                lane_id=blocking_lane_id,
+                            )
+                            changed = True
                 except (OSError, ValueError):
                     tranche_status = item_state.tranche_status
             if tranche_status != item_state.tranche_status:
@@ -1236,6 +1367,8 @@ class TrancheQueueExecutor:
                 )
                 if tranche_status == TRANCHE_STATUS_NEEDS_HUMAN and not item_state.stop_reason:
                     item_state.stop_reason = tranche_status
+                if tranche_status == TRANCHE_STATUS_COMPLETED:
+                    item_state.clear_blocker()
                 item_state.finished_at = item_state.finished_at or _utcnow()
                 item_state.updated_at = _utcnow()
                 status = item_state.status
@@ -1260,6 +1393,9 @@ class TrancheQueueExecutor:
                     "pr_urls": list(item_state.pr_urls),
                     "findings": list(item_state.findings),
                     "stop_reason": item_state.stop_reason,
+                    "blocked_reason": item_state.blocked_reason,
+                    "blocking_question": item_state.blocking_question,
+                    "blocking_lane_id": item_state.blocking_lane_id,
                     "started_at": (
                         item_state.started_at.isoformat() if item_state.started_at else None
                     ),
@@ -1387,6 +1523,7 @@ class TrancheQueueExecutor:
         item_state.updated_at = _utcnow()
         item_state.finished_at = None
         item_state.stop_reason = None
+        item_state.clear_blocker()
         item_state.events = _truncate_events(item_state.events)
 
         requested_autonomy = _optional_text(item.autonomy_mode) or "adaptive"
@@ -1432,6 +1569,10 @@ class TrancheQueueExecutor:
         if not item_state.manifest_path:
             item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
             item_state.stop_reason = "manifest_missing_after_submit"
+            item_state.set_blocker(
+                reason="manifest_missing_after_submit",
+                question="Why did submission fail to emit a tranche manifest path for this lane?",
+            )
             item_state.finished_at = _utcnow()
             self._append_finding(item_state, "Queue item did not produce a tranche manifest path.")
             return None
@@ -1443,6 +1584,19 @@ class TrancheQueueExecutor:
         if str(inspection.get("preflight_status", "")).strip() == "blocked":
             item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
             item_state.stop_reason = "preflight_blocked"
+            item_state.set_blocker(
+                reason=(
+                    _optional_text(
+                        inspection.get("recommended_action", {}).get("kind")
+                        if isinstance(inspection.get("recommended_action"), dict)
+                        else None
+                    )
+                    or "preflight_blocked"
+                ),
+                question=(
+                    "Which preflight blocker must be resolved before this lane can be prepared or rerun?"
+                ),
+            )
             item_state.finished_at = _utcnow()
             for finding in _string_list(inspection.get("preflight_blockers")):
                 self._append_finding(item_state, finding)
@@ -1477,6 +1631,19 @@ class TrancheQueueExecutor:
             item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
             item_state.stop_reason = (
                 design_review_recommendation or "design_review_awaiting_confirmation"
+            )
+            design_review_payload = (
+                item_state.result.get("design_review")
+                if isinstance(item_state.result.get("design_review"), dict)
+                else (
+                    {"record": load_design_review(design_review_path).to_dict()}
+                    if design_review_path.exists()
+                    else {}
+                )
+            )
+            item_state.set_blocker(
+                reason=f"design_review_{design_review_recommendation or 'awaiting_confirmation'}",
+                question=_design_review_blocking_question(design_review_payload),
             )
             item_state.finished_at = _utcnow()
             self._append_finding(
@@ -1816,9 +1983,22 @@ class TrancheQueueExecutor:
         if item_state.status not in _QUEUE_ITEM_TERMINAL_STATUSES:
             if current.status == TRANCHE_STATUS_COMPLETED:
                 item_state.status = QUEUE_ITEM_STATUS_COMPLETED
+                item_state.clear_blocker()
             else:
                 item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
                 item_state.stop_reason = current.status
+                blocked_reason, blocking_question, blocking_lane_id = (
+                    _queue_blocker_from_tranche_state(
+                        current,
+                        artifact_store=artifact_store,
+                    )
+                )
+                item_state.set_blocker(
+                    reason=blocked_reason or "needs_human",
+                    question=blocking_question
+                    or "What human input is required before rerunning this lane?",
+                    lane_id=blocking_lane_id,
+                )
         item_state.tranche_status = current.status
         item_state.finished_at = item_state.finished_at or _utcnow()
         item_state.updated_at = _utcnow()

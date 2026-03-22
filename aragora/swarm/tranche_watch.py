@@ -443,6 +443,10 @@ def _apply_artifact_projection(lane_state: LaneRunState, artifact: TrancheLaneAr
     lane_state.receipt_id = _prefer_text(lane_state.receipt_id, metadata.get("receipt_id"))
     lane_state.lease_id = _prefer_text(lane_state.lease_id, metadata.get("lease_id"))
     lane_state.pr_url = _prefer_text(lane_state.pr_url, _artifact_pr_url(artifact))
+    blocked_reason = _artifact_blocked_reason(artifact)
+    blocking_question = _artifact_blocking_question(artifact)
+    if blocked_reason or blocking_question or lane_state.status != LANE_STATUS_NEEDS_HUMAN:
+        lane_state.set_blocker(reason=blocked_reason, question=blocking_question)
 
 
 def _apply_run_projection(lane_state: LaneRunState, run_dict: dict[str, Any]) -> None:
@@ -463,11 +467,27 @@ def _apply_run_projection(lane_state: LaneRunState, run_dict: dict[str, Any]) ->
             lane_state.pr_url,
             work_order.get("pr_url") or work_order.get("adopted_pr"),
         )
+        lane_state.set_blocker(
+            reason=_prefer_text(
+                lane_state.blocked_reason,
+                work_order.get("failure_reason")
+                or ("scope_violation" if _work_order_has_scope_violation(work_order) else None),
+            ),
+            question=_prefer_text(
+                lane_state.blocking_question,
+                work_order.get("blocking_question"),
+            ),
+        )
         if lane_state.run_id:
             break
 
     if has_scope_violation:
         lane_state.status = LANE_STATUS_NEEDS_HUMAN
+        lane_state.set_blocker(
+            reason=lane_state.blocked_reason or "scope_violation",
+            question=lane_state.blocking_question
+            or "Which files should stay in scope, or should this lane be split before rerunning?",
+        )
         return
 
     mapped = {
@@ -496,6 +516,11 @@ def _apply_lease_projection(lane_state: LaneRunState, lease: Any) -> None:
         lane_state.status = LANE_STATUS_RUNNING
     elif lease_status == LeaseStatus.EXPIRED.value:
         lane_state.status = LANE_STATUS_NEEDS_HUMAN
+        lane_state.set_blocker(
+            reason=lane_state.blocked_reason or "lease_expired",
+            question=lane_state.blocking_question
+            or "Should this lane reclaim a fresh lease before it is rerun?",
+        )
     elif lease_status == LeaseStatus.COMPLETED.value and lane_state.status in {
         LANE_STATUS_PENDING,
         LANE_STATUS_DISPATCHED,
@@ -534,6 +559,11 @@ def _apply_integration_projection(lane_state: LaneRunState, decision: Any) -> No
         IntegrationDecisionType.SALVAGE.value,
     }:
         lane_state.status = LANE_STATUS_NEEDS_HUMAN
+        lane_state.set_blocker(
+            reason=lane_state.blocked_reason or f"integration_{value}",
+            question=lane_state.blocking_question
+            or "What integration change is required before this lane can proceed?",
+        )
     elif (
         value == IntegrationDecisionType.PENDING_REVIEW.value
         and lane_state.status == LANE_STATUS_REVIEW_PASSED
@@ -584,6 +614,28 @@ def _artifact_pr_url(artifact: TrancheLaneArtifact) -> str | None:
         text = _optional_text(url)
         if text and "/pull/" in text:
             return text
+    return None
+
+
+def _artifact_blocked_reason(artifact: TrancheLaneArtifact) -> str | None:
+    reason = _optional_text(getattr(artifact, "blocked_reason", None))
+    if reason:
+        return reason
+    metadata = artifact.metadata if isinstance(artifact.metadata, dict) else {}
+    blocker = metadata.get("blocker", {})
+    if isinstance(blocker, dict):
+        return _optional_text(blocker.get("reason"))
+    return None
+
+
+def _artifact_blocking_question(artifact: TrancheLaneArtifact) -> str | None:
+    question = _optional_text(getattr(artifact, "blocking_question", None))
+    if question:
+        return question
+    metadata = artifact.metadata if isinstance(artifact.metadata, dict) else {}
+    blocker = metadata.get("blocker", {})
+    if isinstance(blocker, dict):
+        return _optional_text(blocker.get("question"))
     return None
 
 
@@ -712,14 +764,25 @@ def _sync_artifacts_from_supervisor_run(
                 "Lane delivered a concrete branch/commit and is ready for review."
             )
             artifact.next_actions = ["Run tranche review/integrate for this lane."]
+            artifact.clear_blocker()
         elif _work_order_has_scope_violation(work_order):
             artifact.status = "needs_human"
             artifact.residual_risk = "Worker edited files outside the permitted scope."
             artifact.next_actions = ["Inspect scope violation details before any manual recovery."]
+            artifact.set_blocker(
+                reason="scope_violation",
+                question=_optional_text(work_order.get("blocking_question"))
+                or "Which files should stay in scope before rerunning this lane?",
+            )
         elif str(work_order.get("status", "")).strip().lower() == "needs_human":
             artifact.status = "needs_human"
             artifact.residual_risk = "Worker reached needs_human state."
             artifact.next_actions = ["Worker reached needs_human state."]
+            artifact.set_blocker(
+                reason=_optional_text(work_order.get("failure_reason")) or "needs_human",
+                question=_optional_text(work_order.get("blocking_question"))
+                or "What human input is required before rerunning this lane?",
+            )
         artifact.timestamp = _utcnow().isoformat()
         artifact_store.save(state.manifest_id, artifact)
 
@@ -799,6 +862,8 @@ def _watch_integrate_status(current_status: str, payload: dict[str, Any]) -> str
             if _optional_text(payload.get("pr_url"))
             else current_status
         )
+    if recommendation == "awaiting_confirmation":
+        return LANE_STATUS_NEEDS_HUMAN
     if recommendation in {"request_changes", "blocked", "needs_human"}:
         return LANE_STATUS_NEEDS_HUMAN
     return current_status
@@ -874,6 +939,16 @@ def _apply_dispatch_payload(state: TrancheRunState, payload: Any) -> None:
         lane_state.receipt_id = _prefer_text(lane_state.receipt_id, metadata.get("receipt_id"))
         lane_state.lease_id = _prefer_text(lane_state.lease_id, metadata.get("lease_id"))
         lane_state.pr_url = _prefer_text(lane_state.pr_url, metadata.get("pr_url"))
+        lane_state.set_blocker(
+            reason=_prefer_text(
+                lane_state.blocked_reason,
+                item.get("blocked_reason"),
+            ),
+            question=_prefer_text(
+                lane_state.blocking_question,
+                item.get("blocking_question"),
+            ),
+        )
         lane_state.last_updated = now
 
 
@@ -913,6 +988,14 @@ def _apply_cascade_report_to_state(
             lane_state = LaneRunState(lane_id=lane_id, status=LANE_STATUS_NEEDS_HUMAN)
             state.lane_states[lane_id] = lane_state
         lane_state.status = LANE_STATUS_NEEDS_HUMAN
+        lane_state.set_blocker(
+            reason=action,
+            question=(
+                "Which upstream branch or PR should this lane restack onto before rerunning?"
+                if action == "needs_restack"
+                else "Which upstream lane still needs a published PR before this lane can continue?"
+            ),
+        )
         lane_state.last_updated = now
         needs_human = True
 

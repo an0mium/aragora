@@ -1088,6 +1088,8 @@ async def test_collect_results_blocks_merge_gate_without_verification_plan(
     assert wo["merge_gate"]["checks_passed"] is False
     assert wo["merge_gate"]["verification_missing_reason"] == "missing_verification_plan"
     assert wo["verification_missing_reason"] == "missing_verification_plan"
+    assert wo["failure_reason"] == "missing_verification_plan"
+    assert "verification command" in wo["blocking_question"]
     assert "missing verification plan" in wo["dispatch_error"]
 
 
@@ -1161,6 +1163,8 @@ async def test_collect_results_marks_scope_violation_needs_human(
     assert wo["status"] == "scope_violation"
     assert wo["review_status"] == "changes_requested"
     assert "outside permitted scope" in wo["dispatch_error"]
+    assert wo["failure_reason"] == "scope_violation"
+    assert "stay in scope" in wo["blocking_question"]
     assert wo.get("receipt_id") is None
     assert wo["lease_id"] == lease.lease_id
     assert wo["scope_violation"]["violations"][0]["type"] == "out_of_scope"
@@ -1537,6 +1541,8 @@ async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
     work_order = updated["work_orders"][0]
     assert work_order["status"] == "needs_human"
     assert "worker dispatch blocked" in work_order["dispatch_error"]
+    assert work_order["failure_reason"] == "worker_type_blocked"
+    assert "worker type or capacity issue" in work_order["blocking_question"]
     assert updated["status"] == "needs_human"
     assert updated["metadata"][CAMPAIGN_OUTCOME_METADATA_KEY] == "needs_human"
     assert store.status_summary()["counts"]["active_leases"] == 0
@@ -2189,6 +2195,8 @@ async def test_collect_finished_results_marks_dead_dispatched_worker_needs_human
     work_order = updated["work_orders"][0]
     assert work_order["status"] == "needs_human"
     assert "without receipt or exit marker" in work_order["dispatch_error"]
+    assert work_order["failure_reason"] == "worker_exited_without_receipt"
+    assert "existing worktree" in work_order["blocking_question"]
     assert "pid" not in work_order
 
 
@@ -2247,6 +2255,8 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
     work_order = updated["work_orders"][0]
     assert work_order["status"] == "needs_human"
     assert "no-progress timeout" in work_order["dispatch_error"]
+    assert work_order["failure_reason"] == "worker_no_progress_timeout"
+    assert "stalled lane" in work_order["blocking_question"]
 
 
 def test_session_key_unique_per_work_order() -> None:

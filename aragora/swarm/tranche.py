@@ -373,7 +373,27 @@ class TrancheLaneArtifact:
     residual_risk: str = ""
     timestamp: str = field(default_factory=lambda: _utcnow().isoformat())
     next_actions: list[str] = field(default_factory=list)
+    blocked_reason: str | None = None
+    blocking_question: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def set_blocker(self, *, reason: Any = None, question: Any = None) -> None:
+        self.blocked_reason = _optional_text(reason)
+        self.blocking_question = _optional_text(question)
+        metadata = dict(self.metadata) if isinstance(self.metadata, dict) else {}
+        if self.blocked_reason or self.blocking_question:
+            blocker: dict[str, Any] = {}
+            if self.blocked_reason:
+                blocker["reason"] = self.blocked_reason
+            if self.blocking_question:
+                blocker["question"] = self.blocking_question
+            metadata["blocker"] = blocker
+        else:
+            metadata.pop("blocker", None)
+        self.metadata = metadata
+
+    def clear_blocker(self) -> None:
+        self.set_blocker()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -387,6 +407,8 @@ class TrancheLaneArtifact:
             "residual_risk": self.residual_risk,
             "timestamp": self.timestamp,
             "next_actions": list(self.next_actions),
+            "blocked_reason": self.blocked_reason,
+            "blocking_question": self.blocking_question,
             "metadata": dict(self.metadata),
         }
 
@@ -401,6 +423,10 @@ class TrancheLaneArtifact:
             raise ValueError("Tranche lane artifact source_ref is required.")
         if not status:
             raise ValueError("Tranche lane artifact status is required.")
+        metadata = _dict_value(data.get("metadata"), field_name="metadata")
+        blocker = metadata.get("blocker", {})
+        if not isinstance(blocker, dict):
+            blocker = {}
         return cls(
             lane_id=lane_id,
             source_ref=source_ref,
@@ -412,7 +438,11 @@ class TrancheLaneArtifact:
             residual_risk=str(data.get("residual_risk", "")).strip(),
             timestamp=str(data.get("timestamp", "")).strip() or _utcnow().isoformat(),
             next_actions=_string_list(data.get("next_actions"), field_name="next_actions"),
-            metadata=_dict_value(data.get("metadata"), field_name="metadata"),
+            blocked_reason=_optional_text(data.get("blocked_reason"))
+            or _optional_text(blocker.get("reason")),
+            blocking_question=_optional_text(data.get("blocking_question"))
+            or _optional_text(blocker.get("question")),
+            metadata=metadata,
         )
 
 
@@ -609,6 +639,8 @@ class TrancheExecutor:
                     "worktree_path": artifact.worktree_path,
                     "urls": list(artifact.urls),
                     "next_actions": list(artifact.next_actions),
+                    "blocked_reason": artifact.blocked_reason,
+                    "blocking_question": artifact.blocking_question,
                     "metadata": dict(artifact.metadata),
                 }
             )
@@ -733,6 +765,13 @@ class TrancheExecutor:
             next_actions=_next_actions_from_dispatch_result(result),
             metadata=metadata,
         )
+        if artifact.status == "needs_human":
+            artifact.set_blocker(
+                reason=_dispatch_result_blocked_reason(result, run_dict=run_dict),
+                question=_dispatch_result_blocking_question(result, run_dict=run_dict),
+            )
+        else:
+            artifact.clear_blocker()
         if run_dict:
             artifact.metadata["run"] = {
                 "run_id": run_dict.get("run_id"),
@@ -1627,6 +1666,48 @@ def _residual_risk_from_dispatch_result(result: dict[str, Any]) -> str:
     if status == "failed":
         return str(result.get("error", "")).strip() or "Lane execution failed."
     return ""
+
+
+def _dispatch_result_blocked_reason(
+    result: dict[str, Any],
+    *,
+    run_dict: dict[str, Any],
+) -> str | None:
+    explicit = _optional_text(result.get("blocked_reason"))
+    if explicit:
+        return explicit
+    for work_order in run_dict.get("work_orders", []):
+        if not isinstance(work_order, dict):
+            continue
+        reason = _optional_text(work_order.get("failure_reason"))
+        if reason:
+            return reason
+        status = str(work_order.get("status", "")).strip().lower()
+        if status == "scope_violation":
+            return "scope_violation"
+    outcome = _optional_text(result.get("outcome"))
+    if outcome == "clean_exit_no_deliverable":
+        return outcome
+    return _optional_text(result.get("status"))
+
+
+def _dispatch_result_blocking_question(
+    result: dict[str, Any],
+    *,
+    run_dict: dict[str, Any],
+) -> str | None:
+    explicit = _optional_text(result.get("blocking_question"))
+    if explicit:
+        return explicit
+    for work_order in run_dict.get("work_orders", []):
+        if not isinstance(work_order, dict):
+            continue
+        question = _optional_text(work_order.get("blocking_question"))
+        if question:
+            return question
+    if _dispatch_result_blocked_reason(result, run_dict=run_dict):
+        return "What human input is required before rerunning this lane?"
+    return None
 
 
 def _next_actions_from_dispatch_result(result: dict[str, Any]) -> list[str]:

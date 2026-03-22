@@ -552,6 +552,26 @@ async def integrate_lane(
             "rationale": detail
             or "No PR could be discovered or published for the lane deliverable.",
         }
+    metadata["integration"] = {
+        **assessment,
+        "checks": checks,
+        "review_status": review_status,
+        "gate": gate_payload,
+        "publish_result": dict(publish_result) if isinstance(publish_result, dict) else None,
+    }
+    artifact.metadata = metadata
+    blocked_reason, blocking_question = _integration_blocker(
+        assessment,
+        pr_url=pr_url,
+    )
+    if blocked_reason or blocking_question:
+        if hasattr(artifact, "set_blocker"):
+            artifact.set_blocker(reason=blocked_reason, question=blocking_question)
+    elif hasattr(artifact, "clear_blocker"):
+        artifact.clear_blocker()
+    manifest_id = str(getattr(manifest, "manifest_id", "") or "").strip()
+    if manifest_id:
+        artifact_store_obj.save(manifest_id, artifact)
 
     merge_result: dict[str, Any] | None = None
     cascade_report: dict[str, Any] | None = None
@@ -600,6 +620,53 @@ async def integrate_lane(
         "cascade_report": cascade_report,
         **assessment,
     }
+
+
+def _integration_blocker(
+    assessment: dict[str, Any],
+    *,
+    pr_url: str | None,
+) -> tuple[str | None, str | None]:
+    recommendation = str(assessment.get("recommendation", "") or "").strip().lower()
+    checks = str(assessment.get("checks", "") or "").strip().lower()
+    review_status = str(assessment.get("review_status", "") or "").strip().lower()
+    merge_class = str(assessment.get("merge_class", "") or "").strip().lower()
+    if recommendation == "awaiting_confirmation":
+        return (
+            "required_checks_pending",
+            "Which pending required check should complete before this lane is merged or rerun?",
+        )
+    if recommendation == "request_changes":
+        return (
+            "review_changes_requested",
+            "Which review finding must be resolved before rerunning this lane?",
+        )
+    if recommendation != "needs_human":
+        return None, None
+    if not pr_url:
+        return (
+            "lane_publication_unavailable",
+            "Should this lane publish or discover a PR before rerunning integration?",
+        )
+    if review_status not in {"passed", "approved"}:
+        return (
+            "review_not_passed",
+            "Which review finding must be resolved before this lane can proceed?",
+        )
+    if checks == "checks_failed":
+        return (
+            "required_checks_failed",
+            "Which required check must be fixed before rerunning this lane?",
+        )
+    if merge_class == "low_risk":
+        return (
+            "low_risk_confirmation_required",
+            "Should a human approve this low-risk lane, or should its policy change before rerunning?",
+        )
+    return (
+        "explicit_human_confirmation_required",
+        "What human confirmation is required before rerunning this lane?",
+    )
 
 
 async def record_lane_integration(

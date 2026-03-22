@@ -395,8 +395,11 @@ class SwarmSupervisor:
                         item["status"] = "waiting_resource"
                         item["resource_error"] = str(exc)
                     else:
-                        item["status"] = "needs_human"
-                        item["dispatch_error"] = str(exc)
+                        self._mark_needs_human(
+                            item,
+                            str(exc),
+                            failure_reason="work_order_leasing_failed",
+                        )
                     break
 
         refreshed = self.store.update_supervisor_run(
@@ -798,6 +801,7 @@ class SwarmSupervisor:
                     self._mark_needs_human(
                         item,
                         "worker process exited without receipt or exit marker",
+                        failure_reason="worker_exited_without_receipt",
                     )
                     item["worker_outcome"] = WorkerOutcome.CRASH.value
                 self._release_terminal_lease(item)
@@ -856,7 +860,11 @@ class SwarmSupervisor:
                         self._mark_scope_violation(item, timeout_violations, extra_reason=reason)
                         item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
                     else:
-                        self._mark_needs_human(item, reason)
+                        self._mark_needs_human(
+                            item,
+                            reason,
+                            failure_reason="worker_no_progress_timeout",
+                        )
                         item["worker_outcome"] = WorkerOutcome.TIMEOUT_NO_PROGRESS.value
                     self._release_terminal_lease(item)
                 changed = True
@@ -1289,6 +1297,7 @@ class SwarmSupervisor:
                 self._mark_needs_human(
                     item,
                     "worker produced only session artifacts, no real deliverables",
+                    failure_reason="clean_exit_no_deliverable",
                 )
                 if not _pre_outcome:
                     item["worker_outcome"] = WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
@@ -1311,6 +1320,7 @@ class SwarmSupervisor:
                 self._mark_needs_human(
                     item,
                     "worker exited 0 with no commits and no changed paths",
+                    failure_reason="clean_exit_no_deliverable",
                 )
                 self._release_terminal_lease(item)
                 item["exit_code"] = result.exit_code
@@ -1330,7 +1340,15 @@ class SwarmSupervisor:
                     merge_gate["llm_override"] = True
                     item["merge_gate"] = merge_gate
                 else:
-                    self._mark_needs_human(item, self._merge_gate_failure_reason(merge_gate))
+                    self._mark_needs_human(
+                        item,
+                        self._merge_gate_failure_reason(merge_gate),
+                        failure_reason=str(
+                            merge_gate.get("verification_missing_reason", "") or "merge_gate_failed"
+                        ).strip()
+                        or "merge_gate_failed",
+                        blocking_question=self._merge_gate_blocking_question(merge_gate),
+                    )
                     item["review_status"] = "changes_requested"
                     item["receipt_id"] = None
                     if not _pre_outcome:
@@ -1386,6 +1404,11 @@ class SwarmSupervisor:
                     self._mark_needs_human(
                         item,
                         "worker completion violated file-scope ownership; narrow or split the lane",
+                        failure_reason="scope_violation",
+                        blocking_question=(
+                            "Which files should stay in scope, or should this lane be split "
+                            "before it is rerun?"
+                        ),
                     )
                     item["review_status"] = "changes_requested"
                     item["receipt_id"] = None
@@ -1407,6 +1430,9 @@ class SwarmSupervisor:
             self._register_pr_if_present(item, result)
             item["status"] = "completed"
             item["review_status"] = "pending_heterogeneous_review"
+            item.pop("failure_reason", None)
+            item.pop("blocking_question", None)
+            item.pop("blocker", None)
             return
 
         # Non-zero exit: classify as crash (with or without salvage)
@@ -1589,6 +1615,9 @@ class SwarmSupervisor:
         item.pop("last_observed_at", None)
         item.pop("last_progress_at", None)
         item.pop("progress_fingerprint", None)
+        item.pop("failure_reason", None)
+        item.pop("blocking_question", None)
+        item.pop("blocker", None)
         return True
 
     @staticmethod
@@ -1944,6 +1973,7 @@ class SwarmSupervisor:
         self._mark_needs_human(
             item,
             f"worker dispatch blocked: {detail}",
+            failure_reason="worker_type_blocked",
         )
         self._release_terminal_lease(item)
 
@@ -2175,6 +2205,15 @@ class SwarmSupervisor:
         ]
         return reasons[0] if reasons else "merge gate blocked"
 
+    @staticmethod
+    def _merge_gate_blocking_question(merge_gate: dict[str, Any]) -> str:
+        missing = str(merge_gate.get("verification_missing_reason", "")).strip()
+        if missing == "missing_verification_plan":
+            return (
+                "Which verification command or acceptance check should be added before rerunning?"
+            )
+        return "Which required verification or acceptance check must pass before approval?"
+
     @classmethod
     def _update_log_tails(
         cls,
@@ -2244,9 +2283,83 @@ class SwarmSupervisor:
         return parsed
 
     @staticmethod
-    def _mark_needs_human(item: dict[str, Any], reason: str) -> None:
+    def _default_blocking_question(reason_code: str) -> str:
+        mapping = {
+            "clean_exit_no_deliverable": (
+                "What concrete branch, commit, or PR should this lane produce before rerunning?"
+            ),
+            "merge_gate_failed": (
+                "Which required verification or acceptance check must pass before approval?"
+            ),
+            "missing_verification_plan": (
+                "Which verification command or acceptance check should be added before rerunning?"
+            ),
+            "scope_violation": (
+                "Which files should stay in scope, or should this lane be split before rerunning?"
+            ),
+            "worker_exited_without_receipt": (
+                "Should this lane be rerun, or recovered manually from the existing worktree?"
+            ),
+            "worker_no_progress_timeout": (
+                "Should this stalled lane be rerun, split, or investigated in its current worktree?"
+            ),
+            "worker_type_blocked": (
+                "Which worker type or capacity issue must be resolved before rerunning this lane?"
+            ),
+            "work_order_leasing_failed": (
+                "What missing environment, resource, or policy input must be resolved first?"
+            ),
+        }
+        return mapping.get(
+            reason_code,
+            "What human input is required before rerunning this lane?",
+        )
+
+    @classmethod
+    def _infer_failure_reason(cls, item: dict[str, Any], reason: str) -> str:
+        merge_gate = item.get("merge_gate")
+        if isinstance(merge_gate, dict):
+            missing = str(merge_gate.get("verification_missing_reason", "")).strip()
+            if missing:
+                return missing
+        lowered = str(reason or "").strip().lower()
+        if "scope" in lowered and "ownership" in lowered:
+            return "scope_violation"
+        if "without receipt or exit marker" in lowered:
+            return "worker_exited_without_receipt"
+        if "no-progress timeout" in lowered:
+            return "worker_no_progress_timeout"
+        if "no commits and no changed paths" in lowered or "no real deliverables" in lowered:
+            return "clean_exit_no_deliverable"
+        if "merge gate" in lowered:
+            return "merge_gate_failed"
+        if "dispatch blocked" in lowered:
+            return "worker_type_blocked"
+        return "needs_human"
+
+    @classmethod
+    def _mark_needs_human(
+        cls,
+        item: dict[str, Any],
+        reason: str,
+        *,
+        failure_reason: str | None = None,
+        blocking_question: str | None = None,
+    ) -> None:
         item["status"] = "needs_human"
         item["dispatch_error"] = reason
+        normalized_reason = (
+            str(failure_reason or cls._infer_failure_reason(item, reason)).strip() or "needs_human"
+        )
+        normalized_question = str(
+            blocking_question or cls._default_blocking_question(normalized_reason)
+        ).strip()
+        item["failure_reason"] = normalized_reason
+        item["blocking_question"] = normalized_question
+        item["blocker"] = {
+            "reason": normalized_reason,
+            "question": normalized_question,
+        }
         blockers = [str(value).strip() for value in item.get("blockers", []) if str(value).strip()]
         if reason not in blockers:
             blockers.append(reason)
@@ -2277,6 +2390,14 @@ class SwarmSupervisor:
             reason = f"{extra_reason}; {reason}"
         item["status"] = "scope_violation"
         item["dispatch_error"] = reason
+        item["failure_reason"] = "scope_violation"
+        item["blocking_question"] = (
+            "Which files should stay in scope, or should this lane be split before rerunning?"
+        )
+        item["blocker"] = {
+            "reason": "scope_violation",
+            "question": item["blocking_question"],
+        }
         item["review_status"] = "changes_requested"
         scope_violation_detail = {
             "violations": violations,

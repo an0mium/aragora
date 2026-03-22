@@ -60,8 +60,17 @@ class LaneRunState:
     lease_id: str | None = None
     worktree_path: str | None = None
     pr_url: str | None = None
+    blocked_reason: str | None = None
+    blocking_question: str | None = None
     retry_count: int = 0
     last_updated: datetime = field(default_factory=_utcnow)
+
+    def set_blocker(self, *, reason: Any = None, question: Any = None) -> None:
+        self.blocked_reason = _optional_text(reason)
+        self.blocking_question = _optional_text(question)
+
+    def clear_blocker(self) -> None:
+        self.set_blocker()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -72,6 +81,8 @@ class LaneRunState:
             "lease_id": self.lease_id,
             "worktree_path": self.worktree_path,
             "pr_url": self.pr_url,
+            "blocked_reason": self.blocked_reason,
+            "blocking_question": self.blocking_question,
             "retry_count": self.retry_count,
             "last_updated": self.last_updated.isoformat(),
         }
@@ -87,6 +98,8 @@ class LaneRunState:
             lease_id=_optional_text(data.get("lease_id")),
             worktree_path=_optional_text(data.get("worktree_path")),
             pr_url=_optional_text(data.get("pr_url")),
+            blocked_reason=_optional_text(data.get("blocked_reason")),
+            blocking_question=_optional_text(data.get("blocking_question")),
             retry_count=max(0, int(data.get("retry_count", 0) or 0)),
             last_updated=_coerce_datetime(data.get("last_updated")),
         )

@@ -633,6 +633,87 @@ async def test_process_item_persists_manifest_path_before_drive_manifest(
 
 
 @pytest.mark.asyncio
+async def test_process_item_records_design_review_blocker_when_confirmation_required(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    manifest = _write_queue(queue_path)
+    executor = TrancheQueueExecutor(queue_path=queue_path, repo_root=tmp_path)
+    item = manifest.items[0]
+    item_state = TrancheQueueItemRunState(item_id=item.item_id)
+
+    tranche_dir = tmp_path / "tranches" / "tranche-a"
+    tranche_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = tranche_dir / "tranche.yaml"
+    manifest_path.write_text("manifest_id: tranche-a\n", encoding="utf-8")
+    normalized_path = tranche_dir / "normalized_bundle.yaml"
+    normalized_path.write_text("{}\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        executor,
+        "_bundle_for_item",
+        lambda item, effective_autonomy_mode: {"objective": "test"},
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.submit_intake_bundle",
+        lambda *args, **kwargs: {
+            "manifest_id": "tranche-a",
+            "manifest_path": str(manifest_path),
+            "tranche_dir": str(tranche_dir),
+            "submission_status": "submitted",
+            "inspection_status": "ready",
+            "recommended_action": "design-review",
+        },
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.load_tranche_manifest",
+        lambda path: SimpleNamespace(manifest_id="tranche-a"),
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.TrancheInspector",
+        lambda repo_root: SimpleNamespace(
+            inspect=lambda tranche_manifest: {"preflight_status": "ready"}
+        ),
+    )
+
+    async def fake_design_review(*, manifest, normalized_bundle, inspection):
+        return {
+            "recommendation": "awaiting_confirmation",
+            "unresolved_assumptions": ["Confirm operator approval sequencing."],
+            "record": {
+                "manifest_id": "tranche-a",
+                "status": "awaiting_confirmation",
+                "recommendation": "awaiting_confirmation",
+                "unresolved_assumptions": ["Confirm operator approval sequencing."],
+            },
+        }
+
+    monkeypatch.setattr("aragora.swarm.tranche_queue.run_design_review", fake_design_review)
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.save_design_review", lambda *args, **kwargs: None
+    )
+
+    result = await executor._process_item(
+        manifest=manifest,
+        item=item,
+        item_state=item_state,
+        deadline=datetime.now(UTC) + timedelta(minutes=10),
+    )
+
+    assert result is None
+    assert item_state.status == QUEUE_ITEM_STATUS_NEEDS_HUMAN
+    assert item_state.stop_reason == "awaiting_confirmation"
+    assert item_state.blocked_reason == "design_review_awaiting_confirmation"
+    assert (
+        item_state.blocking_question
+        == "Can you confirm this design assumption before rerunning the lane: Confirm operator approval sequencing?"
+    )
+    assert item_state.result["blocker"]["reason"] == "design_review_awaiting_confirmation"
+    assert "awaiting_confirmation" in item_state.result["design_review"]["recommendation"]
+
+
+@pytest.mark.asyncio
 async def test_run_queue_needs_human_does_not_count_toward_consecutive_failures(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -796,6 +877,78 @@ def test_reconcile_queue_terminalizes_stale_running_item_and_stops_queue(
     assert repaired.stop_reason == "driver_stopped"
     assert repaired.current_item_id is None
     assert repaired.item_states["intake-docs"].status == QUEUE_ITEM_STATUS_COMPLETED
+
+
+def test_reconcile_queue_surfaces_blocker_context_from_tranche_artifact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    manifest = _write_queue(queue_path)
+    manifest_path = tmp_path / "tranche.yaml"
+    manifest_path.write_text("manifest_id: tranche-test\n", encoding="utf-8")
+    state = TrancheQueueRunState(
+        queue_id=manifest.queue_id,
+        status=QUEUE_STATUS_RUNNING,
+        current_item_id="intake-docs",
+    )
+    state.ensure_manifest(manifest)
+    state.item_states["intake-docs"] = TrancheQueueItemRunState(
+        item_id="intake-docs",
+        status=QUEUE_ITEM_STATUS_RUNNING,
+        manifest_path=str(manifest_path),
+        tranche_status="running",
+    )
+    state.save(queue_state_path_for_queue(queue_path))
+
+    refreshed = TrancheRunState(
+        manifest_id="tranche-test",
+        status=TRANCHE_STATUS_NEEDS_HUMAN,
+        autonomy_mode="adaptive",
+        lane_states={
+            "lane-a": LaneRunState(
+                lane_id="lane-a",
+                status=LANE_STATUS_NEEDS_HUMAN,
+            )
+        },
+    )
+    artifact = TrancheLaneArtifact(
+        lane_id="lane-a",
+        source_ref="issue-1046",
+        status="needs_human",
+        blocked_reason="required_checks_pending",
+        blocking_question=(
+            "Which pending required check should complete before this lane is merged or rerun?"
+        ),
+    )
+    from aragora.swarm.tranche import TrancheArtifactStore
+
+    TrancheArtifactStore(repo_root=tmp_path).save("tranche-test", artifact)
+
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.load_tranche_run_state",
+        lambda _: refreshed,
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.refresh_tranche_state",
+        lambda current, **kwargs: refreshed,
+    )
+
+    payload = reconcile_tranche_queue(queue_path=queue_path, repo_root=tmp_path)
+
+    assert payload["status"] == QUEUE_STATUS_STOPPED
+    intake = next(item for item in payload["items"] if item["item_id"] == "intake-docs")
+    assert intake["status"] == QUEUE_ITEM_STATUS_NEEDS_HUMAN
+    assert intake["blocked_reason"] == "required_checks_pending"
+    assert (
+        intake["blocking_question"]
+        == "Which pending required check should complete before this lane is merged or rerun?"
+    )
+    assert intake["blocking_lane_id"] == "lane-a"
+
+    repaired = TrancheQueueRunState.load(queue_state_path_for_queue(queue_path), manifest=manifest)
+    assert repaired.item_states["intake-docs"].blocked_reason == "required_checks_pending"
+    assert repaired.item_states["intake-docs"].blocking_lane_id == "lane-a"
 
 
 @pytest.mark.asyncio
