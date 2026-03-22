@@ -137,6 +137,28 @@ def _normalize_repair_items(raw_items: Any) -> list[dict[str, Any]]:
     return []
 
 
+_LIVE_ORCHESTRATION_COUNT_KEYS = {
+    "pending",
+    "in_progress",
+    "succeeded",
+    "failed",
+    "partial",
+    "awaiting_human",
+}
+
+
+def _normalize_live_count_key(status: Any) -> str:
+    """Normalize orchestration node status values into live-count buckets."""
+    normalized = str(status or "pending").lower()
+    if normalized == "running":
+        return "in_progress"
+    if normalized == "completed":
+        return "succeeded"
+    if normalized in _LIVE_ORCHESTRATION_COUNT_KEYS:
+        return normalized
+    return "pending"
+
+
 def build_unified_live_state(pipeline_data: dict[str, Any]) -> dict[str, Any]:
     """Derive unified orchestration/review/repair/merge-gate state from a pipeline payload."""
     execution = pipeline_data.get("execution")
@@ -164,9 +186,7 @@ def build_unified_live_state(pipeline_data: dict[str, Any]) -> dict[str, Any]:
         orch_type = str(data.get("orch_type") or data.get("orchType") or "agent_task")
         execution_status = data.get("execution_status") or data.get("executionStatus")
         status = execution_status or data.get("status") or "pending"
-        status_key = str(status)
-        if status_key in orchestration_counts:
-            orchestration_counts[status_key] += 1
+        orchestration_counts[_normalize_live_count_key(status)] += 1
         if orch_type in {"human_gate", "verification"}:
             human_gate_count += 1
         if orch_type == "merge":
@@ -277,6 +297,12 @@ def build_unified_live_state(pipeline_data: dict[str, Any]) -> dict[str, Any]:
     expected_checks = [
         str(check).strip() for check in merge_gate.get("expected_checks", []) if str(check).strip()
     ]
+    raw_merge_gate_enabled = merge_gate.get("enabled") if "enabled" in merge_gate else None
+    merge_gate_enabled = (
+        raw_merge_gate_enabled
+        if raw_merge_gate_enabled is not None
+        else bool(blocked_reasons) or merge_node_count > 0
+    )
 
     orchestration_status = str(
         execution_state.get("status")
@@ -312,7 +338,7 @@ def build_unified_live_state(pipeline_data: dict[str, Any]) -> dict[str, Any]:
             "active_items": deduped_repairs[:5],
         },
         "merge_gate": {
-            "enabled": bool(merge_gate.get("enabled", bool(merge_gate) or merge_node_count > 0)),
+            "enabled": bool(merge_gate_enabled),
             "checks_passed": bool(merge_gate.get("checks_passed", False)),
             "merge_eligible": bool(merge_gate.get("merge_eligible", False)),
             "human_approval_required": bool(merge_gate.get("human_approval_required", False)),
@@ -2132,6 +2158,8 @@ class CanvasPipelineHandler:
         existing = store.get(pipeline_id)
         if not existing:
             return error_response(f"Pipeline {pipeline_id} not found", 404)
+        existing = dict(existing)
+        existing.pop("live_state", None)
 
         stage_status = existing.get("stage_status", {})
         incomplete = [
@@ -2239,6 +2267,7 @@ class CanvasPipelineHandler:
             execution_mode="workflow",
         )
         launch = queue_plan_execution(plan, execution_mode="workflow")
+        existing.pop("live_state", None)
         existing["execution"] = {
             **launch,
             "runtime": "decision_plan",
@@ -2247,11 +2276,10 @@ class CanvasPipelineHandler:
             "agent_tasks": len(agent_tasks),
             "total_orchestration_nodes": len(orch_nodes),
         }
-        existing = attach_unified_live_state(existing)
         store.save(pipeline_id, existing)
 
         async def _execute() -> None:
-            current_state = existing
+            current_state = dict(existing)
             try:
                 if emitter:
                     await emitter.emit_stage_started(
@@ -2264,8 +2292,11 @@ class CanvasPipelineHandler:
                         },
                     )
 
-                current_state["execution"]["status"] = "running"
-                current_state = attach_unified_live_state(current_state)
+                current_execution = current_state.get("execution", {})
+                current_state["execution"] = {
+                    **(current_execution if isinstance(current_execution, dict) else {}),
+                    "status": "running",
+                }
                 store.save(pipeline_id, current_state)
 
                 outcome, record, decision_receipt = await execute_queued_plan(

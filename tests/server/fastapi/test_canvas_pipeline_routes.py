@@ -307,7 +307,16 @@ class TestPipelineQuerying:
                             "label": "Apply patch",
                             "orch_type": "agent_task",
                             "status": "pending",
-                            "executionStatus": "in_progress",
+                            "executionStatus": "running",
+                        },
+                    },
+                    {
+                        "id": "orch-2",
+                        "type": "orchestrationNode",
+                        "data": {
+                            "label": "Verify rollout",
+                            "orch_type": "verification",
+                            "status": "completed",
                         },
                     },
                 ],
@@ -331,17 +340,15 @@ class TestPipelineQuerying:
                 "items": [{"title": "Retry flaky verification"}],
             },
             "merge_gate": {
-                "enabled": True,
                 "checks_passed": False,
                 "merge_eligible": False,
-                "blocked_reasons": ["merge gate blocked: pytest failed"],
                 "expected_checks": ["pytest"],
             },
             "execution": {
                 "status": "running",
                 "runtime": "decision_plan",
                 "agent_tasks": 1,
-                "total_orchestration_nodes": 1,
+                "total_orchestration_nodes": 2,
             },
         }
 
@@ -350,15 +357,17 @@ class TestPipelineQuerying:
         result = resp.json()["result"]
         assert result["live_state"]["orchestration"]["status"] == "running"
         assert result["live_state"]["orchestration"]["active_nodes"][0]["label"] == "Apply patch"
+        assert result["live_state"]["orchestration"]["counts"]["in_progress"] == 1
+        assert result["live_state"]["orchestration"]["counts"]["succeeded"] == 1
         assert result["live_state"]["review"]["transition_counts"]["pending"] == 1
         assert result["live_state"]["review"]["reviewer_agents"] == 1
+        assert result["live_state"]["review"]["human_gates"] == 1
         assert result["live_state"]["repair"]["status"] == "in_progress"
         assert (
             result["live_state"]["repair"]["active_items"][0]["title"] == "Retry flaky verification"
         )
-        assert result["live_state"]["merge_gate"]["blocked_reasons"] == [
-            "merge gate blocked: pytest failed"
-        ]
+        assert result["live_state"]["merge_gate"]["blocked_reasons"] == []
+        assert result["live_state"]["merge_gate"]["enabled"] is False
 
     def test_get_pipeline_status(self, client, mock_pipeline_store):
         """Status endpoint returns stage breakdown."""
@@ -454,10 +463,20 @@ class TestPipelineExecution:
         assert len(created_tasks) == 1
         await created_tasks[0]
         assert created_tasks[0].exception() is None
+        assert "execution" not in pipeline
+        assert "receipt" not in pipeline
+
+        assert "live_state" not in store.save.call_args_list[0].args[1]
+        assert "live_state" not in store.save.call_args_list[1].args[1]
 
         saved_pipeline = store.save.call_args_list[-1].args[1]
         assert saved_pipeline["execution"]["status"] == "completed"
         assert saved_pipeline["execution"]["receipt_id"] == "receipt-fastapi"
+        assert saved_pipeline["live_state"]["orchestration"]["status"] == "completed"
+        assert (
+            saved_pipeline["live_state"]["orchestration"]["active_nodes"][0]["label"]
+            == "Ship feature"
+        )
 
     def test_get_pipeline_stage_invalid(self, client, mock_pipeline_store):
         """Stage endpoint rejects invalid stage name."""

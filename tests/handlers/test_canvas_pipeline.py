@@ -1107,7 +1107,7 @@ class TestExecutePipeline:
 
     @pytest.mark.asyncio
     async def test_execute_background_task_updates_store(self, handler, mock_store):
-        mock_store.get.return_value = {
+        pipeline = {
             "pipeline_id": "pipe-ok",
             "name": "Pipeline OK",
             "stage_status": {
@@ -1123,6 +1123,7 @@ class TestExecutePipeline:
                 "edges": [],
             },
         }
+        mock_store.get.return_value = pipeline
 
         fake_execution = types.ModuleType("aragora.pipeline.canonical_execution")
         fake_execution.build_decision_plan_from_orchestration = lambda **_: (
@@ -1172,7 +1173,17 @@ class TestExecutePipeline:
         assert len(created_tasks) == 1
         await created_tasks[0]
         assert created_tasks[0].exception() is None
+        assert "execution" not in pipeline
+        assert "receipt" not in pipeline
+
+        assert "live_state" not in mock_store.save.call_args_list[0].args[1]
+        assert "live_state" not in mock_store.save.call_args_list[1].args[1]
 
         saved_pipeline = mock_store.save.call_args_list[-1].args[1]
         assert saved_pipeline["execution"]["status"] == "completed"
         assert saved_pipeline["execution"]["receipt_id"] == "receipt-1"
+        assert saved_pipeline["live_state"]["orchestration"]["status"] == "completed"
+        assert (
+            saved_pipeline["live_state"]["orchestration"]["active_nodes"][0]["label"]
+            == "Build cache"
+        )

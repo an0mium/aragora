@@ -829,6 +829,8 @@ async def execute_pipeline(
     data_dict = data.to_dict() if hasattr(data, "to_dict") else data
     if not isinstance(data_dict, dict):
         raise HTTPException(status_code=500, detail="Pipeline execution failed")
+    data_dict = dict(data_dict)
+    data_dict.pop("live_state", None)
 
     stage_status = data_dict.get("stage_status", {})
     incomplete = [
@@ -897,14 +899,16 @@ async def execute_pipeline(
             "agent_tasks": len(agent_tasks),
             "total_orchestration_nodes": len(orch_nodes),
         }
-        data_dict = attach_unified_live_state(data_dict)
         _get_store().save(pipeline_id, data_dict)
 
         async def _execute() -> None:
-            current_data = data_dict
+            current_data = dict(data_dict)
             try:
-                current_data["execution"]["status"] = "running"
-                current_data = attach_unified_live_state(current_data)
+                current_execution = current_data.get("execution", {})
+                current_data["execution"] = {
+                    **(current_execution if isinstance(current_execution, dict) else {}),
+                    "status": "running",
+                }
                 _get_store().save(pipeline_id, current_data)
                 outcome, record, decision_receipt = await execute_queued_plan(
                     plan,
