@@ -6,7 +6,7 @@ import hashlib
 import json
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ def emit_operational_receipt(
         "confidence": confidence,
         "duration_seconds": duration_seconds,
         "metadata": dict(metadata or {}),
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "content_hash": _content_hash(
             receipt_id=receipt_id,
             source=source,

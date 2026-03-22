@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -194,7 +194,7 @@ class TestSwarmReporter:
 
 class TestIntegratorView:
     def test_build_integrator_view_prefers_canonical_task_lane(self):
-        now = datetime(2026, 3, 18, 12, 0, tzinfo=UTC)
+        now = datetime(2026, 3, 18, 12, 0, tzinfo=timezone.utc)
         payload = build_integrator_view(
             runs=[
                 {
@@ -336,7 +336,7 @@ class TestIntegratorView:
         assert lane["available_actions"][:3] == ["merge", "cherry_pick", "request_changes"]
 
     def test_build_integrator_view_marks_expired_and_superseded_lanes(self):
-        now = datetime(2026, 3, 18, 12, 0, tzinfo=UTC)
+        now = datetime(2026, 3, 18, 12, 0, tzinfo=timezone.utc)
         payload = build_integrator_view(
             coordination={
                 "integrator": {
@@ -441,7 +441,7 @@ class TestIntegratorView:
         assert superseded["available_actions"] == ["archive"]
 
     def test_build_integrator_view_blocks_stale_colliding_lane_without_receipt(self):
-        now = datetime(2026, 3, 18, 12, 0, tzinfo=UTC)
+        now = datetime(2026, 3, 18, 12, 0, tzinfo=timezone.utc)
         payload = build_integrator_view(
             worktrees=[
                 {

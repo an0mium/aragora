@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -625,7 +625,7 @@ async def test_process_item_persists_manifest_path_before_drive_manifest(
         manifest=manifest,
         item=item,
         item_state=item_state,
-        deadline=datetime.now(UTC) + timedelta(minutes=10),
+        deadline=datetime.now(timezone.utc) + timedelta(minutes=10),
     )
 
     assert result is None
@@ -916,7 +916,7 @@ async def test_drive_manifest_publishes_terminal_deliverable_without_recorded_pr
     monkeypatch.setattr("aragora.swarm.tranche_queue.integrate_lane", fake_integrate_lane)
 
     tranche_manifest = SimpleNamespace(manifest_id="tranche-test")
-    deadline = datetime.now(UTC) + timedelta(minutes=5)
+    deadline = datetime.now(timezone.utc) + timedelta(minutes=5)
 
     result = await executor._drive_manifest(
         item=item,

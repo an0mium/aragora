@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -25,7 +25,7 @@ from aragora.swarm.tranche_watch import (
 
 
 def _utc(value: str) -> str:
-    return datetime.fromisoformat(value).astimezone(UTC).isoformat()
+    return datetime.fromisoformat(value).astimezone(timezone.utc).isoformat()
 
 
 def _make_state(*, lane_statuses: dict[str, str]) -> TrancheRunState:
@@ -322,7 +322,7 @@ def test_driver_claim_fails_when_active_driver_with_heartbeat():
         status="running",
         autonomy_mode="adaptive",
         driver_session="sess-1",
-        driver_heartbeat=datetime.now(UTC),
+        driver_heartbeat=datetime.now(timezone.utc),
     )
 
     with pytest.raises(DriverAlreadyClaimedError):
@@ -335,7 +335,7 @@ def test_stale_driver_can_be_taken_over():
         status="running",
         autonomy_mode="adaptive",
         driver_session="sess-1",
-        driver_heartbeat=datetime.now(UTC) - timedelta(minutes=10),
+        driver_heartbeat=datetime.now(timezone.utc) - timedelta(minutes=10),
     )
 
     updated = claim_driver(state, session_id="sess-2", takeover_timeout_seconds=300)

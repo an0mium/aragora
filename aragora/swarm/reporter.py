@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -28,8 +28,8 @@ def _parse_iso_timestamp(value: Any) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC)
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _age_seconds(value: Any, *, now: datetime) -> float | None:
@@ -264,7 +264,7 @@ def _next_action(
 
 def _item_timestamp(item: dict[str, Any] | None, *keys: str) -> datetime:
     if not isinstance(item, dict):
-        return datetime.min.replace(tzinfo=UTC)
+        return datetime.min.replace(tzinfo=timezone.utc)
     for key in keys:
         parsed = _parse_iso_timestamp(item.get(key))
         if parsed is not None:
@@ -274,7 +274,7 @@ def _item_timestamp(item: dict[str, Any] | None, *keys: str) -> datetime:
         parsed = _parse_iso_timestamp(meta.get(key))
         if parsed is not None:
             return parsed
-    return datetime.min.replace(tzinfo=UTC)
+    return datetime.min.replace(tzinfo=timezone.utc)
 
 
 def _sort_newest(items: list[dict[str, Any]], *keys: str) -> list[dict[str, Any]]:
@@ -356,7 +356,7 @@ def build_integrator_view(
     claims = [item for item in (claims or []) if isinstance(item, dict)]
     merge_queue = [item for item in (merge_queue or []) if isinstance(item, dict)]
     coordination = coordination if isinstance(coordination, dict) else {}
-    now = now or datetime.now(UTC)
+    now = now or datetime.now(timezone.utc)
     integrator = coordination.get("integrator", {})
     integrator = integrator if isinstance(integrator, dict) else {}
 

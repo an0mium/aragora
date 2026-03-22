@@ -3,13 +3,13 @@ from __future__ import annotations
 import inspect
 import json
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 def _utcnow() -> datetime:
-    return datetime.now(UTC)
+    return datetime.now(timezone.utc)
 
 
 def _optional_text(value: Any) -> str | None:
@@ -25,12 +25,14 @@ def _string_list(value: Any) -> list[str]:
 
 def _coerce_datetime(value: Any) -> datetime:
     if isinstance(value, datetime):
-        return value.astimezone(UTC) if value.tzinfo else value.replace(tzinfo=UTC)
+        return (
+            value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        )
     text = _optional_text(value)
     if not text:
         return _utcnow()
     try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(UTC)
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(timezone.utc)
     except ValueError:
         return _utcnow()
 
