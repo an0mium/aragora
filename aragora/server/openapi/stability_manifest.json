@@ -905,7 +905,6 @@
     "GET /api/v1/sme/slack/workspaces/{param}",
     "GET /api/v1/spectate/recent",
     "GET /api/v1/spectate/status",
-    "GET /api/v1/spectate/stream",
     "GET /api/v1/status",
     "GET /api/v1/status/components",
     "GET /api/v1/status/history",
@@ -1432,5 +1431,8 @@
     "PUT /api/v1/workspaces/{param}/members/{param}/role",
     "PUT /scim/v2/Groups/{param}",
     "PUT /scim/v2/Users/{param}"
+  ],
+  "beta": [
+    "GET /api/v1/spectate/stream"
   ]
 }

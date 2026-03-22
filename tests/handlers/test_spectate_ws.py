@@ -83,11 +83,17 @@ class TestRouteMatching:
         assert "buffer_size" in body
 
     def test_handle_stream_path(self, handler: SpectateStreamHandler, mock_handler: MagicMock):
-        """Stream endpoint returns recent events as a snapshot."""
+        """Stream endpoint is truthfully marked as a snapshot preview."""
         result = handler.handle("/api/v1/spectate/stream", {}, mock_handler)
         assert result is not None
         body = result[0]
         assert "events" in body
+        assert body["mode"] == "snapshot"
+        assert body["readiness"] == "partial"
+        assert body["streaming_ready"] is False
+        assert "snapshot-only" in body["message"]
+        assert result[2]["X-Aragora-Endpoint-State"] == "partial"
+        assert result[2]["X-Aragora-Stream-Mode"] == "snapshot"
 
 
 # ---------------------------------------------------------------------------

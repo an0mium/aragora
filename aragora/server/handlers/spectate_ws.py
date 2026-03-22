@@ -155,6 +155,13 @@ class SpectateStreamHandler(BaseHandler):
         "/api/v1/spectate/stream",
     ]
 
+    STREAM_MODE = "snapshot"
+    STREAM_READINESS = "partial"
+    STREAM_MESSAGE = (
+        "Public spectate streaming is currently snapshot-only on this endpoint; "
+        "live SSE delivery has not shipped yet."
+    )
+
     @handle_errors("spectate")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route GET requests to the appropriate sub-handler."""
@@ -166,13 +173,35 @@ class SpectateStreamHandler(BaseHandler):
         if path.endswith("/status"):
             return self._handle_status(handler)
         if path.endswith("/stream"):
-            # SSE stub - returns snapshot for now
-            return self._handle_recent(query_params)
+            return self._handle_stream(query_params)
 
         return None
 
     def _handle_recent(self, query_params: dict[str, Any]) -> HandlerResult:
         """GET /api/v1/spectate/recent -- get recent events from the buffer."""
+        return json_response(self._build_recent_payload(query_params))
+
+    def _handle_stream(self, query_params: dict[str, Any]) -> HandlerResult:
+        """GET /api/v1/spectate/stream -- snapshot preview, not live SSE."""
+        payload = self._build_recent_payload(query_params)
+        payload.update(
+            {
+                "mode": self.STREAM_MODE,
+                "readiness": self.STREAM_READINESS,
+                "streaming_ready": False,
+                "message": self.STREAM_MESSAGE,
+            }
+        )
+        return json_response(
+            payload,
+            headers={
+                "X-Aragora-Endpoint-State": self.STREAM_READINESS,
+                "X-Aragora-Stream-Mode": self.STREAM_MODE,
+            },
+        )
+
+    def _build_recent_payload(self, query_params: dict[str, Any]) -> dict[str, Any]:
+        """Build the recent-events payload shared by snapshot endpoints."""
         try:
             from aragora.spectate.ws_bridge import get_spectate_bridge
 
@@ -195,14 +224,12 @@ class SpectateStreamHandler(BaseHandler):
             if pipeline_id:
                 events = [e for e in events if e.pipeline_id == pipeline_id]
 
-            return json_response(
-                {
-                    "events": [e.to_dict() for e in events],
-                    "count": len(events),
-                }
-            )
+            return {
+                "events": [e.to_dict() for e in events],
+                "count": len(events),
+            }
         except ImportError:
-            return json_response({"events": [], "count": 0})
+            return {"events": [], "count": 0}
 
     def _handle_status(self, handler: Any) -> HandlerResult:
         """GET /api/v1/spectate/status -- bridge status."""

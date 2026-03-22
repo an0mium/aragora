@@ -49,6 +49,8 @@ export interface OpenApiResponse {
   }>;
 }
 
+export type OpenApiStability = 'stable' | 'beta' | 'experimental' | 'internal' | 'deprecated';
+
 export interface OpenApiOperation {
   operationId?: string;
   summary?: string;
@@ -59,6 +61,7 @@ export interface OpenApiOperation {
   responses?: Record<string, OpenApiResponse>;
   security?: Array<Record<string, string[]>>;
   deprecated?: boolean;
+  'x-aragora-stability'?: OpenApiStability;
 }
 
 export interface OpenApiSpec {
@@ -90,6 +93,7 @@ export interface ParsedEndpoint {
   summary: string;
   description?: string;
   deprecated?: boolean;
+  stability?: OpenApiStability;
   requiresAuth: boolean;
   pathParams: OpenApiParameter[];
   queryParams: OpenApiParameter[];
@@ -164,6 +168,7 @@ function parseEndpoints(spec: OpenApiSpec): ParsedEndpoint[] {
       if (!HTTP_METHODS.includes(upperMethod)) continue;
 
       const op = operation as OpenApiOperation;
+      const stability = op['x-aragora-stability'];
       const tag = op.tags?.[0] || 'Untagged';
       const params = op.parameters || [];
 
@@ -174,7 +179,8 @@ function parseEndpoints(spec: OpenApiSpec): ParsedEndpoint[] {
         tag,
         summary: op.summary || `${upperMethod} ${path}`,
         description: op.description,
-        deprecated: op.deprecated,
+        deprecated: op.deprecated || stability === 'deprecated',
+        stability,
         requiresAuth: !!(op.security && op.security.length > 0),
         pathParams: params.filter(p => p.in === 'path'),
         queryParams: params.filter(p => p.in === 'query'),

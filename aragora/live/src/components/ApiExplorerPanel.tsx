@@ -2,11 +2,14 @@
 
 import { useState, useMemo } from 'react';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { ExperimentalBadge } from '@/components/shared/ExperimentalBadge';
+import { type FeatureStatus } from '@/lib/featureFlags';
 import {
   useApiExplorer,
   type HttpMethod,
   type OpenApiSchema,
   type OpenApiResponse,
+  type OpenApiStability,
 } from '@/hooks/useApiExplorer';
 
 // ---------------------------------------------------------------------------
@@ -36,6 +39,22 @@ function getStatusColor(status: number): string {
 }
 
 const METHOD_LIST: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+
+function getBadgeStatus(
+  stability: OpenApiStability | undefined,
+  deprecated: boolean | undefined,
+): FeatureStatus | null {
+  if (deprecated || stability === 'deprecated') {
+    return 'deprecated';
+  }
+  if (stability === 'beta') {
+    return 'beta';
+  }
+  if (stability === 'experimental' || stability === 'internal') {
+    return 'alpha';
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // SchemaViewer -- renders OpenAPI schema as a readable tree
@@ -282,6 +301,7 @@ export function ApiExplorerPanel() {
   }
 
   const ep = explorer.selectedEndpoint;
+  const selectedBadgeStatus = ep ? getBadgeStatus(ep.stability, ep.deprecated) : null;
 
   return (
     <div className="space-y-4">
@@ -384,6 +404,7 @@ export function ApiExplorerPanel() {
                   {group.endpoints.map(endpoint => {
                     const isSelected =
                       ep?.path === endpoint.path && ep?.method === endpoint.method;
+                    const badgeStatus = getBadgeStatus(endpoint.stability, endpoint.deprecated);
                     return (
                       <button
                         key={`${endpoint.method}-${endpoint.path}`}
@@ -405,6 +426,7 @@ export function ApiExplorerPanel() {
                           <span className="text-xs font-mono text-text truncate">
                             {endpoint.path}
                           </span>
+                          {badgeStatus && <ExperimentalBadge status={badgeStatus} size="sm" />}
                           {endpoint.deprecated && (
                             <span className="text-[9px] font-mono text-yellow-400 border border-yellow-400/30 px-1">
                               DEP
@@ -446,6 +468,9 @@ export function ApiExplorerPanel() {
                   <code className="text-base font-mono text-acid-cyan break-all">
                     {ep.path}
                   </code>
+                  {selectedBadgeStatus && (
+                    <ExperimentalBadge status={selectedBadgeStatus} size="sm" />
+                  )}
                   {ep.deprecated && (
                     <span className="text-xs font-mono text-yellow-400 border border-yellow-400/30 px-1.5 py-0.5">
                       DEPRECATED
