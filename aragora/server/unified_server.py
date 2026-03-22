@@ -58,6 +58,9 @@ logger = logging.getLogger(__name__)
 # Server readiness flag — set after startup sequence completes.
 # K8s /readyz fallback uses this to return 503 until the server is ready.
 _server_ready: bool = False
+# The HTTP listener may be live before the startup latch flips. Track that
+# separately so /readyz does not report a false negative while already serving.
+_http_server_started: bool = False
 
 
 def mark_server_ready() -> None:
@@ -66,9 +69,20 @@ def mark_server_ready() -> None:
     _server_ready = True
 
 
+def mark_http_server_started() -> None:
+    """Mark the HTTP server as bound and able to accept requests."""
+    global _http_server_started
+    _http_server_started = True
+
+
 def is_server_ready() -> bool:
     """Check whether the server has completed its startup sequence."""
     return _server_ready
+
+
+def is_runtime_ready() -> bool:
+    """Check whether the process is already serving HTTP traffic."""
+    return _server_ready or _http_server_started
 
 
 # Import centralized config and error utilities
@@ -418,6 +432,34 @@ class UnifiedHandler(  # type: ignore[misc]
                     self._send_json(get_thread_registry().health())
                 except ImportError:
                     self._send_json({"error": "lifecycle module not available"}, status=503)
+                return
+            # Keep readiness authoritative in the legacy HTTP server. The modular
+            # health handler adds deeper checks that are useful elsewhere, but for
+            # the live /readyz probe we only want startup/degraded-mode truth.
+            if path in ("/readyz", "/ready"):
+                try:
+                    from aragora.server.degraded_mode import get_degraded_reason, is_degraded
+
+                    if is_degraded():
+                        self._send_json(
+                            {
+                                "status": "not_ready",
+                                "reason": "server in degraded mode",
+                                "degraded_reason": get_degraded_reason()[:100],
+                            },
+                            status=503,
+                        )
+                        return
+                except ImportError:
+                    pass
+
+                if is_runtime_ready():
+                    self._send_json({"status": "ready"})
+                else:
+                    self._send_json(
+                        {"status": "not_ready", "reason": "startup in progress"},
+                        status=503,
+                    )
                 return
             if self._try_modular_handler(path, query):
                 return
@@ -1024,6 +1066,7 @@ class UnifiedServer:
                 logger.info(
                     "%s server listening on %s:%s", protocol, self.http_host, self.http_port
                 )
+                mark_http_server_started()
                 server.serve_forever()
                 break  # Normal exit
             except ssl.SSLError as e:
