@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { usePipeline } from '@/hooks/usePipeline';
 import { usePipelineWebSocket } from '@/hooks/usePipelineWebSocket';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
+import { GoldenPathSummary, type GoldenPathCard } from '@/components/pipeline/GoldenPathSummary';
 import { StatusBadge } from '@/components/pipeline-canvas/StatusBadge';
 import { ExecutionProgressOverlay } from '@/components/pipeline-canvas/ExecutionProgressOverlay';
 import { FeedbackLoopPanel } from '@/components/pipeline-canvas/FeedbackLoopPanel';
@@ -63,6 +64,215 @@ const _NEXT_STAGE: Record<string, PipelineStageType> = {
   goals: 'actions',
   actions: 'orchestration',
 };
+
+type GoldenPathSummaryModel = {
+  heading: string;
+  summary: string;
+  cards: GoldenPathCard[];
+  sourceLabel: string;
+  signals: string[];
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeText(value: string): string {
+  return value
+    .replace(/^[\s>*-]+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function stripLeadingLabel(value: string): string {
+  return value.replace(/^[a-z][a-z\s_-]{0,30}:\s*/i, '').trim();
+}
+
+function truncateText(value: string, maxWords: number): string {
+  const words = normalizeText(value).split(' ').filter(Boolean);
+  if (words.length <= maxWords) {
+    return words.join(' ');
+  }
+  return `${words.slice(0, maxWords).join(' ')}...`;
+}
+
+function findPromptSignal(lines: string[], keywords: string[]): string | null {
+  const loweredKeywords = keywords.map((keyword) => keyword.toLowerCase());
+  const match = lines.find((line) => {
+    const lowered = line.toLowerCase();
+    return loweredKeywords.some((keyword) => lowered.includes(keyword));
+  });
+  return match ? stripLeadingLabel(match) : null;
+}
+
+function deriveGoldenPathFromPrompt(text: string): GoldenPathSummaryModel | null {
+  const normalized = normalizeText(text);
+  if (!normalized) return null;
+
+  const lines = text
+    .split('\n')
+    .map((line) => normalizeText(line))
+    .filter(Boolean);
+  const sentences = text
+    .split(/[.!?]+/)
+    .map((sentence) => normalizeText(sentence))
+    .filter(Boolean);
+  const fragments = Array.from(new Set([...lines, ...sentences]));
+
+  const focus = fragments.find((fragment) => fragment.length > 16) ?? normalized;
+  const success = findPromptSignal(fragments, ['success', 'outcome', 'metric', 'ship', 'launch', 'measure']);
+  const constraint = findPromptSignal(fragments, ['constraint', 'avoid', 'without', 'deadline', 'budget', 'must']);
+  const risk = findPromptSignal(fragments, ['risk', 'worry', 'concern', 'unknown', 'blocker']);
+
+  const ideaTitle = truncateText(focus, 9);
+  const goalTitle = success
+    ? truncateText(success, 10)
+    : `Define the concrete outcome for ${truncateText(focus, 5)}`;
+  const actionTitle = constraint
+    ? 'Plan the first executable slice inside the constraints'
+    : 'Draft the first executable slice';
+  const orchestrationTitle = risk
+    ? 'Route the riskiest work through review first'
+    : 'Route the slice into spec, build, and review lanes';
+
+  const signals = [
+    success ? `Outcome: ${truncateText(success, 9)}` : 'Outcome: add owner, measure, and time horizon',
+    constraint ? `Constraint: ${truncateText(constraint, 9)}` : 'Constraint: none extracted yet',
+    risk ? `Risk: ${truncateText(risk, 8)}` : 'Risk: add unknowns before execution',
+  ];
+
+  return {
+    heading: 'Founder prompt to execution lane',
+    summary: 'Aragora will tighten one concrete path before expanding the rest of the graph.',
+    sourceLabel: 'Draft founder prompt',
+    signals,
+    cards: [
+      {
+        stage: 'ideas',
+        title: ideaTitle,
+        detail: truncateText(focus, 18),
+        meta: 'Raw founder intent',
+      },
+      {
+        stage: 'goals',
+        title: goalTitle,
+        detail: success
+          ? truncateText(success, 18)
+          : 'Convert the prompt into one measurable goal with success criteria and a deadline.',
+        meta: 'Concrete outcome',
+      },
+      {
+        stage: 'actions',
+        title: actionTitle,
+        detail: constraint
+          ? `Scope the first deliverable around: ${truncateText(constraint, 14)}`
+          : `Break "${truncateText(focus, 6)}" into the first deliverable, owner, and review step.`,
+        meta: 'First executable slice',
+      },
+      {
+        stage: 'orchestration',
+        title: orchestrationTitle,
+        detail: risk
+          ? `Assign research, implementation, and verification lanes while watching: ${truncateText(risk, 12)}`
+          : 'Queue spec, implementation, and verification with one approval gate before execution.',
+        meta: 'Execution route',
+      },
+    ],
+  };
+}
+
+function getNodeLabel(node: Record<string, unknown> | null | undefined): string {
+  if (!isRecord(node)) return '';
+  const data = isRecord(node.data) ? node.data : {};
+  return String(data.label ?? data.title ?? node.id ?? '').trim();
+}
+
+function getNodeDetail(node: Record<string, unknown> | null | undefined): string {
+  if (!isRecord(node)) return '';
+  const data = isRecord(node.data) ? node.data : {};
+  return String(
+    data.full_content
+    ?? data.fullContent
+    ?? data.description
+    ?? data.outputPreview
+    ?? data.selectionRationale
+    ?? '',
+  ).trim();
+}
+
+function getNodes(flow: PipelineResultResponse['ideas'] | PipelineResultResponse['actions'] | PipelineResultResponse['orchestration']): Record<string, unknown>[] {
+  if (!isRecord(flow) || !Array.isArray(flow.nodes)) return [];
+  return flow.nodes.filter(isRecord);
+}
+
+function deriveGoldenPathFromPipeline(data: PipelineResultResponse | null): GoldenPathSummaryModel | null {
+  if (!data) return null;
+
+  const ideaNode = getNodes(data.ideas)[0];
+  const goalContainer = isRecord(data.goals) ? data.goals : {};
+  const goalItems = Array.isArray(goalContainer.goals)
+    ? goalContainer.goals.filter(isRecord)
+    : [];
+  const goalItem = goalItems[0];
+  const actionNode = getNodes(data.actions)[0];
+  const orchestrationNodes = getNodes(data.orchestration);
+  const orchestrationNode = orchestrationNodes.find((node) => {
+    const nodeData = isRecord(node.data) ? node.data : {};
+    return String(nodeData.orch_type ?? nodeData.orchType ?? '').toLowerCase() === 'agent_task';
+  }) ?? orchestrationNodes[0];
+
+  const ideaTitle = getNodeLabel(ideaNode) || 'Ideas captured';
+  const goalTitle = String(goalItem?.title ?? goalItem?.label ?? 'Goal drafted').trim();
+  const actionTitle = getNodeLabel(actionNode) || 'Action staged';
+  const orchestrationTitle = getNodeLabel(orchestrationNode) || 'Execution assigned';
+
+  const goalDetail = String(goalItem?.description ?? goalItem?.summary ?? '').trim();
+  const goalPriority = String(goalItem?.priority ?? '').trim();
+  const orchData = isRecord(orchestrationNode?.data) ? orchestrationNode.data : {};
+  const assignedAgent = String(orchData.assigned_agent ?? orchData.assignedAgent ?? '').trim();
+  const pendingTransitions = (data.transitions || []).filter((transition) => transition.status === 'pending').length;
+
+  return {
+    heading: 'Visible idea to execution path',
+    summary: 'One concrete lane is pinned across the current workbench so a vague prompt resolves into a reviewable flow.',
+    sourceLabel: data.pipeline_id,
+    signals: [
+      `Provenance: ${data.provenance_count} link${data.provenance_count === 1 ? '' : 's'}`,
+      `Pending reviews: ${pendingTransitions}`,
+      `Execution: ${data.stage_status.orchestration === 'complete' ? 'ready' : data.stage_status.orchestration}`,
+    ],
+    cards: [
+      {
+        stage: 'ideas',
+        title: truncateText(ideaTitle || 'Ideas captured', 8),
+        detail: truncateText(getNodeDetail(ideaNode) || ideaTitle || 'The originating idea lane.', 18),
+        meta: 'Source idea',
+      },
+      {
+        stage: 'goals',
+        title: truncateText(goalTitle || 'Goal drafted', 9),
+        detail: truncateText(goalDetail || 'The primary goal created from the idea stage.', 18),
+        meta: goalPriority ? `Priority: ${goalPriority}` : 'Goal extraction',
+      },
+      {
+        stage: 'actions',
+        title: truncateText(actionTitle || 'Action staged', 9),
+        detail: truncateText(getNodeDetail(actionNode) || 'The first executable action for this goal.', 18),
+        meta: 'Action decomposition',
+      },
+      {
+        stage: 'orchestration',
+        title: truncateText(orchestrationTitle || 'Execution assigned', 9),
+        detail: truncateText(
+          getNodeDetail(orchestrationNode)
+            || (assignedAgent ? `Assigned to ${assignedAgent}.` : 'Queued for orchestration and review.'),
+          18,
+        ),
+        meta: assignedAgent ? `Assigned: ${assignedAgent}` : 'Orchestration lane',
+      },
+    ],
+  };
+}
 
 export default function PipelinePage() {
   return (
@@ -352,6 +562,16 @@ function PipelinePageContent() {
         reason: t.ai_rationale || 'AI-suggested transition',
       }));
   }, [pipelineData?.transitions, dismissedSuggestions]);
+
+  const draftGoldenPath = useMemo(
+    () => deriveGoldenPathFromPrompt(brainDumpText),
+    [brainDumpText],
+  );
+
+  const pipelineGoldenPath = useMemo(
+    () => deriveGoldenPathFromPipeline(pipelineData),
+    [pipelineData],
+  );
 
   const handleSuggestionApprove = useCallback(
     (suggestion: TransitionSuggestion) => {
@@ -660,6 +880,18 @@ function PipelinePageContent() {
         </div>
       )}
 
+      {pipelineData && pipelineGoldenPath && (
+        <div className="border-b border-border bg-bg/70 px-6 py-4">
+          <GoldenPathSummary
+            heading={pipelineGoldenPath.heading}
+            summary={pipelineGoldenPath.summary}
+            cards={pipelineGoldenPath.cards}
+            sourceLabel={pipelineGoldenPath.sourceLabel}
+            signals={pipelineGoldenPath.signals}
+          />
+        </div>
+      )}
+
       {/* Canvas or empty state */}
       <div className="flex-1 overflow-hidden relative">
         {/* Execution progress overlay */}
@@ -832,6 +1064,15 @@ function PipelinePageContent() {
                     value={brainDumpText}
                     onChange={(e) => setBrainDumpText(e.target.value)}
                   />
+                  {draftGoldenPath && (
+                    <GoldenPathSummary
+                      heading={draftGoldenPath.heading}
+                      summary={draftGoldenPath.summary}
+                      cards={draftGoldenPath.cards}
+                      sourceLabel={draftGoldenPath.sourceLabel}
+                      signals={draftGoldenPath.signals}
+                    />
+                  )}
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <span className="text-sm text-text-muted font-mono">
                       ~{estimatedIdeaCount} idea{estimatedIdeaCount !== 1 ? 's' : ''} detected
