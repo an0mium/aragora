@@ -931,6 +931,10 @@ class DevCoordinationStore:
                     "worktree_path": lease.worktree_path,
                 },
             )
+            self._sync_supervisor_run_from_lease(
+                lease.metadata,
+                update={"status": "needs_human", "failure_reason": "expired_lease_reaped"},
+            )
         return expired
 
     def reap_stale_leases(
