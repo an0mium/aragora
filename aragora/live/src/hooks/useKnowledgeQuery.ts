@@ -25,6 +25,60 @@ import {
   type MoundStats,
 } from '@/store/knowledgeExplorerStore';
 
+const KNOWLEDGE_API_PREFIX = '/api/v1/knowledge/mound';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeNodeArray(payload: unknown): KnowledgeNode[] {
+  if (!isRecord(payload)) {
+    return [];
+  }
+
+  const candidates = Array.isArray(payload.nodes)
+    ? payload.nodes
+    : Array.isArray(payload.results)
+      ? payload.results.map((result) => {
+          if (isRecord(result) && isRecord(result.node)) {
+            return result.node;
+          }
+          return result;
+        })
+      : [];
+
+  return candidates.filter(
+    (candidate): candidate is KnowledgeNode =>
+      isRecord(candidate) &&
+      typeof candidate.id === 'string' &&
+      typeof candidate.content === 'string'
+  );
+}
+
+function normalizeCount(payload: unknown, fallback: number): number {
+  if (!isRecord(payload)) {
+    return fallback;
+  }
+
+  const rawCount = payload.total ?? payload.total_count ?? payload.count;
+  return typeof rawCount === 'number' ? rawCount : fallback;
+}
+
+function normalizeRelationships(payload: unknown): KnowledgeRelationship[] {
+  const candidates = Array.isArray(payload)
+    ? payload
+    : isRecord(payload) && Array.isArray(payload.relationships)
+      ? payload.relationships
+      : [];
+
+  return candidates.filter(
+    (candidate): candidate is KnowledgeRelationship =>
+      isRecord(candidate) &&
+      typeof candidate.id === 'string' &&
+      typeof candidate.strength === 'number'
+  );
+}
+
 export interface QueryOptions {
   /** Workspace ID (default: 'default') */
   workspaceId?: string;
@@ -188,7 +242,7 @@ export function useKnowledgeQuery({
 
       try {
         const response = await api.post(
-          '/api/knowledge/mound/query',
+          `${KNOWLEDGE_API_PREFIX}/query`,
           {
             query: queryString,
             workspace_id: options?.workspaceId || 'default',
@@ -196,18 +250,19 @@ export function useKnowledgeQuery({
             node_types: options?.nodeTypes,
             min_confidence: options?.minConfidence || 0,
           }
-        ) as { nodes: KnowledgeNode[]; total: number };
+        ) as unknown;
 
-        const nodes = response.nodes || [];
-        setQueryResults(nodes, response.total);
+        const nodes = normalizeNodeArray(response);
+        setQueryResults(nodes, normalizeCount(response, nodes.length));
         return nodes;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Query failed';
+        clearStoreQueryResults();
         setQueryError(message);
         return [];
       }
     },
-    [api, query.text, setQueryExecuting, setQueryResults, setQueryError]
+    [api, clearStoreQueryResults, query.text, setQueryExecuting, setQueryResults, setQueryError]
   );
 
   // Clear query results
@@ -230,12 +285,14 @@ export function useKnowledgeQuery({
         if (filters?.topics?.length) params.append('topics', filters.topics.join(','));
 
         const response = await api.get(
-          `/api/knowledge/mound/nodes?${params.toString()}`
-        ) as { nodes: KnowledgeNode[]; total: number };
+          `${KNOWLEDGE_API_PREFIX}/nodes${params.size > 0 ? `?${params.toString()}` : ''}`
+        ) as unknown;
 
-        setBrowserNodes(response.nodes || [], response.total);
+        const nodes = normalizeNodeArray(response);
+        setBrowserNodes(nodes, normalizeCount(response, nodes.length));
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load nodes';
+        setBrowserNodes([], 0);
         setBrowserError(message);
       }
     },
@@ -245,7 +302,7 @@ export function useKnowledgeQuery({
   // Get a single node
   const getNode = useCallback(
     async (id: string): Promise<KnowledgeNode> => {
-      const response = await api.get(`/api/knowledge/mound/nodes/${id}`) as KnowledgeNode;
+      const response = await api.get(`${KNOWLEDGE_API_PREFIX}/nodes/${id}`) as KnowledgeNode;
       return response;
     },
     [api]
@@ -254,7 +311,7 @@ export function useKnowledgeQuery({
   // Create a new node
   const createNode = useCallback(
     async (node: Partial<KnowledgeNode>): Promise<string> => {
-      const response = await api.post('/api/knowledge/mound/nodes', {
+      const response = await api.post(`${KNOWLEDGE_API_PREFIX}/nodes`, {
         node_type: node.node_type || 'fact',
         content: node.content,
         confidence: node.confidence || 0.5,
@@ -272,7 +329,7 @@ export function useKnowledgeQuery({
   // Update a node
   const updateNode = useCallback(
     async (id: string, updates: Partial<KnowledgeNode>): Promise<void> => {
-      await api.put(`/api/knowledge/mound/nodes/${id}`, updates);
+      await api.put(`${KNOWLEDGE_API_PREFIX}/nodes/${id}`, updates);
     },
     [api]
   );
@@ -280,7 +337,7 @@ export function useKnowledgeQuery({
   // Delete a node
   const deleteNode = useCallback(
     async (id: string): Promise<void> => {
-      await api.delete(`/api/knowledge/mound/nodes/${id}`);
+      await api.delete(`${KNOWLEDGE_API_PREFIX}/nodes/${id}`);
     },
     [api]
   );
@@ -297,7 +354,7 @@ export function useKnowledgeQuery({
 
       try {
         const response = await api.get(
-          `/api/knowledge/mound/graph/${nodeId}?depth=${depth}&direction=${direction}`
+          `${KNOWLEDGE_API_PREFIX}/graph/${nodeId}?depth=${depth}&direction=${direction}`
         ) as { nodes: GraphNode[]; edges: GraphEdge[] };
 
         // Process nodes to ensure they have position data for D3
@@ -331,7 +388,7 @@ export function useKnowledgeQuery({
       type: string,
       strength: number = 0.5
     ): Promise<string> => {
-      const response = await api.post('/api/knowledge/mound/relationships', {
+      const response = await api.post(`${KNOWLEDGE_API_PREFIX}/relationships`, {
         from_node_id: fromId,
         to_node_id: toId,
         relationship_type: type,
@@ -346,7 +403,7 @@ export function useKnowledgeQuery({
   // Delete a relationship
   const deleteRelationship = useCallback(
     async (id: string): Promise<void> => {
-      await api.delete(`/api/knowledge/mound/relationships/${id}`);
+      await api.delete(`${KNOWLEDGE_API_PREFIX}/relationships/${id}`);
     },
     [api]
   );
@@ -355,9 +412,9 @@ export function useKnowledgeQuery({
   const getNodeRelationships = useCallback(
     async (nodeId: string): Promise<KnowledgeRelationship[]> => {
       const response = await api.get(
-        `/api/knowledge/mound/nodes/${nodeId}/relationships`
-      ) as { relationships: KnowledgeRelationship[] };
-      return response.relationships || [];
+        `${KNOWLEDGE_API_PREFIX}/nodes/${nodeId}/relationships`
+      ) as unknown;
+      return normalizeRelationships(response);
     },
     [api]
   );
@@ -367,7 +424,7 @@ export function useKnowledgeQuery({
     setStatsLoading(true);
 
     try {
-      const response = await api.get('/api/knowledge/mound/stats') as MoundStats;
+      const response = await api.get(`${KNOWLEDGE_API_PREFIX}/stats`) as MoundStats;
       setStats(response);
     } catch (error) {
       logger.error('Failed to load knowledge mound stats:', error);
