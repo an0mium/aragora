@@ -62,9 +62,9 @@ export interface ApiKeyUsageStats {
 }
 
 export interface ApiKey {
-  name: string;
+  name?: string;
   prefix: string;
-  created_at: string;
+  created_at: string | null;
   last_used: string | null;
   expires_at?: string | null;
   usage?: ApiKeyUsageStats;
@@ -119,19 +119,24 @@ export interface SlackNotifications {
 
 export const PREFERENCES_KEY = 'aragora_preferences';
 
+function sanitizeStoredPreferences(prefs: Partial<UserPreferences>): Partial<UserPreferences> {
+  const { api_keys: _ignoredApiKeys, ...safePrefs } = prefs;
+  return safePrefs;
+}
+
 export function getStoredPreferences(): Partial<UserPreferences> {
   if (typeof window === 'undefined') return {};
   const stored = localStorage.getItem(PREFERENCES_KEY);
   if (!stored) return {};
   try {
-    return JSON.parse(stored);
+    return sanitizeStoredPreferences(JSON.parse(stored));
   } catch {
     return {};
   }
 }
 
 export function storePreferences(prefs: Partial<UserPreferences>): void {
-  const current = getStoredPreferences();
-  const merged = { ...current, ...prefs };
+  const current = sanitizeStoredPreferences(getStoredPreferences());
+  const merged = { ...current, ...sanitizeStoredPreferences(prefs) };
   localStorage.setItem(PREFERENCES_KEY, JSON.stringify(merged));
 }

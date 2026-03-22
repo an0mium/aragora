@@ -205,15 +205,93 @@ test.describe('Settings - Appearance Tab', () => {
 
 test.describe('Settings - API Keys Tab', () => {
   test.beforeEach(async ({ page, aragoraPage }) => {
+    let hasKey = true;
+    const user = {
+      id: 'user-test-1',
+      email: 'test@aragora.ai',
+      name: 'Test User',
+      role: 'member',
+      org_id: null,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+    const createdAt = new Date('2026-03-22T12:00:00.000Z').toISOString();
+    const expiresAt = new Date('2027-03-22T12:00:00.000Z').toISOString();
+
+    await page.addInitScript(({ mockUser }) => {
+      localStorage.setItem('aragora_tokens', JSON.stringify({
+        access_token: 'test-token',
+        refresh_token: 'test-refresh',
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
+      }));
+      localStorage.setItem('aragora_user', JSON.stringify(mockUser));
+    }, { mockUser: user });
+
+    await mockApiResponse(page, '**/api/auth/me', {
+      user,
+      organization: null,
+      organizations: [],
+    });
+
+    await mockApiResponse(page, '**/api/features/config', {
+      preferences: {},
+    });
+
+    await page.route('**/api/auth/api-keys**', async (route) => {
+      const method = route.request().method();
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            keys: hasKey
+              ? [{ prefix: 'ara_live1234', created_at: createdAt, expires_at: expiresAt }]
+              : [],
+            count: hasKey ? 1 : 0,
+          }),
+        });
+        return;
+      }
+
+      if (method === 'POST') {
+        hasKey = true;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            api_key: 'ara_full_generated_key_value',
+            prefix: 'ara_live1234',
+            expires_at: expiresAt,
+            message: 'Save this key - it will not be shown again',
+          }),
+        });
+        return;
+      }
+
+      if (method === 'DELETE') {
+        hasKey = false;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'API key revoked' }),
+        });
+        return;
+      }
+
+      await route.fulfill({ status: 405 });
+    });
+
     await page.goto('/settings');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
     await page.getByRole('tab', { name: /api keys/i }).click();
   });
 
-  test('should display API key generation form', async ({ page }) => {
-    await expect(page.getByPlaceholder(/key name/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /generate/i })).toBeVisible();
+  test('should display backend-backed API key controls', async ({ page }) => {
+    await expect(page.getByRole('button', { name: /rotate key/i })).toBeVisible();
+    await expect(page.getByText(/one active personal api key/i)).toBeVisible();
+    await expect(page.getByText(/ara_live1234/i)).toBeVisible();
   });
 
   test('should display API documentation example', async ({ page }) => {
@@ -221,13 +299,19 @@ test.describe('Settings - API Keys Tab', () => {
     await expect(page.getByText(/authorization/i)).toBeVisible();
   });
 
-  test('should require key name for generation', async ({ page }) => {
-    const generateButton = page.getByRole('button', { name: /generate/i });
-    await expect(generateButton).toBeDisabled();
+  test('should rotate the API key through the backend flow', async ({ page }) => {
+    await page.getByRole('button', { name: /rotate key/i }).click();
+    await expect(page.getByText(/copy this key now/i)).toBeVisible();
+    await expect(page.getByText(/ara_full_generated_key_value/i)).toBeVisible();
+  });
 
-    // Fill in key name
-    await page.getByPlaceholder(/key name/i).fill('Test Key');
-    await expect(generateButton).toBeEnabled();
+  test('should revoke the API key through the backend flow', async ({ page }) => {
+    page.once('dialog', async (dialog) => {
+      await dialog.accept();
+    });
+
+    await page.getByRole('button', { name: /revoke/i }).click();
+    await expect(page.getByText(/no api key generated yet/i)).toBeVisible();
   });
 });
 

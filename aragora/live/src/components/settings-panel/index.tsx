@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useAuthFetch } from '@/hooks/useAuthenticatedFetch';
 import { useTheme } from '@/context/ThemeContext';
 import { useBackend } from '@/components/BackendSelector';
 import { logger } from '@/utils/logger';
 
-import type { FeatureConfig, UserPreferences, SettingsTab } from './types';
+import type { ApiKey, FeatureConfig, UserPreferences, SettingsTab } from './types';
 import { DEFAULT_FEATURE_CONFIG, DEFAULT_PREFERENCES, getStoredPreferences, storePreferences } from './types';
 import { FeaturesTab } from './FeaturesTab';
 import { DebateTab } from './DebateTab';
@@ -26,8 +27,32 @@ const TABS = [
   { id: 'account', label: 'ACCOUNT' },
 ] as const;
 
+interface ApiKeyListResponse {
+  count?: number;
+  keys?: Array<{
+    prefix: string;
+    created_at?: string | null;
+    expires_at?: string | null;
+  }>;
+}
+
+interface GenerateApiKeyResponse {
+  api_key?: string;
+}
+
+function mapBackendApiKey(key: NonNullable<ApiKeyListResponse['keys']>[number]): ApiKey {
+  return {
+    name: 'Active key',
+    prefix: key.prefix,
+    created_at: key.created_at ?? null,
+    last_used: null,
+    expires_at: key.expires_at ?? null,
+  };
+}
+
 export function SettingsPanel() {
   const { user, isAuthenticated } = useAuth();
+  const { authFetch } = useAuthFetch();
   const { preference: themePreference, setTheme } = useTheme();
   const { config: backendConfig } = useBackend();
   const [activeTab, setActiveTab] = useState<SettingsTab>('features');
@@ -35,6 +60,8 @@ export function SettingsPanel() {
   const [featureLoading, setFeatureLoading] = useState(true);
   const [featureSaveStatus, setFeatureSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [slackWebhook, setSlackWebhook] = useState('');
   const [discordWebhook, setDiscordWebhook] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -134,40 +161,75 @@ export function SettingsPanel() {
     });
   }, []);
 
-  const generateApiKey = useCallback(async (name: string): Promise<string> => {
-    const key = `ara_${Array.from({ length: 32 }, () =>
-      'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]
-    ).join('')}`;
+  const fetchApiKeys = useCallback(async () => {
+    if (!isAuthenticated) {
+      setApiKeyLoading(false);
+      setApiKeyError(null);
+      setPreferences(prev => ({ ...prev, api_keys: [] }));
+      return;
+    }
 
-    const newKey = {
-      name,
-      prefix: key.slice(0, 8) + '...',
-      created_at: new Date().toISOString(),
-      last_used: null,
-    };
+    setApiKeyLoading(true);
+    setApiKeyError(null);
 
-    setPreferences(prev => {
-      const newPrefs = {
-        ...prev,
-        api_keys: [...prev.api_keys, newKey],
-      };
-      storePreferences({ api_keys: newPrefs.api_keys });
-      return newPrefs;
-    });
+    try {
+      const data = await authFetch<ApiKeyListResponse>(`${backendConfig.api}/api/auth/api-keys`);
+      const apiKeys = (data?.keys ?? []).map(mapBackendApiKey);
+      setPreferences(prev => ({ ...prev, api_keys: apiKeys }));
+    } catch (error) {
+      logger.warn('Failed to load API keys for settings:', error);
+      setApiKeyError(error instanceof Error ? error.message : 'Failed to load API keys');
+      setPreferences(prev => ({ ...prev, api_keys: [] }));
+    } finally {
+      setApiKeyLoading(false);
+    }
+  }, [authFetch, backendConfig.api, isAuthenticated]);
 
-    return key;
-  }, []);
+  useEffect(() => {
+    void fetchApiKeys();
+  }, [fetchApiKeys]);
 
-  const revokeApiKey = useCallback((prefix: string) => {
-    setPreferences(prev => {
-      const newPrefs = {
-        ...prev,
-        api_keys: prev.api_keys.filter(k => k.prefix !== prefix),
-      };
-      storePreferences({ api_keys: newPrefs.api_keys });
-      return newPrefs;
-    });
-  }, []);
+  const generateApiKey = useCallback(async (): Promise<string> => {
+    setApiKeyError(null);
+
+    try {
+      const data = await authFetch<GenerateApiKeyResponse>(`${backendConfig.api}/api/auth/api-keys`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+
+      if (!data?.api_key) {
+        throw new Error('API key generation did not return a key');
+      }
+
+      await fetchApiKeys();
+      return data.api_key;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to generate API key';
+      setApiKeyError(message);
+      throw error instanceof Error ? error : new Error(message);
+    }
+  }, [authFetch, backendConfig.api, fetchApiKeys]);
+
+  const revokeApiKey = useCallback(async (prefix: string): Promise<void> => {
+    if (!window.confirm('Are you sure you want to revoke this API key? This cannot be undone.')) {
+      return;
+    }
+
+    setApiKeyError(null);
+
+    try {
+      await authFetch<Record<string, unknown>>(
+        `${backendConfig.api}/api/auth/api-keys/${encodeURIComponent(prefix)}`,
+        { method: 'DELETE' }
+      );
+      await fetchApiKeys();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to revoke API key';
+      setApiKeyError(message);
+      throw error instanceof Error ? error : new Error(message);
+    }
+  }, [authFetch, backendConfig.api, fetchApiKeys]);
 
   const saveIntegrations = useCallback(() => {
     setSaveStatus('saving');
@@ -264,6 +326,10 @@ export function SettingsPanel() {
           preferences={preferences}
           onGenerateKey={generateApiKey}
           onRevokeKey={revokeApiKey}
+          apiBase={backendConfig.api}
+          loading={apiKeyLoading}
+          error={apiKeyError}
+          singleKeyMode
         />
       )}
 
