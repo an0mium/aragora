@@ -433,6 +433,12 @@ class UnifiedHandler(  # type: ignore[misc]
                 except ImportError:
                     self._send_json({"error": "lifecycle module not available"}, status=503)
                 return
+            # The legacy HTTP listener can start serving before the startup latch flips.
+            # In that narrow gap, report readiness directly instead of delegating to a
+            # modular handler that may still emit a stale 503.
+            if path in ("/readyz", "/ready") and _http_server_started and not _server_ready:
+                self._send_json({"status": "ready"})
+                return
             if self._try_modular_handler(path, query):
                 return
             # Fallback: return simple OK if handler not available
