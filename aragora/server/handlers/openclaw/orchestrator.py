@@ -117,6 +117,18 @@ def _build_runtime_metadata(
     return metadata
 
 
+def _sanitize_input_for_action(action_type: str, input_data: dict[str, Any]) -> dict[str, Any]:
+    """Apply shell sanitization without mutating verbatim content payloads."""
+    sanitized_input = sanitize_action_parameters(input_data)
+    if action_type.startswith("code.") and isinstance(input_data.get("code"), str):
+        sanitized_input["code"] = input_data["code"]
+    if action_type in {"file.write", "file_write"} and isinstance(input_data.get("content"), str):
+        sanitized_input["content"] = input_data["content"]
+    if action_type in {"keyboard", "send-keys", "type"} and isinstance(input_data.get("text"), str):
+        sanitized_input["text"] = input_data["text"]
+    return sanitized_input
+
+
 # =============================================================================
 # Session Orchestration Mixin
 # =============================================================================
@@ -440,7 +452,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
                 logger.debug("Receipt enforcement module not available, skipping gate")
 
             # Sanitize input data to prevent command injection
-            sanitized_input = sanitize_action_parameters(input_data)
+            sanitized_input = _sanitize_input_for_action(action_type, input_data)
             stored_metadata = _normalize_metadata(metadata)
             if receipt_id:
                 stored_metadata["receipt_id"] = receipt_id

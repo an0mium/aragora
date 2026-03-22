@@ -949,19 +949,12 @@ class TestSessionLifecycle:
         assert _status(result) == 200
         assert _body(result)["status"] == "completed"
 
-        # 5. Create another action and cancel it
-        http = mock_http(
-            body={
-                "session_id": session_id,
-                "action_type": "code.lint",
-                "input": {},
-            },
-            method="POST",
-        )
-        result = handler.handle_post("/api/v1/openclaw/actions", {}, http)
-        assert _status(result) == 202
-        action_id_2 = _body(result)["id"]
-
+        # 5. Create another pending action and cancel it
+        action_id_2 = store.create_action(
+            session_id=session_id,
+            action_type="code.pending",
+            input_data={},
+        ).id
         http = mock_http(body={}, method="POST")
         result = handler.handle_post(f"/api/v1/openclaw/actions/{action_id_2}/cancel", {}, http)
         assert _status(result) == 200
