@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from aragora.connectors.github import GitHubConnector
 from aragora.swarm.review_routing import generate_review_response
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher
 from aragora.worktree.fleet import resolve_repo_root
@@ -24,6 +25,11 @@ logger = logging.getLogger(__name__)
 UTC = timezone.utc
 MAX_DIFF_CHARS = 60000
 _VALID_REVIEW_STATUSES = {"passed", "changes_requested", "blocked_nonreviewable"}
+_GITHUB_REVIEW_EVENT_BY_STATUS = {
+    "passed": "APPROVE",
+    "changes_requested": "REQUEST_CHANGES",
+    "blocked_nonreviewable": "COMMENT",
+}
 
 
 @dataclass(slots=True)
@@ -218,6 +224,12 @@ async def run_review_pr_loop(
         "fix_run": fix_run,
         "final_status": final_status,
     }
+    payload["github_review"] = await _publish_review_outcome(
+        target=target,
+        review_runs=review_runs,
+        fix_run=fix_run,
+        final_status=final_status,
+    )
     _write_json(run_dir / "run.json", payload)
     return payload
 
@@ -652,6 +664,121 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+async def _publish_review_outcome(
+    *,
+    target: PullRequestTarget,
+    review_runs: list[dict[str, Any]],
+    fix_run: dict[str, Any] | None,
+    final_status: str,
+) -> dict[str, Any]:
+    latest_review = review_runs[-1] if review_runs else {}
+    event = _GITHUB_REVIEW_EVENT_BY_STATUS.get(final_status, "COMMENT")
+    pr_url = target.url or (
+        f"https://github.com/{target.repo}/pull/{target.number}" if target.repo else ""
+    )
+    body = _build_github_review_body(
+        target=target,
+        latest_review=latest_review,
+        fix_run=fix_run,
+        final_status=final_status,
+        review_run_count=len(review_runs),
+    )
+    connector = GitHubConnector(repo=target.repo or None)
+    try:
+        submission = await connector.submit_pr_review(
+            pr_url=pr_url,
+            body=body,
+            event=event,
+        )
+    except Exception as exc:  # noqa: BLE001 - surface publish failure in artifacts/CLI
+        logger.warning(
+            "review-pr could not publish GitHub review for PR #%s: %s", target.number, exc
+        )
+        submission = {"success": False, "error": str(exc)}
+    response = submission.get("response")
+    review_url = ""
+    if isinstance(response, dict):
+        review_url = str(response.get("html_url", "")).strip()
+    return {
+        "posted": bool(submission.get("success")),
+        "event": event,
+        "url": review_url or None,
+        "error": str(submission.get("error", "")).strip() or None,
+    }
+
+
+def _build_github_review_body(
+    *,
+    target: PullRequestTarget,
+    latest_review: dict[str, Any],
+    fix_run: dict[str, Any] | None,
+    final_status: str,
+    review_run_count: int,
+) -> str:
+    status_title = {
+        "passed": "approved",
+        "changes_requested": "changes requested",
+        "blocked_nonreviewable": "commented",
+    }.get(final_status, final_status or "commented")
+    summary = str(latest_review.get("summary", "")).strip() or _default_review_summary(final_status)
+    lines = [
+        f"## Aragora review-pr: {status_title}",
+        "",
+        summary,
+        "",
+        f"- Final status: `{final_status}`",
+        f"- Reviewer: `{latest_review.get('reviewer', 'unknown')}`",
+        f"- Reviewed at: `{latest_review.get('reviewed_at', 'unknown')}`",
+        f"- Head SHA: `{target.head_sha or 'unknown'}`",
+    ]
+    candidate = latest_review.get("candidate")
+    if isinstance(candidate, dict):
+        candidate_label = str(candidate.get("label", "")).strip()
+        if candidate_label:
+            lines.append(f"- Review route: `{candidate_label}`")
+    if review_run_count > 1:
+        lines.append(f"- Review passes: `{review_run_count}`")
+    if fix_run:
+        lines.extend(
+            [
+                "",
+                "### Fix Loop",
+                f"- Fixer: `{fix_run.get('fixer', 'unknown')}`",
+                f"- Status: `{fix_run.get('status', 'unknown')}`",
+                f"- Pushed: `{bool(fix_run.get('pushed', False))}`",
+            ]
+        )
+        head_sha = str(fix_run.get("head_sha", "")).strip()
+        if head_sha:
+            lines.append(f"- Fix head SHA: `{head_sha}`")
+        error = str(fix_run.get("error", "")).strip()
+        if error:
+            lines.append(f"- Fix error: {error}")
+    findings = latest_review.get("findings", [])
+    if isinstance(findings, list) and findings:
+        lines.extend(["", "### Findings"])
+        for item in findings:
+            if not isinstance(item, dict):
+                continue
+            priority = str(item.get("priority", "P2")).strip() or "P2"
+            title = str(item.get("title", "Finding")).strip() or "Finding"
+            body = str(item.get("body", "")).strip() or title
+            file_path = str(item.get("file", "")).strip()
+            suffix = f" ({file_path})" if file_path else ""
+            lines.append(f"- [{priority}] {title}{suffix}: {body}")
+    elif final_status == "passed":
+        lines.extend(["", "No blocking findings."])
+    return "\n".join(lines).strip()
+
+
+def _default_review_summary(final_status: str) -> str:
+    if final_status == "passed":
+        return "The latest PR head passed Aragora review."
+    if final_status == "changes_requested":
+        return "The latest PR head has blocking issues that should be addressed before merge."
+    return "Aragora could not produce a reviewable pass/fail result for the latest PR head."
+
+
 def _print_run_summary(result: dict[str, Any]) -> None:
     pr = result.get("pr", {})
     final_status = result.get("final_status", "unknown")
@@ -679,3 +806,9 @@ def _print_run_summary(result: dict[str, Any]) -> None:
             f"{fix_run.get('status')} via {fix_run.get('fixer')} "
             f"(pushed={fix_run.get('pushed', False)})"
         )
+    github_review = result.get("github_review")
+    if isinstance(github_review, dict):
+        if github_review.get("posted"):
+            print(f"GitHub review: posted {github_review.get('event')}")
+        else:
+            print(f"GitHub review: failed ({github_review.get('error') or 'unknown error'})")
