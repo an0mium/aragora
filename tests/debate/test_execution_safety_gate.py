@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -10,6 +10,10 @@ from aragora.debate.execution_safety import (
     ExecutionSafetyPolicy,
     evaluate_auto_execution_safety,
 )
+
+
+STALE_SIGNED_AT = "2000-01-01T00:00:00+00:00"
+FUTURE_SIGNED_AT = "2999-01-01T00:00:00+00:00"
 
 
 def _make_result() -> DebateResult:
@@ -98,14 +102,8 @@ def test_blocks_brainworm_style_context_taint_signal() -> None:
     ("signed_at", "expected_reason"),
     [
         ("", "receipt_missing_signed_timestamp"),
-        (
-            (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
-            "receipt_stale",
-        ),
-        (
-            (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
-            "receipt_timestamp_in_future",
-        ),
+        (STALE_SIGNED_AT, "receipt_stale"),
+        (FUTURE_SIGNED_AT, "receipt_timestamp_in_future"),
     ],
 )
 def test_receipt_timestamp_guards_block_untrusted_receipts(

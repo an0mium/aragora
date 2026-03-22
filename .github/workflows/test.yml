@@ -394,7 +394,7 @@ jobs:
         run: |
           python scripts/reconcile_status_docs.py --strict --output reconciliation_report.md
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:aragora-debate/src
 
       - name: Upload reconciliation report
         if: always()
@@ -565,7 +565,7 @@ jobs:
             --durations=20 \
             --durations-min=1.0
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:aragora-debate/src
 
   epistemic-settlement-gate:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -616,7 +616,7 @@ jobs:
       - name: Run epistemic hygiene + settlement gate
         run: bash scripts/run_epistemic_settlement_gate.sh
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:aragora-debate/src
           EPISTEMIC_GATE_ARTIFACT_DIR: /tmp/epistemic-gate-artifacts
 
       - name: Append epistemic compliance summary
@@ -740,7 +740,7 @@ jobs:
             --timeout=90 \
             -q
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:aragora-debate/src
 
   # Integration smoke lane for high-risk paths (PR only)
   integration-smoke:
@@ -814,7 +814,7 @@ jobs:
             --ignore=tests/connectors \
             -k "not benchmark and not slow"
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:aragora-debate/src
 
       - name: Skip (no high-risk changes)
         if: steps.changes.outputs.high_risk != 'true'
@@ -886,7 +886,7 @@ jobs:
             -v \
             --tb=short
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:aragora-debate/src
 
       - name: Run randomized-order guard (dynamic seed=${{ steps.dynamic-seed.outputs.seed }})
         run: |
@@ -900,7 +900,7 @@ jobs:
             -v \
             --tb=short
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:aragora-debate/src
 
   golden-paths:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -1122,7 +1122,7 @@ jobs:
             $IGNORE_ARGS
         shell: bash
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:aragora-debate/src
 
       - name: Upload shard coverage
         if: always()
@@ -1383,7 +1383,7 @@ jobs:
 
       - name: Smoke - demo ask
         run: |
-          aragora ask "Smoke test a demo debate" --demo --rounds 1
+          python -m aragora ask "Smoke test a demo debate" --demo --rounds 1
 
       - name: Smoke - demo gauntlet
         run: |
@@ -1486,7 +1486,7 @@ jobs:
             --durations=20 \
             --durations-min=2.0
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:aragora-debate/src
 
   frontend:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -1929,7 +1929,7 @@ jobs:
             -v \
             --tb=short
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:aragora-debate/src
           DATABASE_URL: postgresql://aragora:aragora@localhost:5432/aragora
           ARAGORA_POSTGRES_DSN: postgresql://aragora:aragora@localhost:5432/aragora
           ARAGORA_REDIS_URL: redis://localhost:6379
@@ -1941,7 +1941,7 @@ jobs:
         run: |
           pytest tests/ -m "network" --timeout=240 -v --tb=short
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .:aragora-debate/src
 
   # Test Analytics - Generate flakiness report
   quality-gates:
