@@ -315,6 +315,58 @@ export interface ReactFlowData {
   metadata: Record<string, unknown>;
 }
 
+export interface LiveStateNodeSummary {
+  node_id: string;
+  label: string;
+  orch_type: string;
+  status: string;
+  execution_status?: string | null;
+  assigned_agent?: string | null;
+}
+
+export interface UnifiedLiveOrchestrationState {
+  status: string;
+  runtime?: string | null;
+  execution_id?: string | null;
+  correlation_id?: string | null;
+  tasks_total?: number | null;
+  agent_tasks?: number | null;
+  total_orchestration_nodes?: number | null;
+  counts: Record<string, number>;
+  active_nodes: LiveStateNodeSummary[];
+}
+
+export interface UnifiedLiveReviewState {
+  transition_counts: Record<string, number>;
+  pending_reviews: Array<Record<string, unknown>>;
+  reviewer_agents: number;
+  pending_agents: number;
+  human_gates: number;
+}
+
+export interface UnifiedLiveRepairState {
+  status: string;
+  attempts: number;
+  active_items: Array<Record<string, unknown>>;
+}
+
+export interface UnifiedLiveMergeGateState {
+  enabled: boolean;
+  checks_passed: boolean;
+  merge_eligible: boolean;
+  human_approval_required: boolean;
+  blocked_reasons: string[];
+  expected_checks: string[];
+  merge_nodes: number;
+}
+
+export interface UnifiedPipelineLiveState {
+  orchestration: UnifiedLiveOrchestrationState;
+  review: UnifiedLiveReviewState;
+  repair: UnifiedLiveRepairState;
+  merge_gate: UnifiedLiveMergeGateState;
+}
+
 export interface PipelineResultResponse {
   pipeline_id: string;
   ideas: ReactFlowData | null;
@@ -327,4 +379,10 @@ export interface PipelineResultResponse {
   provenance_count: number;
   stage_status: Record<PipelineStageType, string>;
   integrity_hash: string;
+  live_state?: UnifiedPipelineLiveState | null;
+  execution?: Record<string, unknown> | null;
+  agents?: Array<Record<string, unknown>>;
+  repair?: Record<string, unknown> | null;
+  repairs?: Record<string, unknown> | Array<Record<string, unknown>> | null;
+  merge_gate?: Record<string, unknown> | null;
 }

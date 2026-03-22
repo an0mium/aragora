@@ -37,6 +37,7 @@ import {
   type PipelineResultResponse,
   type ProvenanceLink,
   type StageTransition,
+  type UnifiedPipelineLiveState,
 } from './types';
 import { usePipelineCanvas } from '../../hooks/usePipelineCanvas';
 import { StageTransitionGate } from '../pipeline/StageTransitionGate';
@@ -137,6 +138,250 @@ function buildIdeaClarifyingQuestions(nodes: Node[]): string[] {
   }
 
   return Array.from(new Set(prompts)).slice(0, 3);
+}
+
+const LIVE_ORCHESTRATION_COUNT_KEYS = [
+  'pending',
+  'in_progress',
+  'succeeded',
+  'failed',
+  'partial',
+  'awaiting_human',
+] as const;
+
+type LiveOrchestrationCountKey = (typeof LIVE_ORCHESTRATION_COUNT_KEYS)[number];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function humanizeLabel(value: string | null | undefined): string {
+  if (!value) return 'unknown';
+  return value.replace(/_/g, ' ');
+}
+
+function createEmptyLiveCounts(): Record<LiveOrchestrationCountKey, number> {
+  return {
+    pending: 0,
+    in_progress: 0,
+    succeeded: 0,
+    failed: 0,
+    partial: 0,
+    awaiting_human: 0,
+  };
+}
+
+function normalizeLiveCountKey(status: unknown): LiveOrchestrationCountKey {
+  const normalized = String(status || 'pending').toLowerCase();
+  if (normalized === 'running') return 'in_progress';
+  if (normalized === 'completed') return 'succeeded';
+  if (LIVE_ORCHESTRATION_COUNT_KEYS.includes(normalized as LiveOrchestrationCountKey)) {
+    return normalized as LiveOrchestrationCountKey;
+  }
+  return 'pending';
+}
+
+function deriveFallbackLiveState(
+  initialData: PipelineResultResponse | undefined,
+  orchestrationNodes: Node[],
+): UnifiedPipelineLiveState | null {
+  const hasInitialData = Boolean(initialData);
+  const hasOrchestrationNodes = orchestrationNodes.length > 0;
+  if (!hasInitialData && !hasOrchestrationNodes) {
+    return null;
+  }
+
+  const counts = createEmptyLiveCounts();
+  let humanGates = 0;
+  let mergeNodes = 0;
+  const activeNodes = orchestrationNodes.slice(0, 5).map((node) => {
+    const data = ((node.data as Record<string, unknown> | undefined) ?? {});
+    const orchType = String(data.orchType ?? data.orch_type ?? 'agent_task');
+    const executionStatus = data.executionStatus ?? data.execution_status;
+    const status = executionStatus ?? data.status ?? 'pending';
+    counts[normalizeLiveCountKey(status)] += 1;
+    if (orchType === 'human_gate' || orchType === 'verification') {
+      humanGates += 1;
+    }
+    if (orchType === 'merge') {
+      mergeNodes += 1;
+    }
+    return {
+      node_id: node.id,
+      label: String(data.label ?? node.id),
+      orch_type: orchType,
+      status: String(data.status ?? 'pending'),
+      execution_status: executionStatus ? String(executionStatus) : null,
+      assigned_agent: data.assignedAgent
+        ? String(data.assignedAgent)
+        : data.assigned_agent
+          ? String(data.assigned_agent)
+          : null,
+    };
+  });
+
+  const transitions = initialData?.transitions ?? [];
+  const transitionCounts = {
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    revised: 0,
+  };
+  const pendingReviews = transitions
+    .filter((transition) => transition.status === 'pending')
+    .map((transition) => ({
+      id: transition.id,
+      from_stage: transition.from_stage,
+      to_stage: transition.to_stage,
+      confidence: transition.confidence,
+    }));
+
+  for (const transition of transitions) {
+    const status = transition.status || 'pending';
+    if (status in transitionCounts) {
+      transitionCounts[status as keyof typeof transitionCounts] += 1;
+    }
+  }
+
+  const agentItems = Array.isArray(initialData?.agents) ? initialData.agents : [];
+  const reviewerAgents = agentItems.filter(
+    (agent) => isRecord(agent) && String(agent.role ?? '').toLowerCase() === 'reviewer',
+  ).length;
+  const pendingAgents = agentItems.filter(
+    (agent) =>
+      isRecord(agent)
+      && ['pending', 'awaiting_review', 'awaiting_human'].includes(
+        String(agent.status ?? '').toLowerCase(),
+      ),
+  ).length;
+
+  const repairSource = isRecord(initialData?.repair)
+    ? initialData.repair
+    : isRecord(initialData?.repairs)
+      ? initialData.repairs
+      : {};
+  const repairItems = Array.isArray(repairSource.items)
+    ? repairSource.items.filter(isRecord)
+    : [];
+
+  const mergeGateSource = isRecord(initialData?.merge_gate) ? initialData.merge_gate : {};
+  const execution = isRecord(initialData?.execution) ? initialData.execution : {};
+  const blockedReasons = Array.isArray(mergeGateSource.blocked_reasons)
+    ? mergeGateSource.blocked_reasons
+        .map((reason) => String(reason).trim())
+        .filter(Boolean)
+    : [];
+  const expectedChecks = Array.isArray(mergeGateSource.expected_checks)
+    ? mergeGateSource.expected_checks
+        .map((check) => String(check).trim())
+        .filter(Boolean)
+    : [];
+
+  return {
+    orchestration: {
+      status: String(
+        execution.status
+        ?? initialData?.stage_status?.orchestration
+        ?? (counts.in_progress > 0 ? 'in_progress' : 'pending'),
+      ),
+      runtime: execution.runtime ? String(execution.runtime) : null,
+      execution_id: execution.execution_id ? String(execution.execution_id) : null,
+      correlation_id: execution.correlation_id ? String(execution.correlation_id) : null,
+      tasks_total: typeof execution.tasks_total === 'number' ? execution.tasks_total : null,
+      agent_tasks: typeof execution.agent_tasks === 'number' ? execution.agent_tasks : null,
+      total_orchestration_nodes:
+        typeof execution.total_orchestration_nodes === 'number'
+          ? execution.total_orchestration_nodes
+          : orchestrationNodes.length,
+      counts,
+      active_nodes: activeNodes,
+    },
+    review: {
+      transition_counts: transitionCounts,
+      pending_reviews: pendingReviews,
+      reviewer_agents: reviewerAgents,
+      pending_agents: pendingAgents,
+      human_gates: humanGates,
+    },
+    repair: {
+      status: String(
+        repairSource.status
+        ?? repairSource.state
+        ?? (repairItems.length > 0 ? 'in_progress' : 'idle'),
+      ),
+      attempts:
+        typeof repairSource.attempts === 'number'
+          ? repairSource.attempts
+          : typeof repairSource.repair_attempts === 'number'
+            ? repairSource.repair_attempts
+            : 0,
+      active_items: repairItems,
+    },
+    merge_gate: {
+      enabled: Boolean(mergeGateSource.enabled ?? (blockedReasons.length > 0 || mergeNodes > 0)),
+      checks_passed: Boolean(mergeGateSource.checks_passed),
+      merge_eligible: Boolean(mergeGateSource.merge_eligible),
+      human_approval_required: Boolean(mergeGateSource.human_approval_required),
+      blocked_reasons: blockedReasons,
+      expected_checks: expectedChecks,
+      merge_nodes: mergeNodes,
+    },
+  };
+}
+
+function normalizeLiveState(
+  initialData: PipelineResultResponse | undefined,
+  orchestrationNodes: Node[],
+): UnifiedPipelineLiveState | null {
+  const provided = initialData?.live_state;
+  if (!provided) {
+    return deriveFallbackLiveState(initialData, orchestrationNodes);
+  }
+
+  return {
+    orchestration: {
+      status: provided.orchestration?.status ?? 'pending',
+      runtime: provided.orchestration?.runtime ?? null,
+      execution_id: provided.orchestration?.execution_id ?? null,
+      correlation_id: provided.orchestration?.correlation_id ?? null,
+      tasks_total: provided.orchestration?.tasks_total ?? null,
+      agent_tasks: provided.orchestration?.agent_tasks ?? null,
+      total_orchestration_nodes:
+        provided.orchestration?.total_orchestration_nodes ?? orchestrationNodes.length,
+      counts: {
+        ...createEmptyLiveCounts(),
+        ...(provided.orchestration?.counts ?? {}),
+      },
+      active_nodes: provided.orchestration?.active_nodes ?? [],
+    },
+    review: {
+      transition_counts: {
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        revised: 0,
+        ...(provided.review?.transition_counts ?? {}),
+      },
+      pending_reviews: provided.review?.pending_reviews ?? [],
+      reviewer_agents: provided.review?.reviewer_agents ?? 0,
+      pending_agents: provided.review?.pending_agents ?? 0,
+      human_gates: provided.review?.human_gates ?? 0,
+    },
+    repair: {
+      status: provided.repair?.status ?? 'idle',
+      attempts: provided.repair?.attempts ?? 0,
+      active_items: provided.repair?.active_items ?? [],
+    },
+    merge_gate: {
+      enabled: Boolean(provided.merge_gate?.enabled),
+      checks_passed: Boolean(provided.merge_gate?.checks_passed),
+      merge_eligible: Boolean(provided.merge_gate?.merge_eligible),
+      human_approval_required: Boolean(provided.merge_gate?.human_approval_required),
+      blocked_reasons: provided.merge_gate?.blocked_reasons ?? [],
+      expected_checks: provided.merge_gate?.expected_checks ?? [],
+      merge_nodes: provided.merge_gate?.merge_nodes ?? 0,
+    },
+  };
 }
 
 // =============================================================================
@@ -343,6 +588,159 @@ function ProvenanceSidebar({ nodeId, nodeLabel, provenanceChain, onClose }: Prov
       ) : (
         <p className="text-sm text-text-muted">No provenance chain for this node.</p>
       )}
+    </div>
+  );
+}
+
+interface UnifiedLiveStatePanelProps {
+  liveState: UnifiedPipelineLiveState;
+}
+
+function UnifiedLiveStatePanel({ liveState }: UnifiedLiveStatePanelProps) {
+  const orchestration = liveState.orchestration;
+  const review = liveState.review;
+  const repair = liveState.repair;
+  const mergeGate = liveState.merge_gate;
+
+  const pendingReviews = review.transition_counts.pending ?? review.pending_reviews.length;
+  const runningCount = orchestration.counts.in_progress ?? 0;
+  const failedCount = orchestration.counts.failed ?? 0;
+  const blockedReason = mergeGate.blocked_reasons[0];
+  const repairHeadline = repair.active_items[0];
+  const repairLabel = isRecord(repairHeadline)
+    ? String(
+        repairHeadline.title
+        ?? repairHeadline.problem_statement
+        ?? repairHeadline.blocker_kind
+        ?? 'Repair item queued',
+      )
+    : 'Repair item queued';
+
+  return (
+    <div
+      className="w-80 rounded-lg border border-border bg-surface/95 p-3 backdrop-blur"
+      data-testid="unified-live-state-panel"
+    >
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div>
+          <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+            Unified Canvas Live State
+          </p>
+          <h3 className="text-sm font-mono font-bold text-text">
+            Orchestration, review, and repair
+          </h3>
+        </div>
+        <span className="rounded-full border border-border px-2 py-1 text-[11px] font-mono text-text">
+          {humanizeLabel(orchestration.status)}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        <section
+          className="rounded border border-border bg-bg/60 p-2"
+          data-testid="live-state-orchestration"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+              Orchestration
+            </span>
+            <span className="text-xs font-mono text-text">
+              {humanizeLabel(orchestration.status)}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-text">
+            {orchestration.agent_tasks ?? 0} agent tasks, {runningCount} running, {failedCount} failed
+          </p>
+          {orchestration.active_nodes.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {orchestration.active_nodes.slice(0, 3).map((node) => (
+                <div
+                  key={node.node_id}
+                  className="flex items-center justify-between gap-2 rounded border border-border/60 px-2 py-1"
+                  data-testid={`live-state-node-${node.node_id}`}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-xs text-text">{node.label}</p>
+                    <p className="text-[11px] font-mono text-text-muted">
+                      {humanizeLabel(node.orch_type)}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-mono text-text-muted">
+                    {humanizeLabel(node.execution_status ?? node.status)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section
+          className="rounded border border-border bg-bg/60 p-2"
+          data-testid="live-state-review"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+              Review
+            </span>
+            <span className="text-xs font-mono text-text">
+              {pendingReviews} pending
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-text">
+            {review.reviewer_agents} reviewers, {review.pending_agents} waiting agents, {review.human_gates} human gates
+          </p>
+          {review.pending_reviews[0] && isRecord(review.pending_reviews[0]) && (
+            <p className="mt-1 text-[11px] font-mono text-text-muted">
+              Next: {humanizeLabel(String(review.pending_reviews[0].from_stage ?? 'stage'))} {'->'}{' '}
+              {humanizeLabel(String(review.pending_reviews[0].to_stage ?? 'stage'))}
+            </p>
+          )}
+        </section>
+
+        <section
+          className="rounded border border-border bg-bg/60 p-2"
+          data-testid="live-state-repair"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+              Repair
+            </span>
+            <span className="text-xs font-mono text-text">
+              {humanizeLabel(repair.status)}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-text">
+            {repair.attempts} attempt{repair.attempts === 1 ? '' : 's'}
+          </p>
+          {repair.active_items.length > 0 && (
+            <p className="mt-1 text-[11px] font-mono text-text-muted">
+              Active: {repairLabel}
+            </p>
+          )}
+        </section>
+
+        <section
+          className="rounded border border-border bg-bg/60 p-2"
+          data-testid="live-state-merge-gate"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+              Merge Gate
+            </span>
+            <span className="text-xs font-mono text-text">
+              {mergeGate.merge_eligible ? 'eligible' : mergeGate.checks_passed ? 'ready' : 'blocked'}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-text">
+            {mergeGate.expected_checks.length} expected checks, {mergeGate.merge_nodes} merge nodes
+          </p>
+          {blockedReason && (
+            <p className="mt-1 text-[11px] font-mono text-text-muted">
+              {blockedReason}
+            </p>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
@@ -600,6 +998,13 @@ function UnifiedPipelineCanvasInner({
     return `${selectedIdeaNodes.length} idea${selectedIdeaNodes.length === 1 ? '' : 's'} selected for promotion`;
   }, [selectedIdeaNodes]);
 
+  const liveState = useMemo(
+    () => normalizeLiveState(initialData, stageNodes.orchestration),
+    [initialData, stageNodes.orchestration],
+  );
+
+  const showIdeasToGoalsPanel = !readOnly && selectedIdeaNodes.length > 0;
+
   // -- Node click -----------------------------------------------------------
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -701,75 +1106,84 @@ function UnifiedPipelineCanvasInner({
               </Panel>
             )}
 
-            {!readOnly && selectedIdeaNodes.length > 0 && (
+            {(showIdeasToGoalsPanel || liveState) && (
               <Panel position="bottom-right">
-                <div className="w-80 space-y-2" data-testid="ideas-to-goals-panel">
-                  <div className="rounded-lg border border-border bg-surface/95 p-3">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div>
-                        <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
-                          Ideas {'->'} Goals
-                        </p>
-                        <h3 className="text-sm font-mono font-bold text-text">
-                          Promote focused ideas
-                        </h3>
-                      </div>
-                      <button
-                        onClick={handleGenerateGoals}
-                        className="px-2 py-1 text-[11px] font-mono rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
-                        disabled={loading}
-                        data-testid="btn-refresh-goal-draft"
-                      >
-                        {loading ? 'Generating...' : 'Refresh goal draft'}
-                      </button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedIdeaNodes.slice(0, 3).map((node) => (
-                        <span
-                          key={node.id}
-                          className="px-2 py-1 rounded-full bg-indigo-500/15 text-indigo-200 text-[11px] font-mono"
-                        >
-                          {((node.data as Record<string, unknown>)?.label as string) || node.id}
-                        </span>
-                      ))}
-                    </div>
-
-                    {focusedGoalLabels.length > 0 ? (
+                <div className="w-80 space-y-2">
+                  {showIdeasToGoalsPanel && (
+                    <>
                       <div
-                        className="mt-3 rounded border border-border bg-bg/60 p-2"
-                        data-testid="ideas-to-goals-goal-preview"
+                        className="rounded-lg border border-border bg-surface/95 p-3"
+                        data-testid="ideas-to-goals-panel"
                       >
-                        <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted mb-1">
-                          Goal Draft
-                        </p>
-                        <p className="text-xs text-text">
-                          {focusedGoalLabels.join(', ')}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="mt-3 text-xs text-text-muted font-mono">
-                        Generate or refresh the goal draft to inspect provenance before approval.
-                      </p>
-                    )}
-                  </div>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div>
+                            <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted">
+                              Ideas {'->'} Goals
+                            </p>
+                            <h3 className="text-sm font-mono font-bold text-text">
+                              Promote focused ideas
+                            </h3>
+                          </div>
+                          <button
+                            onClick={handleGenerateGoals}
+                            className="px-2 py-1 text-[11px] font-mono rounded bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                            disabled={loading}
+                            data-testid="btn-refresh-goal-draft"
+                          >
+                            {loading ? 'Generating...' : 'Refresh goal draft'}
+                          </button>
+                        </div>
 
-                  {ideasToGoalsTransition && (
-                    <StageTransitionGate
-                      transition={ideasToGoalsTransition}
-                      pipelineId={pipelineId || ''}
-                      provenance={ideasToGoalsProvenance}
-                      nodeLookup={transitionNodeLookup}
-                      questions={ideaClarifyingQuestions}
-                      focusLabel={ideasToGoalsFocusLabel ?? undefined}
-                      onApprove={(_, transitionId) => {
-                        approveTransition(transitionId);
-                      }}
-                      onReject={(_, transitionId) => {
-                        rejectTransition(transitionId);
-                      }}
-                    />
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedIdeaNodes.slice(0, 3).map((node) => (
+                            <span
+                              key={node.id}
+                              className="px-2 py-1 rounded-full bg-indigo-500/15 text-indigo-200 text-[11px] font-mono"
+                            >
+                              {((node.data as Record<string, unknown>)?.label as string) || node.id}
+                            </span>
+                          ))}
+                        </div>
+
+                        {focusedGoalLabels.length > 0 ? (
+                          <div
+                            className="mt-3 rounded border border-border bg-bg/60 p-2"
+                            data-testid="ideas-to-goals-goal-preview"
+                          >
+                            <p className="text-[11px] font-mono uppercase tracking-wide text-text-muted mb-1">
+                              Goal Draft
+                            </p>
+                            <p className="text-xs text-text">
+                              {focusedGoalLabels.join(', ')}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="mt-3 text-xs text-text-muted font-mono">
+                            Generate or refresh the goal draft to inspect provenance before approval.
+                          </p>
+                        )}
+                      </div>
+
+                      {ideasToGoalsTransition && (
+                        <StageTransitionGate
+                          transition={ideasToGoalsTransition}
+                          pipelineId={pipelineId || ''}
+                          provenance={ideasToGoalsProvenance}
+                          nodeLookup={transitionNodeLookup}
+                          questions={ideaClarifyingQuestions}
+                          focusLabel={ideasToGoalsFocusLabel ?? undefined}
+                          onApprove={(_, transitionId) => {
+                            approveTransition(transitionId);
+                          }}
+                          onReject={(_, transitionId) => {
+                            rejectTransition(transitionId);
+                          }}
+                        />
+                      )}
+                    </>
                   )}
+
+                  {liveState && <UnifiedLiveStatePanel liveState={liveState} />}
                 </div>
               </Panel>
             )}

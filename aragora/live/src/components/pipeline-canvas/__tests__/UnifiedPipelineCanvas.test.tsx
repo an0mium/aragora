@@ -653,4 +653,102 @@ describe('UnifiedPipelineCanvas', () => {
     expect(rejectTransition).toHaveBeenCalledWith('trans-ideas-goals');
     expect(screen.getByTestId('transition-status-trans-ideas-goals')).toHaveTextContent('Rejected');
   });
+
+  it('surfaces unified live orchestration, review, repair, and merge-gate state', () => {
+    mockedUsePipelineCanvas.mockReturnValue(
+      makeMockCanvas({
+        stageNodes: {
+          ideas: [],
+          principles: [],
+          goals: [],
+          actions: [],
+          orchestration: [makeOrchNode('orch-1', 'Apply patch')],
+        },
+      }),
+    );
+
+    render(
+      <UnifiedPipelineCanvas
+        pipelineId="pipe-1"
+        initialData={{
+          ...baseInitialData,
+          live_state: {
+            orchestration: {
+              status: 'running',
+              runtime: 'decision_plan',
+              execution_id: 'exec-1',
+              correlation_id: 'corr-1',
+              tasks_total: 3,
+              agent_tasks: 2,
+              total_orchestration_nodes: 4,
+              counts: {
+                pending: 1,
+                in_progress: 1,
+                succeeded: 1,
+                failed: 0,
+                partial: 0,
+                awaiting_human: 1,
+              },
+              active_nodes: [
+                {
+                  node_id: 'orch-1',
+                  label: 'Apply patch',
+                  orch_type: 'agent_task',
+                  status: 'running',
+                  execution_status: 'in_progress',
+                  assigned_agent: 'Codex',
+                },
+              ],
+            },
+            review: {
+              transition_counts: {
+                pending: 2,
+                approved: 1,
+                rejected: 0,
+                revised: 0,
+              },
+              pending_reviews: [
+                {
+                  id: 'trans-actions-orch',
+                  from_stage: 'actions',
+                  to_stage: 'orchestration',
+                  confidence: 0.82,
+                },
+              ],
+              reviewer_agents: 1,
+              pending_agents: 2,
+              human_gates: 1,
+            },
+            repair: {
+              status: 'in_progress',
+              attempts: 2,
+              active_items: [
+                {
+                  title: 'Retry flaky verification',
+                },
+              ],
+            },
+            merge_gate: {
+              enabled: true,
+              checks_passed: false,
+              merge_eligible: false,
+              human_approval_required: true,
+              blocked_reasons: ['merge gate blocked: pytest failed'],
+              expected_checks: ['pytest', 'jest'],
+              merge_nodes: 1,
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('unified-live-state-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('live-state-orchestration')).toHaveTextContent('2 agent tasks');
+    expect(screen.getByTestId('live-state-orchestration')).toHaveTextContent('1 running');
+    expect(screen.getByTestId('live-state-review')).toHaveTextContent('2 pending');
+    expect(screen.getByTestId('live-state-review')).toHaveTextContent('actions -> orchestration');
+    expect(screen.getByTestId('live-state-repair')).toHaveTextContent('Retry flaky verification');
+    expect(screen.getByTestId('live-state-merge-gate')).toHaveTextContent('merge gate blocked: pytest failed');
+    expect(screen.getByTestId('live-state-node-orch-1')).toHaveTextContent('in progress');
+  });
 });

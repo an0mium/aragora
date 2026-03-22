@@ -61,6 +61,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from aragora.rbac.models import AuthorizationContext
+from aragora.server.handlers.canvas_pipeline import attach_unified_live_state
 
 from ..dependencies.auth import require_permission
 from ..middleware.error_handling import NotFoundError
@@ -407,7 +408,7 @@ def _get_pipeline_emitter_callback(pipeline_id: str) -> Any:
 
 def _summarize_result(result: Any) -> PipelineCreateResponse:
     """Build a PipelineCreateResponse from a PipelineResult."""
-    result_dict = result.to_dict() if hasattr(result, "to_dict") else {}
+    result_dict = attach_unified_live_state(result.to_dict()) if hasattr(result, "to_dict") else {}
     stage_status = getattr(result, "stage_status", {})
     total_nodes = 0
     for canvas_attr in ("ideas_canvas", "actions_canvas", "orchestration_canvas"):
@@ -427,7 +428,7 @@ def _summarize_result(result: Any) -> PipelineCreateResponse:
 
 def _store_result(result: Any) -> None:
     """Persist pipeline result to store and keep live object."""
-    result_dict = result.to_dict() if hasattr(result, "to_dict") else {}
+    result_dict = attach_unified_live_state(result.to_dict()) if hasattr(result, "to_dict") else {}
     _get_store().save(result.pipeline_id, result_dict)
     _pipeline_objects[result.pipeline_id] = result
     _persist_universal_graph(result)
@@ -896,11 +897,13 @@ async def execute_pipeline(
             "agent_tasks": len(agent_tasks),
             "total_orchestration_nodes": len(orch_nodes),
         }
+        data_dict = attach_unified_live_state(data_dict)
         _get_store().save(pipeline_id, data_dict)
 
         async def _execute() -> None:
             try:
                 data_dict["execution"]["status"] = "running"
+                data_dict = attach_unified_live_state(data_dict)
                 _get_store().save(pipeline_id, data_dict)
                 outcome, record, decision_receipt = await execute_queued_plan(
                     plan,
@@ -940,6 +943,7 @@ async def execute_pipeline(
                     "receipt_id": getattr(outcome, "receipt_id", None),
                 }
                 data_dict["receipt"] = receipt_bundle
+                data_dict = attach_unified_live_state(data_dict)
                 _get_store().save(pipeline_id, data_dict)
             except Exception as exc:  # noqa: BLE001 - background task must persist terminal failure
                 logger.error("Pipeline execute failed: %s", exc)
@@ -948,6 +952,7 @@ async def execute_pipeline(
                     "status": "failed",
                     "error": str(exc),
                 }
+                data_dict = attach_unified_live_state(data_dict)
                 _get_store().save(pipeline_id, data_dict)
 
         asyncio.create_task(_execute())
@@ -1081,12 +1086,13 @@ async def get_pipeline(pipeline_id: str) -> PipelineCreateResponse:
     data = _get_result_or_404(pipeline_id)
 
     if isinstance(data, dict):
-        stage_status = data.get("stage_status", {})
+        result_data = attach_unified_live_state(data)
+        stage_status = result_data.get("stage_status", {})
         return PipelineCreateResponse(
             pipeline_id=pipeline_id,
             stage_status=stage_status,
             stages_completed=sum(1 for s in stage_status.values() if s == "complete"),
-            result=data,
+            result=result_data,
         )
 
     return _summarize_result(data)

@@ -101,6 +101,237 @@ def _get_ai_agent() -> Any | None:
     return None
 
 
+def _coerce_stage_nodes(stage_data: Any) -> list[dict[str, Any]]:
+    """Normalize stored React Flow stage nodes into a list of dicts."""
+    if not isinstance(stage_data, dict):
+        return []
+
+    nodes = stage_data.get("nodes", [])
+    if isinstance(nodes, list):
+        return [node for node in nodes if isinstance(node, dict)]
+    if isinstance(nodes, dict):
+        normalized: list[dict[str, Any]] = []
+        for node_id, payload in nodes.items():
+            if isinstance(payload, dict):
+                normalized.append({"id": payload.get("id", node_id), **payload})
+            else:
+                normalized.append({"id": str(node_id)})
+        return normalized
+    return []
+
+
+def _node_data(node: dict[str, Any]) -> dict[str, Any]:
+    """Extract the nested data payload from a React Flow node-like dict."""
+    data = node.get("data")
+    return data if isinstance(data, dict) else {}
+
+
+def _normalize_repair_items(raw_items: Any) -> list[dict[str, Any]]:
+    """Normalize repair items into a stable list shape for the UI."""
+    if isinstance(raw_items, list):
+        normalized = [item for item in raw_items if isinstance(item, dict)]
+        if normalized:
+            return normalized
+    if isinstance(raw_items, dict):
+        return [raw_items]
+    return []
+
+
+def build_unified_live_state(pipeline_data: dict[str, Any]) -> dict[str, Any]:
+    """Derive unified orchestration/review/repair/merge-gate state from a pipeline payload."""
+    execution = pipeline_data.get("execution")
+    execution_state = execution if isinstance(execution, dict) else {}
+
+    orchestration = pipeline_data.get("orchestration")
+    if not isinstance(orchestration, dict):
+        orchestration = pipeline_data.get("orchestration_canvas")
+    orchestration_nodes = _coerce_stage_nodes(orchestration)
+
+    live_nodes: list[dict[str, Any]] = []
+    orchestration_counts = {
+        "pending": 0,
+        "in_progress": 0,
+        "succeeded": 0,
+        "failed": 0,
+        "partial": 0,
+        "awaiting_human": 0,
+    }
+    human_gate_count = 0
+    merge_node_count = 0
+
+    for node in orchestration_nodes:
+        data = _node_data(node)
+        orch_type = str(data.get("orch_type") or data.get("orchType") or "agent_task")
+        execution_status = data.get("execution_status") or data.get("executionStatus")
+        status = execution_status or data.get("status") or "pending"
+        status_key = str(status)
+        if status_key in orchestration_counts:
+            orchestration_counts[status_key] += 1
+        if orch_type in {"human_gate", "verification"}:
+            human_gate_count += 1
+        if orch_type == "merge":
+            merge_node_count += 1
+        live_nodes.append(
+            {
+                "node_id": str(node.get("id", "")),
+                "label": str(data.get("label") or node.get("label") or node.get("id") or ""),
+                "orch_type": orch_type,
+                "status": str(data.get("status") or "pending"),
+                "execution_status": str(execution_status) if execution_status else None,
+                "assigned_agent": data.get("assigned_agent") or data.get("assignedAgent"),
+            }
+        )
+
+    transitions = pipeline_data.get("transitions")
+    transition_items = transitions if isinstance(transitions, list) else []
+    review_counts = {
+        "pending": 0,
+        "approved": 0,
+        "rejected": 0,
+        "revised": 0,
+    }
+    pending_review_items: list[dict[str, Any]] = []
+    for transition in transition_items:
+        if not isinstance(transition, dict):
+            continue
+        status = str(transition.get("status") or "pending")
+        if status in review_counts:
+            review_counts[status] += 1
+        if status == "pending":
+            pending_review_items.append(
+                {
+                    "id": str(transition.get("id") or ""),
+                    "from_stage": transition.get("from_stage"),
+                    "to_stage": transition.get("to_stage"),
+                    "confidence": transition.get("confidence"),
+                }
+            )
+
+    agents = pipeline_data.get("agents")
+    agent_items = agents if isinstance(agents, list) else []
+    reviewer_agents = [
+        agent
+        for agent in agent_items
+        if isinstance(agent, dict) and str(agent.get("role") or "").lower() == "reviewer"
+    ]
+    pending_agents = [
+        agent
+        for agent in agent_items
+        if isinstance(agent, dict)
+        and str(agent.get("status") or "").lower()
+        in {"pending", "awaiting_review", "awaiting_human"}
+    ]
+
+    raw_repair = pipeline_data.get("repair")
+    if not isinstance(raw_repair, dict):
+        raw_repair = pipeline_data.get("repairs")
+    if not isinstance(raw_repair, dict):
+        repair_candidate = execution_state.get("repair") or execution_state.get("repairs")
+        raw_repair = repair_candidate if isinstance(repair_candidate, dict) else {}
+
+    active_merge_target = pipeline_data.get("active_merge_target")
+    active_repair_task = pipeline_data.get("active_repair_task")
+    repair_items = _normalize_repair_items(raw_repair.get("items"))
+    if isinstance(active_repair_task, dict):
+        repair_items = [active_repair_task, *repair_items]
+    if isinstance(active_merge_target, dict) and active_merge_target.get("kind") == "repair":
+        repair_task = active_merge_target.get("repair_task")
+        repair_items = _normalize_repair_items(repair_task) + repair_items
+
+    deduped_repairs: list[dict[str, Any]] = []
+    seen_repairs: set[str] = set()
+    for item in repair_items:
+        item_id = str(
+            item.get("id")
+            or item.get("title")
+            or item.get("problem_statement")
+            or item.get("blocker_kind")
+            or len(deduped_repairs)
+        )
+        if item_id in seen_repairs:
+            continue
+        seen_repairs.add(item_id)
+        deduped_repairs.append(item)
+
+    repair_status = str(
+        raw_repair.get("status")
+        or raw_repair.get("state")
+        or ("in_progress" if deduped_repairs else "idle")
+    )
+    repair_attempts = int(
+        raw_repair.get("attempts")
+        or raw_repair.get("repair_attempts")
+        or pipeline_data.get("repair_attempts")
+        or 0
+    )
+
+    raw_merge_gate = pipeline_data.get("merge_gate")
+    if not isinstance(raw_merge_gate, dict):
+        raw_merge_gate = execution_state.get("merge_gate")
+    merge_gate = raw_merge_gate if isinstance(raw_merge_gate, dict) else {}
+    blocked_reasons = [
+        str(reason).strip()
+        for reason in merge_gate.get("blocked_reasons", [])
+        if str(reason).strip()
+    ]
+    expected_checks = [
+        str(check).strip() for check in merge_gate.get("expected_checks", []) if str(check).strip()
+    ]
+
+    orchestration_status = str(
+        execution_state.get("status")
+        or pipeline_data.get("stage_status", {}).get("orchestration")
+        or ("in_progress" if orchestration_counts["in_progress"] else "pending")
+    )
+
+    return {
+        "orchestration": {
+            "status": orchestration_status,
+            "runtime": execution_state.get("runtime"),
+            "execution_id": execution_state.get("execution_id"),
+            "correlation_id": execution_state.get("correlation_id"),
+            "tasks_total": execution_state.get("tasks_total"),
+            "agent_tasks": execution_state.get("agent_tasks"),
+            "total_orchestration_nodes": execution_state.get(
+                "total_orchestration_nodes",
+                len(orchestration_nodes),
+            ),
+            "counts": orchestration_counts,
+            "active_nodes": live_nodes[:5],
+        },
+        "review": {
+            "transition_counts": review_counts,
+            "pending_reviews": pending_review_items[:5],
+            "reviewer_agents": len(reviewer_agents),
+            "pending_agents": len(pending_agents),
+            "human_gates": human_gate_count,
+        },
+        "repair": {
+            "status": repair_status,
+            "attempts": repair_attempts,
+            "active_items": deduped_repairs[:5],
+        },
+        "merge_gate": {
+            "enabled": bool(merge_gate.get("enabled", bool(merge_gate) or merge_node_count > 0)),
+            "checks_passed": bool(merge_gate.get("checks_passed", False)),
+            "merge_eligible": bool(merge_gate.get("merge_eligible", False)),
+            "human_approval_required": bool(merge_gate.get("human_approval_required", False)),
+            "blocked_reasons": blocked_reasons,
+            "expected_checks": expected_checks,
+            "merge_nodes": merge_node_count,
+        },
+    }
+
+
+def attach_unified_live_state(pipeline_data: dict[str, Any]) -> dict[str, Any]:
+    """Return a shallow copy of pipeline data with normalized live state attached."""
+    if not isinstance(pipeline_data, dict):
+        return {}
+    normalized = dict(pipeline_data)
+    normalized["live_state"] = build_unified_live_state(normalized)
+    return normalized
+
+
 def _persist_universal_graph(result: Any) -> None:
     """Persist the UniversalGraph from a PipelineResult to GraphStore."""
     if result.universal_graph is None:
@@ -571,7 +802,7 @@ class CanvasPipelineHandler:
             )
 
             # Persist result and keep live object in memory
-            result_dict = result.to_dict()
+            result_dict = attach_unified_live_state(result.to_dict())
             _get_store().save(result.pipeline_id, result_dict)
             _pipeline_objects[result.pipeline_id] = result
 
@@ -650,7 +881,7 @@ class CanvasPipelineHandler:
                 pipeline_id=pipeline_id,
             )
 
-            result_dict = result.to_dict()
+            result_dict = attach_unified_live_state(result.to_dict())
             _get_store().save(result.pipeline_id, result_dict)
             _pipeline_objects[result.pipeline_id] = result
             _persist_universal_graph(result)
@@ -740,7 +971,7 @@ class CanvasPipelineHandler:
             event_callback=event_cb,
         )
 
-        result_dict = result.to_dict()
+        result_dict = attach_unified_live_state(result.to_dict())
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
         _persist_pipeline_to_km(result)
@@ -788,7 +1019,7 @@ class CanvasPipelineHandler:
         pipeline = IdeaToExecutionPipeline()
         result = pipeline.from_ideas(ideas, auto_advance=True)
 
-        result_dict = result.to_dict()
+        result_dict = attach_unified_live_state(result.to_dict())
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
 
@@ -858,7 +1089,7 @@ class CanvasPipelineHandler:
             result_obj = pipeline.advance_stage(result_obj, stage)
 
             # Persist updated result and keep live object
-            result_dict = result_obj.to_dict()
+            result_dict = attach_unified_live_state(result_obj.to_dict())
             _get_store().save(pipeline_id, result_dict)
             _pipeline_objects[pipeline_id] = result_obj
 
@@ -879,7 +1110,7 @@ class CanvasPipelineHandler:
         result = _get_store().get(pipeline_id)
         if not result:
             return error_response(f"Pipeline {pipeline_id} not found", 404)
-        return json_response(result)
+        return json_response(attach_unified_live_state(result))
 
     async def handle_get_stage(self, pipeline_id: str, stage: str) -> HandlerResult:
         """GET /api/v1/canvas/pipeline/{id}/stage/{stage}"""
@@ -1006,7 +1237,7 @@ class CanvasPipelineHandler:
             pipeline_id=pipeline_id,
         )
 
-        result_dict = result.to_dict()
+        result_dict = attach_unified_live_state(result.to_dict())
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
         _persist_pipeline_to_km(result)
@@ -1085,7 +1316,7 @@ class CanvasPipelineHandler:
                 if emitter:
                     config.event_callback = emitter.as_event_callback(pipeline_id)
                 result = await pipeline.run(input_text, config, pipeline_id=pipeline_id)
-                result_dict = result.to_dict()
+                result_dict = attach_unified_live_state(result.to_dict())
                 _get_store().save(pipeline_id, result_dict)
                 _pipeline_objects[pipeline_id] = result
                 _persist_universal_graph(result)
@@ -1099,14 +1330,16 @@ class CanvasPipelineHandler:
             store = _get_store()
             store.save(
                 pipeline_id,
-                {
-                    "stage_status": {
-                        "ideas": "pending",
-                        "goals": "pending",
-                        "actions": "pending",
-                        "orchestration": "pending",
-                    },
-                },
+                attach_unified_live_state(
+                    {
+                        "stage_status": {
+                            "ideas": "pending",
+                            "goals": "pending",
+                            "actions": "pending",
+                            "orchestration": "pending",
+                        },
+                    }
+                ),
             )
 
             task = asyncio.create_task(_run_pipeline())
@@ -1693,6 +1926,7 @@ class CanvasPipelineHandler:
                 if stage_data.get("nodes"):
                     existing.setdefault("stage_status", {})[stage_name] = "complete"
 
+        existing = attach_unified_live_state(existing)
         store.save(pipeline_id, existing)
 
         return json_response(
@@ -1769,6 +2003,7 @@ class CanvasPipelineHandler:
                 stage_status[to_stage] = "active"
             existing["stage_status"] = stage_status
 
+        existing = attach_unified_live_state(existing)
         store.save(pipeline_id, existing)
 
         return json_response(
@@ -1975,6 +2210,7 @@ class CanvasPipelineHandler:
             if pipeline_graph:
                 synced_workflow = sync_canvas_to_workflow(pipeline_graph)
                 existing["synced_workflow"] = synced_workflow
+                existing = attach_unified_live_state(existing)
                 store.save(pipeline_id, existing)
                 logger.info(
                     "Synced canvas to workflow for pipeline %s: %d steps",
@@ -2011,6 +2247,7 @@ class CanvasPipelineHandler:
             "agent_tasks": len(agent_tasks),
             "total_orchestration_nodes": len(orch_nodes),
         }
+        existing = attach_unified_live_state(existing)
         store.save(pipeline_id, existing)
 
         async def _execute() -> None:
@@ -2027,6 +2264,7 @@ class CanvasPipelineHandler:
                     )
 
                 existing["execution"]["status"] = "running"
+                existing = attach_unified_live_state(existing)
                 store.save(pipeline_id, existing)
 
                 outcome, record, decision_receipt = await execute_queued_plan(
@@ -2070,6 +2308,7 @@ class CanvasPipelineHandler:
                     "receipt_id": getattr(outcome, "receipt_id", None),
                 }
                 existing["receipt"] = receipt_bundle
+                existing = attach_unified_live_state(existing)
                 store.save(pipeline_id, existing)
 
                 if emitter:
@@ -2082,6 +2321,7 @@ class CanvasPipelineHandler:
                     "completed_at": datetime.now(timezone.utc).isoformat(),
                     "error": str(exc),
                 }
+                existing = attach_unified_live_state(existing)
                 store.save(pipeline_id, existing)
                 if emitter:
                     await emitter.emit_failed(pipeline_id, str(exc))
@@ -2154,7 +2394,7 @@ class CanvasPipelineHandler:
             auto_advance=auto_advance,
         )
 
-        result_dict = result.to_dict()
+        result_dict = attach_unified_live_state(result.to_dict())
         _get_store().save(result.pipeline_id, result_dict)
         _pipeline_objects[result.pipeline_id] = result
         _persist_pipeline_to_km(result)

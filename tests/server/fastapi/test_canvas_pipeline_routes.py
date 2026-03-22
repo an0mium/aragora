@@ -289,6 +289,73 @@ class TestPipelineQuerying:
         data = resp.json()
         assert data["pipeline_id"] == "pipe-test"
 
+    def test_get_pipeline_includes_unified_live_state(self, client, mock_pipeline_store):
+        """Get pipeline normalizes orchestration, review, repair, and merge-gate state."""
+        mock_pipeline_store["pipe-live"] = {
+            "pipeline_id": "pipe-live",
+            "stage_status": {"orchestration": "running"},
+            "orchestration": {
+                "nodes": [
+                    {
+                        "id": "orch-1",
+                        "type": "orchestrationNode",
+                        "data": {
+                            "label": "Apply patch",
+                            "orch_type": "agent_task",
+                            "status": "pending",
+                            "executionStatus": "in_progress",
+                        },
+                    },
+                ],
+                "edges": [],
+            },
+            "transitions": [
+                {
+                    "id": "trans-actions-orch",
+                    "from_stage": "actions",
+                    "to_stage": "orchestration",
+                    "status": "pending",
+                    "confidence": 0.83,
+                },
+            ],
+            "agents": [
+                {"id": "agent-1", "name": "Claude", "role": "reviewer", "status": "pending"},
+            ],
+            "repair": {
+                "status": "in_progress",
+                "attempts": 2,
+                "items": [{"title": "Retry flaky verification"}],
+            },
+            "merge_gate": {
+                "enabled": True,
+                "checks_passed": False,
+                "merge_eligible": False,
+                "blocked_reasons": ["merge gate blocked: pytest failed"],
+                "expected_checks": ["pytest"],
+            },
+            "execution": {
+                "status": "running",
+                "runtime": "decision_plan",
+                "agent_tasks": 1,
+                "total_orchestration_nodes": 1,
+            },
+        }
+
+        resp = client.get("/api/v2/canvas/pipeline/pipe-live")
+        assert resp.status_code == 200
+        result = resp.json()["result"]
+        assert result["live_state"]["orchestration"]["status"] == "running"
+        assert result["live_state"]["orchestration"]["active_nodes"][0]["label"] == "Apply patch"
+        assert result["live_state"]["review"]["transition_counts"]["pending"] == 1
+        assert result["live_state"]["review"]["reviewer_agents"] == 1
+        assert result["live_state"]["repair"]["status"] == "in_progress"
+        assert (
+            result["live_state"]["repair"]["active_items"][0]["title"] == "Retry flaky verification"
+        )
+        assert result["live_state"]["merge_gate"]["blocked_reasons"] == [
+            "merge gate blocked: pytest failed"
+        ]
+
     def test_get_pipeline_status(self, client, mock_pipeline_store):
         """Status endpoint returns stage breakdown."""
         mock_pipeline_store["pipe-s1"] = {
