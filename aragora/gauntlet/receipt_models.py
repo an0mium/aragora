@@ -1025,6 +1025,19 @@ class DecisionReceipt:
         elif not input_hash:
             input_hash = ""
 
+        metadata = getattr(result, "metadata", {}) or {}
+        config_used: dict[str, Any] = {
+            "rounds": result.rounds_used,
+            "participants": participants,
+            "duration_seconds": result.duration_seconds,
+        }
+        provider_diversity = metadata.get("provider_diversity_report")
+        if isinstance(provider_diversity, dict):
+            config_used["provider_diversity"] = provider_diversity
+        large_roster_runtime = metadata.get("large_roster_runtime")
+        if isinstance(large_roster_runtime, dict):
+            config_used["large_roster_runtime"] = large_roster_runtime
+
         # Determine verdict from consensus
         if result.consensus_reached and result.confidence >= 0.7:
             verdict = "PASS"
@@ -1083,11 +1096,7 @@ class DecisionReceipt:
             agent_responses=agent_responses,
             cost_summary=cost_summary,
             settlement_metadata=settlement_metadata,
-            config_used={
-                "rounds": result.rounds_used,
-                "participants": participants,
-                "duration_seconds": result.duration_seconds,
-            },
+            config_used=config_used,
         )
 
     @classmethod

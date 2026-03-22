@@ -251,6 +251,7 @@ class UnifiedOrchestrator:
             self._annotate_provider_metadata(
                 result.debate_result,
                 provider_hints=provider_hints,
+                diversity_report=result.diversity_report,
             )
             result.stages_completed.append("debate")
 
@@ -524,6 +525,7 @@ class UnifiedOrchestrator:
         debate_result: Any,
         *,
         provider_hints: list[str] | None = None,
+        diversity_report: Any | None = None,
     ) -> None:
         """Persist routed provider choices into debate metadata when available.
 
@@ -544,9 +546,26 @@ class UnifiedOrchestrator:
                 return
         provider_names = [str(item) for item in provider_hints if str(item)]
         if not provider_names:
+            provider_names = []
+        if provider_names:
+            metadata.setdefault("provider_hints", list(provider_names))
+            metadata.setdefault("provider_names", list(provider_names))
+
+        if diversity_report is None:
             return
-        metadata.setdefault("provider_hints", list(provider_names))
-        metadata.setdefault("provider_names", list(provider_names))
+
+        if hasattr(diversity_report, "to_receipt_payload"):
+            receipt_payload = diversity_report.to_receipt_payload()
+            if isinstance(receipt_payload, dict):
+                metadata.setdefault("provider_diversity_report", receipt_payload)
+
+        if getattr(diversity_report, "roster_size", 0) < 10:
+            return
+
+        if hasattr(diversity_report, "to_runtime_summary"):
+            runtime_summary = diversity_report.to_runtime_summary()
+            if isinstance(runtime_summary, dict):
+                metadata.setdefault("large_roster_runtime", runtime_summary)
 
     def _update_phase_elo(self, debate_result: Any, domain: str) -> None:
         """Update phase ELO ratings from debate results."""

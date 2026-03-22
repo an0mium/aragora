@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import pytest
+from aragora.core_types import DebateResult
 from aragora.debate.provider_diversity import (
     AgentInfo,
     DiversityReport,
     ProviderDiversityFilter,
     detect_provider,
 )
+from aragora.gauntlet.receipt_models import DecisionReceipt
+from aragora.pipeline.unified_orchestrator import UnifiedOrchestrator
 
 
 class TestDetectProvider:
@@ -118,3 +121,103 @@ class TestDiversityEnforce:
     def test_explicit_provider(self):
         a = AgentInfo(name="x", model="custom", provider="custom_co")
         assert a.provider == "custom_co"
+
+
+class TestLargeRosterObservability:
+    def test_large_roster_receipt_payload_is_bounded(self):
+        f = ProviderDiversityFilter(min_providers=3)
+        agents = [
+            AgentInfo(name=f"claude{i}", model="claude-3-opus", score=1.0 - (i * 0.01))
+            for i in range(10)
+        ] + [
+            AgentInfo(name="gpt-primary", model="gpt-4o", score=0.85),
+            AgentInfo(name="gpt-secondary", model="gpt-4o-mini", score=0.75),
+        ]
+        alternatives = [
+            AgentInfo(name="gemini-primary", model="gemini-3.1-pro", score=0.82),
+            AgentInfo(name="mistral-primary", model="mistral-large", score=0.81),
+        ]
+
+        result, report = f.enforce(agents, alternatives=alternatives)
+
+        assert len(result) == 12
+        assert report.roster_size == 12
+        assert report.alternative_pool_size == 2
+        assert report.runtime_ms >= 0.0
+        assert report.receipt_payload_bytes > 0
+
+        payload = report.to_receipt_payload(max_agents_per_provider=2, max_swaps=1)
+
+        assert payload["roster_size"] == 12
+        assert payload["provider_count"] == 3
+        assert payload["runtime_ms"] == round(report.runtime_ms, 4)
+        assert payload["providers"]["anthropic"]["count"] == 9
+        assert payload["providers"]["anthropic"]["sample_agents"] == ["claude0", "claude1"]
+        assert payload["providers"]["anthropic"]["truncated_agents"] == 7
+        assert len(payload["swaps_made"]) == 1
+        assert payload["swaps_truncated"] == 0
+
+    def test_large_roster_benchmark_records_runtime_envelope(self):
+        f = ProviderDiversityFilter(min_providers=3)
+        agents = [
+            AgentInfo(name=f"claude{i}", model="claude-3-opus", score=1.0 - (i * 0.01))
+            for i in range(11)
+        ] + [AgentInfo(name="gpt-primary", model="gpt-4o", score=0.8)]
+        alternatives = [
+            AgentInfo(name="gemini-primary", model="gemini-3.1-pro", score=0.79),
+            AgentInfo(name="mistral-primary", model="mistral-large", score=0.78),
+        ]
+
+        benchmark = f.benchmark(agents, alternatives=alternatives, iterations=4)
+
+        assert benchmark.path == "provider_diversity_filter"
+        assert benchmark.roster_size == 12
+        assert benchmark.iterations == 4
+        assert benchmark.average_runtime_ms >= 0.0
+        assert benchmark.max_runtime_ms >= benchmark.average_runtime_ms
+        assert benchmark.swap_budget == 1
+        assert benchmark.swaps_made == 1
+        assert benchmark.receipt_payload_bytes > 0
+
+    def test_unified_orchestrator_and_receipt_preserve_large_roster_metadata(self):
+        f = ProviderDiversityFilter(min_providers=3)
+        agents = [
+            AgentInfo(name=f"claude{i}", model="claude-3-opus", score=1.0 - (i * 0.01))
+            for i in range(10)
+        ] + [
+            AgentInfo(name="gpt-primary", model="gpt-4o", score=0.85),
+            AgentInfo(name="gpt-secondary", model="gpt-4o-mini", score=0.75),
+        ]
+        alternatives = [
+            AgentInfo(name="gemini-primary", model="gemini-3.1-pro", score=0.82),
+            AgentInfo(name="mistral-primary", model="mistral-large", score=0.81),
+        ]
+
+        _, report = f.enforce(agents, alternatives=alternatives)
+        report.benchmark = f.benchmark(agents, alternatives=alternatives, iterations=2)
+        report.receipt_payload_bytes = report.estimate_receipt_payload_bytes()
+
+        result = DebateResult(
+            debate_id="debate-large-roster",
+            task="Plan a 12-agent heterogeneous debate",
+            final_answer="Use a bounded large-roster path",
+            confidence=0.82,
+            consensus_reached=True,
+            rounds_used=2,
+            participants=[agent.name for agent in agents],
+            metadata={},
+        )
+
+        UnifiedOrchestrator._annotate_provider_metadata(
+            result,
+            provider_hints=["claude-sonnet-4", "gpt-4o", "gemini-3.1-pro"],
+            diversity_report=report,
+        )
+
+        receipt = DecisionReceipt.from_debate_result(result)
+
+        assert result.metadata["provider_diversity_report"]["roster_size"] == 12
+        assert result.metadata["large_roster_runtime"]["path"] == "provider_diversity_filter"
+        assert receipt.config_used["provider_diversity"]["provider_count"] == 3
+        assert receipt.config_used["large_roster_runtime"]["roster_size"] == 12
+        assert receipt.config_used["large_roster_runtime"]["benchmark"]["iterations"] == 2
