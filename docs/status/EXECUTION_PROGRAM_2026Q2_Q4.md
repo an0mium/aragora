@@ -1,31 +1,54 @@
 # Execution Program 2026 Q2-Q4
 
-Last updated: 2026-02-23
+Last updated: 2026-03-22
 
 Related:
 - `docs/status/NEXT_STEPS_CANONICAL.md`
-- `docs/CAPABILITY_MATRIX.md`
-- `docs/connectors/STATUS.md`
-- `docs/GA_CHECKLIST.md`
-- `ROADMAP.md`
+- `docs/status/ACTIVE_EXECUTION_ISSUES.md`
+- `docs/status/BRAIN_DUMP_EXECUTION_MAP_2026Q2.md`
+- `docs/plans/ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md`
 
 ## Program Intent
 
-Build Aragora into a complete control plane for:
-1. Decision integrity (debate + evidence + receipts + verification)
-2. Multi-agent implementation of decisions (workflows + computer-use + policy gates)
-3. Human interactivity across channels (chat/voice/email/web)
-4. Institutional memory across time scales with RBAC and auditability
-5. Production-scale reliability, deployment, and measurable business outcomes
+Build Aragora around the three truthful near-term wedges that now exist on `main`:
+1. Receipt-gated decision-to-action on narrow recurring workflows
+2. Bounded repo execution under supervisor/integrator control
+3. A local-first idea-to-execution workbench that makes those loops legible and editable
+
+The long-range thesis still stands. The program reset is about sequence: finish the real wedge first, then widen.
 
 ## Source-of-Truth Snapshot
 
-As of 2026-02-23 (updated 2026-02-24):
-- Capability matrix coverage: API 100%, CLI 100%, Python SDK 100%, TypeScript SDK 100%, UI 100%, catalog mapped 100%
-- All previously "missing" surfaces (consensus_detection, compliance_framework, rbac_v2) now implemented
-- Connector maturity: 151 Production, 0 Beta, 0 Stub
-- GA checklist: 58/59 complete, primary blocker listed as external penetration test
-- Note: Surface parity gaps are CLOSED. Remaining work is hardening, promotion, and productization.
+As of 2026-03-22:
+- `main` includes tranche/overnight hardening through `#1117`, then March 21-22 proof-surface closures through `#1138`
+- `#1108` is still the first merged queue artifact proving the tranche system can recover and publish real work
+- `#1110` merged the API-key / first-user-journey slice onto `main`
+- `#1111`, `#1131`, `#1132`, and `#1134` merged KM retrieval, KM writeback, default enablement, and settlement-hook outcome wiring onto the canonical debate path
+- `#1118` and `#1119` made receipts and integrations flows more truthful on the user-facing surface
+- `#1124`, `#1126`, `#1127`, `#1133`, and `#1138` materially strengthened the execution operator contract: evidence survives detach, terminal state reconciles, lane view is authoritative, completed deliverables publish, and review inspects the remote PR head
+- `#1135` made OpenClaw action dispatch real enough to count as part of the wedge
+- `#1136` and `#1137` made the public proof surface and pipeline live-state UI materially more truthful
+
+The near-term program should therefore not be described as "finish surface parity" or "close enterprise readiness." The real job is to stitch these merged slices into repeatable product loops.
+
+## Product Wedge On `main`
+
+### 1) Inbox Trust Wedge
+
+- Narrow receipt-gated Gmail actions are shipped
+- The system already proves "receipt before action" on a real recurring operational workflow
+- This remains the best first design-partner loop because the trigger, approval path, and outcome are all concrete
+
+### 2) Truthful Default Debate / Public Proof Surface
+
+- The repo now has a merged API-key setup slice, KM-backed default debate recall, live receipts, and a truthful public proof surface
+- The remaining gap is continuity: these slices still need to feel like one default path instead of several honest islands
+
+### 3) Bounded Repo Execution
+
+- Ralph V14 proved the bounded autonomous repo loop under explicit merge policy
+- The tranche/supervisor/integrator stack has since gained truthful terminalization, better publish behavior, preserved review evidence, and authoritative live state
+- The remaining gap is universal per-lane provenance/receipt discipline and operator-facing merge-readiness clarity
 
 ## Supported Features (Implemented)
 
@@ -168,261 +191,159 @@ Primary evidence:
 - `aragora/cli/commands/server.py`
 - `aragora/live/src/components/LandingPage.tsx`
 
-## Partially Supported and Missing Surfaces
+## Remaining Near-Term Gaps
 
-### 1) Explicit capability matrix gaps
-
-From `docs/CAPABILITY_MATRIX.md`:
-- Missing API: `consensus_detection`
-- Missing CLI: `compliance_framework`, `consensus_detection`, `rbac_v2`
-- Missing SDK: `consensus_detection`
-- Missing UI: `compliance_framework`, `consensus_detection`, `continuum_memory`, `debate_orchestration`, `decision_integrity`, `graph_debates`, `knowledge_mound`, `marketplace`, `matrix_debates`, `nomic_loop`, `rbac_v2`, `workflow_engine`
-- Missing CHANNELS: `agent_team_selection`, `compliance_framework`, `consensus_detection`, `continuum_memory`, `graph_debates`, `knowledge_mound`, `marketplace`, `matrix_debates`, `nomic_loop`, `rbac_v2`, `vertical_specialists`, `workflow_engine`
-
-### 2) Connector maturity debt — ✅ RESOLVED
-
-From `docs/connectors/STATUS.md` (updated 2026-02-24):
-- Production: 151
-- Beta: 0
-- Stub: 0
-
-All former Beta and Stub connectors have been promoted to Production with circuit breaker patterns, retry with exponential backoff, and query sanitization. Promotion was achieved via BaseConnector inheritance (`_request_with_retry` + circuit breaker), `ProductionConnectorMixin` for standalone connectors, and `DeviceConnector`/`EHRAdapter` base classes for specialized domains.
-
-### 3) Readiness and release-gating debt
-
-- PR fast lanes exclude slow/load/e2e/integration classes
-- ~~Release workflow does not depend on security/nightly suites~~ **RESOLVED**: release.yml now blocks on npm audit HIGH/CRITICAL
-- ~~npm audit path is non-blocking for dependency checks~~ **RESOLVED**: two-pass audit (moderate non-blocking, high/critical blocking)
-- ~~Typecheck strictness is concentrated in selected modules only~~ **PARTIALLY RESOLVED**: `frontend-typecheck` CI job added for PR path filtering
-- Skip baseline zero-tolerance enforced (no more THRESHOLD=2 fallback)
-
-Primary evidence:
-- `.github/workflows/test.yml`
-- `.github/workflows/release.yml`
-- `.github/workflows/security.yml`
-- `.github/workflows/lint.yml`
-- `scripts/test_tiers.sh`
-
-### 4) Frontend build and test health
-
-- 170+ pages exist in `aragora/live/` but TypeScript strictness varies
-- ~~No unified frontend test suite in CI~~ **PARTIALLY RESOLVED**: `frontend-typecheck` job runs `tsc --noEmit` on PRs touching `aragora/live/`
-- Component tests exist for some features but coverage is unmeasured
-
-Primary evidence:
-- `aragora/live/tsconfig.json`
-- `aragora/live/src/app/`
-
-### 5) Developer documentation and onboarding
-
-- Quickstart command exists (`aragora quickstart`) but end-to-end validation is manual
-- SDK guides exist but no measured onboarding time target
-- No automated doc freshness or link-rot checking
-
-Primary evidence:
-- `aragora/cli/commands/quickstart.py`
-- `docs/SDK_GUIDE.md`
-- `docs/EXTENDED_README.md`
-
-### 6) Self-improvement loop production readiness
-
-- Nomic Loop, MetaPlanner, BranchCoordinator, and TaskDecomposer all implemented
-- Self-develop CLI works in dry-run but production cycle metrics not tracked
-- Cross-cycle learning via KnowledgeMound exists but efficiency not measured
-
-Primary evidence:
-- `scripts/self_develop.py`
-- `aragora/nomic/meta_planner.py`
-- `aragora/nomic/calibration_monitor.py`
-
-### 7) FastAPI migration breadth
-
-- FastAPI surface exists but does not yet represent full legacy handler breadth
-
-Primary evidence:
-- `aragora/server/ARCHITECTURE.md`
-- `aragora/server/fastapi/routes/`
+1. One end-to-end default journey still does not feel continuous.
+   Pieces are merged, but the system still behaves like several honest islands instead of one obvious default loop.
+2. The frontend remains shell-heavy outside the proven slices.
+   Truthful surfaces improved, but page count still overstates usability.
+3. No universal per-lane receipt/provenance contract exists across every swarm lane.
+   The operator story is much stronger, but not yet universally canonical.
+4. Design-partner PMF loops are not yet repeated enough.
+   The wedge is real; the repeatability evidence is still thin.
+5. The idea-to-execution workbench is still partial.
+   Live state is landing, but unified stage-transition editing is not yet the default shell.
 
 ## Dependency-Driven Roadmap
 
-### Phase 0: Release Integrity and Truth Baseline (2026-02-24 to 2026-03-15) ✅ LARGELY COMPLETE
+### Phase 0: Truthfulness Baseline And Autonomy Proofs (through 2026-03-21) ✅ COMPLETE ENOUGH TO BUILD ON
 
-Goal: make status and release confidence unambiguous.
+Goal: establish truthful receipts, bounded autonomy proofs, and honest surface/state reporting.
 
-Deliverables:
-- ✅ Release workflow blocks on security + integration smoke + nightly evidence checks (npm audit blocking, skip baseline zero-tolerance)
-- ✅ Skip marker governance tightened (skip_governance.py plugin registered in conftest.py)
-- ✅ Capability/GA/roadmap status reconciliation automation (reconcile_status_docs.py + CI job)
-- ✅ Frontend TypeScript CI gate added (frontend-typecheck job in test.yml)
-- ⬜ External pentest execution started with tracked remediation plan (requires vendor engagement)
+Delivered:
+- Ralph V14 benchmark
+- Trust wedge core
+- Tranche queue hardening through `#1117`
+- First merged queue artifact (`#1108`)
+- First merged product-loop slices for API-key setup, KM retrieval, live receipts, truthful integrations/public state, and operator/integrator visibility
 
-### Phase 1: Surface Parity Closure (2026-03-16 to 2026-04-15) 🔄 IN PROGRESS
+### Phase 1: Active Wedge Closure (2026-03-22 to 2026-04-19) 🔄 CURRENT
 
-Goal: close matrix-gapped product surfaces.
-
-Deliverables:
-- ✅ `consensus_detection` available in API, SDK, CLI (implemented pre-program)
-- ✅ `compliance_framework` and `rbac_v2` CLI surfaces (implemented pre-program)
-- 🔄 Decision-integrity UI workbench: knowledge search, agent leaderboard, pipeline canvas, compliance dashboard, RBAC settings pages
-- 🔄 FastAPI migration wave: agents, knowledge, receipts, workflows, compliance, pipeline routes
-- 🔄 TTS-to-debate streaming bridge for voice-first experience
-
-### Phase 2: Channel Productization and FinOps (2026-04-16 to 2026-05-31)
-
-Goal: productionize human-in-the-loop channels and spend controls.
+Goal: make the merged proof slices feel like three repeatable product loops.
 
 Deliverables:
-- Slack and Teams thread lifecycle with receipts and approvals
-- Workspace budget policy engine
-- Per-debate cost accounting in receipts
-- Spend analytics dashboard
-- Top beta connectors promoted (all stubs already removed pre-program)
+- One truthful default path: credentials/provider routing -> debate -> KM-enriched context -> receipt -> visible result
+- Truthful-by-default public and operator surfaces: `/demo`, integrations status/edit, receipts, pipeline live state
+- Canonical bounded-lane operator contract: authoritative lane view, preserved evidence, remote-head review, completed-lane publish, explicit blocked next steps
+- Inbox trust wedge kept as the first recurring partner workflow
 
-### Phase 3: Scale and Reliability (2026-06-01 to 2026-07-31)
+### Phase 2: PMF Harvest And Partner Loop (2026-04-20 to 2026-05-31)
 
-Goal: meet reliability and performance targets under load.
-
-Deliverables:
-- Debate latency reduction
-- Streaming reliability hardening
-- Load-testing SLO enforcement
-- Offsite backup automation + restore drill evidence
-- Public status page and SLA instrumentation
-
-### Phase 4: Ecosystem and Analytics (2026-08-01 to 2026-10-31)
-
-Goal: improve developer ecosystem and measurable value reporting.
+Goal: prove the wedge repeats weekly for real users.
 
 Deliverables:
-- Interactive API explorer
-- SDK codegen pipeline hardening
-- Example application pack
-- Outcome analytics and knowledge gap detection
-- Marketplace pilot
+- 3-5 design partners each running one bounded workflow weekly
+- OpenClaw used on one narrow real action-dispatch path
+- Five functional frontend paths dogfooded continuously
+- PMF scorecards and first case-study evidence attached to the merged wedges
+
+### Phase 3: Unified Workbench And Learning Loop (2026-06-01 to 2026-07-31)
+
+Goal: turn the truthful wedges into one local-first idea-to-execution shell.
+
+Deliverables:
+- Stage-transition review slices across ideas -> goals -> actions -> execution
+- Execution outcomes revising upstream plans, not just emitting receipts
+- Per-lane provenance visible in the workbench
+- Multi-agent scale-out only after the operator/readiness contract is routine
+
+### Phase 4: Ecosystem, FinOps, And Broader Enterprise Productization (2026-08-01 to 2026-10-31)
+
+Goal: widen only after the wedge is repeatable.
+
+Deliverables:
+- Spend/budget surfaces that matter to active partner workflows
+- Ecosystem and API explorer packaging
+- Broader enterprise/compliance productization tied to real adoption, not speculative breadth
 
 ## Owner Model (Role-Based)
 
-- `@team-platform`: release gates, CI, FastAPI migration, contract governance
-- `@team-core`: debate/runtime/workflow/memory/decision integrity
-- `@team-integrations`: channels/connectors/computer-use external systems
-- `@team-finops`: budgets, cost accounting, spend analytics
-- `@team-risk`: security, privacy, compliance, pentest closure, MFA
-- `@team-sre`: deployment, reliability, observability, backups, SLOs
-- `@team-analytics`: KPI data products, outcomes, insight surfaces
-- `@team-sdk`: SDK parity, codegen, API explorer integration
-- `@team-growth`: docs/examples/marketplace and adoption workflows
+- `@team-platform`: release truth, queue/tranche, integrator/operator surfaces, provenance contracts
+- `@team-core`: debate/runtime/KM/openclaw/settlement/default loop
+- `@team-integrations`: inbox and other narrow action surfaces
+- `@team-growth`: five functional frontend paths, public proof surface, workbench UX
+- `@team-analytics`: PMF scorecards, proof metrics, case-study evidence
+- `@team-risk`: keep assurance and compliance warm without outranking wedge closure
+- `@team-sre`: reliability, deployment, and observability for the active wedges
 
-## KPI Set and Targets
+## KPI Reset (Near-Term)
 
-### Program KPIs
+1. `Time To First Truthful Result`
+- Target: <= 15 minutes on the guided path
+- Data source: onboarding + receipt timing instrumentation
 
-1. `Release Gate Completeness`
-- Target: 100% of tagged releases blocked by security + integration gates
-- Data source: `.github/workflows/release.yml` run metadata
+2. `Trust Wedge Receipt Before Action`
+- Target: 100%
+- Data source: trust wedge execution/receipt verification logs
 
-2. `Capability Coverage (CLI)`
-- Target: 78.6% -> >= 90%
-- Data source: `docs/CAPABILITY_MATRIX.md`
+3. `Default Debate KM Enrichment`
+- Target: >= 80% of default debates retrieve relevant KM context
+- Data source: debate context injection telemetry
 
-3. `Capability Coverage (UI)`
-- Target: 14.3% -> >= 35%
-- Data source: `docs/CAPABILITY_MATRIX.md`
+4. `Core Surface Truthfulness`
+- Target: 0 known optimistic/demo-only states on `/demo`, integrations status/edit, receipts, and pipeline live state
+- Data source: dogfood checklists + incident/issues
 
-4. `Connector Production Ratio` ✅ ACHIEVED
-- Baseline: Production 103, Beta 48, Stub 0
-- Current: Production 151, Beta 0, Stub 0 (target exceeded)
-- Data source: `docs/connectors/STATUS.md`
+5. `Bounded Lane Truthful Terminalization`
+- Target: >= 95% of bounded runs end in deliverable or explicit blocked reason
+- Data source: supervisor/tranche outcome telemetry
 
-5. `Debate Runtime`
-- Target: median runtime reduction >= 25%
-- Data source: benchmark and load-test workflows
+6. `Integrator Visibility`
+- Target: 100% of publishable lanes have authoritative state plus review target
+- Data source: integrator receipts and review metadata
 
-6. `Streaming Reliability`
-- Target: stream error rate <= 0.5%
-- Data source: stream tests and production metrics
+7. `OpenClaw Narrow-Path Success`
+- Target: >= 90% on the chosen real dispatch path
+- Data source: computer-use/openclaw execution telemetry
 
-7. `Budget Protection`
-- Target: budget-overrun debates <= 3%
-- Data source: billing and policy telemetry
-
-8. `Receipt Completeness`
-- Target: >= 95% debates produce verifiable receipts with cost + evidence sections
-- Data source: receipt store/export verification jobs
-
-9. `Re-debate from Staleness`
-- Target: >= 70% stale claims trigger automatic re-debate workflow
-- Data source: nomic + memory lifecycle metrics
-
-10. `Admin MFA Enforcement`
-- Target: 100% admin users MFA-enforced
-- Data source: auth policy logs
-
-11. `External Pentest Closure`
-- Target: 0 open HIGH/CRITICAL findings
-- Data source: pentest tracking artifacts
-
-12. `Availability`
-- Target: >= 99.9% monthly
-- Data source: uptime/status monitoring
-
-13. `Frontend Build Health`
-- Target: 0 TypeScript build errors; frontend test coverage >= 40%
-- Data source: `npx tsc --noEmit` in CI; Jest/Vitest coverage reports
-
-14. `Developer Onboarding Time`
-- Target: New developer can run first debate in <= 10 minutes
-- Data source: Quickstart walkthrough validation runs; user testing feedback
-
-15. `Self-Improvement Cycle Efficiency`
-- Target: >= 60% of Nomic Loop cycles produce merged improvements; average cycle time <= 30 minutes
-- Data source: Nomic Loop telemetry and branch coordinator metrics
+8. `Design Partner Weekly Recurrence`
+- Target: 3+ partners running one bounded workflow weekly by end of Phase 2
+- Data source: PMF scorecards
 
 ## 30/60/90 Execution Plan
 
-### Day 30 (2026-03-25)
+### Day 30 (2026-04-21)
 
 Primary outcomes:
-- Release integrity gates hardened
-- Status reconciliation automated
-- Pentest engagement active
-- Frontend TypeScript build gate established in CI
-- Doc link-rot checking active
+- Default product loop is dogfoodable end to end
+- Truthful public/operator state exists on the key proof surfaces
+- Queue/tranche operator contract is stable enough for repeated internal runs
 
 Must-hit KPIs:
-- Release Gate Completeness >= 90% for new tags
-- Skip marker baseline reduced by at least 20
-- Frontend Build Health: 0 TS errors on main
+- Time To First Truthful Result <= 20 minutes
+- Trust Wedge Receipt Before Action = 100%
+- Core Surface Truthfulness incidents trending to 0
 
-### Day 60 (2026-04-24)
+### Day 60 (2026-05-21)
 
 Primary outcomes:
-- Surface parity gaps largely closed for API/SDK/CLI
-- Decision-integrity UI baseline shipped
-- Developer onboarding validated and measured
-- Frontend component test baseline established
+- Design-partner pilots running on the trust wedge, public proof, or swarm/review surfaces
+- OpenClaw narrow-path dispatch validated
+- Five functional frontend paths in weekly use
 
 Must-hit KPIs:
-- CLI coverage >= 86%
-- SDK missing `consensus_detection` gap closed
-- Developer Onboarding Time measured and <= 15 min
-- Frontend test coverage >= 20%
+- 3 active weekly partner workflows
+- OpenClaw Narrow-Path Success >= 90%
+- Bounded Lane Truthful Terminalization >= 95%
 
-### Day 90 (2026-05-24)
+### Day 90 (2026-06-20)
 
 Primary outcomes:
-- Slack/Teams thread lifecycle productized
-- FinOps controls live
-- Connector maturity trend established
+- Workbench begins to unify the active wedges
+- Execution results feed back into planning/KM
+- PMF decision uses measured repeatability rather than backlog volume
 
 Must-hit KPIs:
-- Budget Protection metric active and <= 5% overrun during rollout
-- Stub connectors: 0 (achieved; all 4 promoted to Production pre-program)
-- Channel workflow success >= 95% on pilot tenants
+- Default Debate KM Enrichment >= 80%
+- Integrator Visibility = 100% on publishable lanes
+- At least one stage transition is live, reviewable, and used in dogfood
 
 ## Backlog Artifacts
 
-- Milestones: `docs/status/EXECUTION_MILESTONES_2026Q2.csv`
-- Issues (import-ready): `docs/status/EXECUTION_BACKLOG_2026Q2.csv`
-- Brain-dump execution map: `docs/status/BRAIN_DUMP_EXECUTION_MAP_2026Q2.md`
-- Brain-dump issues (import-ready): `docs/status/BRAIN_DUMP_BACKLOG_2026Q2.csv`
-- Import helper: `scripts/import_execution_backlog.py`
+- Canonical short-horizon order: `docs/status/NEXT_STEPS_CANONICAL.md`
+- Live GitHub backlog map: `docs/status/ACTIVE_EXECUTION_ISSUES.md`
+- Near-term execution map: `docs/status/BRAIN_DUMP_EXECUTION_MAP_2026Q2.md`
+- Legacy import artifacts remain available if needed:
+  - `docs/status/EXECUTION_BACKLOG_2026Q2.csv`
+  - `docs/status/EXECUTION_MILESTONES_2026Q2.csv`
+  - `docs/status/BRAIN_DUMP_BACKLOG_2026Q2.csv`

@@ -1,262 +1,247 @@
 # Brain Dump to Execution Map (2026 Q2)
 
-Last updated: 2026-02-24
+Last updated: 2026-03-22
 
 Related:
 - `docs/status/EXECUTION_PROGRAM_2026Q2_Q4.md`
-- `docs/status/EXECUTION_BACKLOG_2026Q2.csv`
-- `docs/CAPABILITY_MATRIX.md`
-- `docs/connectors/STATUS.md`
+- `docs/status/NEXT_STEPS_CANONICAL.md`
+- `docs/status/ACTIVE_EXECUTION_ISSUES.md`
+- `docs/plans/ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md`
+
+The February map was too broad for the repo state that exists on `main` now. The near-term execution map is reset around the proof surfaces that are actually merged and the wedge they imply.
 
 ## Best Order (Priority Sequence)
 
-### P0: Stop the bleeding (Weeks 1-3)
+### P0: Close the truthful proof surfaces (Weeks 1-2)
 
-1. Web app E2E reliability and auth flow correctness
-2. Production deployment reliability and rollback discipline
-3. Security automation closure (key rotation + secrets + SSRF verification)
-4. Debate live experience baseline (real streaming + intervention)
+1. Default product loop: credentials/provider routing -> live debate -> KM-enriched receipt -> visible result
+2. Truthful public and operator state: `/demo`, integrations status/edit, receipts page, pipeline live state
+3. Bounded execution operator contract: authoritative integrator view, per-lane provenance, remote-head PR review, completed-lane publish and truthful terminalization
 
-### P1: Productize core differentiation (Weeks 4-8)
+### P1: Harvest PMF on the merged wedges (Weeks 3-6)
 
-5. Oracle real-time streaming + live TTS playback
-6. Multi-agent worktree isolation and hierarchical coordination
-7. Frontend parity for backend capabilities
-8. Surface and connect stranded features in UI workflows
+4. Inbox trust wedge as the first recurring partner workflow
+5. Swarm/OpenClaw bounded execution as the second recurring proof surface
+6. Five functional frontend paths instead of page-count theater
+7. Shareable public proof surface and receipt-sharing loop
 
-### P2: Autonomy and control plane leverage (Weeks 9-12)
+### P2: Close the learning loop and workbench (Weeks 6-10)
 
-9. Autonomous self-improvement (self-directed next-step selection)
-10. Idea-to-execution DAG with interactive and automated execution loops
-11. Model lineup refresh and automated model drift management
+8. Default KM retrieval + writeback + settlement hooks as part of the canonical debate loop
+9. Live stage-transition review slices in the workbench
+10. Execution outcomes revising upstream specs, goals, and ideas
 
-### P3: Positioning and GTM articulation (continuous)
+### P3: Widen only after the wedge is repeatable (continuous)
 
-12. Differentiate visibly against single-agent sessions with measurable trust, memory, and adversarial evidence
+11. Multi-agent scale-out beyond the current proof lanes
+12. Broader enterprise/FinOps/compliance productization after the wedge repeats weekly with design partners
 
 ## Translation of the 12 Ideas
 
-## 1) Make aragora.ai actually work end-to-end
+## 1) Close the default product loop
 
 Outcome:
-- No loading hangs, no login dead ends, no post-auth routing failures, no fatal React hydration/render crashes in critical flows.
+- One truthful path from setup to visible result exists on `main` without hidden operator rescue.
 
 Code anchors:
-- `aragora/live/src/`
-- `aragora/server/handlers/auth/`
-- `aragora/auth/`
-- `docs/api/API_REFERENCE.md` (`/api/v1/auth/*`, `/api/auth/oauth/*`)
-
-Owner:
-- `@team-growth` + `@team-platform`
-
-Primary KPIs:
-- Login-to-debate success >= 98%
-- First meaningful page render p95 <= 2.5s
-- Critical frontend error rate <= 0.2%
-
-## 2) Oracle streaming with real-time TTS
-
-Outcome:
-- Oracle transitions from batch response to low-latency token stream with synchronized speech output.
-
-Code anchors:
-- `aragora/server/stream/`
-- `aragora/server/stream/tts_integration.py`
-- `aragora/server/stream/voice_stream.py`
-- `aragora/live/src/store/debateStore.ts`
+- `aragora/cli/commands/api_keys.py`
+- `aragora/debate/`
+- `aragora/live/src/app/(app)/`
+- `docs/status/NEXT_STEPS_CANONICAL.md`
 
 Owner:
 - `@team-core` + `@team-growth`
 
 Primary KPIs:
-- Time-to-first-token <= 1.5s
-- Time-to-first-audio <= 2.0s
-- Oracle session completion >= 97%
+- Time to first truthful result <= 15 minutes
+- Guided setup-to-receipt success >= 90%
 
-## 3) Autonomous self-improvement that chooses goals
-
-Outcome:
-- System proposes and ranks its own next goals from telemetry and quality signals, then executes under policy constraints.
-
-Code anchors:
-- `scripts/nomic_loop.py`
-- `aragora/nomic/autonomous_orchestrator.py`
-- `aragora/nomic/meta_planner.py`
-- `aragora/nomic/hierarchical_coordinator.py`
-
-Owner:
-- `@team-core`
-
-Primary KPIs:
-- >= 60% of improvement cycles are system-proposed
-- >= 70% of accepted auto-goals improve tracked quality metrics within 2 cycles
-
-## 4) Ideas-to-execution visual DAG
+## 2) Make public and core result views truthful
 
 Outcome:
-- Visual pipeline from idea clusters -> goals/principles -> task graph -> agent assignment -> execution and review.
+- The public demo, receipts page, integrations status/edit flows, and pipeline views truthfully reflect live or partial state.
 
 Code anchors:
-- `aragora/pipeline/`
-- `aragora/workflow/`
-- `aragora/live/src/app/(app)/`
-- `docs/research/IDEA_TO_EXECUTION_PIPELINE.md`
-
-Owner:
-- `@team-growth` + `@team-core`
-
-Primary KPIs:
-- 80% of created idea graphs reach executable task state
-- Median idea-to-first-executed-task <= 20 minutes
-
-## 5) Strong differentiation vs single-agent sessions
-
-Outcome:
-- Productized evidence of adversarial vetting, calibrated trust, and institutional memory over time.
-
-Code anchors:
-- `aragora/debate/`
-- `aragora/ranking/elo.py`
-- `aragora/memory/`
-- `aragora/export/decision_receipt.py`
-
-Owner:
-- `@team-analytics` + `@team-growth`
-
-Primary KPIs:
-- >= 90% decisions include measurable dissent + synthesis traces
-- Trust calibration error decreases >= 20% over rolling 30 days
-
-## 6) Surface stranded features
-
-Outcome:
-- Existing capabilities become discoverable and integrated in coherent user flows.
-
-Code anchors:
-- `docs/FEATURE_DISCOVERY.md`
-- `docs/status/FEATURES.md`
 - `aragora/live/src/`
-- `docs/CAPABILITY_MATRIX.md`
+- `aragora/server/handlers/`
+- `docs/status/ACTIVE_EXECUTION_ISSUES.md`
 
 Owner:
 - `@team-growth` + `@team-platform`
 
 Primary KPIs:
-- Feature activation breadth doubles for top 20 dormant modules
-- UI capability coverage 14.3% -> >= 35%
+- Demo/live-state misrepresentation incidents = 0
+- Core surface error rate <= 1%
 
-## 7) Production deployment reliability
+## 3) Lock the inbox trust wedge
 
 Outcome:
-- Deterministic deployment pipeline with health-gated rollout, instant rollback, and config correctness.
+- Gmail triage remains the first narrow workflow that proves receipt-before-action under real usage.
 
 Code anchors:
-- `.github/workflows/deploy-secure.yml`
-- `.github/workflows/deploy-frontend.yml`
-- `docs/ops/RUNBOOK.md`
-- `deploy/`
+- `aragora/inbox/`
+- `scripts/gmail_oauth_setup.py`
+- `docs/plans/2026-03-06-openrouter-inbox-dogfood-plan.md`
 
 Owner:
-- `@team-sre`
+- `@team-integrations`
 
 Primary KPIs:
-- Deployment success >= 99%
-- Mean time to restore (MTTR) <= 15 minutes
-- Drift between deployed SHA and expected SHA = 0
+- Receipt-before-action validation = 100%
+- Override rate trends down week-over-week on pilot inboxes
 
-## 8) Frontend page coverage for backend feature set
+## 4) Make integrator/operator views authoritative
 
 Outcome:
-- Backend-first capabilities (intelligence, pipeline canvas, knowledge flow, performance) are represented with usable UI surfaces.
+- Operators can see the real lane state, claims, evidence, and next actions without reconstructing runs manually.
+
+Code anchors:
+- `aragora/swarm/`
+- `aragora/live/src/components/pipeline-canvas/`
+- `docs/status/ACTIVE_EXECUTION_ISSUES.md`
+
+Owner:
+- `@team-platform`
+
+Primary KPIs:
+- Lane state disagreements between UI/CLI/artifacts = 0
+- Operator diagnosis time for blocked lanes <= 5 minutes
+
+## 5) Turn bounded repo execution into a repeatable proof surface
+
+Outcome:
+- Ralph/tranche/swarm runs end in a deliverable or a preserved blocker reason with a canonical operator handoff.
+
+Code anchors:
+- `aragora/swarm/supervisor.py`
+- `aragora/swarm/reconciler.py`
+- `aragora/swarm/integrator.py`
+
+Owner:
+- `@team-platform` + `@team-core`
+
+Primary KPIs:
+- Truthful terminalization for bounded lanes >= 95%
+- Completed-lane publish success >= 95%
+
+## 6) Make OpenClaw real on a narrow path
+
+Outcome:
+- At least one narrow action-dispatch path uses real OpenClaw execution and receipt linkage in production-like conditions.
+
+Code anchors:
+- `aragora/openclaw/`
+- `aragora/computer_use/`
+- `aragora/server/handlers/computer_use_handler.py`
+
+Owner:
+- `@team-core`
+
+Primary KPIs:
+- Narrow-path action dispatch success >= 90%
+- Every executed action has linked receipt/provenance
+
+## 7) Make default debates learn from KM
+
+Outcome:
+- The canonical debate loop retrieves relevant prior receipts, writes back useful outcomes, and fires settlement hooks automatically.
+
+Code anchors:
+- `aragora/debate/knowledge_injection.py`
+- `aragora/debate/post_debate/`
+- `aragora/knowledge/`
+
+Owner:
+- `@team-core`
+
+Primary KPIs:
+- Default debate KM enrichment coverage >= 80%
+- Outcome writeback success >= 95%
+
+## 8) Ship five functional frontend paths
+
+Outcome:
+- Aragora stops claiming breadth via page count and instead ships a handful of complete, trustworthy user journeys.
 
 Code anchors:
 - `aragora/live/src/app/(app)/`
-- `aragora/server/handlers/`
-- `docs/CAPABILITY_MATRIX.md`
+- `docs/FEATURE_GAP_LIST.md`
+- `docs/status/ACTIVE_EXECUTION_ISSUES.md`
 
 Owner:
 - `@team-growth`
 
 Primary KPIs:
-- UI coverage >= 50% of mapped capabilities by end of phase
-- >= 70% of top API domains have at least one first-party UI page
+- Five core paths complete and dogfooded weekly
+- Shell-page count on critical routes trends down every sprint
 
-## 9) Multi-agent worktree coordination and recovery
-
-Outcome:
-- High-throughput parallel execution with isolated worktrees, hierarchy-based task dispatch, auto-restart, and safe merge/reconcile.
-
-Code anchors:
-- `scripts/setup_worktrees.sh`
-- `scripts/merge_worktrees.sh`
-- `aragora/nomic/branch_coordinator.py`
-- `docs/plans/SELF_IMPROVING_ARAGORA.md`
-- `docs/plans/NOMIC_CORE_INTEGRATION.md`
-
-Owner:
-- `@team-core` + `@team-platform`
-
-Primary KPIs:
-- Parallel-session efficiency >= 60% (from ~15-20%)
-- Stalled session auto-recovery success >= 90%
-- Merge conflict abort rate <= 10%
-
-## 10) Debate experience improvement
+## 9) Surface live pipeline and stage-transition state
 
 Outcome:
-- Debates feel truly live with token streaming, reasoning visibility, and explicit user interventions.
+- The workbench shows live orchestration state and one or more truthful transition-review slices.
 
 Code anchors:
-- `aragora/server/stream/`
-- `aragora/spectate/`
-- `aragora/live/src/components/debate/`
-- `docs/api/API_REFERENCE.md` (intervene endpoints)
+- `aragora/live/src/components/pipeline-canvas/`
+- `aragora/pipeline/`
+- `docs/plans/IDEA_TO_EXECUTION_PIPELINE.md`
 
 Owner:
 - `@team-growth` + `@team-core`
 
 Primary KPIs:
-- Time-to-first-token <= 1.0s in standard debate view
-- Intervention action success >= 98%
-- Session engagement time +25%
+- Pipeline live state accuracy >= 95%
+- At least one stage transition is reviewable and editable in the UI
 
-## 11) Update model lineup and provider defaults
-
-Outcome:
-- Current default models and mappings are refreshed and governed with compatibility tests and rollback policy.
-
-Code anchors:
-- `AGENTS.md`
-- `aragora/config/settings.py`
-- `aragora/agents/model_selector.py`
-- `aragora/agents/api_agents/openrouter.py`
-
-Owner:
-- `@team-sdk` + `@team-core`
-
-Primary KPIs:
-- Provider compatibility pass rate 100% on supported lineup
-- Model fallback correctness >= 99%
-
-## 12) Security hardening automation
+## 10) Emit canonical run receipts and review evidence
 
 Outcome:
-- Fully automated key rotation posture with AWS Secrets Manager integration, rotation workflows, and enforced SSRF guards.
+- Every lane can carry forward its provenance, verification evidence, and remote review target without lossy operator reconstruction.
 
 Code anchors:
-- `aragora/security/token_rotation.py`
-- `aragora/security/ssrf_protection.py`
-- `scripts/rotate_keys.py`
-- `docs/enterprise/SECRETS_MIGRATION.md`
+- `aragora/swarm/receipts.py`
+- `aragora/swarm/integrator.py`
+- `aragora/cli/commands/review.py`
 
 Owner:
-- `@team-risk` + `@team-sre`
+- `@team-platform`
 
 Primary KPIs:
-- 100% production secrets rotated within policy windows
-- SSRF validation coverage for outbound URL fetch points = 100%
-- Security audit HIGH/CRITICAL findings = 0
+- Lanes with canonical receipt/provenance artifact >= 95%
+- Review decisions grounded in remote head for 100% of publishable PRs
+
+## 11) Turn merged proof surfaces into PMF proof
+
+Outcome:
+- Merged autonomy proofs become repeatable partner workflows with scorecards, not just internal engineering wins.
+
+Code anchors:
+- `docs/status/DESIGN_PARTNER_PROGRAM.md`
+- `docs/status/PMF_SCORECARD.md`
+- `docs/status/COMMERCIAL_POSITIONING.md`
+
+Owner:
+- `@team-growth` + `@team-analytics`
+
+Primary KPIs:
+- 3-5 partners running one bounded workflow weekly
+- 2 publishable case studies with hard metrics
+
+## 12) Then widen to the unified idea-to-execution DAG
+
+Outcome:
+- The long-range moat work continues, but only after the current wedge is truthful and repeatable.
+
+Code anchors:
+- `aragora/pipeline/`
+- `aragora/live/src/components/pipeline-canvas/`
+- `docs/plans/ARAGORA_EVOLUTION_ROADMAP.md`
+
+Owner:
+- `@team-core` + `@team-growth`
+
+Primary KPIs:
+- Idea -> goal -> action -> execution transitions visible in one shell
+- Execution outcomes can revise upstream planning artifacts
 
 ## Dependencies and Constraints
 
@@ -273,4 +258,3 @@ Primary KPIs:
 3. Oracle stream/TTS first-token-first-audio prototype behind feature flag.
 4. Worktree coordinator default path audit and stalled-session watchdog.
 5. Security rotation automation dry run with Secrets Manager and rotation telemetry.
-

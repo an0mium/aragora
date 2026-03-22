@@ -1,118 +1,102 @@
 # Execution Plan (Next 6 Weeks)
 
-Last updated: 2026-03-05  
-Owner: Platform program (Product, Backend, SDK, QA, SRE)
+Last updated: 2026-03-22  
+Owner: Platform program (Product, Backend, Integrations, QA, SRE)
 
 This is the active short-horizon plan in the agreed priority order.
 It complements (does not replace) `docs/status/NEXT_STEPS_CANONICAL.md`.
 
 ## Priority Order
 
-1. Product wedge focus (SME first receipt in <15 minutes)
-2. SDK parity hard-close and drift prevention
-3. Reliability debt burn-down (skip debt + smoke warnings + determinism)
-4. Surface simplification (core command set first)
-5. Canonical status stream and doc-drift control
-6. Design-partner PMF loop with weekly scorecard gates
+1. Close the default product loop on current `main`
+2. Make the current proof surfaces truthful by default
+3. Finish the bounded execution operator contract
+4. Run design-partner PMF loops on the real wedges
+5. Expand one truthful workbench/stage-transition slice
+6. Decide scale/iterate/narrow from proof metrics, not page count or backlog volume
 
-## Immediate Wins Completed (2026-03-05)
+## Current Merged Proof Basis
 
-1. SDK parity gaps closed:
-   - Added Python SDK bots Slack status route in `sdk/python/aragora_sdk/namespaces/bots.py`.
-   - Added TypeScript SDK inbox auto-debate route in `sdk/typescript/src/namespaces/unified-inbox.ts`.
-2. CLI deprecation-noise reduction:
-   - Added grouped Arena config coalescing in `aragora/cli/commands/debate.py` so offline/demo runs no longer emit deprecated `knowledge_*`, `rlm_*`, `cross_debate_memory`, `ml_*` warnings.
-3. Week 1 instrumentation baseline shipped:
-   - Onboarding analytics events now include `flow_id` and step snapshots.
-   - Analytics endpoint now reports:
-     - `time_to_first_debate_seconds`
-     - `time_to_first_receipt_seconds`
-     - `step_drop_off` by onboarding step
-   - Onboarding receipt generation now emits `first_receipt_generated` events.
-4. Week 2 offline smoke cleanliness shipped:
-   - Offline/demo debates now disable post-debate coordinator pipeline (`disable_post_debate_pipeline=True`) to avoid network-backed canvas/judge workflows.
-   - Offline/demo quality pipeline now skips provider-backed repair loops while keeping deterministic contract checks.
-   - `scripts/run_offline_golden_path.sh` now completes without `ResourceWarning` transport leaks.
-5. Execution safety observability + calibration shipped:
-   - Added execution-gate telemetry metrics (`aragora_execution_gate_*`) for decision outcomes, deny reasons, receipt verification, taint, and diversity.
-   - Added reproducible threshold tuning sweep script: `scripts/tune_execution_gate.py`.
-   - Published calibration report: `docs/status/EXECUTION_GATE_TUNING_2026-03-05.md`.
+The next six weeks should be built on what is already merged:
+
+1. `#1108` proved the queue can recover and publish a real output.
+2. `#1110` and `#1111` merged the first user-journey and KM retrieval slices onto `main`.
+3. `#1118` and `#1119` made receipts and integrations flows materially more truthful.
+4. `#1124`, `#1126`, `#1127`, `#1133`, and `#1138` materially improved the operator contract for bounded repo execution.
+5. `#1135`, `#1136`, and `#1137` turned OpenClaw dispatch, the public proof surface, and pipeline live state into real wedge components.
 
 ## Week-by-Week Execution
 
-### Week 1: Wedge Lock + Instrumentation Baseline
+### Week 1: Default Product Loop Closure
 
 Issue-sized tasks:
-1. Freeze SME starter golden path (`quickstart` -> first debate -> receipt) and publish exact happy path.
-2. Add/verify telemetry for:
-   - `time_to_first_debate`
-   - `time_to_first_receipt`
-   - onboarding drop-off by step
-3. Define launch metric board for p50/p95 activation and weekly active teams.
+1. Freeze the canonical guided path: credentials/provider setup -> debate -> receipt -> visible result.
+2. Make sure the path uses merged KM retrieval by default and surfaces truthful state at every step.
+3. Publish the exact happy path and the first manual step when the path blocks.
 
 Acceptance:
-1. One documented SME flow is canonical and referenced by onboarding docs.
-2. Activation telemetry is queryable in one dashboard endpoint/report.
+1. One canonical default path is documented and dogfooded internally.
+2. The path produces a receipt and a visible result without hidden operator repair.
 
-### Week 2: Reliability Lane 1 (Skip Debt + Offline Smoke Cleanliness)
+### Week 2: Truthful Public And Operator Surfaces
 
 Issue-sized tasks:
-1. Reduce skip baseline from 54 to <=48 without raising baseline.
-2. Triage and fix offline smoke `ResourceWarning` transports so smoke output is clean.
-3. Add CI assertion that deprecation warnings from legacy Arena kwargs stay at zero for offline golden path.
+1. Remove or truthfully mark any remaining optimistic state on `/demo`, integrations status/edit, receipts, and pipeline live state.
+2. Tighten the bounded-lane operator view so state, evidence, and next action are all authoritative.
+3. Verify remote-head review is the default review target for publishable PRs.
 
 Acceptance:
-1. `python scripts/audit_test_skips.py --count-only` <= 48.
-2. `scripts/run_offline_golden_path.sh` passes without new warning classes.
+1. Core proof surfaces have no known demo-only or misleading states.
+2. Publishable lanes are reviewable from authoritative operator state.
 
-### Week 3: Surface Simplification
+### Week 3: Bounded Execution Contract
 
 Issue-sized tasks:
-1. Define core command lane in docs/CLI UX: `quickstart`, `ask`, `review`, `gauntlet`, `serve`.
-2. Mark long-tail commands as advanced in help/docs.
-3. Add docs sanity test that first-time path uses only core lane.
+1. Ensure completed-lane publish, blocked-lane terminalization, and evidence persistence hold across real runs.
+2. Fill the biggest gaps in per-lane provenance/receipt coverage.
+3. Capture one concise operator handoff format for blocked runs.
 
 Acceptance:
-1. New-user docs route through core lane only.
-2. Advanced surfaces remain available but not default-discovery.
+1. Bounded runs end in deliverable or explicit blocked reason with evidence.
+2. No lane requires manual reconstruction to explain what happened.
 
-### Week 4: Canonical Status Consolidation
+### Week 4: Design Partner Pilot Start
 
 Issue-sized tasks:
-1. Convert stale/competing status docs into pointer docs where possible.
-2. Add lightweight CI check: short-horizon file link must match canonical next-steps reference.
-3. Ensure roadmap/status pages do not contradict active KPI targets.
+1. Pick 3-5 partners matched to one of the real wedges: trust wedge, public proof/review, or swarm/OpenClaw.
+2. Run one guided activation session per partner on a real artifact.
+3. Start a weekly PMF scorecard and proof log per partner.
 
 Acceptance:
-1. Single active short-horizon execution doc is linked from canonical next-steps.
-2. Doc drift check runs in lint/docs lane.
+1. Every partner has one bounded recurring workflow chosen.
+2. First-week receipts, overrides, or bounded-lane outcomes are captured in scorecards.
 
-### Week 5: Design Partner Pilot Start
+### Week 5: Five Functional Paths + Workbench Slice
 
 Issue-sized tasks:
-1. Select 3-5 design partners matching PMF rubric.
-2. Run one guided activation session per partner using SME starter flow.
-3. Capture weekly PMF scorecards in a single structured report.
+1. Keep reducing shell-heavy product surfaces by focusing on five functional paths.
+2. Extend one stage-transition/workbench slice so it is live, reviewable, and tied to real execution state.
+3. Tie workbench state back to canonical receipts/provenance rather than separate demo data.
 
 Acceptance:
-1. Every partner has baseline + week-1 PMF score.
-2. Activation and first receipt metrics are attached per partner.
+1. Five core paths are usable enough for weekly dogfood.
+2. At least one stage transition is truthfully represented in the UI.
 
 ### Week 6: PMF Decision Gate
 
 Issue-sized tasks:
-1. Run 3 consecutive weekly score reviews.
-2. Decide scale/iterate/narrow using documented thresholds.
-3. Promote successful wedge metrics into default product/program dashboard.
+1. Review six weeks of wedge metrics and partner scorecards.
+2. Decide whether to scale, iterate, or narrow each wedge.
+3. Promote the successful proof metrics into the default product/program dashboard.
 
 Acceptance:
-1. At least 3 partners sustain scale-threshold trajectory, or scope is explicitly narrowed.
-2. Next 6-week plan is generated from measured outcomes, not backlog volume.
+1. The next six-week plan is generated from measured repeatability and truthfulness.
+2. Any wedge that is not repeating gets explicitly narrowed instead of hand-waved forward.
 
 ## CI/Gate Commands (Required Weekly)
 
-1. `python scripts/check_sdk_parity.py --strict --baseline scripts/baselines/check_sdk_parity.json --budget scripts/baselines/check_sdk_parity_budget.json`
-2. `python scripts/audit_test_skips.py --count-only`
+1. `python scripts/reconcile_status_docs.py --strict --output /tmp/reconciliation_report.md`
+2. `python scripts/check_version_alignment.py`
 3. `python scripts/check_agent_registry_sync.py`
 4. `python scripts/check_connector_exception_handling.py`
 5. `python scripts/check_self_host_compose.py`
