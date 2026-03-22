@@ -901,10 +901,11 @@ async def execute_pipeline(
         _get_store().save(pipeline_id, data_dict)
 
         async def _execute() -> None:
+            current_data = data_dict
             try:
-                data_dict["execution"]["status"] = "running"
-                data_dict = attach_unified_live_state(data_dict)
-                _get_store().save(pipeline_id, data_dict)
+                current_data["execution"]["status"] = "running"
+                current_data = attach_unified_live_state(current_data)
+                _get_store().save(pipeline_id, current_data)
                 outcome, record, decision_receipt = await execute_queued_plan(
                     plan,
                     execution_id=launch["execution_id"],
@@ -935,25 +936,25 @@ async def execute_pipeline(
                 except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                     logger.debug("Pipeline provenance receipt generation skipped: %s", exc)
 
-                data_dict["execution"] = {
-                    **data_dict.get("execution", {}),
+                current_data["execution"] = {
+                    **current_data.get("execution", {}),
                     "status": "completed" if outcome.success else "failed",
                     "record": record,
                     "outcome": outcome.to_dict(),
                     "receipt_id": getattr(outcome, "receipt_id", None),
                 }
-                data_dict["receipt"] = receipt_bundle
-                data_dict = attach_unified_live_state(data_dict)
-                _get_store().save(pipeline_id, data_dict)
+                current_data["receipt"] = receipt_bundle
+                current_data = attach_unified_live_state(current_data)
+                _get_store().save(pipeline_id, current_data)
             except Exception as exc:  # noqa: BLE001 - background task must persist terminal failure
                 logger.error("Pipeline execute failed: %s", exc)
-                data_dict["execution"] = {
-                    **data_dict.get("execution", {}),
+                current_data["execution"] = {
+                    **current_data.get("execution", {}),
                     "status": "failed",
                     "error": str(exc),
                 }
-                data_dict = attach_unified_live_state(data_dict)
-                _get_store().save(pipeline_id, data_dict)
+                current_data = attach_unified_live_state(current_data)
+                _get_store().save(pipeline_id, current_data)
 
         asyncio.create_task(_execute())
 

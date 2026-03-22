@@ -13,12 +13,16 @@ Covers all 31 canvas pipeline v2 endpoints including:
 
 from __future__ import annotations
 
+import asyncio
+import sys
+import types
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from aragora.server.fastapi import create_app
+from aragora.server.fastapi.routes.canvas_pipeline import ExecuteRequest, execute_pipeline
 
 
 @pytest.fixture
@@ -373,6 +377,87 @@ class TestPipelineQuerying:
         assert data["completed_stages"] == 2
         assert data["total_stages"] == 4
         assert data["current_stage"] == "workflow"
+
+
+class TestPipelineExecution:
+    @pytest.mark.asyncio
+    async def test_execute_pipeline_background_task_updates_store(self, monkeypatch):
+        pipeline = {
+            "pipeline_id": "pipe-fastapi",
+            "name": "Pipeline FastAPI",
+            "stage_status": {
+                "ideas": "complete",
+                "goals": "complete",
+                "actions": "complete",
+                "orchestration": "complete",
+            },
+            "orchestration": {
+                "nodes": [
+                    {"id": "t1", "data": {"orch_type": "agent_task", "label": "Ship feature"}},
+                ],
+                "edges": [],
+            },
+        }
+        store = MagicMock()
+        monkeypatch.setattr(
+            "aragora.server.fastapi.routes.canvas_pipeline._get_result_or_404",
+            lambda _: pipeline,
+        )
+        monkeypatch.setattr(
+            "aragora.server.fastapi.routes.canvas_pipeline._get_store",
+            lambda: store,
+        )
+
+        fake_execution = types.ModuleType("aragora.pipeline.canonical_execution")
+        fake_execution.build_decision_plan_from_orchestration = lambda **_: (
+            types.SimpleNamespace(id="plan-fastapi"),
+            [{"id": "t1"}],
+        )
+        fake_execution.queue_plan_execution = lambda *_, **__: {
+            "execution_id": "exec-fastapi",
+            "correlation_id": "corr-fastapi",
+            "execution_mode": "workflow",
+            "scheduled_at": "2026-03-21T00:00:00Z",
+        }
+
+        outcome = MagicMock(success=True, receipt_id="receipt-fastapi")
+        outcome.to_dict.return_value = {"success": True}
+
+        async def _execute_plan(*_, **__):
+            return outcome, {"record_id": "record-fastapi"}, {"receipt_id": "decision-fastapi"}
+
+        fake_execution.execute_queued_plan = _execute_plan
+
+        original_create_task = asyncio.create_task
+        created_tasks: list[asyncio.Task] = []
+
+        def _capture_task(coro):
+            task = original_create_task(coro)
+            created_tasks.append(task)
+            return task
+
+        with (
+            patch.dict(sys.modules, {"aragora.pipeline.canonical_execution": fake_execution}),
+            patch(
+                "aragora.server.fastapi.routes.canvas_pipeline.asyncio.create_task",
+                new=_capture_task,
+            ),
+        ):
+            response = await execute_pipeline(
+                "pipe-fastapi",
+                ExecuteRequest(),
+                auth=MagicMock(),
+            )
+
+        assert response.result is not None
+        assert response.result["status"] == "executing"
+        assert len(created_tasks) == 1
+        await created_tasks[0]
+        assert created_tasks[0].exception() is None
+
+        saved_pipeline = store.save.call_args_list[-1].args[1]
+        assert saved_pipeline["execution"]["status"] == "completed"
+        assert saved_pipeline["execution"]["receipt_id"] == "receipt-fastapi"
 
     def test_get_pipeline_stage_invalid(self, client, mock_pipeline_store):
         """Stage endpoint rejects invalid stage name."""

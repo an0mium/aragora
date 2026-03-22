@@ -2251,6 +2251,7 @@ class CanvasPipelineHandler:
         store.save(pipeline_id, existing)
 
         async def _execute() -> None:
+            current_state = existing
             try:
                 if emitter:
                     await emitter.emit_stage_started(
@@ -2263,9 +2264,9 @@ class CanvasPipelineHandler:
                         },
                     )
 
-                existing["execution"]["status"] = "running"
-                existing = attach_unified_live_state(existing)
-                store.save(pipeline_id, existing)
+                current_state["execution"]["status"] = "running"
+                current_state = attach_unified_live_state(current_state)
+                store.save(pipeline_id, current_state)
 
                 outcome, record, decision_receipt = await execute_queued_plan(
                     plan,
@@ -2292,37 +2293,37 @@ class CanvasPipelineHandler:
                             "execution_id": launch["execution_id"],
                             "correlation_id": launch["correlation_id"],
                             "status": "completed" if outcome.success else "failed",
-                            "started_at": existing["execution"].get("scheduled_at"),
+                            "started_at": current_state["execution"].get("scheduled_at"),
                             "completed_at": datetime.now(timezone.utc).isoformat(),
                         },
                     )
                 except (ImportError, RuntimeError, ValueError, TypeError, OSError) as exc:
                     logger.debug("Pipeline provenance receipt generation skipped: %s", exc)
 
-                existing["execution"] = {
-                    **existing.get("execution", {}),
+                current_state["execution"] = {
+                    **current_state.get("execution", {}),
                     "status": "completed" if outcome.success else "failed",
                     "completed_at": datetime.now(timezone.utc).isoformat(),
                     "record": record,
                     "outcome": outcome.to_dict(),
                     "receipt_id": getattr(outcome, "receipt_id", None),
                 }
-                existing["receipt"] = receipt_bundle
-                existing = attach_unified_live_state(existing)
-                store.save(pipeline_id, existing)
+                current_state["receipt"] = receipt_bundle
+                current_state = attach_unified_live_state(current_state)
+                store.save(pipeline_id, current_state)
 
                 if emitter:
                     await emitter.emit_completed(pipeline_id, receipt_bundle)
             except Exception as exc:  # noqa: BLE001 - background execution must update state before surfacing
                 logger.error("Pipeline execution failed: %s", exc)
-                existing["execution"] = {
-                    **existing.get("execution", {}),
+                current_state["execution"] = {
+                    **current_state.get("execution", {}),
                     "status": "failed",
                     "completed_at": datetime.now(timezone.utc).isoformat(),
                     "error": str(exc),
                 }
-                existing = attach_unified_live_state(existing)
-                store.save(pipeline_id, existing)
+                current_state = attach_unified_live_state(current_state)
+                store.save(pipeline_id, current_state)
                 if emitter:
                     await emitter.emit_failed(pipeline_id, str(exc))
 

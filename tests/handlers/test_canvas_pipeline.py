@@ -10,7 +10,10 @@ Covers all 17 endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import json
+import sys
+import types
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1101,3 +1104,75 @@ class TestExecutePipeline:
         assert body["agent_tasks"] == 2  # only agent_task nodes
         assert body["total_orchestration_nodes"] == 3
         assert body["execution_id"].startswith("exec-")
+
+    @pytest.mark.asyncio
+    async def test_execute_background_task_updates_store(self, handler, mock_store):
+        mock_store.get.return_value = {
+            "pipeline_id": "pipe-ok",
+            "name": "Pipeline OK",
+            "stage_status": {
+                "ideas": "complete",
+                "goals": "complete",
+                "actions": "complete",
+                "orchestration": "complete",
+            },
+            "orchestration": {
+                "nodes": [
+                    {"id": "t1", "data": {"orch_type": "agent_task", "label": "Build cache"}},
+                ],
+                "edges": [],
+            },
+        }
+
+        fake_execution = types.ModuleType("aragora.pipeline.canonical_execution")
+        fake_execution.build_decision_plan_from_orchestration = lambda **_: (
+            types.SimpleNamespace(id="plan-1"),
+            [{"id": "t1"}],
+        )
+        fake_execution.queue_plan_execution = lambda *_, **__: {
+            "execution_id": "exec-1",
+            "correlation_id": "corr-1",
+            "execution_mode": "workflow",
+            "scheduled_at": "2026-03-21T00:00:00Z",
+        }
+
+        outcome = MagicMock(success=True, receipt_id="receipt-1")
+        outcome.to_dict.return_value = {"success": True}
+
+        async def _execute_plan(*_, **__):
+            return outcome, {"record_id": "record-1"}, {"receipt_id": "decision-1"}
+
+        fake_execution.execute_queued_plan = _execute_plan
+
+        fake_stream = types.ModuleType("aragora.server.stream.pipeline_stream")
+        fake_stream.get_pipeline_emitter = lambda: None
+
+        original_create_task = asyncio.create_task
+        created_tasks: list[asyncio.Task] = []
+
+        def _capture_task(coro):
+            task = original_create_task(coro)
+            created_tasks.append(task)
+            return task
+
+        with (
+            patch.dict(
+                sys.modules,
+                {
+                    "aragora.pipeline.canonical_execution": fake_execution,
+                    "aragora.server.stream.pipeline_stream": fake_stream,
+                },
+            ),
+            patch("aragora.server.handlers.canvas_pipeline.asyncio.create_task", new=_capture_task),
+        ):
+            result = await handler.handle_execute("pipe-ok", {})
+
+        body = _body(result)
+        assert body["status"] == "executing"
+        assert len(created_tasks) == 1
+        await created_tasks[0]
+        assert created_tasks[0].exception() is None
+
+        saved_pipeline = mock_store.save.call_args_list[-1].args[1]
+        assert saved_pipeline["execution"]["status"] == "completed"
+        assert saved_pipeline["execution"]["receipt_id"] == "receipt-1"
