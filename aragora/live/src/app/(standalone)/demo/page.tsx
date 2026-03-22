@@ -1,54 +1,75 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { API_BASE_URL } from '@/config';
 
-// ---------------------------------------------------------------------------
-// Demo Debate Data
-// ---------------------------------------------------------------------------
-
-interface DemoEvent {
+interface RecordedEvent {
   type: 'proposal' | 'critique' | 'vote' | 'consensus';
   agent: string;
   model: string;
   content: string;
   round: number;
-  timestamp: number;
   confidence?: number;
   vote?: 'support' | 'oppose' | 'neutral';
 }
 
-interface DemoDebate {
+interface RecordedDebate {
   id: string;
   topic: string;
   agents: string[];
   rounds: number;
-  consensus_reached: boolean;
   confidence: number;
   verdict: string;
-  events: DemoEvent[];
-  receipt_hash: string;
+  receiptHash: string;
+  events: RecordedEvent[];
 }
 
-const DEMO_DEBATE: DemoDebate = {
+interface LiveDebateResult {
+  id: string;
+  topic: string;
+  status: string;
+  rounds_used: number;
+  consensus_reached: boolean;
+  confidence: number;
+  verdict: string | null;
+  duration_seconds: number;
+  participants: string[];
+  proposals: Record<string, string>;
+  final_answer: string;
+  receipt_hash: string | null;
+  share_url?: string;
+  is_live?: boolean;
+  mock_fallback?: boolean;
+  mock_fallback_reason?: string;
+}
+
+const DEMO_TOPIC =
+  'Should our startup adopt AI-powered code review as a mandatory step in our CI/CD pipeline?';
+
+const LIVE_PROGRESS_STEPS = [
+  'Submitting the canonical public demo question',
+  'Collecting multi-agent positions from the playground backend',
+  'Persisting a shareable debate result',
+];
+
+const RECORDED_SAMPLE: RecordedDebate = {
   id: 'demo_showcase_001',
-  topic: 'Should our startup adopt AI-powered code review as a mandatory step in our CI/CD pipeline?',
+  topic: DEMO_TOPIC,
   agents: ['claude-sonnet', 'gpt-4o', 'gemini-pro', 'mistral-large', 'grok-2'],
   rounds: 2,
-  consensus_reached: true,
   confidence: 0.82,
   verdict:
     'Adopt AI code review as an advisory layer with human override, not a blocking gate. Start with security-critical paths only, expand based on measured false-positive rates.',
-  receipt_hash: 'a7f3c91b2d4e8f06',
+  receiptHash: 'a7f3c91b2d4e8f06',
   events: [
     {
       type: 'proposal',
       agent: 'claude-sonnet',
       model: 'Claude Sonnet',
       content:
-        'Yes, adopt it as mandatory. AI code review catches security vulnerabilities that human reviewers miss 34% of the time. The key is treating it as a complement, not a replacement — flag issues for human judgment, not auto-reject.',
+        'Yes, adopt it as mandatory. AI code review catches security vulnerabilities that human reviewers miss 34% of the time. The key is treating it as a complement, not a replacement: flag issues for human judgment, not auto-reject.',
       round: 1,
-      timestamp: 0,
       confidence: 0.85,
     },
     {
@@ -58,7 +79,6 @@ const DEMO_DEBATE: DemoDebate = {
       content:
         'Mandatory is too strong. AI review tools have 15-25% false positive rates on complex codebases. Making it mandatory creates alert fatigue and slows velocity. Better as advisory with opt-in enforcement for security-critical paths.',
       round: 1,
-      timestamp: 2000,
       confidence: 0.78,
     },
     {
@@ -66,9 +86,8 @@ const DEMO_DEBATE: DemoDebate = {
       agent: 'gemini-pro',
       model: 'Gemini Pro',
       content:
-        'Both proposals miss the cost dimension. AI review at scale costs $0.02-0.15 per PR. For a team doing 200 PRs/week, that is $200-1,500/month. The ROI depends on your current bug escape rate — if it is below 2%, the investment may not justify mandatory adoption.',
+        'Both proposals miss the cost dimension. AI review at scale costs $0.02-0.15 per PR. For a team doing 200 PRs/week, that is $200-1,500/month. The ROI depends on your current bug escape rate.',
       round: 1,
-      timestamp: 4000,
       confidence: 0.72,
     },
     {
@@ -76,9 +95,8 @@ const DEMO_DEBATE: DemoDebate = {
       agent: 'mistral-large',
       model: 'Mistral Large',
       content:
-        'I challenge the 34% claim. That statistic comes from controlled benchmarks, not production codebases. In practice, AI reviewers excel at pattern-matching (SQL injection, XSS) but struggle with business logic flaws and architectural issues — the bugs that actually cause outages.',
+        'The benchmark-based security claim does not map cleanly onto production code. AI reviewers are strongest on recurring patterns and weaker on business-logic failures.',
       round: 1,
-      timestamp: 6000,
       confidence: 0.76,
     },
     {
@@ -86,9 +104,8 @@ const DEMO_DEBATE: DemoDebate = {
       agent: 'grok-2',
       model: 'Grok 2',
       content:
-        'The framing is wrong. The question is not mandatory vs optional — it is which paths are mandatory. Security-critical code (auth, payments, data access) should require AI review. Feature code should get advisory review. This reduces false-positive fatigue while protecting high-risk surfaces.',
+        'The right framing is path-based enforcement. Security-critical code should require AI review. Lower-risk product code should stay advisory.',
       round: 2,
-      timestamp: 8000,
       confidence: 0.88,
     },
     {
@@ -97,7 +114,6 @@ const DEMO_DEBATE: DemoDebate = {
       model: 'Claude Sonnet',
       content: 'I revise my position. Path-based mandatory review is the pragmatic middle ground.',
       round: 2,
-      timestamp: 10000,
       vote: 'support',
       confidence: 0.84,
     },
@@ -105,179 +121,135 @@ const DEMO_DEBATE: DemoDebate = {
       type: 'vote',
       agent: 'gpt-4o',
       model: 'GPT-4o',
-      content: 'Agreed. Tiered enforcement addresses my velocity concern while maintaining security coverage.',
+      content: 'Tiered enforcement addresses my velocity concern while maintaining security coverage.',
       round: 2,
-      timestamp: 11000,
       vote: 'support',
       confidence: 0.81,
-    },
-    {
-      type: 'vote',
-      agent: 'gemini-pro',
-      model: 'Gemini Pro',
-      content: 'Support, with the caveat that ROI should be measured after 90 days to validate the cost-benefit.',
-      round: 2,
-      timestamp: 12000,
-      vote: 'support',
-      confidence: 0.79,
-    },
-    {
-      type: 'vote',
-      agent: 'mistral-large',
-      model: 'Mistral Large',
-      content: 'Conditional support. The path classification must be reviewed quarterly as the codebase evolves.',
-      round: 2,
-      timestamp: 13000,
-      vote: 'support',
-      confidence: 0.74,
     },
     {
       type: 'consensus',
       agent: 'system',
       model: 'Consensus Engine',
       content:
-        'Consensus reached (4/5 support, 1 conditional). Adopt AI code review as advisory layer with mandatory enforcement on security-critical paths. Measure false-positive rate and ROI at 90 days.',
+        'Consensus reached. Adopt AI code review as an advisory layer with mandatory enforcement on security-critical paths, then measure false-positive rate and ROI at 90 days.',
       round: 2,
-      timestamp: 14000,
       confidence: 0.82,
     },
   ],
 };
 
-// ---------------------------------------------------------------------------
-// Agent Colors
-// ---------------------------------------------------------------------------
+const AGENT_ACCENTS = [
+  '#00ff41',
+  '#63b3ed',
+  '#f6ad55',
+  '#fc8181',
+  '#b794f6',
+  '#68d391',
+];
 
-const AGENT_COLORS: Record<string, string> = {
-  'claude-sonnet': '#b794f6',
-  'gpt-4o': '#68d391',
-  'gemini-pro': '#63b3ed',
-  'mistral-large': '#f6ad55',
-  'grok-2': '#fc8181',
-  system: '#00ff41',
-};
-
-const AGENT_ICONS: Record<string, string> = {
-  'claude-sonnet': '\u2726',
-  'gpt-4o': '\u25C6',
-  'gemini-pro': '\u25C8',
-  'mistral-large': '\u25B2',
-  'grok-2': '\u2605',
-  system: '\u2713',
-};
-
-// ---------------------------------------------------------------------------
-// Components
-// ---------------------------------------------------------------------------
-
-function EventCard({
-  event,
-  isVisible,
-  index,
-}: {
-  event: DemoEvent;
-  isVisible: boolean;
-  index: number;
-}) {
-  const color = AGENT_COLORS[event.agent] || '#94a3b8';
-  const icon = AGENT_ICONS[event.agent] || '\u25CF';
-
-  const typeBadge = {
-    proposal: { label: 'PROPOSAL', bg: 'bg-blue-500/20', text: 'text-blue-300' },
-    critique: { label: 'CRITIQUE', bg: 'bg-red-500/20', text: 'text-red-300' },
-    vote: { label: 'VOTE', bg: 'bg-green-500/20', text: 'text-green-300' },
-    consensus: { label: 'CONSENSUS', bg: 'bg-[var(--acid-green)]/20', text: 'text-[var(--acid-green)]' },
-  }[event.type];
-
-  return (
-    <div
-      className={`transition-all duration-700 ${
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-      }`}
-      style={{ transitionDelay: `${index * 50}ms` }}
-    >
-      <div
-        className="p-4 border bg-[var(--surface)] mb-3"
-        style={{ borderColor: `${color}40` }}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span style={{ color }} className="text-sm">
-              {icon}
-            </span>
-            <span className="font-mono text-xs" style={{ color }}>
-              {event.model}
-            </span>
-            <span
-              className={`px-1.5 py-0.5 text-[10px] font-mono ${typeBadge.bg} ${typeBadge.text} border border-current/20`}
-            >
-              {typeBadge.label}
-            </span>
-          </div>
-          {event.confidence !== undefined && (
-            <span className="text-[10px] font-mono text-[var(--text-muted)]">
-              {Math.round(event.confidence * 100)}% confidence
-            </span>
-          )}
-        </div>
-        <p className="text-sm font-mono text-[var(--text)] leading-relaxed">
-          {event.content}
-        </p>
-        {event.vote && (
-          <div className="mt-2 flex items-center gap-1">
-            <span
-              className={`text-xs font-mono ${
-                event.vote === 'support'
-                  ? 'text-green-400'
-                  : event.vote === 'oppose'
-                    ? 'text-red-400'
-                    : 'text-yellow-400'
-              }`}
-            >
-              {event.vote === 'support' ? '\u2713 SUPPORT' : event.vote === 'oppose' ? '\u2717 OPPOSE' : '\u25CB NEUTRAL'}
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+function accentForAgent(agent: string): string {
+  let hash = 0;
+  for (const char of agent) {
+    hash = (hash + char.charCodeAt(0)) % AGENT_ACCENTS.length;
+  }
+  return AGENT_ACCENTS[hash];
 }
 
-function ConsensusBar({ confidence }: { confidence: number }) {
+function normalizeProposals(
+  proposals: unknown,
+  participants: string[],
+): Record<string, string> {
+  if (proposals && typeof proposals === 'object' && !Array.isArray(proposals)) {
+    return Object.fromEntries(
+      Object.entries(proposals).map(([agent, value]) => [agent, String(value ?? '')]),
+    );
+  }
+
+  if (Array.isArray(proposals)) {
+    return Object.fromEntries(
+      proposals.map((value, index) => [
+        participants[index] ?? `agent_${index + 1}`,
+        typeof value === 'string' ? value : JSON.stringify(value),
+      ]),
+    );
+  }
+
+  return {};
+}
+
+function normalizeLiveDebateResult(data: unknown): LiveDebateResult | null {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const raw = data as Record<string, unknown>;
+  const participants = Array.isArray(raw.participants)
+    ? raw.participants.map((participant) => String(participant))
+    : [];
+
+  return {
+    id: String(raw.id ?? ''),
+    topic: String(raw.topic ?? DEMO_TOPIC),
+    status: String(raw.status ?? 'completed'),
+    rounds_used: Number(raw.rounds_used ?? 1),
+    consensus_reached: Boolean(raw.consensus_reached),
+    confidence: Number(raw.confidence ?? 0),
+    verdict: raw.verdict == null ? null : String(raw.verdict),
+    duration_seconds: Number(raw.duration_seconds ?? 0),
+    participants,
+    proposals: normalizeProposals(raw.proposals, participants),
+    final_answer: String(raw.final_answer ?? ''),
+    receipt_hash: raw.receipt_hash == null ? null : String(raw.receipt_hash),
+    share_url: raw.share_url == null ? undefined : String(raw.share_url),
+    is_live: raw.is_live == null ? undefined : Boolean(raw.is_live),
+    mock_fallback: Boolean(raw.mock_fallback),
+    mock_fallback_reason:
+      raw.mock_fallback_reason == null ? undefined : String(raw.mock_fallback_reason),
+  };
+}
+
+function formatVerdict(result: LiveDebateResult): string {
+  if (result.final_answer.trim()) {
+    return result.final_answer.trim();
+  }
+  if (result.verdict) {
+    return result.verdict.replace(/_/g, ' ');
+  }
+  return 'No verdict returned.';
+}
+
+function StatusBadge({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: 'live' | 'fallback' | 'sample';
+}) {
+  const styles = {
+    live: 'border-[var(--acid-green)]/40 bg-[var(--acid-green)]/10 text-[var(--acid-green)]',
+    fallback: 'border-amber-400/40 bg-amber-400/10 text-amber-300',
+    sample: 'border-blue-400/40 bg-blue-400/10 text-blue-300',
+  }[tone];
+
   return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
-          Consensus Confidence
-        </span>
-        <span className="text-sm font-mono text-[var(--acid-green)] font-bold">
-          {Math.round(confidence * 100)}%
-        </span>
-      </div>
-      <div className="h-2 bg-[var(--surface)] border border-[var(--border)] overflow-hidden">
-        <div
-          className="h-full bg-[var(--acid-green)] transition-all duration-1000"
-          style={{ width: `${confidence * 100}%` }}
-        />
-      </div>
-    </div>
+    <span className={`inline-flex items-center px-2 py-1 text-[10px] font-mono uppercase tracking-[0.2em] border ${styles}`}>
+      {label}
+    </span>
   );
 }
 
 function AgentRoster({ agents }: { agents: string[] }) {
   return (
-    <div className="flex flex-wrap gap-2 mb-6">
+    <div className="flex flex-wrap gap-2">
       {agents.map((agent) => {
-        const color = AGENT_COLORS[agent] || '#94a3b8';
-        const icon = AGENT_ICONS[agent] || '\u25CF';
+        const accent = accentForAgent(agent);
         return (
           <div
             key={agent}
-            className="flex items-center gap-1.5 px-2 py-1 border text-xs font-mono"
-            style={{ borderColor: `${color}40`, color }}
+            className="px-2 py-1 border text-xs font-mono"
+            style={{ borderColor: `${accent}55`, color: accent }}
           >
-            <span>{icon}</span>
-            <span>{agent}</span>
+            {agent}
           </div>
         );
       })}
@@ -285,203 +257,472 @@ function AgentRoster({ agents }: { agents: string[] }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
+function ConsensusBar({ confidence }: { confidence: number }) {
+  const clamped = Math.max(0, Math.min(confidence, 1));
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs font-mono text-[var(--text-muted)]">
+        <span>Consensus confidence</span>
+        <span className="text-[var(--acid-green)]">{Math.round(clamped * 100)}%</span>
+      </div>
+      <div className="h-2 bg-[var(--surface)] border border-[var(--border)] overflow-hidden">
+        <div
+          className="h-full bg-[var(--acid-green)]"
+          style={{ width: `${clamped * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function LiveResultCard({
+  result,
+  runStartedAt,
+}: {
+  result: LiveDebateResult;
+  runStartedAt: string | null;
+}) {
+  const resultTone = result.mock_fallback || result.is_live === false ? 'fallback' : 'live';
+  const resultLabel =
+    resultTone === 'live' ? 'Live-backed result' : 'Simulated fallback';
+  const summary = formatVerdict(result);
+  const shareHref = result.share_url ?? `/debate/${result.id}`;
+  const proposalEntries = Object.entries(result.proposals).slice(0, 3);
+
+  return (
+    <section className="border border-[var(--acid-green)]/30 bg-[var(--surface)]/40 p-5 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-2">
+          <StatusBadge label={resultLabel} tone={resultTone} />
+          <div className="text-xs font-mono text-[var(--text-muted)]">
+            {resultTone === 'live'
+              ? 'Fresh result from the public playground backend.'
+              : `The backend returned a non-live fallback${result.mock_fallback_reason ? `: ${result.mock_fallback_reason}` : '.'}`}
+          </div>
+        </div>
+        <div className="text-right text-xs font-mono text-[var(--text-muted)] space-y-1">
+          <div>ID: {result.id}</div>
+          <div>{result.duration_seconds.toFixed(1)}s runtime</div>
+          {runStartedAt && <div>Started {runStartedAt}</div>}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--acid-green)]">
+          Returned agents
+        </div>
+        <AgentRoster agents={result.participants} />
+      </div>
+
+      <ConsensusBar confidence={result.confidence} />
+
+      <div className="space-y-2">
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--acid-green)]">
+          Verdict
+        </div>
+        <p className="text-sm font-mono text-[var(--text)] leading-relaxed">{summary}</p>
+      </div>
+
+      {proposalEntries.length > 0 && (
+        <div className="space-y-3">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--acid-green)]">
+            Agent positions
+          </div>
+          <div className="grid grid-cols-1 gap-3">
+            {proposalEntries.map(([agent, proposal]) => {
+              const accent = accentForAgent(agent);
+              return (
+                <div
+                  key={agent}
+                  className="border p-3 bg-[var(--bg)]/40"
+                  style={{ borderColor: `${accent}55` }}
+                >
+                  <div className="mb-2 text-xs font-mono" style={{ color: accent }}>
+                    {agent}
+                  </div>
+                  <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed">
+                    {proposal}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-[var(--text-muted)]">
+        <span>Rounds: {result.rounds_used}</span>
+        <span>Status: {result.status}</span>
+        {result.receipt_hash && <span>Receipt: {result.receipt_hash.slice(0, 16)}...</span>}
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href={shareHref}
+          className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
+        >
+          VIEW SHAREABLE RESULT
+        </Link>
+        <Link
+          href={`/try?topic=${encodeURIComponent(result.topic)}`}
+          className="px-4 py-2 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
+        >
+          TAKE YOUR OWN QUESTION TO /TRY
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function RecordedSampleCard({ sample }: { sample: RecordedDebate }) {
+  return (
+    <section className="border border-blue-400/30 bg-blue-400/5 p-5 space-y-5">
+      <div className="space-y-2">
+        <StatusBadge label="Recorded sample" tone="sample" />
+        <p className="text-sm font-mono text-[var(--text-muted)] leading-relaxed">
+          This is a captured example for zero-latency browsing. It is illustrative only and is
+          never presented as a fresh run.
+        </p>
+      </div>
+
+      <AgentRoster agents={sample.agents} />
+      <ConsensusBar confidence={sample.confidence} />
+
+      <div className="space-y-2">
+        <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-blue-300">
+          Recorded verdict
+        </div>
+        <p className="text-sm font-mono text-[var(--text)] leading-relaxed">{sample.verdict}</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        {sample.events.map((event, index) => {
+          const accent = accentForAgent(event.agent);
+          const badgeColor =
+            event.type === 'proposal'
+              ? 'text-blue-300'
+              : event.type === 'critique'
+                ? 'text-red-300'
+                : event.type === 'vote'
+                  ? 'text-green-300'
+                  : 'text-[var(--acid-green)]';
+
+          return (
+            <div
+              key={`${event.agent}-${index}`}
+              className="border p-3 bg-[var(--bg)]/30 space-y-2"
+              style={{ borderColor: `${accent}55` }}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono" style={{ color: accent }}>
+                    {event.model}
+                  </span>
+                  <span className={`text-[10px] font-mono uppercase ${badgeColor}`}>
+                    {event.type}
+                  </span>
+                </div>
+                <div className="text-[10px] font-mono text-[var(--text-muted)]">
+                  Round {event.round}
+                  {event.confidence !== undefined
+                    ? ` | ${Math.round(event.confidence * 100)}% confidence`
+                    : ''}
+                </div>
+              </div>
+              <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed">
+                {event.content}
+              </p>
+              {event.vote && (
+                <div className="text-[10px] font-mono text-[var(--text-muted)]">
+                  Vote: {event.vote}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="text-xs font-mono text-[var(--text-muted)]">
+        Receipt: {sample.receiptHash}
+      </div>
+    </section>
+  );
+}
 
 export default function PublicDemoPage() {
-  const [visibleCount, setVisibleCount] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [showVerdict, setShowVerdict] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const events = DEMO_DEBATE.events;
+  const [result, setResult] = useState<LiveDebateResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [progressStep, setProgressStep] = useState(0);
+  const [showRecordedSample, setShowRecordedSample] = useState(false);
+  const [runStartedAt, setRunStartedAt] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const autoStartedRef = useRef(false);
 
-  const play = useCallback(() => {
-    setIsPlaying(true);
-    setVisibleCount(0);
-    setShowVerdict(false);
+  const runLiveDemo = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-    let count = 0;
-    timerRef.current = setInterval(() => {
-      count++;
-      if (count > events.length) {
-        if (timerRef.current) clearInterval(timerRef.current);
-        setIsPlaying(false);
-        setShowVerdict(true);
+    setIsLoading(true);
+    setError(null);
+    setResult(null);
+    setProgressStep(0);
+
+    const startedAt = new Date().toLocaleTimeString();
+    setRunStartedAt(startedAt);
+
+    const timers = LIVE_PROGRESS_STEPS.map((_, index) =>
+      window.setTimeout(() => setProgressStep(index), index * 1800),
+    );
+    const clearTimers = () => timers.forEach((timer) => window.clearTimeout(timer));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/playground/debate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: DEMO_TOPIC,
+          question: DEMO_TOPIC,
+          rounds: 2,
+          agents: 3,
+          source: 'demo',
+        }),
+        signal: controller.signal,
+      });
+
+      if (response.status === 429) {
+        const data = await response.json().catch(() => null);
+        const retryAfter = typeof data?.retry_after === 'number' ? data.retry_after : 60;
+        setError(
+          `The live proof surface is rate-limited right now. Retry in about ${retryAfter} seconds, or inspect the labeled recorded sample below.`,
+        );
+        setShowRecordedSample(true);
         return;
       }
-      setVisibleCount(count);
-    }, 1800);
-  }, [events.length]);
 
-  const showAll = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setVisibleCount(events.length);
-    setIsPlaying(false);
-    setShowVerdict(true);
-  }, [events.length]);
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const message =
+          typeof data?.error === 'string'
+            ? data.error
+            : `The live proof surface returned HTTP ${response.status}.`;
+        setError(`${message} The recorded sample below remains labeled as non-live.`);
+        setShowRecordedSample(true);
+        return;
+      }
+
+      const parsed = normalizeLiveDebateResult(await response.json());
+      if (!parsed) {
+        setError('The live proof surface returned an unexpected payload. The recorded sample remains labeled below.');
+        setShowRecordedSample(true);
+        return;
+      }
+
+      setResult(parsed);
+      if (parsed.mock_fallback || parsed.is_live === false) {
+        setShowRecordedSample(true);
+      }
+    } catch (fetchError) {
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        return;
+      }
+      setError(
+        'Could not reach the playground backend for a fresh run. The recorded sample below is still available and explicitly labeled.',
+      );
+      setShowRecordedSample(true);
+    } finally {
+      clearTimers();
+      setProgressStep(LIVE_PROGRESS_STEPS.length - 1);
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const t = setTimeout(play, 800);
+    if (autoStartedRef.current) {
+      return;
+    }
+    autoStartedRef.current = true;
+    void runLiveDemo();
+
     return () => {
-      clearTimeout(t);
-      if (timerRef.current) clearInterval(timerRef.current);
+      abortRef.current?.abort();
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [runLiveDemo]);
+
+  const resultTone = useMemo(() => {
+    if (!result) {
+      return null;
+    }
+    return result.mock_fallback || result.is_live === false ? 'fallback' : 'live';
+  }, [result]);
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      {/* Top nav */}
       <nav className="border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
-        <Link href="/landing" className="font-mono text-sm text-[var(--acid-green)] hover:opacity-80 transition-opacity">
+        <Link
+          href="/landing"
+          className="font-mono text-sm text-[var(--acid-green)] hover:opacity-80 transition-opacity"
+        >
           ARAGORA
         </Link>
-        <Link
-          href="/signup"
-          className="px-4 py-1.5 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
-        >
-          GET STARTED FREE
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/try"
+            className="px-4 py-1.5 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
+          >
+            /TRY BETA
+          </Link>
+          <Link
+            href="/signup"
+            className="px-4 py-1.5 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
+          >
+            GET STARTED FREE
+          </Link>
+        </div>
       </nav>
 
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase tracking-widest mb-2">
-            Live Demo — No Account Required
+      <div className="container mx-auto px-4 py-8 max-w-5xl space-y-8">
+        <header className="text-center space-y-4">
+          <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase tracking-[0.3em]">
+            Truthful Public Demo
           </div>
-          <h1 className="text-2xl sm:text-3xl font-mono text-[var(--acid-green)] mb-3">
-            MULTI-AGENT DECISION VETTING
+          <h1 className="text-3xl sm:text-4xl font-mono text-[var(--acid-green)]">
+            LIVE PROOF SURFACE
           </h1>
-          <p className="text-sm font-mono text-[var(--text-muted)] max-w-2xl mx-auto">
-            Watch 5 AI models from different providers debate a real decision.
-            Each agent proposes, critiques, and votes independently.
-            Consensus is measured, not assumed.
+          <p className="text-sm font-mono text-[var(--text-muted)] max-w-3xl mx-auto leading-relaxed">
+            This page runs one canonical question against the same public playground backend used
+            elsewhere. If the backend returns a simulated fallback instead of a fresh live run, it
+            is labeled as such. If you want to bring your own question, use <span className="text-[var(--acid-green)]">/try</span>.
           </p>
-        </div>
+        </header>
 
-        {/* Topic */}
-        <div className="mb-6 p-4 bg-[var(--surface)] border border-[var(--acid-green)]/30">
-          <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase mb-1">
-            Decision Question
-          </div>
-          <div className="text-sm font-mono text-[var(--text)]">
-            {DEMO_DEBATE.topic}
-          </div>
-        </div>
-
-        {/* Agent Roster */}
-        <AgentRoster agents={DEMO_DEBATE.agents} />
-
-        {/* Controls */}
-        <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={play}
-            disabled={isPlaying}
-            className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
-          >
-            {isPlaying ? 'PLAYING...' : '\u25B6 REPLAY'}
-          </button>
-          <button
-            onClick={showAll}
-            className="px-4 py-2 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
-          >
-            SHOW ALL
-          </button>
-          <span className="text-[10px] font-mono text-[var(--text-muted)] ml-auto">
-            {visibleCount}/{events.length} events | Round{' '}
-            {visibleCount > 0
-              ? events[Math.min(visibleCount - 1, events.length - 1)].round
-              : 1}
-            /{DEMO_DEBATE.rounds}
-          </span>
-        </div>
-
-        {/* Events */}
-        <div className="mb-6">
-          {events.map((event, i) => (
-            <EventCard
-              key={`${event.agent}-${event.timestamp}`}
-              event={event}
-              isVisible={i < visibleCount}
-              index={i}
-            />
-          ))}
-        </div>
-
-        {/* Consensus Bar */}
-        {visibleCount > 0 && <ConsensusBar confidence={DEMO_DEBATE.confidence} />}
-
-        {/* Verdict */}
-        {showVerdict && (
-          <div className="mb-8 p-4 bg-[var(--acid-green)]/5 border border-[var(--acid-green)]/40 transition-all duration-700">
-            <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase mb-2">
-              Consensus Verdict
-            </div>
-            <p className="text-sm font-mono text-[var(--text)] leading-relaxed mb-3">
-              {DEMO_DEBATE.verdict}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-[var(--surface)] border border-[var(--acid-green)]/30 space-y-2">
+            <StatusBadge label="/demo" tone="live" />
+            <p className="text-sm font-mono text-[var(--text)]">Canonical live-backed proof</p>
+            <p className="text-xs font-mono text-[var(--text-muted)]">
+              Fresh run of one public question. Honest fallback labeling if the backend is not live.
             </p>
-            <div className="flex items-center gap-4 text-[10px] font-mono text-[var(--text-muted)]">
-              <span>Receipt: {DEMO_DEBATE.receipt_hash}</span>
-              <span>Agents: {DEMO_DEBATE.agents.length}</span>
-              <span>Rounds: {DEMO_DEBATE.rounds}</span>
-              <span>Confidence: {Math.round(DEMO_DEBATE.confidence * 100)}%</span>
-            </div>
           </div>
+          <div className="p-4 bg-[var(--surface)] border border-[var(--border)] space-y-2">
+            <StatusBadge label="/try" tone="live" />
+            <p className="text-sm font-mono text-[var(--text)]">Primary beta funnel</p>
+            <p className="text-xs font-mono text-[var(--text-muted)]">
+              Ask your own question. Keep the existing rate limits, persistence, and share flow.
+            </p>
+          </div>
+          <div className="p-4 bg-[var(--surface)] border border-blue-400/30 space-y-2">
+            <StatusBadge label="Recorded sample" tone="sample" />
+            <p className="text-sm font-mono text-[var(--text)]">Canned example, clearly labeled</p>
+            <p className="text-xs font-mono text-[var(--text-muted)]">
+              Available for comparison and fast browsing, but never presented as a live proof.
+            </p>
+          </div>
+        </section>
+
+        <section className="p-4 bg-[var(--surface)] border border-[var(--acid-green)]/30 space-y-3">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--acid-green)]">
+            Canonical question for this surface
+          </div>
+          <p className="text-sm font-mono text-[var(--text)] leading-relaxed">{DEMO_TOPIC}</p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => void runLiveDemo()}
+              disabled={isLoading}
+              className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              {isLoading ? 'RUNNING LIVE PROOF...' : 'RUN LIVE AGAIN'}
+            </button>
+            <Link
+              href={`/try?topic=${encodeURIComponent(DEMO_TOPIC)}`}
+              className="px-4 py-2 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
+            >
+              TAKE THIS TO /TRY
+            </Link>
+            <button
+              onClick={() => setShowRecordedSample((current) => !current)}
+              className="px-4 py-2 text-xs font-mono border border-blue-400/40 text-blue-300 hover:bg-blue-400/10 transition-colors"
+            >
+              {showRecordedSample ? 'HIDE RECORDED SAMPLE' : 'SHOW RECORDED SAMPLE'}
+            </button>
+          </div>
+        </section>
+
+        {isLoading && (
+          <section className="border border-[var(--acid-green)]/30 bg-[var(--surface)]/40 p-5 space-y-4">
+            <StatusBadge label="Running live proof" tone="live" />
+            <div className="space-y-3">
+              {LIVE_PROGRESS_STEPS.map((step, index) => (
+                <div
+                  key={step}
+                  className="flex items-center gap-3 text-sm font-mono transition-opacity"
+                  style={{ opacity: index <= progressStep ? 1 : 0.35 }}
+                >
+                  <span className="w-2 h-2 rounded-full bg-[var(--acid-green)]" />
+                  <span className={index <= progressStep ? 'text-[var(--text)]' : 'text-[var(--text-muted)]'}>
+                    {step}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs font-mono text-[var(--text-muted)]">
+              This surface only claims a live proof when the backend explicitly returns a live result.
+            </p>
+          </section>
         )}
 
-        {/* What makes this different */}
-        <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-            <div className="text-sm font-mono text-purple-400 mb-2">\u2726 Multi-Model</div>
-            <p className="text-xs font-mono text-[var(--text-muted)]">
-              5 different AI models from 5 providers. No single point of failure or bias.
-            </p>
-          </div>
-          <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-            <div className="text-sm font-mono text-red-400 mb-2">\u2694 Adversarial</div>
-            <p className="text-xs font-mono text-[var(--text-muted)]">
-              Agents critique each other. Weak arguments get challenged. Consensus is earned.
-            </p>
-          </div>
-          <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-            <div className="text-sm font-mono text-[var(--acid-green)] mb-2">$ Auditable</div>
-            <p className="text-xs font-mono text-[var(--text-muted)]">
-              Every decision gets a cryptographic receipt. Full provenance trail. Audit-ready.
-            </p>
-          </div>
-        </div>
+        {error && (
+          <section className="border border-amber-400/40 bg-amber-400/10 p-5 space-y-3">
+            <StatusBadge label="Live proof unavailable" tone="fallback" />
+            <p className="text-sm font-mono text-amber-200 leading-relaxed">{error}</p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => void runLiveDemo()}
+                disabled={isLoading}
+                className="px-4 py-2 text-xs font-mono bg-amber-300 text-[var(--bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                RETRY LIVE RUN
+              </button>
+              <Link
+                href="/try"
+                className="px-4 py-2 text-xs font-mono border border-amber-300/50 text-amber-200 hover:bg-amber-300/10 transition-colors"
+              >
+                OPEN /TRY INSTEAD
+              </Link>
+            </div>
+          </section>
+        )}
 
-        {/* Sign-up CTA */}
-        <div className="border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/5 p-8 text-center mb-8">
-          <h2 className="text-lg font-mono text-[var(--acid-green)] mb-2">
-            Run debates on your own decisions
-          </h2>
-          <p className="text-sm font-mono text-[var(--text-muted)] mb-6 max-w-md mx-auto">
-            Free tier includes 10 debates/month. No credit card required. First verdict in under 5 minutes.
-          </p>
-          <div className="flex flex-wrap gap-3 justify-center">
-            <Link
-              href="/signup"
-              className="px-6 py-3 text-sm font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
-            >
-              GET STARTED FREE
-            </Link>
-            <Link
-              href="/landing"
-              className="px-6 py-3 text-sm font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
-            >
-              LEARN MORE
-            </Link>
-          </div>
-        </div>
+        {result && !isLoading && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                {resultTone === 'live' ? 'Fresh response' : 'Fallback response'}
+              </div>
+              {resultTone === 'live' ? (
+                <span className="text-xs font-mono text-[var(--acid-green)]">
+                  Backend returned a live debate
+                </span>
+              ) : (
+                <span className="text-xs font-mono text-amber-300">
+                  Backend did not return a fresh live debate
+                </span>
+              )}
+            </div>
+            <LiveResultCard result={result} runStartedAt={runStartedAt} />
+          </section>
+        )}
 
-        {/* Footer */}
-        <footer className="text-center text-xs font-mono py-4 border-t border-[var(--acid-green)]/20">
-          <p className="text-[var(--text-muted)]">
-            {'>'} ARAGORA // DECISION INTEGRITY PLATFORM // NOT ANOTHER CHATGPT WRAPPER
-          </p>
-        </footer>
+        {showRecordedSample && (
+          <section className="space-y-3">
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-blue-300">
+              Clearly labeled canned example
+            </div>
+            <RecordedSampleCard sample={RECORDED_SAMPLE} />
+          </section>
+        )}
       </div>
     </main>
   );
