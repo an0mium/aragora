@@ -286,6 +286,13 @@ class TestIntegratorView:
                             "owner_session_id": "sess-1",
                             "branch": "codex/integrator-lane",
                             "worktree_path": "/tmp/repo/.worktrees/integrator",
+                            "base_sha": "abc123base",
+                            "head_sha": "def456head",
+                            "commit_shas": ["def456head"],
+                            "changed_paths": [
+                                "aragora/swarm/reporter.py",
+                                "tests/swarm/test_reporter.py",
+                            ],
                             "confidence": 0.94,
                             "outcome": "deliverable_created",
                             "tests_run": ["python -m pytest tests/swarm/test_reporter.py -q"],
@@ -293,7 +300,9 @@ class TestIntegratorView:
                                 "python -m pytest tests/swarm/test_reporter.py -q",
                                 "ruff check aragora/swarm/reporter.py",
                             ],
+                            "risks": ["Need integrator review before merge"],
                             "created_at": (now - timedelta(minutes=5)).isoformat(),
+                            "artifact_hash": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                             "metadata": {
                                 "task_key": "run-1:wo-1",
                                 "reviewer_agent": "claude",
@@ -331,9 +340,95 @@ class TestIntegratorView:
         assert lane["task_key"] == "run-1:wo-1"
         assert lane["merge_readiness"] == "review"
         assert lane["lane_health"] == "healthy"
+        assert lane["receipt_summary"]["status"] == "present"
+        assert lane["receipt_summary"]["task_id"] == "wo-1"
+        assert lane["receipt_summary"]["lease_id"] == "lease-1"
+        assert lane["receipt_summary"]["agent_id"] == "codex"
+        assert lane["receipt_summary"]["base_sha"] == "abc123base"
+        assert lane["receipt_summary"]["head_sha"] == "def456head"
+        assert lane["receipt_summary"]["changed_files"] == [
+            "aragora/swarm/reporter.py",
+            "tests/swarm/test_reporter.py",
+        ]
+        assert lane["receipt_summary"]["risks"] == ["Need integrator review before merge"]
+        assert lane["receipt_summary"]["artifact_hash"]
         assert lane["integration_decision"] == "pending_review"
         assert lane["pr"]["number"] == 1051
         assert lane["available_actions"][:3] == ["merge", "cherry_pick", "request_changes"]
+
+    def test_build_integrator_view_tracks_pending_receipt_provenance_for_active_lane(self):
+        now = datetime(2026, 3, 18, 12, 0, tzinfo=UTC)
+        payload = build_integrator_view(
+            coordination={
+                "integrator": {
+                    "developer_tasks": [
+                        {
+                            "task_key": "run-1:wo-active",
+                            "task_id": "wo-active",
+                            "run_id": "run-1",
+                            "goal": "Keep the active lane visible",
+                            "title": "Keep the active lane visible",
+                            "status": "active",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-active",
+                            "branch": "codex/active-lane",
+                            "worktree_path": "/tmp/repo/.worktrees/active",
+                            "lease_id": "lease-active",
+                            "updated_at": (now - timedelta(minutes=2)).isoformat(),
+                        }
+                    ],
+                    "leases": [
+                        {
+                            "lease_id": "lease-active",
+                            "task_id": "wo-active",
+                            "owner_agent": "codex",
+                            "owner_session_id": "sess-active",
+                            "branch": "codex/active-lane",
+                            "worktree_path": "/tmp/repo/.worktrees/active",
+                            "status": "active",
+                            "updated_at": (now - timedelta(minutes=2)).isoformat(),
+                            "expires_at": (now + timedelta(hours=1)).isoformat(),
+                            "metadata": {"base_sha": "base-active"},
+                        }
+                    ],
+                    "completion_receipts": [],
+                    "integration_decisions": [],
+                    "salvage_candidates": [],
+                }
+            },
+            merge_queue=[
+                {
+                    "id": "mq-active",
+                    "branch": "codex/active-lane",
+                    "session_id": "sess-active",
+                    "status": "queued",
+                    "metadata": {
+                        "lease_id": "lease-active",
+                        "task_id": "wo-active",
+                        "base_sha": "base-active",
+                        "head_sha": "head-active",
+                        "changed_paths": [
+                            "aragora/cli/commands/worktree.py",
+                            "tests/cli/test_worktree_command.py",
+                        ],
+                    },
+                }
+            ],
+            now=now,
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["merge_readiness"] == "in_progress"
+        assert lane["receipt_summary"]["status"] == "pending"
+        assert lane["receipt_summary"]["task_id"] == "wo-active"
+        assert lane["receipt_summary"]["lease_id"] == "lease-active"
+        assert lane["receipt_summary"]["agent_id"] == "codex"
+        assert lane["receipt_summary"]["base_sha"] == "base-active"
+        assert lane["receipt_summary"]["head_sha"] == "head-active"
+        assert lane["receipt_summary"]["changed_files"] == [
+            "aragora/cli/commands/worktree.py",
+            "tests/cli/test_worktree_command.py",
+        ]
 
     def test_build_integrator_view_marks_expired_and_superseded_lanes(self):
         now = datetime(2026, 3, 18, 12, 0, tzinfo=UTC)
@@ -516,6 +611,7 @@ class TestIntegratorView:
         assert lane["lane_health"] == "stalled"
         assert lane["lease_health"] == "stalled"
         assert lane["missing_receipt"] is True
+        assert lane["receipt_summary"]["status"] == "missing"
         assert lane["stale_heartbeat"] is True
         assert lane["collisions"] == [
             "branch:codex/collision",

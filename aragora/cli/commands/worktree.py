@@ -429,6 +429,79 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         print(f"Deleted {deleted} merged branch(es), removed {removed} worktree(s).")
 
 
+def _short_sha(value: object) -> str:
+    text = str(value or "").strip()
+    return text[:12] if text else ""
+
+
+def _render_lane_receipt_evidence(lane: dict[str, object], *, indent: str = "    ") -> None:
+    receipt_summary = (
+        lane.get("receipt_summary", {}) if isinstance(lane.get("receipt_summary"), dict) else {}
+    )
+    if not receipt_summary and not lane.get("missing_receipt"):
+        return
+
+    receipt_status = str(receipt_summary.get("status", "") or "").strip()
+    receipt_label = str(lane.get("receipt_id") or receipt_summary.get("receipt_id") or "").strip()
+    if not receipt_label:
+        receipt_label = "missing" if lane.get("missing_receipt") else receipt_status or "pending"
+
+    receipt_parts = [f"receipt={receipt_label}"]
+    outcome = str(receipt_summary.get("outcome", "") or "").strip()
+    if outcome:
+        receipt_parts.append(f"outcome={outcome}")
+    confidence = receipt_summary.get("confidence")
+    if isinstance(confidence, (int, float)):
+        receipt_parts.append(f"confidence={confidence:.2f}")
+    artifact_hash = _short_sha(receipt_summary.get("artifact_hash"))
+    if artifact_hash:
+        receipt_parts.append(f"artifact={artifact_hash}")
+    validations = receipt_summary.get("validations_run")
+    if isinstance(validations, list) and validations:
+        receipt_parts.append(f"validations={len(validations)}")
+    tests = receipt_summary.get("tests_run")
+    if isinstance(tests, list) and tests:
+        receipt_parts.append(f"tests={len(tests)}")
+    risks = receipt_summary.get("risks")
+    if isinstance(risks, list) and risks:
+        receipt_parts.append(f"risks={len(risks)}")
+    print(indent + " ".join(receipt_parts))
+
+    provenance_parts: list[str] = []
+    for field, label in (
+        ("task_id", "task_id"),
+        ("lease_id", "lease_id"),
+        ("agent_id", "agent"),
+        ("session_id", "session"),
+    ):
+        value = str(receipt_summary.get(field, "") or "").strip()
+        if value:
+            provenance_parts.append(f"{label}={value}")
+    base_sha = _short_sha(receipt_summary.get("base_sha"))
+    if base_sha:
+        provenance_parts.append(f"base={base_sha}")
+    head_sha = _short_sha(receipt_summary.get("head_sha"))
+    if head_sha:
+        provenance_parts.append(f"head={head_sha}")
+    commit_shas = receipt_summary.get("commit_shas")
+    if isinstance(commit_shas, list) and commit_shas:
+        provenance_parts.append(f"commits={len(commit_shas)}")
+    changed_files = receipt_summary.get("changed_files")
+    if isinstance(changed_files, list) and changed_files:
+        provenance_parts.append(f"changed_files={len(changed_files)}")
+    if provenance_parts:
+        print(f"{indent}provenance: {' '.join(provenance_parts)}")
+
+    if isinstance(validations, list) and validations:
+        print(f"{indent}validations_run: {', '.join(str(item) for item in validations[:3])}")
+    if isinstance(tests, list) and tests and tests != validations:
+        print(f"{indent}tests_run: {', '.join(str(item) for item in tests[:3])}")
+    if isinstance(changed_files, list) and changed_files:
+        print(f"{indent}changed_files: {', '.join(str(item) for item in changed_files[:4])}")
+    if isinstance(risks, list) and risks:
+        print(f"{indent}risks: {', '.join(str(item) for item in risks[:3])}")
+
+
 def _render_integrator_lane_section(view: dict[str, object]) -> None:
     summary = view.get("summary", {}) if isinstance(view.get("summary"), dict) else {}
     lanes = [item for item in view.get("lanes", []) if isinstance(item, dict)]
@@ -513,28 +586,7 @@ def _render_integrator_lane_section(view: dict[str, object]) -> None:
         if lease_parts:
             print("    " + " ".join(lease_parts))
 
-        if lane.get("missing_receipt"):
-            print("    receipt=missing")
-        elif lane.get("receipt_id"):
-            receipt_summary = (
-                lane.get("receipt_summary", {})
-                if isinstance(lane.get("receipt_summary"), dict)
-                else {}
-            )
-            receipt_parts = [f"receipt={lane['receipt_id']}"]
-            outcome = str(receipt_summary.get("outcome", "") or "").strip()
-            if outcome:
-                receipt_parts.append(f"outcome={outcome}")
-            confidence = receipt_summary.get("confidence")
-            if isinstance(confidence, (int, float)):
-                receipt_parts.append(f"confidence={confidence:.2f}")
-            validations = receipt_summary.get("validations_run")
-            if isinstance(validations, list) and validations:
-                receipt_parts.append(f"validations={len(validations)}")
-            tests = receipt_summary.get("tests_run")
-            if isinstance(tests, list) and tests:
-                receipt_parts.append(f"tests={len(tests)}")
-            print("    " + " ".join(receipt_parts))
+        _render_lane_receipt_evidence(lane)
 
         queue_parts: list[str] = []
         if lane.get("merge_queue_status"):

@@ -309,6 +309,8 @@ class TestWorktreeFleetStatus:
         assert "Integrator lanes (1)" in out
         assert "[~] codex/test-session" in out
         assert "lane_id=codex/test-session source=fleet canonical=no readiness=in_progress" in out
+        assert "receipt=pending" in out
+        assert "provenance: agent=codex session=session-a" in out
         assert "dirty_files: 2 ahead/behind(main): +1/-0" in out
         assert "orchestrator: crewai" in out
         assert "lease_health: healthy merge_readiness: in_progress" in out
@@ -509,12 +511,26 @@ class TestWorktreeFleetStatus:
                     "canonical_lane": True,
                     "receipt_id": "rcpt-1",
                     "receipt_summary": {
+                        "status": "present",
+                        "task_id": "docs-lane",
+                        "lease_id": "lease-1",
+                        "agent_id": "codex",
+                        "session_id": "session-a",
                         "outcome": "deliverable_created",
                         "confidence": 0.91,
+                        "artifact_hash": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                        "base_sha": "abc123base",
+                        "head_sha": "def456head",
+                        "commit_shas": ["def456head"],
+                        "changed_files": [
+                            "aragora/cli/commands/worktree.py",
+                            "tests/cli/test_worktree_command.py",
+                        ],
                         "validations_run": [
                             "python -m pytest tests/cli/test_worktree_command.py -q"
                         ],
                         "tests_run": ["python -m pytest tests/cli/test_worktree_command.py -q"],
+                        "risks": ["Manual merge review still required"],
                     },
                     "merge_queue_status": "needs_human",
                     "integration_decision": "pending_review",
@@ -543,9 +559,19 @@ class TestWorktreeFleetStatus:
         assert "*[?] Docs lane" in out
         assert "lane_id=run-1:docs-lane source=task canonical=yes readiness=review" in out
         assert (
-            "receipt=rcpt-1 outcome=deliverable_created confidence=0.91 validations=1 tests=1"
+            "receipt=rcpt-1 outcome=deliverable_created confidence=0.91 artifact=1234567890ab validations=1 tests=1 risks=1"
             in out
         )
+        assert (
+            "provenance: task_id=docs-lane lease_id=lease-1 agent=codex session=session-a base=abc123base head=def456head commits=1 changed_files=2"
+            in out
+        )
+        assert "validations_run: python -m pytest tests/cli/test_worktree_command.py -q" in out
+        assert (
+            "changed_files: aragora/cli/commands/worktree.py, tests/cli/test_worktree_command.py"
+            in out
+        )
+        assert "risks: Manual merge review still required" in out
         assert "queue=needs_human decision=pending_review" in out
         assert "pr=#1051 https://github.com/synaptent/aragora/pull/1051" in out
         assert "task: run-1:docs-lane canonical: yes" in out

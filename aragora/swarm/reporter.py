@@ -58,6 +58,20 @@ def _first_text(*values: Any) -> str:
     return ""
 
 
+def _text_list(value: Any) -> list[str]:
+    if not isinstance(value, (list, tuple, set)):
+        return []
+    return list(dict.fromkeys(_text(item) for item in value if _text(item)))
+
+
+def _first_list(*values: Any) -> list[str]:
+    for value in values:
+        items = _text_list(value)
+        if items:
+            return items
+    return []
+
+
 def _extract_receipt_id(*sources: dict[str, Any] | None) -> str:
     for source in sources:
         if not isinstance(source, dict):
@@ -614,6 +628,7 @@ def build_integrator_view(
         worktree_row = worktree_row or {}
         queue_item = queue_item or {}
         run = run or {}
+        task_meta = _metadata(task)
         work_order_meta = _metadata(work_order)
         lease_meta = _metadata(lease)
         receipt_meta = _metadata(receipt)
@@ -761,18 +776,120 @@ def build_integrator_view(
         )
 
         superseded = _is_superseded(task, work_order, queue_item) or status == "discarded"
+        receipt_expected = (
+            _receipt_expected(status, queue_status)
+            or bool(decision_type)
+            or status in {"completed", "changes_requested", "integrating", "merged", "salvage"}
+        )
         missing_receipt = _explicit_missing_receipt(work_order, queue_item) or (
-            (
-                _receipt_expected(status, queue_status)
-                or bool(decision_type)
-                or status in {"completed", "changes_requested", "integrating", "merged", "salvage"}
-            )
-            and not receipt_id
+            receipt_expected and not receipt_id
         )
         if status in {"queued", "leased", "dispatched"} and queue_status in {"", "queued"}:
             missing_receipt = (
                 False if not _explicit_missing_receipt(work_order, queue_item) else True
             )
+
+        base_sha = _first_text(
+            receipt.get("base_sha"),
+            queue_meta.get("base_sha"),
+            task.get("base_sha"),
+            task_meta.get("base_sha"),
+            work_order.get("base_sha"),
+            work_order_meta.get("base_sha"),
+            lease_meta.get("base_sha"),
+        )
+        head_sha = _first_text(
+            receipt.get("head_sha"),
+            queue_meta.get("head_sha"),
+            task.get("head_sha"),
+            task_meta.get("head_sha"),
+            work_order.get("head_sha"),
+            work_order_meta.get("head_sha"),
+            salvage.get("head_sha"),
+        )
+        commit_shas = _first_list(
+            receipt.get("commit_shas"),
+            decision.get("chosen_commits"),
+            queue_meta.get("commit_shas"),
+            queue_meta.get("chosen_commits"),
+            task.get("commit_shas"),
+            task_meta.get("commit_shas"),
+            work_order.get("commit_shas"),
+            work_order_meta.get("commit_shas"),
+        )
+        changed_files = _first_list(
+            receipt.get("changed_paths"),
+            queue_meta.get("changed_paths"),
+            queue_meta.get("changed_files"),
+            task.get("changed_paths"),
+            task.get("changed_files"),
+            task_meta.get("changed_paths"),
+            task_meta.get("changed_files"),
+            work_order.get("changed_paths"),
+            work_order.get("changed_files"),
+            work_order_meta.get("changed_paths"),
+            work_order_meta.get("changed_files"),
+            salvage.get("changed_paths"),
+        )
+        tests_run = _first_list(
+            receipt.get("tests_run"),
+            queue_meta.get("tests_run"),
+        )
+        validations_run = _first_list(
+            receipt.get("validations_run"),
+            queue_meta.get("validations_run"),
+            tests_run,
+        )
+        assumptions = _first_list(
+            receipt.get("assumptions"),
+            queue_meta.get("assumptions"),
+        )
+        receipt_blockers = _first_list(
+            receipt.get("blockers"),
+            queue_meta.get("blockers"),
+        )
+        risks = _first_list(
+            receipt.get("risks"),
+            queue_meta.get("risks"),
+        )
+        artifact_hash = _first_text(
+            receipt.get("artifact_hash"),
+            queue_meta.get("artifact_hash"),
+        )
+        receipt_created_at = _first_text(receipt.get("created_at"))
+        receipt_outcome = _first_text(
+            receipt.get("outcome"),
+            queue_meta.get("outcome"),
+        )
+        confidence_value: float | None = None
+        for candidate in (receipt.get("confidence"), queue_meta.get("confidence")):
+            if isinstance(candidate, (int, float)):
+                confidence_value = float(candidate)
+                break
+        receipt_status = (
+            "present"
+            if receipt_id
+            else "missing"
+            if missing_receipt
+            else "pending"
+            if (
+                lane_in_flight
+                or receipt_expected
+                or any(
+                    (
+                        base_sha,
+                        head_sha,
+                        commit_shas,
+                        changed_files,
+                        validations_run,
+                        tests_run,
+                        risks,
+                        artifact_hash,
+                    )
+                )
+            )
+            else ""
+        )
 
         lease_id = _first_text(
             task.get("lease_id"),
@@ -786,7 +903,7 @@ def build_integrator_view(
             else scope_violation_by_session_branch.get((session_id, branch))
         )
         if not isinstance(scope_violation_record, dict):
-            fallback_violation = _metadata(task).get("last_scope_violation")
+            fallback_violation = task_meta.get("last_scope_violation")
             if isinstance(fallback_violation, dict):
                 scope_violation_record = fallback_violation
         scope_violation = isinstance(scope_violation_record, dict)
@@ -855,6 +972,34 @@ def build_integrator_view(
             "lane",
         )
         pr = _extract_pr_link(receipt, work_order, queue_item)
+        receipt_summary = (
+            {
+                "status": receipt_status,
+                "receipt_id": receipt_id or None,
+                "task_id": task_id or None,
+                "lease_id": lease_id or None,
+                "agent_id": owner_agent or None,
+                "session_id": session_id or None,
+                "branch": branch or None,
+                "worktree_path": worktree_path or None,
+                "confidence": confidence_value,
+                "outcome": receipt_outcome or None,
+                "created_at": receipt_created_at or None,
+                "artifact_hash": artifact_hash or None,
+                "base_sha": base_sha or None,
+                "head_sha": head_sha or None,
+                "commit_shas": commit_shas,
+                "changed_files": changed_files,
+                "tests_run": tests_run,
+                "validations_run": validations_run,
+                "assumptions": assumptions,
+                "blockers": receipt_blockers,
+                "risks": risks,
+                "pr": pr,
+            }
+            if receipt_status
+            else None
+        )
         blockers = sorted(
             {
                 *[_text(item) for item in task.get("blocked_by", []) if _text(item)],
@@ -923,17 +1068,7 @@ def build_integrator_view(
             "queue_item_id": _text(queue_item.get("id")) or None,
             "merge_queue_status": queue_status or None,
             "receipt_id": receipt_id or None,
-            "receipt_summary": {
-                "confidence": receipt.get("confidence"),
-                "outcome": _text(receipt.get("outcome")) or None,
-                "created_at": _text(receipt.get("created_at")) or None,
-                "tests_run": [_text(item) for item in receipt.get("tests_run", []) if _text(item)],
-                "validations_run": [
-                    _text(item) for item in receipt.get("validations_run", []) if _text(item)
-                ],
-            }
-            if receipt_id
-            else None,
+            "receipt_summary": receipt_summary,
             "integration_decision": decision_type or None,
             "integration_decision_id": _text(decision.get("decision_id")) or None,
             "decision_context": {
