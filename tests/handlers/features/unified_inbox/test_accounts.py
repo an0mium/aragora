@@ -10,7 +10,7 @@ Covers all functions in aragora/server/handlers/features/unified_inbox/accounts.
 Tests include:
 - Happy paths for all functions
 - Parameter validation (missing redirect_uri, missing auth_code, etc.)
-- ImportError fallback paths (connector not available / mock mode)
+- ImportError failure paths when the real connector is unavailable
 - Connector misconfiguration (not configured)
 - Authentication failures
 - Missing refresh tokens
@@ -542,8 +542,8 @@ class TestConnectGmail:
             assert "refresh token" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_import_error_falls_back_to_mock_mode(self, mock_schedule_persist):
-        """When GmailSyncService import fails, should use mock mode."""
+    async def test_import_error_returns_failure(self, mock_schedule_persist):
+        """When GmailSyncService import fails, account connection should fail."""
         account = _make_account(account_id="abcd1234-rest-of-id", provider=EmailProvider.GMAIL)
 
         # Patch builtins to fail on gmail imports
@@ -572,10 +572,9 @@ class TestConnectGmail:
                 schedule_message_persist=mock_schedule_persist,
             )
 
-            assert result["success"] is True
-            assert account.status == AccountStatus.CONNECTED
-            assert account.display_name == "Gmail User"
-            assert "gmail.com" in account.email_address
+            assert result["success"] is False
+            assert account.status == AccountStatus.ERROR
+            assert "integration unavailable" in result["error"].lower()
 
     @pytest.mark.asyncio
     async def test_connection_error_returns_failure(self, mock_schedule_persist):
@@ -1022,8 +1021,8 @@ class TestConnectOutlook:
             assert "refresh token" in result["error"].lower()
 
     @pytest.mark.asyncio
-    async def test_import_error_falls_back_to_mock_mode(self, mock_schedule_persist):
-        """When OutlookSyncService import fails, should use mock mode."""
+    async def test_import_error_returns_failure(self, mock_schedule_persist):
+        """When OutlookSyncService import fails, account connection should fail."""
         account = _make_account(account_id="abcd1234-rest-of-id", provider=EmailProvider.OUTLOOK)
 
         original_import = (
@@ -1051,10 +1050,9 @@ class TestConnectOutlook:
                 schedule_message_persist=mock_schedule_persist,
             )
 
-            assert result["success"] is True
-            assert account.status == AccountStatus.CONNECTED
-            assert account.display_name == "Outlook User"
-            assert "outlook.com" in account.email_address
+            assert result["success"] is False
+            assert account.status == AccountStatus.ERROR
+            assert "integration unavailable" in result["error"].lower()
 
     @pytest.mark.asyncio
     async def test_connection_error_returns_failure(self, mock_schedule_persist):
@@ -1717,8 +1715,10 @@ class TestEdgeCases:
         assert result["status_code"] == 400
 
     @pytest.mark.asyncio
-    async def test_connect_gmail_mock_mode_email_format(self, mock_schedule_persist):
-        """In mock mode, email is derived from first 8 chars of account id."""
+    async def test_connect_gmail_does_not_fabricate_email_on_import_error(
+        self, mock_schedule_persist
+    ):
+        """Import errors should not fabricate a connected Gmail account."""
         account = _make_account(account_id="12345678abcdef", provider=EmailProvider.GMAIL)
 
         original_import = (
@@ -1746,13 +1746,15 @@ class TestEdgeCases:
                 schedule_message_persist=mock_schedule_persist,
             )
 
-            assert result["success"] is True
-            # First 8 chars of "12345678abcdef" = "12345678"
-            assert account.email_address == "user_12345678@gmail.com"
+            assert result["success"] is False
+            assert account.email_address == ""
+            assert account.status == AccountStatus.ERROR
 
     @pytest.mark.asyncio
-    async def test_connect_outlook_mock_mode_email_format(self, mock_schedule_persist):
-        """In mock mode, email is derived from first 8 chars of account id."""
+    async def test_connect_outlook_does_not_fabricate_email_on_import_error(
+        self, mock_schedule_persist
+    ):
+        """Import errors should not fabricate a connected Outlook account."""
         account = _make_account(account_id="abcdef1234567890", provider=EmailProvider.OUTLOOK)
 
         original_import = (
@@ -1780,8 +1782,9 @@ class TestEdgeCases:
                 schedule_message_persist=mock_schedule_persist,
             )
 
-            assert result["success"] is True
-            assert account.email_address == "user_abcdef12@outlook.com"
+            assert result["success"] is False
+            assert account.email_address == ""
+            assert account.status == AccountStatus.ERROR
 
     @pytest.mark.asyncio
     async def test_gmail_profile_extracts_display_name_from_email(self, mock_schedule_persist):

@@ -109,6 +109,25 @@ function PriorityIndicator({ priority }: { priority?: string }) {
 
 type ActiveView = 'inboxes' | 'messages' | 'rules';
 
+interface ReceiptPayload {
+  receipt_id: string;
+  state: string;
+  review_choice?: string | null;
+}
+
+interface SharedInboxDebateResult {
+  debate_id?: string;
+  final_answer?: string;
+  consensus_reached?: boolean;
+  confidence?: number;
+  receipt_created?: boolean;
+  receipt_error?: string | null;
+  receipt?: ReceiptPayload | null;
+  executed?: boolean;
+  execution_result?: Record<string, unknown> | null;
+  execution_error?: string | null;
+}
+
 export default function SharedInboxPage() {
   const { config: backendConfig } = useBackend();
   const { tokens, organization, user } = useAuth();
@@ -129,13 +148,9 @@ export default function SharedInboxPage() {
   const [newInboxEmail, setNewInboxEmail] = useState('');
 
   // Auto-debate states
-  const [debateResults, setDebateResults] = useState<Record<string, {
-    debate_id: string;
-    final_answer: string;
-    consensus_reached: boolean;
-    confidence: number;
-  }>>({});
+  const [debateResults, setDebateResults] = useState<Record<string, SharedInboxDebateResult>>({});
   const [debatingMessageId, setDebatingMessageId] = useState<string | null>(null);
+  const [receiptActionMessageId, setReceiptActionMessageId] = useState<string | null>(null);
 
   // Get workspace ID from auth context (organization or user's org_id)
   const workspaceId = organization?.id || user?.org_id || 'default';
@@ -311,17 +326,146 @@ export default function SharedInboxPage() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${tokens?.access_token || ''}`,
           },
+          body: JSON.stringify({
+            create_receipt: true,
+            allowed_actions: ['archive', 'star'],
+            auto_approve: false,
+            auto_execute: false,
+          }),
         }
       );
       if (response.ok) {
         const json = await response.json();
-        const result = json.data || json;
+        const result = (json.data || json) as SharedInboxDebateResult;
         setDebateResults((prev) => ({ ...prev, [messageId]: result }));
+      } else {
+        const json = await response.json().catch(() => ({}));
+        setDebateResults((prev) => ({
+          ...prev,
+          [messageId]: {
+            receipt_created: false,
+            receipt_error: json.error || 'Failed to stage receipt-backed review.',
+          },
+        }));
       }
     } catch {
-      // Handle error
+      setDebateResults((prev) => ({
+        ...prev,
+        [messageId]: {
+          receipt_created: false,
+          receipt_error: 'Failed to stage receipt-backed review.',
+        },
+      }));
     } finally {
       setDebatingMessageId(null);
+    }
+  };
+
+  const handleReceiptReview = async (
+    messageId: string,
+    choice: 'approve' | 'reject',
+    execute = false
+  ) => {
+    const receiptId = debateResults[messageId]?.receipt?.receipt_id;
+    if (!receiptId) return;
+
+    setReceiptActionMessageId(messageId);
+    try {
+      const response = await fetch(
+        `${backendConfig.api}/api/v1/inbox/wedge/receipts/${receiptId}/review`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${tokens?.access_token || ''}`,
+          },
+          body: JSON.stringify({ choice, execute }),
+        }
+      );
+
+      const json = await response.json().catch(() => ({}));
+      if (response.ok) {
+        setDebateResults((prev) => ({
+          ...prev,
+          [messageId]: {
+            ...prev[messageId],
+            receipt: json.receipt || prev[messageId]?.receipt,
+            executed: Boolean(json.executed),
+            execution_result: json.execution_result || null,
+            execution_error: null,
+          },
+        }));
+      } else {
+        setDebateResults((prev) => ({
+          ...prev,
+          [messageId]: {
+            ...prev[messageId],
+            execution_error: json.error || 'Receipt review failed.',
+          },
+        }));
+      }
+    } catch {
+      setDebateResults((prev) => ({
+        ...prev,
+        [messageId]: {
+          ...prev[messageId],
+          execution_error: 'Receipt review failed.',
+        },
+      }));
+    } finally {
+      setReceiptActionMessageId(null);
+    }
+  };
+
+  const handleReceiptExecute = async (messageId: string) => {
+    const receiptId = debateResults[messageId]?.receipt?.receipt_id;
+    if (!receiptId) return;
+
+    setReceiptActionMessageId(messageId);
+    try {
+      const response = await fetch(
+        `${backendConfig.api}/api/v1/inbox/wedge/receipts/${receiptId}/execute`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${tokens?.access_token || ''}`,
+          },
+          body: JSON.stringify({}),
+        }
+      );
+
+      const json = await response.json().catch(() => ({}));
+      if (response.ok) {
+        setDebateResults((prev) => ({
+          ...prev,
+          [messageId]: {
+            ...prev[messageId],
+            receipt: json.receipt || prev[messageId]?.receipt,
+            executed: true,
+            execution_result: json.execution_result || null,
+            execution_error: null,
+          },
+        }));
+      } else {
+        setDebateResults((prev) => ({
+          ...prev,
+          [messageId]: {
+            ...prev[messageId],
+            execution_error: json.error || 'Receipt execution failed.',
+          },
+        }));
+      }
+    } catch {
+      setDebateResults((prev) => ({
+        ...prev,
+        [messageId]: {
+          ...prev[messageId],
+          execution_error: 'Receipt execution failed.',
+        },
+      }));
+    } finally {
+      setReceiptActionMessageId(null);
     }
   };
 
@@ -570,13 +714,13 @@ export default function SharedInboxPage() {
                         <button className="px-2 py-1 text-xs font-mono bg-surface hover:bg-accent/10 rounded transition-colors">
                           Reply
                         </button>
-                        {(message.priority === 'critical' || message.priority === 'high') && !debateResults[message.id] && (
+                        {(message.priority === 'critical' || message.priority === 'high') && !debateResults[message.id]?.receipt && (
                           <button
                             onClick={() => handleStartDebate(message.id)}
                             disabled={debatingMessageId === message.id}
                             className="px-2 py-1 text-xs font-mono bg-acid-purple/10 text-acid-purple hover:bg-acid-purple/20 rounded transition-colors disabled:opacity-50"
                           >
-                            {debatingMessageId === message.id ? 'Debating...' : 'Start Debate'}
+                            {debatingMessageId === message.id ? 'Staging...' : 'Stage Review'}
                           </button>
                         )}
                       </div>
@@ -585,17 +729,73 @@ export default function SharedInboxPage() {
                       {debateResults[message.id] && (
                         <div className="mt-2 p-2 bg-acid-purple/5 border border-acid-purple/20 rounded text-xs font-mono">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-acid-purple font-medium">DEBATE RESULT</span>
+                            <span className="text-acid-purple font-medium">TRUST WEDGE</span>
                             {debateResults[message.id].consensus_reached && (
                               <span className="px-1.5 py-0.5 bg-acid-green/20 text-acid-green rounded">
                                 CONSENSUS
                               </span>
                             )}
-                            <span className="text-muted">
-                              confidence: {(debateResults[message.id].confidence * 100).toFixed(0)}%
-                            </span>
+                            {typeof debateResults[message.id].confidence === 'number' && (
+                              <span className="text-muted">
+                                confidence: {(debateResults[message.id].confidence! * 100).toFixed(0)}%
+                              </span>
+                            )}
+                            {debateResults[message.id].receipt?.state && (
+                              <span className="px-1.5 py-0.5 bg-surface text-accent rounded">
+                                {debateResults[message.id].receipt?.state.toUpperCase()}
+                              </span>
+                            )}
                           </div>
-                          <p className="text-muted">{debateResults[message.id].final_answer}</p>
+                          {debateResults[message.id].final_answer && (
+                            <p className="text-muted">{debateResults[message.id].final_answer}</p>
+                          )}
+                          {debateResults[message.id].receipt_error && (
+                            <p className="text-acid-red mt-1">{debateResults[message.id].receipt_error}</p>
+                          )}
+                          {debateResults[message.id].execution_error && (
+                            <p className="text-acid-red mt-1">{debateResults[message.id].execution_error}</p>
+                          )}
+                          {debateResults[message.id].receipt?.receipt_id && (
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              {debateResults[message.id].receipt?.state === 'created' && (
+                                <>
+                                  <button
+                                    onClick={() => handleReceiptReview(message.id, 'approve', false)}
+                                    disabled={receiptActionMessageId === message.id}
+                                    className="px-2 py-1 text-xs font-mono bg-acid-green/10 text-acid-green hover:bg-acid-green/20 rounded transition-colors disabled:opacity-50"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => handleReceiptReview(message.id, 'approve', true)}
+                                    disabled={receiptActionMessageId === message.id}
+                                    className="px-2 py-1 text-xs font-mono bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors disabled:opacity-50"
+                                  >
+                                    Approve + Execute
+                                  </button>
+                                  <button
+                                    onClick={() => handleReceiptReview(message.id, 'reject', false)}
+                                    disabled={receiptActionMessageId === message.id}
+                                    className="px-2 py-1 text-xs font-mono bg-acid-red/10 text-acid-red hover:bg-acid-red/20 rounded transition-colors disabled:opacity-50"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                              {debateResults[message.id].receipt?.state === 'approved' && !debateResults[message.id].executed && (
+                                <button
+                                  onClick={() => handleReceiptExecute(message.id)}
+                                  disabled={receiptActionMessageId === message.id}
+                                  className="px-2 py-1 text-xs font-mono bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors disabled:opacity-50"
+                                >
+                                  Execute
+                                </button>
+                              )}
+                              {debateResults[message.id].executed && (
+                                <span className="text-acid-green">Action executed with receipt.</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

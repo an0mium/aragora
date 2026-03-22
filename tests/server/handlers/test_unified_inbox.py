@@ -3,6 +3,7 @@ Tests for Unified Inbox API Handler.
 """
 
 import pytest
+from types import SimpleNamespace
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -475,6 +476,120 @@ class TestUnifiedInboxHandler:
 
             # Should return 503 error when not configured
             assert result.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_auto_debate_can_stage_receipt_for_shared_inbox_message(self):
+        """Shared inbox messages should resolve onto the trust wedge model."""
+        from aragora.server.handlers.shared_inbox.models import (
+            MessageStatus,
+            SharedInbox,
+            SharedInboxMessage,
+        )
+        from aragora.server.handlers.shared_inbox.storage import (
+            _inbox_messages,
+            _shared_inboxes,
+            _storage_lock,
+        )
+
+        handler = UnifiedInboxHandler()
+        handler._store.get_message = AsyncMock(return_value=None)
+        handler._store.list_accounts = AsyncMock(
+            return_value=[
+                {
+                    "id": "acc_support",
+                    "provider": "gmail",
+                    "email_address": "support@example.com",
+                    "display_name": "support",
+                    "status": "connected",
+                    "connected_at": datetime.now(timezone.utc),
+                }
+            ]
+        )
+
+        now = datetime.now(timezone.utc)
+        inbox = SharedInbox(
+            id="inbox_support",
+            workspace_id="ws_test",
+            name="Support",
+            email_address="support@example.com",
+            connector_type="gmail",
+            created_at=now,
+            updated_at=now,
+        )
+        message = SharedInboxMessage(
+            id="msg_shared_1",
+            inbox_id=inbox.id,
+            email_id="gmail-provider-id",
+            subject="Need help",
+            from_address="customer@example.com",
+            to_addresses=["support@example.com"],
+            snippet="Customer needs help",
+            received_at=now,
+            status=MessageStatus.OPEN,
+            priority="high",
+        )
+
+        with _storage_lock:
+            _shared_inboxes.clear()
+            _inbox_messages.clear()
+            _shared_inboxes[inbox.id] = inbox
+            _inbox_messages[inbox.id] = {message.id: message}
+
+        request = MagicMock()
+        request.tenant_id = "tenant_test"
+        request.json = AsyncMock(
+            return_value={"create_receipt": True, "allowed_actions": ["archive"]}
+        )
+
+        fake_envelope = SimpleNamespace(
+            receipt=SimpleNamespace(
+                to_dict=lambda: {"receipt_id": "receipt-1", "state": "created"}
+            ),
+            intent=SimpleNamespace(
+                to_dict=lambda: {"message_id": "gmail-provider-id", "action": "archive"}
+            ),
+            decision=SimpleNamespace(to_dict=lambda: {"final_action": "archive"}),
+            provider_route="direct",
+            debate_id="debate-1",
+        )
+        mock_wedge_service = MagicMock()
+        mock_wedge_service.create_receipt.return_value = fake_envelope
+
+        with (
+            patch(
+                "aragora.server.handlers.features.unified_inbox.auto_debate.auto_spawn_debate_for_message",
+                AsyncMock(
+                    return_value={
+                        "debate_id": "debate-1",
+                        "final_answer": (
+                            '{"recommended_action":"archive","confidence":0.91,'
+                            '"rationale":"Safe","dissent_summary":""}'
+                        ),
+                        "confidence": 0.91,
+                    }
+                ),
+            ),
+            patch("aragora.server.debate_factory.DebateFactory", return_value=MagicMock()),
+            patch(
+                "aragora.inbox.get_inbox_trust_wedge_service",
+                return_value=mock_wedge_service,
+            ),
+        ):
+            result = await handler.handle_request(
+                request,
+                "/api/v1/inbox/messages/msg_shared_1/debate",
+                "POST",
+            )
+
+        with _storage_lock:
+            _shared_inboxes.clear()
+            _inbox_messages.clear()
+
+        assert result.status_code == 200
+        args = mock_wedge_service.create_receipt.call_args.args
+        assert args[0].user_id == "acc_support"
+        assert args[0].message_id == "gmail-provider-id"
+        assert args[0].provider == "gmail"
 
 
 class TestHandleUnifiedInbox:

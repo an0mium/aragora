@@ -2353,10 +2353,28 @@ class TestSharedInboxHandlerRouting:
         assert shared_inbox_handler.can_handle("/api/v1/users") is False
         assert shared_inbox_handler.can_handle("/api/v1/inbox") is False  # Missing /shared
 
-    def test_handle_returns_none(self, shared_inbox_handler):
-        """Base handle method should return None (subclass responsibility)."""
-        result = shared_inbox_handler.handle("/api/v1/inbox/shared", {}, None)
-        assert result is None
+    def test_handle_dispatches_get_shared_inboxes(self, shared_inbox_handler):
+        """GET dispatch should route the shared inbox listing endpoint."""
+        result = shared_inbox_handler.handle(
+            "/api/v1/inbox/shared",
+            {"workspace_id": "ws_test"},
+            None,
+        )
+        assert result is not None
+        assert result.status_code == 200
+
+    def test_handle_post_dispatches_create_shared_inbox(self, shared_inbox_handler):
+        """POST dispatch should route the shared inbox create endpoint."""
+        body = json.dumps({"workspace_id": "ws_test", "name": "Dispatch Inbox"}).encode()
+        request = MagicMock(
+            headers={"Content-Length": str(len(body)), "Content-Type": "application/json"},
+            rfile=io.BytesIO(body),
+        )
+
+        result = shared_inbox_handler.handle_post("/api/v1/inbox/shared", {}, request)
+
+        assert result is not None
+        assert result.status_code == 200
 
 
 class TestSharedInboxHandlerMethods:

@@ -156,7 +156,100 @@ class SharedInboxHandler(BaseHandler):
         return False
 
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
-        """Route shared inbox endpoint requests."""
+        """Route GET shared inbox endpoint requests."""
+        self._bind_auth_context(handler)
+
+        if path == "/api/v1/inbox/shared":
+            return self._run_async(self.handle_get_shared_inboxes(query_params))
+
+        if path == "/api/v1/inbox/routing/rules":
+            return self._run_async(self.handle_get_routing_rules(query_params))
+
+        shared_parts = self._route_parts(path, "/api/v1/inbox/shared/")
+        if shared_parts is not None:
+            if len(shared_parts) == 1:
+                return self._run_async(self.handle_get_shared_inbox(query_params, shared_parts[0]))
+            if len(shared_parts) == 2 and shared_parts[1] == "messages":
+                return self._run_async(
+                    self.handle_get_inbox_messages(query_params, shared_parts[0])
+                )
+            return error_response("Not found", 404)
+
+        rules_parts = self._route_parts(path, "/api/v1/inbox/routing/rules/")
+        if rules_parts is not None:
+            return error_response("Not found", 404)
+
+        return None
+
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Route POST shared inbox endpoint requests."""
+        del query_params
+        self._bind_auth_context(handler)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        if path == "/api/v1/inbox/shared":
+            return self._run_async(self.handle_post_shared_inbox(body))
+
+        if path == "/api/v1/inbox/routing/rules":
+            return self._run_async(self.handle_post_routing_rule(body))
+
+        shared_parts = self._route_parts(path, "/api/v1/inbox/shared/")
+        if shared_parts is not None:
+            if len(shared_parts) == 4 and shared_parts[1] == "messages":
+                inbox_id = shared_parts[0]
+                message_id = shared_parts[2]
+                action = shared_parts[3]
+                if action == "assign":
+                    return self._run_async(
+                        self.handle_post_assign_message(body, inbox_id, message_id)
+                    )
+                if action == "status":
+                    return self._run_async(
+                        self.handle_post_update_status(body, inbox_id, message_id)
+                    )
+                if action == "tag":
+                    return self._run_async(self.handle_post_add_tag(body, inbox_id, message_id))
+            return error_response("Not found", 404)
+
+        rules_parts = self._route_parts(path, "/api/v1/inbox/routing/rules/")
+        if rules_parts is not None:
+            if len(rules_parts) == 2 and rules_parts[1] == "test":
+                return self._run_async(self.handle_post_test_routing_rule(body, rules_parts[0]))
+            return error_response("Not found", 404)
+
+        return None
+
+    def handle_patch(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Route PATCH shared inbox endpoint requests."""
+        del query_params
+        self._bind_auth_context(handler)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        rules_parts = self._route_parts(path, "/api/v1/inbox/routing/rules/")
+        if rules_parts is not None and len(rules_parts) == 1:
+            return self._run_async(self.handle_patch_routing_rule(body, rules_parts[0]))
+        return None
+
+    def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Route DELETE shared inbox endpoint requests."""
+        del query_params
+        self._bind_auth_context(handler)
+
+        rules_parts = self._route_parts(path, "/api/v1/inbox/routing/rules/")
+        if rules_parts is not None and len(rules_parts) == 1:
+            return self._run_async(self.handle_delete_routing_rule(rules_parts[0]))
         return None
 
     @handle_errors("shared inbox operation")
@@ -435,3 +528,28 @@ class SharedInboxHandler(BaseHandler):
         if auth_ctx and hasattr(auth_ctx, "user_id"):
             return auth_ctx.user_id
         return "default"
+
+    def _bind_auth_context(self, handler: Any) -> None:
+        """Refresh request-scoped auth context for dispatch helpers."""
+        if handler is None:
+            return
+        auth_ctx = getattr(handler, "_auth_context", None)
+        if auth_ctx is not None:
+            self.ctx["auth_context"] = auth_ctx
+
+    @staticmethod
+    def _route_parts(path: str, prefix: str) -> list[str] | None:
+        """Return the path suffix split into segments for a recognized prefix."""
+        if not path.startswith(prefix):
+            return None
+        remainder = path[len(prefix) :].strip("/")
+        if not remainder:
+            return []
+        return [segment for segment in remainder.split("/") if segment]
+
+    @staticmethod
+    def _run_async(coro: Any) -> HandlerResult:
+        """Synchronously resolve async handler helpers inside the HTTP dispatcher."""
+        from aragora.server.handler_registry.core import _run_handler_coroutine
+
+        return _run_handler_coroutine(coro)

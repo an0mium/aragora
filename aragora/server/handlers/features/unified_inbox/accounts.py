@@ -206,12 +206,12 @@ async def connect_gmail(
         return {"success": True}
 
     except ImportError:
-        # GmailSyncService not available, use mock mode
-        account.email_address = f"user_{account.id[:8]}@gmail.com"
-        account.display_name = "Gmail User"
-        account.status = AccountStatus.CONNECTED
-        logger.warning("[UnifiedInbox] GmailSyncService not available, using mock mode")
-        return {"success": True}
+        logger.warning("[UnifiedInbox] Gmail integration unavailable; refusing mock connect")
+        account.status = AccountStatus.ERROR
+        return {
+            "success": False,
+            "error": "Gmail integration unavailable. Configure the real connector before connecting.",
+        }
     except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.warning("Gmail connection failed: %s", e)
         return {"success": False, "error": "Gmail connection failed"}
@@ -319,12 +319,12 @@ async def connect_outlook(
         return {"success": True}
 
     except ImportError:
-        # OutlookSyncService not available, use mock mode
-        account.email_address = f"user_{account.id[:8]}@outlook.com"
-        account.display_name = "Outlook User"
-        account.status = AccountStatus.CONNECTED
-        logger.warning("[UnifiedInbox] OutlookSyncService not available, using mock mode")
-        return {"success": True}
+        logger.warning("[UnifiedInbox] Outlook integration unavailable; refusing mock connect")
+        account.status = AccountStatus.ERROR
+        return {
+            "success": False,
+            "error": "Outlook integration unavailable. Configure the real connector before connecting.",
+        }
     except (ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.warning("Outlook connection failed: %s", e)
         return {"success": False, "error": "Outlook connection failed"}

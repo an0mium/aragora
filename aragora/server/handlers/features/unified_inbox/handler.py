@@ -71,6 +71,13 @@ from .triage import run_triage
 
 logger = logging.getLogger(__name__)
 
+_PRIORITY_SCORES: dict[str, float] = {
+    "critical": 0.95,
+    "high": 0.8,
+    "medium": 0.5,
+    "low": 0.2,
+}
+
 
 class UnifiedInboxHandler(BaseHandler):
     """Handler for unified inbox API endpoints."""
@@ -592,11 +599,9 @@ class UnifiedInboxHandler(BaseHandler):
         """Spawn a multi-agent debate to triage a message."""
         try:
             body = await self._get_json_body(request)
-            record = await self._store.get_message(tenant_id, message_id)
-            if not record:
+            message = await self._resolve_trust_wedge_message(tenant_id, message_id)
+            if message is None:
                 return error_response("Message not found", 404)
-
-            message = record_to_message(record)
 
             from aragora.server.debate_factory import DebateFactory
             from aragora.inbox import (
@@ -764,6 +769,145 @@ class UnifiedInboxHandler(BaseHandler):
         except (ValueError, TypeError, RuntimeError, OSError, KeyError) as e:
             logger.exception("Error spawning auto-debate: %s", e)
             return error_response("Auto-debate failed", 500)
+
+    async def _resolve_trust_wedge_message(
+        self, tenant_id: str, message_id: str
+    ) -> UnifiedMessage | None:
+        """Resolve a message for trust-wedge actions from unified or shared inbox storage."""
+        record = await self._store.get_message(tenant_id, message_id)
+        if record:
+            return record_to_message(record)
+        return await self._resolve_shared_inbox_message(tenant_id, message_id)
+
+    async def _resolve_shared_inbox_message(
+        self, tenant_id: str, message_id: str
+    ) -> UnifiedMessage | None:
+        """Lift a shared-inbox message onto the unified trust-wedge model."""
+        try:
+            from aragora.server.handlers.shared_inbox.storage import (
+                _get_store as _get_shared_store,
+                _inbox_messages,
+                _shared_inboxes,
+                _storage_lock,
+            )
+        except ImportError:
+            return None
+
+        shared_message_data: dict[str, Any] | None = None
+        shared_inbox_data: dict[str, Any] | None = None
+
+        shared_store = _get_shared_store()
+        if shared_store and hasattr(shared_store, "get_message"):
+            try:
+                shared_message_data = shared_store.get_message(message_id)
+                if shared_message_data:
+                    inbox_id = str(shared_message_data.get("inbox_id") or "")
+                    if inbox_id and hasattr(shared_store, "get_shared_inbox"):
+                        shared_inbox_data = shared_store.get_shared_inbox(inbox_id)
+            except (OSError, RuntimeError, ValueError, KeyError, TypeError) as exc:
+                logger.debug("Shared inbox store lookup failed for %s: %s", message_id, exc)
+
+        if shared_message_data is None:
+            with _storage_lock:
+                for inbox_id, inbox_messages in _inbox_messages.items():
+                    shared_message = inbox_messages.get(message_id)
+                    if shared_message is None:
+                        continue
+                    shared_message_data = shared_message.to_dict()
+                    shared_inbox = _shared_inboxes.get(inbox_id)
+                    if shared_inbox is not None:
+                        shared_inbox_data = shared_inbox.to_dict()
+                    break
+
+        if shared_message_data is None or shared_inbox_data is None:
+            return None
+
+        provider_raw = str(shared_inbox_data.get("connector_type") or "").strip().lower()
+        if provider_raw not in {provider.value for provider in EmailProvider}:
+            logger.debug(
+                "Shared inbox message %s has unsupported connector_type=%s",
+                message_id,
+                provider_raw,
+            )
+            return None
+
+        inbox_email = str(shared_inbox_data.get("email_address") or "").strip().lower()
+        if not inbox_email:
+            logger.debug("Shared inbox message %s missing shared inbox email address", message_id)
+            return None
+
+        account_records = await self._store.list_accounts(tenant_id)
+        matched_account: ConnectedAccount | None = None
+        for record in account_records:
+            account = record_to_account(record)
+            if (
+                account.provider.value == provider_raw
+                and account.email_address.strip().lower() == inbox_email
+            ):
+                matched_account = account
+                break
+
+        if matched_account is None:
+            logger.debug(
+                "Shared inbox message %s has no matching unified inbox account for %s/%s",
+                message_id,
+                provider_raw,
+                inbox_email,
+            )
+            return None
+
+        shared_priority = str(shared_message_data.get("priority") or "medium").strip().lower()
+        if shared_priority not in _PRIORITY_SCORES:
+            shared_priority = "medium"
+
+        received_at_raw = shared_message_data.get("received_at")
+        if isinstance(received_at_raw, str) and received_at_raw:
+            try:
+                received_at = datetime.fromisoformat(received_at_raw)
+            except ValueError:
+                received_at = datetime.now(timezone.utc)
+        else:
+            received_at = datetime.now(timezone.utc)
+
+        recipients = shared_message_data.get("to_addresses")
+        if not isinstance(recipients, list):
+            recipients = []
+
+        labels = shared_message_data.get("tags")
+        if not isinstance(labels, list):
+            labels = []
+
+        provider_message_id = (
+            str(shared_message_data.get("email_id") or "").strip()
+            or str(shared_message_data.get("external_id") or "").strip()
+            or message_id
+        )
+        sender_email = str(shared_message_data.get("from_address") or "").strip()
+
+        return UnifiedMessage(
+            id=str(shared_message_data.get("id") or message_id),
+            account_id=matched_account.id,
+            provider=EmailProvider(provider_raw),
+            external_id=provider_message_id,
+            subject=str(shared_message_data.get("subject") or ""),
+            sender_email=sender_email,
+            sender_name=sender_email,
+            recipients=recipients,
+            cc=[],
+            received_at=received_at,
+            snippet=str(shared_message_data.get("snippet") or ""),
+            body_preview=str(
+                shared_message_data.get("body_preview") or shared_message_data.get("snippet") or ""
+            ),
+            is_read=str(shared_message_data.get("status") or "") in {"resolved", "closed"},
+            is_starred="starred" in labels,
+            has_attachments=False,
+            labels=labels,
+            thread_id=shared_message_data.get("thread_id"),
+            priority_score=_PRIORITY_SCORES[shared_priority],
+            priority_tier=shared_priority,
+            priority_reasons=["shared_inbox"],
+        )
 
     # =========================================================================
     # Persistence Helpers
