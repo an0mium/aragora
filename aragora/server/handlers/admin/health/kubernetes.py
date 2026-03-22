@@ -113,6 +113,13 @@ def readiness_probe_fast(handler: Any) -> HandlerResult:
             # HTTP stack even when the module-global ready flag is stale.
             unified_handler_cls = getattr(unified_server_module, "UnifiedHandler", None)
             startup_complete = getattr(unified_handler_cls, "_handlers_initialized", False) is True
+        if not startup_complete and hasattr(handler, "can_handle"):
+            try:
+                # If this request is already being served by a readiness-capable
+                # handler, the HTTP stack is initialized enough to accept traffic.
+                startup_complete = handler.can_handle("/readyz") is True
+            except (AttributeError, TypeError, ValueError):
+                startup_complete = False
         checks["startup_complete"] = startup_complete
         if not startup_complete:
             ready = False

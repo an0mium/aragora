@@ -532,6 +532,18 @@ class TestReadinessProbeFastStartup:
         assert _status(result) == 200
         assert _body(result)["checks"]["startup_complete"] is True
 
+    def test_handler_route_fallback_marks_startup_complete(self):
+        handler = _make_mock_handler()
+        handler.can_handle.return_value = True
+        with (
+            _remove_degraded(),
+            _patch_unified_server(is_ready=False, handlers_initialized=False),
+            _patch_handler_registry({"/api/health": True}),
+        ):
+            result = readiness_probe_fast(handler)
+        assert _status(result) == 200
+        assert _body(result)["checks"]["startup_complete"] is True
+
 
 class TestReadinessProbeFastRoutes:
     """Test readiness_probe_fast() handler routes initialization check."""
