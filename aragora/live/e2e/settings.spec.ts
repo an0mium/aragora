@@ -295,7 +295,9 @@ test.describe('Settings - API Keys Tab', () => {
   });
 
   test('should display API documentation example', async ({ page }) => {
-    await expect(page.getByText(/curl/i)).toBeVisible();
+    const curlButton = page.getByRole('button', { name: /^curl$/i }).first();
+    await expect(curlButton).toBeVisible();
+    await curlButton.click();
     await expect(page.getByText(/authorization/i)).toBeVisible();
   });
 
