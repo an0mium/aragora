@@ -58,6 +58,9 @@ logger = logging.getLogger(__name__)
 # Server readiness flag — set after startup sequence completes.
 # K8s /readyz fallback uses this to return 503 until the server is ready.
 _server_ready: bool = False
+# The HTTP listener may be live before the startup latch flips. Track that
+# separately so /readyz does not report a false negative while already serving.
+_http_server_started: bool = False
 
 
 def mark_server_ready() -> None:
@@ -66,9 +69,20 @@ def mark_server_ready() -> None:
     _server_ready = True
 
 
+def mark_http_server_started() -> None:
+    """Mark the HTTP server as bound and able to accept requests."""
+    global _http_server_started
+    _http_server_started = True
+
+
 def is_server_ready() -> bool:
     """Check whether the server has completed its startup sequence."""
     return _server_ready
+
+
+def is_runtime_ready() -> bool:
+    """Check whether the process is already serving HTTP traffic."""
+    return _server_ready or _http_server_started
 
 
 # Import centralized config and error utilities
@@ -426,7 +440,7 @@ class UnifiedHandler(  # type: ignore[misc]
                 self._send_json({"status": "ok"})
                 return
             elif path in ("/readyz", "/ready"):
-                if _server_ready:
+                if is_runtime_ready():
                     self._send_json({"status": "ready"})
                 else:
                     self._send_json(
@@ -997,6 +1011,7 @@ class UnifiedServer:
                 # Use ThreadingHTTPServer for concurrent request handling
                 server = ThreadingHTTPServer((self.http_host, self.http_port), UnifiedHandler)
                 self._http_server = server
+                mark_http_server_started()
 
                 # Configure SSL if cert and key are provided
                 if self.ssl_enabled:
