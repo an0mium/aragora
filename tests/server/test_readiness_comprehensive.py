@@ -18,7 +18,9 @@ def _reset_state():
     import aragora.server.unified_server as usrv
 
     original_ready = usrv._server_ready
+    original_http_started = usrv._http_server_started
     usrv._server_ready = False
+    usrv._http_server_started = False
 
     # Clear degraded mode (may be set by other tests)
     try:
@@ -42,6 +44,7 @@ def _reset_state():
     yield
 
     usrv._server_ready = original_ready
+    usrv._http_server_started = original_http_started
 
     try:
         from aragora.server.degraded_mode import clear_degraded
@@ -98,6 +101,29 @@ class TestReadinessProbeStartupCheck:
         from aragora.server.handlers.admin.health.kubernetes import readiness_probe_fast
 
         usrv._server_ready = True
+
+        route_index_mock = MagicMock()
+        route_index_mock._exact_routes = {"/health": ("_h", None)}
+
+        with (
+            patch(
+                "aragora.server.handler_registry.core.get_route_index",
+                return_value=route_index_mock,
+            ),
+            patch.dict("os.environ", {}, clear=True),
+        ):
+            result = readiness_probe_fast(mock_handler)
+            status, body = _parse_probe_result(result)
+            assert status == 200
+            assert body["checks"]["startup_complete"] is True
+
+    def test_returns_200_when_http_listener_is_live(self, mock_handler):
+        """A live listener should satisfy readiness even if the startup latch lags."""
+        import aragora.server.unified_server as usrv
+        from aragora.server.handlers.admin.health.kubernetes import readiness_probe_fast
+
+        usrv._server_ready = False
+        usrv._http_server_started = True
 
         route_index_mock = MagicMock()
         route_index_mock._exact_routes = {"/health": ("_h", None)}

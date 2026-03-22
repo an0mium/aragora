@@ -97,11 +97,13 @@ def _make_degraded_module(
 
 def _make_unified_server_module(
     is_ready: bool = True,
+    runtime_ready: bool | None = None,
     handlers_initialized: bool = False,
 ):
     """Create a fake aragora.server.unified_server module."""
     mod = types.ModuleType("aragora.server.unified_server")
     mod.is_server_ready = lambda: is_ready
+    mod.is_runtime_ready = lambda: is_ready if runtime_ready is None else runtime_ready
     mod.UnifiedHandler = type(
         "UnifiedHandler",
         (),
@@ -207,8 +209,8 @@ def _remove_degraded():
     return patch.dict(sys.modules, {"aragora.server.degraded_mode": None})
 
 
-def _patch_unified_server(is_ready=True, handlers_initialized=False):
-    mod = _make_unified_server_module(is_ready, handlers_initialized)
+def _patch_unified_server(is_ready=True, runtime_ready=None, handlers_initialized=False):
+    mod = _make_unified_server_module(is_ready, runtime_ready, handlers_initialized)
     return patch.dict(sys.modules, {"aragora.server.unified_server": mod})
 
 
@@ -526,6 +528,29 @@ class TestReadinessProbeFastStartup:
         with (
             _remove_degraded(),
             _patch_unified_server(is_ready=False, handlers_initialized=True),
+            _patch_handler_registry({"/api/health": True}),
+        ):
+            result = readiness_probe_fast(handler)
+        assert _status(result) == 200
+        assert _body(result)["checks"]["startup_complete"] is True
+
+    def test_runtime_ready_marks_startup_complete(self):
+        handler = _make_mock_handler()
+        with (
+            _remove_degraded(),
+            _patch_unified_server(is_ready=False, runtime_ready=True),
+            _patch_handler_registry({"/api/health": True}),
+        ):
+            result = readiness_probe_fast(handler)
+        assert _status(result) == 200
+        assert _body(result)["checks"]["startup_complete"] is True
+
+    def test_handler_route_fallback_marks_startup_complete(self):
+        handler = _make_mock_handler()
+        handler.can_handle.return_value = True
+        with (
+            _remove_degraded(),
+            _patch_unified_server(is_ready=False, handlers_initialized=False),
             _patch_handler_registry({"/api/health": True}),
         ):
             result = readiness_probe_fast(handler)

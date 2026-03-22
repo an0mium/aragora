@@ -15,13 +15,16 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _reset_server_ready():
-    """Reset the _server_ready flag before and after each test."""
+    """Reset readiness flags before and after each test."""
     import aragora.server.unified_server as mod
 
     original = mod._server_ready
+    original_http_started = mod._http_server_started
     mod._server_ready = False
+    mod._http_server_started = False
     yield
     mod._server_ready = original
+    mod._http_server_started = original_http_started
 
 
 class TestReadyzFallback:
@@ -77,3 +80,10 @@ class TestReadyzFallback:
         mark_server_ready()
         mark_server_ready()
         assert is_server_ready() is True
+
+    def test_runtime_ready_when_http_server_started(self):
+        import aragora.server.unified_server as mod
+
+        assert mod.is_runtime_ready() is False
+        mod.mark_http_server_started()
+        assert mod.is_runtime_ready() is True
