@@ -246,6 +246,7 @@ class UnifiedOrchestrator:
                 agent_count=agent_count,
                 consensus_threshold=consensus_threshold,
                 provider_hints=provider_hints,
+                min_providers=cfg.min_providers,
             )
             self._annotate_provider_metadata(
                 result.debate_result,
@@ -467,6 +468,7 @@ class UnifiedOrchestrator:
         agent_count: int,
         consensus_threshold: float,
         provider_hints: list[str] | None = None,
+        min_providers: int | None = None,
     ) -> Any:
         """Run debate phase."""
         if self._arena_factory is not None:
@@ -478,6 +480,10 @@ class UnifiedOrchestrator:
             }
             if provider_hints and self._accepts_keyword_arg(self._arena_factory, "provider_hints"):
                 kwargs["provider_hints"] = provider_hints
+            if min_providers is not None and self._accepts_keyword_arg(
+                self._arena_factory, "min_providers"
+            ):
+                kwargs["min_providers"] = min_providers
             return await self._arena_factory(
                 prompt,
                 **kwargs,

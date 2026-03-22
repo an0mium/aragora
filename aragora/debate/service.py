@@ -36,7 +36,7 @@ import os
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, cast
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from aragora.agents.base import AgentType
 from aragora.config.settings import get_settings
@@ -252,11 +252,22 @@ class DebateService:
         """
         # Merge options with defaults
         opts = self._merge_options(options)
+        provider_hints = kwargs.pop("provider_hints", None)
+        requested_agent_count = kwargs.pop("agent_count", None)
+        min_providers = kwargs.pop("min_providers", None)
+        team_selector = kwargs.pop("team_selector", None)
 
         # Resolve agents
         resolved_agents = self._resolve_agents(agents)
         if not resolved_agents:
             raise ValueError("No agents available. Provide agents or configure default_agents.")
+        resolved_agents, routing_metadata = self._route_runtime_agents(
+            resolved_agents,
+            provider_hints=provider_hints,
+            agent_count=requested_agent_count,
+            min_providers=min_providers,
+            team_selector=team_selector,
+        )
 
         # Create environment
         env = Environment(task=task)
@@ -305,6 +316,7 @@ class DebateService:
         # Run with timeout
         try:
             result = await asyncio.wait_for(arena.run(), timeout=opts.timeout)
+            self._annotate_provider_routing_metadata(result, routing_metadata)
             return result
         except asyncio.TimeoutError:
             logger.warning("Debate timed out after %ss: %s...", opts.timeout, task[:50])
@@ -422,6 +434,232 @@ class DebateService:
                     logger.warning("Cannot resolve agent '%s' - no resolver configured", agent)
 
         return resolved
+
+    def _route_runtime_agents(
+        self,
+        agents: list[Agent],
+        *,
+        provider_hints: Any = None,
+        agent_count: int | None = None,
+        min_providers: int | None = None,
+        team_selector: Any | None = None,
+    ) -> tuple[list[Agent], dict[str, Any] | None]:
+        """Select the runtime roster from routed providers before Arena starts."""
+        if not agents:
+            return agents, None
+
+        if isinstance(provider_hints, dict):
+            return self._route_agents_from_scores(
+                agents,
+                provider_hints=provider_hints,
+                agent_count=agent_count,
+                team_selector=team_selector,
+            )
+
+        if isinstance(provider_hints, Sequence) and not isinstance(provider_hints, (str, bytes)):
+            return self._route_agents_from_provider_list(
+                agents,
+                provider_hints=[str(item) for item in provider_hints if str(item)],
+                agent_count=agent_count,
+                min_providers=min_providers,
+            )
+
+        return agents, None
+
+    def _route_agents_from_scores(
+        self,
+        agents: list[Agent],
+        *,
+        provider_hints: dict[str, float],
+        agent_count: int | None,
+        team_selector: Any | None,
+    ) -> tuple[list[Agent], dict[str, Any] | None]:
+        """Rank agents with TeamSelector when score hints are provided."""
+        limit = self._normalize_agent_count(agent_count, len(agents))
+        ranked_agents = list(agents)
+        routing_applied = False
+
+        selector = team_selector
+        if selector is None:
+            try:
+                from aragora.debate.team_selector import TeamSelector
+
+                selector = TeamSelector()
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError):
+                selector = None
+
+        if selector is not None:
+            try:
+                ranked_agents = list(selector.select(list(agents), provider_hints=provider_hints))
+                routing_applied = True
+            except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
+                logger.debug("Provider score routing failed, preserving original roster: %s", exc)
+
+        selected_agents = ranked_agents[:limit]
+        metadata = {
+            "provider_hints": list(provider_hints.keys()),
+            "provider_names": [self._provider_name_for_agent(agent) for agent in selected_agents],
+            "provider_hint_scores": dict(provider_hints),
+            "routed_agent_names": [agent.name for agent in selected_agents],
+            "routing_applied": routing_applied,
+            "routing_strategy": "provider_hint_scores",
+        }
+        return selected_agents, metadata
+
+    def _route_agents_from_provider_list(
+        self,
+        agents: list[Agent],
+        *,
+        provider_hints: list[str],
+        agent_count: int | None,
+        min_providers: int | None,
+    ) -> tuple[list[Agent], dict[str, Any] | None]:
+        """Match routed provider/model choices onto a concrete debate roster."""
+        limit = self._normalize_agent_count(agent_count, len(provider_hints) or len(agents))
+        remaining_agents = list(agents)
+        selected_agents: list[Agent] = []
+        provider_matches: dict[str, str] = {}
+
+        for provider_hint in provider_hints:
+            if len(selected_agents) >= limit:
+                break
+            match_index = next(
+                (
+                    index
+                    for index, agent in enumerate(remaining_agents)
+                    if self._agent_matches_provider_hint(agent, provider_hint)
+                ),
+                None,
+            )
+            if match_index is None:
+                continue
+            matched_agent = remaining_agents.pop(match_index)
+            selected_agents.append(matched_agent)
+            provider_matches[matched_agent.name] = provider_hint
+
+        if len(selected_agents) < limit:
+            remaining_agents = self._prioritize_diverse_fill(
+                remaining_agents,
+                selected_agents,
+                min_providers=min_providers,
+            )
+            selected_agents.extend(remaining_agents[: limit - len(selected_agents)])
+
+        metadata = {
+            "provider_hints": list(provider_hints),
+            "provider_names": [self._provider_name_for_agent(agent) for agent in selected_agents],
+            "provider_matches": provider_matches,
+            "routed_agent_names": [agent.name for agent in selected_agents],
+            "routing_applied": bool(provider_matches),
+            "routing_strategy": "provider_router_selection",
+        }
+        return selected_agents, metadata
+
+    @staticmethod
+    def _normalize_agent_count(agent_count: int | None, fallback: int) -> int:
+        if agent_count is None:
+            return max(fallback, 1)
+        return max(agent_count, 1)
+
+    @staticmethod
+    def _provider_name_for_agent(agent: Agent) -> str:
+        model = str(getattr(agent, "model", "") or "").strip()
+        if model:
+            return model
+        return str(getattr(agent, "name", "unknown-agent"))
+
+    @classmethod
+    def _provider_family_for_agent(cls, agent: Agent) -> str:
+        from aragora.debate.provider_diversity import detect_provider
+
+        provider_name = cls._provider_name_for_agent(agent)
+        agent_name = str(getattr(agent, "name", "") or "")
+        detected = detect_provider(f"{provider_name} {agent_name}")
+        if detected != "unknown":
+            return detected
+        return provider_name
+
+    @classmethod
+    def _agent_matches_provider_hint(cls, agent: Agent, provider_hint: str) -> bool:
+        hint = provider_hint.strip().lower()
+        if not hint:
+            return False
+
+        agent_name = str(getattr(agent, "name", "") or "").lower()
+        provider_name = cls._provider_name_for_agent(agent).lower()
+        provider_family = cls._provider_family_for_agent(agent).lower()
+
+        if hint in {agent_name, provider_name, provider_family}:
+            return True
+        if hint in agent_name or agent_name in hint:
+            return True
+        if hint in provider_name or provider_name in hint:
+            return True
+
+        from aragora.debate.provider_diversity import detect_provider
+
+        return detect_provider(hint) == provider_family
+
+    @classmethod
+    def _prioritize_diverse_fill(
+        cls,
+        remaining_agents: list[Agent],
+        selected_agents: list[Agent],
+        *,
+        min_providers: int | None,
+    ) -> list[Agent]:
+        if not remaining_agents or min_providers is None or min_providers <= 1:
+            return remaining_agents
+
+        selected_providers = {cls._provider_family_for_agent(agent) for agent in selected_agents}
+        if len(selected_providers) >= min_providers:
+            return remaining_agents
+
+        diverse_agents: list[Agent] = []
+        fallback_agents: list[Agent] = []
+        introduced_providers = set(selected_providers)
+
+        for agent in remaining_agents:
+            provider = cls._provider_family_for_agent(agent)
+            if provider not in introduced_providers:
+                diverse_agents.append(agent)
+                introduced_providers.add(provider)
+            else:
+                fallback_agents.append(agent)
+
+        return diverse_agents + fallback_agents
+
+    @staticmethod
+    def _annotate_provider_routing_metadata(
+        result: DebateResult,
+        metadata: dict[str, Any] | None,
+    ) -> None:
+        if metadata is None:
+            return
+
+        existing = getattr(result, "metadata", None)
+        if not isinstance(existing, dict):
+            existing = {}
+            setattr(result, "metadata", existing)
+
+        provider_hints = metadata.get("provider_hints")
+        if provider_hints:
+            existing.setdefault("provider_hints", list(provider_hints))
+
+        provider_names = metadata.get("provider_names")
+        if provider_names:
+            existing.setdefault("provider_names", list(provider_names))
+
+        routing_summary = {
+            "routing_applied": bool(metadata.get("routing_applied")),
+            "routing_strategy": metadata.get("routing_strategy", "provider_router_selection"),
+            "routed_agent_names": list(metadata.get("routed_agent_names", [])),
+        }
+        if "provider_matches" in metadata:
+            routing_summary["provider_matches"] = dict(metadata["provider_matches"])
+        if "provider_hint_scores" in metadata:
+            routing_summary["provider_hint_scores"] = dict(metadata["provider_hint_scores"])
+        existing.setdefault("provider_routing", routing_summary)
 
     def _build_event_hooks(self, opts: DebateOptions) -> dict[str, Any] | None:
         """Build event hooks dictionary from options."""
