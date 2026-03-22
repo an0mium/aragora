@@ -63,6 +63,7 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "queue": None,
         "execute_merge": False,
         "allow_admin": False,
+        "max_parallel_lanes": 1,
         "intake": None,
         "rounds": 2,
         "all_completed": False,
@@ -380,8 +381,29 @@ class TestSwarmParser:
         assert args.swarm_action_or_goal == "tranche"
         assert args.swarm_goal == "run-queue"
         assert args.queue == "docs/examples/overnight-queue.yaml"
+        assert args.max_parallel_lanes == 1
         assert args.max_hours == 8
         assert args.json is True
+
+    def test_swarm_tranche_run_queue_parser_accepts_bounded_parallel_flag(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "tranche",
+                "run-queue",
+                "--queue",
+                "docs/examples/overnight-queue.yaml",
+                "--max-parallel-lanes",
+                "2",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "tranche"
+        assert args.swarm_goal == "run-queue"
+        assert args.max_parallel_lanes == 2
 
     def test_swarm_tranche_reconcile_queue_parser(self):
         from aragora.cli.parser import build_parser
@@ -856,6 +878,7 @@ class TestSwarmCommand:
             swarm_action_or_goal="tranche",
             swarm_goal="run-queue",
             queue="/tmp/overnight-queue.yaml",
+            max_parallel_lanes=2,
             json=True,
         )
         with (
@@ -879,6 +902,7 @@ class TestSwarmCommand:
         assert '"queue_id": "overnight"' in out
         assert '"action": "run-queue"' in out
         mock_run_queue.assert_awaited_once()
+        assert mock_run_queue.await_args.kwargs["max_parallel_lanes"] == 2
 
     def test_cmd_swarm_tranche_reconcile_queue_json(self, capsys):
         args = _swarm_args(

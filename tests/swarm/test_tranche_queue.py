@@ -548,6 +548,86 @@ candidate_lanes:
     assert bundle["candidate_lanes"][0]["lane_id"] == "lane-a"
 
 
+def test_queue_runner_keeps_safe_single_lane_default_even_when_item_allows_two(
+    tmp_path: Path,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    queue_path.write_text(
+        "queue_id: overnight\nitems:\n- id: intake\n  kind: intake\n  source: bundle.yaml\n",
+        encoding="utf-8",
+    )
+    bundle_path = tmp_path / "bundle.yaml"
+    bundle_path.write_text(
+        """
+objective: test
+candidate_lanes:
+  - lane_id: lane-a
+    title: Lane A
+    prompt: Implement lane A
+    owner_role: implementation_engineer
+  - lane_id: lane-b
+    title: Lane B
+    prompt: Implement lane B
+    owner_role: implementation_engineer
+""".strip(),
+        encoding="utf-8",
+    )
+    executor = TrancheQueueExecutor(queue_path=queue_path, repo_root=tmp_path)
+    item = TrancheQueueItem(
+        item_id="intake",
+        kind="intake",
+        source="bundle.yaml",
+        merge_class="manual",
+        max_lanes=2,
+    )
+
+    bundle = executor._bundle_for_item(item, effective_autonomy_mode="adaptive")
+
+    assert bundle["max_lanes"] == 1
+    assert [lane["lane_id"] for lane in bundle["candidate_lanes"]] == ["lane-a"]
+
+
+def test_queue_runner_allows_two_lanes_when_parallel_cap_is_enabled(tmp_path: Path) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    queue_path.write_text(
+        "queue_id: overnight\nitems:\n- id: intake\n  kind: intake\n  source: bundle.yaml\n",
+        encoding="utf-8",
+    )
+    bundle_path = tmp_path / "bundle.yaml"
+    bundle_path.write_text(
+        """
+objective: test
+candidate_lanes:
+  - lane_id: lane-a
+    title: Lane A
+    prompt: Implement lane A
+    owner_role: implementation_engineer
+  - lane_id: lane-b
+    title: Lane B
+    prompt: Implement lane B
+    owner_role: implementation_engineer
+""".strip(),
+        encoding="utf-8",
+    )
+    executor = TrancheQueueExecutor(
+        queue_path=queue_path,
+        repo_root=tmp_path,
+        max_parallel_lanes=2,
+    )
+    item = TrancheQueueItem(
+        item_id="intake",
+        kind="intake",
+        source="bundle.yaml",
+        merge_class="manual",
+        max_lanes=2,
+    )
+
+    bundle = executor._bundle_for_item(item, effective_autonomy_mode="adaptive")
+
+    assert bundle["max_lanes"] == 2
+    assert [lane["lane_id"] for lane in bundle["candidate_lanes"]] == ["lane-a", "lane-b"]
+
+
 @pytest.mark.asyncio
 async def test_run_queue_processes_items_sequentially_and_continues_after_needs_human(
     tmp_path: Path,
@@ -1045,3 +1125,98 @@ async def test_drive_manifest_publishes_terminal_deliverable_without_recorded_pr
         event.get("type") == "integrate" and event.get("pr_url") == "https://example.test/pr/42"
         for event in item_state.events
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("max_parallel_lanes", "expected_all_ready"),
+    [
+        (1, False),
+        (2, True),
+    ],
+)
+async def test_drive_manifest_dispatches_all_ready_lanes_only_when_parallel_cap_enabled(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    max_parallel_lanes: int,
+    expected_all_ready: bool,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    _write_queue(queue_path)
+    executor = TrancheQueueExecutor(
+        queue_path=queue_path,
+        repo_root=tmp_path,
+        max_parallel_lanes=max_parallel_lanes,
+    )
+    manifest_path = tmp_path / "tranche.yaml"
+    manifest_path.write_text("manifest_id: tranche-test\n", encoding="utf-8")
+    item = TrancheQueueItem(
+        item_id="issue-1046",
+        kind="issue",
+        source="1046",
+        merge_class="manual",
+        max_lanes=2,
+    )
+    item_state = TrancheQueueItemRunState(
+        item_id=item.item_id,
+        status=QUEUE_ITEM_STATUS_RUNNING,
+        effective_autonomy_mode="adaptive",
+    )
+    current = TrancheRunState(
+        manifest_id="tranche-test",
+        status="planned",
+        autonomy_mode="adaptive",
+        lane_states={
+            "lane-a": LaneRunState(lane_id="lane-a"),
+            "lane-b": LaneRunState(lane_id="lane-b"),
+        },
+    )
+    seen: dict[str, object] = {}
+
+    class _FakeExecutor:
+        def __init__(self, *, repo_root):
+            self.repo_root = repo_root
+
+        async def run(self, manifest, **kwargs):
+            seen["all_ready"] = kwargs.get("all_ready")
+            return {"mode": "tranche-run", "results": []}
+
+    async def fake_watch_loop(state, *, run_fn, manifest, **kwargs):
+        await run_fn(manifest=manifest)
+        state.status = TRANCHE_STATUS_NEEDS_HUMAN
+        return state
+
+    async def fake_publish_terminal_lane_deliverables(**kwargs):
+        return None
+
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.load_tranche_run_state",
+        lambda _: current,
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.claim_driver",
+        lambda state, **kwargs: state,
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.release_driver",
+        lambda state, **kwargs: state,
+    )
+    monkeypatch.setattr("aragora.swarm.tranche_queue.TrancheExecutor", _FakeExecutor)
+    monkeypatch.setattr("aragora.swarm.tranche_queue.watch_loop", fake_watch_loop)
+    monkeypatch.setattr(executor, "_github_client", lambda: object())
+    monkeypatch.setattr(executor, "_registry_client", lambda: object())
+    monkeypatch.setattr(
+        executor,
+        "_publish_terminal_lane_deliverables",
+        fake_publish_terminal_lane_deliverables,
+    )
+
+    await executor._drive_manifest(
+        item=item,
+        item_state=item_state,
+        manifest_path=manifest_path,
+        tranche_manifest=SimpleNamespace(manifest_id="tranche-test"),
+        deadline=datetime.now(UTC) + timedelta(minutes=5),
+    )
+
+    assert seen["all_ready"] is expected_all_ready

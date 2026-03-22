@@ -932,6 +932,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                         ),
                         worker_model=str(getattr(args, "worker_model", "codex") or "codex"),
                         review_model=str(getattr(args, "review_model", "claude") or "claude"),
+                        max_parallel_lanes=int(getattr(args, "max_parallel_lanes", 1) or 1),
                         enforce_cross_model_review=not bool(
                             getattr(args, "allow_same_model_review", False)
                         ),

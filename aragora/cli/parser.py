@@ -2481,6 +2481,15 @@ def _add_swarm_parser(subparsers) -> None:
         help="Allow admin merge fallback for eligible harvest-queue merges when GitHub reports a policy/admin override candidate",
     )
     swarm_parser.add_argument(
+        "--max-parallel-lanes",
+        type=int,
+        choices=[1, 2],
+        default=1,
+        help=(
+            "Maximum tranche lanes 'swarm tranche run-queue' may dispatch concurrently (default: 1)"
+        ),
+    )
+    swarm_parser.add_argument(
         "--sources",
         default=None,
         help="Queue source manifest path for 'swarm tranche compile-queue'",

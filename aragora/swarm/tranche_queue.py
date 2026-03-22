@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -127,6 +127,13 @@ def _resolve_queue_autonomy_mode(
 
 def _queue_merge_policy(*, merge_class: str) -> str:
     return "auto" if str(merge_class or "").strip().lower() == "low_risk" else "manual"
+
+
+def _resolve_queue_max_parallel_lanes(value: Any) -> int:
+    lanes = int(value or 1)
+    if lanes not in {1, 2}:
+        raise ValueError("Queue max_parallel_lanes must be 1 or 2.")
+    return lanes
 
 
 def _coerce_datetime(value: Any) -> datetime:
@@ -1086,6 +1093,7 @@ class TrancheQueueExecutor:
         worker_model: str = "codex",
         review_model: str = "claude",
         enforce_cross_model_review: bool = True,
+        max_parallel_lanes: int = 1,
     ) -> None:
         self.queue_path = Path(queue_path).resolve()
         self.state_path = queue_state_path_for_queue(self.queue_path)
@@ -1099,6 +1107,7 @@ class TrancheQueueExecutor:
         self.worker_model = worker_model
         self.review_model = review_model
         self.enforce_cross_model_review = bool(enforce_cross_model_review)
+        self.max_parallel_lanes = _resolve_queue_max_parallel_lanes(max_parallel_lanes)
         self._github: GitHubControl | None = None
         self._registry_client_obj: PullRequestRegistry | None = None
         self._supervisor = None
@@ -1339,7 +1348,7 @@ class TrancheQueueExecutor:
             worker_model=self.worker_model,
             review_model=self.review_model,
             enforce_cross_model_review=self.enforce_cross_model_review,
-            max_parallel_ready_projects=1,
+            max_parallel_ready_projects=self.max_parallel_lanes,
         )
 
     def _github_client(self) -> GitHubControl:
@@ -1508,15 +1517,19 @@ class TrancheQueueExecutor:
         *,
         effective_autonomy_mode: str,
     ) -> dict[str, Any]:
-        if item.kind == "intake":
+        effective_item = replace(item, max_lanes=self._effective_max_lanes(item))
+        if effective_item.kind == "intake":
             return self._bundle_from_intake_item(
-                item,
+                effective_item,
                 effective_autonomy_mode=effective_autonomy_mode,
             )
         return self._bundle_from_issue_item(
-            item,
+            effective_item,
             effective_autonomy_mode=effective_autonomy_mode,
         )
+
+    def _effective_max_lanes(self, item: TrancheQueueItem) -> int:
+        return min(max(1, int(item.max_lanes or 1)), self.max_parallel_lanes)
 
     def _bundle_from_intake_item(
         self,
@@ -1636,6 +1649,7 @@ class TrancheQueueExecutor:
             try:
                 payload = await executor.run(
                     manifest,
+                    all_ready=self._effective_max_lanes(item) > 1,
                     owner_session_id=session_id,
                     target_branch=self.target_branch,
                     max_ticks=360,
@@ -1983,6 +1997,7 @@ async def run_tranche_queue(
     worker_model: str = "codex",
     review_model: str = "claude",
     enforce_cross_model_review: bool = True,
+    max_parallel_lanes: int = 1,
 ) -> dict[str, Any]:
     executor = TrancheQueueExecutor(
         queue_path=queue_path,
@@ -1996,6 +2011,7 @@ async def run_tranche_queue(
         worker_model=worker_model,
         review_model=review_model,
         enforce_cross_model_review=enforce_cross_model_review,
+        max_parallel_lanes=max_parallel_lanes,
     )
     return await executor.run()
 
