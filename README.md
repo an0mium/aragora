@@ -186,7 +186,7 @@ Aragora treats each model as an **unreliable witness** and uses structured debat
 
 ## Quick Start
 
-### 1. Install and Try It (30 seconds)
+### 1. Install and Try It (30 seconds to demo, ~5 minutes for a real PR review)
 
 ```bash
 pip install aragora
@@ -194,11 +194,13 @@ pip install aragora
 # Run a zero-config demo debate — opens receipt in your browser
 aragora quickstart --demo
 
-# Or review your uncommitted changes — no API keys needed in demo mode
-git diff main | aragora review --demo
+# From a clone of the target repo, review the live GitHub PR head
+aragora review-pr 123
 ```
 
-See [docs/QUICKSTART_DEVELOPER.md](docs/QUICKSTART_DEVELOPER.md) for the full developer quickstart.
+`aragora review-pr` fetches the current remote PR head from GitHub, prints a pass or changes-requested summary, and writes artifacts under `.aragora/review-pr/`. For the first real run, make sure `gh auth status` succeeds and at least one reviewer is available (`claude`, `codex`, or `OPENROUTER_API_KEY`).
+
+See [docs/QUICKSTART_DEVELOPER.md](docs/QUICKSTART_DEVELOPER.md) for the 5-minute `review-pr` path, artifact layout, and optional fix loop.
 
 ### 2. Run Debates and Start the Server
 

@@ -1,6 +1,6 @@
-# Developer Quickstart: AI Code Review in 5 Minutes
+# Developer Quickstart: Review a Real PR in 5 Minutes
 
-Get multi-agent AI code review on your pull requests. Multiple AI models independently review your code, debate their findings, and produce a consensus report -- so you see where models agree (high confidence) and where they disagree (needs your judgment).
+The fastest truthful path to a real result is to run `aragora review-pr` against a live GitHub pull request head. Aragora fetches the current remote diff, routes it to an available reviewer, prints the verdict in the terminal, and saves the structured artifacts to disk so you can inspect or automate against them.
 
 > **Want to try without API keys?** Run the full platform locally with Docker:
 > ```bash
@@ -12,15 +12,80 @@ Get multi-agent AI code review on your pull requests. Multiple AI models indepen
 
 ## Prerequisites
 
-- A GitHub repository
-- At least one API key: [Anthropic](https://console.anthropic.com/) or [OpenAI](https://platform.openai.com/)
-- For best results, add both -- multi-model consensus is the point
+- Python 3.11 or later
+- A local clone of the repository that owns the PR you want to review
+- GitHub CLI installed and authenticated so `gh auth status` succeeds
+- At least one available reviewer: authenticated `claude` CLI, authenticated `codex` CLI, or `OPENROUTER_API_KEY`
 
 ---
 
-## Step 1: Add the GitHub Action (2 minutes)
+## Step 1: Install Aragora
 
-### 1a. Add API keys as GitHub Secrets
+```bash
+pip install aragora
+aragora --version
+```
+
+## Step 2: Run a Live `review-pr`
+
+From the checkout of the repository that owns the PR:
+
+```bash
+cd /path/to/repo
+gh auth status
+aragora review-pr 123
+```
+
+The shortest path is to pass the PR number while you are inside that repository clone. If you want to be explicit, you can also pass the full PR URL:
+
+```bash
+aragora review-pr https://github.com/owner/repo/pull/123
+```
+
+Expected terminal output looks like this:
+
+```text
+PR #123 final status: changes_requested
+Artifact dir: /path/to/repo/.aragora/review-pr/pr-123/20260322T154500Z
+Latest review: changes_requested via codex
+Findings:
+  - [P1] Missing null guard on webhook payload
+```
+
+Every run writes durable files under the printed artifact directory:
+
+- `run.json` -- final summary for the whole run
+- `review-1.json` -- structured reviewer output
+- `review-1.diff` -- the exact diff snapshot Aragora reviewed
+
+Exit codes are stable for scripting:
+
+- `0` -- review passed
+- `2` -- reviewer requested changes
+- `1` -- review was blocked or non-reviewable
+
+`review-pr` is intentionally a live GitHub path. It does not have a demo mode. If you only want to preview the review format locally, use `aragora review --demo`.
+
+## Step 3: Optional Fix-and-Rerun Loop
+
+If the first pass returns `changes_requested`, Aragora can hand the findings to a fixer, push the branch, and re-review the updated head:
+
+```bash
+aragora review-pr 123 --fixer codex --auto-rerun
+```
+
+When you use the fix loop, Aragora also writes:
+
+- `fix.json` -- fixer status, pushed commit SHAs, and worktree details
+- `review-2.json` -- the follow-up review after the fixer push
+
+Use `--keep-worktree` if you want to inspect the detached fixer worktree afterward.
+
+## Step 4: Automate the Same Review on Every PR
+
+Once you have a real local run working, add the GitHub Action so every PR gets the same review flow automatically.
+
+### 4a. Add API keys as GitHub Secrets
 
 Go to your repo: **Settings > Secrets and variables > Actions > New repository secret**
 
@@ -31,7 +96,7 @@ Add at least one:
 | `ANTHROPIC_API_KEY` | [Anthropic Console](https://console.anthropic.com/) |
 | `OPENAI_API_KEY` | [OpenAI Platform](https://platform.openai.com/) |
 
-### 1b. Create the workflow file
+### 4b. Create the workflow file
 
 Create `.github/workflows/aragora-review.yml` in your repository:
 
@@ -60,39 +125,7 @@ Commit and push. Every new PR will now get an AI code review.
 
 ---
 
-## Step 2: Run Your First Review (CLI)
-
-You can also run reviews locally before pushing.
-
-### Install
-
-```bash
-pip install aragora
-```
-
-### Review a diff
-
-```bash
-git diff main | aragora review
-```
-
-### Review a GitHub PR directly
-
-```bash
-aragora review https://github.com/owner/repo/pull/123
-```
-
-### Try without API keys
-
-```bash
-aragora review --demo
-```
-
-The `--demo` flag runs a full review cycle with sample output so you can see the format before configuring API keys.
-
----
-
-## Step 3: Read the PR Comment
+## Step 5: Read the PR Comment
 
 When the action runs, it posts a comment on your PR with these sections:
 
@@ -128,7 +161,9 @@ A 0-1 score indicating how much the models agreed overall. Higher scores mean mo
 
 ---
 
-## Step 4: Customize
+## Step 6: Customize Diff-Based Review
+
+`aragora review` is the diff-driven sibling of `review-pr`. Use it when you want to review local changes, run a demo, or export SARIF without fetching a live PR head.
 
 ### Focus areas
 
