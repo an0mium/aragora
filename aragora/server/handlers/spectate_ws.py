@@ -130,6 +130,18 @@ def _summarize_bridge_activity(events: list[Any], *, bridge_running: bool) -> di
     }
 
 
+def _redact_live_debate_details(summary: dict[str, Any]) -> dict[str, Any]:
+    """Hide debate-specific activity details from unauthenticated callers."""
+    redacted = dict(summary)
+    if redacted.get("bridge_state") == "live_debates_available":
+        redacted["bridge_state"] = "activity_unattributed"
+    redacted["live_debate_count"] = 0
+    redacted["live_debate_ids"] = []
+    redacted["live_debates"] = []
+    redacted["unattributed_recent_event_count"] = redacted.get("recent_event_count", 0)
+    return redacted
+
+
 class SpectateStreamHandler(BaseHandler):
     """Handler for spectate stream endpoints.
 
@@ -152,7 +164,7 @@ class SpectateStreamHandler(BaseHandler):
         if path.endswith("/recent"):
             return self._handle_recent(query_params)
         if path.endswith("/status"):
-            return self._handle_status()
+            return self._handle_status(handler)
         if path.endswith("/stream"):
             # SSE stub - returns snapshot for now
             return self._handle_recent(query_params)
@@ -192,7 +204,7 @@ class SpectateStreamHandler(BaseHandler):
         except ImportError:
             return json_response({"events": [], "count": 0})
 
-    def _handle_status(self) -> HandlerResult:
+    def _handle_status(self, handler: Any) -> HandlerResult:
         """GET /api/v1/spectate/status -- bridge status."""
         try:
             from aragora.spectate.ws_bridge import get_spectate_bridge
@@ -202,6 +214,18 @@ class SpectateStreamHandler(BaseHandler):
                 bridge.get_recent_events(_STATUS_ACTIVITY_SCAN_LIMIT),
                 bridge_running=bridge.running,
             )
+            user = self.get_current_user(handler)
+            permissions = set(getattr(user, "permissions", []) or []) if user is not None else set()
+            roles = set(getattr(user, "roles", []) or []) if user is not None else set()
+            role = getattr(user, "role", None) if user is not None else None
+            can_view_live_debates = user is not None and (
+                "debates:read" in permissions
+                or "admin" in permissions
+                or "admin" in roles
+                or role == "admin"
+            )
+            if not can_view_live_debates:
+                summary = _redact_live_debate_details(summary)
             return json_response(
                 {
                     "active": bridge.running,
