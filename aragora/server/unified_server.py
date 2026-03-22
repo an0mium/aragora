@@ -433,11 +433,33 @@ class UnifiedHandler(  # type: ignore[misc]
                 except ImportError:
                     self._send_json({"error": "lifecycle module not available"}, status=503)
                 return
-            # The legacy HTTP listener can start serving before the startup latch flips.
-            # In that narrow gap, report readiness directly instead of delegating to a
-            # modular handler that may still emit a stale 503.
-            if path in ("/readyz", "/ready") and _http_server_started and not _server_ready:
-                self._send_json({"status": "ready"})
+            # Keep readiness authoritative in the legacy HTTP server. The modular
+            # health handler adds deeper checks that are useful elsewhere, but for
+            # the live /readyz probe we only want startup/degraded-mode truth.
+            if path in ("/readyz", "/ready"):
+                try:
+                    from aragora.server.degraded_mode import get_degraded_reason, is_degraded
+
+                    if is_degraded():
+                        self._send_json(
+                            {
+                                "status": "not_ready",
+                                "reason": "server in degraded mode",
+                                "degraded_reason": get_degraded_reason()[:100],
+                            },
+                            status=503,
+                        )
+                        return
+                except ImportError:
+                    pass
+
+                if is_runtime_ready():
+                    self._send_json({"status": "ready"})
+                else:
+                    self._send_json(
+                        {"status": "not_ready", "reason": "startup in progress"},
+                        status=503,
+                    )
                 return
             if self._try_modular_handler(path, query):
                 return
