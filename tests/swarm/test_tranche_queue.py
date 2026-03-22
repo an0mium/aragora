@@ -1167,8 +1167,8 @@ async def test_drive_manifest_dispatches_all_ready_lanes_only_when_parallel_cap_
         status="planned",
         autonomy_mode="adaptive",
         lane_states={
-            "lane-a": LaneRunState(lane_id="lane-a"),
-            "lane-b": LaneRunState(lane_id="lane-b"),
+            "lane-a": LaneRunState(lane_id="lane-a", status="pending"),
+            "lane-b": LaneRunState(lane_id="lane-b", status="pending"),
         },
     )
     seen: dict[str, object] = {}
