@@ -1,6 +1,6 @@
 # Aragora Idea-to-Execution Strategy
 
-*Converted from `Aragora Idea-to-Execution Strategy.docx` and updated for the March 20, 2026 repo state.*
+*Converted from `Aragora Idea-to-Execution Strategy.docx` and updated for the March 22, 2026 repo state.*
 
 ## Executive Summary
 
@@ -13,7 +13,7 @@ The strategic thesis from the original document still holds:
 - the missing moat layer is a unified interactive canvas and stage-transition UX
 - heterogeneous model diversity plus audit receipts remain the product advantage
 
-What changed during the March 19-20 tranche/overnight work is the backend maturity. The repo is no longer only proving a single Ralph lane. It now has a real tranche queue, design review, watch/review/integrate flow, and a growing body of evidence about what unattended execution can and cannot yet do truthfully.
+What changed during the March 19-22 tranche/live-proof work is the backend maturity and the product wedge. The repo is no longer only proving a single Ralph lane. It now has a real tranche queue, design review, watch/review/integrate flow, authoritative integrator views, KM-backed debate recall, a truthful public proof surface, and a growing body of evidence about what unattended execution can and cannot yet do truthfully.
 
 ## Five Strategic Goals
 
@@ -106,13 +106,13 @@ The recommended stack from the original document is still reasonable:
 
 Avoid introducing new dependencies that weaken embedding or self-hosting economics when the current stack already covers the core need.
 
-## March 20, 2026 Addendum
+## March 22, 2026 Addendum
 
-The source document's "Immediate - Finish the Clean Ralph Rerun" recommendation is now historically stale. The backend frontier has moved forward during the March 19-20 tranche/overnight autonomy sprint.
+The source document's "Immediate - Finish the Clean Ralph Rerun" recommendation is now historically stale. The backend frontier moved forward first during the March 19-20 tranche/overnight autonomy sprint, then again during the March 21-22 proof-surface closure on `main`.
 
 ### What Landed On `main`
 
-Recent merged work materially expanded the autonomous execution substrate:
+Recent merged work materially expanded both the autonomous execution substrate and the user-visible proof surfaces:
 
 - sequential tranche queue execution and curated queue compilation
 - low-risk auto-merge policy for suitable single-lane work
@@ -123,15 +123,26 @@ Recent merged work materially expanded the autonomous execution substrate:
 - supervisor-to-artifact deliverable sync
 - stale fleet-claim reaping before conflict checks
 - truthful queue-state persistence before long watch loops
+- live receipts page backed by real data
+- truthful integrations status/edit flow instead of optimistic placeholders
+- preserved detached verification evidence and truthful terminal tranche reconciliation
+- authoritative lane/integrator view plus completed-lane publish after watch exit
+- Knowledge Mound retrieval in debate context, default enablement, writeback, and settlement-hook outcome wiring
+- real OpenClaw action dispatch on `main`, not just scaffolding
+- truthful public proof surface and live pipeline state in the UI
+- remote-head PR review loop so merge decisions are grounded in the real review target
 
-### What The Overnight Runs Proved
+### What The Merged Autonomy Proofs Now Show
 
-The overnight dogfood runs produced real evidence, not just theory:
+The current proof set is broader than a single overnight PR:
 
-- `#1108` merged as a real output from the queue system
-- `#1110` and `#1111` are the canonical candidate PMF outputs from later runs
-- `#1113` and `#1114` are alternate variants from the same issues
-- repeated runs exposed real control-plane bugs, which were then fixed on `main`
+- Ralph V14 already validated the bounded repo-improvement loop under explicit merge policy: `spec -> deliverable -> review -> blocker classification -> repair -> PR -> merge`
+- `#1108` proved that the tranche queue can recover, publish, and merge a real output
+- `#1110` turned the first user-journey/API-key slice into merged code on `main`
+- `#1111`, `#1131`, `#1132`, and `#1134` proved that debate results can retrieve from KM, write back to KM, and fire settlement hooks on the canonical outcome path
+- `#1119` and `#1136` proved that public- and integrations-facing surfaces can be made truthful instead of demo-shaped
+- `#1124`, `#1126`, `#1127`, `#1133`, and `#1138` proved the operator contract is getting real: evidence survives detach, tranche terminal states reconcile truthfully, lane state is authoritative, completed deliverables publish after watch exit, and review can inspect the actual remote PR head
+- `#1135` proved the OpenClaw execution path is now real enough to count as part of the wedge, not just a future promise
 
 The key bugs uncovered through dogfooding were:
 
@@ -144,17 +155,18 @@ The key bugs uncovered through dogfooding were:
 
 ### Current Frontier
 
-As of the latest durable March 20 state:
+As of the latest durable March 22 state:
 
-- `queue-v4b` is the active reduced proof lane for `#1047` and `#819`
+- `queue-v4b` is still the reduced proof lane for `#1047` and `#819`, but the meaning of that proof changed
 - `#1047` has already reached a truthful `needs_human` / review-blocked state in the queue
-- `#819` is still pending behind it
+- `#819` now has a merged truthful status/edit slice on `main`, but the broader integrations surface still needs to become trustworthy by default
 
-The main remaining autonomy questions are now narrower:
+The main remaining questions are now narrower:
 
-- controller-side publish and worker-environment edge cases
-- truthful terminalization of every blocker type
-- making the active proof lane produce either a real deliverable or a preserved blocker reason without operator guesswork
+- can the default product loop feel continuous from credentials and provider routing through visible result and receipt
+- can every bounded execution lane emit authoritative provenance, preserve blocker reasons, and support remote review without operator guesswork
+- can the user-facing proof surfaces stay truthful under partial/live states instead of falling back to shell behavior
+- can the merged proof slices become repeatable partner workflows rather than one-off dogfood wins
 
 That is a much better place to be than the original March 2026 strategy assumed.
 
@@ -162,27 +174,29 @@ That is a much better place to be than the original March 2026 strategy assumed.
 
 ### Immediate
 
-1. Finish the unattended tranche proof truthfully.
-   The active queue proof should end in either a real deliverable or a preserved blocker, not another ambiguous stuck state.
-2. Harvest the real PMF outputs already generated.
-   Review and merge the strongest implementations instead of letting autonomous output rot in open PRs.
-3. Keep the autonomy contract explicit.
-   Every proof run should end with a short, evidence-backed statement of the first manual step.
+1. Close the default product loop on current `main`.
+   The immediate job is no longer "generate candidate PRs." It is "make one truthful path work end to end": credentials and provider routing -> debate -> KM-enriched context -> receipt -> visible result.
+2. Make the proof surfaces truthful by default.
+   `/demo`, integrations status/edit, receipts, and pipeline live state should reflect actual live or partial state, not optimistic UI theater.
+3. Finish the operator contract for bounded repo execution.
+   Every lane should preserve verification evidence, publish completed deliverables after watch exit, review remote PR heads, and end with canonical provenance plus an explicit next manual step when blocked.
+4. Treat the wedge as three bounded proof surfaces, not one generic starter pack.
+   The real wedge on `main` is receipt-gated inbox actioning, truthful public/default debate surfaces, and bounded swarm/OpenClaw execution under operator control.
 
 ### Near Term
 
-1. Build the interactive stage-transition UX.
-   This remains the highest-value product gap.
-2. Unify the four stages on one canvas.
-   The backend already behaves like one system; the product still feels like multiple systems.
-3. Make execution results revise upstream plans.
-   Provenance should not stop at auditability; it should power feedback into goals and ideas.
+1. Expand the workbench from one truthful stage-transition slice into a cohesive shell.
+   The highest-value moat work is still the stage-transition UX, but it should now be built on top of truthful live state, not ahead of it.
+2. Make execution results revise upstream plans automatically.
+   Provenance should not stop at auditability; it should power KM writeback, settlement, replanning, and idea/goal revision.
+3. Turn autonomy evidence into PMF proof.
+   Use the merged proof surfaces and measured partner workflows as sales proof, not just engineering validation.
 
 ### Medium Term
 
-1. Turn the pipeline into the default product shell for non-engineers.
+1. Turn the pipeline into the default local-first product shell for non-engineers.
 2. Preserve local-first speed and durability as a feature, not a compromise.
-3. Use benchmarked autonomy evidence as sales proof, not just engineering validation.
+3. Scale beyond the bounded wedges only after the operator and product truth contracts are routine.
 
 ## MVP Vertical Slice
 
@@ -219,8 +233,8 @@ If Aragora finishes this system, its distinct position is:
 
 The original Word document was directionally right: Aragora's biggest opportunity is not another backend substrate, but finishing the product surface that lets people move from ideas to execution with confidence.
 
-What changed after the March 19-20 work is that the orchestration backend is substantially more real than it was when the document was drafted. The strategic center is now:
+What changed after the March 19-22 work is that the orchestration backend and proof surfaces are substantially more real than they were when the document was drafted. The strategic center is now:
 
-- finish truthful unattended execution,
-- harvest the outputs already produced,
+- close one truthful default product loop,
+- make the existing proof surfaces operator-grade and partner-repeatable,
 - and then package the full system behind a unified idea-to-execution interface.

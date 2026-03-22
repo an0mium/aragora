@@ -1,51 +1,47 @@
 # Aragora Project Status
 
-*Last updated: March 20, 2026*
+*Last updated: March 22, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](../INDEX.md) for the curated technical reference map.
 > For roadmap extraction, doc drift, and partial-feature tracking, see [DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md](DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md).
 
-## March 19-20, 2026 — Current State
+## March 21-22, 2026 — Current State
 
 ### Canonical Current Reality
 
-- `main` now contains the tranche queue / overnight autonomy hardening through [#1117](https://github.com/synaptent/aragora/pull/1117).
-- The system has moved beyond a single Ralph proof. Aragora can now compile curated queue manifests, dispatch bounded tranche work, watch it, review it, and truthfully surface several classes of failure that were invisible a week earlier.
-- The first real queue artifact is already merged as [#1108](https://github.com/synaptent/aragora/pull/1108).
-- The strongest later autonomous outputs are currently open as [#1110](https://github.com/synaptent/aragora/pull/1110) and [#1111](https://github.com/synaptent/aragora/pull/1111), with alternates [#1113](https://github.com/synaptent/aragora/pull/1113) and [#1114](https://github.com/synaptent/aragora/pull/1114).
+- `main` now contains the tranche queue / overnight autonomy hardening through [#1117](https://github.com/synaptent/aragora/pull/1117) plus March 21-22 proof-surface closures through [#1138](https://github.com/synaptent/aragora/pull/1138).
+- The system has moved beyond "candidate PMF PRs are open." The first user-journey slice, default KM retrieval slice, truthful integrations/public state slices, real OpenClaw dispatch, and stronger operator/integrator surfaces are all now merged on `main`.
+- The first real queue artifact remains [#1108](https://github.com/synaptent/aragora/pull/1108), but it is no longer the only proof worth citing.
 
-### What Was Fixed On `main`
+### What Recently Landed On `main`
 
-The March 19-20 overnight dogfood cycle found and fixed a concrete sequence of control-plane bugs:
+The March 21-22 cycle closed several important gaps:
 
-1. queue items expanding into overlapping multi-lane tranches
-2. dead workers not terminalizing truthfully
-3. single-lane specs being re-decomposed inside the supervisor
-4. verification commands being dropped before merge gates
-5. stale fleet claims blocking fresh `aragora/live` work
-6. queue resume losing `manifest_path` and spawning duplicate tranches
-
-Those fixes landed across [#1109](https://github.com/synaptent/aragora/pull/1109), [#1112](https://github.com/synaptent/aragora/pull/1112), [#1115](https://github.com/synaptent/aragora/pull/1115), [#1116](https://github.com/synaptent/aragora/pull/1116), and [#1117](https://github.com/synaptent/aragora/pull/1117).
+1. API-key / first-user-journey slice merged via [#1110](https://github.com/synaptent/aragora/pull/1110)
+2. default KM retrieval, later KM writeback, and settlement-hook wiring merged via [#1111](https://github.com/synaptent/aragora/pull/1111), [#1131](https://github.com/synaptent/aragora/pull/1131), [#1132](https://github.com/synaptent/aragora/pull/1132), and [#1134](https://github.com/synaptent/aragora/pull/1134)
+3. truthful receipts/integrations/public state improved via [#1118](https://github.com/synaptent/aragora/pull/1118), [#1119](https://github.com/synaptent/aragora/pull/1119), [#1136](https://github.com/synaptent/aragora/pull/1136), and [#1137](https://github.com/synaptent/aragora/pull/1137)
+4. bounded execution operator surfaces improved via [#1124](https://github.com/synaptent/aragora/pull/1124), [#1126](https://github.com/synaptent/aragora/pull/1126), [#1127](https://github.com/synaptent/aragora/pull/1127), [#1133](https://github.com/synaptent/aragora/pull/1133), and [#1138](https://github.com/synaptent/aragora/pull/1138)
+5. real OpenClaw action dispatch landed via [#1135](https://github.com/synaptent/aragora/pull/1135)
 
 ### Current Frontier
 
 The reduced `queue-v4b` proof is still the active frontier for unresolved product slices:
 
 - [#1047](https://github.com/synaptent/aragora/issues/1047): latest queue attempt is truthfully `needs_human` / review-blocked
-- [#819](https://github.com/synaptent/aragora/issues/819): still pending behind the first lane
+- [#819](https://github.com/synaptent/aragora/issues/819): first truthful status/edit slice is merged, but the broader integrations surface still needs to become trustworthy by default
 
 This means the current problem is no longer "can the queue dispatch?" It is:
 
-- can every blocker terminate truthfully,
-- can deliverables flow cleanly into publish/integrate,
-- and can the PMF slices complete without hidden operator repair.
+- can the default product loop feel continuous from setup to visible result
+- can every lane preserve canonical provenance, review evidence, and explicit blocked next steps
+- can the proof surfaces stay truthful under partial/live states instead of falling back to shell behavior
 
 ### Strategic Direction
 
 The strategy document is now [ARAGORA_IDEA_TO_EXECUTION_STRATEGY](../plans/ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md). The short version:
 
-- finish truthful unattended execution,
-- harvest the PMF outputs already generated,
+- close one truthful default product loop,
+- make the existing proof surfaces operator-grade and partner-repeatable,
 - then invest in the unified idea-to-execution GUI and stage-transition UX.
 
 ## March 2026 Sprint — Closed-Loop Backbone, Trust Wedge & Infrastructure

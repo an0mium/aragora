@@ -1,54 +1,43 @@
 # Aragora Project Status
 
-*Last updated: March 20, 2026*
+*Last updated: March 22, 2026*
 
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](status/STATUS.md).
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
 
-## March 19-20, 2026 — Tranche Queue And Overnight Autonomy Hardening
+## March 21-22, 2026 — Proof-Surface Closure On `main`
 
 ### What Landed On `main`
 
-- **Sequential tranche queue** and **curated queue compiler** landed, making it possible to turn issue/source manifests into a real ordered overnight run.
-- **Low-risk auto-merge policy** landed for suitable single-lane, clean review outcomes.
-- Hardening fixes landed across `main` through [#1109](https://github.com/synaptent/aragora/pull/1109), [#1112](https://github.com/synaptent/aragora/pull/1112), [#1115](https://github.com/synaptent/aragora/pull/1115), [#1116](https://github.com/synaptent/aragora/pull/1116), and [#1117](https://github.com/synaptent/aragora/pull/1117):
-  - dead-worker reconciliation and deliverable recovery
-  - single-lane queue behavior for broad issue sources
-  - verification-command propagation through queue compilation
-  - stale fleet-claim reaping before conflicts
-  - truthful queue-item persistence before long watch loops
+- **Sequential tranche queue** and **curated queue compiler** remain the first big March proof shift.
+- Hardening through [#1117](https://github.com/synaptent/aragora/pull/1117) made queue-backed unattended execution materially real.
+- The March 21-22 cycle then merged the next proof surfaces:
+  - [#1110](https://github.com/synaptent/aragora/pull/1110): API-key / first-user-journey slice
+  - [#1111](https://github.com/synaptent/aragora/pull/1111), [#1131](https://github.com/synaptent/aragora/pull/1131), [#1132](https://github.com/synaptent/aragora/pull/1132), [#1134](https://github.com/synaptent/aragora/pull/1134): KM retrieval, writeback, default enablement, and settlement hooks on the canonical debate path
+  - [#1118](https://github.com/synaptent/aragora/pull/1118), [#1119](https://github.com/synaptent/aragora/pull/1119), [#1136](https://github.com/synaptent/aragora/pull/1136), [#1137](https://github.com/synaptent/aragora/pull/1137): truthful receipts/public/integrations/pipeline state
+  - [#1124](https://github.com/synaptent/aragora/pull/1124), [#1126](https://github.com/synaptent/aragora/pull/1126), [#1127](https://github.com/synaptent/aragora/pull/1127), [#1133](https://github.com/synaptent/aragora/pull/1133), [#1138](https://github.com/synaptent/aragora/pull/1138): stronger operator contract for bounded execution
+  - [#1135](https://github.com/synaptent/aragora/pull/1135): real OpenClaw action dispatch
 
-### What The Overnight Runs Produced
+### What The Proof Set Now Shows
 
-- **PR #1108 merged**: design partner program refresh, recovered and published from the first queue run.
-- **PRs #1110 and #1111 open**: canonical candidate outputs from later overnight runs.
-- **PRs #1113 and #1114 open**: alternate implementations for the same issue pair from a later run.
-
-### What The Overnight Runs Exposed
-
-The March 19-20 dogfood loop found and fixed a chain of real control-plane bugs:
-
-1. queue items were over-expanding into overlapping multi-lane tranches
-2. dead workers could leave watch loops polling forever
-3. single-lane tranche specs were being re-decomposed inside the supervisor
-4. verification commands were dropped before the merge gate
-5. stale fleet claims could permanently block `aragora/live`
-6. queue resume could lose `manifest_path` and create duplicate tranches
+- **PR #1108 merged**: first queue artifact recovered and published.
+- **`#1110` and `#1111` are not just candidate PMF outputs anymore**: they are merged slices on `main`.
+- **The wedge is now broader than a single overnight queue PR**: trust wedge, truthful public/default debate surfaces, and bounded repo execution all have real merged proof points.
 
 ### Current Runtime Frontier
 
-The active reduced proof run is `queue-v4b` for [#1047](https://github.com/synaptent/aragora/issues/1047) and [#819](https://github.com/synaptent/aragora/issues/819).
+The active reduced proof run is still `queue-v4b` for [#1047](https://github.com/synaptent/aragora/issues/1047) and [#819](https://github.com/synaptent/aragora/issues/819).
 
 - `#1047` has already reached a truthful `needs_human` / review-blocked state in the queue.
-- `#819` is still pending behind it.
-- The current autonomy frontier is no longer preflight decomposition. It is truthful finalization, publish edge cases, and preserving blocker reasons without operator guesswork.
+- `#819` now has a merged truthful status/edit slice, but the broader integrations surface still needs to become trustworthy by default.
+- The current autonomy frontier is no longer preflight decomposition. It is default-loop continuity, operator-grade provenance/review, and truthful public/product state under partial failure.
 
 ### Strategy Reality
 
-The older March narrative of "finish the clean Ralph rerun, then pivot" is no longer current. The backend has moved forward into queue-backed unattended execution. The next strategic leverage is:
+The older March narrative of "finish the clean Ralph rerun, then pivot" is no longer current. The backend has moved forward into queue-backed unattended execution plus merged product-loop slices. The next strategic leverage is:
 
-- finish truthful unattended execution,
-- harvest the real PMF outputs already generated,
+- close one truthful default product loop,
+- make the real proof surfaces repeatable and operator-grade,
 - and package the whole system behind a unified idea-to-execution interface.
 
 ## March 12-18, 2026 — Ralph Autonomous Loop Validation
