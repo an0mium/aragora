@@ -6,6 +6,7 @@ import {
   PIPELINE_NODE_TYPE_CONFIGS,
   ORCH_STATUS_COLORS,
   EXECUTION_STATUS_COLORS,
+  getMirroredNodeField,
   type OrchType,
   type OrchStatus,
   type ExecutionStatus,
@@ -21,22 +22,46 @@ export const OrchestrationNode = memo(function OrchestrationNode({
   data,
   selected,
 }: OrchestrationNodeProps) {
-  const orchType = (data.orchType || data.orch_type || 'agent_task') as OrchType;
+  const orchType = getMirroredNodeField<OrchType>(data, 'orchType', 'orch_type') ?? 'agent_task';
   const label = data.label as string;
   const description = data.description as string | undefined;
-  const assignedAgent = (data.assignedAgent || data.assigned_agent) as string | undefined;
-  const agentType = (data.agentType || data.agent_type) as string | undefined;
+  const assignedAgent = getMirroredNodeField<string>(data, 'assignedAgent', 'assigned_agent');
+  const agentType = getMirroredNodeField<string>(data, 'agentType', 'agent_type');
   const capabilities = data.capabilities as string[] | undefined;
-  const status = (data.status || 'pending') as OrchStatus;
-  const lockedBy = data.lockedBy as string | undefined;
-  const executionStatus = data.executionStatus as ExecutionStatus | undefined;
-  const executionDuration = data.executionDuration as string | undefined;
-  const executionAgent = data.executionAgent as string | undefined;
-  const eloScore = (data.eloScore || data.elo_score) as number | undefined;
-  const selectionRationale = (data.selectionRationale || data.selection_rationale) as string | undefined;
-  const alternativeAgents = (data.alternativeAgents || data.alternative_agents) as AlternativeAgent[] | undefined;
-  const elapsedMs = (data.elapsedMs || data.elapsed_ms) as number | undefined;
-  const outputPreview = (data.outputPreview || data.output_preview) as string | undefined;
+  const status = getMirroredNodeField<OrchStatus>(data, 'status') ?? 'pending';
+  const lockedBy = getMirroredNodeField<string>(data, 'lockedBy', 'locked_by');
+  const executionStatus = getMirroredNodeField<ExecutionStatus>(
+    data,
+    'executionStatus',
+    'execution_status',
+  );
+  const executionDuration = getMirroredNodeField<string>(
+    data,
+    'executionDuration',
+    'execution_duration',
+  );
+  const executionAgent = getMirroredNodeField<string>(
+    data,
+    'executionAgent',
+    'execution_agent',
+  );
+  const eloScore = getMirroredNodeField<number>(data, 'eloScore', 'elo_score');
+  const selectionRationale = getMirroredNodeField<string>(
+    data,
+    'selectionRationale',
+    'selection_rationale',
+  );
+  const alternativeAgents = getMirroredNodeField<AlternativeAgent[]>(
+    data,
+    'alternativeAgents',
+    'alternative_agents',
+  );
+  const elapsedMs = getMirroredNodeField<number>(data, 'elapsedMs', 'elapsed_ms');
+  const outputPreview = getMirroredNodeField<string>(
+    data,
+    'outputPreview',
+    'output_preview',
+  );
 
   const isAgent = orchType === 'agent_task' || orchType === 'debate';
   const isHumanGate = orchType === 'human_gate';

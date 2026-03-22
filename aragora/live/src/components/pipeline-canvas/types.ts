@@ -48,6 +48,24 @@ export const ORCH_STATUS_COLORS: Record<OrchStatus, string> = {
   awaiting_human: 'bg-amber-500/30 text-amber-200',
 };
 
+/**
+ * Persisted pipeline payloads arrive from Python handlers in snake_case, while
+ * local editor and websocket mutations use camelCase. Keep both key spellings
+ * aligned here so reloaded live state matches in-session live state.
+ */
+export function getMirroredNodeField<T>(
+  node: Record<string, unknown>,
+  ...keys: string[]
+): T | undefined {
+  for (const key of keys) {
+    const value = node[key];
+    if (value !== undefined && value !== null) {
+      return value as T;
+    }
+  }
+  return undefined;
+}
+
 // =============================================================================
 // Node Data Interfaces
 // =============================================================================

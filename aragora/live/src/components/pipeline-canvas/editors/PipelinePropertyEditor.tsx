@@ -4,6 +4,7 @@ import { memo, useCallback, useState } from 'react';
 import {
   PIPELINE_STAGE_CONFIG,
   STAGE_COLOR_CLASSES,
+  getMirroredNodeField,
   type PipelineStageType,
   type IdeaType,
   type GoalType,
@@ -333,11 +334,20 @@ function OrchestrationEditor({
   if (readOnly) {
     return (
       <>
-        <ReadOnlyField label="Orchestration Type" value={String(node.orchType ?? '')} />
+        <ReadOnlyField
+          label="Orchestration Type"
+          value={String(getMirroredNodeField(node, 'orchType', 'orch_type') ?? '')}
+        />
         <ReadOnlyField label="Status" value={String(node.status ?? 'pending').replace('_', ' ')} />
         <ReadOnlyField label="Description" value={String(node.description ?? '')} />
-        <ReadOnlyField label="Assigned Agent" value={String(node.assignedAgent ?? '')} />
-        <ReadOnlyField label="Agent Type" value={String(node.agentType ?? '')} />
+        <ReadOnlyField
+          label="Assigned Agent"
+          value={String(getMirroredNodeField(node, 'assignedAgent', 'assigned_agent') ?? '')}
+        />
+        <ReadOnlyField
+          label="Agent Type"
+          value={String(getMirroredNodeField(node, 'agentType', 'agent_type') ?? '')}
+        />
         <ReadOnlyField label="Capabilities" value={capsStr} />
       </>
     );
@@ -347,7 +357,7 @@ function OrchestrationEditor({
     <>
       <SelectField
         label="Orchestration Type"
-        value={String(node.orchType ?? 'agent_task')}
+        value={String(getMirroredNodeField(node, 'orchType', 'orch_type') ?? 'agent_task')}
         options={ORCH_TYPE_OPTIONS}
         onChange={(v) => onUpdate({ orchType: v })}
       />
@@ -366,13 +376,13 @@ function OrchestrationEditor({
       />
       <InputField
         label="Assigned Agent"
-        value={String(node.assignedAgent ?? '')}
+        value={String(getMirroredNodeField(node, 'assignedAgent', 'assigned_agent') ?? '')}
         onChange={(v) => onUpdate({ assignedAgent: v })}
         placeholder="e.g., claude, gpt-4"
       />
       <InputField
         label="Agent Type"
-        value={String(node.agentType ?? '')}
+        value={String(getMirroredNodeField(node, 'agentType', 'agent_type') ?? '')}
         onChange={(v) => onUpdate({ agentType: v })}
         placeholder="e.g., reviewer, coder"
       />

@@ -160,4 +160,26 @@ describe('OrchestrationNode', () => {
     const root = container.firstChild as HTMLElement;
     expect(root.className).toContain('border-dashed');
   });
+
+  it('renders live state from persisted snake_case fields', () => {
+    render(
+      <OrchestrationNode
+        data={{
+          ...data,
+          execution_status: 'in_progress',
+          execution_agent: 'codex',
+          execution_duration: '4.2s',
+          elapsed_ms: 4200,
+          output_preview: 'repair patch ready',
+          locked_by: 'review-lane',
+        }}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.getByText('in progress')).toBeInTheDocument();
+    expect(screen.getByText('via codex')).toBeInTheDocument();
+    expect(screen.getByText('repair patch ready')).toBeInTheDocument();
+    expect(screen.getByText('Locked by review-lane')).toBeInTheDocument();
+  });
 });

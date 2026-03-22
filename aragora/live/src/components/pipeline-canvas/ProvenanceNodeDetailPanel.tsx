@@ -12,6 +12,7 @@ import {
   PIPELINE_STAGE_CONFIG,
   PIPELINE_NODE_TYPE_CONFIGS,
   STAGE_COLOR_CLASSES,
+  getMirroredNodeField,
   type PipelineStageType,
   type ProvenanceLink,
   type StageTransition,
@@ -58,16 +59,17 @@ function getNodeTypeInfo(
   stage: PipelineStageType,
   nodeData: Record<string, unknown>,
 ): { label: string; icon: string } | null {
-  const subtypeKey =
+  const subtype = (
     stage === 'ideas'
-      ? 'ideaType'
-      : stage === 'goals'
-        ? 'goalType'
-        : stage === 'actions'
-          ? 'stepType'
-          : 'orchType';
-
-  const subtype = nodeData[subtypeKey] as string | undefined;
+      ? getMirroredNodeField<string>(nodeData, 'ideaType', 'idea_type')
+      : stage === 'principles'
+        ? getMirroredNodeField<string>(nodeData, 'principleType', 'principle_type')
+        : stage === 'goals'
+          ? getMirroredNodeField<string>(nodeData, 'goalType', 'goal_type')
+          : stage === 'actions'
+            ? getMirroredNodeField<string>(nodeData, 'stepType', 'step_type')
+            : getMirroredNodeField<string>(nodeData, 'orchType', 'orch_type')
+  );
   if (!subtype) return null;
 
   const config = PIPELINE_NODE_TYPE_CONFIGS[stage]?.[subtype];
@@ -257,12 +259,13 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
   );
 
   // Content hash from node data
-  const contentHash = (nodeData?.contentHash as string) ?? '';
+  const contentHash =
+    (nodeData && getMirroredNodeField<string>(nodeData, 'contentHash', 'content_hash')) ?? '';
 
   // Node description/content
   const description =
     (nodeData?.description as string) ??
-    (nodeData?.fullContent as string) ??
+    (nodeData && getMirroredNodeField<string>(nodeData, 'fullContent', 'full_content')) ??
     '';
 
   // Status from node data
@@ -274,7 +277,7 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
 
   // Assigned agent/assignee
   const agent =
-    (nodeData?.assignedAgent as string) ??
+    (nodeData && getMirroredNodeField<string>(nodeData, 'assignedAgent', 'assigned_agent')) ??
     (nodeData?.assignee as string) ??
     (nodeData?.agent as string) ??
     '';

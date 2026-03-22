@@ -5,6 +5,7 @@ import { Handle, Position } from '@xyflow/react';
 import {
   PIPELINE_NODE_TYPE_CONFIGS,
   ACTION_STATUS_COLORS,
+  getMirroredNodeField,
   type ActionType,
   type ActionStatus,
 } from '../types';
@@ -15,14 +16,14 @@ interface ActionNodeProps {
 }
 
 export const ActionNode = memo(function ActionNode({ data, selected }: ActionNodeProps) {
-  const stepType = (data.stepType || data.step_type || 'task') as ActionType;
+  const stepType = getMirroredNodeField<ActionType>(data, 'stepType', 'step_type') ?? 'task';
   const label = data.label as string;
   const description = data.description as string | undefined;
   const optional = data.optional as boolean | undefined;
-  const timeout = (data.timeoutSeconds || data.timeout) as number | undefined;
-  const status = (data.status || 'pending') as ActionStatus;
+  const timeout = getMirroredNodeField<number>(data, 'timeoutSeconds', 'timeout');
+  const status = getMirroredNodeField<ActionStatus>(data, 'status') ?? 'pending';
   const assignee = data.assignee as string | undefined;
-  const lockedBy = data.lockedBy as string | undefined;
+  const lockedBy = getMirroredNodeField<string>(data, 'lockedBy', 'locked_by');
 
   const config = PIPELINE_NODE_TYPE_CONFIGS.actions[stepType] || PIPELINE_NODE_TYPE_CONFIGS.actions.task;
   const statusClass = ACTION_STATUS_COLORS[status] || ACTION_STATUS_COLORS.pending;
