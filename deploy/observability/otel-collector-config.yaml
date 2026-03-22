@@ -55,16 +55,12 @@ exporters:
   # Loki for logs (if enabled)
   loki:
     endpoint: http://loki:3100/loki/api/v1/push
-    labels:
-      resource:
-        service.name: "service_name"
-        service.namespace: "service_namespace"
 
   # OTLP exporter for external backends (Jaeger, Tempo, etc.)
   otlp/external:
-    endpoint: ${OTEL_EXTERNAL_ENDPOINT:-localhost:4317}
+    endpoint: ${env:OTEL_EXTERNAL_ENDPOINT:-localhost:4317}
     tls:
-      insecure: ${OTEL_INSECURE:-true}
+      insecure: ${env:OTEL_INSECURE:-true}
 
 extensions:
   health_check:
