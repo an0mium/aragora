@@ -18,6 +18,7 @@ from typing import Any
 from aragora.server.handlers.openclaw.models import (
     Action,
     ActionStatus,
+    ApprovalRequest,
     AuditEntry,
     Credential,
     CredentialType,
@@ -41,6 +42,7 @@ class OpenClawGatewayStore:
     def __init__(self, session_idle_timeout: int | None = None) -> None:
         self._sessions: dict[str, Session] = {}
         self._actions: dict[str, Action] = {}
+        self._approvals: dict[str, ApprovalRequest] = {}
         self._credentials: dict[str, Credential] = {}
         self._credential_secrets: dict[str, str] = {}  # Stored separately
         self._audit_log: list[AuditEntry] = []
@@ -205,6 +207,54 @@ class OpenClawGatewayStore:
             if metadata is not None:
                 action.metadata = metadata
         return action
+
+    # Approval methods
+    def create_approval(self, approval: ApprovalRequest) -> ApprovalRequest:
+        """Persist a pending approval record."""
+        self._approvals[approval.approval_id] = approval
+        return approval
+
+    def get_approval(self, approval_id: str) -> ApprovalRequest | None:
+        """Get approval by ID."""
+        return self._approvals.get(approval_id)
+
+    def list_approvals(
+        self,
+        tenant_id: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+        session_id: str | None = None,
+    ) -> tuple[list[ApprovalRequest], int]:
+        """List approvals with optional filtering."""
+        approvals = [
+            approval for approval in self._approvals.values() if approval.status == "pending"
+        ]
+        if tenant_id:
+            approvals = [a for a in approvals if a.tenant_id == tenant_id]
+        if session_id:
+            approvals = [a for a in approvals if a.session_id == session_id]
+        approvals.sort(key=lambda a: a.requested_at, reverse=True)
+        total = len(approvals)
+        return approvals[offset : offset + limit], total
+
+    def update_approval_status(
+        self,
+        approval_id: str,
+        *,
+        status: str,
+        decided_by: str | None = None,
+        reason: str | None = None,
+        decided_at: datetime | None = None,
+    ) -> ApprovalRequest | None:
+        """Update approval decision state."""
+        approval = self._approvals.get(approval_id)
+        if approval is None:
+            return None
+        approval.status = status
+        approval.decided_by = decided_by
+        approval.reason = reason
+        approval.decided_at = decided_at or datetime.now(timezone.utc)
+        return approval
 
     # Credential methods
     def store_credential(
@@ -466,6 +516,28 @@ class OpenClawPersistentStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_actions_session ON openclaw_actions(session_id);
                 CREATE INDEX IF NOT EXISTS idx_actions_status ON openclaw_actions(status);
+
+                CREATE TABLE IF NOT EXISTS openclaw_approvals (
+                    id TEXT PRIMARY KEY,
+                    action_id TEXT NOT NULL,
+                    session_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    tenant_id TEXT,
+                    action_type TEXT NOT NULL,
+                    normalized_action_type TEXT NOT NULL,
+                    action_data_json TEXT NOT NULL,
+                    metadata_json TEXT,
+                    status TEXT NOT NULL,
+                    requested_at TEXT NOT NULL,
+                    decided_at TEXT,
+                    decided_by TEXT,
+                    reason TEXT,
+                    FOREIGN KEY (action_id) REFERENCES openclaw_actions(id),
+                    FOREIGN KEY (session_id) REFERENCES openclaw_sessions(id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_approvals_tenant ON openclaw_approvals(tenant_id);
+                CREATE INDEX IF NOT EXISTS idx_approvals_status ON openclaw_approvals(status);
+                CREATE INDEX IF NOT EXISTS idx_approvals_requested_at ON openclaw_approvals(requested_at DESC);
 
                 CREATE TABLE IF NOT EXISTS openclaw_credentials (
                     id TEXT PRIMARY KEY,
@@ -892,6 +964,170 @@ class OpenClawPersistentStore:
         with self._cache_lock:
             self._action_cache.pop(action_id, None)
         return self.get_action(action_id)
+
+    # Approval methods
+    def create_approval(self, approval: ApprovalRequest) -> ApprovalRequest:
+        """Persist a pending approval record."""
+        import json
+
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                """INSERT OR REPLACE INTO openclaw_approvals
+                   (id, action_id, session_id, user_id, tenant_id, action_type,
+                    normalized_action_type, action_data_json, metadata_json, status,
+                    requested_at, decided_at, decided_by, reason)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    approval.approval_id,
+                    approval.action_id,
+                    approval.session_id,
+                    approval.user_id,
+                    approval.tenant_id,
+                    approval.action_type,
+                    approval.normalized_action_type,
+                    json.dumps(approval.action_data),
+                    json.dumps(approval.metadata),
+                    approval.status,
+                    approval.requested_at.isoformat(),
+                    approval.decided_at.isoformat() if approval.decided_at else None,
+                    approval.decided_by,
+                    approval.reason,
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return approval
+
+    def get_approval(self, approval_id: str) -> ApprovalRequest | None:
+        """Get approval metadata by ID."""
+        import json
+
+        conn = self._get_connection()
+        try:
+            row = conn.execute(
+                "SELECT * FROM openclaw_approvals WHERE id = ?",
+                (approval_id,),
+            ).fetchone()
+            if not row:
+                return None
+            return ApprovalRequest(
+                approval_id=row["id"],
+                action_id=row["action_id"],
+                session_id=row["session_id"],
+                user_id=row["user_id"],
+                tenant_id=row["tenant_id"],
+                action_type=row["action_type"],
+                normalized_action_type=row["normalized_action_type"],
+                action_data=json.loads(row["action_data_json"] or "{}"),
+                metadata=json.loads(row["metadata_json"] or "{}"),
+                status=row["status"],
+                requested_at=datetime.fromisoformat(row["requested_at"]),
+                decided_at=datetime.fromisoformat(row["decided_at"]) if row["decided_at"] else None,
+                decided_by=row["decided_by"],
+                reason=row["reason"],
+            )
+        finally:
+            conn.close()
+
+    def list_approvals(
+        self,
+        tenant_id: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+        session_id: str | None = None,
+    ) -> tuple[list[ApprovalRequest], int]:
+        """List approvals with optional filtering."""
+        import json
+
+        clauses: list[str] = ["status = ?"]
+        params: list[Any] = ["pending"]
+        if tenant_id is not None:
+            clauses.append("tenant_id = ?")
+            params.append(tenant_id)
+        if session_id is not None:
+            clauses.append("session_id = ?")
+            params.append(session_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+        conn = self._get_connection()
+        try:
+            total_row = conn.execute(
+                f"SELECT COUNT(*) AS count FROM openclaw_approvals {where}",
+                params,
+            ).fetchone()
+            rows = conn.execute(
+                f"""SELECT * FROM openclaw_approvals {where}
+                    ORDER BY requested_at DESC
+                    LIMIT ? OFFSET ?""",
+                [*params, limit, offset],
+            ).fetchall()
+            approvals = [
+                ApprovalRequest(
+                    approval_id=row["id"],
+                    action_id=row["action_id"],
+                    session_id=row["session_id"],
+                    user_id=row["user_id"],
+                    tenant_id=row["tenant_id"],
+                    action_type=row["action_type"],
+                    normalized_action_type=row["normalized_action_type"],
+                    action_data=json.loads(row["action_data_json"] or "{}"),
+                    metadata=json.loads(row["metadata_json"] or "{}"),
+                    status=row["status"],
+                    requested_at=datetime.fromisoformat(row["requested_at"]),
+                    decided_at=datetime.fromisoformat(row["decided_at"])
+                    if row["decided_at"]
+                    else None,
+                    decided_by=row["decided_by"],
+                    reason=row["reason"],
+                )
+                for row in rows
+            ]
+            return approvals, int(total_row["count"] if total_row is not None else 0)
+        finally:
+            conn.close()
+
+    def update_approval_status(
+        self,
+        approval_id: str,
+        *,
+        status: str,
+        decided_by: str | None = None,
+        reason: str | None = None,
+        decided_at: datetime | None = None,
+    ) -> ApprovalRequest | None:
+        """Update approval decision state."""
+        approval = self.get_approval(approval_id)
+        if approval is None:
+            return None
+
+        approval.status = status
+        approval.decided_by = decided_by
+        approval.reason = reason
+        approval.decided_at = decided_at or datetime.now(timezone.utc)
+
+        import json
+
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                """UPDATE openclaw_approvals
+                   SET status = ?, decided_at = ?, decided_by = ?, reason = ?, metadata_json = ?
+                   WHERE id = ?""",
+                (
+                    approval.status,
+                    approval.decided_at.isoformat() if approval.decided_at else None,
+                    approval.decided_by,
+                    approval.reason,
+                    json.dumps(approval.metadata),
+                    approval_id,
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        return approval
 
     # Credential methods
     def store_credential(

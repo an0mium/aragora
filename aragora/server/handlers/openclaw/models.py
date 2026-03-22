@@ -11,7 +11,7 @@ Contains:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -178,6 +178,50 @@ class AuditEntry:
         }
 
 
+@dataclass
+class ApprovalRequest:
+    """Durable approval record for a pending OpenClaw action."""
+
+    approval_id: str
+    action_id: str
+    session_id: str
+    user_id: str
+    tenant_id: str | None
+    action_type: str
+    normalized_action_type: str
+    action_data: dict[str, Any]
+    metadata: dict[str, Any] = field(default_factory=dict)
+    status: str = "pending"
+    requested_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    decided_at: datetime | None = None
+    decided_by: str | None = None
+    reason: str | None = None
+
+    @property
+    def id(self) -> str:
+        """Compatibility alias for callers that expect an `id` field."""
+        return self.approval_id
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.approval_id,
+            "action_id": self.action_id,
+            "session_id": self.session_id,
+            "user_id": self.user_id,
+            "tenant_id": self.tenant_id,
+            "status": self.status,
+            "action_type": self.action_type,
+            "normalized_action_type": self.normalized_action_type,
+            "action_data": self.action_data,
+            "metadata": self.metadata,
+            "requested_at": self.requested_at.isoformat(),
+            "decided_at": self.decided_at.isoformat() if self.decided_at else None,
+            "decided_by": self.decided_by,
+            "reason": self.reason,
+        }
+
+
 __all__ = [
     # Enums
     "SessionStatus",
@@ -188,4 +232,5 @@ __all__ = [
     "Action",
     "Credential",
     "AuditEntry",
+    "ApprovalRequest",
 ]

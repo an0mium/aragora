@@ -29,15 +29,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.gateway.openclaw_policy import PolicyDecision
 from aragora.server.handlers.openclaw.models import (
     Action,
     ActionStatus,
+    ApprovalRequest,
     AuditEntry,
     Credential,
     CredentialType,
     Session,
     SessionStatus,
 )
+from aragora.server.handlers.openclaw.runtime import OpenClawExecutionRuntime
 from aragora.server.handlers.openclaw.store import (
     OpenClawGatewayStore,
     OpenClawPersistentStore,
@@ -330,6 +333,102 @@ class TestMemSessionExpiration:
     def test_custom_timeout(self):
         store = OpenClawGatewayStore(session_idle_timeout=300)
         assert store._session_idle_timeout == 300
+
+
+# ============================================================================
+# Approval Persistence
+# ============================================================================
+
+
+class TestMemApprovalPersistence:
+    """Approval CRUD on in-memory store."""
+
+    def test_create_and_get_approval(self, mem_store):
+        approval = ApprovalRequest(
+            approval_id="app-1",
+            action_id="action-1",
+            session_id="session-1",
+            user_id="user-1",
+            tenant_id="tenant-1",
+            action_type="shell.execute",
+            normalized_action_type="shell",
+            action_data={"command": "sudo echo ok"},
+            metadata={"scope": "test"},
+        )
+        mem_store.create_approval(approval)
+
+        stored = mem_store.get_approval("app-1")
+        assert stored is not None
+        assert stored.approval_id == "app-1"
+        assert stored.metadata == {"scope": "test"}
+
+    def test_list_and_update_approval(self, mem_store):
+        approval = ApprovalRequest(
+            approval_id="app-2",
+            action_id="action-2",
+            session_id="session-2",
+            user_id="user-2",
+            tenant_id="tenant-2",
+            action_type="shell.execute",
+            normalized_action_type="shell",
+            action_data={"command": "sudo echo ok"},
+        )
+        mem_store.create_approval(approval)
+
+        approvals, total = mem_store.list_approvals(tenant_id="tenant-2")
+        assert total == 1
+        assert approvals[0].approval_id == "app-2"
+
+        updated = mem_store.update_approval_status(
+            "app-2",
+            status="denied",
+            decided_by="approver-1",
+            reason="no",
+        )
+        assert updated is not None
+        assert updated.status == "denied"
+        assert updated.decided_by == "approver-1"
+
+
+class TestApprovalRuntimeRecovery:
+    """Approval records remain actionable after runtime restart."""
+
+    def test_runtime_can_recover_pending_approval_from_store(self, reset_global_store, monkeypatch):
+        import aragora.server.handlers.openclaw.store as store_mod
+
+        store = OpenClawGatewayStore()
+        monkeypatch.setattr(store_mod, "_store", store)
+
+        session = store.create_session(user_id="user-1", tenant_id="tenant-1")
+        action = store.create_action(
+            session_id=session.id,
+            action_type="shell.execute",
+            input_data={"command": "sudo echo ok"},
+        )
+
+        runtime_a = OpenClawExecutionRuntime()
+        runtime_a._policy.evaluate = MagicMock(  # type: ignore[method-assign]
+            return_value=MagicMock(
+                decision=PolicyDecision.REQUIRE_APPROVAL,
+                reason="needs approval",
+            )
+        )
+        dispatch = runtime_a.dispatch_action(session, action)
+
+        assert dispatch.status == ActionStatus.PENDING
+        assert dispatch.approval_id is not None
+
+        runtime_b = OpenClawExecutionRuntime()
+        approvals, total = runtime_b.list_approvals(tenant_id="tenant-1")
+        assert total == 1
+        assert approvals[0].approval_id == dispatch.approval_id
+        assert runtime_b.get_approval(dispatch.approval_id) is not None
+        assert runtime_b.deny_action(dispatch.approval_id, "approver-1", "no") is True
+
+        stored = store.get_approval(dispatch.approval_id)
+        assert stored is not None
+        assert stored.status == "denied"
+        assert stored.decided_by == "approver-1"
 
 
 # ============================================================================
@@ -1134,6 +1233,43 @@ class TestPersistentAuditLog:
         entries, total = persistent_store.get_audit_log(limit=3, offset=0)
         assert total == 10
         assert len(entries) == 3
+
+
+class TestPersistentApprovalPersistence:
+    """Approval CRUD on SQLite-backed store."""
+
+    def test_persistent_store_round_trips_approval(self, persistent_store):
+        approval = ApprovalRequest(
+            approval_id="app-persist-1",
+            action_id="action-1",
+            session_id="session-1",
+            user_id="user-1",
+            tenant_id="tenant-1",
+            action_type="shell.execute",
+            normalized_action_type="shell",
+            action_data={"command": "sudo echo ok"},
+            metadata={"scope": "persist"},
+        )
+        persistent_store.create_approval(approval)
+
+        stored = persistent_store.get_approval("app-persist-1")
+        assert stored is not None
+        assert stored.approval_id == "app-persist-1"
+        assert stored.metadata == {"scope": "persist"}
+
+        approvals, total = persistent_store.list_approvals(tenant_id="tenant-1")
+        assert total == 1
+        assert approvals[0].approval_id == "app-persist-1"
+
+        updated = persistent_store.update_approval_status(
+            "app-persist-1",
+            status="approved",
+            decided_by="approver-1",
+            reason="ship it",
+        )
+        assert updated is not None
+        assert updated.status == "approved"
+        assert updated.decided_by == "approver-1"
 
 
 # ============================================================================

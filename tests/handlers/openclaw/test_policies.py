@@ -693,8 +693,8 @@ class TestApproveAction:
         resp = _body(result)
         assert resp["success"] is True
 
-    def test_approve_action_store_without_method(self, handler, mock_http, store):
-        """Without approve_action method, success defaults to True."""
+    def test_approve_action_without_stored_approval_returns_false(self, handler, mock_http, store):
+        """Fallback runtime path reports failure when the approval record is missing."""
         body = {}
         result = handler.handle_post(
             "/api/v1/openclaw/approvals/app-def/approve",
@@ -702,7 +702,7 @@ class TestApproveAction:
             mock_http(body=body, method="POST"),
         )
         assert _status(result) == 200
-        assert _body(result)["success"] is True
+        assert _body(result)["success"] is False
 
     def test_approve_action_creates_audit_entry(self, handler, mock_http, store):
         """Approving creates an audit entry."""
@@ -838,8 +838,8 @@ class TestDenyAction:
         assert _status(result) == 200
         assert _body(result)["success"] is True
 
-    def test_deny_action_store_without_method(self, handler, mock_http, store):
-        """Without deny_action method, success defaults to True."""
+    def test_deny_action_without_stored_approval_returns_false(self, handler, mock_http, store):
+        """Fallback runtime path reports failure when the approval record is missing."""
         body = {}
         result = handler.handle_post(
             "/api/v1/openclaw/approvals/app-no-method/deny",
@@ -847,7 +847,7 @@ class TestDenyAction:
             mock_http(body=body, method="POST"),
         )
         assert _status(result) == 200
-        assert _body(result)["success"] is True
+        assert _body(result)["success"] is False
 
     def test_deny_action_creates_audit_entry(self, handler, mock_http, store):
         """Denying creates an audit entry."""

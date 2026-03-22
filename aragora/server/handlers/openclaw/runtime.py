@@ -33,7 +33,8 @@ from aragora.gateway.openclaw_sandbox import (
     SandboxActionResult,
     SandboxConfig,
 )
-from aragora.server.handlers.openclaw.models import Action, ActionStatus, Session
+from aragora.server.handlers.openclaw.models import Action, ActionStatus, ApprovalRequest, Session
+from aragora.server.handlers.openclaw.store import _get_store
 
 logger = logging.getLogger(__name__)
 
@@ -78,40 +79,7 @@ class NormalizedAction:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass
-class RuntimeApproval:
-    """Pending approval for a not-yet-executed OpenClaw action."""
-
-    approval_id: str
-    action_id: str
-    session_id: str
-    user_id: str
-    tenant_id: str | None
-    action_type: str
-    normalized_action_type: str
-    action_data: dict[str, Any]
-    metadata: dict[str, Any]
-    status: str = "pending"
-    requested_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    decided_at: datetime | None = None
-    decided_by: str | None = None
-    reason: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize for handler responses."""
-        return {
-            "id": self.approval_id,
-            "action_id": self.action_id,
-            "session_id": self.session_id,
-            "user_id": self.user_id,
-            "status": self.status,
-            "action_type": self.action_type,
-            "action_data": self.action_data,
-            "requested_at": self.requested_at.isoformat(),
-            "decided_at": self.decided_at.isoformat() if self.decided_at else None,
-            "decided_by": self.decided_by,
-            "reason": self.reason,
-        }
+RuntimeApproval = ApprovalRequest
 
 
 @dataclass
@@ -135,7 +103,7 @@ class OpenClawExecutionRuntime:
     def __init__(self) -> None:
         self._policy = self._build_policy()
         self._sandbox = OpenClawActionSandbox()
-        self._approvals: dict[str, tuple[RuntimeApproval, NormalizedAction, Session]] = {}
+        self._approvals: dict[str, tuple[NormalizedAction, Session]] = {}
         self._lock = threading.Lock()
 
     def dispatch_action(self, session: Session, action: Action) -> RuntimeDispatchResult:
@@ -187,8 +155,9 @@ class OpenClawExecutionRuntime:
                 metadata=dict(normalized.metadata),
                 reason=policy_result.reason,
             )
+            _get_store().create_approval(approval)
             with self._lock:
-                self._approvals[approval.approval_id] = (approval, normalized, session)
+                self._approvals[approval.approval_id] = (normalized, session)
             return RuntimeDispatchResult(
                 action_id=action.id,
                 status=ActionStatus.PENDING,
@@ -209,25 +178,22 @@ class OpenClawExecutionRuntime:
         offset: int = 0,
     ) -> tuple[list[RuntimeApproval], int]:
         """List pending approvals."""
-        with self._lock:
-            approvals = [
-                approval
-                for approval, _normalized, _session in self._approvals.values()
-                if approval.status == "pending"
-                and (tenant_id is None or approval.tenant_id == tenant_id)
-            ]
-        approvals.sort(key=lambda approval: approval.requested_at, reverse=True)
-        total = len(approvals)
-        return approvals[offset : offset + limit], total
+        store = _get_store()
+        if hasattr(store, "list_approvals"):
+            return store.list_approvals(
+                tenant_id=tenant_id,
+                limit=limit,
+                offset=offset,
+            )
+
+        return [], 0
 
     def get_approval(self, approval_id: str) -> RuntimeApproval | None:
         """Fetch one approval record by ID."""
-        with self._lock:
-            record = self._approvals.get(approval_id)
-            if record is None:
-                return None
-            approval, _normalized, _session = record
-            return approval
+        store = _get_store()
+        if hasattr(store, "get_approval"):
+            return store.get_approval(approval_id)
+        return None
 
     def approve_action(
         self,
@@ -236,52 +202,109 @@ class OpenClawExecutionRuntime:
         reason: str = "",
     ) -> RuntimeDispatchResult:
         """Approve a pending action and dispatch it."""
+        approval = self.get_approval(approval_id)
+        if approval is None:
+            error = _bounded_failure_reason("approval_not_found", approval_id)
+            return RuntimeDispatchResult(
+                action_id="",
+                status=ActionStatus.FAILED,
+                error=error,
+                audit_result="failed",
+                audit_details={"failure_reason": error},
+            )
+        if approval.status != "pending":
+            error = _bounded_failure_reason("approval_not_pending", approval.status)
+            return RuntimeDispatchResult(
+                action_id=approval.action_id,
+                status=ActionStatus.FAILED,
+                error=error,
+                audit_result="failed",
+                audit_details={"failure_reason": error, "approval_id": approval_id},
+            )
+
         with self._lock:
             record = self._approvals.get(approval_id)
-            if record is None:
-                error = _bounded_failure_reason("approval_not_found", approval_id)
+        if record is not None:
+            normalized, session = record
+        else:
+            store = _get_store()
+            action = store.get_action(approval.action_id)
+            session = store.get_session(approval.session_id)
+            if action is None or session is None:
+                error = _bounded_failure_reason("approval_context_missing", approval_id)
                 return RuntimeDispatchResult(
-                    action_id="",
+                    action_id=approval.action_id,
                     status=ActionStatus.FAILED,
                     error=error,
                     audit_result="failed",
-                    audit_details={"failure_reason": error},
+                    audit_details={"failure_reason": error, "approval_id": approval_id},
                 )
-            approval, normalized, session = record
-            approval.status = "approved"
-            approval.decided_by = approver_id
-            approval.reason = reason
-            approval.decided_at = datetime.now(timezone.utc)
+            normalized, error = self._normalize_action(action)
+            if error is not None or normalized is None:
+                return RuntimeDispatchResult(
+                    action_id=approval.action_id,
+                    status=ActionStatus.FAILED,
+                    error=error,
+                    audit_result="failed",
+                    audit_details={"failure_reason": error, "approval_id": approval_id},
+                )
 
+        updated = _get_store().update_approval_status(
+            approval_id,
+            status="approved",
+            decided_by=approver_id,
+            reason=reason,
+            decided_at=datetime.now(timezone.utc),
+        )
+        if updated is None:
+            error = _bounded_failure_reason("approval_not_found", approval_id)
+            return RuntimeDispatchResult(
+                action_id=approval.action_id,
+                status=ActionStatus.FAILED,
+                error=error,
+                audit_result="failed",
+                audit_details={"failure_reason": error},
+            )
+
+        with self._lock:
+            self._approvals.pop(approval_id, None)
         result = self._execute(session, approval.action_id, normalized)
         result.audit_details.setdefault("approval_id", approval_id)
         return result
 
     def deny_action(self, approval_id: str, denier_id: str, reason: str = "") -> bool:
         """Record a denied approval."""
-        with self._lock:
-            record = self._approvals.get(approval_id)
-            if record is None:
-                return False
-            approval, _normalized, _session = record
-            approval.status = "denied"
-            approval.decided_by = denier_id
-            approval.reason = reason
-            approval.decided_at = datetime.now(timezone.utc)
-            return True
+        approval = self.get_approval(approval_id)
+        if approval is None or approval.status != "pending":
+            return False
+        approval = _get_store().update_approval_status(
+            approval_id,
+            status="denied",
+            decided_by=denier_id,
+            reason=reason,
+            decided_at=datetime.now(timezone.utc),
+        )
+        if approval is not None:
+            with self._lock:
+                self._approvals.pop(approval_id, None)
+        return approval is not None
 
     def cancel_pending_approval(self, approval_id: str, actor_id: str) -> bool:
         """Cancel a pending approval because the action was cancelled."""
-        with self._lock:
-            record = self._approvals.get(approval_id)
-            if record is None:
-                return False
-            approval, _normalized, _session = record
-            approval.status = "cancelled"
-            approval.decided_by = actor_id
-            approval.reason = "Cancelled"
-            approval.decided_at = datetime.now(timezone.utc)
-            return True
+        approval = self.get_approval(approval_id)
+        if approval is None or approval.status != "pending":
+            return False
+        approval = _get_store().update_approval_status(
+            approval_id,
+            status="cancelled",
+            decided_by=actor_id,
+            reason="Cancelled",
+            decided_at=datetime.now(timezone.utc),
+        )
+        if approval is not None:
+            with self._lock:
+                self._approvals.pop(approval_id, None)
+        return approval is not None
 
     def close_session(self, session_id: str) -> None:
         """Clean up sandbox state and pending approvals for a session."""
@@ -289,13 +312,23 @@ class OpenClawExecutionRuntime:
         if sandbox is not None:
             _run_coro(self._sandbox.destroy_sandbox(sandbox.sandbox_id))
 
-        with self._lock:
-            for approval, _normalized, _session in self._approvals.values():
-                if approval.session_id != session_id or approval.status != "pending":
-                    continue
-                approval.status = "cancelled"
-                approval.reason = "Session closed"
-                approval.decided_at = datetime.now(timezone.utc)
+        approvals, _total = _get_store().list_approvals(
+            session_id=session_id,
+            limit=100000,
+            offset=0,
+        )
+        for approval in approvals:
+            if approval.status != "pending":
+                continue
+            _get_store().update_approval_status(
+                approval.approval_id,
+                status="cancelled",
+                decided_by="system",
+                reason="Session closed",
+                decided_at=datetime.now(timezone.utc),
+            )
+            with self._lock:
+                self._approvals.pop(approval.approval_id, None)
 
     def _build_policy(self) -> OpenClawPolicy:
         policy = create_enterprise_policy()
