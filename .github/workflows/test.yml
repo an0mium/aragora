@@ -448,7 +448,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,test]"
+          bash scripts/ci_install_project.sh --extras test
 
       - name: Check for new zero-coverage files
         run: |
@@ -550,7 +550,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,research,test]"
+          bash scripts/ci_install_project.sh --extras test
           python -m pip install pytest-timeout pytest-xdist
 
       - name: Run ${{ matrix.category.name }} tests
@@ -610,7 +610,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,research,test]"
+          bash scripts/ci_install_project.sh --extras test
           python -m pip install pytest-timeout
 
       - name: Run epistemic hygiene + settlement gate
@@ -730,7 +730,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,research,test]"
+          bash scripts/ci_install_project.sh --extras test
           python -m pip install pytest-timeout
 
       - name: Run integration minimal marker suite
@@ -801,7 +801,7 @@ jobs:
         if: steps.changes.outputs.high_risk == 'true'
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,research,test]"
+          bash scripts/ci_install_project.sh --extras test
           python -m pip install pytest-timeout
 
       - name: Run integration smoke tests
@@ -867,7 +867,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,research,test]"
+          bash scripts/ci_install_project.sh --extras test
           python -m pip install pytest-timeout pytest-xdist pytest-randomly
 
       - name: Compute dynamic seed
@@ -1379,7 +1379,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .
+          bash scripts/ci_install_project.sh
 
       - name: Smoke - demo ask
         run: |
@@ -1473,7 +1473,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,research,test]"
+          bash scripts/ci_install_project.sh --extras test
           python -m pip install pytest-timeout
 
       - name: Run slow/load/e2e/benchmark tier
@@ -1918,7 +1918,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,test,research]"
+          bash scripts/ci_install_project.sh --extras test
           python -m pip install mcp || true
 
       - name: Run optional-deps test suite
