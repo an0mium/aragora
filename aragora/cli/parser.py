@@ -148,6 +148,7 @@ Examples:
     _add_replay_parser(subparsers)
     _add_bench_parser(subparsers)
     _add_review_parser(subparsers)
+    _add_review_pr_parser(subparsers)
     _add_external_parsers(subparsers)
     _add_badge_parser(subparsers)
     _add_verticals_parser(subparsers)
@@ -1186,6 +1187,13 @@ def _add_external_parsers(subparsers) -> None:
     from aragora.cli.billing import create_billing_parser
 
     create_billing_parser(subparsers)
+
+
+def _add_review_pr_parser(subparsers) -> None:
+    """Add the PR review/fix loop parser."""
+    from aragora.cli.commands.review_pr import add_review_pr_parser
+
+    add_review_pr_parser(subparsers)
 
     # Audit command (compliance audit logs)
     from aragora.cli.audit import create_audit_parser
