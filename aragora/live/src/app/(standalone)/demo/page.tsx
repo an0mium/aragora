@@ -444,7 +444,7 @@ function RecordedSampleCard({ sample }: { sample: RecordedDebate }) {
       </div>
 
       <div className="text-xs font-mono text-[var(--text-muted)]">
-        Receipt: {sample.receiptHash}
+        Receipt sample (not cryptographic): {sample.receiptHash}
       </div>
     </section>
   );

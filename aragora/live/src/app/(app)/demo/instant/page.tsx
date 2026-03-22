@@ -411,7 +411,7 @@ export default function InstantDemoPage() {
                 {DEMO_DEBATE.verdict}
               </p>
               <div className="flex items-center gap-4 text-[10px] font-mono text-[var(--text-muted)]">
-                <span>Receipt: {DEMO_DEBATE.receipt_hash}</span>
+                <span>Receipt sample (not cryptographic): {DEMO_DEBATE.receipt_hash}</span>
                 <span>Agents: {DEMO_DEBATE.agents.length}</span>
                 <span>Rounds: {DEMO_DEBATE.rounds}</span>
                 <span>Confidence: {Math.round(DEMO_DEBATE.confidence * 100)}%</span>

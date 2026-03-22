@@ -101,14 +101,14 @@ def _is_shareable(result: dict[str, Any]) -> bool:
     A debate is shareable if:
     - It has a share_url field (set by _persist_and_respond in playground.py)
     - OR it has visibility == "public" (set by _persist_playground_debate)
-    - OR its source is "playground" or "landing" (playground debates are public by default)
+    - OR its source is "playground", "landing", "oracle", or "demo"
     """
     if result.get("share_url"):
         return True
     if result.get("visibility") == "public":
         return True
     source = result.get("source", "")
-    if source in ("playground", "landing", "oracle"):
+    if source in ("playground", "landing", "oracle", "demo"):
         return True
     return False
 
