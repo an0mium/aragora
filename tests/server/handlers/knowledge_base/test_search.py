@@ -112,6 +112,28 @@ class MockSearchResult:
         }
 
 
+@dataclass
+class MockKnowledgeItem:
+    """Mock Knowledge Mound item for normalized search responses."""
+
+    id: str
+    content: str
+    confidence: float
+    node_type: str = "fact"
+    domain: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "content": self.content,
+            "confidence": self.confidence,
+            "node_type": self.node_type,
+            "domain": self.domain,
+            "metadata": self.metadata,
+        }
+
+
 class MockQueryEngine:
     """Mock query engine for testing."""
 
@@ -123,6 +145,26 @@ class MockQueryEngine:
         if self._search_error:
             raise self._search_error
         return self._results[:limit]
+
+
+class MockKnowledgeMound:
+    """Mock Knowledge Mound for testing KM-backed search."""
+
+    def __init__(self, items: list[MockKnowledgeItem] | None = None):
+        self._items = items or []
+        self._query_error: Exception | None = None
+
+    async def query_semantic(
+        self,
+        text: str,
+        limit: int = 10,
+        min_confidence: float = 0.0,
+        workspace_id: str | None = None,
+        allow_fallback: bool = True,
+    ) -> list[MockKnowledgeItem]:
+        if self._query_error:
+            raise self._query_error
+        return [item for item in self._items if item.confidence >= min_confidence][:limit]
 
 
 class MockFactStore:
@@ -149,9 +191,11 @@ class SearchHandler(SearchOperationsMixin):
         self,
         query_engine: MockQueryEngine | None = None,
         fact_store: MockFactStore | None = None,
+        knowledge_mound: MockKnowledgeMound | None = None,
     ):
         self._query_engine = query_engine
         self._fact_store = fact_store
+        self._knowledge_mound = knowledge_mound
         self.ctx = {}
 
     def _get_query_engine(self):
@@ -159,6 +203,9 @@ class SearchHandler(SearchOperationsMixin):
 
     def _get_fact_store(self):
         return self._fact_store
+
+    def _get_knowledge_mound(self):
+        return self._knowledge_mound
 
 
 # =============================================================================
@@ -211,6 +258,40 @@ def handler(mock_query_engine, mock_fact_store):
     return SearchHandler(
         query_engine=mock_query_engine,
         fact_store=mock_fact_store,
+    )
+
+
+@pytest.fixture
+def mock_knowledge_mound():
+    """Create a mock Knowledge Mound with sample semantic results."""
+    return MockKnowledgeMound(
+        items=[
+            MockKnowledgeItem(
+                id="km-1",
+                content="Rate limiting best practices for API gateways",
+                confidence=0.92,
+                node_type="fact",
+                domain="architecture",
+                metadata={"title": "Rate limiting"},
+            ),
+            MockKnowledgeItem(
+                id="km-2",
+                content="Lower-confidence finance note",
+                confidence=0.41,
+                node_type="claim",
+                domain="finance",
+            ),
+        ]
+    )
+
+
+@pytest.fixture
+def handler_with_knowledge_mound(mock_query_engine, mock_fact_store, mock_knowledge_mound):
+    """Create a test handler with both legacy search and KM available."""
+    return SearchHandler(
+        query_engine=mock_query_engine,
+        fact_store=mock_fact_store,
+        knowledge_mound=mock_knowledge_mound,
     )
 
 
@@ -289,6 +370,10 @@ class TestHandleSearch:
         assert "results" in body
         assert "count" in body
         assert body["count"] == 2
+        assert body["total"] == 2
+        assert body["search_backend"] == "query_engine"
+        assert body["results"][0]["node_id"] == "c1"
+        assert body["results"][0]["chunk_id"] == "c1"
 
     def test_search_missing_query_param(self, handler):
         """Test search without 'q' parameter returns 400."""
@@ -304,6 +389,24 @@ class TestHandleSearch:
         body = parse_response(result)
         assert "error" in body
         assert "required" in body["error"].lower() or "q" in body["error"].lower()
+
+    def test_search_accepts_query_alias(self, handler):
+        """Test search accepts frontend-friendly `query` parameter."""
+        query_params = {"query": "architecture"}
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: [],
+            ):
+                result = handler._handle_search(query_params)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+        assert body["query"] == "architecture"
 
     def test_search_empty_query_param(self, handler):
         """Test search with empty 'q' parameter returns 400."""
@@ -352,6 +455,59 @@ class TestHandleSearch:
                 result = handler._handle_search(query_params)
 
         assert result.status_code == 200
+
+    def test_search_prefers_knowledge_mound_when_available(self, handler_with_knowledge_mound):
+        """KM-backed search should use KM retrieval and normalized node results."""
+        query_params = {"query": "rate limiter", "workspace_id": "ws-km"}
+
+        class _Retrieved:
+            def __init__(self, items):
+                self.items = items
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: _Retrieved(handler_with_knowledge_mound._knowledge_mound._items[:1]),
+            ):
+                result = handler_with_knowledge_mound._handle_search(query_params)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+        assert body["search_backend"] == "knowledge_mound"
+        assert body["total"] == 1
+        assert body["results"][0]["node_id"] == "km-1"
+        assert body["results"][0]["node_type"] == "fact"
+        assert body["results"][0]["metadata"]["title"] == "Rate limiting"
+
+    def test_search_filters_knowledge_mound_results(self, handler_with_knowledge_mound):
+        """KM-backed search respects min_confidence and domain filters."""
+        query_params = {
+            "query": "rate limiter",
+            "min_confidence": "0.9",
+            "domain": "architecture",
+        }
+
+        class _Retrieved:
+            def __init__(self, items):
+                self.items = items
+
+        with patch(
+            "aragora.server.handlers.knowledge_base.search.require_permission",
+            lambda p: lambda f: f,
+        ):
+            with patch(
+                "aragora.server.handlers.knowledge_base.search._run_async",
+                lambda coro: _Retrieved(handler_with_knowledge_mound._knowledge_mound._items),
+            ):
+                result = handler_with_knowledge_mound._handle_search(query_params)
+
+        assert result.status_code == 200
+        body = parse_response(result)
+        assert body["total"] == 1
+        assert body["results"][0]["node_id"] == "km-1"
 
     def test_search_limit_clamped_to_minimum(self, handler):
         """Test that limit is clamped to minimum of 1."""

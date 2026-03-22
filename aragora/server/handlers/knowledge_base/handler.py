@@ -116,6 +116,7 @@ class KnowledgeHandler(
             logger.debug("Failed to clear knowledge limiter buckets", exc_info=True)
         self._fact_store: FactStore | InMemoryFactStore | None = None
         self._query_engine: DatasetQueryEngine | SimpleQueryEngine | None = None
+        self._knowledge_mound: Any | None = None
 
     def _get_fact_store(self) -> FactStore | InMemoryFactStore:
         """Get or create fact store."""
@@ -137,6 +138,23 @@ class KnowledgeHandler(
                 embedding_service=embedding_service,
             )
         return self._query_engine
+
+    def _get_knowledge_mound(self) -> Any | None:
+        """Get a shared Knowledge Mound instance when available."""
+        mound = self.ctx.get("knowledge_mound")
+        if mound is not None:
+            return mound
+        if self._knowledge_mound is not None:
+            return self._knowledge_mound
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            self._knowledge_mound = get_knowledge_mound()
+        except (ImportError, RuntimeError, OSError, ValueError) as e:
+            logger.debug("Knowledge Mound unavailable for search: %s", e)
+            self._knowledge_mound = None
+        return self._knowledge_mound
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
