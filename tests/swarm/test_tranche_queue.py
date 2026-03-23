@@ -1216,7 +1216,7 @@ async def test_drive_manifest_dispatches_all_ready_lanes_only_when_parallel_cap_
         item_state=item_state,
         manifest_path=manifest_path,
         tranche_manifest=SimpleNamespace(manifest_id="tranche-test"),
-        deadline=datetime.now(UTC) + timedelta(minutes=5),
+        deadline=datetime.now(timezone.utc) + timedelta(minutes=5),
     )
 
     assert seen["all_ready"] is expected_all_ready
