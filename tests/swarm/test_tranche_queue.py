@@ -517,6 +517,7 @@ def test_issue_queue_item_collapses_multi_lane_planner_output_to_single_fallback
     assert lane["allowed_write_scope"] == ["aragora/cli/**", "tests/cli/**"]
     assert lane["target_agent"] == "claude"
     assert lane["review_model"] == "claude"
+    assert lane["use_managed_session_script"] is False
     assert "Source issue context" in lane["prompt"]
 
 

@@ -152,6 +152,12 @@ class TestBuildCommand:
         cmd = launcher._build_command("claude", "fix bug", "/tmp/wt")
         assert "--dangerously-skip-permissions" not in cmd
 
+    def test_claude_command_fails_closed_when_geteuid_is_unavailable(self, monkeypatch):
+        monkeypatch.delattr("aragora.swarm.worker_launcher.os.geteuid", raising=False)
+        launcher = WorkerLauncher(LaunchConfig(claude_model="claude-opus-4-6"))
+        cmd = launcher._build_command("claude", "fix bug", "/tmp/wt")
+        assert "--dangerously-skip-permissions" not in cmd
+
     def test_codex_command(self):
         launcher = WorkerLauncher(LaunchConfig(codex_model="o3"))
         cmd = launcher._build_command("codex", "fix bug", "/tmp/wt")

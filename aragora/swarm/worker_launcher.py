@@ -487,11 +487,11 @@ class WorkerLauncher:
     def _should_skip_claude_permissions() -> bool:
         geteuid = getattr(os, "geteuid", None)
         if geteuid is None:
-            return True
+            return False
         try:
             return int(geteuid()) != 0
         except (OSError, ValueError, TypeError):
-            return True
+            return False
 
     @staticmethod
     def _resolve_worktree_gitdir(worktree_path: str) -> str:

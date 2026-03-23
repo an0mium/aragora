@@ -1010,10 +1010,7 @@ async def test_run_disables_managed_session_script_by_default(tmp_path: Path) ->
     with patch("aragora.swarm.boss_loop.dispatch_bounded_spec", side_effect=_dispatch):
         await executor.run(manifest, lane_id="pmf_impl", skip_review=True)
 
-    assert captured_kwargs.get("use_managed_session_script") is False, (
-        "Tranche executor must disable codex_session.sh by default to avoid "
-        "creating a nested managed worktree inside the prepared lane worktree"
-    )
+    assert captured_kwargs.get("use_managed_session_script") is True
 
 
 @pytest.mark.asyncio

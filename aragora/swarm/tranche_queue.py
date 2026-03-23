@@ -1634,6 +1634,8 @@ class TrancheQueueExecutor:
             lane.get("worker_model")
         )
         if not target_agent:
+            if not self.worker_model:
+                raise ValueError("Queue lane defaults require a configured worker_model.")
             target_agent = self.worker_model
             lane["target_agent"] = target_agent
 
@@ -1644,6 +1646,10 @@ class TrancheQueueExecutor:
                 self.review_model,
                 enforce_cross_model_review=self.enforce_cross_model_review,
             )
+        # Queue-driven lanes already execute inside a prepared/autopiloted worktree.
+        # Default to direct worker launch here so we do not recursively create
+        # another managed session unless a lane explicitly opts into it.
+        lane.setdefault("use_managed_session_script", False)
 
     async def _drive_manifest(
         self,

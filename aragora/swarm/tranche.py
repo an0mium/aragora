@@ -589,7 +589,7 @@ class TrancheExecutor:
                 default_target_agent=target_agent,
                 default_reviewer_agent=review_model,
                 use_managed_session_script=bool(
-                    lane.metadata.get("use_managed_session_script", False)
+                    lane.metadata.get("use_managed_session_script", True)
                 ),
             )
             artifact = await self._artifact_from_run_result(

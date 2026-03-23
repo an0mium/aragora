@@ -255,13 +255,16 @@ def _active_lease_session_ids(repo_root: Path) -> set[str]:
 def _count_dirty(worktree_path: Path) -> int:
     if not worktree_path.exists():
         return 0
-    proc = subprocess.run(
-        ["git", "status", "--porcelain"],  # noqa: S607 -- fixed command
-        cwd=worktree_path,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--porcelain"],  # noqa: S607 -- fixed command
+            cwd=worktree_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return 0
     if proc.returncode != 0:
         return 0
     return len([line for line in proc.stdout.splitlines() if line.strip()])
@@ -271,13 +274,16 @@ def _ahead_behind(worktree_path: Path, base_branch: str) -> tuple[int | None, in
     if not worktree_path.exists():
         return None, None
     for target in (f"origin/{base_branch}", base_branch):
-        proc = subprocess.run(
-            ["git", "rev-list", "--left-right", "--count", f"{target}...HEAD"],  # noqa: S607 -- fixed command
-            cwd=worktree_path,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        try:
+            proc = subprocess.run(
+                ["git", "rev-list", "--left-right", "--count", f"{target}...HEAD"],  # noqa: S607 -- fixed command
+                cwd=worktree_path,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except FileNotFoundError:
+            return None, None
         if proc.returncode != 0:
             continue
         parts = proc.stdout.strip().split()
