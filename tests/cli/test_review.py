@@ -489,6 +489,38 @@ class TestExtractReviewFindings:
         assert len(findings["meta_issues"]) == 1
         assert findings["meta_issues"][0]["grounded"] is False
 
+    def test_filters_speculative_regression_risk_rebuttal(self):
+        """Speculative regression-risk wording should remain non-blocking meta review."""
+        result = MockDebateResult(
+            critiques=[
+                MockCritique(
+                    severity=0.95,
+                    target_agent="aragora/cli/commands/debate.py",
+                    issues=[
+                        "Removed role hints note is plausible but somewhat speculative from this diff "
+                        "and should be framed as a regression risk to validate, not a definite bug."
+                    ],
+                    suggestions=[],
+                )
+            ],
+            messages=[],
+        )
+
+        mock_report = MagicMock()
+        mock_report.unanimous_critiques = []
+        mock_report.split_opinions = []
+        mock_report.risk_areas = []
+        mock_report.agreement_score = 0.5
+        mock_report.agent_alignment = {}
+
+        with patch("aragora.cli.review.DisagreementReporter") as mock_reporter_class:
+            mock_reporter_class.return_value.generate_report.return_value = mock_report
+            findings = extract_review_findings(result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+        assert findings["meta_issues"][0]["grounded"] is False
+
     def test_filters_location_only_issue_artifact(self):
         """Malformed location-only issue text should not block the review gate."""
         result = MockDebateResult(
