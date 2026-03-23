@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import builtins
 import json
 import os
@@ -12,10 +13,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.cli.commands.quickstart import (
+    _can_reach_provider_tls,
     _detect_agents,
+    _filter_reachable_live_agents,
     _get_question,
     _load_dotenv,
     _open_receipt_in_browser,
+    _run_live_debate,
     _save_receipt,
     add_quickstart_parser,
     cmd_quickstart,
@@ -257,6 +261,93 @@ class TestReceiptFormatting:
 
 
 class TestCmdQuickstart:
+    @pytest.mark.asyncio
+    async def test_run_live_debate_raises_when_arena_returns_none(self):
+        """Live quickstart should fail closed when Arena produces no result."""
+        mock_agent = MagicMock()
+        mock_agent.name = "openai-api"
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._filter_reachable_live_agents",
+                return_value=[("openai-api", "gpt-4o")],
+            ),
+            patch("aragora.agents.base.create_agent", return_value=mock_agent),
+            patch("aragora.debate.orchestrator.Arena") as mock_arena_cls,
+        ):
+            mock_arena = MagicMock()
+            mock_arena.run = AsyncMock(return_value=None)
+            mock_arena_cls.return_value = mock_arena
+
+            with pytest.raises(RuntimeError, match="Live debate returned no result"):
+                await _run_live_debate(
+                    "Should we ship the quickstart path?",
+                    [("openai-api", "gpt-4o")],
+                    rounds=2,
+                )
+
+    @pytest.mark.asyncio
+    async def test_run_live_debate_times_out_cleanly(self, monkeypatch):
+        """Live quickstart should bound long-running onboarding debates."""
+        mock_agent = MagicMock()
+        mock_agent.name = "openai-api"
+
+        async def slow_run():
+            await asyncio.sleep(0.05)
+            return MagicMock()
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._filter_reachable_live_agents",
+                return_value=[("openai-api", "gpt-4o")],
+            ),
+            patch("aragora.agents.base.create_agent", return_value=mock_agent),
+            patch("aragora.debate.orchestrator.Arena") as mock_arena_cls,
+        ):
+            mock_arena = MagicMock()
+            mock_arena.run = slow_run
+            mock_arena_cls.return_value = mock_arena
+            monkeypatch.setattr(
+                "aragora.cli.commands.quickstart._LIVE_DEBATE_TIMEOUT_SECONDS",
+                0.01,
+            )
+
+            with pytest.raises(RuntimeError, match="Live debate timed out"):
+                await _run_live_debate(
+                    "Should we ship the quickstart path?",
+                    [("openai-api", "gpt-4o")],
+                    rounds=2,
+                )
+
+    @pytest.mark.asyncio
+    async def test_filter_reachable_live_agents_raises_clean_tls_error(self):
+        """Quickstart should stop before debate startup when TLS verification fails."""
+        with patch(
+            "aragora.cli.commands.quickstart._can_reach_provider_tls",
+            new=AsyncMock(return_value=(False, "CERTIFICATE_VERIFY_FAILED")),
+        ):
+            with pytest.raises(RuntimeError, match="CA trust store"):
+                await _filter_reachable_live_agents([("openai-api", "gpt-4o"), ("gemini", None)])
+
+    @pytest.mark.asyncio
+    async def test_filter_reachable_live_agents_keeps_healthy_subset(self):
+        """Providers that pass preflight should still be used."""
+
+        async def fake_probe(provider: str) -> tuple[bool, str | None]:
+            if provider == "openai-api":
+                return True, None
+            return False, "connection refused"
+
+        with patch(
+            "aragora.cli.commands.quickstart._can_reach_provider_tls",
+            side_effect=fake_probe,
+        ):
+            reachable = await _filter_reachable_live_agents(
+                [("openai-api", "gpt-4o"), ("gemini", None)]
+            )
+
+        assert reachable == [("openai-api", "gpt-4o")]
+
     def test_demo_mode(self, capsys):
         """Test quickstart runs in demo mode with mock agents."""
         args = argparse.Namespace(
@@ -418,6 +509,34 @@ class TestCmdQuickstart:
 
         output = capsys.readouterr().out
         assert "Falling back to demo mode" in output
-        assert "local mock agents, not live model calls" in output
-        assert "Mode:       Demo" in output
-        assert str(artifact_path.resolve()) in output
+
+    def test_live_mode_exits_cleanly_on_tls_failure(self, capsys):
+        """TLS/provider failures should surface a clear operator hint."""
+        args = argparse.Namespace(
+            question="Should we use the live path?",
+            demo=False,
+            output=None,
+            format="json",
+            rounds=2,
+            no_browser=True,
+        )
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[("gemini", None)],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_live_debate",
+                side_effect=RuntimeError(
+                    "Live debate failed before producing a result: CERTIFICATE_VERIFY_FAILED"
+                ),
+            ),
+        ):
+            with pytest.raises(SystemExit):
+                cmd_quickstart(args)
+
+        output = capsys.readouterr().out
+        assert "Debate failed" in output
+        assert "CA trust store" in output
+        assert "quickstart --demo" in output

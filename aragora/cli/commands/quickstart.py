@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+import ssl
 import sys
 import tempfile
 import time
@@ -27,6 +28,16 @@ from typing import Any, cast
 logger = logging.getLogger(__name__)
 
 _DEFAULT_QUESTION = "Should we adopt microservices or keep our monolith?"
+_LIVE_PRECHECK_TIMEOUT_SECONDS = 3.0
+_LIVE_DEBATE_TIMEOUT_SECONDS = 75.0
+_PROVIDER_TLS_HOSTS: dict[str, str] = {
+    "anthropic-api": "api.anthropic.com",
+    "openai-api": "api.openai.com",
+    "gemini": "generativelanguage.googleapis.com",
+    "mistral": "api.mistral.ai",
+    "grok": "api.x.ai",
+    "deepseek": "openrouter.ai",
+}
 
 
 def add_quickstart_parser(subparsers: Any) -> None:
@@ -260,6 +271,8 @@ async def _run_live_debate(
     from aragora.debate.orchestrator import Arena, DebateProtocol
     from aragora.memory.store import CritiqueStore
 
+    agents_list = await _filter_reachable_live_agents(agents_list)
+
     env = Environment(task=question)
     protocol = DebateProtocol(rounds=rounds, consensus="majority")
     store = CritiqueStore()
@@ -272,7 +285,18 @@ async def _run_live_debate(
         agent_names.append(provider)
 
     arena = Arena(env, agents, protocol, insight_store=store)
-    result = await arena.run()
+    try:
+        result = await asyncio.wait_for(arena.run(), timeout=_LIVE_DEBATE_TIMEOUT_SECONDS)
+    except TimeoutError as exc:
+        raise RuntimeError(
+            f"Live debate timed out after {_LIVE_DEBATE_TIMEOUT_SECONDS:.0f}s"
+        ) from exc
+    except Exception as exc:
+        detail = str(exc).strip() or type(exc).__name__
+        raise RuntimeError(f"Live debate failed before producing a result: {detail}") from exc
+
+    if result is None:
+        raise RuntimeError("Live debate returned no result")
 
     verdict = "consensus"
     confidence = 0.0
@@ -299,6 +323,71 @@ async def _run_live_debate(
         "dissent": dissent,
         "mode": "live",
     }
+
+
+async def _can_reach_provider_tls(provider: str) -> tuple[bool, str | None]:
+    """Return whether the provider host passes a basic TLS handshake."""
+    host = _PROVIDER_TLS_HOSTS.get(provider)
+    if not host:
+        return True, None
+
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(
+                host,
+                443,
+                ssl=ssl.create_default_context(),
+                server_hostname=host,
+            ),
+            timeout=_LIVE_PRECHECK_TIMEOUT_SECONDS,
+        )
+    except ssl.SSLCertVerificationError:
+        return False, "CERTIFICATE_VERIFY_FAILED"
+    except Exception as exc:
+        detail = str(exc).strip() or type(exc).__name__
+        return False, detail
+
+    writer.close()
+    await writer.wait_closed()
+    return True, None
+
+
+async def _filter_reachable_live_agents(
+    agents_list: list[tuple[str, str | None]],
+) -> list[tuple[str, str | None]]:
+    """Keep only providers that pass a fast TLS preflight.
+
+    Fail closed before entering the debate engine when no detected live providers
+    can establish a verified TLS connection.
+    """
+    limited_agents = agents_list[:4]
+    probe_results = await asyncio.gather(
+        *(_can_reach_provider_tls(provider) for provider, _ in limited_agents)
+    )
+
+    reachable: list[tuple[str, str | None]] = []
+    failures: list[str] = []
+    certificate_failure = False
+    for agent_spec, (ok, detail) in zip(limited_agents, probe_results, strict=False):
+        if ok:
+            reachable.append(agent_spec)
+            continue
+        provider = agent_spec[0]
+        if detail == "CERTIFICATE_VERIFY_FAILED":
+            certificate_failure = True
+        failures.append(f"{provider}: {detail}")
+
+    if reachable:
+        return reachable
+
+    if certificate_failure:
+        providers = ", ".join(provider for provider, _ in limited_agents)
+        raise RuntimeError(
+            f"Provider TLS verification failed for {providers}. Check the local CA trust store."
+        )
+
+    failure_summary = "; ".join(failures) if failures else "no providers available"
+    raise RuntimeError(f"No live providers passed connectivity preflight: {failure_summary}")
 
 
 def cmd_quickstart(args: argparse.Namespace) -> None:
@@ -350,9 +439,11 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             result = asyncio.run(_run_demo_debate(question, rounds))
         else:
             result = asyncio.run(_run_live_debate(question, detected[:4], rounds))
-    except (OSError, ConnectionError, RuntimeError, ValueError) as e:
+    except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
         logger.debug("Debate failed: %s", e)
         print(f"\n[!] Debate failed: {e}")
+        if "CERTIFICATE_VERIFY_FAILED" in str(e):
+            print("    Provider TLS verification failed. Check the local CA trust store.")
         print("    Try: aragora quickstart --demo")
         sys.exit(1)
 
