@@ -9,13 +9,25 @@
 
 ### Canonical Current Reality
 
-- `main` now contains the tranche queue / overnight autonomy hardening through [#1117](https://github.com/synaptent/aragora/pull/1117), the March 21-22 proof-surface closures through [#1138](https://github.com/synaptent/aragora/pull/1138), and the March 23 continuity/support slices through [#1164](https://github.com/synaptent/aragora/pull/1164).
-- The system has moved beyond "candidate PMF PRs are open." The first user-journey slice, default KM retrieval slice, truthful integrations/public state slices, real OpenClaw dispatch, stronger operator/integrator surfaces, live settings/API-key wiring, live debate creation, partial-public status truthfulness, pipeline golden-path visibility, and queue harvest support are all now merged on `main`.
-- The first real queue artifact remains [#1108](https://github.com/synaptent/aragora/pull/1108), but it is no longer the only proof worth citing.
+- The default product loop is **structurally closed** on `main` as of March 23. Nine PRs merged in one day to wire the remaining gaps.
+- The system has moved beyond "candidate PMF PRs are open" into "the loop works end-to-end." The complete path is: onboarding wizard -> API key management -> ProviderRouter-backed debate -> KM-enriched context -> receipt -> KM writeback -> live dashboard -> real demo surface.
+- The merge-order discipline problem around overlapping PMF PRs ([#1166](https://github.com/synaptent/aragora/pull/1166) vs [#1167](https://github.com/synaptent/aragora/pull/1167)-[#1170](https://github.com/synaptent/aragora/pull/1170)) is resolved: the narrow slices won and are all merged.
 
 ### What Recently Landed On `main`
 
-The March 21-23 cycle closed several important gaps:
+The March 23 merge wave closed the structural product-loop gaps:
+
+1. **ProviderRouter wired into DebateFactory** via [#1167](https://github.com/synaptent/aragora/pull/1167) — debates now use cost/quality/latency routing
+2. **KnowledgeMound retrieval wired into DebateFactory** via [#1168](https://github.com/synaptent/aragora/pull/1168) — debates enriched with org knowledge by default
+3. **Versioned API key management endpoints** via [#1169](https://github.com/synaptent/aragora/pull/1169) — real backend auth, no more client-side fakes
+4. **Interactive 3-step onboarding wizard** via [#1170](https://github.com/synaptent/aragora/pull/1170) — first complete user journey from landing to debate
+5. **Fresh tranche queue v5** via [#1171](https://github.com/synaptent/aragora/pull/1171) — 5 new workbench/integrator issues seeded
+6. **Boss-loop label filter** via [#1172](https://github.com/synaptent/aragora/pull/1172) — unattended dispatch scoped by label
+7. **Dashboard live debates section** via [#1175](https://github.com/synaptent/aragora/pull/1175) — dashboard shows active state, not just historical
+8. **Debate outcome -> KM ingestion** via [#1176](https://github.com/synaptent/aragora/pull/1176) — closes the KM read-write feedback loop
+9. **Demo wired to real backend** via [#1177](https://github.com/synaptent/aragora/pull/1177) — demo is no longer static
+
+Earlier March 21-23 work that these build on:
 
 1. API-key / first-user-journey slice merged via [#1110](https://github.com/synaptent/aragora/pull/1110)
 2. default KM retrieval, later KM writeback, and settlement-hook wiring merged via [#1111](https://github.com/synaptent/aragora/pull/1111), [#1131](https://github.com/synaptent/aragora/pull/1131), [#1132](https://github.com/synaptent/aragora/pull/1132), and [#1134](https://github.com/synaptent/aragora/pull/1134)
@@ -27,31 +39,21 @@ The March 21-23 cycle closed several important gaps:
 
 ### Current Frontier
 
-The frontier is no longer just "get another proof candidate out of the queue." It is the merge-order and continuity problem around the active PMF stack:
+The frontier is no longer "close the product loop." It is:
 
-- [#1166](https://github.com/synaptent/aragora/pull/1166): umbrella PMF integration branch covering routing, user-journey, and get-started continuity
-- [#1167](https://github.com/synaptent/aragora/pull/1167): narrow ProviderRouter -> `DebateFactory` runtime integration
-- [#1168](https://github.com/synaptent/aragora/pull/1168): narrow Knowledge Mound retrieval -> `DebateFactory` default integration
-- [#1169](https://github.com/synaptent/aragora/pull/1169): versioned API-key management endpoints
-- [#1170](https://github.com/synaptent/aragora/pull/1170): interactive onboarding / get-started flow
-- [#1165](https://github.com/synaptent/aragora/pull/1165): separate swarm-routing fix supporting the unattended execution substrate
-- Recommended path: merge [#1167](https://github.com/synaptent/aragora/pull/1167), [#1168](https://github.com/synaptent/aragora/pull/1168), [#1169](https://github.com/synaptent/aragora/pull/1169), and [#1170](https://github.com/synaptent/aragora/pull/1170) in that order, then decide whether [#1166](https://github.com/synaptent/aragora/pull/1166) still contains anything worth harvesting.
-
-This means the current problem is no longer "can the queue dispatch?" It is:
-
-- can the default product loop feel continuous from setup to visible result
-- can the overlapping PMF stack be merged as one truthful lane instead of duplicating slices
-- can every lane preserve canonical provenance, review evidence, and explicit blocked next steps
-- can the proof surfaces stay truthful under partial/live states instead of falling back to shell behavior
+- **prove the closed loop end-to-end** with a real user (not just merged code)
+- **harden the live surfaces** that are now exposed (dashboard, demo, onboarding, API key management)
+- **run the boss loop unattended** with label-scoped dispatch on the fresh queue v5
+- **extend the workbench** now that it sits on top of a running product loop instead of bridging disconnected shells
 
 ### Strategic Direction
 
 The strategy document is now [ARAGORA_IDEA_TO_EXECUTION_STRATEGY](../plans/ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md). The short version:
 
-- close one truthful default product loop,
+- the default product loop is structurally closed,
 - make the existing proof surfaces operator-grade and partner-repeatable,
 - then invest in the unified idea-to-execution GUI and stage-transition UX.
-- near-term execution discipline is merge-order discipline: prefer a coherent PMF lane over overlapping "everything stack" merges.
+- near-term execution discipline is hardening discipline: prove the loop works with real users before widening it.
 
 ## March 2026 Sprint — Closed-Loop Backbone, Trust Wedge & Infrastructure
 
