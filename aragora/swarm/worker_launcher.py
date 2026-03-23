@@ -461,7 +461,9 @@ class WorkerLauncher:
         self, agent: str, prompt: str, *, worktree_path: str = ""
     ) -> list[str]:
         if agent == "claude":
-            cmd = [self.config.claude_path, "-p", prompt, "--dangerously-skip-permissions"]
+            cmd = [self.config.claude_path, "-p", prompt]
+            if self._should_skip_claude_permissions():
+                cmd.append("--dangerously-skip-permissions")
             if self.config.claude_model:
                 cmd.extend(["--model", self.config.claude_model])
             return cmd
@@ -476,7 +478,20 @@ class WorkerLauncher:
             return cmd
 
         logger.warning("Unknown agent %r, falling back to claude", agent)
-        return [self.config.claude_path, "-p", prompt, "--dangerously-skip-permissions"]
+        cmd = [self.config.claude_path, "-p", prompt]
+        if self._should_skip_claude_permissions():
+            cmd.append("--dangerously-skip-permissions")
+        return cmd
+
+    @staticmethod
+    def _should_skip_claude_permissions() -> bool:
+        geteuid = getattr(os, "geteuid", None)
+        if geteuid is None:
+            return True
+        try:
+            return int(geteuid()) != 0
+        except (OSError, ValueError, TypeError):
+            return True
 
     @staticmethod
     def _resolve_worktree_gitdir(worktree_path: str) -> str:
