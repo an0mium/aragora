@@ -57,10 +57,15 @@ _META_REVIEW_MARKERS = (
     "explicit meta-review language",
     "from the diff alone",
     "incomplete visibility",
+    "not as a definite defect",
     "no concrete file/location hint",
     "not clearly a bug from the diff",
     "not shown in the diff",
     "not visible in the diff",
+    "observation is reasonable but incomplete",
+    "possible the guidance moved elsewhere",
+    "reasonable but incomplete",
+    "regression risk, but not as a definite defect",
     "review blocker due to incomplete visibility",
     "review blockers due to incomplete visibility",
     "cannot assess installation changes",
@@ -372,6 +377,8 @@ def _looks_like_agent_target(target: Any) -> bool:
 def _is_meta_review_issue(issue: str, suggestions: list[str], raw_target: Any) -> bool:
     """Filter critique-of-review chatter out of blocking issue buckets."""
     normalized_issue = issue.strip().lower()
+    if normalized_issue.startswith(("location:**", "location:")):
+        return True
     if normalized_issue.startswith(_META_REVIEW_PREFIXES):
         return True
     if any(marker in normalized_issue for marker in _META_REVIEW_MARKERS):

@@ -457,6 +457,69 @@ class TestExtractReviewFindings:
         assert findings["meta_issues"][0]["grounded"] is False
         assert findings["meta_issues"][0]["target"] == "scripts/ci_install_project.sh"
 
+    def test_filters_reasonable_but_incomplete_rebuttal(self):
+        """Review rebuttals about certainty should not become blocking code findings."""
+        result = MockDebateResult(
+            critiques=[
+                MockCritique(
+                    severity=0.95,
+                    target_agent="aragora/cli/commands/debate.py",
+                    issues=[
+                        "Removed role hints observation is reasonable but incomplete. "
+                        "Good to flag as a regression risk, but not as a definite defect."
+                    ],
+                    suggestions=[],
+                )
+            ],
+            messages=[],
+        )
+
+        mock_report = MagicMock()
+        mock_report.unanimous_critiques = []
+        mock_report.split_opinions = []
+        mock_report.risk_areas = []
+        mock_report.agreement_score = 0.5
+        mock_report.agent_alignment = {}
+
+        with patch("aragora.cli.review.DisagreementReporter") as mock_reporter_class:
+            mock_reporter_class.return_value.generate_report.return_value = mock_report
+            findings = extract_review_findings(result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+        assert findings["meta_issues"][0]["grounded"] is False
+
+    def test_filters_location_only_issue_artifact(self):
+        """Malformed location-only issue text should not block the review gate."""
+        result = MockDebateResult(
+            critiques=[
+                MockCritique(
+                    severity=0.95,
+                    target_agent="aragora/cli/review.py",
+                    issues=[
+                        "Location:** `aragora/cli/review.py` and `.github/workflows/aragora-review-gate.yml`"
+                    ],
+                    suggestions=[],
+                )
+            ],
+            messages=[],
+        )
+
+        mock_report = MagicMock()
+        mock_report.unanimous_critiques = []
+        mock_report.split_opinions = []
+        mock_report.risk_areas = []
+        mock_report.agreement_score = 0.5
+        mock_report.agent_alignment = {}
+
+        with patch("aragora.cli.review.DisagreementReporter") as mock_reporter_class:
+            mock_reporter_class.return_value.generate_report.return_value = mock_report
+            findings = extract_review_findings(result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+        assert findings["meta_issues"][0]["grounded"] is False
+
 
 # ===========================================================================
 # Tests: format_github_comment
