@@ -247,6 +247,38 @@ class TestExtractReviewFindings:
         assert findings["critical_issues"] == []
         assert len(findings["meta_issues"]) == 1
 
+    def test_extract_findings_drops_speculative_regression_risk_rebuttal(self):
+        """Speculative regression-risk framing should remain a meta review note."""
+        mock_result = Mock()
+        mock_result.votes = []
+        mock_result.final_answer = ""
+        mock_result.messages = []
+
+        meta_critique = Mock()
+        meta_critique.severity = 0.95
+        meta_critique.agent = "agent1"
+        meta_critique.target_agent = "aragora/cli/commands/debate.py"
+        meta_critique.issues = [
+            "Removed role hints note is plausible but somewhat speculative from this diff "
+            "and should be framed as a regression risk to validate, not a definite bug."
+        ]
+        meta_critique.suggestions = []
+        mock_result.critiques = [meta_critique]
+
+        with patch("aragora.cli.review.DisagreementReporter") as MockReporter:
+            mock_report = Mock()
+            mock_report.unanimous_critiques = []
+            mock_report.split_opinions = []
+            mock_report.risk_areas = []
+            mock_report.agreement_score = 0.5
+            mock_report.agent_alignment = {}
+            MockReporter.return_value.generate_report.return_value = mock_report
+
+            findings = extract_review_findings(mock_result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+
     def test_extract_findings_drops_location_only_issue_artifact(self):
         """Location-only issue artifacts should not count as grounded criticals."""
         mock_result = Mock()

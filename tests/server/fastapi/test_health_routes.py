@@ -141,21 +141,21 @@ class TestReadyz:
         assert response.status_code == 200
         assert response.json()["status"] == "ready"
 
-    def test_returns_initializing_without_context(self, app):
-        """/readyz returns 'initializing' when context is not set."""
+    def test_returns_ready_without_context_once_routes_are_live(self, app):
+        """/readyz should report ready when the HTTP stack is live without storage."""
         # Don't set app.state.context at all
         c = TestClient(app, raise_server_exceptions=False)
         response = c.get("/readyz")
         assert response.status_code == 200
-        assert response.json()["status"] == "initializing"
+        assert response.json()["status"] == "ready"
 
-    def test_returns_degraded_without_storage(self, degraded_client):
-        """/readyz returns 'degraded' when storage is None."""
+    def test_returns_ready_without_storage(self, degraded_client):
+        """/readyz should not fail just because storage is absent in demo/degraded mode."""
         response = degraded_client.get("/readyz")
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "degraded"
-        assert "storage" in data.get("reason", "")
+        assert data["status"] == "ready"
+        assert data["checks"]["storage_initialized"] is True
 
 
 # =============================================================================
