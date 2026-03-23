@@ -1,38 +1,65 @@
 # Design Partner Program (Q2 2026)
 
-Last updated: 2026-03-20
+Last updated: 2026-03-23
 
-This document defines the Q2 2026 design partner program for achieving product-market fit (PMF) around Aragora's receipt-gated decision kernel. The partner motion should now be anchored to the product surfaces that are real on `main`: the inbox trust wedge, the Ralph autonomous loop, and supervisor-backed swarm orchestration. The SME Starter Pack remains a useful activation target, but it is no longer enough to describe the whole program.
+This document defines the Q2 2026 design partner program for achieving product-market fit (PMF) around Aragora's receipt-gated decision kernel. As of March 23, the default product loop is **structurally closed** on `main`. The partner motion is now anchored to four proof surfaces: the decision review loop (the default), the inbox trust wedge, the Ralph autonomous loop, and supervisor-backed swarm orchestration.
 
 Related:
 - Current status: `docs/STATUS.md`, `docs/status/STATUS.md`
+- Design partner brief (one-pager): `docs/outreach/DESIGN_PARTNER_ONEPAGER.md`
 - Capability/backlog truth: `docs/FEATURE_GAP_LIST.md`
 - Canonical execution order: `docs/status/NEXT_STEPS_CANONICAL.md`
 - PMF scoring rubric: `docs/status/PMF_SCORECARD.md`
 - Inbox trust wedge dogfood plan: `docs/plans/2026-03-06-openrouter-inbox-dogfood-plan.md`
 - Ralph benchmark evidence: `docs/experiments/phase0b_role_benchmark/results.json`
+- Strategy: `docs/plans/ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md`
 
 ---
 
-## Current Product Truth
+## Current Product Truth (March 23, 2026)
 
-Aragora's core kernel is now:
+The default product loop is structurally closed. 23 PRs merged March 21-23 closing 15 issues wired the remaining gaps. The complete path:
+
+```
+Onboarding wizard -> API key management -> ProviderRouter-backed debate
+  -> KM-enriched context -> consensus + receipt -> KM writeback
+  -> live dashboard -> real demo surface
+```
+
+Key March 23 merge evidence:
+- **ProviderRouter wired into DebateFactory** ([#1167](https://github.com/synaptent/aragora/pull/1167)) -- debates use cost/quality/latency routing
+- **KnowledgeMound retrieval wired into DebateFactory** ([#1168](https://github.com/synaptent/aragora/pull/1168)) -- debates enriched with org knowledge by default
+- **Debate outcome ingestion to KM** ([#1176](https://github.com/synaptent/aragora/pull/1176)) -- closes the read-write feedback loop
+- **API key management endpoints** ([#1169](https://github.com/synaptent/aragora/pull/1169)) -- real backend auth
+- **Interactive onboarding wizard** ([#1170](https://github.com/synaptent/aragora/pull/1170)) -- first complete user journey
+- **Live dashboard** ([#1175](https://github.com/synaptent/aragora/pull/1175)) -- shows active debates, not just historical
+- **Demo wired to real backend** ([#1177](https://github.com/synaptent/aragora/pull/1177)) -- demo is no longer static
+- **Boss-loop label filter** ([#1172](https://github.com/synaptent/aragora/pull/1172)) -- unattended dispatch scoped by label
+- **Fresh queue v5** ([#1171](https://github.com/synaptent/aragora/pull/1171)) -- 5 new workbench/integrator issues seeded
+- **E2E user journey smoke test** ([#1179](https://github.com/synaptent/aragora/pull/1179)) -- product loop validated in CI
+
+Aragora's core kernel:
 
 `prompt/spec -> adversarial debate -> consensus/dissent -> signed receipt -> policy/approval gate -> execution`
 
 Current partner-facing proof surfaces:
 
-### 1. Inbox Trust Wedge
+### 1. Decision Review (Default Surface)
+- The default activation path: run any artifact through multi-agent debate, get a receipt
+- Complete loop on `main`: onboarding -> credentials -> debate with KM context -> receipt -> KM writeback -> dashboard
+- Core claim: Aragora turns any decision into an auditable, shareable receipt with consensus, dissent, and provenance
+
+### 2. Inbox Trust Wedge
 - Real path: `Gmail -> adversarial debate -> signed receipt -> CLI approval -> gmail.modify`
 - Narrow allowed actions are already defined: `ARCHIVE`, `STAR`, `LABEL`, `IGNORE`
 - Core claim: Aragora can take low-risk operational actions only after a persisted receipt and an explicit approval policy
 
-### 2. Ralph Autonomous Loop
+### 3. Ralph Autonomous Loop
 - Supervisor-backed repo improvement loop for bounded tasks
 - Current loop shape: `spec -> deliverable -> review -> blocker classification -> repair -> PR -> merge`
 - Core claim: Aragora can autonomously complete bounded engineering work, recover from critique, and advance toward merge under explicit policy
 
-### 3. Swarm Orchestration
+### 4. Swarm Orchestration
 - Supervisor, worker launcher, reconciler, work leases, and completion receipts are shipped
 - Current posture: bounded work orders, isolated worktrees, one PR-or-blocker stop condition, integrator-controlled merge authority
 - Core claim: Aragora can coordinate multi-lane execution while preserving ownership, receipts, and operator visibility
@@ -48,6 +75,15 @@ The strongest current proof point for design partners is the Ralph V14 benchmark
 - The benchmark closed the loop for `merge_policy=admin_merge_allowed`
 
 Use this as proof that Aragora can autonomously execute bounded work under policy. Do not pitch it as proof of unrestricted autonomy across broad external actions.
+
+### Platform Evidence
+
+- **210,000+ tests** across 5,000+ test files
+- **3,700+ Python modules** | **3,000+ API operations**
+- **45 KM adapters** for cross-system learning
+- **43 agent types** across 6+ LLM providers
+- **EU AI Act compliance: 85/100 score**
+- **Python + TypeScript SDKs** (186 Py / 185 TS namespaces)
 
 ---
 
@@ -157,10 +193,10 @@ Use the ICP checklist in `docs/status/POSITIONING.md` as the base, but apply the
 
 ## Timeline (Calendar Dates)
 
-Current date: 2026-03-20.
+Current date: 2026-03-23. Product loop structurally closed on `main` as of this date.
 
 Recommended Q2 2026 cadence:
-- Weeks of 2026-04-06 and 2026-04-13: outreach, qualification, and surface mapping
+- Weeks of 2026-04-06 and 2026-04-13: outreach, qualification, and surface mapping (lead with the decision review surface and live demo)
 - Weeks of 2026-04-20 and 2026-04-27: select 3-5 design partners, kickoff, and reach first receipt
 - Weeks of 2026-05-04 through 2026-06-12: weekly operating loop, PMF scorecards, and proof capture
 - Weeks of 2026-06-15 and 2026-06-22: case study drafting, pricing/procurement closure, and Q3 scope decision
