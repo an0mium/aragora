@@ -2,7 +2,7 @@
 
 > **Living document** — tracks features planned, partially built, or in need of hardening. Updated as items are completed or priorities shift.
 > Active execution status now lives in [docs/status/ACTIVE_EXECUTION_ISSUES.md](status/ACTIVE_EXECUTION_ISSUES.md) and the linked GitHub issues. This file remains the capability and productization backlog truth.
-> Last updated: March 2026
+> Last updated: March 23, 2026
 > March 2026 priority reframe: product cohesion and PMF proof come before certification. Pentest / SOC 2 stay tracked, but they are no longer the first blocker lane.
 
 ## How to Read This List
@@ -20,9 +20,9 @@
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Smart provider routing | **Phase 1 shipped** | PR #724: Pareto optimizer, 8-model pricing database, ProviderRouter. Runtime integration with Arena agent selection remains the first product-loop blocker. Tracked in [#813](https://github.com/synaptent/aragora/issues/813). |
-| Complete one working user journey | Not started end-to-end | No truthful path yet from setup / API key to real debate execution to visible results. Tracked in [#1046](https://github.com/synaptent/aragora/issues/1046). |
-| Knowledge Mound reads enrich debate context | Write path shipped; retrieval not wired | KM remains effectively write-only in default product flows. Debate context is not enriched by accumulated knowledge. Tracked in [#1048](https://github.com/synaptent/aragora/issues/1048). |
+| Smart provider routing | **Phase 1 shipped; runtime integration under active review** | PR #724 shipped the Pareto optimizer, pricing database, and `ProviderRouter`. The next merge decision is the runtime `DebateFactory`/Arena lane in [#1167](https://github.com/synaptent/aragora/pull/1167) versus overlapping umbrella [#1166](https://github.com/synaptent/aragora/pull/1166). Tracked in [#813](https://github.com/synaptent/aragora/issues/813). |
+| Complete one working user journey | Partial slices on `main`; end-to-end proof still open | The base user-journey slice is merged via [#1110](https://github.com/synaptent/aragora/pull/1110), with live settings/API-key wiring in [#1146](https://github.com/synaptent/aragora/pull/1146) and live debate creation in [#1147](https://github.com/synaptent/aragora/pull/1147). The remaining gap is one repeatable setup -> debate -> result proof, with active continuity slices in [#1169](https://github.com/synaptent/aragora/pull/1169), [#1170](https://github.com/synaptent/aragora/pull/1170), and overlapping umbrella [#1166](https://github.com/synaptent/aragora/pull/1166). Tracked in [#1046](https://github.com/synaptent/aragora/issues/1046). |
+| Knowledge Mound reads enrich debate context | Partial: retrieval/writeback groundwork shipped; default flow still closing | Retrieval and writeback groundwork landed via [#1111](https://github.com/synaptent/aragora/pull/1111), [#1131](https://github.com/synaptent/aragora/pull/1131), [#1132](https://github.com/synaptent/aragora/pull/1132), [#1134](https://github.com/synaptent/aragora/pull/1134), and pre-debate precedent loading in [#1151](https://github.com/synaptent/aragora/pull/1151). The remaining default-flow wiring is under active review in [#1168](https://github.com/synaptent/aragora/pull/1168) and overlapping umbrella [#1166](https://github.com/synaptent/aragora/pull/1166). Tracked in [#1048](https://github.com/synaptent/aragora/issues/1048). |
 | Debate output quality | **VALIDATED — moved to Completed** | Run 012 (Mar 5): composite 8.38-9.39/10. Diverse benchmark (10 domains): 100% pass, avg composite 0.938. |
 
 ---
@@ -32,7 +32,7 @@
 | Feature | Status | Notes |
 |---------|--------|-------|
 | OpenClaw end-to-end demo | **Core loop shipped** | PR #727: CodeImplementationTask, SpecExtractor, ComputerUseActionBundle, receipt linkage. Production validation with live agents remaining. Tracked in [#814](https://github.com/synaptent/aragora/issues/814). |
-| Functional frontend paths (5 that matter) | Shell-heavy (~140/149 pages remain scaffolding) | Focus the frontend on five truthful surfaces: debate creation, results, knowledge, settings, and receipts. Current page count overstates usability. Tracked in [#1047](https://github.com/synaptent/aragora/issues/1047). |
+| Functional frontend paths (5 that matter) | Still shell-heavy, but continuity slices are landing on `main` | Recent merged slices improved the real surface: settings/API-key wiring ([#1146](https://github.com/synaptent/aragora/pull/1146)), debate creation ([#1147](https://github.com/synaptent/aragora/pull/1147)), public status truthfulness ([#1148](https://github.com/synaptent/aragora/pull/1148)), and pipeline golden-path visibility ([#1150](https://github.com/synaptent/aragora/pull/1150)). The remaining gap is continuity across debate creation, results, knowledge, settings, and receipts, not raw page count. Tracked in [#1047](https://github.com/synaptent/aragora/issues/1047). |
 | 10+ agent coordinated debates | Scaffolding | Current practical limit: 2-6 agents. Coordination infrastructure exists; scale testing needed after the core loop works. Tracked in [#815](https://github.com/synaptent/aragora/issues/815). |
 | Agent-first beta via REST API | **Fleet deployed (12 runners)** | `aragora openclaw watch` polls repos, runs multi-agent review, posts findings. 3 Hetzner + 6 EC2 + 3 local Macs. PR watch daemon on Mac Studio via launchd. Shared operator productization is tracked in [#817](https://github.com/synaptent/aragora/issues/817) and [#819](https://github.com/synaptent/aragora/issues/819). |
 | GitHub Actions pre-merge gate | **Workflow created** | `aragora-review-gate.yml` manual-only (workflow_dispatch). Re-enable pull_request trigger when ready. |

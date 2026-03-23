@@ -1,18 +1,19 @@
 # Aragora Product Roadmap
 
-**Last Updated:** March 2026
+**Last Updated:** March 23, 2026
 
 ---
 
 ## Current Status (March 2026)
 
-Aragora has shipped most of the closed-loop backbone (CLB) infrastructure and completed the 14/14 issue sprint, but the March 2026 product cohesion assessment found the product loop is still broken. Launch readiness is now gated first by PMF closure, not by enterprise certification.
+Aragora has shipped most of the closed-loop backbone (CLB) infrastructure and completed the 14/14 issue sprint, but the March 2026 product cohesion assessment still broadly holds: the product loop is not yet fully continuous for a new user. The March 21-23 merge stream, however, materially improved the state on `main`. Launch readiness is still gated first by PMF closure, not by enterprise certification.
 
 **By the numbers:**
-- 208,000+ tests across 5,000+ test files (0 failures on main)
-- 42 Knowledge Mound adapter specs registered (up from 34 in Q4 2025)
-- 3,100+ API operations across 2,600+ paths
-- 15 RBAC resource types, 8 actions, 420+ named permissions
+- 3,846 Python files under `aragora/`
+- 5,174 test files under `tests/`
+- 674 Markdown docs under `docs/`
+- 42 Knowledge Mound adapter specs registered
+- 43 agent types available across CLI, API, local, and proxy providers
 - SOC 2 controls framework: 98% implemented
 
 **Completed since January 2026:**
@@ -32,8 +33,17 @@ Aragora has shipped most of the closed-loop backbone (CLB) infrastructure and co
 - Ralph observability dashboard (7 Prometheus metrics, 10 REST API endpoints, YAML state data service)
 - File-scope propagation fix for swarm work orders (#884)
 - LLM-first vague-goal expansion replacing keyword templates (#888)
+- Live settings/API-key tab wiring to backend auth endpoints ([#1146](https://github.com/synaptent/aragora/pull/1146))
+- Live debate creation from the debates page ([#1147](https://github.com/synaptent/aragora/pull/1147))
+- Truthful partial-public status surface ([#1148](https://github.com/synaptent/aragora/pull/1148))
+- Refresh-aware pipeline feedback scoping ([#1149](https://github.com/synaptent/aragora/pull/1149))
+- Visible pipeline golden-path summary ([#1150](https://github.com/synaptent/aragora/pull/1150))
+- `PipelineKMBridge` precedent loading before debate ([#1151](https://github.com/synaptent/aragora/pull/1151))
+- Queue max-parallel-two safety slice ([#1141](https://github.com/synaptent/aragora/pull/1141))
+- Queue harvest command ([#1164](https://github.com/synaptent/aragora/pull/1164))
 
 **Remaining tracked priority work:**
+- Rationalize and merge the active PMF stack as one coherent lane instead of merging overlapping slices blindly; current recommended order is [#1167](https://github.com/synaptent/aragora/pull/1167) -> [#1168](https://github.com/synaptent/aragora/pull/1168) -> [#1169](https://github.com/synaptent/aragora/pull/1169) -> [#1170](https://github.com/synaptent/aragora/pull/1170), then harvest or close [#1166](https://github.com/synaptent/aragora/pull/1166)
 - Wire provider routing into Arena agent selection ([#813](https://github.com/synaptent/aragora/issues/813))
 - Complete one end-to-end user journey from setup to value delivery ([#1046](https://github.com/synaptent/aragora/issues/1046))
 - Feed Knowledge Mound reads into debate context so memory is not write-only ([#1048](https://github.com/synaptent/aragora/issues/1048))
@@ -201,7 +211,7 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 This section captures the prioritized forward roadmap as of March 2026, organized by quarter and theme.
 Execution priority source of truth: [docs/status/NEXT_STEPS_CANONICAL.md](docs/status/NEXT_STEPS_CANONICAL.md). This roadmap summarizes quarter-level themes and does not supersede canonical execution priorities.
 
-The March 2026 product cohesion assessment found ~25% effective feature completeness for actual use, no complete user journey, provider routing still not wired to Arena, Knowledge Mound retrieval not enriching debates, and roughly 140 of 149 frontend pages still acting as shells. The near-term roadmap therefore prioritizes closing the product loop before widening enterprise-readiness work.
+The March 2026 product cohesion assessment found ~25% effective feature completeness for actual use, no complete user journey, provider routing still not wired to Arena, Knowledge Mound retrieval not enriching debates, and a shell-heavy frontend surface. The March 21-23 merge stream improved continuity on `main`, but the near-term roadmap still prioritizes closing the product loop before widening enterprise-readiness work.
 
 **EU AI Act enforcement: August 2, 2026.** This remains a real forcing function, but the compliance package only matters commercially if the core PMF loop is usable enough to demo and adopt.
 
@@ -211,6 +221,7 @@ The March 2026 product cohesion assessment found ~25% effective feature complete
 - [ ] Feed Knowledge Mound reads into debate context ([#1048](https://github.com/synaptent/aragora/issues/1048))
 - [ ] OpenClaw dispatch completion ([#814](https://github.com/synaptent/aragora/issues/814))
 - [ ] Productize five functional frontend paths instead of expanding shell coverage ([#1047](https://github.com/synaptent/aragora/issues/1047))
+- [ ] Resolve the overlapping PMF PR stack into one truthful merge lane before widening surface work ([#1166](https://github.com/synaptent/aragora/pull/1166), [#1167](https://github.com/synaptent/aragora/pull/1167), [#1168](https://github.com/synaptent/aragora/pull/1168), [#1169](https://github.com/synaptent/aragora/pull/1169), [#1170](https://github.com/synaptent/aragora/pull/1170))
 - [x] Agent-first beta: OpenClaw fleet deployed on 3 machines, running `aragora review` on real PRs via REST API
 - [x] GitHub Actions pre-merge gate (`aragora-review-gate.yml` shipped)
 - [x] Public demo at aragora.ai/demo (PR #705; standalone demo page live)
