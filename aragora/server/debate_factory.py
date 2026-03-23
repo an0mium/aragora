@@ -647,6 +647,9 @@ class DebateFactory:
         # Enable position ledger auto-creation for truth grounding
         builder = builder.with_enable_position_ledger(True)
 
+        # Enable performance-aware agent selection (integrates ProviderRouter hints)
+        builder = builder.with_performance_selection(use_performance_selection=True)
+
         # Pass feature flags from config if specified
         if any(
             v is not None

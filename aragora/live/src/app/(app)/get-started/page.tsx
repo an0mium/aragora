@@ -1,18 +1,67 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { API_BASE_URL } from '@/config';
 
 // ---------------------------------------------------------------------------
-// Data
+// Live data hook — replaces hardcoded constants with backend reality
 // ---------------------------------------------------------------------------
 
-const PLATFORM_STATS = [
-  { label: 'Agent Types', value: '42', color: 'text-[var(--acid-green)]' },
-  { label: 'Knowledge Adapters', value: '34', color: 'text-[var(--acid-cyan)]' },
-  { label: 'API Operations', value: '2,000+', color: 'text-amber-400' },
-];
+function usePlatformStats() {
+  const [stats, setStats] = useState([
+    { label: 'Agent Types', value: '—', color: 'text-[var(--acid-green)]' },
+    { label: 'Knowledge Adapters', value: '—', color: 'text-[var(--acid-cyan)]' },
+    { label: 'Debates Run', value: '—', color: 'text-amber-400' },
+  ]);
+
+  useEffect(() => {
+    const url = API_BASE_URL;
+    // Best-effort fetch — falls back to static values on any error
+    Promise.allSettled([
+      fetch(`${url}/api/v1/health`, { signal: AbortSignal.timeout(5000) }).then((r) => r.json()),
+      fetch(`${url}/api/v1/debates?limit=1&offset=0`, { signal: AbortSignal.timeout(5000) }).then(
+        (r) => r.json()
+      ),
+    ]).then(([healthResult, debatesResult]) => {
+      const health =
+        healthResult.status === 'fulfilled' ? (healthResult.value as Record<string, unknown>) : {};
+      const debates =
+        debatesResult.status === 'fulfilled'
+          ? (debatesResult.value as Record<string, unknown>)
+          : {};
+
+      const agentCount = (health.agent_types as number) ?? 43;
+      const adapterCount = (health.km_adapters as number) ?? 45;
+      const debateCount = (debates.total as number) ?? 0;
+
+      setStats([
+        {
+          label: 'Agent Types',
+          value: String(agentCount),
+          color: 'text-[var(--acid-green)]',
+        },
+        {
+          label: 'Knowledge Adapters',
+          value: String(adapterCount),
+          color: 'text-[var(--acid-cyan)]',
+        },
+        {
+          label: 'Debates Run',
+          value: debateCount > 0 ? String(debateCount) : '0',
+          color: 'text-amber-400',
+        },
+      ]);
+    });
+  }, []);
+
+  return stats;
+}
+
+// ---------------------------------------------------------------------------
+// Static data (templates, links — these are UI navigation, not metrics)
+// ---------------------------------------------------------------------------
 
 const DEMO_AGENTS = [
   { name: 'Claude (Anthropic)', role: 'Proposer', color: 'text-[var(--acid-green)]' },
@@ -147,6 +196,7 @@ function Section({
 
 export default function GetStartedPage() {
   const [activeStage, setActiveStage] = useState<string>('ideas');
+  const platformStats = usePlatformStats();
 
   return (
     <>
@@ -190,7 +240,7 @@ export default function GetStartedPage() {
             </p>
 
             <div className="grid grid-cols-3 gap-3">
-              {PLATFORM_STATS.map((stat) => (
+              {platformStats.map((stat) => (
                 <div
                   key={stat.label}
                   className="bg-[var(--bg)] border border-[var(--border)] p-3 text-center"

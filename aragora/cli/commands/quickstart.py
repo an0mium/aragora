@@ -254,15 +254,24 @@ async def _run_live_debate(
     agents_list: list[tuple[str, str | None]],
     rounds: int,
 ) -> dict[str, Any]:
-    """Run a debate with live API agents."""
+    """Run a debate with live API agents using the full integrated path.
+
+    Uses the same Arena construction as ``cmd_ask`` with:
+    - ProviderRouter integration (provider hints, outcome recording)
+    - Knowledge injection enabled (KM flywheel)
+    - Full DebateResult extraction (final_answer, dissent, confidence)
+    """
     from aragora.agents.base import AgentType, create_agent
     from aragora.core import Environment
-    from aragora.debate.orchestrator import Arena, DebateProtocol
-    from aragora.memory.store import CritiqueStore
+    from aragora.debate.orchestrator import Arena
+    from aragora.debate.protocol import DebateProtocol
 
     env = Environment(task=question)
-    protocol = DebateProtocol(rounds=rounds, consensus="majority")
-    store = CritiqueStore()
+    protocol = DebateProtocol(
+        rounds=rounds,
+        consensus="majority",
+        enable_knowledge_injection=True,
+    )
 
     agents = []
     agent_names = []
@@ -271,33 +280,47 @@ async def _run_live_debate(
         agents.append(agent)
         agent_names.append(provider)
 
-    arena = Arena(env, agents, protocol, insight_store=store)
+    # Construct Arena with ProviderRouter integration and KM enabled
+    arena = Arena(
+        env,
+        agents,
+        protocol,
+        use_performance_selection=True,
+        enable_knowledge_retrieval=True,
+        enable_knowledge_ingestion=True,
+    )
     result = await arena.run()
 
-    verdict = "consensus"
-    confidence = 0.0
-    summary = ""
-    dissent: list[dict[str, str]] = []
+    # Extract full result data
+    final_answer = getattr(result, "final_answer", "") or ""
+    confidence = getattr(result, "confidence", 0.0) or 0.0
+    consensus_reached = getattr(result, "consensus_reached", False)
+    dissenting_views = getattr(result, "dissenting_views", []) or []
 
-    if hasattr(result, "verdict"):
-        verdict = result.verdict
-    if hasattr(result, "confidence"):
-        confidence = result.confidence
-    if hasattr(result, "summary"):
-        _summary_attr = result.summary
-        summary = _summary_attr() if callable(_summary_attr) else _summary_attr
-    elif hasattr(result, "final_summary"):
-        summary = result.final_summary
+    dissent = [{"agent": "dissenter", "reason": str(v)[:300]} for v in dissenting_views]
+
+    verdict = "consensus" if consensus_reached else "no_consensus"
+
+    # Auto-persist receipt via the same path as cmd_ask
+    receipt_path = None
+    try:
+        from aragora.cli.commands.debate import _persist_debate_receipt
+
+        receipt_path = _persist_debate_receipt(result, verbose=False)
+    except (ImportError, RuntimeError):
+        pass
 
     return {
         "question": question,
+        "debate_id": getattr(result, "debate_id", ""),
         "verdict": verdict,
         "confidence": confidence,
-        "rounds": rounds,
+        "rounds": getattr(result, "rounds_used", rounds),
         "agents": agent_names,
-        "summary": summary,
+        "summary": final_answer[:1000],
         "dissent": dissent,
         "mode": "live",
+        "receipt_path": receipt_path,
     }
 
 
@@ -407,7 +430,14 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         else:
             print("\nCould not open browser. View the saved artifact directly.")
 
+    # Show receipt path if available (from live debate auto-persistence)
+    if result.get("receipt_path"):
+        print(f"\nDecision receipt: {result['receipt_path']}")
+        print(f"  View:   aragora receipt view {result['receipt_path']}")
+        print(f"  Verify: aragora receipt verify {result['receipt_path']}")
+
     print("\nNext steps:")
     print("  aragora ask 'Your question' --agents anthropic-api,openai-api  # Full debate")
-    print("  aragora decide 'Your question'                                  # Full pipeline")
+    print("  aragora ask 'Your question' --provider-budget 1.0              # Budget-aware")
+    print("  aragora receipt list                                            # Past receipts")
     print("  aragora doctor                                                  # System health")
