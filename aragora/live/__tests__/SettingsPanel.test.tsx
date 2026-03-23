@@ -185,7 +185,7 @@ describe('SettingsPanel', () => {
   });
 
   describe('API Keys Tab', () => {
-    it('shows API key generation form', async () => {
+    it('shows API key generation controls', async () => {
       await act(async () => {
         renderWithProviders(<SettingsPanel />);
       });
@@ -193,8 +193,9 @@ describe('SettingsPanel', () => {
       fireEvent.click(screen.getByText('API KEYS'));
 
       await waitFor(() => {
-        expect(screen.getByText('Generate API Key')).toBeInTheDocument();
-        expect(screen.getByPlaceholderText(/Key name/i)).toBeInTheDocument();
+        expect(screen.getByText('Personal API Key')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /generate key/i })).toBeInTheDocument();
+        expect(screen.getByText(/Active keys:\s*0 \/ 1/i)).toBeInTheDocument();
       });
     });
 
