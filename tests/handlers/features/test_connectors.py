@@ -563,7 +563,7 @@ class TestTestConnection:
 
     @pytest.mark.asyncio
     async def test_test_connection_success(self, connectors_handler):
-        """Test successful connection test."""
+        """Test truthful not-implemented response for connector testing."""
         request = MockRequest(
             method="POST",
             path="/api/v1/connectors/test",
@@ -571,12 +571,13 @@ class TestTestConnection:
         )
         result = await connectors_handler.handle_request(request)
 
-        assert result["status_code"] == 200
-        assert result["body"]["success"] is True
+        assert result["status_code"] == 501
+        assert result["body"]["success"] is False
+        assert "Real connector test required" in result["body"]["error"]
 
     @pytest.mark.asyncio
     async def test_test_connection_failure(self, connectors_handler):
-        """Test failed connection test (empty config)."""
+        """Test truthful not-implemented response for empty config."""
         request = MockRequest(
             method="POST",
             path="/api/v1/connectors/test",
@@ -584,8 +585,9 @@ class TestTestConnection:
         )
         result = await connectors_handler.handle_request(request)
 
-        assert result["status_code"] == 200
+        assert result["status_code"] == 501
         assert result["body"]["success"] is False
+        assert "Real connector test required" in result["body"]["error"]
 
 
 # =============================================================================

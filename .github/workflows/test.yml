@@ -1411,7 +1411,7 @@ jobs:
       - name: Smoke - boot server
         run: |
           set -e
-          aragora serve --demo --api-port 8090 --ws-port 8765 --host 127.0.0.1 >/tmp/aragora-server.log 2>&1 &
+          python -m aragora serve --demo --api-port 8090 --ws-port 8765 --host 127.0.0.1 >/tmp/aragora-server.log 2>&1 &
           SERVER_PID=$!
           trap "kill $SERVER_PID 2>/dev/null || true" EXIT
           # Wait for server to be ready (handler init can take ~30s in CI)
@@ -1422,7 +1422,14 @@ jobs:
             fi
             sleep 1
           done
-          curl -fsS http://127.0.0.1:8090/healthz >/dev/null
+          if ! curl -fsS http://127.0.0.1:8090/healthz >/dev/null; then
+            if [[ -f /tmp/aragora-server.log ]]; then
+              cat /tmp/aragora-server.log
+            else
+              echo "aragora server log was not created"
+            fi
+            exit 1
+          fi
           # Verify key API endpoints return data
           echo "Checking /api/v1/health..."
           curl -fsS http://127.0.0.1:8090/api/v1/health | python -c "import sys,json; d=json.load(sys.stdin); assert d.get('status')=='ok', f'bad health: {d}'"
