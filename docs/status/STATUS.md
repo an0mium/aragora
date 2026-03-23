@@ -5,66 +5,67 @@
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](../INDEX.md) for the curated technical reference map.
 > For roadmap extraction, doc drift, and partial-feature tracking, see [DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md](DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md).
 
-## March 23, 2026 — Execution Program Complete
+## March 23, 2026 — Structural PMF Slices Landed, Live Gate Still Open
 
 ### Canonical Current Reality
 
-- **The execution program is complete.** All 6 program epics are resolved and closed on GitHub: #804 (truthfulness), #806 (surface productization), #836 (swarm control plane), #989 (workbench), #990 (dogfood pipeline), #1036 (self-assessment cadence).
-- The product loop is not just structurally closed — it is **operational**. The complete path works end-to-end: onboarding wizard -> API key management -> ProviderRouter-backed debate -> KM-enriched context -> receipt -> KM writeback -> live dashboard -> real demo surface.
-- Only 5 issues remain open: 2 medium-priority execution items (#820 Wave 2 surfaces, #1011 design partner refresh) and 3 P3 enterprise assurance items (#273, #274, #509) parked until the product loop is proven with real users.
-- The system has moved from "build and wire" to "operate and prove."
+- The March 21-23 merge stream landed the structural PMF slices that were missing earlier in the month:
+  - ProviderRouter-backed runtime debate selection
+  - KM retrieval and writeback on the product path
+  - versioned API-key management
+  - onboarding/get-started flow
+  - truthful integrations and dashboard state
+  - quickstart fail-closed behavior, structured receipts, and inline provider-key support
+- The strongest current proof on `main` is this focused verification:
+
+  ```bash
+  python3 -m pytest tests/e2e/test_user_journey.py tests/cli/test_quickstart.py -q
+  ```
+
+  Result on March 23, 2026: `57 passed` in `33.75s`.
+
+- That is enough to say the repo contains a verified mocked founder loop and a verified quickstart contract.
+- It is **not** enough to say the product is already operational for external users without babysitting.
+- GitHub's current open issues no longer track PMF truthfully. The only open issues are enterprise-assurance items: [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509).
+- So the active execution program is now: prove the canonical founder loop live, harvest the concrete blockers, and aim Aragora's own pipeline/swarm machinery at those blockers only.
 
 ### What Recently Landed On `main`
 
-The March 23 merge wave closed the structural product-loop gaps:
+The March 23 wave materially improved the real founder loop:
 
-1. **ProviderRouter wired into DebateFactory** via [#1167](https://github.com/synaptent/aragora/pull/1167) — debates now use cost/quality/latency routing
-2. **KnowledgeMound retrieval wired into DebateFactory** via [#1168](https://github.com/synaptent/aragora/pull/1168) — debates enriched with org knowledge by default
-3. **Versioned API key management endpoints** via [#1169](https://github.com/synaptent/aragora/pull/1169) — real backend auth, no more client-side fakes
-4. **Interactive 3-step onboarding wizard** via [#1170](https://github.com/synaptent/aragora/pull/1170) — first complete user journey from landing to debate
-5. **Fresh tranche queue v5** via [#1171](https://github.com/synaptent/aragora/pull/1171) — 5 new workbench/integrator issues seeded
-6. **Boss-loop label filter** via [#1172](https://github.com/synaptent/aragora/pull/1172) — unattended dispatch scoped by label
-7. **Dashboard live debates section** via [#1175](https://github.com/synaptent/aragora/pull/1175) — dashboard shows active state, not just historical
-8. **Debate outcome -> KM ingestion** via [#1176](https://github.com/synaptent/aragora/pull/1176) — closes the KM read-write feedback loop
-9. **Demo wired to real backend** via [#1177](https://github.com/synaptent/aragora/pull/1177) — demo is no longer static
+1. **ProviderRouter wired into DebateFactory** via [#1167](https://github.com/synaptent/aragora/pull/1167)
+2. **KnowledgeMound retrieval wired into DebateFactory** via [#1168](https://github.com/synaptent/aragora/pull/1168)
+3. **Versioned API key management endpoints** via [#1169](https://github.com/synaptent/aragora/pull/1169)
+4. **Interactive 3-step onboarding wizard** via [#1170](https://github.com/synaptent/aragora/pull/1170)
+5. **Debate outcome -> KM ingestion** via [#1176](https://github.com/synaptent/aragora/pull/1176)
+6. **Demo wired to real backend** via [#1177](https://github.com/synaptent/aragora/pull/1177)
+7. **Wave 2 surfaces productized** via [#1188](https://github.com/synaptent/aragora/pull/1188)
+8. **Quickstart fails fast on bad live-provider TLS** via [#1180](https://github.com/synaptent/aragora/pull/1180)
+9. **Lane completion receipt audit trail** via [#1181](https://github.com/synaptent/aragora/pull/1181)
+10. **Truthful integrations dashboard state** via [#1196](https://github.com/synaptent/aragora/pull/1196)
+11. **Quickstart inline provider keys and structured receipts** via [#1192](https://github.com/synaptent/aragora/pull/1192)
 
-Earlier March 21-23 work that these build on:
-
-1. API-key / first-user-journey slice merged via [#1110](https://github.com/synaptent/aragora/pull/1110)
-2. default KM retrieval, later KM writeback, and settlement-hook wiring merged via [#1111](https://github.com/synaptent/aragora/pull/1111), [#1131](https://github.com/synaptent/aragora/pull/1131), [#1132](https://github.com/synaptent/aragora/pull/1132), and [#1134](https://github.com/synaptent/aragora/pull/1134)
-3. truthful receipts/integrations/public state improved via [#1118](https://github.com/synaptent/aragora/pull/1118), [#1119](https://github.com/synaptent/aragora/pull/1119), [#1136](https://github.com/synaptent/aragora/pull/1136), and [#1137](https://github.com/synaptent/aragora/pull/1137)
-4. bounded execution operator surfaces improved via [#1124](https://github.com/synaptent/aragora/pull/1124), [#1126](https://github.com/synaptent/aragora/pull/1126), [#1127](https://github.com/synaptent/aragora/pull/1127), [#1133](https://github.com/synaptent/aragora/pull/1133), and [#1138](https://github.com/synaptent/aragora/pull/1138)
-5. real OpenClaw action dispatch landed via [#1135](https://github.com/synaptent/aragora/pull/1135)
-6. continuity/path-truthfulness improved via [#1146](https://github.com/synaptent/aragora/pull/1146), [#1147](https://github.com/synaptent/aragora/pull/1147), [#1148](https://github.com/synaptent/aragora/pull/1148), [#1150](https://github.com/synaptent/aragora/pull/1150), and [#1151](https://github.com/synaptent/aragora/pull/1151)
-7. queue throughput/harvest support improved via [#1141](https://github.com/synaptent/aragora/pull/1141) and [#1164](https://github.com/synaptent/aragora/pull/1164)
-
-### Wave 2 Surface Productization
-
-Three surfaces productized and inventoried:
-
-| Surface | Status | Notes |
-|---------|--------|-------|
-| **Spectate** | productized | Frontend wired to `useSpectate` hook (polls `/api/v1/spectate/recent` + `/api/v1/spectate/status`). Per-debate WebSocket stream at `/spectate/{debateId}` with feed/timeline/summary views. Conditional auth: unauthenticated callers get redacted status (debate IDs hidden). |
-| **SME Onboarding** | productized | 3-step get-started page (check connection, run debate, view results) wired to backend. Onboarding handler serves flow management, 9 starter templates (including SME-specific), quick-start profiles, and funnel analytics. |
-| **Conditional Public Endpoints** | productized | `GET /api/v1/public/surfaces` lists all public surfaces with readiness (live/partial), paths, and backend-conditional flags. Auth requirements manifest declares spectate and onboarding templates as public. Spectate status auto-redacts debate IDs for unauthenticated callers. |
+These are real product improvements. They just still need live dogfood proof as one coherent loop.
 
 ### Current Frontier
 
-The frontier is no longer building or wiring. It is:
+The frontier is no longer generic infrastructure expansion. It is:
 
-- **continuous operation** — run the product loop with real users, collect feedback, fix what breaks
-- **Wave 2 polish** — productize SME onboarding, spectate, and conditional public endpoints ([#820](https://github.com/synaptent/aragora/issues/820))
-- **design partner refresh** — prove repeatable external usage ([#1011](https://github.com/synaptent/aragora/issues/1011))
-- **enterprise assurance when ready** — pentest, SOC 2, and certification are parked at P3 ([#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509))
+- **live founder-loop proof** — run the product path with real providers and truthful receipts
+- **bounded blocker harvest** — reopen or create only the issues exposed by that live proof
+- **dogfood-first repair lanes** — use the idea-to-execution pipeline, Nomic, and swarm only on those PMF blockers
+- **second-workflow validation** — inbox trust wedge after the founder loop holds
+- **enterprise assurance later** — still real, but sequenced after product proof
 
 ### Strategic Direction
 
-The strategy document is [ARAGORA_IDEA_TO_EXECUTION_STRATEGY](../plans/ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md). The short version:
+The strategy document is [ARAGORA_IDEA_TO_EXECUTION_STRATEGY](../plans/ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md).
+The short version is now:
 
-- the execution program is complete — all 6 program epics are closed,
-- the product loop is operational, not just structurally closed,
-- the obligation is to run the system with real users and prove the value prop,
-- enterprise certification follows a proven product loop, not precedes it.
+- structural PMF slices are landed on `main`
+- the live founder loop is the current gate
+- the pipeline/workbench/swarm stack should be used to finish Aragora itself
+- GTM starts after repeatable live proof, not before
 
 ## March 2026 Sprint — Closed-Loop Backbone, Trust Wedge & Infrastructure
 

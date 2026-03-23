@@ -6,7 +6,7 @@
 
 ## Current Status (March 2026)
 
-Aragora has shipped most of the closed-loop backbone (CLB) infrastructure and completed the 14/14 issue sprint, but the March 2026 product cohesion assessment still broadly holds: the product loop is not yet fully continuous for a new user. The March 21-23 merge stream, however, materially improved the state on `main`. Launch readiness is still gated first by PMF closure, not by enterprise certification.
+Aragora has shipped most of the closed-loop backbone (CLB) infrastructure and completed the 14/14 issue sprint. The March 21-23 merge stream materially improved the product loop on `main`, and current `main` now includes a mocked founder-loop E2E proof plus the tightened quickstart contract. Launch readiness is still gated first by **live** PMF closure, not by enterprise certification.
 
 **By the numbers:**
 - 3,846 Python files under `aragora/`
@@ -43,12 +43,11 @@ Aragora has shipped most of the closed-loop backbone (CLB) infrastructure and co
 - Queue harvest command ([#1164](https://github.com/synaptent/aragora/pull/1164))
 
 **Remaining tracked priority work:**
-- Rationalize and merge the active PMF stack as one coherent lane instead of merging overlapping slices blindly; current recommended order is [#1167](https://github.com/synaptent/aragora/pull/1167) -> [#1168](https://github.com/synaptent/aragora/pull/1168) -> [#1169](https://github.com/synaptent/aragora/pull/1169) -> [#1170](https://github.com/synaptent/aragora/pull/1170), then harvest or close [#1166](https://github.com/synaptent/aragora/pull/1166)
-- Wire provider routing into Arena agent selection ([#813](https://github.com/synaptent/aragora/issues/813))
-- Complete one end-to-end user journey from setup to value delivery ([#1046](https://github.com/synaptent/aragora/issues/1046))
-- Feed Knowledge Mound reads into debate context so memory is not write-only ([#1048](https://github.com/synaptent/aragora/issues/1048))
-- Finish OpenClaw dispatch and the five functional frontend paths that prove the value prop ([#814](https://github.com/synaptent/aragora/issues/814), [#1047](https://github.com/synaptent/aragora/issues/1047))
-- Demonstrate 10+ agent coordination once the loop works end to end ([#815](https://github.com/synaptent/aragora/issues/815))
+- Prove the canonical founder loop live on current `main`: readiness -> live debate -> receipt -> visible result -> KM ingestion
+- Turn any live founder-loop failure into a bounded PMF blocker with an exact command transcript and truthful stop condition
+- Use `aragora pipeline dogfood` and bounded swarm/nomic lanes only on those founder-loop blockers
+- Re-run the founder loop after each landed blocker tranche until it is repeatable without manual rescue
+- Dogfood the inbox trust wedge only after the founder loop holds
 - Keep pentest / SOC 2 preparation warm, but after PMF proof ([#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509))
 
 **EU AI Act enforcement date: August 2, 2026** — the compliance CLI and audit trail infrastructure
@@ -211,17 +210,16 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 This section captures the prioritized forward roadmap as of March 2026, organized by quarter and theme.
 Execution priority source of truth: [docs/status/NEXT_STEPS_CANONICAL.md](docs/status/NEXT_STEPS_CANONICAL.md). This roadmap summarizes quarter-level themes and does not supersede canonical execution priorities.
 
-The March 2026 product cohesion assessment found ~25% effective feature completeness for actual use, no complete user journey, provider routing still not wired to Arena, Knowledge Mound retrieval not enriching debates, and a shell-heavy frontend surface. The March 21-23 merge stream improved continuity on `main`, but the near-term roadmap still prioritizes closing the product loop before widening enterprise-readiness work.
+The March 2026 product cohesion assessment found ~25% effective feature completeness for actual use, no complete user journey, provider routing not yet wired to runtime selection, Knowledge Mound retrieval not yet enriching default debates, and a shell-heavy frontend surface. The March 21-23 merge stream changed those specific facts on `main`, but it did not eliminate the need for live PMF proof. The near-term roadmap still prioritizes proving the founder loop before widening enterprise-readiness work.
 
 **EU AI Act enforcement: August 2, 2026.** This remains a real forcing function, but the compliance package only matters commercially if the core PMF loop is usable enough to demo and adopt.
 
 ### Q2 2026 Priorities
-- [ ] Wire provider routing to Arena agent selection ([#813](https://github.com/synaptent/aragora/issues/813))
-- [ ] Complete one working user journey from setup to result ([#1046](https://github.com/synaptent/aragora/issues/1046))
-- [ ] Feed Knowledge Mound reads into debate context ([#1048](https://github.com/synaptent/aragora/issues/1048))
-- [ ] OpenClaw dispatch completion ([#814](https://github.com/synaptent/aragora/issues/814))
-- [ ] Productize five functional frontend paths instead of expanding shell coverage ([#1047](https://github.com/synaptent/aragora/issues/1047))
-- [ ] Resolve the overlapping PMF PR stack into one truthful merge lane before widening surface work ([#1166](https://github.com/synaptent/aragora/pull/1166), [#1167](https://github.com/synaptent/aragora/pull/1167), [#1168](https://github.com/synaptent/aragora/pull/1168), [#1169](https://github.com/synaptent/aragora/pull/1169), [#1170](https://github.com/synaptent/aragora/pull/1170))
+- [ ] Prove the live founder loop using the runbook in [docs/plans/PMF_DOGFOOD_EXECUTION_PLAN.md](docs/plans/PMF_DOGFOOD_EXECUTION_PLAN.md)
+- [ ] Reconstitute the PMF blocker queue from observed founder-loop failures instead of stale March umbrella issues
+- [ ] Use the idea-to-execution pipeline and swarm queue to clear only those PMF blockers
+- [ ] Productize the founder-loop result surfaces so the live outcome is understandable without operator context
+- [ ] Dogfood the second workflow (inbox trust wedge) after the founder loop is repeatable
 - [x] Agent-first beta: OpenClaw fleet deployed on 3 machines, running `aragora review` on real PRs via REST API
 - [x] GitHub Actions pre-merge gate (`aragora-review-gate.yml` shipped)
 - [x] Public demo at aragora.ai/demo (PR #705; standalone demo page live)

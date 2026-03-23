@@ -5,42 +5,47 @@
 > Compatibility mirror for older links. The canonical current-status document is [status/STATUS.md](status/STATUS.md).
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](INDEX.md) for the curated technical reference map.
 
-## March 23, 2026 — Execution Program Complete
+## March 23, 2026 — Structural PMF Slices Landed, Live Gate Still Open
 
-All 6 program epics closed: #804 (truthfulness), #806 (surface productization), #836 (swarm control plane), #989 (workbench), #990 (dogfood pipeline), #1036 (self-assessment cadence). Only 5 issues remain open: 2 medium-priority execution items (#820, #1011) and 3 P3 enterprise assurance items (#273, #274, #509).
+The earlier March docs overstated readiness. Current `main` is materially better, but the right statement is:
 
-### What Landed On `main`
+- the structural PMF slices are landed
+- the mocked founder-loop proof passes on `main`
+- the live founder loop still needs repeatable dogfood proof before external selling
 
-Nine PRs merged on March 23 that collectively close the default product loop:
+Focused verification on current `main`:
 
-1. **ProviderRouter wired into DebateFactory** ([#1167](https://github.com/synaptent/aragora/pull/1167)) — debates now use cost/quality/latency routing instead of hardcoded model selection
-2. **KnowledgeMound retrieval wired into DebateFactory** ([#1168](https://github.com/synaptent/aragora/pull/1168)) — debates enriched with org knowledge by default
-3. **Versioned API key management endpoints** ([#1169](https://github.com/synaptent/aragora/pull/1169)) — real backend auth, no more client-side fakes
-4. **Interactive 3-step onboarding wizard** ([#1170](https://github.com/synaptent/aragora/pull/1170)) — first complete user journey from landing to debate
-5. **Fresh tranche queue v5** ([#1171](https://github.com/synaptent/aragora/pull/1171)) — 5 new workbench/integrator issues seeded (no longer replaying March work)
-6. **Boss-loop label filter** ([#1172](https://github.com/synaptent/aragora/pull/1172)) — unattended dispatch scoped by label
-7. **Dashboard live debates section** ([#1175](https://github.com/synaptent/aragora/pull/1175)) — dashboard shows active state, not just historical
-8. **Debate outcome -> KM ingestion** ([#1176](https://github.com/synaptent/aragora/pull/1176)) — closes the KM read-write feedback loop
-9. **Demo wired to real backend** ([#1177](https://github.com/synaptent/aragora/pull/1177)) — demo is no longer static
+```bash
+python3 -m pytest tests/e2e/test_user_journey.py tests/cli/test_quickstart.py -q
+```
 
-These build on earlier March 21-22 work:
-  - [#1110](https://github.com/synaptent/aragora/pull/1110): API-key / first-user-journey slice
-  - [#1111](https://github.com/synaptent/aragora/pull/1111), [#1131](https://github.com/synaptent/aragora/pull/1131), [#1132](https://github.com/synaptent/aragora/pull/1132), [#1134](https://github.com/synaptent/aragora/pull/1134): KM retrieval, writeback, default enablement, and settlement hooks
-  - [#1118](https://github.com/synaptent/aragora/pull/1118), [#1119](https://github.com/synaptent/aragora/pull/1119), [#1136](https://github.com/synaptent/aragora/pull/1136), [#1137](https://github.com/synaptent/aragora/pull/1137): truthful receipts/public/integrations/pipeline state
-  - [#1124](https://github.com/synaptent/aragora/pull/1124), [#1126](https://github.com/synaptent/aragora/pull/1126), [#1127](https://github.com/synaptent/aragora/pull/1127), [#1133](https://github.com/synaptent/aragora/pull/1133), [#1138](https://github.com/synaptent/aragora/pull/1138): stronger operator contract for bounded execution
-  - [#1135](https://github.com/synaptent/aragora/pull/1135): real OpenClaw action dispatch
+Observed result on March 23, 2026: `57 passed` in `33.75s`.
 
-### What The Proof Set Now Shows
+Recent `main` improvements relevant to the founder loop:
 
-- **The product loop is operational**: onboarding -> credentials -> routed debate -> KM context -> receipt -> KM writeback -> live dashboard.
-- **All 6 program epics are CLOSED** — the execution program is complete.
-- **ProviderRouter is WIRED** into the debate factory with cost/quality/latency routing.
-- **KnowledgeMound has bidirectional flow** — reads into debates, writes outcomes back.
-- **API key management is REAL** — versioned backend endpoints, no client-side fakes.
-- **Demo works against real backend** — no longer static.
-- **Dashboard shows live state** — active debates, not just historical.
-- **Boss loop runs unattended** with label-scoped dispatch on queue v5.
-- **Swarm control plane is truthful** — queue-backed execution, preserved verification evidence, terminal tranche reconciliation.
+1. **ProviderRouter wired into DebateFactory** ([#1167](https://github.com/synaptent/aragora/pull/1167))
+2. **KnowledgeMound retrieval wired into DebateFactory** ([#1168](https://github.com/synaptent/aragora/pull/1168))
+3. **Versioned API key management endpoints** ([#1169](https://github.com/synaptent/aragora/pull/1169))
+4. **Interactive onboarding/get-started flow** ([#1170](https://github.com/synaptent/aragora/pull/1170))
+5. **Debate outcome -> KM ingestion** ([#1176](https://github.com/synaptent/aragora/pull/1176))
+6. **Demo wired to real backend** ([#1177](https://github.com/synaptent/aragora/pull/1177))
+7. **Wave 2 surfaces productized** ([#1188](https://github.com/synaptent/aragora/pull/1188))
+8. **Quickstart fails fast on bad TLS** ([#1180](https://github.com/synaptent/aragora/pull/1180))
+9. **Quickstart inline provider keys and structured receipts** ([#1192](https://github.com/synaptent/aragora/pull/1192))
+10. **Integrations dashboard uses truthful backend state** ([#1196](https://github.com/synaptent/aragora/pull/1196))
+
+The current execution order is now:
+
+1. prove the canonical founder loop live
+2. harvest the concrete blockers from that proof
+3. feed only those blockers into the idea-to-execution / swarm machinery
+4. defer GTM and enterprise-assurance expansion until the live loop is repeatable
+
+Canonical references:
+
+- [docs/status/NEXT_STEPS_CANONICAL.md](status/NEXT_STEPS_CANONICAL.md)
+- [docs/status/ACTIVE_EXECUTION_ISSUES.md](status/ACTIVE_EXECUTION_ISSUES.md)
+- [docs/plans/PMF_DOGFOOD_EXECUTION_PLAN.md](plans/PMF_DOGFOOD_EXECUTION_PLAN.md)
 
 ### Wave 2 Surface Productization
 

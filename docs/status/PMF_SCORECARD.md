@@ -1,11 +1,17 @@
 # Product-Market Fit (PMF) Scorecard
 
-Last updated: 2026-02-12
+Last updated: 2026-03-23
 
 This scorecard is the single rubric for:
 - selecting design partners,
 - measuring pilot success,
 - deciding whether to scale, iterate, or narrow scope.
+
+Current gating rule:
+
+- Do not use this scorecard as the argument to scale GTM yet.
+- First prove the live founder loop in [PMF_DOGFOOD_EXECUTION_PLAN](../plans/PMF_DOGFOOD_EXECUTION_PLAN.md).
+- Once the founder loop is repeatable without manual rescue, use this scorecard to evaluate design partners and pilot quality.
 
 Related:
 - Design partner program: `docs/status/DESIGN_PARTNER_PROGRAM.md`
@@ -156,4 +162,3 @@ Pilot outcomes (weekly):
 - Weekly active users:
 - Decisions changed / escalations avoided:
 - Procurement status:
-

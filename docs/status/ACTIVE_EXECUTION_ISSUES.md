@@ -5,64 +5,79 @@ Last updated: 2026-03-23
 This document links Aragora's current execution program to the live GitHub issue tracker.
 
 - Docs explain thesis, roadmap, and capability posture.
-- GitHub issues track live execution status, owners, priorities, and acceptance criteria.
-- Use [NEXT_STEPS_CANONICAL](NEXT_STEPS_CANONICAL.md) for execution order and this file for the current issue map.
+- GitHub issues track durable backlog items and acceptance criteria.
+- [NEXT_STEPS_CANONICAL](NEXT_STEPS_CANONICAL.md) defines execution order.
+- [PMF_DOGFOOD_EXECUTION_PLAN](../plans/PMF_DOGFOOD_EXECUTION_PLAN.md) defines the current founder-loop proof and blocker-harvest runbook.
 
-## Program Status: COMPLETE
+## Program Status: Structural PMF Slices Landed, Live Dogfood Gate Still Open
 
-The active execution program is complete. All 6 program epics are closed on GitHub. The product loop is operational, the swarm control plane is truthful, and the closed-loop backbone contracts are landed. What remains is continuous operation, surface polish, and enterprise certification when ready.
+The repo moved forward materially on March 21-23:
 
-### Closed Program Epics
+- Provider routing is wired into the runtime path on `main`
+- KM retrieval and writeback are wired into the debate path on `main`
+- onboarding, API-key management, demo, dashboard, and integrations surfaces are substantially more truthful on `main`
+- quickstart now fails fast on bad TLS and emits structured receipts with inline provider-key support on `main`
+- the repo includes a current mocked founder-loop E2E proof:
 
-| Epic | Title | Closed |
-|------|-------|--------|
-| [#804](https://github.com/synaptent/aragora/issues/804) | Truthfulness and documentation hygiene | 2026-03-23 |
-| [#806](https://github.com/synaptent/aragora/issues/806) | Sequential surface productization and value prop | 2026-03-23 |
-| [#836](https://github.com/synaptent/aragora/issues/836) | Developer swarm control plane | 2026-03-23 |
-| [#989](https://github.com/synaptent/aragora/issues/989) | Idea-to-execution workbench | 2026-03-23 |
-| [#990](https://github.com/synaptent/aragora/issues/990) | Dogfood the pipeline to build more of Aragora | 2026-03-23 |
-| [#1036](https://github.com/synaptent/aragora/issues/1036) | Continuous self-assessment and autonomous improvement cadence | 2026-03-23 |
+  ```bash
+  python3 -m pytest tests/e2e/test_user_journey.py tests/cli/test_quickstart.py -q
+  ```
 
-## Open Issues (5 Remaining)
+  Result on March 23, 2026: `57 passed`
 
-### Execution Items (Medium Priority)
+That is enough to say the structural PMF slices are present.
+It is **not** enough to say the live PMF loop is proven for external users.
 
-| Issue | State | Priority | Scope |
-|-------|-------|----------|-------|
-| [#820](https://github.com/synaptent/aragora/issues/820) | Open | `priority:medium` | Productize Wave 2 surfaces: SME onboarding, spectate, and conditional public endpoints |
-| [#1011](https://github.com/synaptent/aragora/issues/1011) | Open | `priority:medium` | Design partner refresh and repeatable external usage |
+## Live GitHub State
 
-### Enterprise Assurance (P3 — Parked)
+GitHub is no longer carrying an open PMF blocker set. As of March 23, 2026, the only open issues are enterprise-assurance items:
 
 | Issue | State | Priority | Scope |
 |-------|-------|----------|-------|
-| [#273](https://github.com/synaptent/aragora/issues/273) | Open | P3 | Enterprise assurance closure epic |
-| [#274](https://github.com/synaptent/aragora/issues/274) | Open | P3 | External penetration test and remediation |
-| [#509](https://github.com/synaptent/aragora/issues/509) | Open | P3 | Pentest vendor selection and scope sign-off |
+| [#273](https://github.com/synaptent/aragora/issues/273) | Open | `priority:critical` | Enterprise assurance closure epic |
+| [#274](https://github.com/synaptent/aragora/issues/274) | Open | `priority:critical` | External penetration test and remediation |
+| [#509](https://github.com/synaptent/aragora/issues/509) | Open | `priority:critical` | Pentest vendor selection and scope sign-off |
 
-## What Was Closed Today (March 23)
+## Doc-Driven PMF Program (Current Active Work)
 
-Eight issues/epics closed in the epic closure sprint:
+Because the PMF issue tree was closed ahead of live proof, the near-term PMF execution program is temporarily tracked in docs rather than as open GitHub issues.
 
-1. **[#804](https://github.com/synaptent/aragora/issues/804)** — Truthfulness and documentation hygiene epic. All sub-issues (#807, #808, #809) were already closed; epic itself now closed.
-2. **[#806](https://github.com/synaptent/aragora/issues/806)** — Sequential surface productization. Product loop operating, demo/dashboard/onboarding all wired to real backends.
-3. **[#836](https://github.com/synaptent/aragora/issues/836)** — Developer swarm control plane. Queue-backed execution, label-scoped dispatch, preserved verification evidence, terminal tranche reconciliation all on `main`.
-4. **[#989](https://github.com/synaptent/aragora/issues/989)** — Idea-to-execution workbench. Sits on top of a running product loop.
-5. **[#990](https://github.com/synaptent/aragora/issues/990)** — Dogfood the pipeline. Pipeline used to build Aragora itself; queue artifacts recovered and published.
-6. **[#1036](https://github.com/synaptent/aragora/issues/1036)** — Continuous self-assessment cadence. Assessment-to-backlog pipeline operational.
-7. Additional sub-issues and cross-references within these epics also resolved.
+| Track | Current status | Source of truth | Notes |
+|------|----------------|-----------------|-------|
+| Founder-loop live proof | Current gate | [PMF_DOGFOOD_EXECUTION_PLAN](../plans/PMF_DOGFOOD_EXECUTION_PLAN.md) | Must prove live debate -> receipt -> result -> KM path without manual rescue |
+| Live blocker harvest | Active when proof fails | command transcript + new issue | Reopen or create issues only after reproducing a concrete failure |
+| PMF blocker pipeline compile | Ready | `aragora pipeline dogfood` | Use the PMF plan doc as the bounded source file |
+| Bounded swarm / Ralph repair lanes | Ready | generated manifest + review receipts | Only for proven PMF blockers |
+| Inbox trust wedge dogfood | Deferred | docs/plans + live proof | Run only after founder loop is stable |
 
-## Operational Incidents
+## Historical PMF Lineage (Closed Too Early To Be The Current Gate)
 
-| Issue | State | Priority | Scope |
-|-------|-------|----------|-------|
-| [#829](https://github.com/synaptent/aragora/issues/829) | Open | `outage` | Service outage detected on 2026-03-07 |
+These issues and epics matter as historical lineage, but they do not substitute for current live proof:
+
+| Issue | Status | Why it is not enough by itself |
+|-------|--------|--------------------------------|
+| [#806](https://github.com/synaptent/aragora/issues/806) | Closed | Surface productization landed structurally, but live external continuity still needs proof |
+| [#820](https://github.com/synaptent/aragora/issues/820) | Closed | Wave 2 slices landed, but the current gate is the founder loop, not surface breadth |
+| [#989](https://github.com/synaptent/aragora/issues/989) | Closed | The workbench exists, but it now needs to be used to finish Aragora itself |
+| [#990](https://github.com/synaptent/aragora/issues/990) | Closed | Dogfood infrastructure exists, but the new obligation is to feed it PMF blockers only |
+| [#1011](https://github.com/synaptent/aragora/issues/1011) | Closed | Design-partner motion should follow repeatable live proof, not precede it |
+| [#1036](https://github.com/synaptent/aragora/issues/1036) | Closed | Self-assessment cadence exists, but it should be pointed at founder-loop failures |
+
+## Historical Execution Link Map
+
+These links are retained because the repo's status reconciliation contract still expects the March execution issue lineage to remain reachable from this document, even though they are not the current active gate:
+
+[#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), [#807](https://github.com/synaptent/aragora/issues/807), [#808](https://github.com/synaptent/aragora/issues/808), [#809](https://github.com/synaptent/aragora/issues/809), [#810](https://github.com/synaptent/aragora/issues/810), [#811](https://github.com/synaptent/aragora/issues/811), [#812](https://github.com/synaptent/aragora/issues/812), [#813](https://github.com/synaptent/aragora/issues/813), [#814](https://github.com/synaptent/aragora/issues/814), [#815](https://github.com/synaptent/aragora/issues/815), [#816](https://github.com/synaptent/aragora/issues/816), [#817](https://github.com/synaptent/aragora/issues/817), [#818](https://github.com/synaptent/aragora/issues/818), [#819](https://github.com/synaptent/aragora/issues/819)
+
+## Issue Recreation Rule
+
+When the founder-loop dogfood run exposes a blocker:
+
+1. capture the exact command transcript and truthful stop condition
+2. create or reopen a narrow GitHub issue for that specific blocker
+3. run pipeline/swarm only against that bounded blocker
+4. close the issue only after the founder loop is re-run successfully
 
 ## Operating Rule
 
-When the execution program changes:
-
-1. update the GitHub issues first
-2. update [NEXT_STEPS_CANONICAL](NEXT_STEPS_CANONICAL.md)
-3. update this issue map and any linked summary docs
-4. if multiple open PRs cover the same slice, choose a single merge lane and close or supersede the rest with proof
+Until the PMF blocker set exists again as live issues, do not mistake "few open issues" for "nothing important left."

@@ -6,76 +6,89 @@ This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
 [ARAGORA_EVOLUTION_ROADMAP](../plans/ARAGORA_EVOLUTION_ROADMAP.md) defines the long-range architecture and moat.
 [FEATURE_GAP_LIST](../FEATURE_GAP_LIST.md) is the capability and backlog truth.
-[ACTIVE_EXECUTION_ISSUES](ACTIVE_EXECUTION_ISSUES.md) maps the current live GitHub issue set.
+[ACTIVE_EXECUTION_ISSUES](ACTIVE_EXECUTION_ISSUES.md) maps the live GitHub issue set and the current doc-driven PMF program.
+[PMF_DOGFOOD_EXECUTION_PLAN](../plans/PMF_DOGFOOD_EXECUTION_PLAN.md) is the operator runbook for the next live proof.
 
 ## Current Reality
 
-- **The execution program is complete.** All 6 program epics are resolved and closed on GitHub.
-- The product loop is not just structurally closed — it is operational. The complete path works end-to-end: onboarding wizard -> API key management -> ProviderRouter-backed debate -> KM-enriched context -> receipt -> KM writeback -> live dashboard -> real demo surface.
-- The swarm control plane is truthful: queue-backed execution, label-scoped unattended dispatch, canonical receipts, preserved verification evidence, and terminal tranche reconciliation are all on `main`.
-- Truthfulness and documentation hygiene disciplines are embedded in the workflow, not a separate tranche.
-- The idea-to-execution workbench sits on top of a running product loop.
-- The closed-loop backbone contracts are complete (14/14 issues).
-- What remains is **operation, polish, and enterprise certification** — not building the core system.
-- GitHub issues remain the live backlog. These docs summarize the active order and capability posture.
-- The product strategy narrative is maintained in [ARAGORA_IDEA_TO_EXECUTION_STRATEGY](../plans/ARAGORA_IDEA_TO_EXECUTION_STRATEGY.md).
+- Historical program epics still matter as lineage even though they are no longer the live gate: [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806).
+- `main` now contains the structural product-loop slices that were missing earlier in March: ProviderRouter-backed debate selection, KM retrieval and writeback, versioned API-key endpoints, the onboarding/get-started flow, truthful dashboard/integrations state, live demo wiring, queue/workbench productization, and quickstart fail-closed behavior.
+- Current repo proof is materially stronger than the previous docs claimed. On current `main`, this focused verification passes:
 
-### Closed Program Epics
+  ```bash
+  python3 -m pytest tests/e2e/test_user_journey.py tests/cli/test_quickstart.py -q
+  ```
 
-| Epic | Title | Closed |
-|------|-------|--------|
-| [#804](https://github.com/synaptent/aragora/issues/804) | Truthfulness and documentation hygiene | 2026-03-23 |
-| [#806](https://github.com/synaptent/aragora/issues/806) | Sequential surface productization and value prop | 2026-03-23 |
-| [#836](https://github.com/synaptent/aragora/issues/836) | Developer swarm control plane | 2026-03-23 |
-| [#989](https://github.com/synaptent/aragora/issues/989) | Idea-to-execution workbench | 2026-03-23 |
-| [#990](https://github.com/synaptent/aragora/issues/990) | Dogfood the pipeline to build more of Aragora | 2026-03-23 |
-| [#1036](https://github.com/synaptent/aragora/issues/1036) | Continuous self-assessment and autonomous improvement cadence | 2026-03-23 |
+  Result on March 23, 2026: `57 passed` in `33.75s`.
+
+- That proof matters, but it is still a controlled proof:
+  - `tests/e2e/test_user_journey.py` validates a mocked end-to-end founder loop
+  - `tests/cli/test_quickstart.py` validates the quickstart contract and fail-closed behavior
+- It does **not** prove that the live founder loop is ready for external users without operator babysitting.
+- GitHub's open issue set is no longer a truthful PMF map. As of March 23, 2026, the only open issues are enterprise-assurance items: [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509).
+- Therefore the next live lane is **dogfood-first PMF proof**, not design-partner GTM, not sales, and not more generic substrate work.
 
 ## Execution Order
 
-### 1) Operate And Prove (Current Phase)
-- The system is running. The priority is continuous operation, real-user proof, and partner onboarding.
-- No new structural wiring is needed. The obligation is to run the loop with real users, collect feedback, and fix what breaks.
-- The boss loop runs unattended with label-scoped dispatch on queue v5.
-- KM bidirectional flow operates: debates read org knowledge, outcomes write back.
+### 1) Prove The Canonical Founder Loop Live
 
-### 2) Wave 2 Surface Polish
-- Tracking: [#820](https://github.com/synaptent/aragora/issues/820) (medium priority)
-- Goal: productize Wave 2 surfaces — SME onboarding, spectate, and conditional public endpoints.
-- These extend the running product loop; they do not gate it.
+- Run the live founder loop from the actual product surfaces and CLI path:
+  - health / readiness
+  - API-key or provider readiness
+  - live debate execution
+  - structured receipt save + inspect + verify
+  - visible result surface
+  - KM ingestion or a truthful explicit stop
+- Use [PMF_DOGFOOD_EXECUTION_PLAN](../plans/PMF_DOGFOOD_EXECUTION_PLAN.md) as the runbook and acceptance checklist.
+- Treat this as the current gate for PMF. Do not claim "operational" or "design-partner ready" until this live proof is repeatable.
 
-### 3) Design Partner Refresh
-- Tracking: [#1011](https://github.com/synaptent/aragora/issues/1011) (medium priority)
-- Goal: refresh the design partner pipeline and prove repeatable external usage.
-- First queue artifact already recovered and published via [#1108](https://github.com/synaptent/aragora/pull/1108).
+### 2) Convert Live Failures Into Bounded PMF Blockers
 
-### 4) Enterprise Assurance (P3 — When Ready)
-- Tracking: [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509)
-- Goal: pentest, SOC 2, and enterprise certification.
-- These are real and parked at P3. They follow a proven, repeating product loop — they do not precede it.
-- SOC 2 Type II is 98% ready; the blocker is an external pen test (~10 weeks to certification once initiated).
+- If the founder loop fails, capture the exact command transcript, observed stop condition, and affected surface.
+- Reopen or create GitHub issues only after reproducing a concrete live blocker.
+- Do not revive broad umbrella issues without current evidence.
 
-### Operational Incidents (Interrupt-Driven)
-- Tracking: [#829](https://github.com/synaptent/aragora/issues/829) and any future incident tickets
-- Rule: incidents can preempt the planned order, but they do not replace the canonical program. Once mitigated, execution returns to the order above.
+### 3) Use Idea-To-Execution / Nomic Only On Those PMF Blockers
 
-## Open Issue Summary
+- Compile PMF blocker sources through:
 
-Only 5 issues remain open:
+  ```bash
+  python3 -m aragora.cli.main pipeline dogfood \
+    --source-file docs/plans/PMF_DOGFOOD_EXECUTION_PLAN.md \
+    --output-dir .aragora/dogfood/pmf \
+    --max-goals 3 \
+    --budget-limit 10 \
+    --time-limit-hours 4 \
+    --json
+  ```
 
-| Issue | Priority | Category | Scope |
-|-------|----------|----------|-------|
-| [#820](https://github.com/synaptent/aragora/issues/820) | Medium | Surface polish | Wave 2 surfaces (SME onboarding, spectate, conditional endpoints) |
-| [#1011](https://github.com/synaptent/aragora/issues/1011) | Medium | Partner refresh | Design partner pipeline and repeatable external usage |
-| [#273](https://github.com/synaptent/aragora/issues/273) | P3 | Enterprise assurance | Enterprise assurance closure epic |
-| [#274](https://github.com/synaptent/aragora/issues/274) | P3 | Enterprise assurance | External penetration test and remediation |
-| [#509](https://github.com/synaptent/aragora/issues/509) | P3 | Enterprise assurance | Pentest vendor selection and scope sign-off |
+- The pipeline is now a product-completion tool, not a reason to widen scope.
+- Every generated lane must map to a founder-loop acceptance failure or a direct blocker to that failure.
+
+### 4) Run Bounded Swarm / Ralph Repair Lanes
+
+- Keep execution narrow, evidence-backed, and human-gated.
+- Prefer one blocker tranche at a time.
+- Re-run the founder loop after each landed blocker tranche before widening scope.
+
+### 5) Dogfood The Second Workflow Only After The Founder Loop Holds
+
+- Once the founder loop is repeatable, dogfood the inbox trust wedge and adjacent real-user workflows.
+- The second workflow exists to test retention and repeatability, not to bypass the founder-loop gate.
+
+### 6) Design Partner Outreach Comes After Repeatable Live Proof
+
+- The right sales point is not "the repo is large" or "all epics are closed."
+- The right sales point is a clean, repeatable founder loop with truthful receipts and bounded operator recovery when something fails.
+
+### 7) Enterprise Assurance Remains Parked
+
+- [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509) are real work, but they follow PMF proof rather than precede it.
 
 ## Operating Rules
 
-- GitHub issues are the live execution backlog; docs summarize context, order, and capability posture.
-- [ACTIVE_EXECUTION_ISSUES](ACTIVE_EXECUTION_ISSUES.md) must stay aligned with the current issue set.
-- [FEATURE_GAP_LIST](../FEATURE_GAP_LIST.md) remains the capability and backlog truth for planned and partial features.
-- No document should claim "only one blocker remains" unless `main` CI, deployment, and proof-run evidence support it.
-- The execution program is complete. New work is operational: run the system, fix what breaks, onboard users.
-- If priorities change, update the GitHub issues first, then update this file and the linked summaries.
+- Closed PMF issues do not equal live PMF proof.
+- No new infra or orchestration lane is justified unless it maps directly to a founder-loop acceptance gap.
+- No document should say "operational," "complete," or "ready for sales" unless live dogfood evidence supports that claim.
+- The PMF backlog should be reconstituted from observed live failures, not from stale issue trees.
+- GitHub issues still matter, but until the PMF blocker set is recreated truthfully, these docs are the current execution map.
