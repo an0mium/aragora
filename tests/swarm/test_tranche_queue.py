@@ -446,7 +446,13 @@ def test_issue_queue_item_collapses_multi_lane_planner_output_to_single_fallback
         "queue_id: overnight\nitems:\n- id: issue-one\n  kind: issue\n  source: https://github.com/org/repo/issues/1046\n",
         encoding="utf-8",
     )
-    executor = TrancheQueueExecutor(queue_path=queue_path, repo_root=tmp_path)
+    executor = TrancheQueueExecutor(
+        queue_path=queue_path,
+        repo_root=tmp_path,
+        worker_model="claude",
+        review_model="claude",
+        enforce_cross_model_review=False,
+    )
     item = TrancheQueueItem(
         item_id="issue-one",
         kind="issue",
@@ -484,6 +490,8 @@ def test_issue_queue_item_collapses_multi_lane_planner_output_to_single_fallback
                 "owner_role": "implementation_engineer",
                 "allowed_write_scope": ["aragora/cli/**"],
                 "dependencies": [],
+                "target_agent": None,
+                "review_model": None,
             },
             {
                 "lane_id": "proj-002",
@@ -492,6 +500,8 @@ def test_issue_queue_item_collapses_multi_lane_planner_output_to_single_fallback
                 "owner_role": "implementation_engineer",
                 "allowed_write_scope": ["aragora/cli/**"],
                 "dependencies": [],
+                "target_agent": None,
+                "review_model": None,
             },
         ],
     )
@@ -505,6 +515,8 @@ def test_issue_queue_item_collapses_multi_lane_planner_output_to_single_fallback
     assert lane["merge_policy"] == "manual"
     assert lane["queue_item_id"] == "issue-one"
     assert lane["allowed_write_scope"] == ["aragora/cli/**", "tests/cli/**"]
+    assert lane["target_agent"] == "claude"
+    assert lane["review_model"] == "claude"
     assert "Source issue context" in lane["prompt"]
 
 

@@ -13,7 +13,7 @@ from typing import Any
 
 from aragora.nomic.dev_coordination import DevCoordinationStore
 from aragora.ralph.github_control import GitHubControl
-from aragora.swarm.campaign import CampaignPlanner, locked_manifest_path
+from aragora.swarm.campaign import CampaignPlanner, _canonical_review_model, locked_manifest_path
 from aragora.swarm.pr_registry import PullRequestRegistry
 from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.tranche import (
@@ -1552,6 +1552,7 @@ class TrancheQueueExecutor:
                 if not isinstance(lane, dict):
                     continue
                 updated = dict(lane)
+                self._apply_lane_agent_defaults(updated)
                 if item.allowed_write_scope:
                     updated["allowed_write_scope"] = list(item.allowed_write_scope)
                 updated["merge_class"] = item.merge_class
@@ -1607,6 +1608,7 @@ class TrancheQueueExecutor:
         normalized_lanes: list[dict[str, Any]] = []
         for lane in lanes:
             updated = dict(lane)
+            self._apply_lane_agent_defaults(updated)
             if item.allowed_write_scope:
                 updated["allowed_write_scope"] = list(item.allowed_write_scope)
             updated["merge_class"] = item.merge_class
@@ -1626,6 +1628,22 @@ class TrancheQueueExecutor:
             ),
             "candidate_lanes": normalized_lanes,
         }
+
+    def _apply_lane_agent_defaults(self, lane: dict[str, Any]) -> None:
+        target_agent = _optional_text(lane.get("target_agent")) or _optional_text(
+            lane.get("worker_model")
+        )
+        if not target_agent:
+            target_agent = self.worker_model
+            lane["target_agent"] = target_agent
+
+        review_model = _optional_text(lane.get("review_model"))
+        if not review_model:
+            lane["review_model"] = _canonical_review_model(
+                target_agent,
+                self.review_model,
+                enforce_cross_model_review=self.enforce_cross_model_review,
+            )
 
     async def _drive_manifest(
         self,
