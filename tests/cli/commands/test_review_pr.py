@@ -68,6 +68,18 @@ async def test_run_review_pr_loop_review_only_writes_artifact(
         )
 
     monkeypatch.setattr(review_pr, "_run_review_pass", _fake_review)
+    published: dict[str, object] = {}
+
+    async def _fake_publish(**kwargs: object) -> dict[str, object]:
+        published.update(kwargs)
+        return {
+            "posted": True,
+            "event": "APPROVE",
+            "url": "https://github.com/review/1",
+            "error": None,
+        }
+
+    monkeypatch.setattr(review_pr, "_publish_review_outcome", _fake_publish)
 
     result = await review_pr.run_review_pr_loop(
         pr_ref="1137",
@@ -79,12 +91,16 @@ async def test_run_review_pr_loop_review_only_writes_artifact(
     assert result["final_status"] == "passed"
     assert result["fix_run"] is None
     assert len(result["review_runs"]) == 1
+    assert result["github_review"]["posted"] is True
+    assert result["github_review"]["event"] == "APPROVE"
+    assert published["final_status"] == "passed"
 
     run_path = Path(result["artifact_dir"]) / "run.json"
     assert run_path.exists()
     persisted = json.loads(run_path.read_text())
     assert persisted["final_status"] == "passed"
     assert persisted["pr"]["number"] == 1137
+    assert persisted["github_review"]["posted"] is True
 
 
 @pytest.mark.asyncio
@@ -147,6 +163,13 @@ async def test_run_review_pr_loop_auto_reruns_after_fix(
 
     monkeypatch.setattr(review_pr, "_run_review_pass", _fake_review)
     monkeypatch.setattr(review_pr, "_run_fix_pass", _fake_fix)
+    published: dict[str, object] = {}
+
+    async def _fake_publish(**kwargs: object) -> dict[str, object]:
+        published.update(kwargs)
+        return {"posted": True, "event": "APPROVE", "url": None, "error": None}
+
+    monkeypatch.setattr(review_pr, "_publish_review_outcome", _fake_publish)
 
     result = await review_pr.run_review_pr_loop(
         pr_ref="1137",
@@ -161,3 +184,42 @@ async def test_run_review_pr_loop_auto_reruns_after_fix(
     assert len(result["review_runs"]) == 2
     assert result["fix_run"]["status"] == "applied"
     assert result["pr"]["head_sha"] == "def456"
+    assert result["github_review"]["posted"] is True
+    assert published["final_status"] == "passed"
+    assert published["fix_run"]["status"] == "applied"
+
+
+def test_build_github_review_body_includes_fix_and_findings(
+    sample_target: review_pr.PullRequestTarget,
+) -> None:
+    body = review_pr._build_github_review_body(
+        target=sample_target,
+        latest_review={
+            "reviewer": "claude",
+            "reviewed_at": "2026-03-21T10:00:00+00:00",
+            "summary": "Fix the crash before merge.",
+            "findings": [
+                {
+                    "title": "Crash",
+                    "body": "Guard the empty branch path.",
+                    "file": "aragora/cli/commands/review_pr.py",
+                    "priority": "P1",
+                }
+            ],
+            "candidate": {"label": "claude:max-01"},
+        },
+        fix_run={
+            "fixer": "codex",
+            "status": "applied",
+            "pushed": True,
+            "head_sha": "def456",
+        },
+        final_status="changes_requested",
+        review_run_count=2,
+    )
+
+    assert "## Aragora review-pr: changes requested" in body
+    assert "- Final status: `changes_requested`" in body
+    assert "- Review route: `claude:max-01`" in body
+    assert "### Fix Loop" in body
+    assert "- [P1] Crash (aragora/cli/commands/review_pr.py): Guard the empty branch path." in body

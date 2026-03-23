@@ -3,12 +3,22 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
+from aragora.core_types import Agent, DebateResult
+from aragora.debate.service import DebateService
 from aragora.pipeline.unified_orchestrator import (
     OrchestratorConfig,
     UnifiedOrchestrator,
 )
+
+
+class RuntimeAgent(Agent):
+    async def generate(self, prompt, context=None):
+        return f"{self.name}:{prompt}"
+
+    async def critique(self, proposal, task, context=None, target_agent=None):
+        return "critique"
 
 
 @pytest.fixture
@@ -157,3 +167,54 @@ async def test_no_router_no_change(mock_arena_factory):
     result = await orch.run("Design a rate limiter")
 
     assert "debate" in result.stages_completed
+
+
+@pytest.mark.asyncio
+async def test_provider_router_exercises_real_debate_service_runtime_selection(
+    mock_provider_router,
+):
+    """The default routed provider list should shape the real Arena roster."""
+    mock_provider_router.select_providers_for_debate.return_value = [
+        "gpt-4o",
+        "claude-sonnet-4",
+    ]
+    agents = [
+        RuntimeAgent(name="anthropic-proposer", model="claude-sonnet-4"),
+        RuntimeAgent(name="openai-critic", model="gpt-4o"),
+        RuntimeAgent(name="openai-backup", model="gpt-4o-mini"),
+    ]
+    debate_result = DebateResult(
+        debate_id="debate-runtime-1",
+        task="Design a rate limiter",
+        final_answer="Use approach A",
+        consensus_reached=True,
+    )
+
+    with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
+        arena_inst = MagicMock()
+        arena_inst.run = AsyncMock(return_value=debate_result)
+        mock_arena_cls.return_value = arena_inst
+
+        service = DebateService()
+        orch = UnifiedOrchestrator(
+            arena_factory=service.run,
+            provider_router=mock_provider_router,
+        )
+        cfg = OrchestratorConfig(
+            agent_count=2,
+            min_providers=2,
+        )
+        result = await orch.run("Design a rate limiter", config=cfg, agents=agents)
+
+    selected_agents = mock_arena_cls.call_args[0][1]
+    assert [agent.name for agent in selected_agents] == [
+        "openai-critic",
+        "anthropic-proposer",
+    ]
+    assert result.debate_result is not None
+    assert result.debate_result.metadata["provider_names"] == [
+        "gpt-4o",
+        "claude-sonnet-4",
+    ]
+    recorded = [call.args[0] for call in mock_provider_router.record_outcome.call_args_list]
+    assert recorded == ["gpt-4o", "claude-sonnet-4"]

@@ -11,7 +11,10 @@ Covers:
 from __future__ import annotations
 
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
 
+from aragora.core_types import Agent, DebateResult
+from aragora.debate.service import DebateService
 from aragora.debate.team_selector import TeamSelectionConfig, TeamSelector
 from aragora.routing.provider_router import ProviderRouter
 
@@ -31,6 +34,16 @@ class MockAgent:
         self.capabilities: set[str] = set()
         self.hierarchy_role = None
         self.metadata: dict = {}
+
+
+class RuntimeAgent(Agent):
+    """Minimal executable agent used for runtime routing tests."""
+
+    async def generate(self, prompt, context=None):
+        return f"{self.name}:{prompt}"
+
+    async def critique(self, proposal, task, context=None, target_agent=None):
+        return "critique"
 
 
 # ===========================================================================
@@ -248,3 +261,79 @@ class TestEndToEndRouterToSelector:
         result = selector.select(agents, provider_hints=hints)
         # claude should rank first due to higher quality hint
         assert result[0].name == "claude"
+
+
+class TestDebateServiceRuntimeRouting:
+    """ProviderRouter selections should affect the Arena roster, not just metadata."""
+
+    @pytest.mark.asyncio
+    async def test_provider_list_routes_runtime_roster_before_arena(self):
+        agents = [
+            RuntimeAgent(name="anthropic-proposer", model="claude-sonnet-4"),
+            RuntimeAgent(name="openai-critic", model="gpt-4o"),
+            RuntimeAgent(name="google-analyst", model="gemini-2.0-flash"),
+        ]
+        debate_result = DebateResult(
+            debate_id="debate-1",
+            task="Design a rate limiter",
+            final_answer="Use approach A",
+            consensus_reached=True,
+        )
+
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
+            arena_inst = MagicMock()
+            arena_inst.run = AsyncMock(return_value=debate_result)
+            mock_arena_cls.return_value = arena_inst
+
+            service = DebateService(default_agents=agents)
+            result = await service.run(
+                "Design a rate limiter",
+                provider_hints=["gpt-4o", "claude-sonnet-4"],
+                agent_count=2,
+                min_providers=2,
+            )
+
+        selected_agents = mock_arena_cls.call_args[0][1]
+        assert [agent.name for agent in selected_agents] == [
+            "openai-critic",
+            "anthropic-proposer",
+        ]
+        assert result.metadata["provider_hints"] == ["gpt-4o", "claude-sonnet-4"]
+        assert result.metadata["provider_names"] == ["gpt-4o", "claude-sonnet-4"]
+        assert result.metadata["provider_routing"]["routed_agent_names"] == [
+            "openai-critic",
+            "anthropic-proposer",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_runtime_fill_preserves_provider_diversity_when_requested(self):
+        agents = [
+            RuntimeAgent(name="openai-primary", model="gpt-4o"),
+            RuntimeAgent(name="openai-backup", model="gpt-4o-mini"),
+            RuntimeAgent(name="anthropic-backup", model="claude-sonnet-4"),
+        ]
+        debate_result = DebateResult(
+            debate_id="debate-2",
+            task="Design a rate limiter",
+            final_answer="Use approach B",
+            consensus_reached=True,
+        )
+
+        with patch("aragora.debate.orchestrator.Arena") as mock_arena_cls:
+            arena_inst = MagicMock()
+            arena_inst.run = AsyncMock(return_value=debate_result)
+            mock_arena_cls.return_value = arena_inst
+
+            service = DebateService(default_agents=agents)
+            await service.run(
+                "Design a rate limiter",
+                provider_hints=["gpt-4o"],
+                agent_count=2,
+                min_providers=2,
+            )
+
+        selected_agents = mock_arena_cls.call_args[0][1]
+        assert [agent.name for agent in selected_agents] == [
+            "openai-primary",
+            "anthropic-backup",
+        ]

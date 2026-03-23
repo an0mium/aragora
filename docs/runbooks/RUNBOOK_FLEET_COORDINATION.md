@@ -6,6 +6,7 @@ Coordinate many concurrent Codex/Claude worktree sessions without collisions:
 
 - Session visibility (`fleet-status`)
 - File ownership claims (`fleet-claim`, `fleet-release`)
+- Stale-claim recovery (`fleet-reap-claims`)
 - Merge queue ordering (`fleet-queue-add`, `fleet-queue-list`)
 
 This data is also available over control-plane API for dashboard automation.
@@ -24,14 +25,17 @@ python -m aragora.cli.main worktree fleet-claim \
 # 3) Release claims
 python -m aragora.cli.main worktree fleet-release --session-id <session_id>
 
-# 4) Queue merge
+# 4) Reap stale claims left behind by dead sessions
+python -m aragora.cli.main worktree fleet-reap-claims --stale-threshold-seconds 1800
+
+# 5) Queue merge
 python -m aragora.cli.main worktree fleet-queue-add \
   --session-id <session_id> \
   --branch codex/my-branch \
   --priority 70 \
   --title "control-plane fleet claim API"
 
-# 5) Inspect merge queue
+# 6) Inspect merge queue
 python -m aragora.cli.main worktree fleet-queue-list
 ```
 
@@ -41,6 +45,7 @@ python -m aragora.cli.main worktree fleet-queue-list
 - A leading `*` marks the canonical lane for a task.
 - Raw worktree/session rows and log tails remain supporting evidence, not a second source of truth.
 - If `No active worktree sessions.` appears, the lane section can still show canonical task or queue state that needs merge/supersede/archive action.
+- `fleet-reap-claims` reports the session IDs, paths, branches, and ages for any claims it reaped, so operators can recover orphaned work without reading the coordination file by hand.
 
 ## API Endpoints
 

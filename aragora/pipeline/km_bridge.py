@@ -122,6 +122,44 @@ class PipelineKMBridge:
                 goal.metadata["precedents"] = precedents[goal.id]
         return goal_graph
 
+    def query_precedents(self, topic: str, limit: int = 5) -> list[dict[str, Any]]:
+        """Return a flattened precedent list for pre-debate context loaders.
+
+        This is the synchronous bridge contract consumed by
+        ``DecisionContextPreloader``. It combines direct KM search results with
+        adapter-backed debate/receipt/outcome precedents into a single list.
+        """
+        if limit <= 0:
+            return []
+
+        precedents: list[dict[str, Any]] = []
+        seen: set[tuple[str, str, str]] = set()
+
+        for result in self._search_precedent_candidates(topic, limit=limit):
+            normalized = self._normalize_search_precedent(result)
+            if normalized is not None:
+                self._append_precedent(precedents, seen, normalized)
+                if len(precedents) >= limit:
+                    return precedents[:limit]
+
+        try:
+            adapter_precedents = self.query_all_adapter_precedents(topic, limit=limit)
+        except (AttributeError, TypeError, RuntimeError, ValueError):
+            adapter_precedents = {}
+
+        for bucket in ("receipts", "outcomes", "debates"):
+            items = adapter_precedents.get(bucket, [])
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                normalized = self._normalize_adapter_precedent(item)
+                if normalized is not None:
+                    self._append_precedent(precedents, seen, normalized)
+                    if len(precedents) >= limit:
+                        return precedents[:limit]
+
+        return precedents[:limit]
+
     def query_receipt_precedents(
         self, goal_description: str, limit: int = 3
     ) -> list[dict[str, Any]]:
@@ -344,6 +382,131 @@ class PipelineKMBridge:
         except (ImportError, RuntimeError, AttributeError) as exc:
             logger.debug("DebateAdapter query unavailable: %s", exc)
             return []
+
+    def _search_precedent_candidates(self, topic: str, limit: int) -> list[Any]:
+        """Best-effort sync search across KM implementations."""
+        if not self.available or not topic:
+            return []
+
+        search = getattr(self._km, "search", None)
+        if not callable(search):
+            return []
+
+        for kwargs in (
+            {"query": topic, "limit": max(limit, 3), "min_similarity": 0.35},
+            {"query": topic, "limit": max(limit, 3)},
+            {"query": topic},
+        ):
+            try:
+                results = search(**kwargs)
+                if isinstance(results, list):
+                    return results
+                return []
+            except TypeError:
+                continue
+            except (AttributeError, RuntimeError, ValueError):
+                return []
+        return []
+
+    @staticmethod
+    def _normalize_search_precedent(result: Any) -> dict[str, Any] | None:
+        """Normalize a direct KM search hit into a generic precedent dict."""
+        metadata = getattr(result, "metadata", {}) or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        item_type = str(metadata.get("item_type") or metadata.get("type") or "").lower()
+        title = getattr(result, "title", "") or metadata.get("title", "")
+        content = getattr(result, "content", "") or title or str(result)
+        summary = str(content)[:200]
+
+        if item_type in {"pipeline_result", "pipeline_task_outcome", "pipeline_transition"}:
+            status = metadata.get("status")
+            if not status and "task_status" in metadata:
+                status = metadata.get("task_status")
+            if not status and "success" in metadata:
+                status = "success" if metadata.get("success") else "failed"
+            return {
+                "source": "pipeline",
+                "pipeline_id": metadata.get("pipeline_id", metadata.get("cycle_id", "")),
+                "summary": summary,
+                "status": status or "unknown",
+                "similarity": getattr(result, "similarity", getattr(result, "score", 0.0)),
+            }
+
+        if item_type == "decision_summary" or "decision_receipt" in (metadata.get("tags") or []):
+            return {
+                "source": "receipt",
+                "receipt_id": metadata.get("receipt_id", ""),
+                "summary": summary,
+                "verdict": metadata.get("verdict", "unknown"),
+                "confidence": metadata.get("confidence", 0.0),
+            }
+
+        if item_type == "decision_outcome" or "decision_outcome" in (metadata.get("tags") or []):
+            return {
+                "source": "outcome",
+                "outcome_id": metadata.get("outcome_id", ""),
+                "summary": summary,
+                "impact_score": metadata.get("impact_score", 0.0),
+                "lessons_learned": metadata.get("lessons_learned", ""),
+            }
+
+        if metadata.get("task") and metadata.get("consensus_reached") is not None:
+            return {
+                "source": "debate",
+                "debate_id": metadata.get("debate_id", getattr(result, "source_id", "")),
+                "task": metadata.get("task", ""),
+                "summary": summary,
+                "confidence": metadata.get("confidence", 0.0)
+                if isinstance(metadata.get("confidence"), (int, float))
+                else 0.0,
+                "consensus_reached": metadata.get("consensus_reached", False),
+            }
+
+        return None
+
+    @staticmethod
+    def _normalize_adapter_precedent(item: Any) -> dict[str, Any] | None:
+        """Normalize adapter precedent payloads into the shared sync contract."""
+        if not isinstance(item, dict):
+            return None
+
+        normalized = dict(item)
+        source = str(normalized.get("source", "") or "")
+        if source == "receipt":
+            normalized.setdefault("summary", normalized.get("summary", ""))
+        elif source == "outcome":
+            normalized.setdefault("summary", normalized.get("description", ""))
+        elif source == "debate":
+            normalized.setdefault("summary", normalized.get("task", ""))
+        elif source == "pipeline":
+            normalized.setdefault("summary", normalized.get("topic", ""))
+        else:
+            normalized.setdefault("summary", "")
+        return normalized
+
+    @staticmethod
+    def _append_precedent(
+        precedents: list[dict[str, Any]],
+        seen: set[tuple[str, str, str]],
+        precedent: dict[str, Any],
+    ) -> None:
+        """Append a precedent once, deduplicated by source and stable IDs."""
+        source = str(precedent.get("source", "") or "")
+        stable_id = str(
+            precedent.get("pipeline_id")
+            or precedent.get("receipt_id")
+            or precedent.get("outcome_id")
+            or precedent.get("debate_id")
+            or ""
+        )
+        summary = str(precedent.get("summary", "") or "")
+        key = (source, stable_id, summary)
+        if key in seen:
+            return
+        seen.add(key)
+        precedents.append(precedent)
 
     def query_all_adapter_precedents(
         self, goal_description: str, limit: int = 3

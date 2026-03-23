@@ -14,6 +14,11 @@ interface DebateInputProps {
   onQuestionChange?: (question: string) => void;
   defaultFormat?: 'light' | 'full';
   defaultQuestion?: string;
+  defaultAgents?: string;
+  defaultRounds?: number;
+  defaultBudgetLimit?: string;
+  initialShowAdvanced?: boolean;
+  allowPlaygroundFallback?: boolean;
   templateId?: string;
 }
 
@@ -82,7 +87,20 @@ function detectDomain(text: string): string {
   return 'general';
 }
 
-export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChange, defaultFormat, defaultQuestion, templateId: _templateId }: DebateInputProps) {
+export function DebateInput({
+  apiBase,
+  onDebateStarted,
+  onError,
+  onQuestionChange,
+  defaultFormat,
+  defaultQuestion,
+  defaultAgents,
+  defaultRounds,
+  defaultBudgetLimit,
+  initialShowAdvanced,
+  allowPlaygroundFallback = true,
+  templateId: _templateId,
+}: DebateInputProps) {
   const router = useRouter();
   const { tokens, isLoading: authLoading, isAuthenticated } = useAuth();
   const [question, setQuestion] = useState(defaultQuestion ?? '');
@@ -99,22 +117,24 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
     onQuestionChange?.(question);
   }, [question]); // eslint-disable-line react-hooks/exhaustive-deps
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [agents, setAgents] = useState(DEFAULT_AGENTS);
-  const [rounds, setRounds] = useState(DEFAULT_ROUNDS);
+  const [showAdvanced, setShowAdvanced] = useState(initialShowAdvanced ?? false);
+  const [agents, setAgents] = useState(defaultAgents ?? DEFAULT_AGENTS);
+  const [rounds, setRounds] = useState(defaultRounds ?? DEFAULT_ROUNDS);
   const [debateMode, setDebateMode] = useState<DebateMode>('standard');
   const [debateFormat, setDebateFormat] = useState<DebateFormat>(defaultFormat || 'full');
   const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
   const [recommendations, setRecommendations] = useState<AgentRecommendation[]>([]);
   const [detectedDomain, setDetectedDomain] = useState<string>('general');
   const [selectedVertical, setSelectedVertical] = useState<string>('general');
-  const [budgetLimit, setBudgetLimit] = useState<string>('');
+  const [budgetLimit, setBudgetLimit] = useState<string>(defaultBudgetLimit ?? '');
   const [localError, setLocalError] = useState<string | null>(null);
   const [costEstimate, setCostEstimate] = useState<{ total: number; breakdown: { model: string; subtotal: number }[] } | null>(null);
   const [costLoading, setCostLoading] = useState(false);
   const [costError, setCostError] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const costDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const hasLiveAccess = isAuthenticated && Boolean(tokens?.access_token);
+  const requiresLiveAuth = !allowPlaygroundFallback && !authLoading && !hasLiveAccess;
 
   // Combined question pool: AI philosophy + Multi-agent debate + Technical architecture
   const allQuestions = [
@@ -391,7 +411,14 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
     }
 
     // In demo/playground mode, skip auth and use playground endpoint
-    const usePlayground = !isAuthenticated || !tokens?.access_token;
+    if (requiresLiveAuth) {
+      const message = 'Sign in to start a live debate from this page.';
+      setLocalError(message);
+      onError?.(message);
+      return;
+    }
+
+    const usePlayground = allowPlaygroundFallback && !hasLiveAccess;
 
     setIsSubmitting(true);
     setLocalError(null);
@@ -408,7 +435,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
         .filter(Boolean);
 
       // In playground mode, skip agent preflight (mock agents always available)
-      if (!usePlayground) {
+      if (!usePlayground && requestedAgents.length > 0) {
         const availability = await preflightAgents(requestedAgents);
         if (availability?.available?.length) {
           const missingAgents = requestedAgents.filter(
@@ -454,9 +481,10 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
           }
         : {
             question: trimmedQuestion,
-            agents: requestedAgents,
             rounds,
             debate_format: debateFormat,
+            auto_select: requestedAgents.length === 0,
+            ...(requestedAgents.length > 0 && { agents: requestedAgents }),
             vertical: selectedVertical !== 'general' ? selectedVertical : undefined,
             ...(debateMode === 'graph' && { branch_on_disagreement: true }),
             ...(debateMode === 'matrix' && { scenarios: 3 }),
@@ -576,7 +604,9 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
         setQuestion('');
       } else {
         logger.warn('[DebateInput] Debate creation failed:', data);
-        onError?.(data.error || 'Failed to start debate');
+        const errorMessage = data.error || 'Failed to start debate';
+        setLocalError(errorMessage);
+        onError?.(errorMessage);
       }
     } catch (err) {
       // Enhanced error logging
@@ -605,13 +635,21 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
       setIsSubmitting(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedVertical changes are handled separately
-  }, [question, placeholder, agents, rounds, debateMode, debateFormat, apiBase, isSubmitting, onDebateStarted, onError, router, tokens, authLoading, isAuthenticated]);
+  }, [question, placeholder, agents, rounds, debateMode, debateFormat, apiBase, isSubmitting, onDebateStarted, onError, router, tokens, authLoading, hasLiveAccess, allowPlaygroundFallback, requiresLiveAuth, isAuthenticated]);
 
   const isDisabled = isSubmitting || apiStatus === 'offline' || apiStatus === 'checking' || authLoading;
-  const isPlaygroundMode = apiStatus === 'online' && (!isAuthenticated || !tokens?.access_token);
+  const isPlaygroundMode = allowPlaygroundFallback && apiStatus === 'online' && !hasLiveAccess;
 
   return (
     <div className="w-full max-w-3xl mx-auto">
+      {requiresLiveAuth && (
+        <div className="mb-4 p-3 bg-warning/10 border border-warning/30 font-mono text-sm">
+          <div className="flex items-center gap-2 text-warning">
+            <span className="w-2 h-2 rounded-full bg-warning" />
+            <span>Live debates require an authenticated session.</span>
+          </div>
+        </div>
+      )}
       {/* Playground mode indicator */}
       {isPlaygroundMode && (
         <div className="mb-4 p-3 bg-acid-green/10 border border-acid-green/30 font-mono text-sm">
@@ -895,7 +933,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, onQuestionChang
                   placeholder="grok,anthropic-api,openai-api,deepseek"
                 />
                 <p className="text-[10px] text-text-muted mt-1">
-                  Models: grok (Grok 4), anthropic-api (Opus 4.5), openai-api (GPT 5.2), deepseek (V3.2)
+                  Leave blank to auto-select a balanced team, or enter comma-separated agent ids.
                 </p>
               </div>
 

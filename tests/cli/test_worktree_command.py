@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.cli.commands.worktree import (
     _cmd_worktree_fleet_claim,
+    _cmd_worktree_fleet_reap_claims,
     _cmd_worktree_fleet_queue_add,
     _cmd_worktree_fleet_queue_list,
     _cmd_worktree_fleet_queue_process_next,
@@ -141,6 +142,20 @@ class TestWorktreeParser:
         assert args.paths == ["a.py", "b.py"]
         assert args.mode == "shared"
 
+    def test_fleet_reap_claims_parse(self):
+        args = _parser().parse_args(
+            [
+                "worktree",
+                "fleet-reap-claims",
+                "--stale-threshold-seconds",
+                "120",
+                "--json",
+            ]
+        )
+        assert args.wt_action == "fleet-reap-claims"
+        assert args.stale_threshold_seconds == 120.0
+        assert args.json is True
+
     def test_fleet_queue_process_next_parse(self):
         args = _parser().parse_args(
             [
@@ -203,6 +218,18 @@ class TestWorktreeDispatch:
         call = mock_fleet.call_args
         assert call.kwargs["repo_path"] == Path("/tmp/repo").resolve()
         assert call.kwargs["base_branch"] == "main"
+
+    @patch("aragora.cli.commands.worktree._cmd_worktree_fleet_reap_claims")
+    def test_dispatches_fleet_reap_claims_before_branch_coordinator_import(self, mock_reap):
+        args = argparse.Namespace(
+            wt_action="fleet-reap-claims",
+            repo="/tmp/repo",
+            base="main",
+        )
+        cmd_worktree(args)
+        mock_reap.assert_called_once()
+        call = mock_reap.call_args
+        assert call.kwargs["repo_path"] == Path("/tmp/repo").resolve()
 
 
 class TestWorktreeAutopilot:
@@ -309,6 +336,8 @@ class TestWorktreeFleetStatus:
         assert "Integrator lanes (1)" in out
         assert "[~] codex/test-session" in out
         assert "lane_id=codex/test-session source=fleet canonical=no readiness=in_progress" in out
+        assert "receipt=pending" in out
+        assert "provenance: agent=codex session=session-a" in out
         assert "dirty_files: 2 ahead/behind(main): +1/-0" in out
         assert "orchestrator: crewai" in out
         assert "lease_health: healthy merge_readiness: in_progress" in out
@@ -509,12 +538,26 @@ class TestWorktreeFleetStatus:
                     "canonical_lane": True,
                     "receipt_id": "rcpt-1",
                     "receipt_summary": {
+                        "status": "present",
+                        "task_id": "docs-lane",
+                        "lease_id": "lease-1",
+                        "agent_id": "codex",
+                        "session_id": "session-a",
                         "outcome": "deliverable_created",
                         "confidence": 0.91,
+                        "artifact_hash": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                        "base_sha": "abc123base",
+                        "head_sha": "def456head",
+                        "commit_shas": ["def456head"],
+                        "changed_files": [
+                            "aragora/cli/commands/worktree.py",
+                            "tests/cli/test_worktree_command.py",
+                        ],
                         "validations_run": [
                             "python -m pytest tests/cli/test_worktree_command.py -q"
                         ],
                         "tests_run": ["python -m pytest tests/cli/test_worktree_command.py -q"],
+                        "risks": ["Manual merge review still required"],
                     },
                     "merge_queue_status": "needs_human",
                     "integration_decision": "pending_review",
@@ -543,9 +586,19 @@ class TestWorktreeFleetStatus:
         assert "*[?] Docs lane" in out
         assert "lane_id=run-1:docs-lane source=task canonical=yes readiness=review" in out
         assert (
-            "receipt=rcpt-1 outcome=deliverable_created confidence=0.91 validations=1 tests=1"
+            "receipt=rcpt-1 outcome=deliverable_created confidence=0.91 artifact=1234567890ab validations=1 tests=1 risks=1"
             in out
         )
+        assert (
+            "provenance: task_id=docs-lane lease_id=lease-1 agent=codex session=session-a base=abc123base head=def456head commits=1 changed_files=2"
+            in out
+        )
+        assert "validations_run: python -m pytest tests/cli/test_worktree_command.py -q" in out
+        assert (
+            "changed_files: aragora/cli/commands/worktree.py, tests/cli/test_worktree_command.py"
+            in out
+        )
+        assert "risks: Manual merge review still required" in out
         assert "queue=needs_human decision=pending_review" in out
         assert "pr=#1051 https://github.com/synaptent/aragora/pull/1051" in out
         assert "task: run-1:docs-lane canonical: yes" in out
@@ -668,6 +721,95 @@ class TestWorktreeFleetOwnership:
         _cmd_worktree_fleet_release(args, repo_path=tmp_path)
         out = capsys.readouterr().out
         assert "released=2" in out
+
+    @patch("aragora.cli.commands.worktree.FleetCoordinationStore")
+    def test_fleet_reap_claims_cli_reports_cleaned_up_claims(
+        self, mock_store_cls, capsys, tmp_path: Path
+    ):
+        store = MagicMock()
+        store.list_claims.return_value = [
+            {
+                "session_id": "stale-session",
+                "path": "aragora/a.py",
+                "branch": "codex/stale-session",
+            },
+            {
+                "session_id": "stale-session",
+                "path": "tests/a.py",
+                "branch": "codex/stale-session",
+            },
+            {
+                "session_id": "live-session",
+                "path": "docs/runbooks/RUNBOOK_FLEET_COORDINATION.md",
+                "branch": "codex/live-session",
+            },
+        ]
+        store.reap_stale_claims.return_value = {
+            "released": 2,
+            "reaped_sessions": [
+                {
+                    "session_id": "stale-session",
+                    "claim_count": 2,
+                    "reason": "stale_claims",
+                    "last_updated_at": "2026-03-20T00:00:00+00:00",
+                    "age_seconds": 7200.0,
+                }
+            ],
+            "kept_sessions": [
+                {
+                    "session_id": "live-session",
+                    "claim_count": 1,
+                    "reason": "live_session",
+                }
+            ],
+            "stale_threshold_seconds": 1800.0,
+        }
+        mock_store_cls.return_value = store
+
+        args = argparse.Namespace(stale_threshold_seconds=1800.0, json=False)
+        _cmd_worktree_fleet_reap_claims(args, repo_path=tmp_path)
+
+        out = capsys.readouterr().out
+        assert "reaped_claims=2 stale_sessions=1 kept_sessions=1 threshold=1800s" in out
+        assert "reaped: stale-session claims=2 age=7200s" in out
+        assert "paths=aragora/a.py, tests/a.py" in out
+        assert "branches=codex/stale-session" in out
+        assert "kept: live-session claims=1 reason=live_session" in out
+        store.reap_stale_claims.assert_called_once_with(stale_threshold_seconds=1800.0)
+
+    @patch("aragora.cli.commands.worktree.FleetCoordinationStore")
+    def test_fleet_reap_claims_cli_json_output(self, mock_store_cls, capsys, tmp_path: Path):
+        store = MagicMock()
+        store.list_claims.return_value = [
+            {
+                "session_id": "stale-session",
+                "path": "aragora/a.py",
+                "branch": "codex/stale-session",
+            }
+        ]
+        store.reap_stale_claims.return_value = {
+            "released": 1,
+            "reaped_sessions": [
+                {
+                    "session_id": "stale-session",
+                    "claim_count": 1,
+                    "reason": "stale_claims",
+                }
+            ],
+            "kept_sessions": [],
+            "stale_threshold_seconds": 60.0,
+        }
+        mock_store_cls.return_value = store
+
+        args = argparse.Namespace(stale_threshold_seconds=60.0, json=True)
+        _cmd_worktree_fleet_reap_claims(args, repo_path=tmp_path)
+
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["repo_root"] == str(tmp_path)
+        assert payload["released"] == 1
+        assert payload["stale_threshold_seconds"] == 60.0
+        assert payload["reaped_sessions"][0]["paths"] == ["aragora/a.py"]
+        assert payload["reaped_sessions"][0]["branches"] == ["codex/stale-session"]
 
     @patch("aragora.cli.commands.worktree.FleetCoordinationStore")
     def test_fleet_queue_add_and_list_cli(self, mock_store_cls, capsys, tmp_path: Path):

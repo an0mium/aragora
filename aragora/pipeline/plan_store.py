@@ -53,6 +53,88 @@ def _get_db_path() -> str:
         return _DEFAULT_DB_PATH
 
 
+def _dedupe_strings(values: Sequence[Any]) -> list[str]:
+    """Preserve order while removing blank or duplicate string-like values."""
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for value in values:
+        normalized = str(value).strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(normalized)
+    return deduped
+
+
+def _parse_metadata_json(raw: str | None) -> dict[str, Any]:
+    """Parse metadata JSON safely into a dictionary."""
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _extract_refresh_scope(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Extract canonical refresh hints from plan metadata."""
+    refresh = metadata.get("assessment_refresh")
+    if not isinstance(refresh, dict):
+        refresh = {}
+
+    work_orders = metadata.get("bounded_work_orders")
+    if not isinstance(work_orders, list):
+        work_orders = []
+
+    files = _dedupe_strings(refresh.get("files_to_reassess", []))
+    tests = _dedupe_strings(refresh.get("test_commands", []))
+    work_order_ids = _dedupe_strings(refresh.get("work_order_ids", []))
+    approval_required = bool(refresh.get("approval_required", False))
+
+    if not files:
+        files = _dedupe_strings(
+            path
+            for work_order in work_orders
+            if isinstance(work_order, dict)
+            for path in work_order.get("file_scope", [])
+        )
+    if not tests:
+        tests = _dedupe_strings(
+            test
+            for work_order in work_orders
+            if isinstance(work_order, dict)
+            for test in work_order.get("expected_tests", [])
+        )
+    if not work_order_ids:
+        work_order_ids = _dedupe_strings(
+            work_order.get("work_order_id", "")
+            for work_order in work_orders
+            if isinstance(work_order, dict)
+        )
+    if not approval_required:
+        approval_required = any(
+            bool(work_order.get("approval_required"))
+            for work_order in work_orders
+            if isinstance(work_order, dict)
+        )
+
+    refresh_required = bool(refresh.get("required", False) or files or tests or work_order_ids)
+    refresh_reason = refresh.get("reason")
+    if not isinstance(refresh_reason, str) or not refresh_reason.strip():
+        refresh_reason = "bounded_work_orders_changed_repo_truth" if refresh_required else ""
+
+    return {
+        "refresh_required": refresh_required,
+        "refresh_reason": refresh_reason,
+        "affected_files": files,
+        "expected_tests": tests,
+        "work_order_ids": work_order_ids,
+        "approval_required": approval_required,
+        "source": metadata.get("source"),
+    }
+
+
 class PlanStore:
     """SQLite-backed store for DecisionPlan objects.
 
@@ -618,12 +700,20 @@ class PlanStore:
             rows = conn.execute(
                 """
                 SELECT p.id, p.task, p.status, p.debate_id, p.created_at,
+                       p.metadata_json,
                        e.status AS exec_status,
                        e.error_json AS exec_error
                 FROM plans p
-                LEFT JOIN plan_executions e ON e.plan_id = p.id
-                WHERE p.status IN ('completed', 'failed', 'rejected', 'executing')
-                ORDER BY p.created_at DESC
+                LEFT JOIN plan_executions e ON e.execution_id = (
+                    SELECT pe.execution_id
+                    FROM plan_executions pe
+                    WHERE pe.plan_id = p.id
+                    ORDER BY COALESCE(pe.completed_at, pe.updated_at, pe.started_at) DESC,
+                             pe.execution_id DESC
+                    LIMIT 1
+                )
+                WHERE p.status IN ('completed', 'failed', 'rejected')
+                ORDER BY COALESCE(p.updated_at, p.created_at) DESC
                 LIMIT ?
                 """,
                 (limit,),
@@ -637,6 +727,8 @@ class PlanStore:
                         exec_error = json.loads(row["exec_error"])
                     except (TypeError, ValueError, json.JSONDecodeError):
                         exec_error = {"message": str(row["exec_error"])}
+                metadata = _parse_metadata_json(row["metadata_json"])
+                refresh_scope = _extract_refresh_scope(metadata)
 
                 outcomes.append(
                     {
@@ -647,6 +739,7 @@ class PlanStore:
                         "created_at": row["created_at"],
                         "execution_status": row["exec_status"],
                         "execution_error": exec_error,
+                        **refresh_scope,
                     }
                 )
 

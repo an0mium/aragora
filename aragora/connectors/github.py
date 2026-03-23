@@ -610,6 +610,22 @@ class GitHubConnector(BaseConnector):
         event: str = "COMMENT",
         comments: list[dict] | None = None,
     ) -> bool:
+        """Backward-compatible wrapper that returns only success/failure."""
+        result = await self.submit_pr_review(
+            pr_url=pr_url,
+            body=body,
+            event=event,
+            comments=comments,
+        )
+        return bool(result.get("success"))
+
+    async def submit_pr_review(
+        self,
+        pr_url: str,
+        body: str,
+        event: str = "COMMENT",
+        comments: list[dict] | None = None,
+    ) -> dict[str, Any]:
         """
         Post a review to a pull request.
 
@@ -620,22 +636,30 @@ class GitHubConnector(BaseConnector):
             comments: List of inline comments with path, line, body
 
         Returns:
-            True if successful
+            Submission result with success/error details
         """
+        result: dict[str, Any] = {
+            "success": False,
+            "event": str(event or "COMMENT").strip().upper() or "COMMENT",
+        }
         match = re.match(r"https?://github\.com/([^/]+/[^/]+)/pull/(\d+)", pr_url)
         if not match:
-            return False
+            result["error"] = f"Invalid PR URL: {pr_url}"
+            return result
 
         repo = match.group(1)
         pr_number = match.group(2)
+        result["repo"] = repo
+        result["pr_number"] = int(pr_number)
 
         if not self._validate_repo(repo) or not self._validate_number(pr_number):
-            return False
+            result["error"] = "Invalid repo or pull request number"
+            return result
 
         # Use gh api to post review
         review_data: dict[str, Any] = {
             "body": body,
-            "event": event,
+            "event": result["event"],
         }
 
         if comments:
@@ -660,7 +684,15 @@ class GitHubConnector(BaseConnector):
             ]
 
             output = await self._run_gh(args)
-            return output is not None
+            if output is None:
+                result["error"] = "gh CLI review submission failed"
+                return result
+            result["success"] = True
+            try:
+                result["response"] = json.loads(output) if output else {}
+            except json.JSONDecodeError:
+                result["response"] = {"raw": output}
+            return result
         finally:
             try:
                 os.unlink(temp_path)

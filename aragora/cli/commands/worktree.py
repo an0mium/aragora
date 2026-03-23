@@ -10,6 +10,7 @@ Usage:
     aragora worktree merge-all --test-first
     aragora worktree conflicts
     aragora worktree cleanup
+    aragora worktree fleet-reap-claims
 """
 
 from __future__ import annotations
@@ -140,6 +141,21 @@ Workflow:
     release_p.add_argument("--paths", nargs="*", default=None, help="Optional subset to release")
     release_p.add_argument("--json", action="store_true", help="Emit JSON output")
 
+    reap_claims_p = wt_sub.add_parser(
+        "fleet-reap-claims",
+        help="Reap stale file ownership claims for dead sessions",
+    )
+    reap_claims_p.add_argument(
+        "--stale-threshold-seconds",
+        type=float,
+        default=1800.0,
+        help=(
+            "Reap claims older than this when the session has no live heartbeat "
+            "or active lease (default: 1800)"
+        ),
+    )
+    reap_claims_p.add_argument("--json", action="store_true", help="Emit JSON output")
+
     queue_add_p = wt_sub.add_parser(
         "fleet-queue-add",
         help="Enqueue a branch in merge queue",
@@ -249,7 +265,7 @@ def cmd_worktree(args: argparse.Namespace) -> None:
     if not action:
         print(
             "Usage: aragora worktree "
-            "{create|list|merge|merge-all|conflicts|cleanup|fleet-status|fleet-claims|fleet-claim|fleet-release|fleet-queue-add|fleet-queue-list|fleet-queue-process-next|autopilot}"
+            "{create|list|merge|merge-all|conflicts|cleanup|fleet-status|fleet-claims|fleet-claim|fleet-release|fleet-reap-claims|fleet-queue-add|fleet-queue-list|fleet-queue-process-next|autopilot}"
         )
         print("Run 'aragora worktree --help' for details.")
         return
@@ -273,6 +289,9 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         return
     if action == "fleet-release":
         _cmd_worktree_fleet_release(args, repo_path=repo_root)
+        return
+    if action == "fleet-reap-claims":
+        _cmd_worktree_fleet_reap_claims(args, repo_path=repo_root)
         return
     if action == "fleet-queue-add":
         _cmd_worktree_fleet_queue_add(args, repo_path=repo_root)
@@ -429,6 +448,79 @@ def cmd_worktree(args: argparse.Namespace) -> None:
         print(f"Deleted {deleted} merged branch(es), removed {removed} worktree(s).")
 
 
+def _short_sha(value: object) -> str:
+    text = str(value or "").strip()
+    return text[:12] if text else ""
+
+
+def _render_lane_receipt_evidence(lane: dict[str, object], *, indent: str = "    ") -> None:
+    receipt_summary = (
+        lane.get("receipt_summary", {}) if isinstance(lane.get("receipt_summary"), dict) else {}
+    )
+    if not receipt_summary and not lane.get("missing_receipt"):
+        return
+
+    receipt_status = str(receipt_summary.get("status", "") or "").strip()
+    receipt_label = str(lane.get("receipt_id") or receipt_summary.get("receipt_id") or "").strip()
+    if not receipt_label:
+        receipt_label = "missing" if lane.get("missing_receipt") else receipt_status or "pending"
+
+    receipt_parts = [f"receipt={receipt_label}"]
+    outcome = str(receipt_summary.get("outcome", "") or "").strip()
+    if outcome:
+        receipt_parts.append(f"outcome={outcome}")
+    confidence = receipt_summary.get("confidence")
+    if isinstance(confidence, (int, float)):
+        receipt_parts.append(f"confidence={confidence:.2f}")
+    artifact_hash = _short_sha(receipt_summary.get("artifact_hash"))
+    if artifact_hash:
+        receipt_parts.append(f"artifact={artifact_hash}")
+    validations = receipt_summary.get("validations_run")
+    if isinstance(validations, list) and validations:
+        receipt_parts.append(f"validations={len(validations)}")
+    tests = receipt_summary.get("tests_run")
+    if isinstance(tests, list) and tests:
+        receipt_parts.append(f"tests={len(tests)}")
+    risks = receipt_summary.get("risks")
+    if isinstance(risks, list) and risks:
+        receipt_parts.append(f"risks={len(risks)}")
+    print(indent + " ".join(receipt_parts))
+
+    provenance_parts: list[str] = []
+    for field, label in (
+        ("task_id", "task_id"),
+        ("lease_id", "lease_id"),
+        ("agent_id", "agent"),
+        ("session_id", "session"),
+    ):
+        value = str(receipt_summary.get(field, "") or "").strip()
+        if value:
+            provenance_parts.append(f"{label}={value}")
+    base_sha = _short_sha(receipt_summary.get("base_sha"))
+    if base_sha:
+        provenance_parts.append(f"base={base_sha}")
+    head_sha = _short_sha(receipt_summary.get("head_sha"))
+    if head_sha:
+        provenance_parts.append(f"head={head_sha}")
+    commit_shas = receipt_summary.get("commit_shas")
+    if isinstance(commit_shas, list) and commit_shas:
+        provenance_parts.append(f"commits={len(commit_shas)}")
+    changed_files = receipt_summary.get("changed_files")
+    if isinstance(changed_files, list) and changed_files:
+        provenance_parts.append(f"changed_files={len(changed_files)}")
+    if provenance_parts:
+        print(f"{indent}provenance: {' '.join(provenance_parts)}")
+
+    if isinstance(validations, list) and validations:
+        print(f"{indent}validations_run: {', '.join(str(item) for item in validations[:3])}")
+    if isinstance(tests, list) and tests and tests != validations:
+        print(f"{indent}tests_run: {', '.join(str(item) for item in tests[:3])}")
+    if isinstance(changed_files, list) and changed_files:
+        print(f"{indent}changed_files: {', '.join(str(item) for item in changed_files[:4])}")
+    if isinstance(risks, list) and risks:
+        print(f"{indent}risks: {', '.join(str(item) for item in risks[:3])}")
+
+
 def _render_integrator_lane_section(view: dict[str, object]) -> None:
     summary = view.get("summary", {}) if isinstance(view.get("summary"), dict) else {}
     lanes = [item for item in view.get("lanes", []) if isinstance(item, dict)]
@@ -513,28 +605,7 @@ def _render_integrator_lane_section(view: dict[str, object]) -> None:
         if lease_parts:
             print("    " + " ".join(lease_parts))
 
-        if lane.get("missing_receipt"):
-            print("    receipt=missing")
-        elif lane.get("receipt_id"):
-            receipt_summary = (
-                lane.get("receipt_summary", {})
-                if isinstance(lane.get("receipt_summary"), dict)
-                else {}
-            )
-            receipt_parts = [f"receipt={lane['receipt_id']}"]
-            outcome = str(receipt_summary.get("outcome", "") or "").strip()
-            if outcome:
-                receipt_parts.append(f"outcome={outcome}")
-            confidence = receipt_summary.get("confidence")
-            if isinstance(confidence, (int, float)):
-                receipt_parts.append(f"confidence={confidence:.2f}")
-            validations = receipt_summary.get("validations_run")
-            if isinstance(validations, list) and validations:
-                receipt_parts.append(f"validations={len(validations)}")
-            tests = receipt_summary.get("tests_run")
-            if isinstance(tests, list) and tests:
-                receipt_parts.append(f"tests={len(tests)}")
-            print("    " + " ".join(receipt_parts))
+        _render_lane_receipt_evidence(lane)
 
         queue_parts: list[str] = []
         if lane.get("merge_queue_status"):
@@ -773,6 +844,124 @@ def _cmd_worktree_fleet_release(args: argparse.Namespace, *, repo_path: Path) ->
         print(json.dumps(result, indent=2))
         return
     print(f"released={result.get('released', 0)} session={result.get('session_id', '')}")
+
+
+def _claim_snapshot_by_session(claims: list[dict[str, object]]) -> dict[str, dict[str, list[str]]]:
+    details_by_session: dict[str, dict[str, list[str]]] = {}
+    for claim in claims:
+        session_id = str(claim.get("session_id", "")).strip()
+        if not session_id:
+            continue
+        details = details_by_session.setdefault(session_id, {"paths": [], "branches": []})
+        path = str(claim.get("path", "")).strip()
+        if path and path not in details["paths"]:
+            details["paths"].append(path)
+        branch = str(claim.get("branch", "")).strip()
+        if branch and branch not in details["branches"]:
+            details["branches"].append(branch)
+    for details in details_by_session.values():
+        details["paths"].sort()
+        details["branches"].sort()
+    return details_by_session
+
+
+def _attach_claim_session_details(
+    rows: list[dict[str, object]],
+    details_by_session: dict[str, dict[str, list[str]]],
+) -> list[dict[str, object]]:
+    enriched: list[dict[str, object]] = []
+    for row in rows:
+        session_id = str(row.get("session_id", "")).strip()
+        entry = dict(row)
+        details = details_by_session.get(session_id, {})
+        for key in ("paths", "branches"):
+            values = details.get(key)
+            if isinstance(values, list) and values:
+                entry[key] = list(values)
+        enriched.append(entry)
+    return enriched
+
+
+def _format_claim_session_values(values: object, *, limit: int = 6) -> str:
+    if not isinstance(values, list):
+        return ""
+    clean_values = [str(value).strip() for value in values if str(value).strip()]
+    if not clean_values:
+        return ""
+    if len(clean_values) <= limit:
+        return ", ".join(clean_values)
+    return f"{', '.join(clean_values[:limit])}, +{len(clean_values) - limit} more"
+
+
+def _cmd_worktree_fleet_reap_claims(args: argparse.Namespace, *, repo_path: Path) -> None:
+    """Reap stale ownership claims and report what was cleaned up."""
+    store = FleetCoordinationStore(repo_path)
+    claim_snapshot = store.list_claims()
+    details_by_session = _claim_snapshot_by_session(
+        [claim for claim in claim_snapshot if isinstance(claim, dict)]
+    )
+    payload = {
+        "repo_root": str(repo_path),
+        **store.reap_stale_claims(
+            stale_threshold_seconds=float(getattr(args, "stale_threshold_seconds", 1800.0))
+        ),
+    }
+    payload["reaped_sessions"] = _attach_claim_session_details(
+        [row for row in payload.get("reaped_sessions", []) if isinstance(row, dict)],
+        details_by_session,
+    )
+    payload["kept_sessions"] = _attach_claim_session_details(
+        [row for row in payload.get("kept_sessions", []) if isinstance(row, dict)],
+        details_by_session,
+    )
+
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2))
+        return
+
+    reaped_sessions = payload["reaped_sessions"]
+    kept_sessions = payload["kept_sessions"]
+    print(
+        "reaped_claims={released} stale_sessions={reaped} kept_sessions={kept} threshold={threshold:.0f}s".format(
+            released=payload.get("released", 0),
+            reaped=len(reaped_sessions),
+            kept=len(kept_sessions),
+            threshold=float(payload.get("stale_threshold_seconds", 0.0)),
+        )
+    )
+    if not reaped_sessions:
+        print("  reaped: none")
+    for row in reaped_sessions:
+        parts = [
+            f"reaped: {row.get('session_id', '')}",
+            f"claims={row.get('claim_count', 0)}",
+        ]
+        age_seconds = row.get("age_seconds")
+        if isinstance(age_seconds, (int, float)):
+            parts.append(f"age={age_seconds:.0f}s")
+        last_updated = str(row.get("last_updated_at", "")).strip()
+        if last_updated:
+            parts.append(f"last_updated={last_updated}")
+        paths = _format_claim_session_values(row.get("paths"))
+        if paths:
+            parts.append(f"paths={paths}")
+        branches = _format_claim_session_values(row.get("branches"))
+        if branches:
+            parts.append(f"branches={branches}")
+        print("  " + " ".join(parts))
+    for row in kept_sessions:
+        parts = [
+            f"kept: {row.get('session_id', '')}",
+            f"claims={row.get('claim_count', 0)}",
+            f"reason={row.get('reason', 'unknown')}",
+        ]
+        paths = _format_claim_session_values(row.get("paths"))
+        if paths:
+            parts.append(f"paths={paths}")
+        branches = _format_claim_session_values(row.get("branches"))
+        if branches:
+            parts.append(f"branches={branches}")
+        print("  " + " ".join(parts))
 
 
 def _cmd_worktree_fleet_queue_add(args: argparse.Namespace, *, repo_path: Path) -> None:

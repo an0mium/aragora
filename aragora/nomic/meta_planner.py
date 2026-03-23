@@ -41,6 +41,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _scope_summary(
+    affected_files: list[str],
+    expected_tests: list[str],
+) -> str:
+    """Render compact pipeline scope context for planning feedback."""
+    parts: list[str] = []
+    if affected_files:
+        parts.append(f"files: {', '.join(affected_files[:3])}")
+    if expected_tests:
+        parts.append(f"tests: {'; '.join(expected_tests[:2])}")
+    if not parts:
+        return ""
+    return f" ({'; '.join(parts)})"
+
+
 @dataclass
 class PrioritizedGoal:
     """A prioritized improvement goal."""
@@ -745,15 +760,39 @@ class MetaPlanner:
                 status = outcome.get("status", "unknown")
                 task = outcome.get("task", "unknown task")
                 exec_error = outcome.get("execution_error")
+                affected_files = [
+                    str(item).strip()
+                    for item in outcome.get("affected_files", [])
+                    if str(item).strip()
+                ]
+                expected_tests = [
+                    str(item).strip()
+                    for item in outcome.get("expected_tests", [])
+                    if str(item).strip()
+                ]
+                scope_suffix = _scope_summary(affected_files, expected_tests)
+
+                if affected_files:
+                    change_entry = f"[pipeline:{status}] {', '.join(affected_files[:4])}"
+                    if change_entry not in context.recent_changes:
+                        context.recent_changes.append(change_entry)
+
+                if status in ("failed", "rejected") or exec_error:
+                    for test_cmd in expected_tests[:3]:
+                        failure_hint = f"[pipeline:{status}] {test_cmd}"
+                        if failure_hint not in context.test_failures:
+                            context.test_failures.append(failure_hint)
 
                 if status in ("completed",) and not exec_error:
-                    context.past_successes_to_build_on.append(f"[pipeline] {task[:60]}")
+                    context.past_successes_to_build_on.append(
+                        f"[pipeline] {task[:60]}{scope_suffix}"
+                    )
                 elif status in ("failed", "rejected") or exec_error:
                     error_msg = ""
                     if exec_error and isinstance(exec_error, dict):
                         error_msg = f": {exec_error.get('message', '')[:80]}"
                     context.past_failures_to_avoid.append(
-                        f"[pipeline:{status}] {task[:60]}{error_msg}"
+                        f"[pipeline:{status}] {task[:60]}{error_msg}{scope_suffix}"
                     )
 
             if outcomes:

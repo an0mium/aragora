@@ -149,6 +149,48 @@ class TestBoundedWorkOrders:
         assert metadata["subtask_count"] == 1
         assert metadata["bounded_work_orders"][0]["work_order_id"] == "sub-1"
 
+    def test_build_plan_metadata_includes_assessment_refresh_scope(self):
+        bridge = NomicPipelineBridge()
+        subtasks = [
+            SubTask(
+                id="sub-1",
+                title="Harden bridge feedback",
+                description="Carry changed files into refresh context",
+                file_scope=[
+                    "aragora/nomic/pipeline_bridge.py",
+                    "tests/nomic/test_pipeline_feedback.py",
+                ],
+                success_criteria={
+                    "tests": ["python -m pytest tests/nomic/test_pipeline_feedback.py -q"]
+                },
+            ),
+            SubTask(
+                id="sub-2",
+                title="Use refresh scope in planning",
+                description="Inject changed files into the next assessment",
+                file_scope=["aragora/nomic/pipeline_bridge.py", "aragora/nomic/meta_planner.py"],
+                success_criteria={
+                    "tests": "python -m pytest tests/nomic/test_pipeline_bridge.py -q"
+                },
+            ),
+        ]
+
+        metadata = bridge.build_plan_metadata("Tighten self-assessment cadence", subtasks)
+        refresh = metadata["assessment_refresh"]
+
+        assert refresh["required"] is True
+        assert refresh["reason"] == "bounded_work_orders_changed_repo_truth"
+        assert refresh["files_to_reassess"] == [
+            "aragora/nomic/pipeline_bridge.py",
+            "tests/nomic/test_pipeline_feedback.py",
+            "aragora/nomic/meta_planner.py",
+        ]
+        assert refresh["test_commands"] == [
+            "python -m pytest tests/nomic/test_pipeline_feedback.py -q",
+            "python -m pytest tests/nomic/test_pipeline_bridge.py -q",
+        ]
+        assert refresh["work_order_ids"] == ["sub-1", "sub-2"]
+
     def test_build_work_orders_extracts_tests_and_approval_flag(self):
         bridge = NomicPipelineBridge()
         subtasks = [

@@ -11,7 +11,7 @@ import { DebatesEmptyState } from '@/components/ui/EmptyState';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { API_BASE_URL } from '@/config';
-import { UseCaseWizard } from '@/components/wizards/UseCaseWizard';
+import { DebateInput } from '@/components/DebateInput';
 
 const PAGE_SIZE = 20;
 
@@ -79,7 +79,7 @@ export default function DebatesPage() {
   const [hasMore, setHasMore] = useState(true);
   const [filter, setFilter] = useState<'all' | 'consensus' | 'no-consensus'>('all');
   const [dataSource, setDataSource] = useState<'backend' | 'supabase' | 'none'>('none');
-  const [showWizard, setShowWizard] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { setContext, clearContext } = useRightSidebar();
 
@@ -119,10 +119,10 @@ export default function DebatesPage() {
             + NEW DEBATE
           </Link>
           <button
-            onClick={() => setShowWizard(true)}
+            onClick={() => setShowCreateModal(true)}
             className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
           >
-            USE CASE WIZARD
+            LIVE CREATE
           </button>
           <Link
             href="/debates/graph"
@@ -330,13 +330,13 @@ export default function DebatesPage() {
             {!loading && debates.length === 0 && (
               <div className="space-y-4">
                 <div className="bg-surface border border-acid-green/30">
-                  <DebatesEmptyState onStart={() => window.location.href = '/'} />
+                  <DebatesEmptyState onStart={() => setShowCreateModal(true)} />
                 </div>
                 <button
-                  onClick={() => setShowWizard(true)}
+                  onClick={() => setShowCreateModal(true)}
                   className="w-full px-4 py-3 font-mono text-sm bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
                 >
-                  OR USE THE GUIDED WIZARD TO GET STARTED
+                  OPEN THE LIVE DEBATE CREATOR
                 </button>
               </div>
             )}
@@ -463,18 +463,41 @@ export default function DebatesPage() {
           </PanelErrorBoundary>
         </div>
 
-        {/* Use Case Wizard Modal */}
-        {showWizard && (
+        {/* Live Create Modal */}
+        {showCreateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-2xl max-h-[80vh] overflow-y-auto mx-4">
-              <UseCaseWizard
-                onComplete={(debateId) => {
-                  setShowWizard(false);
-                  router.push(`/debates/${debateId}`);
-                }}
-                onCancel={() => setShowWizard(false)}
-                apiBase={API_BASE_URL}
-              />
+            <div className="w-full max-w-4xl max-h-[85vh] overflow-y-auto mx-4 border border-[var(--acid-green)]/30 bg-[var(--bg)] shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-[var(--acid-green)]/20 px-6 py-4">
+                <div>
+                  <h2 className="text-lg font-mono text-[var(--acid-green)]">
+                    {'>'} LIVE DEBATE CREATOR
+                  </h2>
+                  <p className="mt-1 text-xs font-mono text-[var(--text-muted)]">
+                    Start a real backend debate with auto-selected agents, a light protocol, and a default $5 budget cap.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-3 py-1.5 text-xs font-mono text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/40 hover:text-[var(--text)] transition-colors"
+                >
+                  CLOSE
+                </button>
+              </div>
+              <div className="px-6 py-6">
+                <DebateInput
+                  apiBase={API_BASE_URL}
+                  onDebateStarted={(debateId) => {
+                    setShowCreateModal(false);
+                    router.push(`/debates/${debateId}`);
+                  }}
+                  defaultFormat="light"
+                  defaultAgents=""
+                  defaultRounds={4}
+                  defaultBudgetLimit="5"
+                  initialShowAdvanced
+                  allowPlaygroundFallback={false}
+                />
+              </div>
             </div>
           </div>
         )}

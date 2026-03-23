@@ -12,10 +12,11 @@ Covers:
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.pipeline.km_bridge import PipelineKMBridge
 from aragora.pipeline.decision_integrity import DecisionContextPreloader
 
 
@@ -168,3 +169,38 @@ class TestPreDebateContextPreloader:
         assert len(ctx["precedents"]) == 1
         assert len(ctx["relevant_knowledge"]) == 1
         assert ctx["agent_calibration"] == {"claude": 1500.0}
+
+    def test_preload_with_pipeline_km_bridge_contract(self) -> None:
+        """PipelineKMBridge should satisfy the preloader's sync precedent contract."""
+        mock_km = MagicMock()
+        pipeline_hit = MagicMock()
+        pipeline_hit.content = "Pipeline cycle 42: rate limiter rollout"
+        pipeline_hit.metadata = {
+            "item_type": "pipeline_result",
+            "cycle_id": "cycle-42",
+            "success": True,
+        }
+        mock_km.search.return_value = [pipeline_hit]
+
+        bridge = PipelineKMBridge(knowledge_mound=mock_km)
+        with patch.object(
+            bridge,
+            "query_all_adapter_precedents",
+            return_value={
+                "receipts": [
+                    {
+                        "source": "receipt",
+                        "receipt_id": "rcpt-9",
+                        "summary": "Prior decision",
+                    }
+                ],
+                "outcomes": [],
+                "debates": [],
+            },
+        ):
+            preloader = DecisionContextPreloader(knowledge_bridge=bridge)
+            ctx = preloader.preload(task="Design a rate limiter")
+
+        assert len(ctx["precedents"]) == 2
+        assert ctx["precedents"][0]["source"] == "pipeline"
+        assert ctx["precedents"][1]["source"] == "receipt"

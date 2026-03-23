@@ -445,6 +445,12 @@ RECENT ISSUES:
 {chr(10).join(f"- {issue}" for issue in context.recent_issues[:5])}
 """
 
+    if context.recent_changes:
+        topic += f"""
+RECENT CHANGES TO RE-ASSESS:
+{chr(10).join(f"- {change}" for change in context.recent_changes[:5])}
+"""
+
     if context.test_failures:
         topic += f"""
 FAILING TESTS:

@@ -4,9 +4,14 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
-import { KnowledgeEmptyState } from '@/components/ui/EmptyState';
+import { EmptyState, KnowledgeEmptyState, SearchEmptyState } from '@/components/ui/EmptyState';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import { useKnowledgeQuery } from '@/hooks';
+import type {
+  KnowledgeNode as StoreKnowledgeNode,
+  KnowledgeRelationship as StoreKnowledgeRelationship,
+  MoundStats as StoreMoundStats,
+} from '@/store/knowledgeExplorerStore';
 import {
   type KnowledgeNode,
   type KnowledgeRelationship,
@@ -26,6 +31,136 @@ import { KnowledgeConfidenceHistory } from '@/components/knowledge/KnowledgeConf
 import { AdapterHealthGrid } from '@/components/knowledge/AdapterHealthGrid';
 import { ContradictionsBrowser } from '@/components/knowledge/ContradictionsBrowser';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function toCountMap(value: unknown): Record<string, number> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.entries(value).reduce<Record<string, number>>((acc, [key, count]) => {
+    if (typeof count === 'number') {
+      acc[key] = count;
+    }
+    return acc;
+  }, {});
+}
+
+function normalizeKnowledgeNode(node: StoreKnowledgeNode): KnowledgeNode {
+  const rawNode = node as unknown as Record<string, unknown>;
+  const metadata = isRecord(node.metadata) ? node.metadata : undefined;
+  const topics = Array.isArray(rawNode.topics)
+    ? rawNode.topics.filter((topic): topic is string => typeof topic === 'string')
+    : [];
+  const createdAt =
+    (typeof rawNode.created_at === 'string' ? rawNode.created_at : undefined) ||
+    (typeof rawNode.createdAt === 'string' ? rawNode.createdAt : undefined) ||
+    node.accessed_at ||
+    new Date().toISOString();
+
+  const sourceType =
+    (typeof rawNode.source_type === 'string' ? rawNode.source_type : undefined) ||
+    node.provenance?.source_type ||
+    (metadata && typeof metadata.source_type === 'string' ? metadata.source_type : undefined) ||
+    (metadata && typeof metadata.source === 'string' ? metadata.source : undefined) ||
+    'unknown';
+
+  const debateId =
+    node.provenance?.debate_id ||
+    (metadata && typeof metadata.debate_id === 'string' ? metadata.debate_id : undefined);
+  const documentId =
+    node.provenance?.document_id ||
+    (metadata && typeof metadata.document_id === 'string' ? metadata.document_id : undefined);
+  const agentId =
+    node.provenance?.agent_name ||
+    (metadata && typeof metadata.agent_id === 'string' ? metadata.agent_id : undefined);
+
+  return {
+    id: node.id,
+    nodeType:
+      (typeof rawNode.node_type === 'string' ? rawNode.node_type : undefined) ||
+      (typeof rawNode.type === 'string' ? rawNode.type : undefined) ||
+      (metadata && typeof metadata.node_type === 'string' ? metadata.node_type : undefined) ||
+      'fact',
+    content: node.content,
+    confidence: node.confidence,
+    tier:
+      (typeof rawNode.tier === 'string' ? rawNode.tier : undefined) ||
+      'slow',
+    sourceType,
+    documentId,
+    debateId,
+    agentId,
+    topics,
+    createdAt,
+    updatedAt:
+      (typeof rawNode.accessed_at === 'string' ? rawNode.accessed_at : undefined) ||
+      createdAt,
+    metadata: metadata || node.metadata,
+  };
+}
+
+function normalizeKnowledgeRelationship(relationship: StoreKnowledgeRelationship): KnowledgeRelationship {
+  const rawRelationship = relationship as unknown as Record<string, unknown>;
+  const source =
+    (typeof rawRelationship.from_node_id === 'string' ? rawRelationship.from_node_id : undefined) ||
+    (typeof rawRelationship.source_id === 'string' ? rawRelationship.source_id : undefined) ||
+    (typeof rawRelationship.source === 'string' ? rawRelationship.source : undefined) ||
+    (isRecord(rawRelationship.source) && typeof rawRelationship.source.id === 'string'
+      ? rawRelationship.source.id
+      : '');
+  const target =
+    (typeof rawRelationship.to_node_id === 'string' ? rawRelationship.to_node_id : undefined) ||
+    (typeof rawRelationship.target_id === 'string' ? rawRelationship.target_id : undefined) ||
+    (typeof rawRelationship.target === 'string' ? rawRelationship.target : undefined) ||
+    (isRecord(rawRelationship.target) && typeof rawRelationship.target.id === 'string'
+      ? rawRelationship.target.id
+      : '');
+
+  return {
+    id: relationship.id,
+    sourceId: source,
+    targetId: target,
+    relationshipType:
+      (typeof rawRelationship.relationship_type === 'string' ? rawRelationship.relationship_type : undefined) ||
+      (typeof rawRelationship.type === 'string' ? rawRelationship.type : undefined) ||
+      'related_to',
+    strength: relationship.strength,
+    createdAt:
+      (typeof rawRelationship.created_at === 'string' ? rawRelationship.created_at : undefined) ||
+      new Date().toISOString(),
+  };
+}
+
+function normalizeKnowledgeStats(stats: StoreMoundStats | Record<string, unknown> | null): KnowledgeStats | null {
+  if (!stats) {
+    return null;
+  }
+
+  const rawStats = stats as Record<string, unknown>;
+
+  return {
+    totalNodes:
+      (typeof rawStats.total_nodes === 'number' ? rawStats.total_nodes : undefined) ||
+      (typeof rawStats.totalNodes === 'number' ? rawStats.totalNodes : undefined) ||
+      0,
+    nodesByType: toCountMap(rawStats.nodes_by_type ?? rawStats.nodesByType ?? rawStats.by_type),
+    nodesByTier: toCountMap(rawStats.nodes_by_tier ?? rawStats.nodesByTier ?? rawStats.by_tier),
+    nodesBySource: toCountMap(
+      rawStats.nodes_by_source ??
+      rawStats.nodesBySource ??
+      rawStats.by_source_type ??
+      rawStats.by_source
+    ),
+    totalRelationships:
+      (typeof rawStats.total_relationships === 'number' ? rawStats.total_relationships : undefined) ||
+      (typeof rawStats.totalRelationships === 'number' ? rawStats.totalRelationships : undefined) ||
+      0,
+  };
+}
+
 export default function KnowledgeMoundPage() {
   // Core data operations via hook (replaces manual fetch + state)
   const {
@@ -34,22 +169,15 @@ export default function KnowledgeMoundPage() {
     executeQuery,
     queryResults,
     isQueryExecuting,
+    queryError,
     browserNodes,
     browserLoading,
+    browserError,
     loadNodes,
     stats: hookStats,
     loadStats,
     getNodeRelationships,
   } = useKnowledgeQuery({ autoLoadStats: true });
-
-  // Derive display nodes and loading state from hook
-  // Cast from store types (snake_case) to local types (camelCase) — same API data
-  const nodes = useMemo(
-    () => (searchQuery.trim() ? queryResults : browserNodes) as unknown as KnowledgeNode[],
-    [searchQuery, queryResults, browserNodes],
-  );
-  const stats = hookStats as unknown as KnowledgeStats | null;
-  const loading = browserLoading || isQueryExecuting;
 
   // UI-only state
   const [sourceFilter, setSourceFilter] = useState<string>('all');
@@ -57,6 +185,25 @@ export default function KnowledgeMoundPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [selectedNode, setSelectedNode] = useState<KnowledgeNode | null>(null);
   const [relationships, setRelationships] = useState<KnowledgeRelationship[]>([]);
+
+  const isSearching = searchQuery.trim().length > 0;
+  const rawNodes = useMemo(
+    () => (isSearching ? queryResults : browserNodes).map(normalizeKnowledgeNode),
+    [browserNodes, isSearching, queryResults],
+  );
+  const nodes = useMemo(
+    () => (sourceFilter === 'all'
+      ? rawNodes
+      : rawNodes.filter((node) => node.sourceType === sourceFilter)),
+    [rawNodes, sourceFilter],
+  );
+  const stats = useMemo(
+    () => normalizeKnowledgeStats(hookStats),
+    [hookStats],
+  );
+  const loading = isSearching ? isQueryExecuting : browserLoading;
+  const errorMessage = isSearching ? queryError : browserError;
+  const hasActiveFilters = sourceFilter !== 'all' || tierFilter !== 'all' || typeFilter !== 'all';
 
   // Verification state
   const [verifying, setVerifying] = useState(false);
@@ -168,15 +315,26 @@ export default function KnowledgeMoundPage() {
 
   useEffect(() => {
     if (selectedNode) {
-      getNodeRelationships(selectedNode.id).then(rels => {
-        setRelationships(rels as unknown as KnowledgeRelationship[]);
-      });
+      getNodeRelationships(selectedNode.id)
+        .then((rels) => {
+          setRelationships(rels.map(normalizeKnowledgeRelationship));
+        })
+        .catch((err) => {
+          logger.error('Failed to load node relationships:', err);
+          setRelationships([]);
+        });
       setVerificationResult(null);
       setContradictions([]);
     } else {
       setRelationships([]);
     }
   }, [selectedNode, getNodeRelationships]);
+
+  useEffect(() => {
+    if (selectedNode && !nodes.some((node) => node.id === selectedNode.id)) {
+      setSelectedNode(null);
+    }
+  }, [nodes, selectedNode]);
 
   // Verify a fact with AI agents
   const verifyFact = useCallback(async (factId: string) => {
@@ -780,8 +938,36 @@ export default function KnowledgeMoundPage() {
 
             {loading ? (
               <div className="text-center py-8 text-text-muted font-mono">Loading...</div>
+            ) : errorMessage ? (
+              <EmptyState
+                icon="⚠️"
+                title={isSearching ? 'Search failed' : 'Knowledge Mound unavailable'}
+                description={errorMessage}
+                action={{ label: 'RETRY', onClick: refreshNodes }}
+                secondaryAction={isSearching
+                  ? { label: 'Clear search', onClick: () => setSearchQuery('') }
+                  : undefined}
+              />
             ) : nodes.length === 0 ? (
-              <KnowledgeEmptyState onRunDebate={() => window.location.href = '/'} />
+              isSearching ? (
+                <SearchEmptyState query={searchQuery} />
+              ) : hasActiveFilters ? (
+                <EmptyState
+                  icon="🗂️"
+                  title="No knowledge matches these filters"
+                  description="Try broadening the source, tier, or node type filters."
+                  action={{
+                    label: 'CLEAR FILTERS',
+                    onClick: () => {
+                      setSourceFilter('all');
+                      setTierFilter('all');
+                      setTypeFilter('all');
+                    },
+                  }}
+                />
+              ) : (
+                <KnowledgeEmptyState onRunDebate={() => window.location.href = '/'} />
+              )
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
                 {nodes.map((node) => {

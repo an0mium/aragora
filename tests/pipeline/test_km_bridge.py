@@ -659,3 +659,59 @@ class TestEnrichGoalsWithAdapterPrecedents:
 
         assert result is goal_graph
         assert "adapter_precedents" not in goal_graph.goals[0].metadata
+
+
+class TestQueryPrecedentsBridgeContract:
+    """Tests for the DecisionContextPreloader-facing bridge contract."""
+
+    def test_query_precedents_combines_mound_and_adapter_results(self):
+        """Direct KM search hits and adapter precedents should be flattened together."""
+        mock_km = MagicMock()
+        mock_pipeline_hit = MagicMock()
+        mock_pipeline_hit.content = "Pipeline cycle 42: rate limiter rollout"
+        mock_pipeline_hit.metadata = {
+            "item_type": "pipeline_result",
+            "cycle_id": "cycle-42",
+            "success": True,
+        }
+        mock_km.search.return_value = [mock_pipeline_hit]
+
+        bridge = PipelineKMBridge(knowledge_mound=mock_km)
+        adapter_precedents = {
+            "receipts": [{"source": "receipt", "receipt_id": "rcpt-1", "summary": "Prior receipt"}],
+            "outcomes": [],
+            "debates": [{"source": "debate", "debate_id": "debate-7", "task": "Rate limiter"}],
+        }
+
+        with patch.object(
+            bridge,
+            "query_all_adapter_precedents",
+            return_value=adapter_precedents,
+        ):
+            precedents = bridge.query_precedents("Design a rate limiter", limit=5)
+
+        assert len(precedents) == 3
+        assert precedents[0]["source"] == "pipeline"
+        assert precedents[0]["pipeline_id"] == "cycle-42"
+        assert precedents[1]["source"] == "receipt"
+        assert precedents[2]["source"] == "debate"
+
+    def test_query_precedents_deduplicates_by_source_and_id(self):
+        """Duplicate adapter and KM entries should only appear once."""
+        bridge = PipelineKMBridge.__new__(PipelineKMBridge)
+        bridge._km = None
+
+        duplicate = {"source": "receipt", "receipt_id": "rcpt-1", "summary": "Prior receipt"}
+
+        with patch.object(
+            bridge,
+            "query_all_adapter_precedents",
+            return_value={
+                "receipts": [duplicate, dict(duplicate)],
+                "outcomes": [],
+                "debates": [],
+            },
+        ):
+            precedents = bridge.query_precedents("contract review", limit=5)
+
+        assert precedents == [duplicate]
