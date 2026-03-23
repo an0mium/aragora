@@ -420,6 +420,43 @@ class TestExtractReviewFindings:
         assert findings["critical_issues"][0]["target"] == "aragora/server/app.py:45"
         assert findings["meta_issues"] == []
 
+    def test_filters_meta_review_with_real_file_target(self):
+        """Severity rebuttals should stay non-blocking even when they mention a file."""
+        result = MockDebateResult(
+            critiques=[
+                MockCritique(
+                    severity=0.95,
+                    target_agent="scripts/ci_install_project.sh",
+                    issues=[
+                        "Overstates CI shell-script execution as a new critical security bug. "
+                        "Calling this CRITICAL is not well supported from the diff alone."
+                    ],
+                    suggestions=[
+                        "agent-like target,",
+                        "no concrete file/location hint,",
+                        "and explicit meta-review language.",
+                    ],
+                )
+            ],
+            messages=[],
+        )
+
+        mock_report = MagicMock()
+        mock_report.unanimous_critiques = []
+        mock_report.split_opinions = []
+        mock_report.risk_areas = []
+        mock_report.agreement_score = 0.5
+        mock_report.agent_alignment = {}
+
+        with patch("aragora.cli.review.DisagreementReporter") as mock_reporter_class:
+            mock_reporter_class.return_value.generate_report.return_value = mock_report
+            findings = extract_review_findings(result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+        assert findings["meta_issues"][0]["grounded"] is False
+        assert findings["meta_issues"][0]["target"] == "scripts/ci_install_project.sh"
+
 
 # ===========================================================================
 # Tests: format_github_comment
