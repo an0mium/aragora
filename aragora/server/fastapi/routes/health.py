@@ -10,6 +10,7 @@ Provides Kubernetes-compatible health endpoints:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import platform
@@ -18,6 +19,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
+
+from aragora.server.handlers.admin.health import HealthHandler, readiness_probe_fast
 
 logger = logging.getLogger(__name__)
 
@@ -68,25 +72,22 @@ async def livez() -> dict[str, str]:
 
 
 @router.get("/readyz", include_in_schema=False)
-async def readyz(request: Request) -> dict[str, str]:
+async def readyz(request: Request) -> JSONResponse:
     """
     Kubernetes readiness probe.
 
     Returns 200 if the server is ready to accept traffic.
     Checks that essential subsystems are initialized.
     """
-    ctx = getattr(request.app.state, "context", None)
-
-    if not ctx:
-        return {"status": "initializing"}
-
-    # Check essential subsystems
-    storage_ready = ctx.get("storage") is not None
-
-    if storage_ready:
-        return {"status": "ready"}
-    else:
-        return {"status": "degraded", "reason": "storage not ready"}
+    ctx = getattr(request.app.state, "context", None) or {}
+    health_handler = HealthHandler(ctx)
+    result = readiness_probe_fast(health_handler)
+    payload = json.loads(result.body.decode("utf-8")) if result.body else {}
+    return JSONResponse(
+        content=payload,
+        status_code=result.status_code,
+        headers=result.headers or {},
+    )
 
 
 @router.get("/api/v2/health")
