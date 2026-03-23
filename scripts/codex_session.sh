@@ -334,20 +334,30 @@ PY
 }
 trap cleanup_lock EXIT INT TERM
 
+run_sanitized_session() {
+    # Keep billable Anthropic/OpenAI API keys out of managed Codex sessions so
+    # local fixed-cost CLI auth remains authoritative unless the child process
+    # explicitly hydrates its own keys (for example via Aragora secure store).
+    env \
+        -u ANTHROPIC_API_KEY \
+        -u OPENAI_API_KEY \
+        "$@"
+}
+
 if command -v script >/dev/null 2>&1 && [ -t 0 ]; then
     if [[ $# -eq 0 ]]; then
-        script -q "${LOG_FILE}" codex
+        script -q "${LOG_FILE}" env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY codex
     else
-        script -q "${LOG_FILE}" "$@"
+        script -q "${LOG_FILE}" env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY "$@"
     fi
     exit $?
 fi
 
 # Fallback when script(1) is unavailable.
 if [[ $# -eq 0 ]]; then
-    codex 2>&1 | tee -a "${LOG_FILE}"
+    run_sanitized_session codex 2>&1 | tee -a "${LOG_FILE}"
     exit ${PIPESTATUS[0]}
 fi
 
-"$@" 2>&1 | tee -a "${LOG_FILE}"
+run_sanitized_session "$@" 2>&1 | tee -a "${LOG_FILE}"
 exit ${PIPESTATUS[0]}
