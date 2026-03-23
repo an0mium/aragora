@@ -156,6 +156,15 @@ class UnifiedOrchestrator:
         self._plan_executor = plan_executor
         self._km = knowledge_mound
         self._spec_extractor = spec_extractor
+        # Default factory: auto-create when not provided, enabling OpenClaw
+        # execution without explicit injection.
+        if code_task_factory is None:
+            try:
+                from aragora.pipeline.dispatch import get_default_code_task_factory
+
+                code_task_factory = get_default_code_task_factory()
+            except ImportError:
+                pass
         self._code_task_factory = code_task_factory
         self._provider_router = provider_router
 
