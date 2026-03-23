@@ -131,7 +131,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .
+          bash scripts/ci_install_project.sh --extras dev
 
       - name: Get PR diff
         if: github.event_name == 'workflow_dispatch'
@@ -160,7 +160,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         id: review_run
         run: |
-          aragora review \
+          python -m aragora review \
             --diff-file pr.diff \
             --output-format github \
             --output-dir ./artifacts \
