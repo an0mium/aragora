@@ -442,17 +442,21 @@ aragora publish debate
 **Key options:**
 - `--question "<text>"` — provide the question directly instead of using the interactive prompt
 - `--demo` — force demo mode with local mock agents
+- `--provider <name> --api-key <key>` — run live quickstart without pre-exporting env vars
+- `--save-key` — persist the inline provider key to the Aragora secure key store
 - `--output <path>` — choose the saved artifact path explicitly
 - `--format json|md|html` — saved artifact format (default: `json`)
 - `--rounds <n>` — number of debate rounds (default: `2`)
 - `--no-browser` — skip the HTML browser view
 
 By default quickstart saves the result artifact to `.aragora/receipts/quickstart-<live|demo>-receipt.<format>`.
+Live quickstart artifacts are receipt-shaped JSON and can be inspected with `aragora receipt inspect ...` or verified with `aragora receipt verify ...`.
 
 **Example:**
 ```bash
 aragora quickstart --demo --no-browser
 aragora quickstart --question "Should we rewrite in Go?" --output ./receipt.html
+aragora quickstart --provider openai --api-key sk-... --save-key --no-browser
 ```
 
 ---

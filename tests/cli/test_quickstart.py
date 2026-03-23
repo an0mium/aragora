@@ -13,11 +13,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.cli.commands.quickstart import (
+    _build_live_receipt,
+    _build_live_team,
     _can_reach_provider_tls,
+    _configure_inline_api_key,
     _detect_agents,
     _filter_reachable_live_agents,
     _get_question,
     _load_dotenv,
+    _normalize_provider,
     _open_receipt_in_browser,
     _run_live_debate,
     _save_receipt,
@@ -61,6 +65,24 @@ class TestQuickstartParser:
         add_quickstart_parser(subparsers)
         args = parser.parse_args(["quickstart", "--rounds", "5"])
         assert args.rounds == 5
+
+    def test_parser_inline_provider_key_flags(self):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(
+            [
+                "quickstart",
+                "--provider",
+                "openai",
+                "--api-key",
+                "sk-inline",
+                "--save-key",
+            ]
+        )
+        assert args.provider == "openai"
+        assert args.api_key == "sk-inline"
+        assert args.save_key is True
 
     def test_parser_format_choices(self):
         parser = argparse.ArgumentParser()
@@ -115,6 +137,16 @@ class TestDetectAgents:
         providers = [a[0] for a in agents]
         assert "anthropic-api" in providers
         assert "openai-api" in providers
+
+    def test_preferred_provider_filters_detected_agents(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
+        agents = _detect_agents("openai")
+        assert agents == [("openai-api", "gpt-4o")]
+
+    def test_invalid_preferred_provider_raises(self):
+        with pytest.raises(ValueError, match="Unsupported provider"):
+            _detect_agents("bogus")
 
 
 # =============================================================================
@@ -255,6 +287,107 @@ class TestReceiptFormatting:
             assert _open_receipt_in_browser(self.SAMPLE) is None
 
 
+class TestInlineApiKeys:
+    def test_normalize_provider_aliases(self):
+        assert _normalize_provider("openai-api") == "openai"
+        assert _normalize_provider("xai") == "grok"
+        assert _normalize_provider("nope") is None
+
+    def test_configure_inline_api_key_sets_env_without_persisting(self, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        normalized_provider, saved_key = _configure_inline_api_key(
+            "openai",
+            "sk-inline",
+            save_key=False,
+        )
+        assert normalized_provider == "openai"
+        assert saved_key is None
+        assert os.environ["OPENAI_API_KEY"] == "sk-inline"
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    def test_configure_inline_api_key_persists_via_secure_store(self, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        with patch("aragora.cli.api_keys.set_provider_key") as set_provider_key:
+            set_provider_key.return_value = MagicMock(
+                provider="openai",
+                env_var="OPENAI_API_KEY",
+                backend="macos-keychain",
+                masked_value="sk-i...line",
+            )
+            normalized_provider, saved_key = _configure_inline_api_key(
+                "openai",
+                "sk-inline",
+                save_key=True,
+            )
+
+        assert normalized_provider == "openai"
+        assert saved_key == {
+            "provider": "openai",
+            "env_var": "OPENAI_API_KEY",
+            "backend": "macos-keychain",
+            "masked_value": "sk-i...line",
+        }
+        assert os.environ["OPENAI_API_KEY"] == "sk-inline"
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    def test_configure_inline_api_key_requires_provider(self):
+        with pytest.raises(ValueError, match="--api-key requires --provider"):
+            _configure_inline_api_key(None, "sk-inline", save_key=False)
+
+
+class TestLiveQuickstartHelpers:
+    def test_build_live_team_reuses_single_provider_for_real_debate(self):
+        team = _build_live_team(
+            [("openai-api", "gpt-4o")],
+            provider="openai",
+            api_key="sk-inline",
+        )
+        assert [agent["role"] for agent in team] == ["proposer", "critic", "synthesizer"]
+        assert [agent["provider"] for agent in team] == ["openai-api"] * 3
+        assert [agent["api_key"] for agent in team] == ["sk-inline"] * 3
+
+    def test_build_live_receipt_surfaces_consensus_dissent_and_receipt(self):
+        from aragora.gauntlet.receipt_models import DecisionReceipt
+
+        vote_for = argparse.Namespace(agent="alpha", choice="Ship it", reasoning="Best option")
+        vote_against = argparse.Namespace(
+            agent="beta",
+            choice="Wait",
+            reasoning="Timeline risk",
+        )
+        result = argparse.Namespace(
+            debate_id="debate-123",
+            participants=["alpha", "beta", "gamma"],
+            final_answer="Ship it",
+            confidence=0.82,
+            consensus_reached=True,
+            rounds_used=2,
+            dissenting_views=["Timeline risk remains unresolved."],
+            proposals={"alpha": "Ship it"},
+            votes=[vote_for, vote_against],
+        )
+
+        receipt = _build_live_receipt(
+            result,
+            "Should we ship?",
+            2,
+            [
+                {"name": "alpha", "provider": "openai-api"},
+                {"name": "beta", "provider": "openai-api"},
+                {"name": "gamma", "provider": "openai-api"},
+            ],
+        )
+
+        assert receipt["receipt_id"] == "debate-123"
+        assert receipt["artifact_hash"]
+        assert receipt["consensus_proof"]["reached"] is True
+        assert receipt["consensus_proof"]["supporting_agents"] == ["alpha"]
+        assert receipt["consensus_proof"]["dissenting_agents"] == ["beta"]
+        assert receipt["dissent"][0]["reason"] == "Timeline risk remains unresolved."
+        assert receipt["receipt"]["artifact_hash"] == receipt["artifact_hash"]
+        assert DecisionReceipt.from_dict(receipt).verify_integrity() is True
+
+
 # =============================================================================
 # Command execution
 # =============================================================================
@@ -353,6 +486,9 @@ class TestCmdQuickstart:
         args = argparse.Namespace(
             question="Should we use Rust?",
             demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
             output=None,
             format="json",
             rounds=2,
@@ -383,6 +519,9 @@ class TestCmdQuickstart:
         args = argparse.Namespace(
             question=None,
             demo=False,
+            provider=None,
+            api_key=None,
+            save_key=False,
             output=None,
             format="json",
             rounds=2,
@@ -398,6 +537,9 @@ class TestCmdQuickstart:
         args = argparse.Namespace(
             question="Test?",
             demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
             output=output_path,
             format="json",
             rounds=2,
@@ -428,6 +570,9 @@ class TestCmdQuickstart:
         args = argparse.Namespace(
             question="Should we ship the CLI quickstart?",
             demo=False,
+            provider=None,
+            api_key=None,
+            save_key=False,
             output=None,
             format="json",
             rounds=2,
@@ -466,6 +611,73 @@ class TestCmdQuickstart:
         assert "Mode:       Live" in output
         assert str(artifact_path.resolve()) in output
 
+    def test_inline_provider_key_can_be_saved_and_run_live(self, tmp_path, monkeypatch, capsys):
+        """Test quickstart can take one inline key and save it securely."""
+        monkeypatch.chdir(tmp_path)
+        for key in [
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "GEMINI_API_KEY",
+            "MISTRAL_API_KEY",
+            "XAI_API_KEY",
+            "GROK_API_KEY",
+            "OPENROUTER_API_KEY",
+        ]:
+            monkeypatch.delenv(key, raising=False)
+
+        args = argparse.Namespace(
+            question="Should we ship the quickstart slice?",
+            demo=False,
+            provider="openai",
+            api_key="sk-inline",
+            save_key=True,
+            output=None,
+            format="json",
+            rounds=2,
+            no_browser=True,
+        )
+        live_result = {
+            "question": "Should we ship the quickstart slice?",
+            "verdict": "PASS",
+            "confidence": 0.93,
+            "rounds": 2,
+            "agents": [
+                "openai-api-proposer",
+                "openai-api-critic",
+                "openai-api-synthesizer",
+            ],
+            "summary": "Ship the quickstart slice.",
+            "dissent": [],
+            "mode": "live",
+            "receipt_id": "debate-quickstart-1",
+            "artifact_hash": "abc123def4567890",
+            "consensus_proof": {"reached": True},
+        }
+
+        with (
+            patch("aragora.cli.api_keys.set_provider_key") as set_provider_key,
+            patch(
+                "aragora.cli.commands.quickstart._run_live_debate",
+                return_value=live_result,
+            ) as run_live_debate,
+        ):
+            set_provider_key.return_value = MagicMock(
+                provider="openai",
+                env_var="OPENAI_API_KEY",
+                backend="macos-keychain",
+                masked_value="sk-i...line",
+            )
+            cmd_quickstart(args)
+
+        assert os.environ["OPENAI_API_KEY"] == "sk-inline"
+        assert run_live_debate.call_args.kwargs["provider"] == "openai"
+        assert run_live_debate.call_args.kwargs["api_key"] == "sk-inline"
+
+        output = capsys.readouterr().out
+        assert "Saved OPENAI_API_KEY to secure store" in output
+        assert "Receipt:    debate-quickstart-1" in output
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
     def test_no_keys_fall_back_to_demo_and_report_demo_artifact(
         self, tmp_path, monkeypatch, capsys
     ):
@@ -474,6 +686,9 @@ class TestCmdQuickstart:
         args = argparse.Namespace(
             question="Should we use the fallback?",
             demo=False,
+            provider=None,
+            api_key=None,
+            save_key=False,
             output=None,
             format="json",
             rounds=2,
@@ -515,6 +730,9 @@ class TestCmdQuickstart:
         args = argparse.Namespace(
             question="Should we use the live path?",
             demo=False,
+            provider=None,
+            api_key=None,
+            save_key=False,
             output=None,
             format="json",
             rounds=2,

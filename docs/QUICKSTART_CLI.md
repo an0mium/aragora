@@ -64,6 +64,17 @@ export OPENAI_API_KEY=sk-...
 aragora quickstart --no-browser
 ```
 
+Or provide one key inline for a one-shot first run and save it into Aragora's secure key store:
+
+```bash
+aragora quickstart \
+  --provider openai \
+  --api-key sk-... \
+  --save-key \
+  --question "Should we ship this change?" \
+  --no-browser
+```
+
 Or provide the question directly:
 
 ```bash
@@ -75,6 +86,14 @@ Expected behavior:
 - The terminal reports `Run mode: live`
 - Quickstart lists the detected live agent providers it will use
 - A saved artifact is written to `.aragora/receipts/quickstart-live-receipt.json` by default
+- The live artifact includes a structured receipt payload with `consensus_proof`, `dissenting_views`, and `artifact_hash`
+
+Inspect or verify that saved receipt with the existing receipt tooling:
+
+```bash
+aragora receipt inspect .aragora/receipts/quickstart-live-receipt.json
+aragora receipt verify .aragora/receipts/quickstart-live-receipt.json
+```
 
 If no supported API keys are detected and you did not pass `--demo`, quickstart says it is falling back to demo mode and the saved artifact will reflect `mode: "demo"`.
 

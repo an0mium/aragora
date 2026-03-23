@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -21,7 +22,9 @@ import ssl
 import sys
 import tempfile
 import time
+import uuid
 import webbrowser
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
@@ -30,6 +33,11 @@ logger = logging.getLogger(__name__)
 _DEFAULT_QUESTION = "Should we adopt microservices or keep our monolith?"
 _LIVE_PRECHECK_TIMEOUT_SECONDS = 3.0
 _LIVE_DEBATE_TIMEOUT_SECONDS = 75.0
+_LIVE_ROLES: tuple[tuple[str, str], ...] = (
+    ("proposer", "proposer"),
+    ("critic", "critic"),
+    ("synthesizer", "synthesizer"),
+)
 _PROVIDER_TLS_HOSTS: dict[str, str] = {
     "anthropic-api": "api.anthropic.com",
     "openai-api": "api.openai.com",
@@ -37,6 +45,44 @@ _PROVIDER_TLS_HOSTS: dict[str, str] = {
     "mistral": "api.mistral.ai",
     "grok": "api.x.ai",
     "deepseek": "openrouter.ai",
+}
+_PROVIDER_SPECS: dict[str, dict[str, Any]] = {
+    "anthropic": {
+        "agent_type": "anthropic-api",
+        "model": "claude-sonnet-4-5-20250929",
+        "env_vars": ("ANTHROPIC_API_KEY",),
+    },
+    "openai": {
+        "agent_type": "openai-api",
+        "model": "gpt-4o",
+        "env_vars": ("OPENAI_API_KEY",),
+    },
+    "gemini": {
+        "agent_type": "gemini",
+        "model": None,
+        "env_vars": ("GEMINI_API_KEY",),
+    },
+    "mistral": {
+        "agent_type": "mistral",
+        "model": None,
+        "env_vars": ("MISTRAL_API_KEY",),
+    },
+    "grok": {
+        "agent_type": "grok",
+        "model": None,
+        "env_vars": ("XAI_API_KEY", "GROK_API_KEY"),
+    },
+    "openrouter": {
+        "agent_type": "deepseek",
+        "model": None,
+        "env_vars": ("OPENROUTER_API_KEY",),
+    },
+}
+_PROVIDER_ALIASES = {
+    "anthropic-api": "anthropic",
+    "openai-api": "openai",
+    "xai": "grok",
+    "deepseek": "openrouter",
 }
 
 
@@ -55,6 +101,7 @@ No configuration needed.
 Examples:
   aragora quickstart --demo                              # Zero-config demo
   aragora quickstart --question "Should we use Kubernetes?"
+  aragora quickstart --provider openai --api-key sk-... --save-key
   aragora quickstart --question "Migrate to TypeScript?" --output receipt.json
   aragora quickstart --demo --no-browser                 # CI/headless mode
         """,
@@ -74,6 +121,22 @@ Examples:
         "--demo",
         action="store_true",
         help="Use mock agents (no API keys required)",
+    )
+    qs_parser.add_argument(
+        "--provider",
+        help=(
+            "Live provider to use for quickstart (anthropic, openai, gemini, "
+            "mistral, grok, openrouter). Required with --api-key."
+        ),
+    )
+    qs_parser.add_argument(
+        "--api-key",
+        help="Provider API key to use for this run without pre-configuring env vars",
+    )
+    qs_parser.add_argument(
+        "--save-key",
+        action="store_true",
+        help="Persist --api-key into the Aragora secure key store",
     )
     qs_parser.add_argument(
         "--rounds",
@@ -97,6 +160,17 @@ Examples:
     qs_parser.set_defaults(func=cmd_quickstart)
 
 
+def _normalize_provider(provider: str | None) -> str | None:
+    """Normalize provider names from CLI input into quickstart keys."""
+    if not provider:
+        return None
+    normalized = provider.strip().lower()
+    if not normalized:
+        return None
+    normalized = _PROVIDER_ALIASES.get(normalized, normalized)
+    return normalized if normalized in _PROVIDER_SPECS else None
+
+
 def _load_dotenv() -> bool:
     """Try to load .env file from cwd or parent. Returns True if loaded."""
     for candidate in [Path.cwd() / ".env", Path.cwd().parent / ".env"]:
@@ -118,27 +192,60 @@ def _load_dotenv() -> bool:
     return False
 
 
-def _detect_agents() -> list[tuple[str, str | None]]:
+def _detect_agents(preferred_provider: str | None = None) -> list[tuple[str, str | None]]:
     """Detect available agents based on API keys.
 
     Returns list of (provider, model) tuples.
     """
     agents: list[tuple[str, str | None]] = []
 
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        agents.append(("anthropic-api", "claude-sonnet-4-5-20250929"))
-    if os.environ.get("OPENAI_API_KEY"):
-        agents.append(("openai-api", "gpt-4o"))
-    if os.environ.get("GEMINI_API_KEY"):
-        agents.append(("gemini", None))
-    if os.environ.get("MISTRAL_API_KEY"):
-        agents.append(("mistral", None))
-    if os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY"):
-        agents.append(("grok", None))
-    if os.environ.get("OPENROUTER_API_KEY"):
-        agents.append(("deepseek", None))
+    requested = _normalize_provider(preferred_provider)
+    if preferred_provider and requested is None:
+        raise ValueError(
+            "Unsupported provider. Choose from: anthropic, openai, gemini, "
+            "mistral, grok, openrouter."
+        )
+
+    for provider_name, spec in _PROVIDER_SPECS.items():
+        if requested and provider_name != requested:
+            continue
+        if any(os.environ.get(env_var) for env_var in spec["env_vars"]):
+            agents.append((str(spec["agent_type"]), cast(str | None, spec["model"])))
 
     return agents
+
+
+def _configure_inline_api_key(
+    provider: str | None,
+    api_key: str | None,
+    *,
+    save_key: bool = False,
+) -> tuple[str | None, dict[str, str] | None]:
+    """Inject an inline API key into the current process and optionally persist it."""
+    normalized_provider = _normalize_provider(provider)
+    if not api_key:
+        return normalized_provider, None
+    if normalized_provider is None:
+        raise ValueError(
+            "--api-key requires --provider (anthropic, openai, gemini, mistral, grok, openrouter)"
+        )
+
+    spec = _PROVIDER_SPECS[normalized_provider]
+    primary_env_var = str(spec["env_vars"][0])
+    os.environ[primary_env_var] = api_key
+
+    if not save_key:
+        return normalized_provider, None
+
+    from aragora.cli.api_keys import set_provider_key
+
+    stored = set_provider_key(normalized_provider, api_key)
+    return normalized_provider, {
+        "provider": stored.provider,
+        "env_var": stored.env_var,
+        "backend": stored.backend,
+        "masked_value": stored.masked_value,
+    }
 
 
 def _get_question(args: argparse.Namespace) -> str | None:
@@ -264,6 +371,9 @@ async def _run_live_debate(
     question: str,
     agents_list: list[tuple[str, str | None]],
     rounds: int,
+    *,
+    provider: str | None = None,
+    api_key: str | None = None,
 ) -> dict[str, Any]:
     """Run a debate with live API agents."""
     from aragora.agents.base import AgentType, create_agent
@@ -273,16 +383,27 @@ async def _run_live_debate(
 
     agents_list = await _filter_reachable_live_agents(agents_list)
 
+    team = _build_live_team(agents_list, provider=provider, api_key=api_key)
+    if not team:
+        raise RuntimeError("No live debate team could be assembled for quickstart")
+
     env = Environment(task=question)
     protocol = DebateProtocol(rounds=rounds, consensus="majority")
     store = CritiqueStore()
 
     agents = []
     agent_names = []
-    for provider, model in agents_list[:4]:  # Cap at 4 agents for quickstart
-        agent = create_agent(cast(AgentType, provider), model=model)
+    for member in team:
+        provider_name = str(member["provider"])
+        agent = create_agent(
+            cast(AgentType, provider_name),
+            name=str(member["name"]),
+            role=str(member["role"]),
+            model=cast(str | None, member.get("model")),
+            api_key=cast(str | None, member.get("api_key")),
+        )
         agents.append(agent)
-        agent_names.append(provider)
+        agent_names.append(agent.name)
 
     arena = Arena(env, agents, protocol, insight_store=store)
     try:
@@ -298,31 +419,200 @@ async def _run_live_debate(
     if result is None:
         raise RuntimeError("Live debate returned no result")
 
-    verdict = "consensus"
-    confidence = 0.0
-    summary = ""
+    live_receipt = _build_live_receipt(result, question, rounds, team)
+    live_receipt["agents"] = agent_names
+    return live_receipt
+
+
+def _build_live_team(
+    agents_list: list[tuple[str, str | None]],
+    *,
+    provider: str | None = None,
+    api_key: str | None = None,
+) -> list[dict[str, Any]]:
+    """Build a quickstart debate team, guaranteeing a real multi-role debate."""
+    if not agents_list:
+        return []
+
+    normalized_provider = _normalize_provider(provider)
+    provider_configs: list[dict[str, Any]] = []
+    if normalized_provider:
+        provider_configs.append(
+            {
+                "provider": agents_list[0][0],
+                "model": agents_list[0][1],
+                "api_key": api_key,
+            }
+        )
+    else:
+        for agent_type, model in agents_list[:4]:
+            provider_configs.append({"provider": agent_type, "model": model, "api_key": None})
+
+    team: list[dict[str, Any]] = []
+    for index, (role, role_label) in enumerate(_LIVE_ROLES):
+        provider_cfg = provider_configs[index % len(provider_configs)]
+        provider_name = str(provider_cfg["provider"])
+        team.append(
+            {
+                "provider": provider_name,
+                "model": provider_cfg.get("model"),
+                "api_key": provider_cfg.get("api_key"),
+                "role": role,
+                "name": f"{provider_name}-{role_label}",
+            }
+        )
+
+    return team
+
+
+def _summarize_dissenting_views(
+    dissenting_views: list[str], participants: list[str]
+) -> list[dict[str, str]]:
+    """Convert dissenting views into CLI-friendly agent/reason records."""
     dissent: list[dict[str, str]] = []
+    fallback_agents = participants or ["agent"]
+    for index, view in enumerate(dissenting_views):
+        dissent.append(
+            {
+                "agent": fallback_agents[index % len(fallback_agents)],
+                "reason": str(view),
+            }
+        )
+    return dissent
 
-    if hasattr(result, "verdict"):
-        verdict = result.verdict
-    if hasattr(result, "confidence"):
-        confidence = result.confidence
-    if hasattr(result, "summary"):
-        _summary_attr = result.summary
-        summary = _summary_attr() if callable(_summary_attr) else _summary_attr
-    elif hasattr(result, "final_summary"):
-        summary = result.final_summary
 
-    return {
-        "question": question,
-        "verdict": verdict,
-        "confidence": confidence,
-        "rounds": rounds,
-        "agents": agent_names,
-        "summary": summary,
-        "dissent": dissent,
-        "mode": "live",
-    }
+def _build_live_receipt(
+    result: Any,
+    question: str,
+    rounds: int,
+    team: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Shape a live debate result into one deterministic receipt payload."""
+    from aragora.gauntlet.receipt_models import ConsensusProof, DecisionReceipt, ProvenanceRecord
+
+    participants = list(getattr(result, "participants", []) or [])
+    if not participants:
+        participants = [str(agent["name"]) for agent in team]
+
+    final_answer = str(getattr(result, "final_answer", "") or "")
+    confidence = float(getattr(result, "confidence", 0.0) or 0.0)
+    consensus_reached = bool(getattr(result, "consensus_reached", False))
+    verdict = (
+        "PASS"
+        if consensus_reached and confidence >= 0.75
+        else "CONDITIONAL"
+        if confidence >= 0.45
+        else "FAIL"
+    )
+    dissenting_views = [str(view) for view in list(getattr(result, "dissenting_views", []) or [])]
+    dissent = _summarize_dissenting_views(dissenting_views, participants)
+    receipt_id = str(
+        getattr(result, "debate_id", "")
+        or getattr(result, "id", "")
+        or f"quickstart-{uuid.uuid4().hex[:12]}"
+    )
+    proposals = dict(getattr(result, "proposals", {}) or {})
+    timestamp = datetime.now(timezone.utc).isoformat()
+    input_hash = hashlib.sha256(question.encode("utf-8")).hexdigest()
+
+    supporting_agents: list[str] = []
+    dissenting_agents: list[str] = []
+    vote_records: list[dict[str, Any]] = []
+    for vote in list(getattr(result, "votes", []) or []):
+        vote_agent = str(getattr(vote, "agent", "") or "")
+        vote_choice = str(getattr(vote, "choice", "") or "")
+        vote_reasoning = str(getattr(vote, "reasoning", "") or "")
+        if vote_agent or vote_choice or vote_reasoning:
+            vote_records.append(
+                {
+                    "agent": vote_agent,
+                    "choice": vote_choice,
+                    "reasoning": vote_reasoning,
+                }
+            )
+        if vote_choice == final_answer and vote_agent:
+            supporting_agents.append(vote_agent)
+        elif vote_agent:
+            dissenting_agents.append(vote_agent)
+
+    if not vote_records and consensus_reached:
+        supporting_agents = participants[:]
+
+    rounds_used = int(getattr(result, "rounds_used", 0) or rounds)
+    receipt = DecisionReceipt(
+        receipt_id=receipt_id,
+        gauntlet_id=receipt_id,
+        timestamp=timestamp,
+        input_summary=question,
+        input_hash=input_hash,
+        risk_summary={
+            "critical": 0 if consensus_reached else int(bool(dissenting_views)),
+            "high": len(dissenting_agents),
+            "medium": len(dissenting_views),
+            "low": max(0, len(participants) - len(dissenting_views)),
+        },
+        attacks_attempted=rounds_used * max(1, len(participants)),
+        attacks_successful=0 if consensus_reached else max(1, len(dissenting_views)),
+        probes_run=len(vote_records),
+        vulnerabilities_found=len(dissenting_views),
+        verdict=verdict,
+        confidence=confidence,
+        robustness_score=confidence,
+        verdict_reasoning=final_answer,
+        dissenting_views=dissenting_views,
+        consensus_proof=ConsensusProof(
+            reached=consensus_reached,
+            confidence=confidence,
+            supporting_agents=supporting_agents,
+            dissenting_agents=dissenting_agents,
+            method="majority",
+            evidence_hash=input_hash,
+        ),
+        provenance_chain=[
+            ProvenanceRecord(
+                timestamp=timestamp,
+                event_type="task",
+                description=question,
+            ),
+            ProvenanceRecord(
+                timestamp=timestamp,
+                event_type="verdict",
+                description=final_answer or verdict,
+            ),
+        ],
+        cost_summary={
+            "cost_usd": float(getattr(result, "total_cost_usd", 0.0) or 0.0),
+            "tokens_used": int(getattr(result, "total_tokens", 0) or 0),
+        },
+        config_used={
+            "mode": "quickstart-live",
+            "rounds": rounds_used,
+            "participants": participants,
+        },
+    )
+
+    payload = receipt.to_dict()
+    payload.update(
+        {
+            "question": question,
+            "rounds": rounds_used,
+            "agents": participants,
+            "summary": final_answer,
+            "dissent": dissent,
+            "mode": "live",
+            "receipt": {
+                "id": receipt.receipt_id,
+                "artifact_hash": receipt.artifact_hash,
+                "consensus_reached": consensus_reached,
+                "confidence": confidence,
+                "participants": participants,
+            },
+            "proposals": proposals,
+            "votes": vote_records,
+            "consensus_reached": consensus_reached,
+        }
+    )
+    return payload
 
 
 async def _can_reach_provider_tls(provider: str) -> tuple[bool, str | None]:
@@ -413,12 +703,33 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     # Step 3: Detect agents
     use_demo = getattr(args, "demo", False)
     rounds = getattr(args, "rounds", 2)
+    provider = getattr(args, "provider", None)
+    inline_api_key = getattr(args, "api_key", None)
+    try:
+        normalized_provider, saved_key = _configure_inline_api_key(
+            provider,
+            inline_api_key,
+            save_key=getattr(args, "save_key", False),
+        )
+    except (RuntimeError, ValueError) as exc:
+        print(f"\n[!] Quickstart configuration failed: {exc}")
+        sys.exit(1)
+
+    if saved_key:
+        print(
+            "\n[+] Saved "
+            f"{saved_key['env_var']} to secure store ({saved_key['backend']}) as {saved_key['masked_value']}"
+        )
 
     if use_demo:
         print("\n[*] Run mode: demo (requested with --demo)")
         print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
     else:
-        detected = _detect_agents()
+        try:
+            detected = _detect_agents(normalized_provider)
+        except ValueError as exc:
+            print(f"\n[!] Quickstart configuration failed: {exc}")
+            sys.exit(1)
         if not detected:
             print("\n[!] No supported API keys detected. Falling back to demo mode.")
             print("    This run will use local mock agents, not live model calls.")
@@ -438,7 +749,15 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         if use_demo:
             result = asyncio.run(_run_demo_debate(question, rounds))
         else:
-            result = asyncio.run(_run_live_debate(question, detected[:4], rounds))
+            result = asyncio.run(
+                _run_live_debate(
+                    question,
+                    detected[:4],
+                    rounds,
+                    provider=normalized_provider,
+                    api_key=inline_api_key,
+                )
+            )
     except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
         logger.debug("Debate failed: %s", e)
         print(f"\n[!] Debate failed: {e}")
@@ -461,6 +780,13 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     print(f"  Agents:     {', '.join(result['agents'])}")
     print(f"  Rounds:     {result['rounds']}")
     print(f"  Elapsed:    {elapsed:.1f}s")
+    if "consensus_proof" in result:
+        consensus_text = "Reached" if result["consensus_proof"].get("reached") else "Not reached"
+        print(f"  Consensus:  {consensus_text}")
+    if result.get("receipt_id"):
+        print(f"  Receipt:    {result['receipt_id']}")
+    if result.get("artifact_hash"):
+        print(f"  Artifact:   {str(result['artifact_hash'])[:16]}...")
 
     if result.get("summary"):
         print(f"\n  Summary:\n  {result['summary'][:500]}")
