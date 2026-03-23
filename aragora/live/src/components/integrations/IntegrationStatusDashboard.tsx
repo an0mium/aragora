@@ -67,7 +67,9 @@ function buildEditConfig(
       : {}
   ) as Record<string, unknown>;
   const config = INTEGRATION_CONFIGS[type];
-  const nextConfig: Record<string, unknown> = {};
+  const nextConfig: Record<string, unknown> = {
+    enabled: integration.enabled !== false,
+  };
 
   for (const field of config.fields) {
     const rawValue = settings[field.key];
@@ -87,7 +89,9 @@ function buildEditConfig(
     }
     if (settings[option.key] !== undefined) {
       nextConfig[option.key] = settings[option.key];
+      continue;
     }
+    nextConfig[option.key] = option.default;
   }
 
   return nextConfig;
