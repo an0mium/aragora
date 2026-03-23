@@ -1,6 +1,6 @@
 # Active Execution Issues
 
-Last updated: 2026-03-22
+Last updated: 2026-03-23
 
 This document links Aragora's current execution program to the live GitHub issue tracker.
 
@@ -18,6 +18,13 @@ This document links Aragora's current execution program to the live GitHub issue
 6. Idea-to-execution workbench
 7. Enterprise readiness stays warm, not the main product lane
 
+Immediate merge discipline for step 1:
+
+- `main` already contains supporting PMF slices through `#1164`.
+- The active merge gate is the overlapping open PR stack [#1166](https://github.com/synaptent/aragora/pull/1166), [#1167](https://github.com/synaptent/aragora/pull/1167), [#1168](https://github.com/synaptent/aragora/pull/1168), [#1169](https://github.com/synaptent/aragora/pull/1169), and [#1170](https://github.com/synaptent/aragora/pull/1170).
+- `#1166` overlaps the narrower `#1167-#1170` slices; merge order must choose one coherent lane instead of landing overlapping PMF work twice.
+- Recommended sequence: merge the narrow runtime/user-journey slices first ([#1167](https://github.com/synaptent/aragora/pull/1167) -> [#1168](https://github.com/synaptent/aragora/pull/1168) -> [#1169](https://github.com/synaptent/aragora/pull/1169) -> [#1170](https://github.com/synaptent/aragora/pull/1170)), then either harvest the remaining net-new pieces from [#1166](https://github.com/synaptent/aragora/pull/1166) or close it as superseded.
+
 ## Current PMF Proof Reality
 
 The March 19-22 tranche/live-proof cycle generated real output and several merged proof-surface closures:
@@ -25,9 +32,9 @@ The March 19-22 tranche/live-proof cycle generated real output and several merge
 | Issue | Current reality | Output / note |
 |------|-----------------|---------------|
 | [#1011](https://github.com/synaptent/aragora/issues/1011) | First queue artifact recovered and published | [#1108](https://github.com/synaptent/aragora/pull/1108) merged |
-| [#1046](https://github.com/synaptent/aragora/issues/1046) | First user-journey slice is merged on `main` | [#1110](https://github.com/synaptent/aragora/pull/1110) merged; remaining gap is full end-to-end continuity |
-| [#1048](https://github.com/synaptent/aragora/issues/1048) | First KM retrieval slice is merged on `main` | [#1111](https://github.com/synaptent/aragora/pull/1111) merged; later KM writeback/settlement closures landed via [#1131](https://github.com/synaptent/aragora/pull/1131), [#1132](https://github.com/synaptent/aragora/pull/1132), and [#1134](https://github.com/synaptent/aragora/pull/1134) |
-| [#1047](https://github.com/synaptent/aragora/issues/1047) | Active reduced proof lane | Latest `queue-v4b` attempt is truthfully `needs_human` / review-blocked |
+| [#1046](https://github.com/synaptent/aragora/issues/1046) | Multiple user-journey support slices are now merged on `main` | [#1110](https://github.com/synaptent/aragora/pull/1110), [#1146](https://github.com/synaptent/aragora/pull/1146), and [#1147](https://github.com/synaptent/aragora/pull/1147) are merged; remaining gap is one repeatable end-to-end default proof and an explicit decision on `#1166` vs `#1169`/`#1170` |
+| [#1048](https://github.com/synaptent/aragora/issues/1048) | Retrieval and writeback slices are partially merged on `main` | [#1111](https://github.com/synaptent/aragora/pull/1111) merged; KM writeback/settlement closures landed via [#1131](https://github.com/synaptent/aragora/pull/1131), [#1132](https://github.com/synaptent/aragora/pull/1132), and [#1134](https://github.com/synaptent/aragora/pull/1134); pre-debate precedent loading landed in [#1151](https://github.com/synaptent/aragora/pull/1151); default debate-factory wiring remains the active merge decision in `#1168` / `#1166` |
+| [#1047](https://github.com/synaptent/aragora/issues/1047) | Still active, but the frontier changed | Partial-public status landed in [#1148](https://github.com/synaptent/aragora/pull/1148) and visible golden-path summary landed in [#1150](https://github.com/synaptent/aragora/pull/1150); the gap is now continuity across five truthful pages, not just page-shell diagnosis |
 | [#818](https://github.com/synaptent/aragora/issues/818) | Truthful public proof slice is merged on `main` | [#1136](https://github.com/synaptent/aragora/pull/1136) merged; remaining gap is repeated external use |
 | [#819](https://github.com/synaptent/aragora/issues/819) | First truthful integrations slice is merged on `main` | [#1119](https://github.com/synaptent/aragora/pull/1119) merged; broader integrations trustworthiness still active |
 
@@ -40,6 +47,7 @@ Current tranche:
 - the queue runs and follow-on merges now directly underpin the real PMF surfaces
 - `#1046`, `#1048`, `#818`, and `#819` now all have at least one merged truthful slice on `main`
 - `#1047` remains the active page-truthfulness/core-loop proof lane, not because nothing landed, but because the merged slices still do not add up to one complete default journey
+- March 23 added live get-started/debate/settings/status/pipeline support on `main`, which means the immediate work is continuity and merge discipline rather than broadening page count
 
 | Issue | State | Priority | Owner | Milestone | Scope |
 |------|-------|----------|-------|-----------|-------|
@@ -53,14 +61,16 @@ Current tranche:
 This is a cross-epic tranche front-loaded ahead of broader control-plane and workbench expansion.
 
 - [#813](https://github.com/synaptent/aragora/issues/813) is the provider-routing blocker inside the first truthful loop.
-- [#1046](https://github.com/synaptent/aragora/issues/1046) and [#1048](https://github.com/synaptent/aragora/issues/1048) already have queue-generated candidate outputs open as PRs.
+- [#1046](https://github.com/synaptent/aragora/issues/1046) and [#1048](https://github.com/synaptent/aragora/issues/1048) already have merged base slices on `main` plus a new overlapping PR stack on top.
 - The current goal is not more breadth. It is one default flow that truthfully routes agents, completes the user journey, and reads Knowledge Mound context back into debates.
+- The active merge problem is explicit: [#1166](https://github.com/synaptent/aragora/pull/1166) overlaps [#1167](https://github.com/synaptent/aragora/pull/1167), [#1168](https://github.com/synaptent/aragora/pull/1168), [#1169](https://github.com/synaptent/aragora/pull/1169), and [#1170](https://github.com/synaptent/aragora/pull/1170). Treat it as a lane-selection problem, not a queue-more-work problem.
+- Working recommendation: do not merge [#1166](https://github.com/synaptent/aragora/pull/1166) ahead of the narrower slices. Use [#1167](https://github.com/synaptent/aragora/pull/1167), [#1168](https://github.com/synaptent/aragora/pull/1168), [#1169](https://github.com/synaptent/aragora/pull/1169), and [#1170](https://github.com/synaptent/aragora/pull/1170) as the mainline sequence, then reassess what remains unique in [#1166](https://github.com/synaptent/aragora/pull/1166).
 
 | Issue | Why it is first | Current reality |
 |------|------------------|-----------------|
-| [#813](https://github.com/synaptent/aragora/issues/813) | Provider routing blocks the first truthful product loop | ProviderRouter Phase 1 shipped on `main`, but runtime agent-selection integration is still open |
-| [#1046](https://github.com/synaptent/aragora/issues/1046) | One working user journey is the first PMF proof | Preferred queue artifact is [#1110](https://github.com/synaptent/aragora/pull/1110); alternate is [#1113](https://github.com/synaptent/aragora/pull/1113) |
-| [#1048](https://github.com/synaptent/aragora/issues/1048) | Knowledge retrieval must become a default read path | Preferred queue artifact is [#1111](https://github.com/synaptent/aragora/pull/1111); alternate is [#1114](https://github.com/synaptent/aragora/pull/1114) |
+| [#813](https://github.com/synaptent/aragora/issues/813) | Provider routing blocks the first truthful product loop | ProviderRouter Phase 1 shipped on `main`; the active runtime agent-selection integration lane is [#1167](https://github.com/synaptent/aragora/pull/1167), with overlapping umbrella coverage in [#1166](https://github.com/synaptent/aragora/pull/1166) |
+| [#1046](https://github.com/synaptent/aragora/issues/1046) | One working user journey is the first PMF proof | Base slices are merged on `main` via [#1110](https://github.com/synaptent/aragora/pull/1110), [#1146](https://github.com/synaptent/aragora/pull/1146), and [#1147](https://github.com/synaptent/aragora/pull/1147); the active continuity/onboarding lanes are [#1169](https://github.com/synaptent/aragora/pull/1169), [#1170](https://github.com/synaptent/aragora/pull/1170), and overlapping umbrella [#1166](https://github.com/synaptent/aragora/pull/1166) |
+| [#1048](https://github.com/synaptent/aragora/issues/1048) | Knowledge retrieval must become a default read path | Base retrieval and writeback slices are merged on `main` via [#1111](https://github.com/synaptent/aragora/pull/1111), [#1131](https://github.com/synaptent/aragora/pull/1131), [#1132](https://github.com/synaptent/aragora/pull/1132), [#1134](https://github.com/synaptent/aragora/pull/1134), and [#1151](https://github.com/synaptent/aragora/pull/1151); the default debate-factory lane is [#1168](https://github.com/synaptent/aragora/pull/1168), with overlapping umbrella [#1166](https://github.com/synaptent/aragora/pull/1166) |
 
 ## Demonstrate The Value Prop (Q2 2026)
 
@@ -102,6 +112,7 @@ Recent reality on `main`:
 - file-scope ownership and canonical PR tracking landed earlier via [#840](https://github.com/synaptent/aragora/issues/840) and [#841](https://github.com/synaptent/aragora/issues/841)
 - March 19-20 hardening added queue compile and run, dead-worker recovery, deliverable sync, verification propagation, stale fleet-claim reaping, and queue-state persistence through merged PRs `#1109`, `#1112`, `#1115`, `#1116`, and `#1117`
 - March 21-22 closure added preserved verification evidence, terminal tranche reconciliation, authoritative lane view, completed-lane publish, and remote-head PR review through `#1124`, `#1126`, `#1127`, `#1133`, and `#1138`
+- March 23 added queue harvest support on `main` through [#1164](https://github.com/synaptent/aragora/pull/1164) and left two active supporting PRs open: [#1157](https://github.com/synaptent/aragora/pull/1157) for blocker-context persistence and [#1165](https://github.com/synaptent/aragora/pull/1165) for tranche queue Claude worker routing
 - this work remains active, but it now serves the PMF slices above rather than defining the first execution lane by itself
 - the current active proof lane is no longer "can a queue dispatch?" but "can every blocker and deliverable carry forward canonical receipts, review evidence, and operator-grade state?"
 
@@ -170,3 +181,4 @@ When the execution program changes:
 1. update the GitHub issues first
 2. update [NEXT_STEPS_CANONICAL](NEXT_STEPS_CANONICAL.md)
 3. update this issue map and any linked summary docs
+4. if multiple open PRs cover the same PMF slice, choose a single merge lane and close or supersede the rest with proof

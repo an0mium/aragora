@@ -216,6 +216,7 @@ class DebateFactory:
         stream_emitter: SyncEventEmitter | None = None,
         document_store: Any | None = None,
         evidence_store: Any | None = None,
+        knowledge_mound: Any | None = None,
     ):
         """Initialize the debate factory.
 
@@ -229,6 +230,11 @@ class DebateFactory:
             dissent_retriever: Retrieves past dissent patterns
             moment_detector: Detects key debate moments
             stream_emitter: Event stream emitter for live updates
+            document_store: Document storage for uploaded documents
+            evidence_store: Evidence storage for debate evidence
+            knowledge_mound: KnowledgeMound instance for organizational knowledge
+                retrieval and outcome ingestion. If None, the Arena will attempt
+                auto-creation using the default singleton.
         """
         self.elo_system = elo_system
         self.persona_manager = persona_manager
@@ -241,6 +247,7 @@ class DebateFactory:
         self.stream_emitter = stream_emitter
         self.document_store = document_store
         self.evidence_store = evidence_store
+        self.knowledge_mound = knowledge_mound
 
     def create_agents(
         self,
@@ -363,6 +370,37 @@ class DebateFactory:
             )
         except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning("Failed to emit agent error event: %s", e)
+
+    def _resolve_knowledge_mound(self) -> Any | None:
+        """Resolve the Knowledge Mound instance for debate enrichment.
+
+        Uses the explicitly provided instance if available, otherwise attempts
+        to retrieve the global singleton. Returns None on failure so debates
+        can proceed without knowledge grounding.
+
+        Returns:
+            A KnowledgeMound instance, or None if unavailable.
+        """
+        if self.knowledge_mound is not None:
+            return self.knowledge_mound
+
+        try:
+            from aragora.knowledge.mound import get_knowledge_mound
+
+            km = get_knowledge_mound()
+            logger.debug("Resolved KnowledgeMound singleton for debate enrichment")
+            return km
+        except ImportError:
+            logger.debug(
+                "KnowledgeMound module not available; debates will run without knowledge grounding"
+            )
+        except (RuntimeError, ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
+            logger.debug(
+                "Could not resolve KnowledgeMound singleton: %s; "
+                "debates will run without knowledge grounding",
+                e,
+            )
+        return None
 
     def _maybe_add_vertical_specialist(
         self,
@@ -644,6 +682,12 @@ class DebateFactory:
         if self.evidence_store:
             builder = builder.with_evidence_store(self.evidence_store)
 
+        # Wire Knowledge Mound for debate context enrichment and outcome ingestion.
+        # Use explicitly provided instance, or attempt to resolve the singleton.
+        km = self._resolve_knowledge_mound()
+        if km is not None:
+            builder = builder.with_knowledge_mound(km)
+
         # Enable position ledger auto-creation for truth grounding
         builder = builder.with_enable_position_ledger(True)
 
@@ -664,6 +708,20 @@ class DebateFactory:
                 enable_introspection=config.enable_introspection,
                 enable_auto_execution=config.enable_auto_execution,
             )
+
+        # Consult ProviderRouter for provider quality hints (graceful fallback)
+        try:
+            from aragora.routing.provider_router import get_provider_router
+
+            router = get_provider_router()
+            hints = router.get_provider_hints()
+            if hints:
+                builder = builder.with_provider_hints(hints)
+                logger.info("ProviderRouter supplied hints for %d providers", len(hints))
+        except ImportError:
+            logger.debug("ProviderRouter not available; skipping provider hints")
+        except (RuntimeError, TypeError, ValueError, OSError) as e:
+            logger.warning("ProviderRouter failed, proceeding without hints: %s", e)
 
         arena = builder.build()
 

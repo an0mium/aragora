@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import { DebateResultPreview, RETURN_URL_KEY, PENDING_DEBATE_KEY, type DebateResponse } from '../DebateResultPreview';
 import { getCurrentReturnUrl, normalizeReturnUrl } from '@/utils/returnUrl';
@@ -38,14 +39,18 @@ const AGENT_DOT_COLORS: Record<string, string> = {
  * - Landing mode (no props): self-contained debate form with tri-theme styling
  * - Dashboard mode (with apiBase prop): full DebateInput with auth-gated functionality
  */
+const DEMO_TOPIC = 'Should we migrate our monolithic app to microservices?';
+
 export function HeroSection(props: Partial<HeroSectionProps> & Record<string, unknown> = {}) {
   const isDashboardMode = 'apiBase' in props && props.apiBase;
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const router = useRouter();
 
   // All hooks must be called before any early return (Rules of Hooks)
   const [question, setQuestion] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const [isDemoRunning, setIsDemoRunning] = useState(false);
   const [result, setResult] = useState<DebateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [phaseIndex, setPhaseIndex] = useState(0);
@@ -212,6 +217,52 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     }
   }
 
+  async function runDemoDebate() {
+    setIsDemoRunning(true);
+    setIsRunning(true);
+    setError(null);
+    setResult(null);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch(`${apiBase}/api/v1/playground/debate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: DEMO_TOPIC, question: DEMO_TOPIC, rounds: 2, agents: 3, source: 'demo' }),
+        signal: controller.signal,
+      });
+
+      if (res.status === 429) {
+        const data = await res.json().catch(() => null);
+        const retryAfter = data?.retry_after || 60;
+        setError(`Rate limit reached. Please try again in ${retryAfter} seconds.`);
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'Something went wrong. Please try again.');
+        return;
+      }
+
+      const data: DebateResponse = await res.json();
+      if (data.id) {
+        router.push(`/debate/${data.id}`);
+      } else {
+        // Fallback: show inline if no ID returned
+        setResult(data);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      setError('Could not connect to the server. Check your connection and try again.');
+    } finally {
+      setIsRunning(false);
+      setIsDemoRunning(false);
+    }
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (question.trim()) {
@@ -350,25 +401,59 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
               boxShadow: isDark ? '0 0 20px var(--accent-glow)' : '0 2px 8px var(--accent-glow)',
             }}
           >
-            {isRunning ? 'Agents debating...' : isDark ? '> Start Debate' : 'Start Debate'}
+            {isRunning && !isDemoRunning ? 'Agents debating...' : isDark ? '> Start Debate' : 'Start Debate'}
           </button>
         </form>
 
-        {/* Secondary CTA — no account needed */}
+        {/* Demo CTA — runs a preset topic against the real backend, no typing needed */}
         {!isRunning && !result && (
-          <div className="mt-3 text-center">
-            <a
-              href="/demo"
-              className="inline-flex items-center text-sm text-gray-400 hover:text-white transition-colors"
-            >
-              Try a live debate — no account needed →
-            </a>
-          </div>
+          <button
+            onClick={runDemoDebate}
+            className="w-full text-sm font-bold transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+            style={{
+              backgroundColor: 'transparent',
+              color: 'var(--accent)',
+              fontFamily: 'var(--font-landing)',
+              fontSize: '14px',
+              borderRadius: 'var(--radius-button)',
+              padding: '14px 32px',
+              marginTop: '8px',
+              border: '1px solid var(--accent)',
+            }}
+          >
+            {isDark ? '> Try a Demo Debate' : 'Try a Demo Debate'}
+          </button>
+        )}
+        {!isRunning && !result && (
+          <p
+            className="text-center"
+            style={{
+              fontSize: '12px',
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-landing)',
+              marginTop: '8px',
+              opacity: 0.6,
+            }}
+          >
+            No account needed -- watch AI agents debate a real question
+          </p>
         )}
 
         {/* Loading state — phased progress */}
         {isRunning && (
           <div className="mt-8 max-w-xl mx-auto">
+            {isDemoRunning && (
+              <p
+                className="text-center mb-3"
+                style={{
+                  fontSize: '13px',
+                  color: 'var(--accent)',
+                  fontFamily: 'var(--font-landing)',
+                }}
+              >
+                Debating: &quot;{DEMO_TOPIC}&quot;
+              </p>
+            )}
             <div
               className="p-5 text-left"
               style={{
@@ -499,51 +584,70 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         {/* Result preview */}
         {result && <DebateResultPreview result={result} />}
 
-        {/* Post-debate CTAs — 2 focused actions */}
+        {/* Post-debate CTAs */}
         {result && (
-          <div className="flex gap-3 mt-6 max-w-xl mx-auto">
-            <button
-              onClick={() => { setResult(null); setQuestion(''); setError(null); }}
-              className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
-              style={{
-                backgroundColor: 'var(--accent)',
-                color: 'var(--bg)',
-                borderRadius: 'var(--radius-button)',
-              }}
-            >
-              Try Another
-            </button>
-            <button
-              onClick={async () => {
-                const shareUrl = result.id
-                  ? `${window.location.origin}/debate/${result.id}`
-                  : window.location.href;
-                try {
-                  await navigator.clipboard.writeText(shareUrl);
-                } catch {
-                  const ta = document.createElement('textarea');
-                  ta.value = shareUrl;
-                  ta.style.position = 'fixed';
-                  ta.style.opacity = '0';
-                  document.body.appendChild(ta);
-                  ta.select();
-                  document.execCommand('copy');
-                  document.body.removeChild(ta);
-                }
-                setShareCopied(true);
-                setTimeout(() => setShareCopied(false), 2000);
-              }}
-              className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-80 cursor-pointer"
-              style={{
-                backgroundColor: 'transparent',
-                color: 'var(--accent)',
-                border: '1px solid var(--accent)',
-                borderRadius: 'var(--radius-button)',
-                opacity: shareCopied ? 0.7 : 1,
-              }}
-            >
-              {shareCopied ? 'Copied!' : 'Share'}
-            </button>
+          <div className="mt-6 max-w-xl mx-auto space-y-3">
+            {/* Primary: View full debate page */}
+            {result.id && (
+              <button
+                onClick={() => router.push(`/debate/${result.id}`)}
+                className="w-full text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                  color: 'var(--bg)',
+                  borderRadius: 'var(--radius-button)',
+                  boxShadow: isDark ? '0 0 20px var(--accent-glow)' : '0 2px 8px var(--accent-glow)',
+                }}
+              >
+                {isDark ? '> View Full Debate' : 'View Full Debate'}
+              </button>
+            )}
+            {/* Secondary row: Try Another + Share */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setResult(null); setQuestion(''); setError(null); }}
+                className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
+                style={{
+                  backgroundColor: result.id ? 'transparent' : 'var(--accent)',
+                  color: result.id ? 'var(--accent)' : 'var(--bg)',
+                  border: result.id ? '1px solid var(--accent)' : 'none',
+                  borderRadius: 'var(--radius-button)',
+                }}
+              >
+                Try Another
+              </button>
+              <button
+                onClick={async () => {
+                  const shareUrl = result.id
+                    ? `${window.location.origin}/debate/${result.id}`
+                    : window.location.href;
+                  try {
+                    await navigator.clipboard.writeText(shareUrl);
+                  } catch {
+                    const ta = document.createElement('textarea');
+                    ta.value = shareUrl;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                  }
+                  setShareCopied(true);
+                  setTimeout(() => setShareCopied(false), 2000);
+                }}
+                className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-80 cursor-pointer"
+                style={{
+                  backgroundColor: 'transparent',
+                  color: 'var(--accent)',
+                  border: '1px solid var(--accent)',
+                  borderRadius: 'var(--radius-button)',
+                  opacity: shareCopied ? 0.7 : 1,
+                }}
+              >
+                {shareCopied ? 'Copied!' : 'Share'}
+              </button>
+            </div>
           </div>
         )}
       </div>

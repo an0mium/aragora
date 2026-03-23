@@ -443,6 +443,8 @@ class ArenaConfig:
         prefer_diverse_providers: bool = False,  # Prefer agents from different providers
         # Provider budget: total USD budget for the debate (passed to ProviderRouter)
         provider_budget: float | None = None,
+        # Provider hints: provider_name -> quality_score from ProviderRouter
+        provider_hints: dict[str, float] | None = None,
         # ---- Sub-config objects (optional, for grouped construction) ----
         hook_config: HookConfig | None = None,
         tracking_config: TrackingConfig | None = None,
@@ -562,6 +564,8 @@ class ArenaConfig:
 
         # Provider budget for cost-constrained debates
         self.provider_budget = provider_budget
+        # Provider hints from ProviderRouter (provider_name -> quality_score)
+        self.provider_hints = provider_hints
 
         # Post-debate coordinator pipeline (default-on, opt-out via disable_post_debate_pipeline)
         self.post_debate_config = kwargs.pop("post_debate_config", None)

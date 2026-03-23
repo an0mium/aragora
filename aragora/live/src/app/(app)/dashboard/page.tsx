@@ -13,7 +13,8 @@ import { CostSummaryWidget } from '@/components/costs/CostSummaryWidget';
 import { TrialStatusWidget } from '@/components/billing/TrialStatusWidget';
 import { TemplateMarketplace } from '@/components/templates/TemplateMarketplace';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
-import { useSWRFetch } from '@/hooks/useSWRFetch';
+import { useSWRFetch, useActiveDebates } from '@/hooks/useSWRFetch';
+import type { ActiveDebate } from '@/hooks/useSWRFetch';
 import { useDashboardEvents } from '@/hooks/useDashboardEvents';
 
 // Backend API response shape for debates list
@@ -170,6 +171,93 @@ function SystemStatusPanel({ refreshInterval = 30000 }: { refreshInterval?: numb
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function formatElapsed(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const hrs = Math.floor(mins / 60);
+  if (hrs > 0) return `${hrs}h ${mins % 60}m`;
+  if (mins > 0) return `${mins}m`;
+  return `${Math.floor(seconds)}s`;
+}
+
+function LiveDebatesPanel() {
+  const { data, isLoading } = useActiveDebates();
+  const debates: ActiveDebate[] = data?.debates ?? [];
+
+  return (
+    <div className="bg-[var(--surface)] border border-[var(--border)]">
+      <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+        <h3 className="text-sm font-mono text-[var(--acid-green)] flex items-center gap-2">
+          {'>'} LIVE DEBATES
+          {debates.length > 0 && (
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+            </span>
+          )}
+        </h3>
+        {debates.length > 0 && (
+          <span className="px-2 py-0.5 text-[10px] font-mono bg-green-500/20 text-green-400 border border-green-500/30">
+            {debates.length} ACTIVE
+          </span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="p-4 text-center text-[var(--text-muted)] font-mono text-sm animate-pulse">
+          Checking...
+        </div>
+      ) : debates.length === 0 ? (
+        <div className="p-4 text-center text-[var(--text-muted)] font-mono text-sm">
+          No debates running.{' '}
+          <Link href="/arena" className="text-[var(--acid-green)] hover:underline">
+            Start one
+          </Link>
+        </div>
+      ) : (
+        <div className="divide-y divide-[var(--border)]">
+          {debates.map((debate) => (
+            <Link
+              key={debate.id}
+              href={`/debate/${debate.id}`}
+              className="block p-4 hover:bg-[var(--bg)] transition-colors"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-mono text-[var(--text)] truncate">
+                    {debate.topic || 'Untitled debate'}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                      {debate.agents.length} agents
+                    </span>
+                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                      Round {debate.round}/{debate.total_rounds}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="flex items-center gap-1">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
+                    </span>
+                    <span className="text-[10px] font-mono text-green-400 uppercase">
+                      {debate.status}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-[var(--text-muted)] font-mono mt-1">
+                    {formatElapsed(debate.elapsed_seconds)}
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -337,6 +425,13 @@ export default function DashboardPage() {
           <div className="mt-6">
             <PanelErrorBoundary panelName="Settlement Panel">
               <SettlementPanel refreshInterval={pollInterval} />
+            </PanelErrorBoundary>
+          </div>
+
+          {/* Live Debates */}
+          <div className="mt-6">
+            <PanelErrorBoundary panelName="Live Debates">
+              <LiveDebatesPanel />
             </PanelErrorBoundary>
           </div>
 

@@ -53,6 +53,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _epoch_to_iso(epoch: float) -> str:
+    """Convert a Unix epoch timestamp to ISO 8601 string."""
+    from datetime import datetime, timezone
+
+    if not epoch:
+        return ""
+    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat()
+
+
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface expected by CrudOperationsMixin.
 
@@ -129,6 +138,76 @@ class CrudOperationsMixin:
             for d in debates
         ]
         return json_response({"debates": debates_list, "count": len(debates_list)})
+
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/active",
+        summary="List currently running debates",
+        description="Returns debates that are currently in-progress (running or paused).",
+        tags=["Debates"],
+        responses={
+            "200": {
+                "description": "Active debates returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "debates": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "string"},
+                                            "topic": {"type": "string"},
+                                            "status": {"type": "string"},
+                                            "started_at": {"type": "string", "format": "date-time"},
+                                            "agents": {
+                                                "type": "array",
+                                                "items": {"type": "string"},
+                                            },
+                                            "round": {"type": "integer"},
+                                            "total_rounds": {"type": "integer"},
+                                            "elapsed_seconds": {"type": "number"},
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    )
+    @handle_errors("list active debates")
+    def _get_active_debates(self: _DebatesHandlerProtocol) -> HandlerResult:
+        """List currently running debates from the server state manager.
+
+        Returns debates tracked in StateManager that have status 'running' or 'paused'.
+        These are debates actively being processed, not yet completed/persisted.
+        """
+        from aragora.server.state import get_state_manager
+
+        state_mgr = get_state_manager()
+        active = state_mgr.get_active_debates()
+
+        debates_list = []
+        for debate_id, debate_state in active.items():
+            info = debate_state.to_dict()
+            debates_list.append(
+                {
+                    "id": info.get("debate_id", debate_id),
+                    "topic": info.get("task", ""),
+                    "status": info.get("status", "running"),
+                    "started_at": _epoch_to_iso(info.get("start_time", 0)),
+                    "agents": info.get("agents", []),
+                    "round": info.get("current_round", 0),
+                    "total_rounds": info.get("total_rounds", 3),
+                    "elapsed_seconds": info.get("elapsed_seconds", 0),
+                }
+            )
+
+        return json_response({"debates": debates_list})
 
     @api_endpoint(
         method="GET",

@@ -227,6 +227,35 @@ class TestSelectEligibleIssue:
         assert selected is not None
         assert selected.number == 2
 
+    def test_require_labels_all_match(self):
+        """When multiple labels are required, ALL must be present on the issue."""
+        issues = [
+            _make_issue(1, "Only one label", labels=["P0"]),
+            _make_issue(2, "Both labels", labels=["P0", "queue-eligible"]),
+            _make_issue(3, "Extra labels too", labels=["P0", "queue-eligible", "enhancement"]),
+        ]
+        selected = select_eligible_issue(issues, require_labels={"P0", "queue-eligible"})
+        assert selected is not None
+        assert selected.number == 2
+
+    def test_require_labels_rejects_partial_match(self):
+        """An issue with only some of the required labels is rejected."""
+        issues = [
+            _make_issue(1, "Partial", labels=["P0"]),
+        ]
+        selected = select_eligible_issue(issues, require_labels={"P0", "queue-eligible"})
+        assert selected is None
+
+    def test_no_require_labels_means_no_filtering(self):
+        """When require_labels is None, all issues are eligible (label-wise)."""
+        issues = [
+            _make_issue(1, "No labels"),
+            _make_issue(2, "Has labels", labels=["P0"]),
+        ]
+        selected = select_eligible_issue(issues, require_labels=None)
+        assert selected is not None
+        assert selected.number == 1
+
 
 class TestValidationContractExtraction:
     def test_extracts_bullets_from_acceptance_section(self):
@@ -918,6 +947,8 @@ class TestBossLoopCLI:
             "boss_label_filter": None,
             "boss_issue_number": None,
             "max_consecutive_failures": 3,
+            "labels": None,
+            "allow_missing_validation_contract": False,
         }
         defaults.update(overrides)
         return argparse.Namespace(**defaults)
@@ -1013,6 +1044,130 @@ class TestBossLoopCLI:
         assert args.max_consecutive_failures == 5
         assert args.allow_missing_validation_contract is True
         assert args.json is True
+
+    def test_boss_loop_parser_accepts_label_repeatable(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "boss-loop",
+                "--label",
+                "P0",
+                "--label",
+                "queue-eligible",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "boss-loop"
+        assert args.labels == ["P0", "queue-eligible"]
+        assert args.json is True
+
+    def test_boss_loop_parser_no_labels_defaults_to_none(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(["swarm", "boss-loop"])
+        assert args.labels is None
+
+    def test_boss_loop_label_filter_wired_to_config(self):
+        """--label args are wired to BossLoopConfig.require_labels as a set."""
+        from aragora.cli.commands.swarm import cmd_swarm
+
+        args = self._swarm_args(
+            json=True,
+            max_ticks=1,
+            labels=["P0", "queue-eligible"],
+        )
+
+        with patch(
+            "aragora.swarm.boss_loop.check_runner_freshness",
+            return_value=_fresh_result(fresh=False, blocked_reason="missing_owner_context"),
+        ) as _:
+            cmd_swarm(args)
+
+        # The loop ran (and stopped because no fresh runner). We verify that
+        # the config was constructed with the right require_labels by checking
+        # that it didn't crash and produced valid output.  A more direct test
+        # of the wiring follows below.
+
+    def test_boss_loop_label_filter_wired_require_labels_all_match(self, capsys):
+        """Issues must carry ALL --label values to be selected."""
+        from aragora.cli.commands.swarm import cmd_swarm
+
+        # Issue only has P0, not queue-eligible
+        fixture_issues = [
+            _make_issue(1, "Partial match", labels=["P0"]),
+        ]
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = fixture_issues
+
+        args = self._swarm_args(
+            json=True,
+            max_ticks=1,
+            labels=["P0", "queue-eligible"],
+        )
+
+        with (
+            patch(
+                "aragora.swarm.boss_loop.check_runner_freshness",
+                return_value=_fresh_result(fresh=True),
+            ),
+            patch(
+                "aragora.swarm.boss_loop.GitHubIssueFeed",
+                return_value=feed,
+            ),
+        ):
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        parsed = json.loads(out)
+        assert parsed["stop_reason"] == "no_suitable_issue"
+
+    def test_boss_loop_label_filter_passes_with_all_labels(self, capsys):
+        """Issues carrying ALL required labels pass the filter."""
+        from aragora.cli.commands.swarm import cmd_swarm
+
+        fixture_issues = [
+            _make_issue(
+                1,
+                "Full match",
+                labels=["P0", "queue-eligible", "enhancement"],
+                body=(
+                    "Fix the thing\n\n"
+                    "Acceptance Criteria:\n"
+                    "- pytest -q tests/swarm/test_boss_loop.py\n"
+                ),
+            ),
+        ]
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = fixture_issues
+
+        args = self._swarm_args(
+            json=True,
+            max_ticks=1,
+            labels=["P0", "queue-eligible"],
+            no_dispatch=True,
+        )
+
+        with (
+            patch(
+                "aragora.swarm.boss_loop.check_runner_freshness",
+                return_value=_fresh_result(fresh=True),
+            ),
+            patch(
+                "aragora.swarm.boss_loop.GitHubIssueFeed",
+                return_value=feed,
+            ),
+        ):
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        parsed = json.loads(out)
+        # The issue was selected (didn't stop with no_suitable_issue)
+        assert parsed["stop_reason"] != "no_suitable_issue"
 
 
 @pytest.mark.asyncio

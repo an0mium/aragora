@@ -98,17 +98,24 @@ def handle_generate_api_key(handler_instance: AuthHandler, handler) -> HandlerRe
         if org and not org.limits.api_access:
             return error_response("API access requires Professional tier or higher", 403)
 
+    # Read optional name from request body
+    key_name = "Active key"
+    body = handler_instance.read_json_body(handler)
+    if body and isinstance(body, dict):
+        key_name = body.get("name", "Active key") or "Active key"
+
     # Generate new API key using secure hash-based storage
     # The plaintext key is only returned once; we store the hash
     api_key = user.generate_api_key(expires_days=365)
 
-    # Persist the hashed key fields (api_key_hash, api_key_prefix, expiry)
+    # Persist the hashed key fields (api_key_hash, api_key_prefix, expiry, name)
     user_store.update_user(
         user.id,
         api_key_hash=user.api_key_hash,
         api_key_prefix=user.api_key_prefix,
         api_key_created_at=user.api_key_created_at,
         api_key_expires_at=user.api_key_expires_at,
+        api_key_name=key_name,
     )
 
     logger.info("API key generated for user_id=%s (prefix: %s)", user.id, user.api_key_prefix)
@@ -128,6 +135,10 @@ def handle_generate_api_key(handler_instance: AuthHandler, handler) -> HandlerRe
         {
             "api_key": api_key,
             "prefix": user.api_key_prefix,
+            "name": key_name,
+            "created_at": (
+                user.api_key_created_at.isoformat() if user.api_key_created_at else None
+            ),
             "expires_at": (
                 user.api_key_expires_at.isoformat() if user.api_key_expires_at else None
             ),
@@ -240,6 +251,7 @@ def handle_list_api_keys(handler_instance: AuthHandler, handler) -> HandlerResul
         keys.append(
             {
                 "prefix": user.api_key_prefix,
+                "name": getattr(user, "api_key_name", None) or "Active key",
                 "created_at": (
                     user.api_key_created_at.isoformat() if user.api_key_created_at else None
                 ),

@@ -155,7 +155,7 @@ def select_eligible_issue(
     - Must be in ``open`` state
     - Must have a non-empty title
     - Must not carry any label in ``skip_labels``
-    - If ``require_labels`` is set, must carry at least one
+    - If ``require_labels`` is set, must carry ALL of them
 
     Returns ``None`` with no improvisation if nothing qualifies.
     """
@@ -167,7 +167,7 @@ def select_eligible_issue(
             continue
         if _skip & set(issue.labels):
             continue
-        if require_labels and not (require_labels & set(issue.labels)):
+        if require_labels and not require_labels.issubset(set(issue.labels)):
             continue
         return issue
     return None

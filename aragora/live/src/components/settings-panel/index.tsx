@@ -31,6 +31,7 @@ interface ApiKeyListResponse {
   count?: number;
   keys?: Array<{
     prefix: string;
+    name?: string;
     created_at?: string | null;
     expires_at?: string | null;
   }>;
@@ -38,11 +39,13 @@ interface ApiKeyListResponse {
 
 interface GenerateApiKeyResponse {
   api_key?: string;
+  prefix?: string;
+  name?: string;
 }
 
 function mapBackendApiKey(key: NonNullable<ApiKeyListResponse['keys']>[number]): ApiKey {
   return {
-    name: 'Active key',
+    name: key.name || 'Active key',
     prefix: key.prefix,
     created_at: key.created_at ?? null,
     last_used: null,
@@ -173,7 +176,7 @@ export function SettingsPanel() {
     setApiKeyError(null);
 
     try {
-      const data = await authFetch<ApiKeyListResponse>(`${backendConfig.api}/api/auth/api-keys`);
+      const data = await authFetch<ApiKeyListResponse>(`${backendConfig.api}/api/v1/api-keys`);
       const apiKeys = (data?.keys ?? []).map(mapBackendApiKey);
       setPreferences(prev => ({ ...prev, api_keys: apiKeys }));
     } catch (error) {
@@ -193,9 +196,9 @@ export function SettingsPanel() {
     setApiKeyError(null);
 
     try {
-      const data = await authFetch<GenerateApiKeyResponse>(`${backendConfig.api}/api/auth/api-keys`, {
+      const data = await authFetch<GenerateApiKeyResponse>(`${backendConfig.api}/api/v1/api-keys`, {
         method: 'POST',
-        body: JSON.stringify({}),
+        body: JSON.stringify({ name: 'Personal API Key' }),
       });
 
       if (!data?.api_key) {
@@ -220,7 +223,7 @@ export function SettingsPanel() {
 
     try {
       await authFetch<Record<string, unknown>>(
-        `${backendConfig.api}/api/auth/api-keys/${encodeURIComponent(prefix)}`,
+        `${backendConfig.api}/api/v1/api-keys/${encodeURIComponent(prefix)}`,
         { method: 'DELETE' }
       );
       await fetchApiKeys();

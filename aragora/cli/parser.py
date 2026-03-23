@@ -2399,7 +2399,14 @@ def _add_swarm_parser(subparsers) -> None:
         "--boss-label-filter",
         type=str,
         default=None,
-        help="Only consider issues with this label in boss-loop",
+        help="Only consider issues with this label in boss-loop (deprecated: use --label)",
+    )
+    swarm_parser.add_argument(
+        "--label",
+        action="append",
+        default=None,
+        dest="labels",
+        help="Only consider issues with ALL specified labels (repeatable: --label P0 --label queue-eligible)",
     )
     swarm_parser.add_argument(
         "--boss-issue-number",

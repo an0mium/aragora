@@ -277,20 +277,29 @@ function SavedDebateView({ debate }: { debate: SavedDebate }) {
           )}
 
           {/* ---- Share & CTA ---- */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-8">
-            <button
-              onClick={handleCopyLink}
-              className="flex-1 py-3 font-mono font-bold text-sm border border-[var(--acid-green)] text-[var(--acid-green)]
-                         hover:bg-[var(--acid-green)]/10 transition-colors"
-            >
-              {copied ? 'LINK COPIED!' : 'SHARE THIS DEBATE'}
-            </button>
+          <div className="flex flex-col gap-3 mb-8">
             <Link
               href={`/try${debate.topic ? `?topic=${encodeURIComponent(debate.topic.slice(0, 200))}` : ''}`}
-              className="flex-1 py-3 text-center font-mono font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
+              className="w-full py-4 text-center font-mono font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
             >
-              RUN YOUR OWN DEBATE →
+              START YOUR OWN DEBATE
             </Link>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleCopyLink}
+                className="flex-1 py-3 font-mono font-bold text-sm border border-[var(--acid-green)] text-[var(--acid-green)]
+                           hover:bg-[var(--acid-green)]/10 transition-colors"
+              >
+                {copied ? 'LINK COPIED!' : 'SHARE THIS DEBATE'}
+              </button>
+              <Link
+                href="/landing/"
+                className="flex-1 py-3 text-center font-mono font-bold text-sm border border-[var(--border)] text-[var(--text-muted)]
+                           hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
+              >
+                BACK TO ARAGORA
+              </Link>
+            </div>
           </div>
 
           {/* Footer */}
@@ -368,7 +377,7 @@ export function DebateViewerWrapper({
     return <SavedDebateView debate={savedDebate} />;
   }
 
-  // No ID provided - show message
+  // No ID provided - show CTA to start a debate
   if (!debateId) {
     return (
       <>
@@ -383,11 +392,25 @@ export function DebateViewerWrapper({
               <ThemeToggle />
             </div>
           </header>
-          <div className="container mx-auto px-4 py-20 text-center">
-            <div className="text-acid-green font-mono text-xl mb-4">{'>'} NO DEBATE ID PROVIDED</div>
-            <Link href="/landing/" className="text-acid-cyan hover:text-acid-green transition-colors font-mono">
-              [RETURN HOME]
-            </Link>
+          <div className="container mx-auto px-4 py-20 text-center max-w-lg">
+            <div className="text-acid-green font-mono text-xl mb-4">{'>'} ARAGORA DEBATE VIEWER</div>
+            <p className="text-text-muted font-mono text-sm mb-8">
+              Watch AI agents debate decisions with adversarial rigor and deliver audit-ready verdicts.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Link
+                href="/try"
+                className="py-4 font-mono font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
+              >
+                START YOUR OWN DEBATE
+              </Link>
+              <Link
+                href="/landing/"
+                className="py-3 font-mono text-sm border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
+              >
+                BACK TO ARAGORA
+              </Link>
+            </div>
           </div>
         </main>
       </>

@@ -1,38 +1,46 @@
 # Aragora Project Status
 
-*Last updated: March 22, 2026*
+*Last updated: March 23, 2026*
 
 > See [README](../README.md) for the five pillars framework. See [Documentation Index](../INDEX.md) for the curated technical reference map.
 > For roadmap extraction, doc drift, and partial-feature tracking, see [DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md](DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md).
 
-## March 21-22, 2026 — Current State
+## March 23, 2026 — Current State
 
 ### Canonical Current Reality
 
-- `main` now contains the tranche queue / overnight autonomy hardening through [#1117](https://github.com/synaptent/aragora/pull/1117) plus March 21-22 proof-surface closures through [#1138](https://github.com/synaptent/aragora/pull/1138).
-- The system has moved beyond "candidate PMF PRs are open." The first user-journey slice, default KM retrieval slice, truthful integrations/public state slices, real OpenClaw dispatch, and stronger operator/integrator surfaces are all now merged on `main`.
+- `main` now contains the tranche queue / overnight autonomy hardening through [#1117](https://github.com/synaptent/aragora/pull/1117), the March 21-22 proof-surface closures through [#1138](https://github.com/synaptent/aragora/pull/1138), and the March 23 continuity/support slices through [#1164](https://github.com/synaptent/aragora/pull/1164).
+- The system has moved beyond "candidate PMF PRs are open." The first user-journey slice, default KM retrieval slice, truthful integrations/public state slices, real OpenClaw dispatch, stronger operator/integrator surfaces, live settings/API-key wiring, live debate creation, partial-public status truthfulness, pipeline golden-path visibility, and queue harvest support are all now merged on `main`.
 - The first real queue artifact remains [#1108](https://github.com/synaptent/aragora/pull/1108), but it is no longer the only proof worth citing.
 
 ### What Recently Landed On `main`
 
-The March 21-22 cycle closed several important gaps:
+The March 21-23 cycle closed several important gaps:
 
 1. API-key / first-user-journey slice merged via [#1110](https://github.com/synaptent/aragora/pull/1110)
 2. default KM retrieval, later KM writeback, and settlement-hook wiring merged via [#1111](https://github.com/synaptent/aragora/pull/1111), [#1131](https://github.com/synaptent/aragora/pull/1131), [#1132](https://github.com/synaptent/aragora/pull/1132), and [#1134](https://github.com/synaptent/aragora/pull/1134)
 3. truthful receipts/integrations/public state improved via [#1118](https://github.com/synaptent/aragora/pull/1118), [#1119](https://github.com/synaptent/aragora/pull/1119), [#1136](https://github.com/synaptent/aragora/pull/1136), and [#1137](https://github.com/synaptent/aragora/pull/1137)
 4. bounded execution operator surfaces improved via [#1124](https://github.com/synaptent/aragora/pull/1124), [#1126](https://github.com/synaptent/aragora/pull/1126), [#1127](https://github.com/synaptent/aragora/pull/1127), [#1133](https://github.com/synaptent/aragora/pull/1133), and [#1138](https://github.com/synaptent/aragora/pull/1138)
 5. real OpenClaw action dispatch landed via [#1135](https://github.com/synaptent/aragora/pull/1135)
+6. continuity/path-truthfulness improved via [#1146](https://github.com/synaptent/aragora/pull/1146), [#1147](https://github.com/synaptent/aragora/pull/1147), [#1148](https://github.com/synaptent/aragora/pull/1148), [#1150](https://github.com/synaptent/aragora/pull/1150), and [#1151](https://github.com/synaptent/aragora/pull/1151)
+7. queue throughput/harvest support improved via [#1141](https://github.com/synaptent/aragora/pull/1141) and [#1164](https://github.com/synaptent/aragora/pull/1164)
 
 ### Current Frontier
 
-The reduced `queue-v4b` proof is still the active frontier for unresolved product slices:
+The frontier is no longer just "get another proof candidate out of the queue." It is the merge-order and continuity problem around the active PMF stack:
 
-- [#1047](https://github.com/synaptent/aragora/issues/1047): latest queue attempt is truthfully `needs_human` / review-blocked
-- [#819](https://github.com/synaptent/aragora/issues/819): first truthful status/edit slice is merged, but the broader integrations surface still needs to become trustworthy by default
+- [#1166](https://github.com/synaptent/aragora/pull/1166): umbrella PMF integration branch covering routing, user-journey, and get-started continuity
+- [#1167](https://github.com/synaptent/aragora/pull/1167): narrow ProviderRouter -> `DebateFactory` runtime integration
+- [#1168](https://github.com/synaptent/aragora/pull/1168): narrow Knowledge Mound retrieval -> `DebateFactory` default integration
+- [#1169](https://github.com/synaptent/aragora/pull/1169): versioned API-key management endpoints
+- [#1170](https://github.com/synaptent/aragora/pull/1170): interactive onboarding / get-started flow
+- [#1165](https://github.com/synaptent/aragora/pull/1165): separate swarm-routing fix supporting the unattended execution substrate
+- Recommended path: merge [#1167](https://github.com/synaptent/aragora/pull/1167), [#1168](https://github.com/synaptent/aragora/pull/1168), [#1169](https://github.com/synaptent/aragora/pull/1169), and [#1170](https://github.com/synaptent/aragora/pull/1170) in that order, then decide whether [#1166](https://github.com/synaptent/aragora/pull/1166) still contains anything worth harvesting.
 
 This means the current problem is no longer "can the queue dispatch?" It is:
 
 - can the default product loop feel continuous from setup to visible result
+- can the overlapping PMF stack be merged as one truthful lane instead of duplicating slices
 - can every lane preserve canonical provenance, review evidence, and explicit blocked next steps
 - can the proof surfaces stay truthful under partial/live states instead of falling back to shell behavior
 
@@ -43,6 +51,7 @@ The strategy document is now [ARAGORA_IDEA_TO_EXECUTION_STRATEGY](../plans/ARAGO
 - close one truthful default product loop,
 - make the existing proof surfaces operator-grade and partner-repeatable,
 - then invest in the unified idea-to-execution GUI and stage-transition UX.
+- near-term execution discipline is merge-order discipline: prefer a coherent PMF lane over overlapping "everything stack" merges.
 
 ## March 2026 Sprint — Closed-Loop Backbone, Trust Wedge & Infrastructure
 

@@ -255,6 +255,28 @@ export function useDebates(options?: UseSWRFetchOptions<unknown>) {
   });
 }
 
+export interface ActiveDebate {
+  id: string;
+  topic: string;
+  status: string;
+  started_at: string;
+  agents: string[];
+  round: number;
+  total_rounds: number;
+  elapsed_seconds: number;
+}
+
+export interface ActiveDebatesResponse {
+  debates: ActiveDebate[];
+}
+
+export function useActiveDebates(options?: UseSWRFetchOptions<ActiveDebatesResponse>) {
+  return useSWRFetch<ActiveDebatesResponse>('/api/v1/debates/active', {
+    refreshInterval: 5000, // Refresh every 5 seconds for live data
+    ...options,
+  });
+}
+
 export function useDebate(debateId: string | null, options?: UseSWRFetchOptions<unknown>) {
   return useSWRFetch(debateId ? `/api/debates/${debateId}` : null, options);
 }

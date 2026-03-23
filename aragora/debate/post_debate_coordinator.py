@@ -96,6 +96,9 @@ class PostDebateConfig:
     auto_llm_judge: bool = True
     llm_judge_use_case: str = "debate"
     llm_judge_threshold: float = 4.0
+    # Knowledge Mound outcome ingestion: store high-confidence conclusions
+    auto_ingest_outcome: bool = True
+    ingest_outcome_min_confidence: float = 0.85
 
 
 @dataclass
@@ -127,6 +130,7 @@ class PostDebateResult:
     settlement_batch: dict[str, Any] | None = None
     staking_result: dict[str, Any] | None = None
     cost_breakdown: dict[str, Any] | None = None
+    outcome_ingested: bool = False
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -152,9 +156,11 @@ class PostDebateCoordinator:
         self,
         config: PostDebateConfig | None = None,
         settlement_tracker: Any | None = None,
+        knowledge_mound: Any | None = None,
     ):
         self.config = config or PostDebateConfig()
         self._settlement_tracker = settlement_tracker
+        self._knowledge_mound = knowledge_mound
 
     @staticmethod
     def _run_async_callable(async_fn: Any, /, *args: Any, **kwargs: Any) -> Any:
@@ -317,6 +323,13 @@ class PostDebateCoordinator:
                 confidence,
                 cost_breakdown=result.cost_breakdown,
             )
+
+        # Step 6.5: Ingest debate outcome into Knowledge Mound (read-write feedback loop)
+        if (
+            self.config.auto_ingest_outcome
+            and confidence >= self.config.ingest_outcome_min_confidence
+        ):
+            result.outcome_ingested = self._step_ingest_outcome(debate_id, debate_result, task)
 
         # Step 7: Queue improvement suggestion
         if (
@@ -762,6 +775,49 @@ class PostDebateCoordinator:
             )
         )
         return receipt_persisted
+
+    def _step_ingest_outcome(
+        self,
+        debate_id: str,
+        debate_result: Any,
+        task: str,
+    ) -> bool:
+        """Step 6.5: Ingest debate outcome into Knowledge Mound.
+
+        Stores the consensus conclusion and metadata from high-confidence
+        debates into the Knowledge Mound for future retrieval, closing the
+        read-write feedback loop.
+
+        Args:
+            debate_id: Unique identifier for the debate.
+            debate_result: The debate result object.
+            task: The debate task/question.
+        """
+        if not self._knowledge_mound:
+            return False
+
+        try:
+            from aragora.core import Environment
+            from aragora.debate.knowledge_mound_ops import KnowledgeMoundOperations
+
+            ops = KnowledgeMoundOperations(
+                knowledge_mound=self._knowledge_mound,
+                enable_ingestion=True,
+            )
+            env = Environment(task=task) if task else None
+            self._run_async_callable(ops.ingest_debate_outcome, debate_result, env=env)
+            logger.info(
+                "post_debate_outcome_ingested debate_id=%s",
+                debate_id,
+            )
+            return True
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
+            logger.warning(
+                "post_debate_outcome_ingestion_failed debate_id=%s error=%s",
+                debate_id,
+                type(e).__name__,
+            )
+            return False
 
     def _step_persist_signed_receipt(
         self,
@@ -1872,6 +1928,7 @@ DEFAULT_POST_DEBATE_CONFIG = PostDebateConfig(
     auto_push_calibration=True,
     auto_queue_improvement=True,
     auto_outcome_feedback=True,
+    auto_ingest_outcome=True,
 )
 
 

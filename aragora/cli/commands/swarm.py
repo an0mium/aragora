@@ -553,12 +553,24 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     if action == "boss-loop":
         from aragora.swarm.boss_loop import BossLoop, BossLoopConfig
 
+        # Merge --label (repeatable) with legacy --boss-label-filter (single string).
+        cli_labels: list[str] = list(getattr(args, "labels", None) or [])
+        legacy_label = getattr(args, "boss_label_filter", None)
+        if legacy_label and legacy_label not in cli_labels:
+            cli_labels.insert(0, legacy_label)
+
+        # Use the first label for gh CLI pre-filtering (server-side), and the
+        # full set as require_labels for Python-side ALL-match filtering.
+        label_filter = cli_labels[0] if cli_labels else None
+        require_labels = set(cli_labels) if cli_labels else None
+
         boss_loop_config = BossLoopConfig(
             max_iterations=int(getattr(args, "max_ticks", None) or 50),
             iteration_interval_seconds=float(getattr(args, "interval_seconds", 30.0) or 30.0),
             freshness_ttl_seconds=float(getattr(args, "freshness_ttl", 3600.0) or 3600.0),
             repo=getattr(args, "boss_repo", None),
-            label_filter=getattr(args, "boss_label_filter", None),
+            label_filter=label_filter,
+            require_labels=require_labels,
             issue_number=getattr(args, "boss_issue_number", None),
             target_branch=target_branch,
             budget_limit_usd=budget_limit,

@@ -1,0 +1,126 @@
+# Tranche Queue Source Manifest — Workbench + Integrator Slices
+# Compile: aragora swarm tranche compile-queue --sources .work_queue/queue_sources.yaml --output .work_queue/queue.yaml
+# Run:     aragora swarm tranche run-queue --queue .work_queue/queue.yaml --max-parallel 2
+#
+# Target issues (canonical execution order):
+#   #843  - Build integrator view for active swarm lanes       (team-platform)
+#   #993  - Productize unified local-first DAG workbench       (team-core)
+#   #994  - Interactive stage transitions ideas->goals->specs  (team-core)
+#   #817  - Consolidate inbox/shared inbox onto trust wedge    (team-integrations)
+#   #818  - Turn public demo into live proof surface           (team-integrations)
+
+manifest_version: 1
+queue_id: workbench-integrator-v1-20260323
+
+sources:
+  - id: integrator-swarm-lanes
+    kind: issue
+    mode: execute
+    source: https://github.com/synaptent/aragora/issues/843
+    merge_class: manual
+    priority: 10
+    max_lanes: 1
+    objective: >-
+      Build the integrator view for active swarm lanes so one canonical authority
+      can see task state, lease liveness, collisions, receipts, and merge readiness.
+      Surface active tasks, owners, worktrees, branches, lease health, and PR linkage.
+      Highlight collisions, stale heartbeats, superseded lanes, and missing receipts.
+    allowed_write_scope:
+      - aragora/swarm/reporter.py
+      - aragora/swarm/integrator_view.py
+      - aragora/cli/commands/swarm.py
+      - aragora/server/handlers/swarm/**
+      - tests/swarm/test_integrator_view.py
+      - tests/swarm/test_reporter.py
+    verification_commands:
+      - python3 -m pytest tests/swarm/ -q --tb=short
+
+  - id: dag-workbench-productize
+    kind: issue
+    mode: execute
+    source: https://github.com/synaptent/aragora/issues/993
+    merge_class: manual
+    priority: 20
+    max_lanes: 1
+    objective: >-
+      Productize the unified local-first DAG workbench so ideas, goals, actions,
+      orchestration, review, repair, and provenance can be viewed and edited as one
+      coherent flow. Unify existing ideas/goals/pipeline surfaces into a single
+      navigable workbench. Show live orchestration, review, repair, and merge-gate
+      state on the same DAG. Keep local-first: low-latency editing, local persistence.
+    allowed_write_scope:
+      - aragora/canvas/**
+      - aragora/pipeline/**
+      - aragora/ideacloud/**
+      - aragora/goals/**
+      - docs-site/src/**
+      - tests/canvas/**
+      - tests/pipeline/**
+    verification_commands:
+      - python3 -m pytest tests/canvas/ tests/pipeline/ -q --tb=short
+
+  - id: stage-transitions-interactive
+    kind: issue
+    mode: execute
+    source: https://github.com/synaptent/aragora/issues/994
+    merge_class: manual
+    priority: 30
+    max_lanes: 1
+    objective: >-
+      Build the interactive transition system that upgrades vague ideas into
+      goal/principle DAGs and then into executable task/spec DAGs through structured
+      questioning, inline editing, and provenance-preserving approvals. Each
+      transition stores provenance links, confidence, and approval status. Approved
+      action/spec nodes can be submitted directly to swarm execution.
+    allowed_write_scope:
+      - aragora/canvas/**
+      - aragora/pipeline/**
+      - aragora/goals/**
+      - aragora/interrogation/**
+      - docs-site/src/**
+      - tests/canvas/**
+      - tests/pipeline/**
+    verification_commands:
+      - python3 -m pytest tests/canvas/ tests/pipeline/ -q --tb=short
+
+  - id: inbox-trust-wedge-consolidation
+    kind: issue
+    mode: execute
+    source: https://github.com/synaptent/aragora/issues/817
+    merge_class: manual
+    priority: 40
+    max_lanes: 1
+    objective: >-
+      Consolidate inbox and shared inbox onto the trust-wedge backend. Move /inbox
+      and /shared-inbox to the unified inbox / trust-wedge path. Remove or implement
+      advertised routes that currently do not dispatch. Eliminate silent mock-success
+      account connection behavior. Receipt-backed review/approve/execute remains the
+      canonical action model.
+    allowed_write_scope:
+      - aragora/inbox/**
+      - aragora/server/handlers/inbox/**
+      - docs-site/src/**
+      - tests/inbox/**
+    verification_commands:
+      - python3 -m pytest tests/inbox/ -q --tb=short
+
+  - id: demo-live-proof-surface
+    kind: issue
+    mode: execute
+    source: https://github.com/synaptent/aragora/issues/818
+    merge_class: manual
+    priority: 50
+    max_lanes: 1
+    objective: >-
+      Turn the public demo into a live proof surface and keep /try as the primary
+      beta funnel. Replace canned replay behavior on /demo with the real
+      demo/playground backend. Preserve rate limiting, persistence, and replay/share
+      flows that already exist in /try. The public product story differentiates
+      clearly between live demo, beta try flow, and canned examples.
+    allowed_write_scope:
+      - aragora/server/handlers/demo/**
+      - aragora/server/handlers/playground/**
+      - docs-site/src/**
+      - tests/server/handlers/test_demo*.py
+    verification_commands:
+      - python3 -m pytest tests/server/ -k demo -q --tb=short

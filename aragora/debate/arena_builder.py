@@ -198,6 +198,7 @@ class ArenaBuilder:
         self._trending_topic: TrendingTopic | None = None
         self._consensus_memory: Any = None
         self._tier_analytics_tracker: Any = None
+        self._knowledge_mound: Any | None = None
         self._enable_knowledge_retrieval: bool | None = None
         self._enable_knowledge_ingestion: bool | None = None
         self._enable_cross_debate_memory: bool | None = None
@@ -244,6 +245,9 @@ class ArenaBuilder:
         self._agent_selector: Any = None
         self._use_performance_selection: bool = False
         self._enable_position_ledger: bool = False
+
+        # Provider routing hints (from ProviderRouter)
+        self._provider_hints: dict[str, float] | None = None
 
         # Extensions: Billing
         self._org_id: str = ""
@@ -423,6 +427,18 @@ class ArenaBuilder:
             self._supermemory_max_context_items = supermemory_max_context_items
         if enable_belief_guidance is not None:
             self._enable_belief_guidance = enable_belief_guidance
+        return self
+
+    def with_knowledge_mound(self, knowledge_mound: Any) -> ArenaBuilder:
+        """Set the Knowledge Mound instance for debate context enrichment.
+
+        When provided, the Arena will use this KM for retrieving relevant
+        organizational knowledge during debates and ingesting outcomes afterward.
+
+        Args:
+            knowledge_mound: A KnowledgeMound instance (or compatible object)
+        """
+        self._knowledge_mound = knowledge_mound
         return self
 
     def with_feature_flags(
@@ -789,6 +805,17 @@ class ArenaBuilder:
             enabled: Auto-create PositionLedger if not provided
         """
         self._enable_position_ledger = enabled
+        return self
+
+    def with_provider_hints(self, hints: dict[str, float]) -> ArenaBuilder:
+        """Set provider routing hints from ProviderRouter.
+
+        Args:
+            hints: Mapping of provider/model name to quality score (0-1).
+                Passed through to ArenaConfig and used by TeamSelector
+                during agent selection to bias toward higher-quality providers.
+        """
+        self._provider_hints = hints
         return self
 
     # =========================================================================
@@ -1196,6 +1223,8 @@ class ArenaBuilder:
             "mode_sequence": self._mode_sequence,
         }
 
+        if self._knowledge_mound is not None:
+            arena_kwargs["knowledge_mound"] = self._knowledge_mound
         if self._enable_knowledge_retrieval is not None:
             arena_kwargs["enable_knowledge_retrieval"] = self._enable_knowledge_retrieval
         if self._enable_knowledge_ingestion is not None:
@@ -1219,7 +1248,13 @@ class ArenaBuilder:
         if self._enable_auto_execution is not None:
             arena_kwargs["enable_auto_execution"] = self._enable_auto_execution
 
-        return Arena(**arena_kwargs)
+        arena = Arena(**arena_kwargs)
+
+        # Set provider routing hints on the arena (used by team selection)
+        if self._provider_hints is not None:
+            arena._provider_hints = self._provider_hints  # type: ignore[attr-defined]
+
+        return arena
 
 
 # Convenience function for minimal Arena creation

@@ -412,6 +412,28 @@ async def initialize_debate_context(
                     ctx.result.metadata = {}
                 ctx.result.metadata["selection_reasoning"] = reasoning
 
+    # Apply ProviderRouter hints to agent ranking via TeamSelector
+    provider_hints = getattr(arena, "_provider_hints", None)
+    if provider_hints:
+        selector = getattr(arena, "agent_selector", None)
+        if selector is not None and hasattr(selector, "select"):
+            try:
+                ranked = selector.select(
+                    arena.agents,
+                    domain=domain,
+                    task=arena.env.task,
+                    provider_hints=provider_hints,
+                )
+                if ranked:
+                    arena.agents = ranked
+                    ctx.agents = ranked
+                    logger.debug(
+                        "ProviderRouter hints applied: ranked %d agents",
+                        len(ranked),
+                    )
+            except (ValueError, TypeError, AttributeError, RuntimeError) as e:
+                logger.warning("Provider hint ranking failed, using original order: %s", e)
+
     # Assign hierarchy roles to agents (Gastown pattern)
     arena._assign_hierarchy_roles(ctx, task_type=domain)
 
@@ -1188,6 +1210,7 @@ async def handle_debate_completion(
             coordinator = PostDebateCoordinator(
                 config=effective_config,
                 settlement_tracker=settlement_tracker,
+                knowledge_mound=getattr(arena, "knowledge_mound", None),
             )
             task = getattr(ctx.env, "task", "") if ctx.env else ""
             confidence = getattr(ctx.result, "confidence", 0.0)

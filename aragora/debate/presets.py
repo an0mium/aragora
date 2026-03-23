@@ -45,12 +45,13 @@ _PRESETS: dict[str, dict[str, Any]] = {
         "enable_position_ledger": True,
         # Compliance
         "enable_compliance_artifacts": True,
-        # Post-debate pipeline (explanation + receipt persistence + gauntlet)
+        # Post-debate pipeline (explanation + receipt persistence + gauntlet + KM ingestion)
         "_post_debate_preset": {
             "auto_explain": True,
             "auto_persist_receipt": True,
             "auto_gauntlet_validate": True,
             "auto_push_calibration": True,
+            "auto_ingest_outcome": True,
         },
     },
     "enterprise": {
@@ -87,6 +88,7 @@ _PRESETS: dict[str, dict[str, Any]] = {
             "auto_gauntlet_validate": True,
             "auto_queue_improvement": True,
             "auto_push_calibration": True,
+            "auto_ingest_outcome": True,
         },
     },
     "minimal": {

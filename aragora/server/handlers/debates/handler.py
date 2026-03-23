@@ -187,6 +187,10 @@ class DebatesHandler(
         if normalized.startswith("/api/debates/export/batch"):
             return self._handle_batch_export(normalized, query_params, handler)
 
+        # Active (in-progress) debates
+        if normalized == "/api/debates/active":
+            return self._get_active_debates()
+
         # Exact path matches - list debates
         if normalized in ("/api/debates", "/api/debates/"):
             limit = min(get_int_param(query_params, "limit", 20), 100)

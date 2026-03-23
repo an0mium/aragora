@@ -91,6 +91,7 @@ class DebateControllerMixin:
                 stream_emitter=self.stream_emitter,
                 document_store=getattr(self, "ctx", {}).get("document_store"),
                 evidence_store=getattr(self, "ctx", {}).get("evidence_store"),
+                knowledge_mound=getattr(self, "knowledge_mound", None),
             )
             cls._debate_factory = factory
 

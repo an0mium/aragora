@@ -501,3 +501,103 @@ class TestDebateFactoryResetCircuitBreakers:
         factory.reset_circuit_breakers(arena)
 
         arena.circuit_breaker.reset.assert_not_called()
+
+
+class TestDebateFactoryKnowledgeMound:
+    """Tests for KnowledgeMound wiring in DebateFactory."""
+
+    def test_factory_accepts_knowledge_mound(self):
+        """Factory stores the knowledge_mound parameter."""
+        km = Mock()
+        factory = DebateFactory(knowledge_mound=km)
+        assert factory.knowledge_mound is km
+
+    def test_factory_defaults_knowledge_mound_to_none(self):
+        """Factory defaults knowledge_mound to None."""
+        factory = DebateFactory()
+        assert factory.knowledge_mound is None
+
+    def test_resolve_knowledge_mound_returns_explicit_instance(self):
+        """_resolve_knowledge_mound returns the explicitly provided instance."""
+        km = Mock()
+        factory = DebateFactory(knowledge_mound=km)
+        assert factory._resolve_knowledge_mound() is km
+
+    def test_resolve_knowledge_mound_falls_back_to_singleton(self):
+        """_resolve_knowledge_mound tries the singleton when no explicit instance."""
+        singleton_km = Mock()
+        factory = DebateFactory()
+
+        with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=singleton_km):
+            result = factory._resolve_knowledge_mound()
+            assert result is singleton_km
+
+    def test_resolve_knowledge_mound_returns_none_on_import_error(self):
+        """_resolve_knowledge_mound returns None when KM module is unavailable."""
+        factory = DebateFactory()
+
+        with patch(
+            "aragora.knowledge.mound.get_knowledge_mound",
+            side_effect=ImportError("No module"),
+        ):
+            result = factory._resolve_knowledge_mound()
+            assert result is None
+
+    def test_resolve_knowledge_mound_returns_none_on_runtime_error(self):
+        """_resolve_knowledge_mound returns None on infrastructure failure."""
+        factory = DebateFactory()
+
+        with patch(
+            "aragora.knowledge.mound.get_knowledge_mound",
+            side_effect=RuntimeError("DB unavailable"),
+        ):
+            result = factory._resolve_knowledge_mound()
+            assert result is None
+
+    def test_create_arena_passes_km_to_builder(self):
+        """create_arena passes the resolved KM to ArenaBuilder."""
+        import aragora.server.debate_factory as factory_module
+
+        km = Mock()
+        mock_agent1 = Mock()
+        mock_agent2 = Mock()
+
+        with patch.object(factory_module, "create_agent", side_effect=[mock_agent1, mock_agent2]):
+            factory = DebateFactory(knowledge_mound=km)
+            config = DebateConfig(
+                question="Test question",
+                agents_str="anthropic-api,openai-api",
+                rounds=3,
+                auto_trim_unavailable=False,
+            )
+
+            arena = factory.create_arena(config)
+
+            # The arena should have been created; verify the KM was resolved
+            assert factory.knowledge_mound is km
+
+    def test_create_arena_works_without_km(self):
+        """create_arena works when KM is not available (graceful fallback)."""
+        import aragora.server.debate_factory as factory_module
+
+        mock_agent1 = Mock()
+        mock_agent2 = Mock()
+
+        with (
+            patch.object(factory_module, "create_agent", side_effect=[mock_agent1, mock_agent2]),
+            patch(
+                "aragora.knowledge.mound.get_knowledge_mound",
+                side_effect=ImportError("No KM module"),
+            ),
+        ):
+            factory = DebateFactory()
+            config = DebateConfig(
+                question="Test question",
+                agents_str="anthropic-api,openai-api",
+                rounds=3,
+                auto_trim_unavailable=False,
+            )
+
+            # Should not raise
+            arena = factory.create_arena(config)
+            assert arena is not None

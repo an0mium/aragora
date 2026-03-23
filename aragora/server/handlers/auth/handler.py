@@ -13,6 +13,9 @@ Endpoints:
 - POST /api/auth/password - Change password
 - POST /api/auth/api-key - Generate API key
 - DELETE /api/auth/api-key - Revoke API key
+- GET /api/v1/api-keys - List API keys (alias)
+- POST /api/v1/api-keys - Generate API key (alias)
+- DELETE /api/v1/api-keys/:prefix - Revoke API key by prefix (alias)
 - GET /api/auth/sessions - List active sessions for current user
 - DELETE /api/auth/sessions/:id - Revoke a specific session
 """
@@ -172,6 +175,9 @@ class AuthHandler(SecureHandler):
         # SDK aliases for API key management
         "/api/keys",
         "/api/keys/*",
+        # Versioned alias: /api/v1/api-keys -> /api/api-keys (after strip_version_prefix)
+        "/api/api-keys",
+        "/api/api-keys/*",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -186,6 +192,9 @@ class AuthHandler(SecureHandler):
             return True
         # SDK alias: /api/keys/* -> /api/auth/api-keys/*
         if normalized.startswith("/api/keys/"):
+            return True
+        # Versioned alias: /api/api-keys/* -> /api/auth/api-keys/*
+        if normalized.startswith("/api/api-keys"):
             return True
         return False
 
@@ -208,6 +217,12 @@ class AuthHandler(SecureHandler):
             path = "/api/auth/api-keys"
         elif path.startswith("/api/keys/"):
             path = "/api/auth/api-keys/" + path[len("/api/keys/") :]
+
+        # Normalize versioned alias: /api/api-keys -> /api/auth/api-keys
+        if path == "/api/api-keys":
+            path = "/api/auth/api-keys"
+        elif path.startswith("/api/api-keys/"):
+            path = "/api/auth/api-keys/" + path[len("/api/api-keys/") :]
 
         # Determine HTTP method from handler
         method = method or (getattr(handler, "command", "GET") if handler else "GET")

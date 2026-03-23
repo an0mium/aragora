@@ -814,6 +814,213 @@ class TestApiKeyErrorHandling:
         assert result.status_code == 503
 
 
+# ============================================================================
+# Test: Route Aliases (/api/v1/api-keys -> /api/auth/api-keys)
+# ============================================================================
+
+
+class TestApiKeyRouteAliases:
+    """Tests for /api/v1/api-keys route alias support."""
+
+    def test_can_handle_versioned_api_keys_path(self):
+        """Test that AuthHandler.can_handle accepts /api/v1/api-keys."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        auth_handler = AuthHandler(server_context={})
+        assert auth_handler.can_handle("/api/v1/api-keys") is True
+
+    def test_can_handle_versioned_api_keys_prefix_path(self):
+        """Test that AuthHandler.can_handle accepts /api/v1/api-keys/<prefix>."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        auth_handler = AuthHandler(server_context={})
+        assert auth_handler.can_handle("/api/v1/api-keys/ara_abcd1234") is True
+
+    def test_versioned_api_keys_list_routes_correctly(
+        self, mock_handler_instance, mock_http_handler, mock_user_with_key, mock_user_store
+    ):
+        """Test that GET /api/v1/api-keys returns the key list."""
+        from aragora.server.handlers.auth.api_keys import handle_list_api_keys
+
+        mock_user_store.get_user_by_id.return_value = mock_user_with_key
+
+        http = mock_http_handler(method="GET")
+
+        with patch(
+            "aragora.server.handlers.auth.api_keys.extract_user_from_request"
+        ) as mock_extract:
+            mock_ctx = MagicMock()
+            mock_ctx.user_id = mock_user_with_key.id
+            mock_extract.return_value = mock_ctx
+
+            result = handle_list_api_keys(mock_handler_instance, http)
+
+        assert result.status_code == 200
+        body = parse_handler_response(result)
+        assert "keys" in body
+        assert body["count"] >= 1
+
+    def test_can_handle_non_versioned_api_keys_path(self):
+        """Test that AuthHandler.can_handle accepts /api/api-keys."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        auth_handler = AuthHandler(server_context={})
+        assert auth_handler.can_handle("/api/api-keys") is True
+
+
+# ============================================================================
+# Test: Name Field Support
+# ============================================================================
+
+
+class TestApiKeyNameField:
+    """Tests for API key name field in create and list responses."""
+
+    def test_generate_api_key_with_name(
+        self, mock_handler_instance, mock_http_handler, mock_user, mock_user_store
+    ):
+        """Test that name is included in generate response."""
+        from aragora.server.handlers.auth.api_keys import handle_generate_api_key
+
+        # Mock read_json_body to return body with name
+        mock_handler_instance.read_json_body.return_value = {"name": "My Test Key"}
+
+        http = mock_http_handler(method="POST")
+
+        with patch(
+            "aragora.server.handlers.auth.api_keys.extract_user_from_request"
+        ) as mock_extract:
+            mock_ctx = MagicMock()
+            mock_ctx.user_id = mock_user.id
+            mock_extract.return_value = mock_ctx
+
+            result = handle_generate_api_key(mock_handler_instance, http)
+
+        assert result.status_code == 200
+        body = parse_handler_response(result)
+        assert body["name"] == "My Test Key"
+
+    def test_generate_api_key_default_name(
+        self, mock_handler_instance, mock_http_handler, mock_user, mock_user_store
+    ):
+        """Test that default name is used when none provided."""
+        from aragora.server.handlers.auth.api_keys import handle_generate_api_key
+
+        # Mock read_json_body to return empty body
+        mock_handler_instance.read_json_body.return_value = {}
+
+        http = mock_http_handler(method="POST")
+
+        with patch(
+            "aragora.server.handlers.auth.api_keys.extract_user_from_request"
+        ) as mock_extract:
+            mock_ctx = MagicMock()
+            mock_ctx.user_id = mock_user.id
+            mock_extract.return_value = mock_ctx
+
+            result = handle_generate_api_key(mock_handler_instance, http)
+
+        assert result.status_code == 200
+        body = parse_handler_response(result)
+        assert body["name"] == "Active key"
+
+    def test_generate_api_key_persists_name(
+        self, mock_handler_instance, mock_http_handler, mock_user, mock_user_store
+    ):
+        """Test that name is persisted via update_user."""
+        from aragora.server.handlers.auth.api_keys import handle_generate_api_key
+
+        mock_handler_instance.read_json_body.return_value = {"name": "Production Key"}
+
+        http = mock_http_handler(method="POST")
+
+        with patch(
+            "aragora.server.handlers.auth.api_keys.extract_user_from_request"
+        ) as mock_extract:
+            mock_ctx = MagicMock()
+            mock_ctx.user_id = mock_user.id
+            mock_extract.return_value = mock_ctx
+
+            handle_generate_api_key(mock_handler_instance, http)
+
+        mock_user_store.update_user.assert_called_once()
+        call_kwargs = mock_user_store.update_user.call_args[1]
+        assert call_kwargs.get("api_key_name") == "Production Key"
+
+    def test_list_api_keys_includes_name(
+        self, mock_handler_instance, mock_http_handler, mock_user_with_key, mock_user_store
+    ):
+        """Test that list response includes name field."""
+        from aragora.server.handlers.auth.api_keys import handle_list_api_keys
+
+        mock_user_with_key.api_key_name = "My Key"
+        mock_user_store.get_user_by_id.return_value = mock_user_with_key
+
+        http = mock_http_handler(method="GET")
+
+        with patch(
+            "aragora.server.handlers.auth.api_keys.extract_user_from_request"
+        ) as mock_extract:
+            mock_ctx = MagicMock()
+            mock_ctx.user_id = mock_user_with_key.id
+            mock_extract.return_value = mock_ctx
+
+            result = handle_list_api_keys(mock_handler_instance, http)
+
+        body = parse_handler_response(result)
+        key_info = body["keys"][0]
+        assert key_info["name"] == "My Key"
+
+    def test_list_api_keys_default_name_when_not_set(
+        self, mock_handler_instance, mock_http_handler, mock_user_with_key, mock_user_store
+    ):
+        """Test that list returns default name when user has no api_key_name attribute."""
+        from aragora.server.handlers.auth.api_keys import handle_list_api_keys
+
+        # Simulate user without api_key_name attribute
+        if hasattr(mock_user_with_key, "api_key_name"):
+            delattr(mock_user_with_key, "api_key_name")
+        mock_user_store.get_user_by_id.return_value = mock_user_with_key
+
+        http = mock_http_handler(method="GET")
+
+        with patch(
+            "aragora.server.handlers.auth.api_keys.extract_user_from_request"
+        ) as mock_extract:
+            mock_ctx = MagicMock()
+            mock_ctx.user_id = mock_user_with_key.id
+            mock_extract.return_value = mock_ctx
+
+            result = handle_list_api_keys(mock_handler_instance, http)
+
+        body = parse_handler_response(result)
+        key_info = body["keys"][0]
+        assert key_info["name"] == "Active key"
+
+    def test_generate_api_key_includes_created_at(
+        self, mock_handler_instance, mock_http_handler, mock_user, mock_user_store
+    ):
+        """Test that generate response includes created_at timestamp."""
+        from aragora.server.handlers.auth.api_keys import handle_generate_api_key
+
+        mock_handler_instance.read_json_body.return_value = {}
+
+        http = mock_http_handler(method="POST")
+
+        with patch(
+            "aragora.server.handlers.auth.api_keys.extract_user_from_request"
+        ) as mock_extract:
+            mock_ctx = MagicMock()
+            mock_ctx.user_id = mock_user.id
+            mock_extract.return_value = mock_ctx
+
+            result = handle_generate_api_key(mock_handler_instance, http)
+
+        body = parse_handler_response(result)
+        assert "created_at" in body
+        assert body["created_at"] is not None
+
+
 __all__ = [
     "TestGenerateApiKey",
     "TestRevokeApiKey",
@@ -821,4 +1028,6 @@ __all__ = [
     "TestRevokeApiKeyByPrefix",
     "TestApiKeySecurityProperties",
     "TestApiKeyErrorHandling",
+    "TestApiKeyRouteAliases",
+    "TestApiKeyNameField",
 ]
