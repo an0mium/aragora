@@ -79,7 +79,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,test]"
+          bash scripts/ci_install_project.sh --extras dev,test
 
       - name: Guard secrets
         id: guard
@@ -107,7 +107,7 @@ jobs:
           if [ -z "$MAX_ITERATIONS" ]; then
             MAX_ITERATIONS="$DEFAULT_MAX_ITERATIONS"
           fi
-          aragora testfixer . \
+          python -m aragora testfixer . \
             --test-command "$TEST_COMMAND" \
             --agents "$AGENTS" \
             --max-iterations "$MAX_ITERATIONS" \
