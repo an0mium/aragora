@@ -63,7 +63,7 @@ async def create_code_task(
         },
     )
 
-    ctx = WorkflowContext(workflow_id="openclaw-dispatch")
+    ctx = WorkflowContext(workflow_id="openclaw-dispatch", definition_id="openclaw")
     return await task.execute(ctx)
 
 
@@ -102,21 +102,9 @@ async def dispatch_implementation(
 
     # Step 1: Extract implementation spec from debate result
     try:
-        from aragora.pipeline.spec_extractor import SpecExtractor
+        from aragora.pipeline.spec_extractor import extract_implementation_spec
 
-        extractor = SpecExtractor()
-        final_answer = (
-            getattr(debate_result, "final_answer", None)
-            or (debate_result.get("final_answer") if isinstance(debate_result, dict) else None)
-            or ""
-        )
-        task = (
-            getattr(debate_result, "task", None)
-            or (debate_result.get("task") if isinstance(debate_result, dict) else None)
-            or ""
-        )
-
-        spec = extractor.extract(final_answer, task=task)
+        spec = extract_implementation_spec(debate_result)
         result["spec"] = {
             "implementation_prompt": getattr(spec, "implementation_prompt", str(spec)),
             "files_to_modify": getattr(spec, "files_to_modify", []),
