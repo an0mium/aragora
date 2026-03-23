@@ -832,6 +832,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         )
         from aragora.swarm.tranche_queue import (
             compile_tranche_queue,
+            harvest_tranche_queue,
             reconcile_tranche_queue,
             run_tranche_queue,
         )
@@ -907,7 +908,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             else:
                 print(json.dumps(payload, indent=2))
             return
-        if subaction in {"run-queue", "reconcile-queue"}:
+        if subaction in {"run-queue", "reconcile-queue", "harvest-queue"}:
             queue_arg = str(getattr(args, "queue", "") or "").strip()
             if not queue_arg:
                 raise ValueError(f"tranche {subaction} requires --queue <path>")
@@ -935,6 +936,13 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                             getattr(args, "allow_same_model_review", False)
                         ),
                     )
+                )
+            elif subaction == "harvest-queue":
+                payload = harvest_tranche_queue(
+                    queue_path=queue_path,
+                    repo_root=repo_root,
+                    execute_merge=bool(getattr(args, "execute_merge", False)),
+                    allow_admin=bool(getattr(args, "allow_admin", False)),
                 )
             else:
                 payload = reconcile_tranche_queue(
@@ -1355,7 +1363,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             )
         else:
             raise ValueError(
-                "tranche action must be one of: submit, plan, inspect, watch, list, design-review, review, integrate, prepare, run, compile-queue, run-queue, reconcile-queue"
+                "tranche action must be one of: submit, plan, inspect, watch, list, design-review, review, integrate, prepare, run, compile-queue, run-queue, reconcile-queue, harvest-queue"
             )
         payload["action"] = subaction
         payload["manifest_path"] = str(manifest_path)

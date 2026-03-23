@@ -2008,3 +2008,98 @@ def reconcile_tranche_queue(
         repo_root=repo_root,
     )
     return executor.reconcile()
+
+
+def harvest_tranche_queue(
+    *,
+    queue_path: str | Path,
+    repo_root: str | Path,
+    execute_merge: bool = False,
+    allow_admin: bool = False,
+) -> dict[str, Any]:
+    resolved_queue_path = Path(queue_path).resolve()
+    resolved_repo_root = Path(repo_root).resolve()
+    reconciled = reconcile_tranche_queue(
+        queue_path=resolved_queue_path, repo_root=resolved_repo_root
+    )
+    manifest = TrancheQueueManifest.load(resolved_queue_path)
+    state_path = queue_state_path_for_queue(resolved_queue_path)
+    state = TrancheQueueRunState.load(state_path, manifest=manifest)
+    github = GitHubControl(repo_root=resolved_repo_root)
+
+    pr_counts: dict[str, int] = {}
+    executed_merges: list[dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
+
+    for item in manifest.items:
+        item_state = state.item_states[item.item_id]
+        pr_records: list[dict[str, Any]] = []
+        for pr_url in item_state.pr_urls:
+            normalized_pr_url = str(pr_url or "").strip()
+            if not normalized_pr_url:
+                continue
+            try:
+                snapshot = github.fetch_gate_snapshot(normalized_pr_url)
+                pr_record = snapshot.to_dict()
+                pr_record["snapshot_disposition"] = snapshot.disposition
+                disposition = snapshot.disposition
+                if execute_merge and snapshot.disposition == "merge_now":
+                    merge_result = github.merge_pr(
+                        normalized_pr_url,
+                        required_checks_green=snapshot.required_checks_green,
+                        allow_admin=allow_admin,
+                    )
+                    pr_record["merge_result"] = merge_result.to_dict()
+                    disposition = "merged" if merge_result.merged else "merge_failed"
+                    pr_record["disposition"] = disposition
+                    if merge_result.merged:
+                        executed_merges.append(
+                            {
+                                "item_id": item.item_id,
+                                "pr_url": normalized_pr_url,
+                                "branch": snapshot.head_branch,
+                                "action": merge_result.action,
+                                "used_admin": merge_result.used_admin,
+                            }
+                        )
+                pr_counts[disposition] = pr_counts.get(disposition, 0) + 1
+            except Exception as exc:
+                pr_record = {
+                    "pr_url": normalized_pr_url,
+                    "disposition": "error",
+                    "error_type": type(exc).__name__,
+                    "detail": str(exc).strip() or type(exc).__name__,
+                }
+                pr_counts["error"] = pr_counts.get("error", 0) + 1
+            pr_records.append(pr_record)
+
+        items.append(
+            {
+                "item_id": item.item_id,
+                "kind": item.kind,
+                "source": item.source,
+                "status": item_state.status,
+                "merge_class": item.merge_class,
+                "tranche_status": item_state.tranche_status,
+                "pr_urls": list(item_state.pr_urls),
+                "findings": list(item_state.findings),
+                "stop_reason": item_state.stop_reason,
+                "prs": pr_records,
+            }
+        )
+
+    return {
+        "mode": "tranche-queue-harvest",
+        "queue_id": manifest.queue_id,
+        "queue_path": str(resolved_queue_path),
+        "state_path": str(state_path),
+        "status": state.status,
+        "stop_reason": state.stop_reason,
+        "current_item_id": state.current_item_id,
+        "counts": dict(reconciled.get("counts") or {}),
+        "pr_counts": pr_counts,
+        "execute_merge": bool(execute_merge),
+        "allow_admin": bool(allow_admin),
+        "executed_merges": executed_merges,
+        "items": items,
+    }

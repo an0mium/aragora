@@ -2468,7 +2468,17 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "--queue",
         default=None,
-        help="Queue manifest path for 'swarm tranche run-queue' and 'reconcile-queue'",
+        help="Queue manifest path for 'swarm tranche run-queue', 'reconcile-queue', and 'harvest-queue'",
+    )
+    swarm_parser.add_argument(
+        "--execute-merge",
+        action="store_true",
+        help="For 'swarm tranche harvest-queue', execute merges for PRs whose GitHub gate disposition is merge_now",
+    )
+    swarm_parser.add_argument(
+        "--allow-admin",
+        action="store_true",
+        help="Allow admin merge fallback for eligible harvest-queue merges when GitHub reports a policy/admin override candidate",
     )
     swarm_parser.add_argument(
         "--sources",

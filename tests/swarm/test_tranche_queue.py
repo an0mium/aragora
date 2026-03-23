@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from aragora.swarm.tranche_queue import (
+    QUEUE_STATUS_PENDING,
     QUEUE_ITEM_STATUS_COMPLETED,
     QUEUE_ITEM_STATUS_NEEDS_HUMAN,
     QUEUE_ITEM_STATUS_PENDING,
@@ -21,6 +22,7 @@ from aragora.swarm.tranche_queue import (
     TrancheQueueManifest,
     TrancheQueueRunState,
     compile_tranche_queue,
+    harvest_tranche_queue,
     _queue_merge_policy,
     _resolve_queue_autonomy_mode,
     queue_state_path_for_queue,
@@ -90,6 +92,115 @@ sources:
     bundle = bundle_path.read_text(encoding="utf-8")
     assert "Ship the roadmap tranche work." in bundle
     assert "merge_policy: manual" in bundle
+
+
+def test_harvest_queue_executes_merge_for_merge_now_pr(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    manifest = TrancheQueueManifest.from_dict(
+        {
+            "queue_id": "overnight",
+            "items": [
+                {
+                    "id": "issue-1046",
+                    "kind": "issue",
+                    "source": "1046",
+                    "merge_class": "manual",
+                }
+            ],
+        }
+    )
+    queue_path.write_text(manifest.to_yaml(), encoding="utf-8")
+
+    state = TrancheQueueRunState(queue_id="overnight", status=QUEUE_STATUS_PENDING)
+    state.ensure_manifest(manifest)
+    item_state = state.item_states["issue-1046"]
+    item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
+    item_state.pr_urls = ["https://github.com/org/repo/pull/42"]
+    state.save(queue_state_path_for_queue(queue_path))
+
+    class _FakeSnapshot:
+        disposition = "merge_now"
+        required_checks_green = True
+        head_branch = "codex/example-branch"
+
+        def to_dict(self) -> dict[str, object]:
+            return {
+                "pr_url": "https://github.com/org/repo/pull/42",
+                "state": "OPEN",
+                "draft": False,
+                "head_branch": self.head_branch,
+                "base_branch": "main",
+                "review_decision": "APPROVED",
+                "merge_state_status": "CLEAN",
+                "merge_commit_sha": None,
+                "required_checks": [],
+                "advisory_checks": [],
+                "required_checks_green": True,
+                "required_checks_known": True,
+                "required_checks_source": "ruleset",
+                "disposition": "merge_now",
+                "blocker_detail": None,
+            }
+
+    class _FakeMergeResult:
+        merged = True
+        action = "merge"
+        used_admin = False
+
+        def to_dict(self) -> dict[str, object]:
+            return {
+                "merged": True,
+                "action": "merge",
+                "used_admin": False,
+                "detail": "merged",
+            }
+
+    class _FakeGitHubControl:
+        def __init__(self, *, repo_root: Path) -> None:
+            self.repo_root = repo_root
+
+        def fetch_gate_snapshot(self, pr_ref: str) -> _FakeSnapshot:
+            assert pr_ref == "https://github.com/org/repo/pull/42"
+            return _FakeSnapshot()
+
+        def merge_pr(
+            self,
+            pr_ref: str,
+            *,
+            required_checks_green: bool,
+            allow_admin: bool,
+        ) -> _FakeMergeResult:
+            assert pr_ref == "https://github.com/org/repo/pull/42"
+            assert required_checks_green is True
+            assert allow_admin is True
+            return _FakeMergeResult()
+
+    monkeypatch.setattr("aragora.swarm.tranche_queue.GitHubControl", _FakeGitHubControl)
+
+    payload = harvest_tranche_queue(
+        queue_path=queue_path,
+        repo_root=tmp_path,
+        execute_merge=True,
+        allow_admin=True,
+    )
+
+    assert payload["mode"] == "tranche-queue-harvest"
+    assert payload["queue_id"] == "overnight"
+    assert payload["pr_counts"] == {"merged": 1}
+    assert payload["executed_merges"] == [
+        {
+            "item_id": "issue-1046",
+            "pr_url": "https://github.com/org/repo/pull/42",
+            "branch": "codex/example-branch",
+            "action": "merge",
+            "used_admin": False,
+        }
+    ]
+    assert payload["items"][0]["prs"][0]["snapshot_disposition"] == "merge_now"
+    assert payload["items"][0]["prs"][0]["disposition"] == "merged"
 
 
 def test_compile_queue_records_proposal_for_synthesize_doc_source(tmp_path: Path) -> None:

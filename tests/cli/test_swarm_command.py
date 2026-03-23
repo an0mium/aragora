@@ -61,6 +61,8 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "no_wait": False,
         "manifest": ".aragora/campaign_manifest.yaml",
         "queue": None,
+        "execute_merge": False,
+        "allow_admin": False,
         "intake": None,
         "rounds": 2,
         "all_completed": False,
@@ -399,6 +401,30 @@ class TestSwarmParser:
         assert args.swarm_action_or_goal == "tranche"
         assert args.swarm_goal == "reconcile-queue"
         assert args.queue == "docs/examples/overnight-queue.yaml"
+        assert args.json is True
+
+    def test_swarm_tranche_harvest_queue_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "tranche",
+                "harvest-queue",
+                "--queue",
+                "docs/examples/overnight-queue.yaml",
+                "--execute-merge",
+                "--allow-admin",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "tranche"
+        assert args.swarm_goal == "harvest-queue"
+        assert args.queue == "docs/examples/overnight-queue.yaml"
+        assert args.execute_merge is True
+        assert args.allow_admin is True
         assert args.json is True
 
     def test_swarm_tranche_compile_queue_parser(self):
@@ -906,6 +932,40 @@ class TestSwarmCommand:
         assert '"queue_id": "overnight"' in out
         assert '"action": "compile-queue"' in out
         mock_compile_queue.assert_called_once()
+
+    def test_cmd_swarm_tranche_harvest_queue_json(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="harvest-queue",
+            queue="/tmp/overnight-queue.yaml",
+            execute_merge=True,
+            allow_admin=True,
+            json=True,
+        )
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch("aragora.swarm.tranche_queue.harvest_tranche_queue") as mock_harvest_queue,
+        ):
+            mock_harvest_queue.return_value = {
+                "mode": "tranche-queue-harvest",
+                "queue_id": "overnight",
+                "status": "completed",
+                "pr_counts": {"merge_now": 1},
+                "executed_merges": [],
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"mode": "tranche-queue-harvest"' in out
+        assert '"queue_id": "overnight"' in out
+        assert '"action": "harvest-queue"' in out
+        mock_harvest_queue.assert_called_once_with(
+            queue_path=Path("/tmp/overnight-queue.yaml").resolve(),
+            repo_root=Path("/tmp/repo"),
+            execute_merge=True,
+            allow_admin=True,
+        )
 
     def test_cmd_swarm_tranche_prepare_json(self, capsys):
         args = _swarm_args(
