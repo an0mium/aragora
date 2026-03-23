@@ -1391,7 +1391,7 @@ jobs:
           # Demo Spec
           Build a simple HTTP service that returns "ok" to GET /health.
           EOF
-          if ! aragora gauntlet /tmp/aragora_demo_spec.md \
+          if ! python -m aragora gauntlet /tmp/aragora_demo_spec.md \
             --input-type spec \
             --agents demo,demo \
             --profile quick \
