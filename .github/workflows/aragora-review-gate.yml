@@ -196,6 +196,16 @@ jobs:
           import json
           from pathlib import Path
 
+          def grounded_count(items):
+              count = 0
+              for item in items:
+                  if isinstance(item, dict):
+                      if item.get("grounded", True):
+                          count += 1
+                  else:
+                      count += 1
+              return count
+
           output = Path("/tmp/review-artifacts/review.json")
           data = json.loads(output.read_text())
           critical_findings = data.get("critical_issues")
@@ -204,8 +214,8 @@ jobs:
               raise SystemExit("review artifact missing critical_issues list")
           if not isinstance(high_findings, list):
               raise SystemExit("review artifact missing high_issues list")
-          critical = len(critical_findings)
-          high = len(high_findings)
+          critical = grounded_count(critical_findings)
+          high = grounded_count(high_findings)
           with Path("/tmp/review_counts.env").open("w", encoding="utf-8") as fh:
               fh.write(f"critical={critical}\n")
               fh.write(f"high={high}\n")
