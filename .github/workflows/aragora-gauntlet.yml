@@ -60,7 +60,7 @@ jobs:
       - name: Install Aragora
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .
+          bash scripts/ci_install_project.sh --extras dev
 
       - name: Check API keys
         id: keys
@@ -91,7 +91,7 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           mkdir -p artifacts
-          aragora gauntlet /tmp/pr.diff \
+          python -m aragora gauntlet /tmp/pr.diff \
             --input-type code \
             --profile code \
             --output artifacts/gauntlet_receipt.html
