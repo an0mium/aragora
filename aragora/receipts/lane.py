@@ -18,12 +18,14 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_REQUIRED_FIELDS = frozenset({
-    "task_id",
-    "lease_id",
-    "agent_id",
-    "outcome",
-})
+_REQUIRED_FIELDS = frozenset(
+    {
+        "task_id",
+        "lease_id",
+        "agent_id",
+        "outcome",
+    }
+)
 
 
 @dataclass(slots=True)
@@ -55,9 +57,7 @@ class LaneCompletionReceipt:
 
     # Timing
     duration_seconds: float = 0.0
-    generated_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     # Extensible metadata
     metadata: dict[str, Any] = field(default_factory=dict)

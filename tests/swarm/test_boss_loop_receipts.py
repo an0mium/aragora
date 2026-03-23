@@ -104,39 +104,42 @@ class TestLaneCompletionReceiptSchema:
         assert restored.outcome == receipt.outcome
 
     def test_content_hash_deterministic(self) -> None:
-        r1 = LaneCompletionReceipt(
-            task_id="t1", lease_id="l1", agent_id="a1", outcome="pass"
-        )
+        r1 = LaneCompletionReceipt(task_id="t1", lease_id="l1", agent_id="a1", outcome="pass")
         r2 = LaneCompletionReceipt(
-            task_id="t1", lease_id="l1", agent_id="a1",
-            receipt_id=r1.receipt_id, outcome="pass",
+            task_id="t1",
+            lease_id="l1",
+            agent_id="a1",
+            receipt_id=r1.receipt_id,
+            outcome="pass",
         )
         assert r1.content_hash() == r2.content_hash()
 
     def test_validate_receipt_valid(self) -> None:
-        receipt = LaneCompletionReceipt(
-            task_id="t1", lease_id="l1", agent_id="a1", outcome="pass"
-        )
+        receipt = LaneCompletionReceipt(task_id="t1", lease_id="l1", agent_id="a1", outcome="pass")
         errors = validate_receipt(receipt)
         assert errors == []
 
     def test_validate_receipt_missing_fields(self) -> None:
-        errors = validate_receipt({
-            "task_id": "",
-            "lease_id": None,
-            "agent_id": "a1",
-            "outcome": "pass",
-        })
+        errors = validate_receipt(
+            {
+                "task_id": "",
+                "lease_id": None,
+                "agent_id": "a1",
+                "outcome": "pass",
+            }
+        )
         assert any("task_id" in e for e in errors)
         assert any("lease_id" in e for e in errors)
 
     def test_validate_receipt_invalid_outcome(self) -> None:
-        errors = validate_receipt({
-            "task_id": "t1",
-            "lease_id": "l1",
-            "agent_id": "a1",
-            "outcome": "banana",
-        })
+        errors = validate_receipt(
+            {
+                "task_id": "t1",
+                "lease_id": "l1",
+                "agent_id": "a1",
+                "outcome": "banana",
+            }
+        )
         assert any("invalid outcome" in e for e in errors)
 
     def test_validate_receipt_from_dict(self) -> None:

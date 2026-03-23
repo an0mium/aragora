@@ -75,10 +75,7 @@ class TestRalphOperationalReceipts:
         # Operational receipt + lane receipt both call emit_operational_receipt
         assert emit_receipt.call_count >= 1
         # Find the ralph operational receipt call
-        ralph_calls = [
-            c for c in emit_receipt.call_args_list
-            if c.kwargs.get("source") == "ralph"
-        ]
+        ralph_calls = [c for c in emit_receipt.call_args_list if c.kwargs.get("source") == "ralph"]
         assert len(ralph_calls) == 1
         kwargs = ralph_calls[0].kwargs
         assert kwargs["action"] == "campaign_completed"
@@ -110,8 +107,7 @@ class TestRalphOperationalReceipts:
 
         assert result.status == SupervisorStatus.COMPLETED.value
         lane_calls = [
-            c for c in emit_receipt.call_args_list
-            if c.kwargs.get("source") == "swarm_lane"
+            c for c in emit_receipt.call_args_list if c.kwargs.get("source") == "swarm_lane"
         ]
         assert len(lane_calls) == 1
         kwargs = lane_calls[0].kwargs
@@ -136,10 +132,7 @@ class TestRalphOperationalReceipts:
 
         assert result.status == SupervisorStatus.ESCALATED.value
         assert emit_receipt.call_count >= 1
-        ralph_calls = [
-            c for c in emit_receipt.call_args_list
-            if c.kwargs.get("source") == "ralph"
-        ]
+        ralph_calls = [c for c in emit_receipt.call_args_list if c.kwargs.get("source") == "ralph"]
         assert len(ralph_calls) == 1
         kwargs = ralph_calls[0].kwargs
         assert kwargs["action"] == "escalated"
