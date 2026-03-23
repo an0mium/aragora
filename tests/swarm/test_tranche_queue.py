@@ -902,7 +902,7 @@ async def test_process_item_records_design_review_blocker_when_confirmation_requ
         manifest=manifest,
         item=item,
         item_state=item_state,
-        deadline=datetime.now(UTC) + timedelta(minutes=10),
+        deadline=datetime.now(timezone.utc) + timedelta(minutes=10),
     )
 
     assert result is None
