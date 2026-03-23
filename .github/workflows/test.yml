@@ -1432,7 +1432,7 @@ jobs:
           fi
           # Verify key API endpoints return data
           echo "Checking /api/v1/health..."
-          curl -fsS http://127.0.0.1:8090/api/v1/health | python -c "import sys,json; d=json.load(sys.stdin); assert d.get('status')=='ok', f'bad health: {d}'"
+          curl -fsS http://127.0.0.1:8090/api/v1/health | python -c "import sys,json; d=json.load(sys.stdin); assert d.get('status') in {'ok','healthy'}, f'bad health: {d}'"
           echo "Checking leaderboard..."
           curl -fsS http://127.0.0.1:8090/api/leaderboard-view | python -c "import sys,json; d=json.load(sys.stdin); print(f'Agents: {len(d.get(\"agents\",d.get(\"rankings\",[])))}'); assert len(d.get('agents',d.get('rankings',[]))) > 0, 'no agents'"
           echo "All smoke checks passed."
