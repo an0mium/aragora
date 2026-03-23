@@ -253,6 +253,8 @@ def _active_lease_session_ids(repo_root: Path) -> set[str]:
 
 
 def _count_dirty(worktree_path: Path) -> int:
+    if not worktree_path.exists():
+        return 0
     proc = subprocess.run(
         ["git", "status", "--porcelain"],  # noqa: S607 -- fixed command
         cwd=worktree_path,
@@ -266,6 +268,8 @@ def _count_dirty(worktree_path: Path) -> int:
 
 
 def _ahead_behind(worktree_path: Path, base_branch: str) -> tuple[int | None, int | None]:
+    if not worktree_path.exists():
+        return None, None
     for target in (f"origin/{base_branch}", base_branch):
         proc = subprocess.run(
             ["git", "rev-list", "--left-right", "--count", f"{target}...HEAD"],  # noqa: S607 -- fixed command
@@ -345,6 +349,7 @@ def build_fleet_rows(repo_root: Path, *, base_branch: str, tail: int) -> list[di
         if not path_text:
             continue
         worktree_path = Path(path_text)
+        missing = not worktree_path.exists()
         lock_path = worktree_path / ".codex_session_active"
         meta_path = worktree_path / ".codex_session_meta.json"
         log_path = worktree_path / ".codex_session.log"
@@ -368,6 +373,7 @@ def build_fleet_rows(repo_root: Path, *, base_branch: str, tail: int) -> list[di
                 "path": str(worktree_path),
                 "branch": str(wt.get("branch") or "(detached)"),
                 "detached": bool(wt.get("detached")),
+                "missing": missing,
                 "has_lock": lock_path.exists(),
                 "pid": int(pid_raw) if pid_raw and pid_raw.isdigit() else None,
                 "pid_alive": _pid_alive(pid_raw),

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -232,6 +233,33 @@ def test_reap_stale_claims_keeps_live_worktree_sessions(tmp_path: Path) -> None:
     assert result["released"] == 0
     assert result["kept_sessions"][0]["reason"] == "live_session"
     assert store.list_claims()[0]["session_id"] == "session-live"
+
+
+def test_reap_stale_claims_handles_missing_worktree_paths(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    worktree_path = tmp_path / "session-missing"
+    _run(
+        repo,
+        "git",
+        "worktree",
+        "add",
+        "-b",
+        "codex/session-missing",
+        str(worktree_path),
+        "HEAD",
+    )
+
+    store = FleetCoordinationStore(repo)
+    store.claim_paths(session_id="session-missing", paths=["aragora/live/**"])
+    _backdate_all_claims(store)
+
+    shutil.rmtree(worktree_path)
+
+    result = store.reap_stale_claims()
+
+    assert result["released"] == 1
+    assert result["reaped_sessions"][0]["session_id"] == "session-missing"
+    assert store.list_claims() == []
 
 
 def test_reap_stale_claims_keeps_sessions_with_active_leases(tmp_path: Path) -> None:
