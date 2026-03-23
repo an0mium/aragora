@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import uuid
@@ -38,6 +39,49 @@ DEFAULT_ROUNDS = DebateSettings().default_rounds
 MAX_DIFF_SIZE = 50000  # 50KB max diff size
 REVIEWS_DIR = Path.home() / ".aragora" / "reviews"
 SHARE_BASE_URL = "https://aragora.ai/reviews"
+_LOCATION_HINT_RE = re.compile(
+    r"(?P<path>[\w./-]+\.(?:py|pyi|ts|tsx|js|jsx|yml|yaml|json|md|sh))(?:[:#]L?(?P<line>\d+))?"
+)
+_META_REVIEW_PREFIXES = (
+    "weak point:",
+    "good catch:",
+    "overstates ",
+    "treat ",
+    "state that ",
+    "reframe ",
+)
+_META_REVIEW_MARKERS = (
+    "agent-like target",
+    "calling this **critical**",
+    "calling this critical",
+    "explicit meta-review language",
+    "from the diff alone",
+    "incomplete visibility",
+    "not as a definite defect",
+    "no concrete file/location hint",
+    "not clearly a bug from the diff",
+    "not shown in the diff",
+    "not visible in the diff",
+    "observation is reasonable but incomplete",
+    "possible the guidance moved elsewhere",
+    "plausible but somewhat speculative",
+    "reasonable but incomplete",
+    "regression risk, but not as a definite defect",
+    "regression risk to validate",
+    "review blocker due to incomplete visibility",
+    "review blockers due to incomplete visibility",
+    "should be framed as a regression risk",
+    "somewhat speculative",
+    "cannot assess installation changes",
+    "cannot fully review",
+    "not a definite bug",
+    "not a confirmed vulnerability",
+    "not a confirmed security bug",
+    "not a useful review comment",
+    "reframe the strongest findings",
+    "since the diff is truncated",
+    "since the diff may be truncated",
+)
 
 
 def generate_review_id(findings: dict, diff_hash: str) -> str:
@@ -81,6 +125,7 @@ def save_review_for_sharing(
             "high_issues": findings.get("high_issues", []),
             "medium_issues": findings.get("medium_issues", []),
             "low_issues": findings.get("low_issues", []),
+            "meta_issues": findings.get("meta_issues", []),
             "summary": findings.get("final_summary", ""),
         },
     }
@@ -155,6 +200,7 @@ def get_demo_findings() -> dict:
                 "agent": "anthropic-api",
                 "issue": "SQL injection in search_users()",
                 "target": "api/users.py:45",
+                "grounded": True,
             },
         ],
         "high_issues": [
@@ -162,6 +208,7 @@ def get_demo_findings() -> dict:
                 "agent": "openai-api",
                 "issue": "Missing CSRF protection on POST endpoints",
                 "target": "api/routes.py",
+                "grounded": True,
             },
         ],
         "medium_issues": [
@@ -169,9 +216,11 @@ def get_demo_findings() -> dict:
                 "agent": "gemini-api",
                 "issue": "Unbounded query results - add pagination",
                 "target": "api/products.py:102",
+                "grounded": True,
             },
         ],
         "low_issues": [],
+        "meta_issues": [],
         "all_critiques": [],
         "final_summary": """## Multi Agent Review Summary
 
@@ -295,6 +344,58 @@ async def run_review_debate(
     return result
 
 
+def _extract_location_hint(text: str) -> str | None:
+    """Return a best-effort file/line hint from an issue string."""
+    match = _LOCATION_HINT_RE.search(text)
+    if not match:
+        return None
+    path = match.group("path")
+    line = match.group("line")
+    if not path:
+        return None
+    return f"{path}:{line}" if line else path
+
+
+def _looks_like_agent_target(target: Any) -> bool:
+    """Detect when a critique target is another reviewer rather than code."""
+    if not isinstance(target, str):
+        return False
+    normalized = target.strip().lower()
+    if not normalized:
+        return False
+    if "/" in normalized or "." in normalized or ":" in normalized:
+        return False
+    return any(
+        marker in normalized
+        for marker in (
+            "_reviewer",
+            "_critic",
+            "_synthesizer",
+            "_judge",
+            "_analyst",
+            "_implementer",
+            "_planner",
+        )
+    )
+
+
+def _is_meta_review_issue(issue: str, suggestions: list[str], raw_target: Any) -> bool:
+    """Filter critique-of-review chatter out of blocking issue buckets."""
+    normalized_issue = issue.strip().lower()
+    if normalized_issue.startswith(("location:**", "location:")):
+        return True
+    if normalized_issue.startswith(_META_REVIEW_PREFIXES):
+        return True
+    if any(marker in normalized_issue for marker in _META_REVIEW_MARKERS):
+        return True
+
+    normalized_suggestions = "\n".join(suggestions).lower()
+    if any(marker in normalized_suggestions for marker in _META_REVIEW_MARKERS):
+        return True
+
+    return _looks_like_agent_target(raw_target) and _extract_location_hint(issue) is None
+
+
 def extract_review_findings(result: DebateResult) -> dict:
     """Extract structured findings from debate result."""
     reporter = DisagreementReporter()
@@ -309,16 +410,27 @@ def extract_review_findings(result: DebateResult) -> dict:
     high_issues = []
     medium_issues = []
     low_issues = []
+    meta_issues = []
 
     for critique in result.critiques:
         severity = critique.severity if hasattr(critique, "severity") else 0.5
         for issue in critique.issues:
+            suggestions = list(getattr(critique, "suggestions", []) or [])
+            raw_target = getattr(critique, "target_agent", None)
+            normalized_target = raw_target
+            if _looks_like_agent_target(raw_target):
+                normalized_target = _extract_location_hint(issue)
             issue_data = {
                 "agent": critique.agent,
                 "issue": issue,
-                "target": critique.target_agent,
-                "suggestions": critique.suggestions,
+                "target": normalized_target,
+                "suggestions": suggestions,
             }
+            if _is_meta_review_issue(issue, suggestions, raw_target):
+                issue_data["grounded"] = False
+                meta_issues.append(issue_data)
+                continue
+            issue_data["grounded"] = True
             if severity >= 0.9:
                 critical_issues.append(issue_data)
             elif severity >= 0.7:
@@ -338,6 +450,7 @@ def extract_review_findings(result: DebateResult) -> dict:
         "high_issues": high_issues,
         "medium_issues": medium_issues,
         "low_issues": low_issues,
+        "meta_issues": meta_issues,
         "all_critiques": result.critiques,
         "final_summary": result.final_answer,
         "agents_used": list(set(m.agent for m in result.messages)) if result.messages else [],
@@ -944,6 +1057,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             "high_issues": findings["high_issues"],
             "medium_issues": findings["medium_issues"],
             "low_issues": findings["low_issues"],
+            "meta_issues": findings.get("meta_issues", []),
             "summary": findings["final_summary"],
         }
         json_output = json.dumps(output, indent=2)

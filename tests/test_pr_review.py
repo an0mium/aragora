@@ -146,6 +146,170 @@ class TestExtractReviewFindings:
         assert len(findings["critical_issues"]) == 1
         assert len(findings["low_issues"]) == 1
 
+    def test_extract_findings_drops_meta_review_issues(self):
+        """Critiques about the review itself should not become blocking findings."""
+        mock_result = Mock()
+        mock_result.votes = []
+        mock_result.final_answer = ""
+        mock_result.messages = []
+
+        meta_critique = Mock()
+        meta_critique.severity = 0.95
+        meta_critique.agent = "agent1"
+        meta_critique.target_agent = "openai-api_performance_reviewer"
+        meta_critique.issues = [
+            "Good catch: this should be reframed as incomplete visibility, not a confirmed bug."
+        ]
+        meta_critique.suggestions = [
+            "Reframe the strongest findings as review blockers due to incomplete visibility."
+        ]
+        mock_result.critiques = [meta_critique]
+
+        with patch("aragora.cli.review.DisagreementReporter") as MockReporter:
+            mock_report = Mock()
+            mock_report.unanimous_critiques = []
+            mock_report.split_opinions = []
+            mock_report.risk_areas = []
+            mock_report.agreement_score = 0.5
+            mock_report.agent_alignment = {}
+            MockReporter.return_value.generate_report.return_value = mock_report
+
+            findings = extract_review_findings(mock_result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+
+    def test_extract_findings_drops_meta_review_with_file_target(self):
+        """Meta-review should not become blocking just because it names a file."""
+        mock_result = Mock()
+        mock_result.votes = []
+        mock_result.final_answer = ""
+        mock_result.messages = []
+
+        meta_critique = Mock()
+        meta_critique.severity = 0.95
+        meta_critique.agent = "agent1"
+        meta_critique.target_agent = "scripts/ci_install_project.sh"
+        meta_critique.issues = [
+            "Overstates CI shell-script execution as a new critical security bug. "
+            "Calling this CRITICAL is not well supported from the diff alone."
+        ]
+        meta_critique.suggestions = [
+            "agent-like target,",
+            "no concrete file/location hint,",
+            "and explicit meta-review language.",
+        ]
+        mock_result.critiques = [meta_critique]
+
+        with patch("aragora.cli.review.DisagreementReporter") as MockReporter:
+            mock_report = Mock()
+            mock_report.unanimous_critiques = []
+            mock_report.split_opinions = []
+            mock_report.risk_areas = []
+            mock_report.agreement_score = 0.5
+            mock_report.agent_alignment = {}
+            MockReporter.return_value.generate_report.return_value = mock_report
+
+            findings = extract_review_findings(mock_result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+
+    def test_extract_findings_drops_incomplete_defect_rebuttal(self):
+        """Certainty rebuttals on a file target should remain meta issues."""
+        mock_result = Mock()
+        mock_result.votes = []
+        mock_result.final_answer = ""
+        mock_result.messages = []
+
+        meta_critique = Mock()
+        meta_critique.severity = 0.95
+        meta_critique.agent = "agent1"
+        meta_critique.target_agent = "aragora/cli/commands/debate.py"
+        meta_critique.issues = [
+            "Removed role hints observation is reasonable but incomplete. "
+            "Good to flag as a regression risk, but not as a definite defect."
+        ]
+        meta_critique.suggestions = []
+        mock_result.critiques = [meta_critique]
+
+        with patch("aragora.cli.review.DisagreementReporter") as MockReporter:
+            mock_report = Mock()
+            mock_report.unanimous_critiques = []
+            mock_report.split_opinions = []
+            mock_report.risk_areas = []
+            mock_report.agreement_score = 0.5
+            mock_report.agent_alignment = {}
+            MockReporter.return_value.generate_report.return_value = mock_report
+
+            findings = extract_review_findings(mock_result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+
+    def test_extract_findings_drops_speculative_regression_risk_rebuttal(self):
+        """Speculative regression-risk framing should remain a meta review note."""
+        mock_result = Mock()
+        mock_result.votes = []
+        mock_result.final_answer = ""
+        mock_result.messages = []
+
+        meta_critique = Mock()
+        meta_critique.severity = 0.95
+        meta_critique.agent = "agent1"
+        meta_critique.target_agent = "aragora/cli/commands/debate.py"
+        meta_critique.issues = [
+            "Removed role hints note is plausible but somewhat speculative from this diff "
+            "and should be framed as a regression risk to validate, not a definite bug."
+        ]
+        meta_critique.suggestions = []
+        mock_result.critiques = [meta_critique]
+
+        with patch("aragora.cli.review.DisagreementReporter") as MockReporter:
+            mock_report = Mock()
+            mock_report.unanimous_critiques = []
+            mock_report.split_opinions = []
+            mock_report.risk_areas = []
+            mock_report.agreement_score = 0.5
+            mock_report.agent_alignment = {}
+            MockReporter.return_value.generate_report.return_value = mock_report
+
+            findings = extract_review_findings(mock_result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+
+    def test_extract_findings_drops_location_only_issue_artifact(self):
+        """Location-only issue artifacts should not count as grounded criticals."""
+        mock_result = Mock()
+        mock_result.votes = []
+        mock_result.final_answer = ""
+        mock_result.messages = []
+
+        meta_critique = Mock()
+        meta_critique.severity = 0.95
+        meta_critique.agent = "agent1"
+        meta_critique.target_agent = "aragora/cli/review.py"
+        meta_critique.issues = [
+            "Location:** `aragora/cli/review.py` and `.github/workflows/aragora-review-gate.yml`"
+        ]
+        meta_critique.suggestions = []
+        mock_result.critiques = [meta_critique]
+
+        with patch("aragora.cli.review.DisagreementReporter") as MockReporter:
+            mock_report = Mock()
+            mock_report.unanimous_critiques = []
+            mock_report.split_opinions = []
+            mock_report.risk_areas = []
+            mock_report.agreement_score = 0.5
+            mock_report.agent_alignment = {}
+            MockReporter.return_value.generate_report.return_value = mock_report
+
+            findings = extract_review_findings(mock_result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+
 
 class TestFormatGitHubComment:
     """Tests for GitHub comment formatting."""
