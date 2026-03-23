@@ -394,8 +394,12 @@ async def initialize_debate_context(
         except Exception as e:  # noqa: BLE001 - final fallback after specific handlers above
             logger.warning("Question classification failed (API or other error): %s", e)
 
-    # Apply performance-based agent selection if enabled
-    if arena.use_performance_selection:
+    # Apply agent selection: performance-based and/or provider-routed.
+    # _select_debate_team now integrates ProviderRouter hints automatically,
+    # so we call it whenever performance selection is on OR provider_budget
+    # is configured (indicating the user wants smart routing).
+    _should_route = arena.use_performance_selection or arena.provider_budget is not None
+    if _should_route:
         arena.agents = arena._select_debate_team(arena.agents)
         ctx.agents = arena.agents
 
@@ -828,6 +832,47 @@ def record_debate_metrics(
     )
 
     arena._track_circuit_breaker_metrics()
+
+    # Record per-agent outcomes to ProviderRouter for metrics-based selection
+    _record_provider_outcomes(arena, state)
+
+
+def _record_provider_outcomes(arena: Arena, state: _DebateExecutionState) -> None:
+    """Record per-agent debate outcomes to ProviderRouter.
+
+    Feeds the cost/quality optimizer so future debates benefit from
+    metrics-based provider selection.  Non-fatal — swallows all errors
+    so debate completion is never blocked by routing bookkeeping.
+    """
+    try:
+        from aragora.routing.provider_router import get_provider_router
+
+        router = get_provider_router()
+        ctx = state.ctx
+        consensus_reached = getattr(ctx.result, "consensus_reached", False)
+        confidence = getattr(ctx.result, "confidence", 0.0)
+        duration = time.perf_counter() - state.debate_start_time
+        failed = state.debate_status not in ("completed", "timeout")
+
+        for agent in ctx.agents:
+            provider_name = getattr(agent, "provider", None) or getattr(agent, "name", "unknown")
+            router.record_outcome(
+                provider_name,
+                cost=0.0,  # TODO: wire per-agent cost from billing extension
+                quality=confidence,
+                latency=duration / max(len(ctx.agents), 1),
+                consensus_reached=consensus_reached,
+                failed=failed,
+            )
+
+        logger.debug(
+            "[provider_routing] Recorded outcomes for %d agents (consensus=%s, confidence=%.3f)",
+            len(ctx.agents),
+            consensus_reached,
+            confidence,
+        )
+    except (ImportError, RuntimeError, OSError, AttributeError) as exc:
+        logger.debug("[provider_routing] Could not record provider outcomes: %s", exc)
 
 
 async def handle_debate_completion(

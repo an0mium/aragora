@@ -38,6 +38,7 @@ class MergedConfig:
         "agent_weights",
         "agent_selector",
         "use_performance_selection",
+        "provider_budget",
         "circuit_breaker",
         "use_airlock",
         "airlock_config",
@@ -306,7 +307,8 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     agent_weights: Any,
     agent_selector: Any,
     use_performance_selection: bool,
-    circuit_breaker: Any,
+    provider_budget: float | None = None,
+    circuit_breaker: Any = None,
     use_airlock: bool,
     airlock_config: Any,
     position_tracker: Any,
@@ -805,6 +807,7 @@ def merge_config_objects(  # noqa: C901 - complexity inherent in config merging
     cfg.agent_weights = agent_weights
     cfg.agent_selector = agent_selector
     cfg.use_performance_selection = use_performance_selection
+    cfg.provider_budget = provider_budget
     cfg.circuit_breaker = circuit_breaker
     cfg.use_airlock = use_airlock
     cfg.airlock_config = airlock_config

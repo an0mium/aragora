@@ -516,6 +516,12 @@ def _add_ask_parser(subparsers) -> None:
         help="Auto-execute approved plans from debate results",
     )
     ask_parser.add_argument(
+        "--provider-budget",
+        type=float,
+        default=None,
+        help="Total USD budget for the debate. Enables smart provider selection via ProviderRouter.",
+    )
+    ask_parser.add_argument(
         "--timeout",
         type=int,
         default=int(os.environ.get("ARAGORA_ASK_TIMEOUT_SECONDS", "3600")),

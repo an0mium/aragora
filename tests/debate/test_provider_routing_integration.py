@@ -337,3 +337,134 @@ class TestDebateServiceRuntimeRouting:
             "openai-primary",
             "anthropic-backup",
         ]
+
+
+# ===========================================================================
+# Task: AgentPool provider hints integration
+# ===========================================================================
+
+
+class TestAgentPoolProviderHints:
+    """Test that AgentPool.select_team() applies provider routing hints."""
+
+    def test_provider_hints_boost_agent_scores(self):
+        """Agents matching high-quality providers should rank higher."""
+        from aragora.debate.agent_pool import AgentPool, AgentPoolConfig
+
+        agents = [MockAgent("claude-agent"), MockAgent("gpt-agent"), MockAgent("mistral-agent")]
+        config = AgentPoolConfig(use_performance_selection=True)
+        pool = AgentPool(agents, config)
+
+        # Without hints: agents sorted by default composite score (all equal)
+        baseline = pool.select_team(team_size=3)
+
+        # With hints: gpt-agent gets a big boost
+        hints = {"gpt": 0.9, "claude": 0.1, "mistral": 0.0}
+        boosted = pool.select_team(team_size=3, provider_hints=hints)
+        boosted_names = [getattr(a, "name", str(a)) for a in boosted]
+
+        # gpt-agent should now be first (highest hint = 0.9 → 1.9x multiplier)
+        assert boosted_names[0] == "gpt-agent"
+
+    def test_provider_hints_none_is_noop(self):
+        """provider_hints=None should not change selection."""
+        from aragora.debate.agent_pool import AgentPool, AgentPoolConfig
+
+        agents = [MockAgent("agent-a"), MockAgent("agent-b")]
+        config = AgentPoolConfig(use_performance_selection=True)
+        pool = AgentPool(agents, config)
+
+        without = pool.select_team(team_size=2, provider_hints=None)
+        with_empty = pool.select_team(team_size=2, provider_hints={})
+        assert [a.name for a in without] == [a.name for a in with_empty]
+
+
+class TestOrchestratorAgentsProviderHints:
+    """Test that orchestrator_agents.select_debate_team handles hints."""
+
+    def test_reorder_by_provider_hints_without_performance_selection(self):
+        """When performance selection is off, provider hints still reorder agents."""
+        from aragora.debate.orchestrator_agents import select_debate_team
+
+        agents = [MockAgent("mistral-agent"), MockAgent("claude-agent"), MockAgent("gpt-agent")]
+        for a in agents:
+            a.provider = a.name.split("-")[0]
+
+        hints = {"claude": 0.9, "gpt": 0.5, "mistral": 0.1}
+        result = select_debate_team(
+            agents=agents,
+            env=MagicMock(task="test"),
+            extract_domain_fn=lambda: "general",
+            enable_ml_delegation=False,
+            ml_delegation_strategy=None,
+            protocol=MagicMock(),
+            use_performance_selection=False,
+            agent_pool=MagicMock(),
+            provider_hints=hints,
+        )
+        names = [a.name for a in result]
+        # claude-agent (0.9) should be first, then gpt (0.5), then mistral (0.1)
+        assert names[0] == "claude-agent"
+        assert names[-1] == "mistral-agent"
+
+    def test_no_hints_returns_original_order(self):
+        """Without hints and without performance selection, original order preserved."""
+        from aragora.debate.orchestrator_agents import select_debate_team
+
+        agents = [MockAgent("a"), MockAgent("b"), MockAgent("c")]
+        result = select_debate_team(
+            agents=agents,
+            env=MagicMock(task="test"),
+            extract_domain_fn=lambda: "general",
+            enable_ml_delegation=False,
+            ml_delegation_strategy=None,
+            protocol=MagicMock(),
+            use_performance_selection=False,
+            agent_pool=MagicMock(),
+            provider_hints=None,
+        )
+        assert [a.name for a in result] == ["a", "b", "c"]
+
+
+class TestProviderOutcomeRecording:
+    """Test that debate completion records outcomes to ProviderRouter."""
+
+    def test_record_provider_outcomes_calls_router(self):
+        """_record_provider_outcomes should call router.record_outcome per agent."""
+        from aragora.debate.orchestrator_runner import _record_provider_outcomes
+
+        arena = MagicMock()
+        state = MagicMock()
+        state.ctx.agents = [MockAgent("claude"), MockAgent("gpt")]
+        state.ctx.result.consensus_reached = True
+        state.ctx.result.confidence = 0.85
+        state.debate_status = "completed"
+        state.debate_start_time = 0.0
+
+        with patch("aragora.routing.provider_router.get_provider_router") as mock_get:
+            mock_router = MagicMock()
+            mock_get.return_value = mock_router
+            _record_provider_outcomes(arena, state)
+
+            assert mock_router.record_outcome.call_count == 2
+            # Check first call args
+            call_args = mock_router.record_outcome.call_args_list[0]
+            assert call_args[0][0] == "claude"  # provider name from agent.name
+            assert call_args[1]["consensus_reached"] is True
+
+    def test_record_provider_outcomes_handles_import_error(self):
+        """Should not raise when provider_router import fails."""
+        from aragora.debate.orchestrator_runner import _record_provider_outcomes
+
+        arena = MagicMock()
+        state = MagicMock()
+        state.ctx.agents = [MockAgent("agent")]
+        state.ctx.result.confidence = 0.5
+        state.debate_status = "completed"
+
+        with patch(
+            "aragora.routing.provider_router.get_provider_router",
+            side_effect=ImportError("not found"),
+        ):
+            # Should not raise
+            _record_provider_outcomes(arena, state)

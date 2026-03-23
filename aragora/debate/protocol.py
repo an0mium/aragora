@@ -558,7 +558,7 @@ class DebateProtocol:
 
     # Knowledge injection flywheel: Injects past debate receipts from KM into context
     # Completes the loop: Debate → Receipt → KM (persist) → KM (query) → Next Debate
-    enable_knowledge_injection: bool = False  # Opt-in: requires Knowledge Mound
+    enable_knowledge_injection: bool = True  # On by default to close the knowledge flywheel
     knowledge_injection_max_receipts: int = 3  # Max past receipts to inject
 
     # Codebase grounding: Inject codebase structure into debate context

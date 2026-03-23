@@ -107,6 +107,7 @@ def apply_core_components(arena: Arena, core: Any) -> None:
     if arena.pulse_manager and hasattr(arena.agent_selector, "pulse_manager"):
         arena.agent_selector.pulse_manager = arena.pulse_manager
     arena.use_performance_selection = core.use_performance_selection
+    arena.provider_budget = core.provider_budget
     arena.checkpoint_manager = core.checkpoint_manager
     arena.org_id = core.org_id
     arena.user_id = core.user_id

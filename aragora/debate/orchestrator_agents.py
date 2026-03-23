@@ -30,6 +30,7 @@ def select_debate_team(
     protocol: Any,
     use_performance_selection: bool,
     agent_pool: Any,
+    provider_hints: dict[str, float] | None = None,
 ) -> list[Agent]:
     """Select debate team using ML delegation or AgentPool.
 
@@ -37,6 +38,10 @@ def select_debate_team(
     1. ML delegation (if *enable_ml_delegation* is ``True``)
     2. Performance selection via AgentPool (if *use_performance_selection* is ``True``)
     3. Original requested agents
+
+    When *provider_hints* is provided (from :class:`ProviderRouter`), agent
+    scores receive a multiplicative bonus based on their provider's quality
+    score.  This steers selection toward cost/quality-optimized providers.
 
     Args:
         agents: The candidate agents.
@@ -47,6 +52,8 @@ def select_debate_team(
         protocol: Debate protocol.
         use_performance_selection: Whether performance selection is enabled.
         agent_pool: The AgentPool instance.
+        provider_hints: Optional provider→quality_score mapping from
+            ProviderRouter. Keys are provider/model names, values 0-1.
 
     Returns:
         The selected list of agents.
@@ -77,9 +84,37 @@ def select_debate_team(
         return agent_pool.select_team(
             domain=extract_domain_fn(),
             team_size=len(agents),
+            provider_hints=provider_hints,
         )
 
+    # Even without performance selection, apply provider hints to reorder
+    # agents when hints are available.
+    if provider_hints:
+        return _reorder_by_provider_hints(agents, provider_hints)
+
     return agents
+
+
+def _reorder_by_provider_hints(
+    agents: list[Agent],
+    hints: dict[str, float],
+) -> list[Agent]:
+    """Reorder agents by provider quality hints without filtering.
+
+    Used when performance selection is off but provider hints are available.
+    Agents whose provider matches a hint key get a quality-based sort boost.
+    """
+
+    def _hint_score(agent: Agent) -> float:
+        name = getattr(agent, "name", "").lower()
+        provider = getattr(agent, "provider", "").lower()
+        for key, score in hints.items():
+            key_lower = key.lower()
+            if key_lower in name or key_lower in provider or name in key_lower:
+                return score
+        return 0.5  # neutral default
+
+    return sorted(agents, key=_hint_score, reverse=True)
 
 
 def filter_responses_by_quality(

@@ -255,6 +255,7 @@ class Arena(ArenaDelegatesMixin):
     breakpoint_manager: Any
     agent_selector: Any
     use_performance_selection: bool
+    provider_budget: float | None
     checkpoint_manager: Any
     org_id: str
     user_id: str
@@ -456,6 +457,7 @@ class Arena(ArenaDelegatesMixin):
         airlock_config: Any = None,
         agent_selector: Any = None,
         use_performance_selection: bool = False,
+        provider_budget: float | None = None,
         enable_agent_hierarchy: bool = True,
         hierarchy_config: HierarchyConfig | None = None,
         prompt_evolver: Any = None,
@@ -535,6 +537,7 @@ class Arena(ArenaDelegatesMixin):
             agent_weights=agent_weights,
             agent_selector=agent_selector,
             use_performance_selection=use_performance_selection,
+            provider_budget=provider_budget,
             circuit_breaker=circuit_breaker,
             use_airlock=use_airlock,
             airlock_config=airlock_config,
@@ -690,6 +693,7 @@ class Arena(ArenaDelegatesMixin):
             airlock_config=cfg.airlock_config,
             agent_selector=cfg.agent_selector,
             use_performance_selection=cfg.use_performance_selection,
+            provider_budget=cfg.provider_budget,
             prompt_evolver=cfg.prompt_evolver,
             enable_prompt_evolution=cfg.enable_prompt_evolution,
             power_sampling_config=cfg.power_sampling_config,

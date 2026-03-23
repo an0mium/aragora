@@ -90,7 +90,11 @@ def extract_debate_domain(arena: Arena) -> str:
 
 
 def select_debate_team(arena: Arena, requested_agents: list[Agent]) -> list[Agent]:
-    """Select debate team based on domain and ML delegation.
+    """Select debate team based on domain, ML delegation, and provider routing.
+
+    When :attr:`Arena.provider_budget` is set or sufficient provider metrics
+    exist, the :class:`ProviderRouter` supplies quality-based hints that
+    influence agent scoring during selection.
 
     Args:
         arena: Arena instance.
@@ -99,6 +103,9 @@ def select_debate_team(arena: Arena, requested_agents: list[Agent]) -> list[Agen
     Returns:
         Selected list of agents for the debate.
     """
+    # Obtain provider quality hints from ProviderRouter (lazy, non-fatal)
+    provider_hints = _get_provider_hints(arena)
+
     return _agents_select_debate_team(
         agents=requested_agents,
         env=arena.env,
@@ -108,7 +115,37 @@ def select_debate_team(arena: Arena, requested_agents: list[Agent]) -> list[Agen
         protocol=arena.protocol,
         use_performance_selection=arena.use_performance_selection,
         agent_pool=arena.agent_pool,
+        provider_hints=provider_hints,
     )
+
+
+def _get_provider_hints(arena: Arena) -> dict[str, float] | None:
+    """Fetch provider quality hints from the global ProviderRouter.
+
+    Returns ``None`` when the router has insufficient data or on any error,
+    allowing the selection pipeline to fall back to default behaviour.
+    """
+    try:
+        from aragora.routing.provider_router import get_provider_router
+
+        router = get_provider_router()
+        hints = router.get_provider_hints()
+        if hints:
+            import logging
+
+            logging.getLogger(__name__).debug(
+                "[provider_routing] Injecting provider hints into agent selection: %s",
+                list(hints.keys()),
+            )
+        return hints or None
+    except (ImportError, RuntimeError, OSError) as exc:
+        import logging
+
+        logging.getLogger(__name__).debug(
+            "[provider_routing] Could not obtain provider hints: %s",
+            exc,
+        )
+        return None
 
 
 def filter_responses_by_quality(

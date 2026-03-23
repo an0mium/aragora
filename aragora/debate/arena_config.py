@@ -431,7 +431,7 @@ class ArenaConfig:
         # Protocol-level flags (stored for preset passthrough to Arena/Protocol)
         enable_adaptive_consensus: bool = False,
         enable_synthesis: bool = False,
-        enable_knowledge_injection: bool = False,
+        enable_knowledge_injection: bool = True,
         enable_meta_learning: bool = False,
         # RLM (Recursive Language Models): context compression for long debates
         enable_rlm: bool = False,
@@ -893,6 +893,8 @@ class ArenaConfig:
             "rlm_max_recent_messages": self.rlm_max_recent_messages,
             "rlm_summary_level": self.rlm_summary_level,
             "rlm_compression_round_threshold": self.rlm_compression_round_threshold,
+            # Provider routing: budget constraint for ProviderRouter
+            "provider_budget": self.provider_budget,
             # Note: The following are stored in ArenaConfig but not yet in Arena.__init__:
             # - Memory Coordination: enable_coordinated_writes, memory_coordinator,
             #   coordinator_parallel_writes, coordinator_rollback_on_failure,

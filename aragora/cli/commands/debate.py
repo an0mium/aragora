@@ -423,6 +423,63 @@ def _maybe_add_vertical_specialist_local(
     return agents
 
 
+def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
+    """Generate and persist a debate receipt to ~/.aragora/receipts/.
+
+    Returns the receipt file path, or None if receipt generation fails.
+    """
+    try:
+        import json
+        from pathlib import Path
+
+        receipts_dir = Path.home() / ".aragora" / "receipts"
+        receipts_dir.mkdir(parents=True, exist_ok=True)
+
+        debate_id = getattr(result, "debate_id", None) or "unknown"
+        consensus_reached = getattr(result, "consensus_reached", False)
+        confidence = getattr(result, "confidence", 0.0)
+        final_answer = getattr(result, "final_answer", "") or ""
+
+        # Build receipt payload
+        receipt = {
+            "debate_id": debate_id,
+            "task": getattr(result, "task", ""),
+            "consensus_reached": consensus_reached,
+            "confidence": round(confidence, 4) if confidence else 0.0,
+            "final_answer": final_answer[:2000],  # Truncate for receipt
+            "rounds_used": getattr(result, "rounds_used", 0),
+            "agents": [
+                getattr(m, "agent", "unknown") for m in (getattr(result, "messages", []) or [])[:20]
+            ],
+            "dissenting_views": [
+                str(v)[:500] for v in (getattr(result, "dissenting_views", []) or [])
+            ],
+        }
+
+        # Add content hash for integrity
+        import hashlib
+
+        content_hash = hashlib.sha256(
+            json.dumps(receipt, sort_keys=True, default=str).encode()
+        ).hexdigest()[:16]
+        receipt["content_hash"] = content_hash
+
+        # Write receipt
+        filename = f"{debate_id}_{content_hash}.json"
+        receipt_path = receipts_dir / filename
+        receipt_path.write_text(json.dumps(receipt, indent=2, default=str), encoding="utf-8")
+
+        if verbose:
+            print(f"[receipt] persisted debate_id={debate_id} hash={content_hash}", file=sys.stderr)
+
+        return str(receipt_path)
+
+    except (OSError, TypeError, ValueError, AttributeError) as e:
+        if verbose:
+            print(f"[receipt] failed to persist: {e}", file=sys.stderr)
+        return None
+
+
 def _print_debate_result(debate: Any, verbose: bool = False) -> None:
     """Print a standard debate result summary."""
     final_answer = None
@@ -1542,6 +1599,11 @@ def cmd_ask(args: argparse.Namespace) -> None:
     if getattr(args, "auto_execute", False):
         cli_config_kwargs["enable_auto_execution"] = True
 
+    # Provider routing budget (enables smart provider selection via ProviderRouter)
+    provider_budget = getattr(args, "provider_budget", None)
+    if provider_budget is not None:
+        cli_config_kwargs["provider_budget"] = float(provider_budget)
+
     start_time = time.monotonic()
 
     def _remaining_global_seconds() -> float:
@@ -2101,6 +2163,13 @@ def cmd_ask(args: argparse.Namespace) -> None:
         print("DISSENTING VIEWS:")
         for view in result.dissenting_views:
             print(f"\n{view}")
+
+    # Auto-persist receipt for audit trail
+    receipt_path = _persist_debate_receipt(result, verbose=args.verbose)
+    if receipt_path:
+        print(f"\nReceipt saved: {receipt_path}")
+        print(f"  View:   aragora receipt view {receipt_path}")
+        print(f"  Verify: aragora receipt verify {receipt_path}")
 
     if decision_integrity:
         if di_execution_mode and di_execution_mode != "plan_only":

@@ -86,6 +86,7 @@ class CoreComponents:
     breakpoint_manager: Any
     agent_selector: Any
     use_performance_selection: bool
+    provider_budget: float | None
     checkpoint_manager: Any
     org_id: str
     user_id: str
@@ -186,6 +187,7 @@ class ArenaInitializer:
         use_performance_selection: bool,
         prompt_evolver,
         enable_prompt_evolution: bool,
+        provider_budget: float | None = None,
         power_sampling_config: Any | None = None,
         org_id: str = "",
         user_id: str = "",
@@ -387,6 +389,7 @@ class ArenaInitializer:
             breakpoint_manager=breakpoint_manager,
             agent_selector=agent_selector,
             use_performance_selection=use_performance_selection,
+            provider_budget=provider_budget,
             checkpoint_manager=ckpt_manager,
             org_id=org_id,
             user_id=user_id,

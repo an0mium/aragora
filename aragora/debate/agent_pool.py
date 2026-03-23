@@ -32,6 +32,30 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _resolve_provider_hint(agent: Any, hints: dict[str, float]) -> float | None:
+    """Match an agent to a provider hint key.
+
+    Uses flexible matching (same strategy as TeamSelector):
+    1. Exact name match (case-insensitive)
+    2. Substring match in either direction
+
+    Returns the hint quality score (0-1) or ``None`` if no match.
+    """
+    name = getattr(agent, "name", "").lower()
+    provider = getattr(agent, "provider", "").lower()
+    for key, score in hints.items():
+        key_lower = key.lower()
+        if (
+            key_lower == name
+            or key_lower == provider
+            or key_lower in name
+            or key_lower in provider
+            or name in key_lower
+        ):
+            return score
+    return None
+
+
 @dataclass
 class AgentPoolConfig:
     """Configuration for agent pool behavior."""
@@ -168,6 +192,7 @@ class AgentPool:
         domain: str = "",
         team_size: int | None = None,
         exclude: set[str] | None = None,
+        provider_hints: dict[str, float] | None = None,
     ) -> list[Any]:
         """
         Select a team of agents for a debate.
@@ -177,12 +202,16 @@ class AgentPool:
         Uses performance-based selection when enabled:
         - Combines ELO rating and calibration score
         - Weights by domain expertise if available
+        - Applies provider routing hints when available
         - Falls back to random selection
 
         Args:
             domain: Optional domain for expertise weighting
             team_size: Number of agents to select (uses config default)
             exclude: Agent names to exclude from selection
+            provider_hints: Optional provider→quality_score mapping from
+                ProviderRouter. When provided, agent composite scores receive
+                a multiplicative bonus based on their provider's quality.
 
         Returns:
             List of selected agents
@@ -204,7 +233,7 @@ class AgentPool:
 
         # Performance-based selection
         if self._config.use_performance_selection:
-            return self._select_by_performance(available, size, domain)
+            return self._select_by_performance(available, size, domain, provider_hints)
 
         # Random selection fallback
         return random.sample(available, size)
@@ -214,13 +243,26 @@ class AgentPool:
         agents: list[Any],
         count: int,
         domain: str = "",
+        provider_hints: dict[str, float] | None = None,
     ) -> list[Any]:
-        """Select agents based on composite performance score."""
+        """Select agents based on composite performance score.
+
+        When *provider_hints* is supplied, each agent's composite score is
+        boosted by a multiplicative factor derived from its provider's quality
+        score (same formula as :class:`TeamSelector`).
+        """
         scores: list[tuple[Any, float]] = []
 
         for agent in agents:
             name = getattr(agent, "name", str(agent))
             score = self._compute_composite_score(name, domain)
+
+            # Apply provider routing hint bonus
+            if provider_hints:
+                hint = _resolve_provider_hint(agent, provider_hints)
+                if hint is not None:
+                    score *= 1.0 + hint  # same formula as TeamSelector
+
             scores.append((agent, score))
 
         # Sort by score descending and take top N
