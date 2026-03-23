@@ -310,6 +310,31 @@ class RalphSupervisor:
         except Exception as exc:
             logger.debug("Ralph operational receipt skipped: %s", exc)
 
+    def _emit_lane_receipt(
+        self,
+        *,
+        state: SupervisorState,
+        outcome: str,
+        outputs: dict[str, Any],
+    ) -> None:
+        try:
+            from aragora.receipts.lane import LaneCompletionReceipt, emit_lane_receipt
+
+            receipt = LaneCompletionReceipt(
+                task_id=state.campaign_id or "unknown",
+                lease_id=state.supervisor_id or "unknown",
+                agent_id=state.supervisor_id or "ralph-supervisor",
+                outcome=outcome,
+                metadata={
+                    "campaign_manifest_path": state.campaign_manifest_path,
+                    "current_step": state.current_step,
+                    **outputs,
+                },
+            )
+            emit_lane_receipt(receipt)
+        except Exception as exc:
+            logger.debug("Ralph lane receipt skipped: %s", exc)
+
     # -- public API --
 
     @classmethod
@@ -603,16 +628,22 @@ class RalphSupervisor:
 
         if stop_reason == "campaign_complete":
             state.status = SupervisorStatus.COMPLETED.value
+            completion_outputs = {
+                "status": SupervisorStatus.COMPLETED.value,
+                "stop_reason": stop_reason,
+                "budget_spent_usd": state.budget_spent_usd,
+                "merge_ready_projects": len(merge_ready_projects),
+            }
             self._emit_operational_receipt(
                 state=state,
                 action=SupervisorAction.CAMPAIGN_COMPLETED.value,
                 verdict="pass",
-                outputs={
-                    "status": SupervisorStatus.COMPLETED.value,
-                    "stop_reason": stop_reason,
-                    "budget_spent_usd": state.budget_spent_usd,
-                    "merge_ready_projects": len(merge_ready_projects),
-                },
+                outputs=completion_outputs,
+            )
+            self._emit_lane_receipt(
+                state=state,
+                outcome="pass",
+                outputs=completion_outputs,
             )
             return StepResult(
                 action=SupervisorAction.CAMPAIGN_COMPLETED.value,

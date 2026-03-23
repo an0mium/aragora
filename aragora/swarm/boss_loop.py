@@ -838,6 +838,34 @@ class BossLoop:
         except Exception as exc:
             logger.debug("Boss loop operational receipt skipped: %s", exc)
 
+    def _emit_lane_receipt(
+        self,
+        worker_result: dict[str, Any],
+        issue_dict: dict[str, Any],
+        elapsed: float,
+    ) -> None:
+        try:
+            from aragora.receipts.lane import LaneCompletionReceipt, emit_lane_receipt
+
+            receipt = LaneCompletionReceipt(
+                task_id=str(issue_dict.get("number", "")),
+                lease_id=str(worker_result.get("lease_id", self.run_id)),
+                agent_id=str(worker_result.get("agent_id", "boss-loop")),
+                base_sha=worker_result.get("base_sha"),
+                head_sha=worker_result.get("head_sha"),
+                changed_files=list(worker_result.get("changed_files", [])),
+                validations_run=list(worker_result.get("validations_run", [])),
+                outcome="pass",
+                risks=list(worker_result.get("risks", [])),
+                pr_url=worker_result.get("pr_url"),
+                pr_number=worker_result.get("pr_number"),
+                branch=worker_result.get("branch"),
+                duration_seconds=elapsed,
+            )
+            emit_lane_receipt(receipt)
+        except Exception as exc:
+            logger.debug("Lane receipt emission skipped: %s", exc)
+
     async def run(
         self,
         *,
@@ -1061,6 +1089,7 @@ class BossLoop:
         if worker_result.get("status") == "completed":
             self._completed_issues.append(issue_dict)
             self._consecutive_failures = 0
+            self._emit_lane_receipt(worker_result, issue_dict, elapsed)
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
