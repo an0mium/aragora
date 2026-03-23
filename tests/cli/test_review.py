@@ -355,6 +355,71 @@ class TestExtractReviewFindings:
         assert len(findings["critical_issues"]) >= 1
         assert len(findings["high_issues"]) >= 1
 
+    def test_filters_meta_review_findings(self):
+        """Meta-review chatter should not land in blocking issue buckets."""
+        result = MockDebateResult(
+            critiques=[
+                MockCritique(
+                    severity=0.95,
+                    target_agent="openai-api_performance_reviewer",
+                    issues=[
+                        "Weak point: this overstates risk from a truncated diff and should be reframed."
+                    ],
+                    suggestions=[
+                        "Reframe the strongest findings as review blockers due to incomplete visibility."
+                    ],
+                )
+            ],
+            messages=[],
+        )
+
+        mock_report = MagicMock()
+        mock_report.unanimous_critiques = []
+        mock_report.split_opinions = []
+        mock_report.risk_areas = []
+        mock_report.agreement_score = 0.5
+        mock_report.agent_alignment = {}
+
+        with patch("aragora.cli.review.DisagreementReporter") as mock_reporter_class:
+            mock_reporter_class.return_value.generate_report.return_value = mock_report
+            findings = extract_review_findings(result)
+
+        assert findings["critical_issues"] == []
+        assert len(findings["meta_issues"]) == 1
+        assert findings["meta_issues"][0]["grounded"] is False
+
+    def test_keeps_grounded_code_issue_and_extracts_location(self):
+        """Concrete code findings should remain blocking even if aimed at another reviewer."""
+        result = MockDebateResult(
+            critiques=[
+                MockCritique(
+                    severity=0.95,
+                    target_agent="openai-api_performance_reviewer",
+                    issues=[
+                        "SQL injection risk in aragora/server/app.py:45 due to string-built query."
+                    ],
+                    suggestions=["Use parameterized queries."],
+                )
+            ],
+            messages=[],
+        )
+
+        mock_report = MagicMock()
+        mock_report.unanimous_critiques = []
+        mock_report.split_opinions = []
+        mock_report.risk_areas = []
+        mock_report.agreement_score = 0.5
+        mock_report.agent_alignment = {}
+
+        with patch("aragora.cli.review.DisagreementReporter") as mock_reporter_class:
+            mock_reporter_class.return_value.generate_report.return_value = mock_report
+            findings = extract_review_findings(result)
+
+        assert len(findings["critical_issues"]) == 1
+        assert findings["critical_issues"][0]["grounded"] is True
+        assert findings["critical_issues"][0]["target"] == "aragora/server/app.py:45"
+        assert findings["meta_issues"] == []
+
 
 # ===========================================================================
 # Tests: format_github_comment
