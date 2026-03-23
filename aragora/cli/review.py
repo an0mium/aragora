@@ -45,11 +45,22 @@ _LOCATION_HINT_RE = re.compile(
 _META_REVIEW_PREFIXES = (
     "weak point:",
     "good catch:",
+    "overstates ",
     "treat ",
     "state that ",
     "reframe ",
 )
 _META_REVIEW_MARKERS = (
+    "agent-like target",
+    "calling this **critical**",
+    "calling this critical",
+    "explicit meta-review language",
+    "from the diff alone",
+    "incomplete visibility",
+    "no concrete file/location hint",
+    "not clearly a bug from the diff",
+    "not shown in the diff",
+    "not visible in the diff",
     "review blocker due to incomplete visibility",
     "review blockers due to incomplete visibility",
     "cannot assess installation changes",
@@ -58,6 +69,8 @@ _META_REVIEW_MARKERS = (
     "not a confirmed security bug",
     "not a useful review comment",
     "reframe the strongest findings",
+    "since the diff is truncated",
+    "since the diff may be truncated",
 )
 
 
