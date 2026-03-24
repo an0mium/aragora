@@ -420,7 +420,7 @@ class RedditIngestor(PulseIngestor):
                                 },
                             )
                             all_topics.append(topic)
-                    except (OSError, ValueError, TypeError, RuntimeError) as e:
+                    except (OSError, ValueError, TypeError, RuntimeError, httpx.HTTPError) as e:
                         logger.warning("Error fetching r/%s: %s", subreddit, e)
                         continue
 
@@ -534,9 +534,10 @@ class GitHubTrendingIngestor(PulseIngestor):
 
                 topics = []
                 for repo in data["items"][:limit]:
+                    description = (repo.get("description") or "No description")[:100]
                     topic = TrendingTopic(
                         platform="github",
-                        topic=f"{repo['full_name']}: {repo.get('description', 'No description')[:100]}",
+                        topic=f"{repo['full_name']}: {description}",
                         volume=repo.get("stargazers_count", 0),
                         category=self._categorize_repo(repo),
                         raw_data={

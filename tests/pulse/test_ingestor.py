@@ -858,6 +858,48 @@ class TestRedditIngestor:
         assert len(result) == 1
         assert result[0].topic == "Good post"
 
+    @pytest.mark.asyncio
+    async def test_fetch_trending_ignores_http_errors_per_subreddit(self):
+        """A blocked subreddit should not abort the whole Reddit ingestor."""
+        ingestor = RedditIngestor(
+            subreddits=["technology", "programming"],
+            max_retries=1,
+            base_retry_delay=0.01,
+        )
+
+        blocked_response = MagicMock()
+        blocked_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "403 Blocked",
+            request=httpx.Request("GET", "https://www.reddit.com/r/technology/hot.json"),
+            response=httpx.Response(403),
+        )
+
+        ok_response = MagicMock()
+        ok_response.raise_for_status = MagicMock()
+        ok_response.json.return_value = {
+            "data": {
+                "children": [
+                    {
+                        "data": {
+                            "title": "Python release",
+                            "score": 123,
+                            "url": "https://example.com/python",
+                            "author": "guido",
+                            "num_comments": 12,
+                            "permalink": "/r/programming/comments/1",
+                        }
+                    }
+                ]
+            }
+        }
+
+        with patch.object(httpx.AsyncClient, "get", side_effect=[blocked_response, ok_response]):
+            result = await ingestor.fetch_trending(limit=2)
+
+        assert len(result) == 1
+        assert result[0].platform == "reddit"
+        assert result[0].topic == "Python release"
+
 
 # =============================================================================
 # GitHubTrendingIngestor Tests
@@ -988,6 +1030,38 @@ class TestGitHubTrendingIngestor:
         assert result[0].platform == "github"
         assert "user/repo" in result[0].topic
         assert result[0].volume == 1000
+
+    @pytest.mark.asyncio
+    async def test_fetch_trending_handles_null_description(self):
+        """GitHub repos with null descriptions should not trigger retry failures."""
+        ingestor = GitHubTrendingIngestor(max_retries=1, base_retry_delay=0.01)
+
+        mock_response_data = {
+            "items": [
+                {
+                    "full_name": "user/repo",
+                    "description": None,
+                    "stargazers_count": 1000,
+                    "forks_count": 100,
+                    "language": "Python",
+                    "html_url": "https://github.com/user/repo",
+                    "topics": ["python"],
+                    "created_at": "2024-01-01",
+                }
+            ]
+        }
+
+        with patch.object(httpx.AsyncClient, "get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = mock_response_data
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            result = await ingestor.fetch_trending(limit=1)
+
+        assert len(result) == 1
+        assert result[0].topic == "user/repo: No description"
 
     @pytest.mark.asyncio
     async def test_fetch_trending_rate_limit_error(self):
