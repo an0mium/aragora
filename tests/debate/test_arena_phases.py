@@ -152,6 +152,19 @@ class TestInitPhases:
 
         assert mock_arena.context_gatherer is not None
 
+    def test_init_phases_passes_rlm_flag_to_context_gatherer(self):
+        """ContextGatherer should respect arena-level RLM disablement."""
+        mock_arena = self._create_mock_arena()
+        mock_arena.enable_rlm = True
+        mock_arena.use_rlm_limiter = False
+
+        with patch("aragora.debate.arena_phases.ContextGatherer") as mock_gatherer_cls:
+            init_phases(mock_arena)
+
+        assert mock_gatherer_cls.called
+        _, kwargs = mock_gatherer_cls.call_args
+        assert kwargs["enable_rlm_compression"] is False
+
     def test_init_phases_sets_context_initializer(self):
         """init_phases sets context_initializer attribute."""
         mock_arena = self._create_mock_arena()
