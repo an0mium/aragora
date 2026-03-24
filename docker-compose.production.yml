@@ -231,7 +231,7 @@ services:
     command: >
       -c "cp /etc/redis/redis.conf.template /data/redis.conf &&
           if [ -n \"$$REDIS_PASSWORD\" ]; then
-            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            escaped_password=$$(printf '%s' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
             sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/redis.conf;
           else
             sed -i '/^requirepass REDIS_PASSWORD_PLACEHOLDER$/d' /data/redis.conf;
@@ -267,7 +267,7 @@ services:
     command: >
       -c "cp /etc/redis/redis.conf.template /data/redis.conf &&
           if [ -n \"$$REDIS_PASSWORD\" ]; then
-            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            escaped_password=$$(printf '%s' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
             sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/redis.conf;
           else
             sed -i '/^requirepass REDIS_PASSWORD_PLACEHOLDER$/d' /data/redis.conf &&
@@ -307,7 +307,7 @@ services:
     command: >
       -c "cp /etc/redis/redis.conf.template /data/redis.conf &&
           if [ -n \"$$REDIS_PASSWORD\" ]; then
-            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            escaped_password=$$(printf '%s' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
             sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/redis.conf;
           else
             sed -i '/^requirepass REDIS_PASSWORD_PLACEHOLDER$/d' /data/redis.conf &&
@@ -347,7 +347,7 @@ services:
     command: >
       -c "cp /etc/redis/sentinel.conf.template /data/sentinel.conf &&
           if [ -n \"$$REDIS_PASSWORD\" ]; then
-            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            escaped_password=$$(printf '%s' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
             sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/sentinel.conf;
           else
             sed -i '/^sentinel auth-pass mymaster REDIS_PASSWORD_PLACEHOLDER$/d' /data/sentinel.conf;
@@ -386,7 +386,7 @@ services:
     command: >
       -c "cp /etc/redis/sentinel.conf.template /data/sentinel.conf &&
           if [ -n \"$$REDIS_PASSWORD\" ]; then
-            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            escaped_password=$$(printf '%s' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
             sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/sentinel.conf;
           else
             sed -i '/^sentinel auth-pass mymaster REDIS_PASSWORD_PLACEHOLDER$/d' /data/sentinel.conf;
@@ -425,7 +425,7 @@ services:
     command: >
       -c "cp /etc/redis/sentinel.conf.template /data/sentinel.conf &&
           if [ -n \"$$REDIS_PASSWORD\" ]; then
-            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            escaped_password=$$(printf '%s' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
             sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/sentinel.conf;
           else
             sed -i '/^sentinel auth-pass mymaster REDIS_PASSWORD_PLACEHOLDER$/d' /data/sentinel.conf;

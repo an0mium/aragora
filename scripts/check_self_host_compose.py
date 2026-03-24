@@ -136,6 +136,14 @@ def _contains_required_runbook_markers(path: Path) -> list[str]:
     return missing
 
 
+def _has_broken_redis_password_render(service: dict[str, object]) -> bool:
+    """Detect newline-corrupting REDIS_PASSWORD render commands."""
+    command = service.get("command")
+    if not isinstance(command, str):
+        return False
+    return "REDIS_PASSWORD_PLACEHOLDER" in command and "printf '%s\\n'" in command
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate production self-host compose configuration"
@@ -292,6 +300,10 @@ def main() -> int:
             service_env = _parse_service_env(service)
             if "REDIS_PASSWORD" not in service_env:
                 errors.append(f"{service_name} service missing REDIS_PASSWORD env wiring")
+            if _has_broken_redis_password_render(service):
+                errors.append(
+                    f"{service_name} service uses newline-appending REDIS_PASSWORD render logic"
+                )
 
     missing_markers = _contains_required_runbook_markers(runbook_path)
     if missing_markers:

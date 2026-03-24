@@ -281,6 +281,28 @@ def test_fails_when_sentinel_service_missing_redis_password_wiring(tmp_path: Pat
     assert "redis-master service missing redis_password env wiring" in result.stdout.lower()
 
 
+def test_fails_when_sentinel_service_uses_newline_password_render(tmp_path: Path):
+    compose, env, runbook = _write_valid_fixture(tmp_path)
+    compose.write_text(
+        compose.read_text(encoding="utf-8").replace(
+            "  redis-master:\n    environment:\n      - REDIS_PASSWORD=${REDIS_PASSWORD:-}\n"
+            '    healthcheck:\n      test: ["CMD", "true"]\n',
+            "  redis-master:\n"
+            "    environment:\n"
+            "      - REDIS_PASSWORD=${REDIS_PASSWORD:-}\n"
+            "    command: >\n"
+            "      -c \"escaped_password=$$(printf '%s\\n' \\\"$$REDIS_PASSWORD\\\" | sed 's/[|&]/\\\\\\\\&/g') && "
+            'sed -i \\"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\\" /data/redis.conf"\n'
+            '    healthcheck:\n      test: ["CMD", "true"]\n',
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run("--compose", str(compose), "--env-example", str(env), "--runbook", str(runbook))
+    assert result.returncode == 1
+    assert "newline-appending redis_password render logic" in result.stdout.lower()
+
+
 def test_standalone_redis_topology_passes(tmp_path: Path):
     compose, env, runbook = _write_valid_standalone_fixture(tmp_path)
 
