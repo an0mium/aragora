@@ -435,6 +435,84 @@ class TestKMOutcomeBridgePropagation:
         assert result.validations[0].original_confidence == 0.6
 
 
+class TestKMOutcomeBridgeUpdates:
+    """Tests for KM confidence writeback behavior."""
+
+    @pytest.mark.asyncio
+    async def test_update_km_confidence_prefers_update_for_metadata(self):
+        """Bridge should use KM.update when validation metadata needs to be preserved."""
+
+        class MockMound:
+            def __init__(self) -> None:
+                self.update_mock = AsyncMock(
+                    return_value={
+                        "id": "km_123",
+                        "confidence": 0.9,
+                        "metadata": {
+                            "workspace_id": "default",
+                            "existing": "keep",
+                            "debate_id": "debate_1",
+                        },
+                    }
+                )
+                self.update_confidence = AsyncMock(return_value=True)
+
+            async def get(self, _item_id: str) -> dict[str, object]:
+                return {
+                    "id": "km_123",
+                    "confidence": 0.7,
+                    "metadata": {"workspace_id": "default", "existing": "keep"},
+                }
+
+            async def update(self, item_id: str, updates: dict[str, object]) -> dict[str, object]:
+                return await self.update_mock(item_id, updates)
+
+        mock_mound = MockMound()
+        bridge = KMOutcomeBridge(knowledge_mound=mock_mound)
+        ok = await bridge._update_km_confidence(
+            item_id="km_123",
+            new_confidence=0.9,
+            validation_metadata={"debate_id": "debate_1"},
+        )
+
+        assert ok is True
+        mock_mound.update_mock.assert_awaited_once_with(
+            "km_123",
+            {
+                "confidence": 0.9,
+                "metadata": {
+                    "workspace_id": "default",
+                    "existing": "keep",
+                    "debate_id": "debate_1",
+                },
+            },
+        )
+        mock_mound.update_confidence.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_update_km_confidence_falls_back_to_two_arg_api(self):
+        """Bridge should call the legacy two-argument update_confidence API correctly."""
+
+        class MockMound:
+            def __init__(self) -> None:
+                self.update_confidence = AsyncMock(return_value=True)
+
+            async def get(self, item_id: str) -> dict[str, object]:
+                return {"id": item_id, "confidence": 0.7}
+
+        mock_mound = MockMound()
+        bridge = KMOutcomeBridge(knowledge_mound=mock_mound)
+
+        ok = await bridge._update_km_confidence(
+            item_id="km_123",
+            new_confidence=0.8,
+            validation_metadata={"debate_id": "debate_1"},
+        )
+
+        assert ok is True
+        mock_mound.update_confidence.assert_awaited_once_with("km_123", 0.8)
+
+
 class TestKMOutcomeBridgeStats:
     """Tests for statistics."""
 
