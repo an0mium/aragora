@@ -541,6 +541,7 @@ class TestCmdQuickstart:
         mock_agent = MagicMock()
         mock_agent.name = "openai-api"
         mock_result = argparse.Namespace()
+        mock_insight_store = MagicMock()
 
         with (
             patch(
@@ -548,6 +549,7 @@ class TestCmdQuickstart:
                 return_value=[("openai-api", "gpt-4o")],
             ),
             patch("aragora.agents.base.create_agent", return_value=mock_agent),
+            patch("aragora.insights.store.InsightStore", return_value=mock_insight_store),
             patch(
                 "aragora.cli.commands.quickstart._build_live_receipt",
                 return_value={"mode": "live", "rounds": 1},
@@ -576,6 +578,7 @@ class TestCmdQuickstart:
         assert protocol.enable_llm_synthesis is False
 
         arena_kwargs = mock_arena_cls.call_args.kwargs
+        assert arena_kwargs["insight_store"] is mock_insight_store
         assert arena_kwargs["knowledge_mound"] is None
         assert arena_kwargs["auto_create_knowledge_mound"] is False
         assert arena_kwargs["enable_knowledge_retrieval"] is False

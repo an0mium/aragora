@@ -434,7 +434,7 @@ async def _run_live_debate(
     from aragora.agents.base import AgentType, create_agent
     from aragora.core import Environment
     from aragora.debate.orchestrator import Arena, DebateProtocol
-    from aragora.memory.store import CritiqueStore
+    from aragora.insights.store import InsightStore
 
     agents_list = await _filter_reachable_live_agents(agents_list)
 
@@ -454,7 +454,7 @@ async def _run_live_debate(
         enable_llm_question_classification=False,
         enable_llm_synthesis=False,
     )
-    store = CritiqueStore()
+    store = InsightStore()
 
     agents = []
     agent_names = []
