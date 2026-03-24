@@ -230,6 +230,34 @@ def test_wait_for_http_200_reports_last_connection_error_on_timeout() -> None:
             module._wait_for_http_200("http://127.0.0.1:8080", "/healthz", timeout_seconds=1)
 
 
+def test_wait_for_http_200_reports_last_http_body_on_timeout() -> None:
+    module = _load_script_module()
+
+    with (
+        patch.object(
+            module,
+            "_http_request",
+            return_value=(
+                503,
+                (
+                    '{"status":"not_ready","reason":"Server in degraded mode",'
+                    '"checks":{"degraded_mode":false,"startup_complete":true}}'
+                ),
+            ),
+        ),
+        patch.object(module.time, "monotonic", side_effect=[0.0, 0.1, 1.1]),
+        patch.object(module.time, "sleep", return_value=None),
+    ):
+        with pytest.raises(
+            module.RuntimeCheckError,
+            match=(
+                "last_status=503.*last_body=reason=Server in degraded mode; "
+                "status=not_ready; failed_checks=degraded_mode"
+            ),
+        ):
+            module._wait_for_http_200("http://127.0.0.1:8080", "/readyz", timeout_seconds=1)
+
+
 def test_main_builds_services_before_waiting_for_health(tmp_path: Path) -> None:
     module = _load_script_module()
     compose_path = tmp_path / "docker-compose.production.yml"

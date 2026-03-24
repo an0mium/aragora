@@ -353,16 +353,58 @@ def _http_request(
         raise RuntimeCheckError(f"HTTP request failed for {url}: {exc}") from exc
 
 
+def _summarize_http_body(body: str, *, max_length: int = 240) -> str:
+    """Summarize an HTTP response body for diagnostics."""
+    stripped = body.strip()
+    if not stripped:
+        return ""
+
+    try:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError:
+        return stripped.replace("\n", " ")[:max_length]
+
+    if not isinstance(payload, dict):
+        return stripped.replace("\n", " ")[:max_length]
+
+    details: list[str] = []
+    for key in ("reason", "status", "message", "error", "degraded_reason"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            details.append(f"{key}={value.strip()[:80]}")
+
+    degraded = payload.get("degraded")
+    if isinstance(degraded, dict):
+        for key in ("error_code", "reason", "recovery_hint"):
+            value = degraded.get(key)
+            if isinstance(value, str) and value.strip():
+                details.append(f"degraded.{key}={value.strip()[:80]}")
+
+    checks = payload.get("checks")
+    if isinstance(checks, dict):
+        failing_checks = [name for name, value in checks.items() if value is False]
+        if failing_checks:
+            details.append(f"failed_checks={','.join(failing_checks[:6])}")
+
+    summary = "; ".join(details)
+    if summary:
+        return summary[:max_length]
+
+    return stripped.replace("\n", " ")[:max_length]
+
+
 def _wait_for_http_200(base_url: str, path: str, timeout_seconds: int) -> None:
     deadline = time.monotonic() + timeout_seconds
     url = urllib.parse.urljoin(base_url, path)
     last_status = 0
     last_error = ""
+    last_body = ""
 
     while time.monotonic() < deadline:
         try:
-            status, _ = _http_request(url, method="GET", timeout_seconds=5)
+            status, body = _http_request(url, method="GET", timeout_seconds=5)
             last_status = status
+            last_body = _summarize_http_body(body)
             if status == 200:
                 print(f"[ok] {path} returned 200")
                 return
@@ -372,7 +414,12 @@ def _wait_for_http_200(base_url: str, path: str, timeout_seconds: int) -> None:
             last_status = 0
         time.sleep(2)
 
-    extra = f", last_error={last_error}" if last_error else ""
+    extra_parts = []
+    if last_error:
+        extra_parts.append(f"last_error={last_error}")
+    if last_body:
+        extra_parts.append(f"last_body={last_body}")
+    extra = f", {', '.join(extra_parts)}" if extra_parts else ""
     raise RuntimeCheckError(
         f"Timed out waiting for {path} to return 200 (last_status={last_status}{extra})"
     )
