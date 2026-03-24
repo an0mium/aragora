@@ -296,6 +296,37 @@ def _normalize_public_debate_payload(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def _is_live_public_result(data: dict[str, Any]) -> bool:
+    """Return True when a public result explicitly came from a live backend path."""
+    return data.get("is_live") is True
+
+
+def _annotate_mock_fallback(
+    data: dict[str, Any],
+    *,
+    reason: str,
+) -> dict[str, Any]:
+    """Attach explicit fallback provenance to a public debate payload."""
+    annotated = dict(data)
+    annotated["is_live"] = False
+    annotated["mock_fallback"] = True
+    annotated["mock_fallback_reason"] = reason
+    return annotated
+
+
+def _build_live_demo_unavailable_response(message: str) -> HandlerResult:
+    """Return an explicit failure when the public demo cannot prove a live result."""
+    return json_response(
+        {
+            "error": message,
+            "code": "live_demo_unavailable",
+            "is_live": False,
+            "show_recorded_sample": True,
+        },
+        status=503,
+    )
+
+
 # Keep static versions for backward compat
 _MOCK_CRITIQUE_ISSUES = _build_mock_critiques(_DEFAULT_TOPIC)["issues"]
 _MOCK_CRITIQUE_SUGGESTIONS = _build_mock_critiques(_DEFAULT_TOPIC)["suggestions"]
@@ -1744,10 +1775,25 @@ class PlaygroundHandler(BaseHandler):
             cached = store.get_by_cache_key(cache_key)
             if cached is not None:
                 cached = _normalize_public_debate_payload(cached)
-                cached["cached"] = True
-                cached["cached_at"] = time.time()
-                logger.info("Cache hit for debate key %.12s…", cache_key)
-                return json_response(cached)
+                cached.setdefault("source", source)
+
+                # /demo is a truthful proof surface: it may replay persisted live runs,
+                # but it must not surface unlabeled fallback debates as if they were live.
+                if source == "demo" and not _is_live_public_result(cached):
+                    logger.info(
+                        "Skipping cached debate %.12s… for demo: no live provenance",
+                        cache_key,
+                    )
+                else:
+                    if not _is_live_public_result(cached) and not cached.get("mock_fallback"):
+                        cached = _annotate_mock_fallback(
+                            cached,
+                            reason="Served from a persisted fallback result.",
+                        )
+                    cached["cached"] = True
+                    cached["cached_at"] = time.time()
+                    logger.info("Cache hit for debate key %.12s…", cache_key)
+                    return json_response(cached)
         except (ImportError, RuntimeError, OSError, ValueError):
             logger.debug("Cache lookup unavailable, proceeding to debate", exc_info=True)
         except Exception:  # noqa: BLE001
@@ -1873,8 +1919,17 @@ class PlaygroundHandler(BaseHandler):
         except (TimeoutError, ValueError, RuntimeError, OSError) as exc:
             logger.warning("Live debate failed, falling back to mock: %s", exc)
 
+        if source == "demo":
+            return _build_live_demo_unavailable_response(
+                "The live demo could not produce a real backend result right now. "
+                "Use the labeled recorded example or retry for a fresh proof run."
+            )
+
         # Mock fallback -- always works, no external dependencies
-        mock_data = _run_inline_mock_debate(topic, rounds, agent_count, question=question)
+        mock_data = _annotate_mock_fallback(
+            _run_inline_mock_debate(topic, rounds, agent_count, question=question),
+            reason="Live agents were unavailable, so the public beta returned a deterministic fallback.",
+        )
         return self._persist_and_respond(json_response(mock_data), topic, source, **_cache_kw)
 
     @staticmethod

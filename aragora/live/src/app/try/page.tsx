@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { TeaserResult } from '@/components/try/TeaserResult';
@@ -101,7 +102,7 @@ function TryPageInner() {
       const response = await fetch(`${API_BASE_URL}/api/v1/playground/debate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: question.trim(), source: 'landing' }),
+        body: JSON.stringify({ question: question.trim(), source: 'try' }),
         signal: abortRef.current.signal,
       });
 
@@ -211,12 +212,23 @@ function TryPageInner() {
         <div className="max-w-2xl mx-auto px-4 py-12">
           {/* Headline */}
           <div className="text-center mb-10">
+            <div className="mb-4 inline-flex items-center rounded-full border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/8 px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-[0.2em] text-[var(--acid-cyan)]">
+              Public beta
+            </div>
             <h1 className="text-3xl md:text-4xl font-mono text-[var(--acid-green)] mb-4">
-              Test a decision with AI experts
+              Try Aragora Beta
             </h1>
             <p className="text-sm font-mono text-[var(--text-muted)] max-w-lg mx-auto">
-              Pose any question and watch multiple AI models debate it from different angles.
-              Get a consensus verdict in seconds.
+              Ask your own question through the public beta flow. `/try` keeps rate limiting,
+              persistence, and replay/share behavior intact while `/demo` stays focused on the
+              canonical live proof.
+            </p>
+            <p className="text-xs font-mono text-[var(--text-muted)]/70 max-w-lg mx-auto mt-3">
+              Need the product proof surface first?{' '}
+              <Link href="/demo" className="text-[var(--acid-green)] hover:underline">
+                Open /demo
+              </Link>
+              .
             </p>
           </div>
 
