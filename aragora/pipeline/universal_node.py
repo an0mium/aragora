@@ -42,6 +42,14 @@ _VALID_SUBTYPES: dict[PipelineStage, set[str]] = {
     PipelineStage.ORCHESTRATION: {e.value for e in OrchestrationNodeType},
 }
 
+_STAGE_SORT_ORDER: dict[PipelineStage, int] = {
+    PipelineStage.IDEAS: 0,
+    PipelineStage.PRINCIPLES: 1,
+    PipelineStage.GOALS: 2,
+    PipelineStage.ACTIONS: 3,
+    PipelineStage.ORCHESTRATION: 4,
+}
+
 
 @dataclass
 class UniversalNode:
@@ -97,9 +105,12 @@ class UniversalNode:
                 "stage": self.stage.value,
                 "subtype": self.node_subtype,
                 "status": self.status,
+                "executionStatus": self.execution_status,
+                "execution_status": self.execution_status,
                 "confidence": self.confidence,
                 "color": color,
                 "stageColor": stage_color.get("primary", color),
+                "metadata": self.metadata,
                 **self.data,
             },
             "style": {
@@ -127,6 +138,7 @@ class UniversalNode:
             "parent_ids": self.parent_ids,
             "source_stage": self.source_stage.value if self.source_stage else None,
             "status": self.status,
+            "execution_status": self.execution_status,
             "confidence": self.confidence,
             "data": self.data,
             "style": self.style,
@@ -153,6 +165,7 @@ class UniversalNode:
             parent_ids=data.get("parent_ids", []),
             source_stage=PipelineStage(source_stage) if source_stage else None,
             status=data.get("status", "active"),
+            execution_status=data.get("execution_status", data.get("executionStatus")),
             confidence=float(data.get("confidence", 0)),
             data=data.get("data", {}),
             style=data.get("style", {}),
@@ -286,6 +299,13 @@ class UniversalGraph:
         self._walk_provenance(node_id, visited, chain)
         return chain
 
+    def get_downstream_chain(self, node_id: str) -> list[UniversalNode]:
+        """Walk child relationships recursively to build a downstream chain."""
+        visited: set[str] = set()
+        chain: list[UniversalNode] = []
+        self._walk_downstream(node_id, visited, chain)
+        return chain
+
     def _walk_provenance(self, node_id: str, visited: set[str], chain: list[UniversalNode]) -> None:
         if node_id in visited or node_id not in self.nodes:
             return
@@ -294,6 +314,27 @@ class UniversalGraph:
         chain.append(node)
         for parent_id in node.parent_ids:
             self._walk_provenance(parent_id, visited, chain)
+
+    def _walk_downstream(self, node_id: str, visited: set[str], chain: list[UniversalNode]) -> None:
+        if node_id in visited or node_id not in self.nodes:
+            return
+        visited.add(node_id)
+        node = self.nodes[node_id]
+        chain.append(node)
+        children = [
+            candidate
+            for candidate in self.nodes.values()
+            if node_id in candidate.parent_ids and candidate.id not in visited
+        ]
+        children.sort(
+            key=lambda candidate: (
+                _STAGE_SORT_ORDER.get(candidate.stage, 999),
+                candidate.created_at,
+                candidate.id,
+            )
+        )
+        for child in children:
+            self._walk_downstream(child.id, visited, chain)
 
     def integrity_hash(self) -> str:
         """Merkle-like hash of all node content_hash values."""

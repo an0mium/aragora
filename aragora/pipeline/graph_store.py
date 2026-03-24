@@ -34,6 +34,13 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_DB_DIR = os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))
 _DEFAULT_DB_PATH = os.path.join(_DEFAULT_DB_DIR, "pipeline_graphs.db")
+_STAGE_SORT_ORDER: dict[PipelineStage, int] = {
+    PipelineStage.IDEAS: 0,
+    PipelineStage.PRINCIPLES: 1,
+    PipelineStage.GOALS: 2,
+    PipelineStage.ACTIONS: 3,
+    PipelineStage.ORCHESTRATION: 4,
+}
 
 
 def _get_db_path() -> str:
@@ -100,6 +107,7 @@ class GraphStore:
                     parent_ids_json TEXT DEFAULT '[]',
                     source_stage TEXT,
                     status TEXT DEFAULT 'active',
+                    execution_status TEXT,
                     confidence REAL DEFAULT 0,
                     data_json TEXT DEFAULT '{}',
                     style_json TEXT DEFAULT '{}',
@@ -116,6 +124,11 @@ class GraphStore:
                 CREATE INDEX IF NOT EXISTS idx_nodes_content_hash
                     ON nodes(content_hash);
             """)
+            node_columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(nodes)").fetchall()
+            }
+            if "execution_status" not in node_columns:
+                conn.execute("ALTER TABLE nodes ADD COLUMN execution_status TEXT")
             conn.commit()
         finally:
             conn.close()
@@ -123,26 +136,11 @@ class GraphStore:
     # -- CRUD ---------------------------------------------------------------
 
     def create(self, graph: UniversalGraph) -> str:
-        """Insert a new graph with all its nodes. Returns graph ID."""
+        """Insert or replace a graph snapshot. Returns graph ID."""
         conn = self._connect()
         try:
-            conn.execute(
-                """INSERT INTO graphs
-                   (id, name, owner_id, workspace_id, edges_json,
-                    transitions_json, metadata_json, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    graph.id,
-                    graph.name,
-                    graph.owner_id,
-                    graph.workspace_id,
-                    json.dumps([e.to_dict() for e in graph.edges.values()]),
-                    json.dumps([t.to_dict() for t in graph.transitions]),
-                    json.dumps(graph.metadata),
-                    graph.created_at,
-                    graph.updated_at,
-                ),
-            )
+            self._upsert_graph(conn, graph)
+            conn.execute("DELETE FROM nodes WHERE graph_id = ?", (graph.id,))
             for node in graph.nodes.values():
                 self._insert_node(conn, graph.id, node)
             conn.commit()
@@ -209,28 +207,13 @@ class GraphStore:
             conn.close()
 
     def update(self, graph: UniversalGraph) -> None:
-        """Update a graph's metadata, edges, and transitions.
-
-        Node updates should use add_node/remove_node for efficiency.
-        """
+        """Persist a full graph snapshot, including node mutations."""
         conn = self._connect()
         try:
-            conn.execute(
-                """UPDATE graphs SET name=?, owner_id=?, workspace_id=?,
-                   edges_json=?, transitions_json=?, metadata_json=?,
-                   updated_at=?
-                   WHERE id=?""",
-                (
-                    graph.name,
-                    graph.owner_id,
-                    graph.workspace_id,
-                    json.dumps([e.to_dict() for e in graph.edges.values()]),
-                    json.dumps([t.to_dict() for t in graph.transitions]),
-                    json.dumps(graph.metadata),
-                    graph.updated_at,
-                    graph.id,
-                ),
-            )
+            self._upsert_graph(conn, graph)
+            conn.execute("DELETE FROM nodes WHERE graph_id = ?", (graph.id,))
+            for node in graph.nodes.values():
+                self._insert_node(conn, graph.id, node)
             conn.commit()
         finally:
             conn.close()
@@ -325,7 +308,55 @@ class GraphStore:
         finally:
             conn.close()
 
+    def get_downstream_chain(self, graph_id: str, node_id: str) -> builtins.list[UniversalNode]:
+        """Walk child relationships recursively to build a downstream chain."""
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM nodes WHERE graph_id = ?", (graph_id,)).fetchall()
+            node_map: dict[str, UniversalNode] = {}
+            for row in rows:
+                node = self._row_to_node(row)
+                node_map[node.id] = node
+
+            visited: set[str] = set()
+            chain: list[UniversalNode] = []
+            self._walk_downstream_chain(node_id, node_map, visited, chain)
+            return chain
+        finally:
+            conn.close()
+
     # -- Helpers ------------------------------------------------------------
+
+    @staticmethod
+    def _upsert_graph(conn: sqlite3.Connection, graph: UniversalGraph) -> None:
+        conn.execute(
+            """
+            INSERT INTO graphs
+                (id, name, owner_id, workspace_id, edges_json,
+                 transitions_json, metadata_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name=excluded.name,
+                owner_id=excluded.owner_id,
+                workspace_id=excluded.workspace_id,
+                edges_json=excluded.edges_json,
+                transitions_json=excluded.transitions_json,
+                metadata_json=excluded.metadata_json,
+                created_at=excluded.created_at,
+                updated_at=excluded.updated_at
+            """,
+            (
+                graph.id,
+                graph.name,
+                graph.owner_id,
+                graph.workspace_id,
+                json.dumps([e.to_dict() for e in graph.edges.values()]),
+                json.dumps([t.to_dict() for t in graph.transitions]),
+                json.dumps(graph.metadata),
+                graph.created_at,
+                graph.updated_at,
+            ),
+        )
 
     def _insert_node(self, conn: sqlite3.Connection, graph_id: str, node: UniversalNode) -> None:
         conn.execute(
@@ -333,9 +364,9 @@ class GraphStore:
                (id, graph_id, stage, node_subtype, label, description,
                 position_x, position_y, width, height,
                 content_hash, previous_hash, parent_ids_json, source_stage,
-                status, confidence, data_json, style_json, metadata_json,
+                status, execution_status, confidence, data_json, style_json, metadata_json,
                 created_at, updated_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 node.id,
                 graph_id,
@@ -352,6 +383,7 @@ class GraphStore:
                 json.dumps(node.parent_ids),
                 node.source_stage.value if node.source_stage else None,
                 node.status,
+                node.execution_status,
                 node.confidence,
                 json.dumps(node.data),
                 json.dumps(node.style),
@@ -433,6 +465,7 @@ class GraphStore:
             parent_ids=json.loads(row["parent_ids_json"] or "[]"),
             source_stage=PipelineStage(source_stage_raw) if source_stage_raw else None,
             status=row["status"],
+            execution_status=row["execution_status"],
             confidence=row["confidence"],
             data=json.loads(row["data_json"] or "{}"),
             style=json.loads(row["style_json"] or "{}"),
@@ -455,6 +488,33 @@ class GraphStore:
         chain.append(node)
         for parent_id in node.parent_ids:
             GraphStore._walk_chain(parent_id, node_map, visited, chain)
+
+    @staticmethod
+    def _walk_downstream_chain(
+        node_id: str,
+        node_map: dict[str, UniversalNode],
+        visited: set[str],
+        chain: builtins.list[UniversalNode],
+    ) -> None:
+        if node_id in visited or node_id not in node_map:
+            return
+        visited.add(node_id)
+        node = node_map[node_id]
+        chain.append(node)
+        children = [
+            candidate
+            for candidate in node_map.values()
+            if node_id in candidate.parent_ids and candidate.id not in visited
+        ]
+        children.sort(
+            key=lambda candidate: (
+                _STAGE_SORT_ORDER.get(candidate.stage, 999),
+                candidate.created_at,
+                candidate.id,
+            )
+        )
+        for child in children:
+            GraphStore._walk_downstream_chain(child.id, node_map, visited, chain)
 
 
 # Module-level singleton

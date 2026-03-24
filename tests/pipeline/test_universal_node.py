@@ -183,6 +183,17 @@ class TestUniversalNode:
         assert restored.confidence == 0.8
         assert restored.data == {"priority": "high"}
 
+    def test_to_dict_roundtrip_preserves_execution_status(self):
+        node = UniversalNode(
+            id="n1",
+            stage=PipelineStage.ORCHESTRATION,
+            node_subtype="agent_task",
+            label="Run tests",
+            execution_status="in_progress",
+        )
+        restored = UniversalNode.from_dict(node.to_dict())
+        assert restored.execution_status == "in_progress"
+
     def test_to_dict_content_hash_preserved(self):
         """Content hash in to_dict matches from_dict restoration."""
         node = UniversalNode(
@@ -214,6 +225,20 @@ class TestUniversalNode:
         assert rf["data"]["stage"] == "ideas"
         assert rf["data"]["subtype"] == "concept"
         assert "color" in rf["data"]
+
+    def test_to_react_flow_node_includes_execution_status_and_metadata(self):
+        node = UniversalNode(
+            id="n1",
+            stage=PipelineStage.ORCHESTRATION,
+            node_subtype="agent_task",
+            label="Execute",
+            execution_status="awaiting_human",
+            metadata={"lane": "review"},
+        )
+        rf = node.to_react_flow_node()
+        assert rf["data"]["execution_status"] == "awaiting_human"
+        assert rf["data"]["executionStatus"] == "awaiting_human"
+        assert rf["data"]["metadata"] == {"lane": "review"}
 
     def test_to_react_flow_node_uses_node_type_colors(self):
         """The color in react flow data uses NODE_TYPE_COLORS mapping."""
@@ -771,6 +796,26 @@ class TestUniversalGraph:
         ids = [n.id for n in chain]
         assert ids == ["n4", "n3", "n2", "n1"]
 
+    def test_downstream_chain_multi_level(self):
+        """Four levels deep: n1 -> n2 -> n3 -> n4."""
+        graph = self._make_graph()
+        n4 = UniversalNode(
+            id="n4",
+            stage=PipelineStage.ORCHESTRATION,
+            node_subtype="agent_task",
+            label="Agent Task 1",
+            parent_ids=["n3"],
+            source_stage=PipelineStage.ACTIONS,
+        )
+        graph.add_node(n4)
+        chain = graph.get_downstream_chain("n1")
+        assert [node.id for node in chain] == ["n1", "n2", "n3", "n4"]
+
+    def test_downstream_chain_leaf(self):
+        graph = self._make_graph()
+        chain = graph.get_downstream_chain("n3")
+        assert [node.id for node in chain] == ["n3"]
+
     def test_provenance_chain_diamond(self):
         """Diamond shape: n3 has two parents (n1, n2), both derived from same root."""
         graph = UniversalGraph(id="g1")
@@ -807,6 +852,10 @@ class TestUniversalGraph:
         # All 4 nodes visited, root visited only once despite diamond
         assert set(ids) == {"n3", "n1", "n2", "root"}
         assert len(ids) == 4
+
+    def test_downstream_chain_nonexistent_node(self):
+        graph = self._make_graph()
+        assert graph.get_downstream_chain("nonexistent") == []
 
     def test_provenance_chain_nonexistent_node(self):
         """Requesting chain for a non-existent node returns empty list."""

@@ -19,7 +19,7 @@ from aragora.pipeline.universal_node import UniversalGraph
 logger = logging.getLogger(__name__)
 
 # Valid execution statuses
-EXECUTION_STATUSES = {"pending", "in_progress", "succeeded", "failed", "partial"}
+EXECUTION_STATUSES = {"pending", "in_progress", "succeeded", "failed", "partial", "awaiting_human"}
 
 
 def _aggregate_status(child_statuses: list[str]) -> str:
@@ -42,6 +42,8 @@ def _aggregate_status(child_statuses: list[str]) -> str:
         return "failed"
     if "in_progress" in status_set:
         return "in_progress"
+    if "awaiting_human" in status_set:
+        return "awaiting_human"
     if "succeeded" in status_set and "failed" in status_set:
         return "partial"
     if "succeeded" in status_set:
@@ -90,6 +92,7 @@ class StatusPropagator:
             return []
 
         # Set status on the target node
+        node.execution_status = status
         node.metadata["execution_status"] = status
         updated = [node_id]
 
@@ -114,8 +117,11 @@ class StatusPropagator:
             child_statuses = self._get_child_statuses(parent_id)
             aggregated = _aggregate_status(child_statuses)
 
-            old_status = parent.metadata.get("execution_status", "pending")
+            old_status = parent.execution_status or parent.metadata.get(
+                "execution_status", "pending"
+            )
             if aggregated != old_status:
+                parent.execution_status = aggregated
                 parent.metadata["execution_status"] = aggregated
                 updated.append(parent_id)
                 self._emit_status_event(parent_id, aggregated, parent.stage)
@@ -138,7 +144,7 @@ class StatusPropagator:
         statuses: list[str] = []
         for node in self.graph.nodes.values():
             if parent_id in node.parent_ids:
-                status = node.metadata.get("execution_status", "pending")
+                status = node.execution_status or node.metadata.get("execution_status", "pending")
                 statuses.append(status)
         return statuses
 

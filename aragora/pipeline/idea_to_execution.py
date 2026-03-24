@@ -2966,6 +2966,22 @@ class IdeaToExecutionPipeline:
                 id=f"ugraph-{result.pipeline_id}",
                 name=f"Pipeline {result.pipeline_id}",
             )
+            graph.metadata.update(
+                {
+                    "pipeline_id": result.pipeline_id,
+                    "local_first": True,
+                    "stage_status": dict(result.stage_status),
+                    "provenance_count": len(result.provenance),
+                    "transition_count": len(result.transitions),
+                    "surfaces": {
+                        "ideas": result.ideas_canvas is not None,
+                        "principles": result.principles_canvas is not None,
+                        "goals": result.goal_graph is not None,
+                        "actions": result.actions_canvas is not None,
+                        "orchestration": result.orchestration_canvas is not None,
+                    },
+                }
+            )
 
             # Stage 1: Ideas
             if result.ideas_canvas:

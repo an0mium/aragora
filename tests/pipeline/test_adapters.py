@@ -62,6 +62,22 @@ class TestCanvasNodeAdapter:
         assert un.confidence == 0.85
         assert un.style == {"borderRadius": "8px"}
 
+    def test_from_canvas_node_preserves_live_status_fields(self):
+        cn = CanvasNode(
+            id="cn-1",
+            node_type=CanvasNodeType.AGENT,
+            label="Exec task",
+            data={
+                "idea_type": "agent_task",
+                "status": "ready",
+                "execution_status": "awaiting_human",
+            },
+        )
+        un = from_canvas_node(cn, PipelineStage.ORCHESTRATION)
+        assert un.status == "ready"
+        assert un.execution_status == "awaiting_human"
+        assert "execution_status" not in un.data
+
     def test_to_canvas_node(self):
         un = UniversalNode(
             id="un-1",
@@ -87,6 +103,19 @@ class TestCanvasNodeAdapter:
         assert cn.size.width == 300
         assert cn.data["idea_type"] == "concept"
         assert cn.data["full_content"] == "Full description"
+
+    def test_to_canvas_node_preserves_live_status_fields(self):
+        un = UniversalNode(
+            id="un-1",
+            stage=PipelineStage.ORCHESTRATION,
+            node_subtype="agent_task",
+            label="Run verification",
+            status="ready",
+            execution_status="in_progress",
+        )
+        cn = to_canvas_node(un)
+        assert cn.data["status"] == "ready"
+        assert cn.data["execution_status"] == "in_progress"
 
     def test_canvas_node_roundtrip(self):
         cn = CanvasNode(

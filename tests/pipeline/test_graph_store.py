@@ -128,6 +128,30 @@ class TestGraphStoreCRUD:
         assert loaded.name == "Updated Name"
         assert loaded.metadata["version"] == 2
 
+    def test_create_existing_graph_replaces_snapshot(self, store, sample_graph):
+        store.create(sample_graph)
+        replacement = UniversalGraph(
+            id=sample_graph.id,
+            name="Replacement",
+            metadata={"version": 9},
+        )
+        replacement.add_node(
+            UniversalNode(
+                id="replacement-node",
+                stage=PipelineStage.ORCHESTRATION,
+                node_subtype="agent_task",
+                label="Replacement node",
+                execution_status="in_progress",
+            )
+        )
+        store.create(replacement)
+
+        loaded = store.get(sample_graph.id)
+        assert loaded.name == "Replacement"
+        assert loaded.metadata == {"version": 9}
+        assert set(loaded.nodes) == {"replacement-node"}
+        assert loaded.nodes["replacement-node"].execution_status == "in_progress"
+
     def test_delete(self, store, sample_graph):
         store.create(sample_graph)
         assert store.delete(sample_graph.id) is True
@@ -184,6 +208,17 @@ class TestGraphStoreNodes:
         result = store.query_nodes(sample_graph.id, stage=PipelineStage.IDEAS, subtype="concept")
         assert len(result) == 1
 
+    def test_update_persists_node_mutations(self, store, sample_graph):
+        store.create(sample_graph)
+        sample_graph.nodes["n3"].execution_status = "failed"
+        sample_graph.nodes["n3"].metadata["execution_status"] = "failed"
+        sample_graph.nodes["n3"].label = "Task for Goal v2"
+        store.update(sample_graph)
+
+        loaded = store.get(sample_graph.id)
+        assert loaded.nodes["n3"].execution_status == "failed"
+        assert loaded.nodes["n3"].label == "Task for Goal v2"
+
 
 class TestGraphStoreProvenance:
     def test_provenance_chain(self, store, sample_graph):
@@ -204,6 +239,15 @@ class TestGraphStoreProvenance:
         store.create(sample_graph)
         chain = store.get_provenance_chain(sample_graph.id, "no-node")
         assert chain == []
+
+    def test_downstream_chain(self, store, sample_graph):
+        store.create(sample_graph)
+        chain = store.get_downstream_chain(sample_graph.id, "n1")
+        assert [node.id for node in chain] == ["n1", "n2", "n3"]
+
+    def test_downstream_chain_nonexistent(self, store, sample_graph):
+        store.create(sample_graph)
+        assert store.get_downstream_chain(sample_graph.id, "no-node") == []
 
 
 class TestGraphStoreDataIntegrity:
@@ -231,6 +275,20 @@ class TestGraphStoreDataIntegrity:
         assert n.previous_hash == "prev123"
         assert n.parent_ids == ["p1", "p2"]
         assert n.source_stage == PipelineStage.GOALS
+
+    def test_node_execution_status_preserved(self, store):
+        graph = UniversalGraph(id="g-exec")
+        node = UniversalNode(
+            id="n1",
+            stage=PipelineStage.ORCHESTRATION,
+            node_subtype="agent_task",
+            label="Execute",
+            execution_status="awaiting_human",
+        )
+        graph.add_node(node)
+        store.create(graph)
+        loaded = store.get("g-exec")
+        assert loaded.nodes["n1"].execution_status == "awaiting_human"
 
     def test_edge_data_preserved(self, store):
         graph = UniversalGraph(id="g-edge")

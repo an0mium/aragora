@@ -40,6 +40,7 @@ from aragora.pipeline.universal_node import (
 def from_canvas_node(node: CanvasNode, stage: PipelineStage) -> UniversalNode:
     """Convert a CanvasNode to a UniversalNode."""
     subtype = node.data.get("idea_type", node.data.get("subtype", "concept"))
+    execution_status = node.data.get("execution_status", node.data.get("executionStatus"))
     return UniversalNode(
         id=node.id,
         stage=stage,
@@ -51,7 +52,8 @@ def from_canvas_node(node: CanvasNode, stage: PipelineStage) -> UniversalNode:
         width=node.size.width,
         height=node.size.height,
         content_hash=node.data.get("content_hash", content_hash(node.label)),
-        status="active",
+        status=str(node.data.get("status", "active")),
+        execution_status=str(execution_status) if execution_status is not None else None,
         confidence=float(node.data.get("confidence", 0)),
         data={
             k: v
@@ -64,6 +66,9 @@ def from_canvas_node(node: CanvasNode, stage: PipelineStage) -> UniversalNode:
                 "description",
                 "content_hash",
                 "confidence",
+                "status",
+                "execution_status",
+                "executionStatus",
             )
         },
         style=node.style,
@@ -108,6 +113,9 @@ def to_canvas_node(unode: UniversalNode) -> CanvasNode:
         data["full_content"] = unode.description
     if unode.confidence:
         data["confidence"] = unode.confidence
+    data["status"] = unode.status
+    if unode.execution_status is not None:
+        data["execution_status"] = unode.execution_status
 
     return CanvasNode(
         id=unode.id,
