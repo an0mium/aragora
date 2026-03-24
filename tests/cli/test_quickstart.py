@@ -587,18 +587,27 @@ class TestCmdQuickstart:
 
         arena_kwargs = mock_arena_cls.call_args.kwargs
         assert arena_kwargs["insight_store"] is mock_insight_store
-        assert arena_kwargs["knowledge_mound"] is None
-        assert arena_kwargs["auto_create_knowledge_mound"] is False
-        assert arena_kwargs["enable_knowledge_retrieval"] is False
-        assert arena_kwargs["enable_knowledge_ingestion"] is False
-        assert arena_kwargs["enable_belief_guidance"] is False
-        assert arena_kwargs["enable_cross_debate_memory"] is False
-        assert arena_kwargs["use_rlm_limiter"] is False
-        assert arena_kwargs["enable_ml_delegation"] is False
-        assert arena_kwargs["enable_quality_gates"] is False
-        assert arena_kwargs["enable_consensus_estimation"] is False
         assert arena_kwargs["disable_post_debate_pipeline"] is True
         assert mock_arena.enable_introspection is False
+
+        # Quickstart now uses config objects instead of individual kwargs
+        memory_config = arena_kwargs["memory_config"]
+        assert memory_config.enable_knowledge_retrieval is True
+        assert memory_config.enable_knowledge_ingestion is True
+        assert memory_config.auto_create_knowledge_mound is True
+        assert memory_config.enable_belief_guidance is False
+        assert memory_config.enable_cross_debate_memory is False
+        assert memory_config.use_rlm_limiter is False
+
+        knowledge_config = arena_kwargs["knowledge_config"]
+        assert knowledge_config.enable_knowledge_retrieval is True
+        assert knowledge_config.enable_knowledge_ingestion is True
+        assert knowledge_config.enable_belief_guidance is False
+
+        ml_config = arena_kwargs["ml_config"]
+        assert ml_config.enable_ml_delegation is False
+        assert ml_config.enable_quality_gates is False
+        assert ml_config.enable_consensus_estimation is False
 
     @pytest.mark.asyncio
     async def test_run_live_debate_skips_crux_event_dispatch_in_bounded_profile(self):

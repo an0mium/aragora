@@ -49,16 +49,6 @@ _LIVE_PROVIDER_PRIORITY: tuple[str, ...] = (
     "deepseek",
 )
 _LIVE_ARENA_KWARGS: dict[str, Any] = {
-    "knowledge_mound": None,
-    "auto_create_knowledge_mound": False,
-    "enable_knowledge_retrieval": False,
-    "enable_knowledge_ingestion": False,
-    "enable_belief_guidance": False,
-    "enable_cross_debate_memory": False,
-    "use_rlm_limiter": False,
-    "enable_ml_delegation": False,
-    "enable_quality_gates": False,
-    "enable_consensus_estimation": False,
     "disable_post_debate_pipeline": True,
 }
 _PROVIDER_TLS_HOSTS: dict[str, str] = {
@@ -465,7 +455,38 @@ async def _run_live_debate(
         agent_names.append(agent.name)
 
     # Quickstart is a bounded onboarding lane, not the full debate control plane.
-    arena = Arena(env, agents, protocol, insight_store=store, **_LIVE_ARENA_KWARGS)
+    # Use config objects to avoid deprecation warnings from individual kwargs.
+    from aragora.debate.arena_primary_configs import KnowledgeConfig, MemoryConfig, MLConfig
+
+    memory_config = MemoryConfig(
+        enable_knowledge_retrieval=True,
+        enable_knowledge_ingestion=True,
+        auto_create_knowledge_mound=True,
+        enable_belief_guidance=False,
+        enable_cross_debate_memory=False,
+        use_rlm_limiter=False,
+    )
+    knowledge_config = KnowledgeConfig(
+        auto_create_knowledge_mound=True,
+        enable_knowledge_retrieval=True,
+        enable_knowledge_ingestion=True,
+        enable_belief_guidance=False,
+    )
+    ml_config = MLConfig(
+        enable_ml_delegation=False,
+        enable_quality_gates=False,
+        enable_consensus_estimation=False,
+    )
+    arena = Arena(
+        env,
+        agents,
+        protocol,
+        insight_store=store,
+        memory_config=memory_config,
+        knowledge_config=knowledge_config,
+        ml_config=ml_config,
+        **_LIVE_ARENA_KWARGS,
+    )
     arena.enable_introspection = False
     try:
         result = await asyncio.wait_for(arena.run(), timeout=_LIVE_DEBATE_TIMEOUT_SECONDS)
@@ -482,6 +503,10 @@ async def _run_live_debate(
 
     live_receipt = _build_live_receipt(result, question, rounds, team)
     live_receipt["agents"] = agent_names
+    live_receipt["km_ingested"] = bool(
+        getattr(arena, "knowledge_mound", None)
+        and getattr(arena, "enable_knowledge_ingestion", False)
+    )
     return live_receipt
 
 
@@ -610,8 +635,9 @@ def _build_live_receipt(
         elif vote_agent:
             dissenting_agents.append(vote_agent)
 
-    if not vote_records and consensus_reached:
+    if not supporting_agents and consensus_reached:
         supporting_agents = participants[:]
+        dissenting_agents = []
 
     rounds_used = int(getattr(result, "rounds_used", 0) or rounds)
     receipt = DecisionReceipt(
@@ -894,7 +920,15 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         print(f"  Artifact:   {str(result['artifact_hash'])[:16]}...")
 
     if result.get("summary"):
-        print(f"\n  Summary:\n  {result['summary'][:500]}")
+        summary_text = result["summary"]
+        if len(summary_text) > 800:
+            # Truncate at sentence boundary to avoid mid-sentence clipping
+            cutoff = summary_text[:800].rfind(".")
+            if cutoff > 200:
+                summary_text = summary_text[: cutoff + 1] + "\n  [... truncated]"
+            else:
+                summary_text = summary_text[:800] + "..."
+        print(f"\n  Summary:\n  {summary_text}")
 
     if result.get("dissent"):
         print("\n  Dissent:")
@@ -913,6 +947,15 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     )
     artifact_format = saved_artifact.suffix.lstrip(".") or fmt
     print(f"\nResult artifact ({result.get('mode', 'demo')}/{artifact_format}): {saved_artifact}")
+
+    # Step 6b: Report KM ingestion status truthfully
+    if result.get("mode") == "live":
+        km_ingested = result.get("km_ingested", False)
+        if km_ingested:
+            print("[+] Knowledge Mound: outcome ingested")
+        else:
+            print("[*] Knowledge Mound: ingestion skipped (quickstart uses lightweight KM)")
+            print("    Use 'aragora ask' or 'aragora decide' for full KM writeback.")
 
     # Step 7: Open receipt in browser
     no_browser = getattr(args, "no_browser", False)

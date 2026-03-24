@@ -227,6 +227,20 @@ async def _populate_result_cost(
         logger.debug("cost_population_failed (non-critical): %s", e)
 
 
+async def _populate_result_tokens_from_agents(
+    result: DebateResult,
+    agents: list[Any],
+) -> None:
+    """Fallback: sum per-agent token counters when cost tracker has no data."""
+    if getattr(result, "total_tokens", 0):
+        return
+    total = 0
+    for agent in agents:
+        total += getattr(agent, "total_tokens_in", 0) + getattr(agent, "total_tokens_out", 0)
+    if total > 0:
+        result.total_tokens = total
+
+
 def _persist_debate_cost_to_km(debate_id: str, extensions: Any) -> None:
     """Persist debate cost summary to Knowledge Mound via CostAdapter.
 
@@ -879,6 +893,7 @@ async def handle_debate_completion(
     # Populate DebateResult cost fields from cost tracker
     if ctx.result:
         await _populate_result_cost(ctx.result, state.debate_id, arena.extensions)
+        await _populate_result_tokens_from_agents(ctx.result, arena.agents)
 
     # Persist debate cost summary to Knowledge Mound via CostAdapter
     if ctx.result:
