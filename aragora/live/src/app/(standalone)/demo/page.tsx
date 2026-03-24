@@ -139,12 +139,12 @@ const RECORDED_SAMPLE: RecordedDebate = {
 };
 
 const AGENT_ACCENTS = [
-  '#00ff41',
-  '#63b3ed',
-  '#f6ad55',
-  '#fc8181',
-  '#b794f6',
-  '#68d391',
+  '#15803d',
+  '#2563eb',
+  '#d97706',
+  '#dc2626',
+  '#7c3aed',
+  '#0f766e',
 ];
 
 function accentForAgent(agent: string): string {
@@ -153,6 +153,38 @@ function accentForAgent(agent: string): string {
     hash = (hash + char.charCodeAt(0)) % AGENT_ACCENTS.length;
   }
   return AGENT_ACCENTS[hash];
+}
+
+function formatAgentName(agent: string): string {
+  const replacements: Record<string, string> = {
+    claude: 'Claude',
+    'claude-sonnet': 'Claude Sonnet',
+    gpt: 'GPT',
+    'gpt-4o': 'GPT-4o',
+    grok: 'Grok',
+    'grok-2': 'Grok 2',
+    gemini: 'Gemini',
+    'gemini-pro': 'Gemini Pro',
+    mistral: 'Mistral',
+    'mistral-large': 'Mistral Large',
+    system: 'Consensus Engine',
+  };
+
+  const normalized = agent.trim().toLowerCase();
+  if (replacements[normalized]) {
+    return replacements[normalized];
+  }
+
+  return normalized
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => {
+      if (part === 'gpt') return 'GPT';
+      if (part === 'ai') return 'AI';
+      if (/^\d/.test(part)) return part;
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .join(' ');
 }
 
 function normalizeProposals(
@@ -227,12 +259,12 @@ function StatusBadge({
 }) {
   const styles = {
     live: 'border-[var(--acid-green)]/40 bg-[var(--acid-green)]/10 text-[var(--acid-green)]',
-    fallback: 'border-amber-400/40 bg-amber-400/10 text-amber-300',
-    sample: 'border-blue-400/40 bg-blue-400/10 text-blue-300',
+    fallback: 'border-amber-500/25 bg-amber-500/8 text-amber-700',
+    sample: 'border-sky-500/20 bg-sky-500/8 text-sky-700',
   }[tone];
 
   return (
-    <span className={`inline-flex items-center px-3 py-1 text-xs font-semibold uppercase tracking-wider border rounded ${styles}`}>
+    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${styles}`}>
       {label}
     </span>
   );
@@ -240,16 +272,16 @@ function StatusBadge({
 
 function AgentRoster({ agents }: { agents: string[] }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2.5">
       {agents.map((agent) => {
         const accent = accentForAgent(agent);
         return (
           <div
             key={agent}
-            className="px-3 py-1.5 border text-sm font-semibold rounded"
-            style={{ borderColor: `${accent}40`, color: accent, backgroundColor: `${accent}08` }}
+            className="rounded-full border px-3.5 py-1.5 text-sm font-semibold tracking-[0.04em] shadow-[var(--shadow-panel)]"
+            style={{ borderColor: `${accent}26`, color: accent, backgroundColor: `${accent}10` }}
           >
-            {agent}
+            {formatAgentName(agent)}
           </div>
         );
       })}
@@ -261,12 +293,14 @@ function ConsensusBar({ confidence }: { confidence: number }) {
   const clamped = Math.max(0, Math.min(confidence, 1));
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between text-sm text-[var(--text-muted)]">
-        <span>Consensus confidence</span>
-        <span className="font-semibold text-[var(--acid-green)]">{Math.round(clamped * 100)}%</span>
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between gap-3 text-[13px] font-medium text-[var(--text-muted)]">
+        <span className="uppercase tracking-[0.12em]">Consensus confidence</span>
+        <span className="rounded-full bg-[var(--surface-elevated)] px-2.5 py-1 font-semibold text-[var(--acid-green)] shadow-[var(--shadow-panel)]">
+          {Math.round(clamped * 100)}%
+        </span>
       </div>
-      <div className="h-2 bg-[var(--surface)] border border-[var(--border)] overflow-hidden">
+      <div className="h-3 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-elevated)]">
         <div
           className="h-full bg-[var(--acid-green)]"
           style={{ width: `${clamped * 100}%` }}
@@ -291,25 +325,39 @@ function LiveResultCard({
   const proposalEntries = Object.entries(result.proposals).slice(0, 3);
 
   return (
-    <section className="border border-[var(--acid-green)]/30 bg-[var(--surface)]/40 p-5 space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-2">
+    <section className="space-y-5 rounded-[20px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-elevated)] md:p-7">
+      <div className="flex flex-col gap-4 border-b border-[var(--border)] pb-5 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-3">
           <StatusBadge label={resultLabel} tone={resultTone} />
-          <div className="text-sm text-[var(--text-muted)]">
+          <div className="space-y-1">
+            <p className="text-base font-semibold text-[var(--text)]">
+              {result.topic}
+            </p>
+            <p className="max-w-2xl text-sm leading-7 text-[var(--text-muted)] text-pretty">
             {resultTone === 'live'
               ? 'Fresh result from the public playground backend.'
               : `The backend returned a non-live fallback${result.mock_fallback_reason ? `: ${result.mock_fallback_reason}` : '.'}`}
+            </p>
           </div>
         </div>
-        <div className="text-right text-xs text-[var(--text-muted)] space-y-1">
-          <div className="font-mono">ID: {result.id}</div>
-          <div>{result.duration_seconds.toFixed(1)}s runtime</div>
-          {runStartedAt && <div>Started {runStartedAt}</div>}
+        <div className="grid min-w-[220px] grid-cols-2 gap-3 text-sm text-[var(--text-muted)] md:text-right">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 shadow-[var(--shadow-panel)]">
+            <div className="text-[11px] uppercase tracking-[0.14em]">Runtime</div>
+            <div className="mt-1 font-semibold text-[var(--text)]">{result.duration_seconds.toFixed(1)}s</div>
+          </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 shadow-[var(--shadow-panel)]">
+            <div className="text-[11px] uppercase tracking-[0.14em]">Started</div>
+            <div className="mt-1 font-semibold text-[var(--text)]">{runStartedAt ?? 'Just now'}</div>
+          </div>
+          <div className="col-span-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 shadow-[var(--shadow-panel)]">
+            <div className="text-[11px] uppercase tracking-[0.14em]">Result ID</div>
+            <div className="mt-1 font-mono text-xs text-[var(--text)]">{result.id}</div>
+          </div>
         </div>
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-xs uppercase tracking-[0.2em] font-semibold text-[var(--acid-green)]">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--acid-green)]">
           Returned agents
         </h3>
         <AgentRoster agents={result.participants} />
@@ -317,16 +365,18 @@ function LiveResultCard({
 
       <ConsensusBar confidence={result.confidence} />
 
-      <div className="space-y-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-lg p-5">
-        <h3 className="text-xs uppercase tracking-[0.2em] font-semibold text-[var(--acid-green)]">
+      <div className="space-y-4 rounded-[18px] border border-[var(--border)] bg-[var(--surface-elevated)] p-6 shadow-[var(--shadow-panel)]">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--acid-green)]">
           Verdict
         </h3>
-        <p className="text-base text-[var(--text)] leading-relaxed max-w-prose">{summary}</p>
+        <p className="max-w-3xl text-[17px] leading-8 text-[var(--text)] text-pretty">
+          {summary}
+        </p>
       </div>
 
       {proposalEntries.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-xs uppercase tracking-[0.2em] font-semibold text-[var(--acid-green)]">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--acid-green)]">
             Agent positions
           </h3>
           <div className="grid grid-cols-1 gap-4">
@@ -335,13 +385,21 @@ function LiveResultCard({
               return (
                 <div
                   key={agent}
-                  className="border p-5 bg-[var(--surface)] rounded-lg shadow-sm space-y-3"
-                  style={{ borderColor: `${accent}30` }}
+                  className="space-y-3 rounded-[18px] border bg-[var(--surface)] p-5 shadow-[var(--shadow-panel)]"
+                  style={{ borderColor: `${accent}28`, boxShadow: `inset 3px 0 0 ${accent}` }}
                 >
-                  <div className="text-lg font-bold uppercase tracking-wide" style={{ color: accent }}>
-                    {agent}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-lg font-bold uppercase tracking-[0.08em]" style={{ color: accent }}>
+                      {formatAgentName(agent)}
+                    </div>
+                    <span
+                      className="rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]"
+                      style={{ color: accent, backgroundColor: `${accent}10` }}
+                    >
+                      Position
+                    </span>
                   </div>
-                  <p className="text-sm text-[var(--text)] leading-relaxed max-w-prose">
+                  <p className="max-w-3xl text-[15px] leading-7 text-[var(--text)] text-pretty">
                     {proposal}
                   </p>
                 </div>
@@ -351,24 +409,32 @@ function LiveResultCard({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-4 text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border)]">
-        <span>Rounds: {result.rounds_used}</span>
-        <span>Status: {result.status}</span>
-        {result.receipt_hash && <span className="font-mono">Receipt: {result.receipt_hash.slice(0, 16)}...</span>}
+      <div className="flex flex-wrap items-center gap-4 border-t border-[var(--border)] pt-3 text-sm text-[var(--text-muted)]">
+        <span className="rounded-full bg-[var(--surface-elevated)] px-3 py-1 shadow-[var(--shadow-panel)]">
+          Rounds {result.rounds_used}
+        </span>
+        <span className="rounded-full bg-[var(--surface-elevated)] px-3 py-1 shadow-[var(--shadow-panel)]">
+          Status {result.status}
+        </span>
+        {result.receipt_hash && (
+          <span className="rounded-full bg-[var(--surface-elevated)] px-3 py-1 font-mono text-xs shadow-[var(--shadow-panel)]">
+            Receipt {result.receipt_hash.slice(0, 16)}...
+          </span>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-3">
         <Link
           href={shareHref}
-          className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
+          className="rounded-full bg-[var(--acid-green)] px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
         >
-          VIEW SHAREABLE RESULT
+          View Shareable Result
         </Link>
         <Link
           href={`/try?topic=${encodeURIComponent(result.topic)}`}
-          className="px-4 py-2 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
+          className="rounded-full border border-[var(--border)] px-5 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--acid-green)]/50 hover:text-[var(--acid-green)]"
         >
-          TAKE YOUR OWN QUESTION TO /TRY
+          Ask This in /try
         </Link>
       </div>
     </section>
@@ -377,10 +443,10 @@ function LiveResultCard({
 
 function RecordedSampleCard({ sample }: { sample: RecordedDebate }) {
   return (
-    <section className="border border-blue-400/30 bg-blue-400/5 p-5 space-y-5">
+    <section className="space-y-5 rounded-[20px] border border-sky-500/18 bg-[var(--surface)] p-6 shadow-[var(--shadow-elevated)] md:p-7">
       <div className="space-y-2">
         <StatusBadge label="Recorded sample" tone="sample" />
-        <p className="text-sm text-[var(--text-muted)] leading-relaxed">
+        <p className="max-w-2xl text-sm leading-7 text-[var(--text-muted)]">
           This is a captured example for zero-latency browsing. It is illustrative only and is
           never presented as a fresh run.
         </p>
@@ -389,11 +455,11 @@ function RecordedSampleCard({ sample }: { sample: RecordedDebate }) {
       <AgentRoster agents={sample.agents} />
       <ConsensusBar confidence={sample.confidence} />
 
-      <div className="space-y-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-lg p-5">
-        <h3 className="text-xs uppercase tracking-[0.2em] font-semibold text-blue-500">
+      <div className="space-y-4 rounded-[18px] border border-[var(--border)] bg-[var(--surface-elevated)] p-6 shadow-[var(--shadow-panel)]">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">
           Recorded verdict
         </h3>
-        <p className="text-base text-[var(--text)] leading-relaxed max-w-prose">{sample.verdict}</p>
+        <p className="max-w-3xl text-[17px] leading-8 text-[var(--text)] text-pretty">{sample.verdict}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
@@ -416,25 +482,25 @@ function RecordedSampleCard({ sample }: { sample: RecordedDebate }) {
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-lg font-bold uppercase tracking-wide" style={{ color: accent }}>
+                  <span className="text-lg font-bold uppercase tracking-[0.08em]" style={{ color: accent }}>
                     {event.model}
                   </span>
-                  <span className={`text-[11px] uppercase font-semibold px-2 py-0.5 rounded ${badgeColor} bg-current/5`}>
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.16em] font-semibold ${badgeColor} bg-current/5`}>
                     {event.type}
                   </span>
                 </div>
-                <div className="text-sm text-[var(--text-muted)]">
+                <div className="rounded-full bg-[var(--surface-elevated)] px-3 py-1 text-sm text-[var(--text-muted)] shadow-[var(--shadow-panel)]">
                   Round {event.round}
                   {event.confidence !== undefined
                     ? ` · ${Math.round(event.confidence * 100)}%`
                     : ''}
                 </div>
               </div>
-              <p className="text-sm text-[var(--text)] leading-relaxed max-w-prose">
+              <p className="max-w-3xl text-[15px] leading-7 text-[var(--text)] text-pretty">
                 {event.content}
               </p>
               {event.vote && (
-                <div className="text-sm font-medium text-[var(--acid-green)]">
+                <div className="text-sm font-semibold text-[var(--acid-green)]">
                   Vote: {event.vote}
                 </div>
               )}
@@ -443,7 +509,7 @@ function RecordedSampleCard({ sample }: { sample: RecordedDebate }) {
         })}
       </div>
 
-      <div className="text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border)]">
+      <div className="border-t border-[var(--border)] pt-3 text-xs text-[var(--text-muted)]">
         Receipt sample (not cryptographic): <span className="font-mono">{sample.receiptHash}</span>
       </div>
     </section>
@@ -561,60 +627,67 @@ export default function PublicDemoPage() {
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      <nav className="border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
+      <nav className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)]/90 px-4 py-3 backdrop-blur">
         <Link
           href="/landing"
-          className="font-mono text-sm text-[var(--acid-green)] hover:opacity-80 transition-opacity"
+          className="text-sm font-semibold tracking-[0.14em] text-[var(--acid-green)] transition-opacity hover:opacity-80"
         >
           ARAGORA
         </Link>
         <div className="flex items-center gap-3">
           <Link
             href="/try"
-            className="px-4 py-1.5 text-xs font-mono border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
+            className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--acid-green)]/50 hover:text-[var(--acid-green)]"
           >
-            /TRY BETA
+            /try beta
           </Link>
           <Link
             href="/signup"
-            className="px-4 py-1.5 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
+            className="rounded-full bg-[var(--acid-green)] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
           >
-            GET STARTED FREE
+            Get started free
           </Link>
         </div>
       </nav>
 
-      <div className="container mx-auto px-4 py-8 max-w-5xl space-y-8">
-        <header className="text-center space-y-3">
-          <h1 className="text-2xl sm:text-3xl font-bold text-[var(--acid-green)] tracking-tight">
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8">
+        <header className="space-y-3 text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--acid-green)] sm:text-4xl text-balance">
             Live Demo
           </h1>
-          <p className="text-sm text-[var(--text-muted)] max-w-2xl mx-auto leading-relaxed">
+          <p className="mx-auto max-w-2xl text-base leading-7 text-[var(--text-muted)] text-pretty">
             Watch AI agents debate a real question. Want to ask your own?{' '}
-            <Link href="/try/" className="text-[var(--acid-green)] hover:underline font-medium">Try it free</Link>.
+            <Link href="/try/" className="font-semibold text-[var(--acid-green)] hover:underline">Try it free</Link>.
           </p>
         </header>
 
-        <section className="p-5 bg-[var(--surface)] border border-[var(--border)] rounded-lg space-y-4">
-          <p className="text-base text-[var(--text)] leading-relaxed font-medium">{DEMO_TOPIC}</p>
+        <section className="space-y-5 rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-elevated)] md:p-7">
+          <div className="space-y-2">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--acid-green)]">
+              Canonical question
+            </div>
+            <p className="max-w-4xl text-[20px] font-semibold leading-8 text-[var(--text)] text-balance">
+              {DEMO_TOPIC}
+            </p>
+          </div>
           <div className="flex flex-wrap gap-3">
             <button
               onClick={() => void runLiveDemo()}
               disabled={isLoading}
-              className="px-5 py-2.5 text-sm font-semibold bg-[var(--acid-green)] text-white rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
+              className="rounded-full bg-[var(--acid-green)] px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {isLoading ? 'Running...' : 'Run Live'}
             </button>
             <Link
               href={`/try?topic=${encodeURIComponent(DEMO_TOPIC)}`}
-              className="px-5 py-2.5 text-sm font-medium border border-[var(--border)] text-[var(--text-muted)] rounded hover:text-[var(--acid-green)] hover:border-[var(--acid-green)]/50 transition-colors"
+              className="rounded-full border border-[var(--border)] px-5 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--acid-green)]/50 hover:text-[var(--acid-green)]"
             >
               Ask Your Own Question
             </Link>
             <button
               onClick={() => setShowRecordedSample((current) => !current)}
               disabled={recordedSamplePinned}
-              className="px-5 py-2.5 text-sm font-medium border border-[var(--border)] text-[var(--text-muted)] rounded hover:text-blue-500 hover:border-blue-400/50 transition-colors"
+              className="rounded-full border border-[var(--border)] px-5 py-2.5 text-sm font-medium text-[var(--text-muted)] transition-colors hover:border-sky-500/50 hover:text-sky-700"
             >
               {recordedSamplePinned
                 ? 'Sample Shown'
@@ -626,13 +699,13 @@ export default function PublicDemoPage() {
         </section>
 
         {isLoading && (
-          <section className="border border-[var(--acid-green)]/30 bg-[var(--surface)]/40 p-5 space-y-4">
+          <section className="space-y-4 rounded-[20px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-elevated)]">
             <StatusBadge label="Running live proof" tone="live" />
             <div className="space-y-3">
               {LIVE_PROGRESS_STEPS.map((step, index) => (
                 <div
                   key={step}
-                  className="flex items-center gap-3 text-sm font-mono transition-opacity"
+                  className="flex items-center gap-3 text-sm transition-opacity"
                   style={{ opacity: index <= progressStep ? 1 : 0.35 }}
                 >
                   <span className="w-2 h-2 rounded-full bg-[var(--acid-green)]" />
@@ -642,31 +715,31 @@ export default function PublicDemoPage() {
                 </div>
               ))}
             </div>
-            <p className="text-xs font-mono text-[var(--text-muted)]">
+            <p className="text-sm leading-7 text-[var(--text-muted)]">
               This surface only claims a live proof when the backend explicitly returns a live result.
             </p>
           </section>
         )}
 
         {sampleFallbackMessage && (
-          <section className="border border-blue-400/40 bg-blue-400/10 p-5 space-y-3">
+          <section className="space-y-4 rounded-[20px] border border-sky-500/20 bg-sky-500/5 p-6 shadow-[var(--shadow-elevated)]">
             <StatusBadge label="Showing recorded sample" tone="sample" />
-            <p className="text-sm font-mono text-blue-100 leading-relaxed">
+            <p className="max-w-3xl text-sm leading-7 text-sky-900">
               {sampleFallbackMessage}
             </p>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => void runLiveDemo()}
                 disabled={isLoading}
-                className="px-4 py-2 text-xs font-mono bg-blue-300 text-[var(--bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+                className="rounded-full bg-sky-700 px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
-                RETRY LIVE RUN
+                Retry Live Run
               </button>
               <Link
                 href="/try"
-                className="px-4 py-2 text-xs font-mono border border-blue-300/50 text-blue-100 hover:bg-blue-300/10 transition-colors"
+                className="rounded-full border border-sky-500/30 px-5 py-2.5 text-sm font-medium text-sky-800 transition-colors hover:bg-sky-500/8"
               >
-                OPEN /TRY INSTEAD
+                Open /try Instead
               </Link>
             </div>
           </section>
@@ -674,16 +747,16 @@ export default function PublicDemoPage() {
 
         {result && !isLoading && (
           <section className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--text-muted)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
                 {resultTone === 'live' ? 'Fresh response' : 'Fallback response'}
               </div>
               {resultTone === 'live' ? (
-                <span className="text-xs font-mono text-[var(--acid-green)]">
+                <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-sm font-medium text-[var(--acid-green)] shadow-[var(--shadow-panel)]">
                   Backend returned a live debate
                 </span>
               ) : (
-                <span className="text-xs font-mono text-amber-300">
+                <span className="rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 shadow-[var(--shadow-panel)]">
                   Backend did not return a fresh live debate
                 </span>
               )}
@@ -694,7 +767,7 @@ export default function PublicDemoPage() {
 
         {recordedSampleVisible && (
           <section className="space-y-3">
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-blue-300">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">
               {sampleFallbackMessage
                 ? 'Recorded fallback currently shown'
                 : 'Clearly labeled canned example'}
