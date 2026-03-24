@@ -21,6 +21,7 @@ Endpoints:
 - DELETE /api/v1/inbox/accounts/{id}  - Disconnect an account
 - GET  /api/v1/inbox/messages         - Get prioritized messages across accounts
 - GET  /api/v1/inbox/messages/{id}    - Get single message details
+- POST /api/v1/inbox/messages/{id}/debate - Stage receipt-backed review for a message
 - POST /api/v1/inbox/triage           - Multi-agent triage for messages
 - POST /api/v1/inbox/bulk-action      - Bulk actions (archive, read, etc.)
 - GET  /api/v1/inbox/stats            - Inbox health metrics
@@ -31,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -78,6 +80,12 @@ _PRIORITY_SCORES: dict[str, float] = {
     "low": 0.2,
 }
 
+_UNIFIED_INBOX_DYNAMIC_ROUTES = (
+    re.compile(r"^/api/v1/inbox/accounts/[^/]+$"),
+    re.compile(r"^/api/v1/inbox/messages/[^/]+$"),
+    re.compile(r"^/api/v1/inbox/messages/[^/]+/debate$"),
+)
+
 
 class UnifiedInboxHandler(BaseHandler):
     """Handler for unified inbox API endpoints."""
@@ -87,32 +95,11 @@ class UnifiedInboxHandler(BaseHandler):
         "/api/v1/inbox/oauth/outlook",
         "/api/v1/inbox/connect",
         "/api/v1/inbox/accounts",
-        "/api/v1/inbox/accounts/{account_id}",
         "/api/v1/inbox/messages",
-        "/api/v1/inbox/messages/{message_id}",
         "/api/v1/inbox/triage",
         "/api/v1/inbox/bulk-action",
         "/api/v1/inbox/stats",
         "/api/v1/inbox/trends",
-        "/api/v1/inbox/messages/{message_id}/debate",
-        "/api/v1/inbox/actions",
-        "/api/v1/inbox/bulk-actions",
-        "/api/v1/inbox/command",
-        "/api/v1/inbox/daily-digest",
-        "/api/v1/inbox/mentions",
-        "/api/v1/inbox/reprioritize",
-        "/api/v1/inbox/sender-profile",
-        # Non-versioned inbox routes
-        "/inbox/accounts",
-        "/inbox/bulk-action",
-        "/inbox/connect",
-        "/inbox/messages",
-        "/inbox/messages/send",
-        "/inbox/oauth/gmail",
-        "/inbox/oauth/outlook",
-        "/inbox/stats",
-        "/inbox/trends",
-        "/inbox/triage",
     ]
 
     def __init__(self, server_context: dict[str, Any] | None = None):
@@ -122,7 +109,10 @@ class UnifiedInboxHandler(BaseHandler):
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/v1/inbox") and not path.startswith("/api/v1/inbox/wedge/")
+        del method
+        if path in self.ROUTES:
+            return True
+        return any(pattern.fullmatch(path) for pattern in _UNIFIED_INBOX_DYNAMIC_ROUTES)
 
     @require_permission("inbox:read")
     async def handle_request(self, request: Any, path: str, method: str) -> HandlerResult:
