@@ -976,3 +976,63 @@ class TestProcessEvaluationBonuses:
 
         assert abs(result["agent_a"] - 5.0) < 1e-9
         mock_metric.assert_called_once_with(agent="agent_a")
+
+
+# ===========================================================================
+# Tests: apply_truth_ratio_bonuses
+# ===========================================================================
+
+
+class TestTruthRatioBonuses:
+    """Tests for truth-ratio weighting on consensus votes."""
+
+    def test_truth_ratio_weighting_disabled_returns_unchanged(self):
+        """Truth-ratio bonuses are opt-in and should no-op by default."""
+        proto = _make_protocol()
+        proto.enable_truth_ratio_weighting = False
+        calc = VoteBonusCalculator(protocol=proto)
+        vote_counts = {"agent_a": 1.0}
+
+        result = calc.apply_truth_ratio_bonuses(
+            ctx=_make_ctx(proposals={"agent_a": "proposal"}),
+            vote_counts=vote_counts,
+            choice_mapping={},
+        )
+
+        assert result == {"agent_a": 1.0}
+
+    @patch("aragora.debate.truth_scorer.TruthScorer")
+    def test_truth_ratio_weighting_applies_bonus_and_records_metadata(self, mock_scorer_cls):
+        """Higher truth ratios add weighted bonuses and are recorded in metadata."""
+        proto = _make_protocol()
+        proto.enable_truth_ratio_weighting = True
+        proto.truth_ratio_bonus = 0.2
+        calc = VoteBonusCalculator(protocol=proto)
+
+        mock_scorer = MagicMock()
+        mock_scorer.score.side_effect = [
+            MagicMock(truth_ratio=0.9),
+            MagicMock(truth_ratio=0.4),
+        ]
+        mock_scorer_cls.return_value = mock_scorer
+
+        ctx = _make_ctx(
+            proposals={
+                "agent_a": "Proposal with evidence.",
+                "agent_b": "Proposal with rhetoric.",
+            }
+        )
+        vote_counts = {"agent_a": 1.0, "agent_b": 1.0}
+
+        result = calc.apply_truth_ratio_bonuses(
+            ctx=ctx,
+            vote_counts=vote_counts,
+            choice_mapping={},
+        )
+
+        assert math.isclose(result["agent_a"], 1.16)
+        assert math.isclose(result["agent_b"], 1.0)
+        assert ctx.result.metadata["truth_ratio"] == {
+            "scores": {"agent_a": 0.9, "agent_b": 0.4},
+            "average": 0.65,
+        }
