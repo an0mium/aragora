@@ -10,6 +10,7 @@ Creates and configures the FastAPI application with:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -124,9 +125,39 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
 
     # Initialize user store (optional)
     try:
-        from aragora.storage.user_store import get_user_store
+        from aragora.storage.connection_factory import (
+            StorageBackendType,
+            resolve_database_config,
+        )
 
-        ctx["user_store"] = get_user_store()
+        try:
+            asyncio.get_running_loop()
+            in_async_context = True
+        except RuntimeError:
+            in_async_context = False
+
+        user_config = resolve_database_config("user", allow_sqlite=True)
+        defer_user_store = False
+        if in_async_context and user_config.backend_type in (
+            StorageBackendType.SUPABASE,
+            StorageBackendType.POSTGRES,
+        ):
+            try:
+                from aragora.storage.pool_manager import is_pool_initialized
+
+                defer_user_store = not is_pool_initialized()
+            except ImportError:
+                defer_user_store = True
+
+        if defer_user_store:
+            logger.info(
+                "Deferring user store initialization during FastAPI lifespan until first use"
+            )
+            ctx["user_store"] = None
+        else:
+            from aragora.storage.user_store import get_user_store
+
+            ctx["user_store"] = get_user_store()
     except (ImportError, OSError, RuntimeError) as e:
         logger.debug("User store not available: %s", e)
         ctx["user_store"] = None
