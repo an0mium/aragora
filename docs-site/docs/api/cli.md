@@ -11,8 +11,8 @@ description: Generated Aragora CLI command catalog from live parser
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **84**
-- Total top-level invocations (including aliases): **85**
+- Canonical top-level commands: **85**
+- Total top-level invocations (including aliases): **86**
 
 ## Installation
 
@@ -108,6 +108,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `setup` | - | Interactive setup wizard for API keys and configuration | - |
 | `signing` | - | Sign and verify context files for Nomic Loop provenance (G1) | `show`, `sign`, `verify` |
 | `skills` | - | Skill marketplace commands | `info`, `install`, `list`, `scan`, `search`, `stats`, `uninstall` |
+| `spec` | - | Transform a vague idea into a structured specification | - |
 | `starter` | - | SME Starter Pack -- install to decision receipt in 15 minutes | - |
 | `stats` | - | Show memory statistics | - |
 | `status` | - | Show environment health and agent availability | - |
@@ -123,7 +124,7 @@ For full runtime configuration, see [ENVIRONMENT](../getting-started/environment
 | `verify` | - | Verify a decision receipt's integrity | - |
 | `verticals` | - | Manage vertical specialist configurations | - |
 | `workflow` | - | Workflow engine commands | `categories`, `list`, `patterns`, `run`, `status`, `templates` |
-| `worktree` | - | Manage git worktrees for parallel agent sessions | `autopilot`, `cleanup`, `conflicts`, `create`, `fleet-claim`, `fleet-claims`, `fleet-queue-add`, `fleet-queue-list`, `fleet-queue-process-next`, `fleet-release`, `fleet-status`, `list`, `merge`, `merge-all` |
+| `worktree` | - | Manage git worktrees for parallel agent sessions | `autopilot`, `cleanup`, `conflicts`, `create`, `fleet-claim`, `fleet-claims`, `fleet-queue-add`, `fleet-queue-list`, `fleet-queue-process-next`, `fleet-reap-claims`, `fleet-release`, `fleet-status`, `list`, `merge`, `merge-all` |
 
 ## Core Workflows
 
