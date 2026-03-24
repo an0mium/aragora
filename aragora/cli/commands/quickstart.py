@@ -72,22 +72,18 @@ _PROVIDER_TLS_HOSTS: dict[str, str] = {
 _PROVIDER_SPECS: dict[str, dict[str, Any]] = {
     "anthropic": {
         "agent_type": "anthropic-api",
-        "model": "claude-opus-4-6",
+        "model": "claude-haiku-4-5-20251001",
         "env_vars": ("ANTHROPIC_API_KEY",),
-        # Falls back to OpenRouter when credits exhausted
-        "openrouter_fallback": "anthropic/claude-opus-4-6",
     },
     "openai": {
         "agent_type": "openai-api",
-        "model": "gpt-5.4",
+        "model": "gpt-4o-mini",
         "env_vars": ("OPENAI_API_KEY",),
-        "openrouter_fallback": "openai/gpt-5.4",
     },
     "gemini": {
         "agent_type": "gemini",
-        "model": "gemini-3.1-pro",
+        "model": "gemini-2.0-flash",
         "env_vars": ("GEMINI_API_KEY",),
-        "openrouter_fallback": "google/gemini-3.1-pro",
     },
     "mistral": {
         "agent_type": "mistral",
@@ -526,14 +522,6 @@ def _build_live_team(
                 "api_key": None,
             }
         )
-
-    # Always include OpenRouter as a fallback provider when available.
-    # This ensures at least one agent can complete even when primary
-    # providers are rate-limited or out of credits.
-    openrouter_available = os.environ.get("OPENROUTER_API_KEY")
-    primary_provider = provider_configs[0]["provider"]
-    if openrouter_available and primary_provider != "deepseek":
-        provider_configs.append({"provider": "deepseek", "model": None, "api_key": None})
 
     team: list[dict[str, Any]] = []
     for index, (role, role_label) in enumerate(_LIVE_ROLES):

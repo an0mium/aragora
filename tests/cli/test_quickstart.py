@@ -146,7 +146,7 @@ class TestDetectAgents:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
         agents = _detect_agents("openai")
-        assert agents == [("openai-api", "gpt-5.4")]
+        assert agents == [("openai-api", "gpt-4o-mini")]
 
     def test_invalid_preferred_provider_raises(self):
         with pytest.raises(ValueError, match="Unsupported provider"):
@@ -362,7 +362,7 @@ class TestLiveQuickstartHelpers:
         assert team[0]["provider"] == "openai-api"
         assert team[0]["api_key"] == "sk-inline"
 
-    def test_build_live_team_includes_openrouter_fallback(self):
+    def test_build_live_team_stays_single_provider_even_with_openrouter_available(self):
         team = _build_live_team(
             [
                 ("anthropic-api", "claude-sonnet-4-5-20250929"),
@@ -373,11 +373,7 @@ class TestLiveQuickstartHelpers:
 
         providers = [agent["provider"] for agent in team]
         assert providers[0] == "openai-api"
-        # OpenRouter fallback included when OPENROUTER_API_KEY is set
-        if os.environ.get("OPENROUTER_API_KEY"):
-            assert "deepseek" in providers
-        else:
-            assert providers == ["openai-api"] * 3
+        assert providers == ["openai-api"] * 3
 
     def test_build_live_receipt_surfaces_consensus_dissent_and_receipt(self):
         from aragora.gauntlet.receipt_models import DecisionReceipt
