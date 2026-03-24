@@ -52,54 +52,16 @@ env:
 
 jobs:
   test:
-    runs-on: aragora
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify checkout integrity
-        shell: bash
-        run: |
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
-            git sparse-checkout disable || true
-            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}"
-            git reset --hard FETCH_HEAD
-            git clean -ffd || true
-          fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::warning::Standard recovery failed; attempting archive restore"
-            find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-            git archive "${GITHUB_SHA:-HEAD}" | tar -x || git archive HEAD | tar -x
-          fi
-          if [[ ! -f pyproject.toml ]]; then
-            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
-            echo "PWD=$(pwd)"
-            ls -la
-            exit 1
-          fi
-
       - name: Set up Python
-        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-        continue-on-error: true
-
-      - name: Fallback to system Python
-        if: steps.setup-python.outcome == 'failure'
-        run: |
-          echo "actions/setup-python failed, using system Python"
-          for cmd in python3.11 python3; do
-            if command -v "$cmd" &>/dev/null; then
-              echo "Found $cmd: $("$cmd" --version)"
-              sudo ln -sf "$(command -v "$cmd")" /usr/local/bin/python
-              sudo ln -sf "$(command -v "$cmd")" /usr/local/bin/python3
-              break
-            fi
-          done
-          python --version
 
       - name: Install dependencies
         run: |
