@@ -98,16 +98,17 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
 
     This provides the same context as the legacy server for handler compatibility.
     """
-    from aragora.storage.debate_storage import DebateStorage
+    from aragora.server.storage import DebateStorage
 
     ctx: dict[str, Any] = {}
 
     # Initialize storage
     try:
-        storage = DebateStorage(nomic_dir=nomic_dir)
+        db_path = str(nomic_dir / "debates.db") if nomic_dir else "aragora_debates.db"
+        storage = DebateStorage(db_path)
         ctx["storage"] = storage
         logger.info("Initialized DebateStorage")
-    except (OSError, RuntimeError) as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.warning("Failed to initialize DebateStorage: %s", e)
         ctx["storage"] = None
 
@@ -220,9 +221,10 @@ async def lifespan(app: FastAPI):
             if not task.done():
                 task.cancel()
 
-    if ctx.get("storage"):
+    storage = ctx.get("storage")
+    if storage and hasattr(storage, "close"):
         try:
-            ctx["storage"].close()
+            storage.close()
         except (OSError, RuntimeError) as e:
             logger.debug("Error closing storage during shutdown: %s", e)
 
