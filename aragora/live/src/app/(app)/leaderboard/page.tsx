@@ -4,18 +4,7 @@ import dynamic from 'next/dynamic';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
-
-const LeaderboardPanel = dynamic(
-  () => import('@/components/LeaderboardPanel').then(m => ({ default: m.LeaderboardPanel })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="card p-4 animate-pulse">
-        <div className="h-[600px] bg-surface rounded" />
-      </div>
-    ),
-  }
-);
+import { LiveEloRankingsPanel } from '@/components/leaderboard/LiveEloRankingsPanel';
 
 const EloTrendChart = dynamic(
   () => import('@/components/leaderboard/EloTrendChart').then(m => ({ default: m.EloTrendChart })),
@@ -57,8 +46,8 @@ export default function LeaderboardPage() {
               {'>'} AGENT LEADERBOARD
             </h1>
             <p className="text-text-muted font-mono text-sm">
-              ELO rankings, win rates, consistency scores, and agent performance metrics.
-              Track which agents perform best across different debate domains.
+              Live ELO rankings with calibration scores and debate counts sourced from the
+              canonical rankings API.
             </p>
           </div>
 
@@ -76,9 +65,9 @@ export default function LeaderboardPage() {
             </PanelErrorBoundary>
           </div>
 
-          {/* Full Leaderboard Panel — existing component with all tabs */}
+          {/* Live ELO Rankings */}
           <PanelErrorBoundary panelName="Leaderboard">
-            <LeaderboardPanel wsMessages={[]} apiBase={backendConfig.api} />
+            <LiveEloRankingsPanel apiBase={backendConfig.api} />
           </PanelErrorBoundary>
         </div>
 
