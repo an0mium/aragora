@@ -452,7 +452,7 @@ function RecordedSampleCard({ sample }: { sample: RecordedDebate }) {
 
 export default function PublicDemoPage() {
   const [result, setResult] = useState<LiveDebateResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [sampleFallbackMessage, setSampleFallbackMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [progressStep, setProgressStep] = useState(0);
   const [showRecordedSample, setShowRecordedSample] = useState(false);
@@ -466,7 +466,7 @@ export default function PublicDemoPage() {
     abortRef.current = controller;
 
     setIsLoading(true);
-    setError(null);
+    setSampleFallbackMessage(null);
     setResult(null);
     setProgressStep(0);
 
@@ -495,10 +495,9 @@ export default function PublicDemoPage() {
       if (response.status === 429) {
         const data = await response.json().catch(() => null);
         const retryAfter = typeof data?.retry_after === 'number' ? data.retry_after : 60;
-        setError(
-          `The live proof surface is rate-limited right now. Retry in about ${retryAfter} seconds, or inspect the labeled recorded sample below.`,
+        setSampleFallbackMessage(
+          `The live proof surface is rate-limited right now, so this page is showing the labeled recorded sample instead. Retry in about ${retryAfter} seconds for a fresh run.`,
         );
-        setShowRecordedSample(true);
         return;
       }
 
@@ -508,30 +507,28 @@ export default function PublicDemoPage() {
           typeof data?.error === 'string'
             ? data.error
             : `The live proof surface returned HTTP ${response.status}.`;
-        setError(`${message} The recorded sample below remains labeled as non-live.`);
-        setShowRecordedSample(true);
+        setSampleFallbackMessage(
+          `${message} Showing the labeled recorded sample instead of a live result.`,
+        );
         return;
       }
 
       const parsed = normalizeLiveDebateResult(await response.json());
       if (!parsed) {
-        setError('The live proof surface returned an unexpected payload. The recorded sample remains labeled below.');
-        setShowRecordedSample(true);
+        setSampleFallbackMessage(
+          'The live proof surface returned an unexpected payload, so this page is showing the labeled recorded sample instead.',
+        );
         return;
       }
 
       setResult(parsed);
-      if (parsed.mock_fallback || parsed.is_live === false) {
-        setShowRecordedSample(true);
-      }
     } catch (fetchError) {
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         return;
       }
-      setError(
-        'Could not reach the playground backend for a fresh run. The recorded sample below is still available and explicitly labeled.',
+      setSampleFallbackMessage(
+        'Could not reach the playground backend for a fresh run, so this page is showing the labeled recorded sample instead.',
       );
-      setShowRecordedSample(true);
     } finally {
       clearTimers();
       setProgressStep(LIVE_PROGRESS_STEPS.length - 1);
@@ -557,6 +554,10 @@ export default function PublicDemoPage() {
     }
     return result.mock_fallback || result.is_live === false ? 'fallback' : 'live';
   }, [result]);
+
+  const recordedSamplePinned =
+    sampleFallbackMessage !== null || result?.mock_fallback === true || result?.is_live === false;
+  const recordedSampleVisible = showRecordedSample || recordedSamplePinned;
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
@@ -594,7 +595,8 @@ export default function PublicDemoPage() {
           <p className="text-sm font-mono text-[var(--text-muted)] max-w-3xl mx-auto leading-relaxed">
             This page runs one canonical question against the same public playground backend used
             elsewhere. If the backend returns a simulated fallback instead of a fresh live run, it
-            is labeled as such. If you want to bring your own question, use <span className="text-[var(--acid-green)]">/try</span>.
+            is labeled as such. If the backend is unavailable, the recorded sample appears instead
+            of an error. If you want to bring your own question, use <span className="text-[var(--acid-green)]">/try</span>.
           </p>
         </header>
 
@@ -643,9 +645,14 @@ export default function PublicDemoPage() {
             </Link>
             <button
               onClick={() => setShowRecordedSample((current) => !current)}
+              disabled={recordedSamplePinned}
               className="px-4 py-2 text-xs font-mono border border-blue-400/40 text-blue-300 hover:bg-blue-400/10 transition-colors"
             >
-              {showRecordedSample ? 'HIDE RECORDED SAMPLE' : 'SHOW RECORDED SAMPLE'}
+              {recordedSamplePinned
+                ? 'RECORDED SAMPLE SHOWN'
+                : showRecordedSample
+                  ? 'HIDE RECORDED SAMPLE'
+                  : 'SHOW RECORDED SAMPLE'}
             </button>
           </div>
         </section>
@@ -673,21 +680,23 @@ export default function PublicDemoPage() {
           </section>
         )}
 
-        {error && (
-          <section className="border border-amber-400/40 bg-amber-400/10 p-5 space-y-3">
-            <StatusBadge label="Live proof unavailable" tone="fallback" />
-            <p className="text-sm font-mono text-amber-200 leading-relaxed">{error}</p>
+        {sampleFallbackMessage && (
+          <section className="border border-blue-400/40 bg-blue-400/10 p-5 space-y-3">
+            <StatusBadge label="Showing recorded sample" tone="sample" />
+            <p className="text-sm font-mono text-blue-100 leading-relaxed">
+              {sampleFallbackMessage}
+            </p>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => void runLiveDemo()}
                 disabled={isLoading}
-                className="px-4 py-2 text-xs font-mono bg-amber-300 text-[var(--bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+                className="px-4 py-2 text-xs font-mono bg-blue-300 text-[var(--bg)] hover:opacity-90 disabled:opacity-50 transition-opacity"
               >
                 RETRY LIVE RUN
               </button>
               <Link
                 href="/try"
-                className="px-4 py-2 text-xs font-mono border border-amber-300/50 text-amber-200 hover:bg-amber-300/10 transition-colors"
+                className="px-4 py-2 text-xs font-mono border border-blue-300/50 text-blue-100 hover:bg-blue-300/10 transition-colors"
               >
                 OPEN /TRY INSTEAD
               </Link>
@@ -715,10 +724,12 @@ export default function PublicDemoPage() {
           </section>
         )}
 
-        {showRecordedSample && (
+        {recordedSampleVisible && (
           <section className="space-y-3">
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-blue-300">
-              Clearly labeled canned example
+              {sampleFallbackMessage
+                ? 'Recorded fallback currently shown'
+                : 'Clearly labeled canned example'}
             </div>
             <RecordedSampleCard sample={RECORDED_SAMPLE} />
           </section>
