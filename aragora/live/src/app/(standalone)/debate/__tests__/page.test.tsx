@@ -152,7 +152,7 @@ describe('DebateViewerPage (via DebateViewerWrapper)', () => {
 
       await waitFor(() => {
         const hasContent =
-          screen.queryByText(/NO DEBATE ID PROVIDED/i) ||
+          screen.queryByText(/ARAGORA DEBATE VIEWER/i) ||
           screen.queryByTestId('debate-viewer');
         expect(hasContent).toBeTruthy();
       });
@@ -215,8 +215,8 @@ describe('DebateViewerWrapper', () => {
       // With pathname '/debate', there is no ID segment
       renderWithProviders(<DebateViewerWrapper />);
 
-      // Should show no debate ID message
-      expect(screen.getByText(/NO DEBATE ID PROVIDED/i)).toBeInTheDocument();
+      // Should show the standalone debate landing CTA
+      expect(screen.getByText(/ARAGORA DEBATE VIEWER/i)).toBeInTheDocument();
     });
   });
 
@@ -227,7 +227,8 @@ describe('DebateViewerWrapper', () => {
       renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
-        expect(screen.getByText(/NO DEBATE ID PROVIDED/i)).toBeInTheDocument();
+        expect(screen.getByText(/ARAGORA DEBATE VIEWER/i)).toBeInTheDocument();
+        expect(screen.getByText(/Watch AI agents debate decisions/i)).toBeInTheDocument();
       });
     });
 
@@ -259,7 +260,8 @@ describe('DebateViewerWrapper', () => {
       renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
-        expect(screen.getByText('[RETURN HOME]')).toBeInTheDocument();
+        expect(screen.getByText('START YOUR OWN DEBATE')).toBeInTheDocument();
+        expect(screen.getByText('BACK TO ARAGORA')).toBeInTheDocument();
       });
     });
 
@@ -269,7 +271,7 @@ describe('DebateViewerWrapper', () => {
       renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
-        const link = screen.getByText('[RETURN HOME]').closest('a');
+        const link = screen.getByText('BACK TO ARAGORA').closest('a');
         expect(link).toHaveAttribute('href', '/landing/');
       });
     });
@@ -394,8 +396,8 @@ describe('DebateViewerWrapper', () => {
       renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
-        // Should show no debate ID message rather than crash
-        expect(screen.getByText(/NO DEBATE ID PROVIDED/i)).toBeInTheDocument();
+        // Should show the empty-state CTA rather than crash
+        expect(screen.getByText(/ARAGORA DEBATE VIEWER/i)).toBeInTheDocument();
       });
     });
   });
@@ -429,7 +431,7 @@ describe('DebateViewerWrapper', () => {
       renderWithProviders(<DebateViewerWrapper />);
 
       await waitFor(() => {
-        expect(screen.getByText(/NO DEBATE ID PROVIDED/i)).toBeInTheDocument();
+        expect(screen.getByText(/ARAGORA DEBATE VIEWER/i)).toBeInTheDocument();
       });
     });
   });
