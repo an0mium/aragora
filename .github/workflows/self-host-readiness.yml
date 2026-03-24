@@ -76,6 +76,7 @@ jobs:
           ARAGORA_REDIS_MODE=sentinel
           ARAGORA_REDIS_SENTINEL_HOSTS=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
           ARAGORA_REDIS_SENTINEL_MASTER=mymaster
+          REDIS_PASSWORD=aragora-ci-redis-password-0123456789
           ARAGORA_STRICT_DEPLOYMENT=true
           ARAGORA_SECRETS_STRICT=false
           ARAGORA_REPLICAS=1

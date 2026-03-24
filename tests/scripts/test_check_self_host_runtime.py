@@ -116,6 +116,30 @@ def test_validate_runtime_env_file_accepts_valid_values(tmp_path: Path) -> None:
     assert warnings == []
 
 
+def test_validate_runtime_env_file_requires_redis_password_for_sentinel(tmp_path: Path) -> None:
+    module = _load_script_module()
+    env_file = tmp_path / ".env.production"
+    env_file.write_text(
+        "\n".join(
+            [
+                "POSTGRES_PASSWORD=postgres-password",
+                "ARAGORA_API_TOKEN=api-token",
+                "ARAGORA_JWT_SECRET=abcdefghijklmnopqrstuvwxyz123456",
+                "ARAGORA_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "ARAGORA_REDIS_MODE=sentinel",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    errors, warnings = module._validate_runtime_env_file(env_file)
+
+    assert any(
+        "REDIS_PASSWORD must be set when ARAGORA_REDIS_MODE=sentinel" in error for error in errors
+    )
+    assert warnings == []
+
+
 def test_readiness_candidates_require_readyz() -> None:
     module = _load_script_module()
 

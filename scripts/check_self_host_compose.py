@@ -59,6 +59,20 @@ BASE_REQUIRED_ARAGORA_ENV_KEYS = {
 SENTINEL_REQUIRED_ARAGORA_ENV_KEYS = {
     "ARAGORA_REDIS_SENTINEL_HOSTS",
     "ARAGORA_REDIS_SENTINEL_MASTER",
+    "ARAGORA_REDIS_PASSWORD",
+}
+
+SENTINEL_REQUIRED_ENV_KEYS = {
+    "REDIS_PASSWORD",
+}
+
+SENTINEL_AUTH_SERVICES = {
+    "redis-master",
+    "redis-replica-1",
+    "redis-replica-2",
+    "sentinel-1",
+    "sentinel-2",
+    "sentinel-3",
 }
 
 RUNBOOK_MARKER_ALIASES = {
@@ -249,7 +263,10 @@ def main() -> int:
         errors.append(f"services missing healthcheck configuration: {missing_healthcheck}")
 
     env_keys = _parse_env_keys(env_path)
-    missing_env_keys = sorted(BASE_REQUIRED_ENV_KEYS - env_keys)
+    required_env_keys = set(BASE_REQUIRED_ENV_KEYS)
+    if redis_topology == "sentinel":
+        required_env_keys.update(SENTINEL_REQUIRED_ENV_KEYS)
+    missing_env_keys = sorted(required_env_keys - env_keys)
     if missing_env_keys:
         errors.append(f".env production example missing required keys: {missing_env_keys}")
 
@@ -267,6 +284,14 @@ def main() -> int:
             errors.append(
                 f".env production example missing required keys: {missing_sentinel_env_keys}"
             )
+        for service_name in sorted(SENTINEL_AUTH_SERVICES):
+            service = services.get(service_name, {})
+            if not isinstance(service, dict):
+                errors.append(f"{service_name} service missing or invalid")
+                continue
+            service_env = _parse_service_env(service)
+            if "REDIS_PASSWORD" not in service_env:
+                errors.append(f"{service_name} service missing REDIS_PASSWORD env wiring")
 
     missing_markers = _contains_required_runbook_markers(runbook_path)
     if missing_markers:

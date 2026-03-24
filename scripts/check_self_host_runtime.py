@@ -120,6 +120,16 @@ def _validate_runtime_env_file(env_file: Path) -> tuple[list[str], list[str]]:
         elif not re.fullmatch(r"[0-9a-fA-F]{64}", encryption_key):
             warnings.append("ARAGORA_ENCRYPTION_KEY should contain only hex characters")
 
+    redis_mode = _read_env_value(env_file, "ARAGORA_REDIS_MODE").lower()
+    if redis_mode == "sentinel":
+        redis_password = _read_env_value(env_file, "REDIS_PASSWORD")
+        if not redis_password:
+            errors.append(
+                "REDIS_PASSWORD must be set when ARAGORA_REDIS_MODE=sentinel for production runtime checks"
+            )
+        elif "CHANGE_ME" in redis_password or redis_password.endswith("..."):
+            errors.append("REDIS_PASSWORD still contains placeholder value")
+
     strict_mode = _read_env_value(env_file, "ARAGORA_SECRETS_STRICT").lower()
     if strict_mode in {"true", "1", "yes"}:
         warnings.append(

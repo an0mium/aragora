@@ -225,14 +225,29 @@ services:
   redis-master:
     image: redis:7.2-alpine
     container_name: aragora-redis-master
-    command: redis-server /etc/redis/redis.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    entrypoint: /bin/sh
+    command: >
+      -c "cp /etc/redis/redis.conf.template /data/redis.conf &&
+          if [ -n \"$$REDIS_PASSWORD\" ]; then
+            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/redis.conf;
+          else
+            sed -i '/^requirepass REDIS_PASSWORD_PLACEHOLDER$/d' /data/redis.conf;
+          fi &&
+          redis-server /data/redis.conf"
     volumes:
       - redis-master-data:/data
-      - ./deploy/redis/redis-master.conf:/etc/redis/redis.conf:ro
+      - ./deploy/redis/redis-master.conf:/etc/redis/redis.conf.template:ro
     networks:
       - aragora-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      test:
+        [
+          "CMD-SHELL",
+          "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a \"$$REDIS_PASSWORD\" -p 6379 ping; else redis-cli -p 6379 ping; fi",
+        ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -246,17 +261,33 @@ services:
   redis-replica-1:
     image: redis:7.2-alpine
     container_name: aragora-redis-replica-1
-    command: redis-server /etc/redis/redis.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    entrypoint: /bin/sh
+    command: >
+      -c "cp /etc/redis/redis.conf.template /data/redis.conf &&
+          if [ -n \"$$REDIS_PASSWORD\" ]; then
+            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/redis.conf;
+          else
+            sed -i '/^requirepass REDIS_PASSWORD_PLACEHOLDER$/d' /data/redis.conf &&
+            sed -i '/^masterauth REDIS_PASSWORD_PLACEHOLDER$/d' /data/redis.conf;
+          fi &&
+          redis-server /data/redis.conf"
     depends_on:
       redis-master:
         condition: service_healthy
     volumes:
       - redis-replica-1-data:/data
-      - ./deploy/redis/redis-replica.conf:/etc/redis/redis.conf:ro
+      - ./deploy/redis/redis-replica.conf:/etc/redis/redis.conf.template:ro
     networks:
       - aragora-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      test:
+        [
+          "CMD-SHELL",
+          "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a \"$$REDIS_PASSWORD\" -p 6379 ping; else redis-cli -p 6379 ping; fi",
+        ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -270,17 +301,33 @@ services:
   redis-replica-2:
     image: redis:7.2-alpine
     container_name: aragora-redis-replica-2
-    command: redis-server /etc/redis/redis.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    entrypoint: /bin/sh
+    command: >
+      -c "cp /etc/redis/redis.conf.template /data/redis.conf &&
+          if [ -n \"$$REDIS_PASSWORD\" ]; then
+            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/redis.conf;
+          else
+            sed -i '/^requirepass REDIS_PASSWORD_PLACEHOLDER$/d' /data/redis.conf &&
+            sed -i '/^masterauth REDIS_PASSWORD_PLACEHOLDER$/d' /data/redis.conf;
+          fi &&
+          redis-server /data/redis.conf"
     depends_on:
       redis-master:
         condition: service_healthy
     volumes:
       - redis-replica-2-data:/data
-      - ./deploy/redis/redis-replica.conf:/etc/redis/redis.conf:ro
+      - ./deploy/redis/redis-replica.conf:/etc/redis/redis.conf.template:ro
     networks:
       - aragora-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      test:
+        [
+          "CMD-SHELL",
+          "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli -a \"$$REDIS_PASSWORD\" -p 6379 ping; else redis-cli -p 6379 ping; fi",
+        ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -294,7 +341,18 @@ services:
   sentinel-1:
     image: redis:7.2-alpine
     container_name: aragora-sentinel-1
-    command: redis-sentinel /etc/redis/sentinel.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    entrypoint: /bin/sh
+    command: >
+      -c "cp /etc/redis/sentinel.conf.template /data/sentinel.conf &&
+          if [ -n \"$$REDIS_PASSWORD\" ]; then
+            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/sentinel.conf;
+          else
+            sed -i '/^sentinel auth-pass mymaster REDIS_PASSWORD_PLACEHOLDER$/d' /data/sentinel.conf;
+          fi &&
+          redis-sentinel /data/sentinel.conf"
     depends_on:
       redis-master:
         condition: service_healthy
@@ -303,7 +361,7 @@ services:
       redis-replica-2:
         condition: service_healthy
     volumes:
-      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf
+      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf.template:ro
       - sentinel-1-data:/data
     networks:
       - aragora-network
@@ -322,7 +380,18 @@ services:
   sentinel-2:
     image: redis:7.2-alpine
     container_name: aragora-sentinel-2
-    command: redis-sentinel /etc/redis/sentinel.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    entrypoint: /bin/sh
+    command: >
+      -c "cp /etc/redis/sentinel.conf.template /data/sentinel.conf &&
+          if [ -n \"$$REDIS_PASSWORD\" ]; then
+            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/sentinel.conf;
+          else
+            sed -i '/^sentinel auth-pass mymaster REDIS_PASSWORD_PLACEHOLDER$/d' /data/sentinel.conf;
+          fi &&
+          redis-sentinel /data/sentinel.conf"
     depends_on:
       redis-master:
         condition: service_healthy
@@ -331,7 +400,7 @@ services:
       redis-replica-2:
         condition: service_healthy
     volumes:
-      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf
+      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf.template:ro
       - sentinel-2-data:/data
     networks:
       - aragora-network
@@ -350,7 +419,18 @@ services:
   sentinel-3:
     image: redis:7.2-alpine
     container_name: aragora-sentinel-3
-    command: redis-sentinel /etc/redis/sentinel.conf
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    entrypoint: /bin/sh
+    command: >
+      -c "cp /etc/redis/sentinel.conf.template /data/sentinel.conf &&
+          if [ -n \"$$REDIS_PASSWORD\" ]; then
+            escaped_password=$$(printf '%s\n' \"$$REDIS_PASSWORD\" | sed 's/[|&]/\\\\&/g') &&
+            sed -i \"s|REDIS_PASSWORD_PLACEHOLDER|$$escaped_password|g\" /data/sentinel.conf;
+          else
+            sed -i '/^sentinel auth-pass mymaster REDIS_PASSWORD_PLACEHOLDER$/d' /data/sentinel.conf;
+          fi &&
+          redis-sentinel /data/sentinel.conf"
     depends_on:
       redis-master:
         condition: service_healthy
@@ -359,7 +439,7 @@ services:
       redis-replica-2:
         condition: service_healthy
     volumes:
-      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf
+      - ./deploy/redis/sentinel.conf:/etc/redis/sentinel.conf.template:ro
       - sentinel-3-data:/data
     networks:
       - aragora-network

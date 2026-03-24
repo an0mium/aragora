@@ -39,6 +39,7 @@ services:
       - ARAGORA_REDIS_MODE=sentinel
       - ARAGORA_REDIS_SENTINEL_HOSTS=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
       - ARAGORA_REDIS_SENTINEL_MASTER=mymaster
+      - ARAGORA_REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - ARAGORA_JWT_SECRET=jwt
       - ARAGORA_ENCRYPTION_KEY=0aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
       - ARAGORA_RATE_LIMIT_BACKEND=redis
@@ -48,21 +49,33 @@ services:
     healthcheck:
       test: ["CMD", "true"]
   redis-master:
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     healthcheck:
       test: ["CMD", "true"]
   redis-replica-1:
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     healthcheck:
       test: ["CMD", "true"]
   redis-replica-2:
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     healthcheck:
       test: ["CMD", "true"]
   sentinel-1:
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     healthcheck:
       test: ["CMD", "true"]
   sentinel-2:
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     healthcheck:
       test: ["CMD", "true"]
   sentinel-3:
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     healthcheck:
       test: ["CMD", "true"]
 """.strip()
@@ -81,6 +94,7 @@ services:
                 "ARAGORA_REDIS_MODE=sentinel",
                 "ARAGORA_REDIS_SENTINEL_HOSTS=sentinel-1:26379,sentinel-2:26379,sentinel-3:26379",
                 "ARAGORA_REDIS_SENTINEL_MASTER=mymaster",
+                "REDIS_PASSWORD=secret",
                 "ARAGORA_STRICT_DEPLOYMENT=true",
             ]
         )
@@ -234,6 +248,37 @@ def test_fails_when_aragora_missing_secrets_strict_wiring(tmp_path: Path):
     assert result.returncode == 1
     assert "aragora service missing required env wiring" in result.stdout.lower()
     assert "aragora_secrets_strict" in result.stdout.lower()
+
+
+def test_fails_when_sentinel_env_example_missing_redis_password(tmp_path: Path):
+    compose, env, runbook = _write_valid_fixture(tmp_path)
+    env.write_text(
+        "\n".join(
+            line
+            for line in env.read_text(encoding="utf-8").splitlines()
+            if not line.startswith("REDIS_PASSWORD=")
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run("--compose", str(compose), "--env-example", str(env), "--runbook", str(runbook))
+    assert result.returncode == 1
+    assert "redis_password" in result.stdout.lower()
+
+
+def test_fails_when_sentinel_service_missing_redis_password_wiring(tmp_path: Path):
+    compose, env, runbook = _write_valid_fixture(tmp_path)
+    compose.write_text(
+        compose.read_text(encoding="utf-8").replace(
+            "  redis-master:\n    environment:\n      - REDIS_PASSWORD=${REDIS_PASSWORD:-}\n",
+            "  redis-master:\n",
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run("--compose", str(compose), "--env-example", str(env), "--runbook", str(runbook))
+    assert result.returncode == 1
+    assert "redis-master service missing redis_password env wiring" in result.stdout.lower()
 
 
 def test_standalone_redis_topology_passes(tmp_path: Path):
