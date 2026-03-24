@@ -10,7 +10,10 @@ Tests cover:
 - Filtering and pagination
 """
 
+import importlib
 import json
+import subprocess
+import sys
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -28,6 +31,36 @@ from aragora.storage.receipt_store import (
     get_receipt_store,
     set_receipt_store,
 )
+
+
+def _run(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        list(args),
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+
+def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return _run(cwd, "git", *args)
+
+
+def _make_git_repo_with_linked_worktree(tmp_path: Path) -> tuple[Path, Path]:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-b", "main")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Test User")
+    (repo / "README.md").write_text("hello\n")
+    (repo / ".nomic").mkdir()
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-m", "initial")
+
+    linked = tmp_path / "linked-worktree"
+    _git(repo, "worktree", "add", "-b", "feature/test", str(linked), "main")
+    return repo, linked
 
 
 # ===========================================================================
@@ -258,6 +291,34 @@ class TestReceiptStoreCRUD:
         receipt = receipt_store.get("receipt-001")
         assert receipt.verdict == "REJECTED"
         assert receipt.confidence == 0.95
+
+
+def test_default_receipt_db_path_uses_repo_shared_nomic_for_linked_worktree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, linked = _make_git_repo_with_linked_worktree(tmp_path)
+    monkeypatch.delenv("ARAGORA_RECEIPT_DB_PATH", raising=False)
+    monkeypatch.delenv("ARAGORA_DATA_DIR", raising=False)
+    monkeypatch.delenv("ARAGORA_NOMIC_DIR", raising=False)
+    monkeypatch.chdir(linked)
+
+    import aragora.storage.receipt_store as receipt_store_module
+
+    receipt_store_module = importlib.reload(receipt_store_module)
+    assert receipt_store_module.DEFAULT_DB_PATH == repo / ".nomic" / "receipts.db"
+
+
+def test_default_receipt_db_path_respects_explicit_data_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    custom_dir = tmp_path / "custom-data"
+    monkeypatch.setenv("ARAGORA_DATA_DIR", str(custom_dir))
+    monkeypatch.delenv("ARAGORA_RECEIPT_DB_PATH", raising=False)
+
+    import aragora.storage.receipt_store as receipt_store_module
+
+    receipt_store_module = importlib.reload(receipt_store_module)
+    assert receipt_store_module.DEFAULT_DB_PATH == custom_dir / "receipts.db"
 
     def test_save_with_iso_timestamp(self, receipt_store, sample_receipt_dict):
         """Test save handles ISO timestamp format."""

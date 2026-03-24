@@ -46,7 +46,58 @@ logger = logging.getLogger(__name__)
 
 # Default configuration
 DEFAULT_RETENTION_DAYS = int(os.environ.get("ARAGORA_RECEIPT_RETENTION_DAYS", "2555"))  # ~7 years
-DEFAULT_DB_PATH = Path(resolve_db_path("receipts.db"))
+
+
+def _linked_worktree_shared_receipt_db_path() -> Path | None:
+    """Return a shared repo-root receipt DB path when running in a linked worktree.
+
+    Most databases intentionally isolate linked worktrees under the git common-dir
+    data area. Receipts are different: quickstart/API/dashboard should surface the
+    same canonical artifacts across developer worktrees, so default them to the
+    repo-root data dir unless the caller explicitly overrides ARAGORA_DATA_DIR or
+    ARAGORA_RECEIPT_DB_PATH.
+    """
+    current = Path.cwd().resolve()
+    for candidate in (current, *current.parents):
+        git_marker = candidate / ".git"
+        if not git_marker.is_file():
+            if git_marker.is_dir():
+                return None
+            continue
+        try:
+            raw = git_marker.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        prefix = "gitdir:"
+        if not raw.startswith(prefix):
+            return None
+        gitdir = Path(raw[len(prefix) :].strip())
+        if not gitdir.is_absolute():
+            gitdir = (candidate / gitdir).resolve()
+        if gitdir.parent.name != "worktrees":
+            return None
+        common_git_dir = gitdir.parent.parent
+        repo_root = common_git_dir.parent
+        shared_data_dir = repo_root / ".nomic"
+        if not shared_data_dir.exists() and (repo_root / "data").exists():
+            shared_data_dir = repo_root / "data"
+        return shared_data_dir / "receipts.db"
+    return None
+
+
+def _default_receipt_db_path() -> Path:
+    """Resolve the canonical default receipt DB path."""
+    explicit_path = os.environ.get("ARAGORA_RECEIPT_DB_PATH")
+    if explicit_path:
+        return Path(explicit_path)
+    if not (os.environ.get("ARAGORA_DATA_DIR") or os.environ.get("ARAGORA_NOMIC_DIR")):
+        shared_worktree_path = _linked_worktree_shared_receipt_db_path()
+        if shared_worktree_path is not None:
+            return shared_worktree_path
+    return Path(resolve_db_path("receipts.db"))
+
+
+DEFAULT_DB_PATH = _default_receipt_db_path()
 
 # Global singleton
 _receipt_store: ReceiptStore | None = None

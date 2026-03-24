@@ -11,6 +11,7 @@ Commands for managing decision receipts:
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import json
 import logging
 import os
@@ -156,6 +157,103 @@ def _load_receipt_json(path: Path) -> dict[str, Any] | None:
         return None
 
     return data
+
+
+def _format_receipt_created_at(value: Any) -> str:
+    """Format storage/legacy receipt timestamps for CLI display."""
+    if value is None:
+        return "N/A"
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M")
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(value)).strftime("%Y-%m-%d %H:%M")
+        except (OverflowError, OSError, TypeError, ValueError):
+            return "N/A"
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed.strftime("%Y-%m-%d %H:%M")
+        except ValueError:
+            return value[:16]
+    return "N/A"
+
+
+def _receipt_row_id(meta: Any) -> str:
+    """Return the most useful receipt identifier for list output."""
+    for field in ("receipt_id", "gauntlet_id"):
+        value = getattr(meta, field, None)
+        if value:
+            return str(value)
+    if isinstance(meta, dict):
+        return str(meta.get("receipt_id") or meta.get("gauntlet_id") or "")
+    return ""
+
+
+def _receipt_findings_count(meta: Any) -> int:
+    """Extract a best-effort findings count from storage or legacy metadata."""
+    total_findings = getattr(meta, "total_findings", None)
+    if total_findings is not None:
+        return int(total_findings)
+
+    data = getattr(meta, "data", None)
+    if not isinstance(data, dict) and isinstance(meta, dict):
+        data = meta
+    if not isinstance(data, dict):
+        return 0
+
+    risk_summary = data.get("risk_summary")
+    if isinstance(risk_summary, dict) and risk_summary.get("total") is not None:
+        return int(risk_summary["total"])
+
+    findings = data.get("findings")
+    if isinstance(findings, list):
+        return len(findings)
+
+    vulnerabilities_found = data.get("vulnerabilities_found")
+    if vulnerabilities_found is not None:
+        return int(vulnerabilities_found)
+
+    return 0
+
+
+def _load_storage_receipt_list(limit: int, verdict: str | None) -> list[Any]:
+    """Read receipt rows from the durable receipt store."""
+    from aragora.storage.receipt_store import get_receipt_store
+
+    store = get_receipt_store()
+    return store.list(limit=limit, verdict=verdict.upper() if verdict else None)
+
+
+def _load_legacy_receipt_list(limit: int, verdict: str | None, org_id: str | None) -> list[Any]:
+    """Read receipt rows from the legacy gauntlet store."""
+    from aragora.gauntlet.storage import get_storage
+
+    storage = get_storage()
+    return storage.list_recent(
+        limit=limit,
+        verdict=verdict.upper() if verdict else None,
+        org_id=org_id,
+    )
+
+
+def _load_storage_receipt(receipt_id: str) -> dict[str, Any] | None:
+    """Fetch a receipt from the durable store by receipt or gauntlet ID."""
+    from aragora.storage.receipt_store import get_receipt_store
+
+    store = get_receipt_store()
+    stored = store.get(receipt_id)
+    if stored is None:
+        stored = store.get_by_gauntlet(receipt_id)
+    return stored.to_full_dict() if stored is not None else None
+
+
+def _load_legacy_receipt(receipt_id: str, org_id: str | None) -> dict[str, Any] | None:
+    """Fetch a receipt from the legacy gauntlet store."""
+    from aragora.gauntlet.storage import get_storage
+
+    storage = get_storage()
+    return storage.get(receipt_id, org_id=org_id)
 
 
 # ---------------------------------------------------------------------------
@@ -486,33 +584,50 @@ def cmd_receipt_list(args: argparse.Namespace) -> None:
     limit = getattr(args, "limit", 20)
     verdict = getattr(args, "verdict", None)
     org_id = getattr(args, "org_id", None)
-    try:
-        from aragora.gauntlet.storage import get_storage
 
-        storage = get_storage()
-        results = storage.list_recent(
-            limit=limit,
-            verdict=verdict.upper() if verdict else None,
-            org_id=org_id,
-        )
-    except ImportError:
-        print("Error: Gauntlet storage module not available", file=sys.stderr)
-        sys.exit(1)
-    except (OSError, RuntimeError) as e:
-        print(f"Error: Could not access receipt database: {e}", file=sys.stderr)
-        sys.exit(1)
+    results: list[Any] = []
+    storage_error: Exception | None = None
+    legacy_error: Exception | None = None
+
+    if org_id:
+        try:
+            results = _load_legacy_receipt_list(limit, verdict, org_id)
+        except ImportError:
+            print("Error: Gauntlet storage module not available", file=sys.stderr)
+            sys.exit(1)
+        except (OSError, RuntimeError, ValueError) as e:
+            print(f"Error: Could not access receipt database: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        try:
+            results = _load_storage_receipt_list(limit, verdict)
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
+            storage_error = e
+
+        if not results:
+            try:
+                results = _load_legacy_receipt_list(limit, verdict, org_id=None)
+            except (ImportError, OSError, RuntimeError, ValueError) as e:
+                legacy_error = e
+
+        if not results and storage_error is not None and legacy_error is not None:
+            print(f"Error: Could not access receipt database: {storage_error}", file=sys.stderr)
+            sys.exit(1)
+
     if not results:
         print("No receipts found.")
         return
+
     print(f"{'ID':<14} {'VERDICT':<12} {'CONF':>6} {'FINDINGS':>8} {'CREATED':<20}")
     print("-" * 64)
     for meta in results:
-        short_id = meta.gauntlet_id[:12] + ".." if len(meta.gauntlet_id) > 14 else meta.gauntlet_id
-        created = meta.created_at.strftime("%Y-%m-%d %H:%M") if meta.created_at else "N/A"
-        print(
-            f"{short_id:<14} {meta.verdict:<12} {meta.confidence:>5.0%} "
-            f"{meta.total_findings:>8} {created:<20}"
-        )
+        row_id = _receipt_row_id(meta)
+        short_id = row_id[:12] + ".." if len(row_id) > 14 else row_id
+        created = _format_receipt_created_at(getattr(meta, "created_at", None))
+        findings = _receipt_findings_count(meta)
+        confidence = float(getattr(meta, "confidence", 0.0) or 0.0)
+        verdict_value = str(getattr(meta, "verdict", "UNKNOWN") or "UNKNOWN")
+        print(f"{short_id:<14} {verdict_value:<12} {confidence:>5.0%} {findings:>8} {created:<20}")
     print(f"\n{len(results)} receipt(s) shown.")
 
 
@@ -524,17 +639,36 @@ def cmd_receipt_show(args: argparse.Namespace) -> None:
     if not receipt_id:
         print("Error: Receipt ID required", file=sys.stderr)
         sys.exit(1)
-    try:
-        from aragora.gauntlet.storage import get_storage
 
-        storage = get_storage()
-        data = storage.get(receipt_id, org_id=org_id)
-    except ImportError:
-        print("Error: Gauntlet storage module not available", file=sys.stderr)
-        sys.exit(1)
-    except (OSError, RuntimeError) as e:
-        print(f"Error: Could not access receipt database: {e}", file=sys.stderr)
-        sys.exit(1)
+    data: dict[str, Any] | None = None
+    storage_error: Exception | None = None
+    legacy_error: Exception | None = None
+
+    if org_id:
+        try:
+            data = _load_legacy_receipt(receipt_id, org_id)
+        except ImportError:
+            print("Error: Gauntlet storage module not available", file=sys.stderr)
+            sys.exit(1)
+        except (OSError, RuntimeError, ValueError) as e:
+            print(f"Error: Could not access receipt database: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        try:
+            data = _load_storage_receipt(receipt_id)
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
+            storage_error = e
+
+        if data is None:
+            try:
+                data = _load_legacy_receipt(receipt_id, org_id=None)
+            except (ImportError, OSError, RuntimeError, ValueError) as e:
+                legacy_error = e
+
+        if data is None and storage_error is not None and legacy_error is not None:
+            print(f"Error: Could not access receipt database: {storage_error}", file=sys.stderr)
+            sys.exit(1)
+
     if data is None:
         print(f"Error: Receipt not found: {receipt_id}", file=sys.stderr)
         sys.exit(1)
