@@ -460,7 +460,7 @@ async def _run_live_debate(
 
     memory_config = MemoryConfig(
         enable_knowledge_retrieval=True,
-        enable_knowledge_ingestion=True,
+        enable_knowledge_ingestion=False,
         auto_create_knowledge_mound=True,
         enable_belief_guidance=False,
         enable_cross_debate_memory=False,
@@ -469,7 +469,7 @@ async def _run_live_debate(
     knowledge_config = KnowledgeConfig(
         auto_create_knowledge_mound=True,
         enable_knowledge_retrieval=True,
-        enable_knowledge_ingestion=True,
+        enable_knowledge_ingestion=False,
         enable_belief_guidance=False,
     )
     ml_config = MLConfig(

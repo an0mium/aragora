@@ -568,9 +568,11 @@ class TestCmdQuickstart:
         ):
             mock_arena = MagicMock()
             mock_arena.run = AsyncMock(return_value=mock_result)
+            mock_arena.knowledge_mound = object()
+            mock_arena.enable_knowledge_ingestion = False
             mock_arena_cls.return_value = mock_arena
 
-            await _run_live_debate(
+            result = await _run_live_debate(
                 "Should we ship the quickstart path?",
                 [("openai-api", "gpt-4o")],
                 rounds=1,
@@ -595,7 +597,7 @@ class TestCmdQuickstart:
         # Quickstart now uses config objects instead of individual kwargs
         memory_config = arena_kwargs["memory_config"]
         assert memory_config.enable_knowledge_retrieval is True
-        assert memory_config.enable_knowledge_ingestion is True
+        assert memory_config.enable_knowledge_ingestion is False
         assert memory_config.auto_create_knowledge_mound is True
         assert memory_config.enable_belief_guidance is False
         assert memory_config.enable_cross_debate_memory is False
@@ -603,13 +605,14 @@ class TestCmdQuickstart:
 
         knowledge_config = arena_kwargs["knowledge_config"]
         assert knowledge_config.enable_knowledge_retrieval is True
-        assert knowledge_config.enable_knowledge_ingestion is True
+        assert knowledge_config.enable_knowledge_ingestion is False
         assert knowledge_config.enable_belief_guidance is False
 
         ml_config = arena_kwargs["ml_config"]
         assert ml_config.enable_ml_delegation is False
         assert ml_config.enable_quality_gates is False
         assert ml_config.enable_consensus_estimation is False
+        assert result["km_ingested"] is False
 
     @pytest.mark.asyncio
     async def test_run_live_debate_skips_crux_event_dispatch_in_bounded_profile(self):
