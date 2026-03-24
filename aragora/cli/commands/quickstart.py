@@ -106,6 +106,11 @@ _PROVIDER_ALIASES = {
     "xai": "grok",
     "deepseek": "openrouter",
 }
+_TLS_VERIFICATION_ERROR_MARKERS: tuple[str, ...] = (
+    "CERTIFICATE_VERIFY_FAILED",
+    "certificate verify failed",
+    "unable to get local issuer certificate",
+)
 
 
 def add_quickstart_parser(subparsers: Any) -> None:
@@ -191,6 +196,18 @@ def _normalize_provider(provider: str | None) -> str | None:
         return None
     normalized = _PROVIDER_ALIASES.get(normalized, normalized)
     return normalized if normalized in _PROVIDER_SPECS else None
+
+
+def _is_tls_verification_failure(detail: object) -> bool:
+    """Best-effort detection for wrapped certificate verification failures."""
+    if isinstance(detail, ssl.SSLCertVerificationError):
+        return True
+
+    detail_text = str(detail).strip()
+    if not detail_text:
+        return False
+
+    return any(marker in detail_text for marker in _TLS_VERIFICATION_ERROR_MARKERS)
 
 
 def _load_dotenv() -> bool:
@@ -688,12 +705,23 @@ async def _can_reach_provider_tls(provider: str) -> tuple[bool, str | None]:
         )
     except ssl.SSLCertVerificationError:
         return False, "CERTIFICATE_VERIFY_FAILED"
+    except ssl.SSLError as exc:
+        if _is_tls_verification_failure(exc):
+            return False, "CERTIFICATE_VERIFY_FAILED"
+        detail = str(exc).strip() or type(exc).__name__
+        return False, detail
     except Exception as exc:
+        if _is_tls_verification_failure(exc):
+            return False, "CERTIFICATE_VERIFY_FAILED"
         detail = str(exc).strip() or type(exc).__name__
         return False, detail
 
     writer.close()
-    await writer.wait_closed()
+    try:
+        await writer.wait_closed()
+    except (ConnectionError, OSError, ssl.SSLError):
+        # The verified handshake already succeeded; some transports raise while closing.
+        pass
     return True, None
 
 
@@ -718,7 +746,7 @@ async def _filter_reachable_live_agents(
             reachable.append(agent_spec)
             continue
         provider = agent_spec[0]
-        if detail == "CERTIFICATE_VERIFY_FAILED":
+        if _is_tls_verification_failure(detail):
             certificate_failure = True
         failures.append(f"{provider}: {detail}")
 
@@ -824,11 +852,10 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             )
     except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
         logger.debug("Live debate failed, falling back to demo: %s", e)
-        error_str = str(e)
-        if "TLS" in error_str or "CERTIFICATE" in error_str:
+        if _is_tls_verification_failure(e):
             print("\n[!] Provider TLS check failed. Falling back to demo mode.")
             print("    Check the local CA trust store for live debates.")
-        elif "No live" in error_str or "no live" in error_str:
+        elif "No live" in str(e) or "no live" in str(e):
             print("\n[!] No live providers available. Falling back to demo mode.")
         else:
             print(f"\n[!] Live debate failed: {e}")

@@ -7,6 +7,7 @@ import asyncio
 import builtins
 import json
 import os
+import ssl
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -410,6 +411,34 @@ class TestLiveQuickstartHelpers:
         assert receipt["receipt"]["artifact_hash"] == receipt["artifact_hash"]
         assert DecisionReceipt.from_dict(receipt).verify_integrity() is True
 
+    @pytest.mark.asyncio
+    async def test_can_reach_provider_tls_normalizes_wrapped_cert_errors(self):
+        with patch(
+            "aragora.cli.commands.quickstart.asyncio.open_connection",
+            side_effect=ssl.SSLError(
+                "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate"
+            ),
+        ):
+            ok, detail = await _can_reach_provider_tls("openai-api")
+
+        assert ok is False
+        assert detail == "CERTIFICATE_VERIFY_FAILED"
+
+    @pytest.mark.asyncio
+    async def test_can_reach_provider_tls_ignores_close_noise_after_handshake(self):
+        writer = MagicMock()
+        writer.wait_closed = AsyncMock(side_effect=ConnectionResetError("socket closed"))
+
+        with patch(
+            "aragora.cli.commands.quickstart.asyncio.open_connection",
+            return_value=(MagicMock(), writer),
+        ):
+            ok, detail = await _can_reach_provider_tls("openai-api")
+
+        assert ok is True
+        assert detail is None
+        writer.close.assert_called_once()
+
 
 # =============================================================================
 # Command execution
@@ -539,6 +568,21 @@ class TestCmdQuickstart:
                 [("openai-api", "gpt-4o"), ("gemini", None)]
             )
             assert result == []
+
+    @pytest.mark.asyncio
+    async def test_filter_reachable_live_agents_treats_wrapped_tls_detail_as_cert_failure(self):
+        with patch(
+            "aragora.cli.commands.quickstart._can_reach_provider_tls",
+            new=AsyncMock(
+                return_value=(
+                    False,
+                    "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed",
+                )
+            ),
+        ):
+            reachable = await _filter_reachable_live_agents([("openai-api", "gpt-4o")])
+
+        assert reachable == []
 
     @pytest.mark.asyncio
     async def test_filter_reachable_live_agents_keeps_healthy_subset(self):
