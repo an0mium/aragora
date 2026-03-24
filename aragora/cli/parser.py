@@ -197,6 +197,7 @@ Examples:
     _add_triage_parser(subparsers)
     _add_ralph_parser(subparsers)
     _add_assess_parser(subparsers)
+    _add_spec_parser(subparsers)
 
     return parser
 
@@ -2670,3 +2671,62 @@ def _add_assess_parser(subparsers) -> None:
         help="Show delta from previous assessment",
     )
     p.set_defaults(func=_lazy("aragora.cli.commands.assess", "cmd_assess"))
+
+
+def _add_spec_parser(subparsers) -> None:
+    """Add the 'spec' subcommand for prompt-to-specification pipeline."""
+    spec_parser = subparsers.add_parser(
+        "spec",
+        help="Transform a vague idea into a structured specification",
+        description="""
+Transform a vague idea or task description into a structured specification
+through AI-powered decomposition, interrogation, research, and spec building.
+
+Examples:
+  aragora spec "Make our onboarding flow better"
+  aragora spec "Add dark mode" --depth thorough --profile cto
+  aragora spec "Improve test coverage" --format json --output spec.json
+  aragora spec "Design a rate limiter" --dry-run
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    spec_parser.add_argument("prompt", help="The idea or task to turn into a spec")
+    spec_parser.add_argument(
+        "--depth",
+        choices=["quick", "thorough", "exhaustive"],
+        default="quick",
+        help="Interrogation depth (default: quick)",
+    )
+    spec_parser.add_argument(
+        "--profile",
+        choices=["founder", "cto", "business", "team"],
+        default="founder",
+        help="User profile for autonomy defaults (default: founder)",
+    )
+    spec_parser.add_argument(
+        "--skip-research",
+        action="store_true",
+        help="Skip the research phase",
+    )
+    spec_parser.add_argument(
+        "--skip-interrogation",
+        action="store_true",
+        help="Skip clarifying questions",
+    )
+    spec_parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+    spec_parser.add_argument(
+        "--output",
+        "-o",
+        help="Save spec to file",
+    )
+    spec_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview pipeline steps without executing",
+    )
+    spec_parser.set_defaults(func=_lazy("aragora.cli.commands.spec", "cmd_spec"))
