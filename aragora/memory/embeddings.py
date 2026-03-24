@@ -68,6 +68,30 @@ _API_TIMEOUT = aiohttp.ClientTimeout(total=30)
 _embedding_cache_registered = False
 
 
+def _is_rate_limited_embedding_error(exc: BaseException) -> bool:
+    """Return True when an embedding failure is an expected rate-limit fallback."""
+    return "rate limited" in str(exc).lower()
+
+
+def _log_embedding_fallback(
+    provider_name: str,
+    exc: BaseException,
+    *,
+    batch: bool = False,
+) -> None:
+    """Log degraded embedding fallback at the appropriate severity.
+
+    Rate-limit degradation is expected fail-soft behavior and should not surface as a
+    founder-loop warning. Other connectivity/runtime failures remain warnings.
+    """
+    subject = "batch embedding" if batch else "embedding"
+    message = "%s %s failed (%s), using hash fallback"
+    if _is_rate_limited_embedding_error(exc):
+        logger.info(message, provider_name, subject, exc)
+    else:
+        logger.warning(message, provider_name, subject, exc)
+
+
 def _register_embedding_cache() -> None:
     """Register embedding cache with ServiceRegistry for observability."""
     global _embedding_cache_registered
@@ -202,7 +226,7 @@ class OpenAIEmbedding(EmbeddingProvider):
         try:
             embedding = await _retry_with_backoff(_call)
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.warning("OpenAI embedding failed (%s), using hash fallback", e)
+            _log_embedding_fallback("OpenAI", e)
             fallback = EmbeddingProvider(dimension=self.dimension)
             embedding = await fallback.embed(text)
         _get_embedding_cache().set(text, embedding)
@@ -233,7 +257,7 @@ class OpenAIEmbedding(EmbeddingProvider):
         try:
             return await _retry_with_backoff(_call)
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.warning("OpenAI batch embedding failed (%s), using hash fallback", e)
+            _log_embedding_fallback("OpenAI", e, batch=True)
             fallback = EmbeddingProvider(dimension=self.dimension)
             return await fallback.embed_batch(texts)
 
@@ -277,7 +301,7 @@ class GeminiEmbedding(EmbeddingProvider):
         try:
             embedding = await _retry_with_backoff(_call)
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.warning("Gemini embedding failed (%s), using hash fallback", e)
+            _log_embedding_fallback("Gemini", e)
             fallback = EmbeddingProvider(dimension=self.dimension)
             embedding = await fallback.embed(text)
         _get_embedding_cache().set(text, embedding)

@@ -14,6 +14,7 @@ Tests cover:
 from __future__ import annotations
 
 import asyncio
+import logging
 import struct
 import tempfile
 from pathlib import Path
@@ -383,6 +384,69 @@ class TestOpenAIEmbedding:
         fallback_embed.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_embed_logs_rate_limit_fallback_at_info(self, caplog):
+        """Rate-limit fallback should not surface as a warning."""
+        fallback_embedding = [0.42] * 1536
+        with (
+            patch(
+                "aragora.memory.embeddings._retry_with_backoff",
+                new=AsyncMock(side_effect=aiohttp.ClientError("Rate limited")),
+            ),
+            patch.object(
+                EmbeddingProvider,
+                "embed",
+                new=AsyncMock(return_value=fallback_embedding),
+            ),
+            caplog.at_level(logging.INFO, logger="aragora.memory.embeddings"),
+        ):
+            provider = OpenAIEmbedding(api_key="test-key")
+            from aragora.memory.embeddings import _get_embedding_cache
+
+            _get_embedding_cache()._cache.clear()
+            result = await provider.embed("rate-limited openai text")
+
+        assert result == fallback_embedding
+        assert any(
+            record.levelno == logging.INFO
+            and "OpenAI embedding failed (Rate limited)" in record.message
+            for record in caplog.records
+        )
+        assert not any(
+            record.levelno >= logging.WARNING
+            and "OpenAI embedding failed (Rate limited)" in record.message
+            for record in caplog.records
+        )
+
+    @pytest.mark.asyncio
+    async def test_embed_logs_non_rate_limit_fallback_at_warning(self, caplog):
+        """Non-rate embedding failures should stay visible as warnings."""
+        fallback_embedding = [0.42] * 1536
+        with (
+            patch(
+                "aragora.memory.embeddings._retry_with_backoff",
+                new=AsyncMock(side_effect=aiohttp.ClientError("tls failure")),
+            ),
+            patch.object(
+                EmbeddingProvider,
+                "embed",
+                new=AsyncMock(return_value=fallback_embedding),
+            ),
+            caplog.at_level(logging.INFO, logger="aragora.memory.embeddings"),
+        ):
+            provider = OpenAIEmbedding(api_key="test-key")
+            from aragora.memory.embeddings import _get_embedding_cache
+
+            _get_embedding_cache()._cache.clear()
+            result = await provider.embed("tls-failure openai text")
+
+        assert result == fallback_embedding
+        assert any(
+            record.levelno == logging.WARNING
+            and "OpenAI embedding failed (tls failure)" in record.message
+            for record in caplog.records
+        )
+
+    @pytest.mark.asyncio
     async def test_embed_batch_uses_hash_fallback_on_client_error(self):
         """Batch failures should degrade without breaking list alignment."""
         fallback_embeddings = [[0.42] * 1536, [0.24] * 1536]
@@ -402,6 +466,37 @@ class TestOpenAIEmbedding:
 
         assert result == fallback_embeddings
         fallback_embed_batch.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_embed_batch_logs_rate_limit_fallback_at_info(self, caplog):
+        """Batch rate-limit fallback should not surface as a warning."""
+        fallback_embeddings = [[0.42] * 1536, [0.24] * 1536]
+        with (
+            patch(
+                "aragora.memory.embeddings._retry_with_backoff",
+                new=AsyncMock(side_effect=aiohttp.ClientError("Rate limited")),
+            ),
+            patch.object(
+                EmbeddingProvider,
+                "embed_batch",
+                new=AsyncMock(return_value=fallback_embeddings),
+            ),
+            caplog.at_level(logging.INFO, logger="aragora.memory.embeddings"),
+        ):
+            provider = OpenAIEmbedding(api_key="test-key")
+            result = await provider.embed_batch(["text1", "text2"])
+
+        assert result == fallback_embeddings
+        assert any(
+            record.levelno == logging.INFO
+            and "OpenAI batch embedding failed (Rate limited)" in record.message
+            for record in caplog.records
+        )
+        assert not any(
+            record.levelno >= logging.WARNING
+            and "OpenAI batch embedding failed (Rate limited)" in record.message
+            for record in caplog.records
+        )
 
 
 # ===========================================================================
@@ -475,6 +570,40 @@ class TestGeminiEmbedding:
 
         assert result == fallback_embedding
         fallback_embed.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_embed_logs_rate_limit_fallback_at_info(self, caplog):
+        """Gemini rate-limit fallback should not surface as a warning."""
+        fallback_embedding = [0.42] * 768
+        with (
+            patch(
+                "aragora.memory.embeddings._retry_with_backoff",
+                new=AsyncMock(side_effect=aiohttp.ClientError("Rate limited")),
+            ),
+            patch.object(
+                EmbeddingProvider,
+                "embed",
+                new=AsyncMock(return_value=fallback_embedding),
+            ),
+            caplog.at_level(logging.INFO, logger="aragora.memory.embeddings"),
+        ):
+            provider = GeminiEmbedding(api_key="test-key")
+            from aragora.memory.embeddings import _get_embedding_cache
+
+            _get_embedding_cache()._cache.clear()
+            result = await provider.embed("rate-limited gemini text")
+
+        assert result == fallback_embedding
+        assert any(
+            record.levelno == logging.INFO
+            and "Gemini embedding failed (Rate limited)" in record.message
+            for record in caplog.records
+        )
+        assert not any(
+            record.levelno >= logging.WARNING
+            and "Gemini embedding failed (Rate limited)" in record.message
+            for record in caplog.records
+        )
 
 
 # ===========================================================================
