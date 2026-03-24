@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.agents.base import create_agent as create_real_agent
 from aragora.cli.commands.quickstart import (
     _build_live_receipt,
     _build_live_team,
@@ -583,6 +584,7 @@ class TestCmdQuickstart:
         assert arena_kwargs["auto_create_knowledge_mound"] is False
         assert arena_kwargs["enable_knowledge_retrieval"] is False
         assert arena_kwargs["enable_knowledge_ingestion"] is False
+        assert arena_kwargs["enable_belief_guidance"] is False
         assert arena_kwargs["enable_cross_debate_memory"] is False
         assert arena_kwargs["use_rlm_limiter"] is False
         assert arena_kwargs["enable_ml_delegation"] is False
@@ -590,6 +592,41 @@ class TestCmdQuickstart:
         assert arena_kwargs["enable_consensus_estimation"] is False
         assert arena_kwargs["disable_post_debate_pipeline"] is True
         assert mock_arena.enable_introspection is False
+
+    @pytest.mark.asyncio
+    async def test_run_live_debate_skips_crux_event_dispatch_in_bounded_profile(self):
+        """Bounded quickstart should not emit crux events through the webhook dispatcher."""
+
+        def fake_create_agent(
+            agent_type: str,
+            *,
+            name: str,
+            role: str,
+            model: str | None = None,
+            api_key: str | None = None,
+        ):
+            del agent_type, model, api_key
+            return create_real_agent("demo", name=name, role=role)
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._filter_reachable_live_agents",
+                return_value=[("openai-api", "gpt-4o")],
+            ),
+            patch("aragora.agents.base.create_agent", side_effect=fake_create_agent),
+            patch(
+                "aragora.events.dispatcher.dispatch_event",
+                side_effect=AssertionError("bounded quickstart should not dispatch crux events"),
+            ),
+        ):
+            result = await _run_live_debate(
+                "Should we ship the quickstart path?",
+                [("openai-api", "gpt-4o")],
+                rounds=1,
+            )
+
+        assert result["mode"] == "live"
+        assert result["rounds"] == 1
 
     @pytest.mark.asyncio
     async def test_filter_reachable_live_agents_returns_empty_on_tls_failure(self):

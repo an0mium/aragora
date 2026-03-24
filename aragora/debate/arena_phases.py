@@ -439,7 +439,11 @@ def init_phases(arena: Arena) -> None:
         notify_spectator=arena._notify_spectator,
         drain_user_events=arena._drain_user_events,
         extract_debate_domain=arena._extract_debate_domain,
-        get_belief_analyzer=OptionalImports.get_belief_analyzer,
+        get_belief_analyzer=(
+            OptionalImports.get_belief_analyzer
+            if getattr(arena, "enable_belief_guidance", True)
+            else None
+        ),
         user_vote_multiplier=user_vote_multiplier,
         # Verification callback for claim verification during consensus
         # When protocol.verify_claims_during_consensus is True, this callback

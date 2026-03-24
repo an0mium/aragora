@@ -53,6 +53,7 @@ _LIVE_ARENA_KWARGS: dict[str, Any] = {
     "auto_create_knowledge_mound": False,
     "enable_knowledge_retrieval": False,
     "enable_knowledge_ingestion": False,
+    "enable_belief_guidance": False,
     "enable_cross_debate_memory": False,
     "use_rlm_limiter": False,
     "enable_ml_delegation": False,
