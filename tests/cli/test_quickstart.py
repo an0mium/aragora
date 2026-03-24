@@ -394,6 +394,7 @@ class TestLiveQuickstartHelpers:
             dissenting_views=["Timeline risk remains unresolved."],
             proposals={"alpha": "Ship it"},
             votes=[vote_for, vote_against],
+            metadata={"thinking_traces": {"alpha": "Consider the risk tradeoffs carefully."}},
         )
 
         receipt = _build_live_receipt(
@@ -412,6 +413,7 @@ class TestLiveQuickstartHelpers:
         assert receipt["consensus_proof"]["reached"] is True
         assert receipt["consensus_proof"]["supporting_agents"] == ["alpha"]
         assert receipt["consensus_proof"]["dissenting_agents"] == ["beta"]
+        assert receipt["thinking_traces"] == {"alpha": "Consider the risk tradeoffs carefully."}
         assert receipt["dissent"][0]["reason"] == "Timeline risk remains unresolved."
         assert receipt["receipt"]["artifact_hash"] == receipt["artifact_hash"]
         assert DecisionReceipt.from_dict(receipt).verify_integrity() is True

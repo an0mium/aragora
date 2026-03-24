@@ -1613,6 +1613,7 @@ class DecisionReceipt:
             "settlement_metadata": self.settlement_metadata,
             "settlement_status": self.settlement_status,
             "explainability": self.explainability,
+            "thinking_traces": self.thinking_traces,
             "schema_version": self.schema_version,
             "artifact_hash": self.artifact_hash,
             "config_used": self.config_used,
