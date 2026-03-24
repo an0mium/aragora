@@ -227,6 +227,39 @@ async def _populate_result_cost(
         logger.debug("cost_population_failed (non-critical): %s", e)
 
 
+async def _run_cross_verification(
+    result: DebateResult,
+    agents: list[Any],
+) -> None:
+    """Run cross-verification on the final answer to detect hallucinations."""
+    try:
+        from aragora.debate.cross_verification import CrossVerificationEngine
+
+        if not agents:
+            return
+        engine = CrossVerificationEngine(verifier=agents[0])
+        task = getattr(result, "task", "") or ""
+        context = task
+        cv_result = await engine.verify(result.final_answer or "", context=context)
+
+        if result.metadata is None or not isinstance(result.metadata, dict):
+            result.metadata = {}
+        result.metadata["cross_verification"] = {
+            "grounding_delta": cv_result.grounding_delta,
+            "hallucination_risk": cv_result.hallucination_risk,
+            "adversarial_resistance": cv_result.adversarial_resistance,
+            "is_grounded": cv_result.is_grounded,
+        }
+        logger.info(
+            "cross_verification_complete grounding_delta=%.3f hallucination_risk=%.3f grounded=%s",
+            cv_result.grounding_delta,
+            cv_result.hallucination_risk,
+            cv_result.is_grounded,
+        )
+    except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as e:
+        logger.debug("cross_verification_skipped: %s", e)
+
+
 async def _populate_result_tokens_from_agents(
     result: DebateResult,
     agents: list[Any],
@@ -1247,6 +1280,13 @@ async def handle_debate_completion(
                 )
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.debug("Live explainability snapshot failed (non-critical): %s", e)
+
+    # Run cross-verification on final answer if explicitly enabled.
+    cross_verification_enabled = getattr(arena, "enable_cross_verification", False)
+    if not isinstance(cross_verification_enabled, bool):
+        cross_verification_enabled = False
+    if ctx.result and ctx.result.final_answer and cross_verification_enabled:
+        await _run_cross_verification(ctx.result, arena.agents)
 
     # Collect extended thinking traces from Anthropic agents
     if ctx.result and arena.agents:

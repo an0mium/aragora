@@ -6,7 +6,7 @@ Tests cover:
 - ConsensusCallbacks dataclass
 - ConsensusPhase initialization (new style and legacy style)
 - execute method (timeout, error handling, cancellation, hooks)
-- _execute_consensus mode routing (none, majority, unanimous, judge, byzantine, unknown)
+- _execute_consensus mode routing (none, majority, unanimous, judge, byzantine, prover_estimator, unknown)
 - _handle_none_consensus method
 - _handle_fallback_consensus method
 - _handle_majority_consensus method
@@ -913,6 +913,21 @@ class TestExecuteConsensusRouting:
             mock.assert_called_once_with(ctx)
 
     @pytest.mark.asyncio
+    async def test_routes_prover_estimator_mode(self):
+        """Routes 'prover_estimator' mode to its handler."""
+        ctx, protocol = make_context()
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        with patch.object(
+            phase,
+            "_handle_prover_estimator_consensus",
+            new_callable=AsyncMock,
+        ) as mock:
+            await phase._execute_consensus(ctx, "prover_estimator")
+            mock.assert_called_once_with(ctx)
+
+    @pytest.mark.asyncio
     async def test_unknown_mode_falls_back_to_none(self):
         """Unknown consensus mode falls back to none."""
         ctx, protocol = make_context()
@@ -1285,6 +1300,81 @@ class TestByzantineConsensus:
 
         # Should have processed some consensus
         assert ctx.result.final_answer is not None
+
+
+# =============================================================================
+# Additional Coverage: Prover-Estimator Consensus Tests
+# =============================================================================
+
+
+class TestProverEstimatorConsensus:
+    """Tests for prover-estimator consensus mode."""
+
+    @pytest.mark.asyncio
+    async def test_prover_estimator_populates_result(self):
+        """Prover-estimator records confidence and verification metadata."""
+        ctx, protocol = make_context(
+            proposals={"agent1": "Proposal A", "agent2": "Proposal B"},
+            agents=[MockAgent("agent1"), MockAgent("agent2")],
+            consensus_mode="prover_estimator",
+        )
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        pe_result = MagicMock(
+            overall_confidence=0.82,
+            grounding_score=0.74,
+            obfuscation_detected=False,
+            subclaims=[object(), object()],
+            challenges=[object()],
+        )
+        engine = MagicMock()
+        engine.run = AsyncMock(return_value=pe_result)
+
+        with patch(
+            "aragora.debate.prover_estimator.ProverEstimatorEngine",
+            return_value=engine,
+        ) as engine_cls:
+            await phase._handle_prover_estimator_consensus(ctx)
+
+        engine_cls.assert_called_once()
+        engine.run.assert_awaited_once()
+        assert ctx.result.final_answer == "Proposal A"
+        assert ctx.result.consensus_reached is True
+        assert ctx.result.consensus_strength == "strong"
+        assert ctx.result.confidence == pytest.approx(0.82)
+        assert ctx.result.formal_verification["prover_estimator"] == {
+            "overall_confidence": 0.82,
+            "grounding_score": 0.74,
+            "obfuscation_detected": False,
+            "subclaim_count": 2,
+            "challenge_count": 1,
+        }
+
+    @pytest.mark.asyncio
+    async def test_prover_estimator_falls_back_to_majority_on_error(self):
+        """Engine failures fall back to majority consensus instead of aborting."""
+        ctx, protocol = make_context(consensus_mode="prover_estimator")
+        deps = ConsensusDependencies(protocol=protocol)
+        phase = ConsensusPhase(deps=deps, callbacks=ConsensusCallbacks())
+
+        engine = MagicMock()
+        engine.run = AsyncMock(side_effect=RuntimeError("boom"))
+
+        with (
+            patch(
+                "aragora.debate.prover_estimator.ProverEstimatorEngine",
+                return_value=engine,
+            ),
+            patch.object(
+                phase,
+                "_handle_majority_consensus",
+                new_callable=AsyncMock,
+            ) as mock_majority,
+        ):
+            await phase._handle_prover_estimator_consensus(ctx)
+
+        mock_majority.assert_awaited_once_with(ctx)
 
 
 # =============================================================================

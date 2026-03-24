@@ -24,6 +24,7 @@ from aragora.core import DebateResult, Environment, TaskComplexity
 from aragora.debate.context import DebateContext
 from aragora.debate.orchestrator_runner import (
     _DebateExecutionState,
+    _run_cross_verification,
     initialize_debate_context,
     setup_debate_infrastructure,
     execute_debate_phases,
@@ -154,6 +155,7 @@ def mock_arena(
     arena.use_performance_selection = False
     arena.enable_auto_execution = False
     arena.enable_result_routing = False
+    arena.enable_cross_verification = False
     arena.phase_executor = mock_phase_executor
     arena.extensions = mock_extensions
 
@@ -837,6 +839,33 @@ class TestHandleDebateCompletion:
     """Tests for handle_debate_completion function."""
 
     @pytest.mark.asyncio
+    async def test_run_cross_verification_attaches_metadata(self, mock_agents):
+        """Cross-verification attaches grounding metadata to the result."""
+        result = DebateResult(task="Test task", final_answer="Test answer")
+        verification = MagicMock(
+            grounding_delta=0.42,
+            hallucination_risk=0.11,
+            adversarial_resistance=0.87,
+            is_grounded=True,
+        )
+        engine = MagicMock()
+        engine.verify = AsyncMock(return_value=verification)
+
+        with patch(
+            "aragora.debate.cross_verification.CrossVerificationEngine",
+            return_value=engine,
+        ):
+            await _run_cross_verification(result, mock_agents)
+
+        engine.verify.assert_awaited_once_with("Test answer", context="Test task")
+        assert result.metadata["cross_verification"] == {
+            "grounding_delta": 0.42,
+            "hallucination_risk": 0.11,
+            "adversarial_resistance": 0.87,
+            "is_grounded": True,
+        }
+
+    @pytest.mark.asyncio
     async def test_notifies_trackers_of_completion(self, mock_arena, execution_state):
         """Test that trackers are notified of debate completion."""
         await handle_debate_completion(mock_arena, execution_state)
@@ -970,6 +999,21 @@ class TestHandleDebateCompletion:
 
         # Should not raise
         await handle_debate_completion(mock_arena, execution_state)
+
+    @pytest.mark.asyncio
+    async def test_runs_cross_verification_when_enabled(self, mock_arena, execution_state):
+        """Debate completion runs cross-verification only when enabled."""
+        mock_arena.enable_cross_verification = True
+
+        with patch(
+            "aragora.debate.orchestrator_runner._run_cross_verification",
+            new_callable=AsyncMock,
+        ) as mock_cross_verification:
+            await handle_debate_completion(mock_arena, execution_state)
+
+        mock_cross_verification.assert_awaited_once_with(
+            execution_state.ctx.result, mock_arena.agents
+        )
 
     @pytest.mark.asyncio
     async def test_queues_for_supabase_sync(self, mock_arena, execution_state):

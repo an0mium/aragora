@@ -478,6 +478,8 @@ class ConsensusPhase:
             await self._handle_judge_consensus(ctx)
         elif normalized == "byzantine":
             await self._handle_byzantine_consensus(ctx)
+        elif consensus_mode == "prover_estimator":
+            await self._handle_prover_estimator_consensus(ctx)
         else:
             logger.warning("Unknown consensus mode: %s, using none", consensus_mode)
             await self._handle_none_consensus(ctx)
@@ -1147,6 +1149,103 @@ class ConsensusPhase:
         except (RuntimeError, OSError, ConnectionError, TimeoutError) as e:  # noqa: BLE001 - phase isolation
             logger.error("byzantine_consensus_error: %s", e, exc_info=True)
             # Fall back to majority voting
+            await self._handle_majority_consensus(ctx)
+
+    async def _handle_prover_estimator_consensus(self, ctx: "DebateContext") -> None:
+        """Handle 'prover_estimator' consensus — structured truth-seeking protocol.
+
+        Uses the Prover-Estimator framework where claims are decomposed into
+        subclaims, probability-estimated, challenged with evidence, and aggregated
+        using importance-weighted geometric mean.
+        """
+        from aragora.debate.prover_estimator import ProverEstimatorEngine
+
+        result = ctx.result
+        proposals = ctx.proposals
+        agents = ctx.agents
+
+        if len(agents) < 2:
+            logger.warning(
+                "Prover-Estimator requires at least 2 agents, got %s. Falling back to majority.",
+                len(agents),
+            )
+            await self._handle_majority_consensus(ctx)
+            return
+
+        prover = agents[0]
+        estimator = agents[1] if len(agents) > 1 else agents[0]
+
+        max_rounds = getattr(self.protocol, "prover_estimator_max_rounds", 2)
+        pe_context = getattr(self.protocol, "prover_estimator_context", "")
+
+        claim = ctx.env.task if ctx.env else ""
+        if proposals:
+            best_proposal = next(iter(proposals.values()))
+            claim = f"{claim}\n\nProposal:\n{best_proposal}"
+
+        engine = ProverEstimatorEngine(
+            prover=prover,
+            estimator=estimator,
+            max_challenge_rounds=max_rounds,
+            context=pe_context,
+        )
+
+        logger.info(
+            "prover_estimator_start prover=%s estimator=%s rounds=%s",
+            getattr(prover, "name", "unknown"),
+            getattr(estimator, "name", "unknown"),
+            max_rounds,
+        )
+
+        if self._notify_spectator:
+            self._notify_spectator(
+                "prover_estimator",
+                details=f"Running Prover-Estimator with {len(agents)} agents",
+            )
+
+        try:
+            pe_result = await engine.run(claim)
+
+            result.confidence = pe_result.overall_confidence
+            result.consensus_reached = pe_result.overall_confidence >= 0.5
+
+            if proposals:
+                result.final_answer = next(iter(proposals.values()))
+            result.consensus_strength = (
+                "strong"
+                if pe_result.overall_confidence >= 0.8
+                else "medium"
+                if pe_result.overall_confidence >= 0.5
+                else "weak"
+            )
+
+            if result.formal_verification is None:
+                result.formal_verification = {}
+            result.formal_verification["prover_estimator"] = {
+                "overall_confidence": pe_result.overall_confidence,
+                "grounding_score": pe_result.grounding_score,
+                "obfuscation_detected": pe_result.obfuscation_detected,
+                "subclaim_count": len(pe_result.subclaims),
+                "challenge_count": len(pe_result.challenges),
+            }
+
+            logger.info(
+                "prover_estimator_complete confidence=%.3f grounding=%.3f obfuscation=%s subclaims=%s",
+                pe_result.overall_confidence,
+                pe_result.grounding_score,
+                pe_result.obfuscation_detected,
+                len(pe_result.subclaims),
+            )
+
+            if self._notify_spectator:
+                self._notify_spectator(
+                    "consensus",
+                    details=f"Prover-Estimator: confidence={pe_result.overall_confidence:.0%}, grounding={pe_result.grounding_score:.0%}",
+                    metric=pe_result.overall_confidence,
+                )
+
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.error("prover_estimator_error: %s", e, exc_info=True)
             await self._handle_majority_consensus(ctx)
 
     async def _collect_votes(self, ctx: "DebateContext") -> list["Vote"]:
