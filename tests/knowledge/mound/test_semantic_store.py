@@ -515,6 +515,45 @@ class TestSearchOperations:
 
         assert all(r.tenant_id == "tenant_a" for r in results)
 
+    @pytest.mark.asyncio
+    async def test_search_skips_rows_with_mismatched_embedding_dimension(self, temp_db_path):
+        """Search should ignore old rows indexed with a different embedding dimension."""
+
+        small_provider = MockEmbeddingProvider(dimension=256)
+        large_provider = MockEmbeddingProvider(dimension=1536)
+
+        legacy_store = SemanticStore(
+            db_path=temp_db_path,
+            embedding_provider=small_provider,
+            default_tenant_id="test_tenant",
+        )
+        current_store = SemanticStore(
+            db_path=temp_db_path,
+            embedding_provider=large_provider,
+            default_tenant_id="test_tenant",
+        )
+
+        await legacy_store.index_item(
+            source_type=KnowledgeSource.FACT,
+            source_id="legacy_fact",
+            content="Legacy fallback embedding content",
+        )
+        await current_store.index_item(
+            source_type=KnowledgeSource.FACT,
+            source_id="current_fact",
+            content="Current live embedding content",
+        )
+
+        results = await current_store.search_similar(
+            query="Current live embedding content",
+            limit=10,
+            min_similarity=-1.0,
+        )
+
+        assert results
+        assert all(r.source_id != "legacy_fact" for r in results)
+        assert any(r.source_id == "current_fact" for r in results)
+
 
 # ============================================================================
 # Batch Operations Tests

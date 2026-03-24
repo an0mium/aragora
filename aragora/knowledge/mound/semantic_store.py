@@ -493,8 +493,9 @@ class SemanticStore(SQLiteStore):
                    domain, importance, tenant_id, metadata
             FROM semantic_index
             WHERE tenant_id = ?
+              AND embedding_dim = ?
         """
-        params: list = [tenant_id]
+        params: list = [tenant_id, len(query_embedding)]
 
         if domain_filter:
             sql += " AND (domain = ? OR domain LIKE ?)"
