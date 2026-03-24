@@ -175,6 +175,59 @@ def test_resolve_runtime_base_url_uses_container_ip_when_no_host_port() -> None:
     assert resolved == "http://172.18.0.9:8080"
 
 
+def test_get_container_env_parses_inspect_output() -> None:
+    module = _load_script_module()
+
+    with patch.object(
+        module,
+        "_run",
+        return_value=_proc("ARAGORA_REDIS_MODE=sentinel\nARAGORA_REDIS_PASSWORD=secret\n"),
+    ):
+        env_map = module._get_container_env("aragora-container")
+
+    assert env_map == {
+        "ARAGORA_REDIS_MODE": "sentinel",
+        "ARAGORA_REDIS_PASSWORD": "secret",
+    }
+
+
+def test_print_diagnostics_includes_redis_env_and_rendered_auth(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_script_module()
+
+    compose_outputs = [
+        _proc("NAME   STATUS\naragora healthy\n"),
+        _proc("aragora logs\n"),
+        _proc("1:requirepass secret\n"),
+        _proc("1:sentinel monitor mymaster redis-master 6379 2\n"),
+    ]
+    with (
+        patch.object(module, "_compose", side_effect=compose_outputs),
+        patch.object(module, "_get_primary_container_id", return_value="aragora-container"),
+        patch.object(
+            module,
+            "_get_container_env",
+            return_value={
+                "ARAGORA_REDIS_MODE": "sentinel",
+                "ARAGORA_REDIS_SENTINEL_HOSTS": "sentinel-1:26379",
+                "ARAGORA_REDIS_SENTINEL_MASTER": "mymaster",
+                "ARAGORA_REDIS_PASSWORD": "secret",
+            },
+        ),
+    ):
+        module._print_diagnostics(["docker", "compose"], ["aragora"])
+
+    output = capsys.readouterr().out
+    assert "=== aragora env subset ===" in output
+    assert "ARAGORA_REDIS_MODE=sentinel" in output
+    assert "ARAGORA_REDIS_PASSWORD=<set len=6>" in output
+    assert "=== redis-master rendered auth config ===" in output
+    assert "requirepass secret" in output
+    assert "=== sentinel-1 rendered auth config ===" in output
+    assert "sentinel monitor mymaster redis-master 6379 2" in output
+
+
 def test_resolve_runtime_base_url_keeps_requested_when_port_is_published() -> None:
     module = _load_script_module()
 

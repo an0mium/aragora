@@ -233,6 +233,67 @@ def _get_container_ip(container_id: str) -> str:
     return ip_address
 
 
+def _get_container_env(container_id: str) -> dict[str, str]:
+    inspect_result = _run(
+        [
+            "docker",
+            "inspect",
+            "-f",
+            "{{range .Config.Env}}{{println .}}{{end}}",
+            container_id,
+        ],
+        check=False,
+    )
+    if inspect_result.returncode != 0:
+        details = inspect_result.stderr.strip() or inspect_result.stdout.strip() or "unknown error"
+        raise RuntimeCheckError(f"Failed to inspect environment for {container_id}: {details}")
+
+    env_map: dict[str, str] = {}
+    for raw_line in inspect_result.stdout.splitlines():
+        line = raw_line.strip()
+        if not line or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        env_map[key] = value
+    return env_map
+
+
+def _print_container_env_subset(base_cmd: list[str], service: str, keys: list[str]) -> None:
+    print(f"\n=== {service} env subset ===")
+    try:
+        container_id = _get_primary_container_id(base_cmd, service)
+        env_map = _get_container_env(container_id)
+    except RuntimeCheckError as exc:
+        print(f"[warn] unable to inspect {service} env: {exc}", file=sys.stderr)
+        return
+
+    for key in keys:
+        value = env_map.get(key)
+        if value is None:
+            print(f"{key}=<unset>")
+            continue
+        if "PASSWORD" in key or "SECRET" in key or key.endswith("_TOKEN"):
+            print(f"{key}=<set len={len(value)}>")
+        else:
+            print(f"{key}={value}")
+
+
+def _print_service_exec_output(
+    base_cmd: list[str],
+    service: str,
+    title: str,
+    shell_command: str,
+) -> None:
+    print(f"\n=== {title} ===")
+    result = _compose(base_cmd, ["exec", "-T", service, "sh", "-lc", shell_command], check=False)
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+    if result.returncode != 0 and not result.stdout and not result.stderr:
+        print(f"[warn] {service} exec failed with exit={result.returncode}", file=sys.stderr)
+
+
 def _parse_compose_port(raw_output: str) -> tuple[str, int] | None:
     """Parse docker compose port output into (host, port)."""
     for raw_line in raw_output.splitlines():
@@ -495,6 +556,33 @@ def _print_diagnostics(base_cmd: list[str], services: list[str]) -> None:
         print(logs_result.stdout)
     if logs_result.stderr:
         print(logs_result.stderr, file=sys.stderr)
+
+    _print_container_env_subset(
+        base_cmd,
+        "aragora",
+        [
+            "ARAGORA_REDIS_MODE",
+            "ARAGORA_REDIS_SENTINEL_HOSTS",
+            "ARAGORA_REDIS_SENTINEL_MASTER",
+            "ARAGORA_REDIS_PASSWORD",
+            "ARAGORA_REDIS_SENTINEL_PASSWORD",
+            "ARAGORA_REDIS_URL",
+            "REDIS_URL",
+            "REDIS_PASSWORD",
+        ],
+    )
+    _print_service_exec_output(
+        base_cmd,
+        "redis-master",
+        "redis-master rendered auth config",
+        "grep -nE '^(requirepass|masterauth)' /data/redis.conf || true",
+    )
+    _print_service_exec_output(
+        base_cmd,
+        "sentinel-1",
+        "sentinel-1 rendered auth config",
+        "grep -nE '^sentinel (monitor|auth-pass)' /data/sentinel.conf || true",
+    )
 
 
 def main() -> int:
