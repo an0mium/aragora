@@ -199,7 +199,12 @@ class OpenAIEmbedding(EmbeddingProvider):
                     data = await response.json()
                     return data["data"][0]["embedding"]
 
-        embedding = await _retry_with_backoff(_call)
+        try:
+            embedding = await _retry_with_backoff(_call)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.warning("OpenAI embedding failed (%s), using hash fallback", e)
+            fallback = EmbeddingProvider(dimension=self.dimension)
+            embedding = await fallback.embed(text)
         _get_embedding_cache().set(text, embedding)
         return embedding
 
@@ -225,7 +230,12 @@ class OpenAIEmbedding(EmbeddingProvider):
                     data = await response.json()
                     return [d["embedding"] for d in sorted(data["data"], key=lambda x: x["index"])]
 
-        return await _retry_with_backoff(_call)
+        try:
+            return await _retry_with_backoff(_call)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.warning("OpenAI batch embedding failed (%s), using hash fallback", e)
+            fallback = EmbeddingProvider(dimension=self.dimension)
+            return await fallback.embed_batch(texts)
 
 
 class GeminiEmbedding(EmbeddingProvider):
@@ -264,7 +274,12 @@ class GeminiEmbedding(EmbeddingProvider):
                     data = await response.json()
                     return data["embedding"]["values"]
 
-        embedding = await _retry_with_backoff(_call)
+        try:
+            embedding = await _retry_with_backoff(_call)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.warning("Gemini embedding failed (%s), using hash fallback", e)
+            fallback = EmbeddingProvider(dimension=self.dimension)
+            embedding = await fallback.embed(text)
         _get_embedding_cache().set(text, embedding)
         return embedding
 

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 
@@ -357,6 +358,51 @@ class TestOpenAIEmbedding:
 
         assert result == mock_embeddings
 
+    @pytest.mark.asyncio
+    async def test_embed_uses_hash_fallback_on_client_error(self):
+        """Client failures should degrade to deterministic hash embeddings."""
+        fallback_embedding = [0.42] * 1536
+        with (
+            patch(
+                "aragora.memory.embeddings._retry_with_backoff",
+                new=AsyncMock(side_effect=aiohttp.ClientError("tls failure")),
+            ),
+            patch.object(
+                EmbeddingProvider,
+                "embed",
+                new=AsyncMock(return_value=fallback_embedding),
+            ) as fallback_embed,
+        ):
+            provider = OpenAIEmbedding(api_key="test-key")
+            from aragora.memory.embeddings import _get_embedding_cache
+
+            _get_embedding_cache()._cache.clear()
+            result = await provider.embed("fallback openai text")
+
+        assert result == fallback_embedding
+        fallback_embed.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_embed_batch_uses_hash_fallback_on_client_error(self):
+        """Batch failures should degrade without breaking list alignment."""
+        fallback_embeddings = [[0.42] * 1536, [0.24] * 1536]
+        with (
+            patch(
+                "aragora.memory.embeddings._retry_with_backoff",
+                new=AsyncMock(side_effect=aiohttp.ClientError("tls failure")),
+            ),
+            patch.object(
+                EmbeddingProvider,
+                "embed_batch",
+                new=AsyncMock(return_value=fallback_embeddings),
+            ) as fallback_embed_batch,
+        ):
+            provider = OpenAIEmbedding(api_key="test-key")
+            result = await provider.embed_batch(["text1", "text2"])
+
+        assert result == fallback_embeddings
+        fallback_embed_batch.assert_awaited_once()
+
 
 # ===========================================================================
 # GeminiEmbedding Tests
@@ -405,6 +451,30 @@ class TestGeminiEmbedding:
             result = await provider.embed("test text gemini unique")
 
         assert result == mock_embedding
+
+    @pytest.mark.asyncio
+    async def test_embed_uses_hash_fallback_on_client_error(self):
+        """Gemini failures should degrade to deterministic hash embeddings."""
+        fallback_embedding = [0.42] * 768
+        with (
+            patch(
+                "aragora.memory.embeddings._retry_with_backoff",
+                new=AsyncMock(side_effect=aiohttp.ClientError("tls failure")),
+            ),
+            patch.object(
+                EmbeddingProvider,
+                "embed",
+                new=AsyncMock(return_value=fallback_embedding),
+            ) as fallback_embed,
+        ):
+            provider = GeminiEmbedding(api_key="test-key")
+            from aragora.memory.embeddings import _get_embedding_cache
+
+            _get_embedding_cache()._cache.clear()
+            result = await provider.embed("fallback gemini text")
+
+        assert result == fallback_embedding
+        fallback_embed.assert_awaited_once()
 
 
 # ===========================================================================
