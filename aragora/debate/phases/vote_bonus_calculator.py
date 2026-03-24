@@ -250,6 +250,83 @@ class VoteBonusCalculator:
 
         return vote_counts
 
+    def apply_truth_ratio_bonuses(
+        self,
+        ctx: "DebateContext",
+        vote_counts: dict[str, float],
+        choice_mapping: dict[str, str],
+    ) -> dict[str, float]:
+        """Apply truth ratio bonuses to vote counts.
+
+        Scores each proposal's evidence-vs-rhetoric ratio using TruthScorer
+        and rewards proposals with higher truth ratios.
+
+        Args:
+            ctx: Debate context with proposals
+            vote_counts: Current vote count dictionary
+            choice_mapping: Maps vote choices to canonical agent names
+
+        Returns:
+            Updated vote counts with truth ratio bonuses applied
+        """
+        if not self.protocol or not getattr(self.protocol, "enable_truth_ratio_weighting", False):
+            return vote_counts
+
+        proposals = getattr(ctx, "proposals", None)
+        if not proposals:
+            return vote_counts
+
+        try:
+            from aragora.debate.truth_scorer import TruthScorer
+        except ImportError:
+            logger.debug("TruthScorer module not available")
+            return vote_counts
+
+        scorer = TruthScorer()
+        truth_bonus = getattr(self.protocol, "truth_ratio_bonus", 0.15)
+        truth_scores: dict[str, float] = {}
+
+        for agent_name, proposal in proposals.items():
+            score = scorer.score(proposal)
+            truth_scores[agent_name] = score.truth_ratio
+
+            canonical = choice_mapping.get(agent_name, agent_name)
+            if canonical in vote_counts:
+                # Bonus scales linearly with truth ratio above 0.5 baseline
+                bonus = truth_bonus * max(0.0, score.truth_ratio - 0.5) * 2
+                if bonus > 0:
+                    vote_counts[canonical] = vote_counts.get(canonical, 0.0) + bonus
+                    logger.debug(
+                        "truth_ratio_bonus agent=%s ratio=%.2f bonus=%.3f",
+                        agent_name,
+                        score.truth_ratio,
+                        bonus,
+                    )
+
+        if truth_scores:
+            avg = sum(truth_scores.values()) / len(truth_scores)
+            logger.info(
+                "truth_ratio_weighting applied: %d proposals scored, avg=%.2f",
+                len(truth_scores),
+                avg,
+            )
+
+            result = ctx.result
+            if result is not None and hasattr(result, "metadata"):
+                if not isinstance(result.metadata, dict):
+                    try:
+                        result.metadata = {}
+                    except (AttributeError, TypeError):
+                        return vote_counts
+                result.metadata.setdefault("truth_ratio", {}).update(
+                    {
+                        "scores": truth_scores,
+                        "average": avg,
+                    }
+                )
+
+        return vote_counts
+
     def apply_epistemic_hygiene_penalties(
         self,
         ctx: "DebateContext",

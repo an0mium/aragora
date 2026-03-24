@@ -588,6 +588,9 @@ class DebateProtocol:
     # - Express confidence levels (0-1) on their claims
     # - Surface explicit unknowns each round
     # Claims missing falsifiers or confidence are penalized in consensus scoring.
+    enable_truth_ratio_weighting: bool = False  # Opt-in: reward evidence over rhetoric
+    truth_ratio_bonus: float = 0.15  # Max bonus for proposals with high truth ratio
+
     enable_epistemic_hygiene: bool = False  # Opt-in: enforces reasoning standards
     epistemic_hygiene_penalty: float = 0.15  # Consensus penalty for missing epistemic elements
     epistemic_min_alternatives: int = 1  # Min alternatives per proposal

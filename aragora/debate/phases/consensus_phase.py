@@ -652,6 +652,11 @@ class ConsensusPhase:
             ctx, vote_counts, choice_mapping
         )
 
+        # Apply truth ratio bonuses if enabled
+        vote_counts = self._vote_bonus_calculator.apply_truth_ratio_bonuses(
+            ctx, vote_counts, choice_mapping
+        )
+
         ctx.vote_tally = dict(vote_counts)
 
         # Determine winner using WinnerSelector
