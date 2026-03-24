@@ -959,6 +959,61 @@ class TestCmdQuickstart:
         assert "Receipt:    debate-quickstart-1" in output
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
+    def test_quickstart_persists_receipt_payload_to_store(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should we persist the quickstart receipt?",
+            demo=False,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            rounds=2,
+            no_browser=True,
+        )
+        live_result = {
+            "question": "Should we persist the quickstart receipt?",
+            "verdict": "PASS",
+            "confidence": 0.93,
+            "rounds": 2,
+            "agents": [
+                "openai-api-proposer",
+                "openai-api-critic",
+                "openai-api-synthesizer",
+            ],
+            "summary": "Persist the receipt so product surfaces can show it.",
+            "dissent": [],
+            "mode": "live",
+            "receipt_id": "debate-quickstart-1",
+            "artifact_hash": "abc123def4567890",
+            "consensus_proof": {"reached": True},
+        }
+        mock_store = MagicMock()
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[("openai-api", "gpt-4o")],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_live_debate",
+                return_value=live_result,
+            ),
+            patch(
+                "aragora.storage.receipt_store.get_receipt_store",
+                return_value=mock_store,
+            ),
+        ):
+            cmd_quickstart(args)
+
+        mock_store.save.assert_called_once()
+        store_payload = mock_store.save.call_args.args[0]
+        assert store_payload["receipt_id"] == "debate-quickstart-1"
+        assert store_payload["debate_id"] == "debate-quickstart-1"
+        assert store_payload["checksum"] == "abc123def4567890"
+        assert store_payload["verdict"] == "PASS"
+
     def test_no_keys_fall_back_to_demo_and_report_demo_artifact(
         self, tmp_path, monkeypatch, capsys
     ):
