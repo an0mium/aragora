@@ -26,6 +26,7 @@ from aragora.cli.commands.quickstart import (
     _normalize_provider,
     _open_receipt_in_browser,
     _resolve_rounds,
+    _run_demo_debate,
     _run_live_debate,
     _save_receipt,
     add_quickstart_parser,
@@ -478,6 +479,16 @@ class TestLiveQuickstartHelpers:
 
 
 class TestCmdQuickstart:
+    @pytest.mark.asyncio
+    async def test_run_demo_debate_uses_builtin_demo_agents(self):
+        result = await _run_demo_debate("Should we ship the fallback fix?", rounds=2)
+
+        assert result["mode"] == "demo"
+        assert result["verdict"] == "consensus"
+        assert result["confidence"] == 0.85
+        assert result["agents"] == ["analyst", "critic", "synthesizer"]
+        assert "Demo synthesis for: Should we ship the fallback fix?" in result["summary"]
+
     @pytest.mark.asyncio
     async def test_run_live_debate_raises_when_arena_returns_none(self):
         """Live quickstart should fail closed when Arena produces no result."""
@@ -1029,3 +1040,44 @@ class TestCmdQuickstart:
         output = capsys.readouterr().out
         assert "Falling back to demo" in output
         assert "RESULT" in output  # Demo result was displayed
+
+    def test_live_mode_real_demo_fallback_survives_without_legacy_demo_package(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should we keep the real fallback path working?",
+            demo=False,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            rounds=2,
+            no_browser=True,
+        )
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[("gemini", "gemini-3.1-pro")],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_live_debate",
+                side_effect=RuntimeError("Live debate timed out after 120s"),
+            ),
+        ):
+            cmd_quickstart(args)
+
+        artifact_path = tmp_path / ".aragora" / "receipts" / "quickstart-demo-receipt.json"
+        assert artifact_path.exists()
+        saved = json.loads(artifact_path.read_text())
+        assert saved["mode"] == "demo"
+        assert saved["agents"] == ["analyst", "critic", "synthesizer"]
+        assert (
+            "Demo synthesis for: Should we keep the real fallback path working?" in saved["summary"]
+        )
+
+        output = capsys.readouterr().out
+        assert "Live debate failed: Live debate timed out after 120s" in output
+        assert "Mode:       Demo" in output

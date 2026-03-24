@@ -399,29 +399,22 @@ def _open_receipt_in_browser(
 
 async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
     """Run a debate with mock agents (no API keys needed)."""
-    from aragora_debate.arena import Arena
-    from aragora_debate.styled_mock import StyledMockAgent
-    from aragora_debate.types import Agent as DebateAgent, DebateConfig
+    from aragora.agents.demo_agent import DemoAgent
 
-    agents: list[DebateAgent] = [
-        StyledMockAgent("analyst", style="supportive"),
-        StyledMockAgent("critic", style="critical"),
-        StyledMockAgent("synthesizer", style="balanced"),
+    agents = [
+        DemoAgent("analyst", role="proposer"),
+        DemoAgent("critic", role="critic"),
+        DemoAgent("synthesizer", role="synthesizer"),
     ]
-    arena = Arena(question=question, agents=agents, config=DebateConfig(rounds=rounds))
-    result = await arena.run()
+    summary = await agents[-1].generate(f"Task: {question}")
 
     return {
         "question": question,
-        "verdict": result.verdict.value
-        if hasattr(result, "verdict") and hasattr(result.verdict, "value")
-        else str(result.verdict)
-        if hasattr(result, "verdict")
-        else "consensus",
-        "confidence": _clamp_confidence(getattr(result, "confidence", 0.85)),
+        "verdict": "consensus",
+        "confidence": 0.85,
         "rounds": rounds,
         "agents": [a.name for a in agents],
-        "summary": result.receipt.to_markdown() if hasattr(result, "receipt") else str(result),
+        "summary": summary,
         "dissent": [],
         "mode": "demo",
     }
