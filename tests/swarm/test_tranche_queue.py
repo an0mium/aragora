@@ -31,7 +31,7 @@ from aragora.swarm.tranche_queue import (
     reconcile_tranche_queue,
     tranche_queue_status,
 )
-from aragora.swarm.tranche import TrancheLaneArtifact
+from aragora.swarm.tranche import TrancheArtifactStore, TrancheLaneArtifact
 from aragora.swarm.tranche_state import (
     LANE_STATUS_NEEDS_HUMAN,
     TRANCHE_STATUS_NEEDS_HUMAN,
