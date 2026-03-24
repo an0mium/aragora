@@ -345,8 +345,8 @@ class SuccessCriterion:
     """A measurable criterion for success."""
 
     description: str
-    measurement: str  # How to measure it
-    target: str  # What value/state indicates success
+    measurement: str = ""  # How to measure it
+    target: str = ""  # What value/state indicates success
 
 
 @dataclass

@@ -170,34 +170,46 @@ class SpecBuilder:
             return self._fallback_spec(text)
 
         try:
-            file_changes = [
-                SpecFile(
-                    path=f.get("path", ""),
-                    action=f.get("action", "modify"),
-                    description=f.get("description", ""),
-                    estimated_lines=int(f.get("estimated_lines", 0)),
-                )
-                for f in data.get("file_changes", [])
-            ]
+            file_changes = []
+            for f in data.get("file_changes", []):
+                if isinstance(f, str):
+                    file_changes.append(SpecFile(path=f, action="modify"))
+                elif isinstance(f, dict):
+                    file_changes.append(
+                        SpecFile(
+                            path=f.get("path", ""),
+                            action=f.get("action", "modify"),
+                            description=f.get("description", ""),
+                            estimated_lines=int(f.get("estimated_lines", 0)),
+                        )
+                    )
 
-            risks = [
-                SpecRisk(
-                    description=r.get("description", ""),
-                    likelihood=r.get("likelihood", "medium"),
-                    impact=r.get("impact", "medium"),
-                    mitigation=r.get("mitigation", ""),
-                )
-                for r in data.get("risks", [])
-            ]
+            risks = []
+            for r in data.get("risks", []):
+                if isinstance(r, str):
+                    risks.append(SpecRisk(description=r))
+                elif isinstance(r, dict):
+                    risks.append(
+                        SpecRisk(
+                            description=r.get("description", ""),
+                            likelihood=r.get("likelihood", "medium"),
+                            impact=r.get("impact", "medium"),
+                            mitigation=r.get("mitigation", ""),
+                        )
+                    )
 
-            success_criteria = [
-                SuccessCriterion(
-                    description=s.get("description", ""),
-                    measurement=s.get("measurement", ""),
-                    target=s.get("target", ""),
-                )
-                for s in data.get("success_criteria", [])
-            ]
+            success_criteria = []
+            for s in data.get("success_criteria", []):
+                if isinstance(s, str):
+                    success_criteria.append(SuccessCriterion(description=s))
+                elif isinstance(s, dict):
+                    success_criteria.append(
+                        SuccessCriterion(
+                            description=s.get("description", ""),
+                            measurement=s.get("measurement", ""),
+                            target=s.get("target", ""),
+                        )
+                    )
 
             return Specification(
                 title=data.get("title", "Untitled Specification"),
