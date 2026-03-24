@@ -1,5 +1,6 @@
 """Tests for enhanced Knowledge Mound facade."""
 
+import aiohttp
 import asyncio
 import pytest
 import tempfile
@@ -642,6 +643,37 @@ class TestKnowledgeMoundAdvanced:
 
         # Results depend on embedding availability
         assert isinstance(results, list)
+
+    @pytest.mark.asyncio
+    async def test_query_semantic_falls_back_on_embedding_rate_limit(self, mound):
+        """Semantic search should fail soft when embedding generation is rate-limited."""
+        fallback_item = MagicMock()
+        mound._vector_store = None
+        mound._semantic_store = MagicMock()
+        mound._semantic_store.search_similar = AsyncMock(
+            side_effect=aiohttp.ClientError("Rate limited")
+        )
+        mound.query = AsyncMock(
+            return_value=QueryResult(
+                items=[fallback_item],
+                total_count=1,
+                query="ML classification",
+                execution_time_ms=1.0,
+            )
+        )
+
+        results = await mound.query_semantic(
+            text="ML classification",
+            limit=3,
+            workspace_id="test_workspace",
+        )
+
+        assert results == [fallback_item]
+        mound.query.assert_awaited_once_with(
+            "ML classification",
+            limit=3,
+            workspace_id="test_workspace",
+        )
 
     @pytest.mark.asyncio
     async def test_query_graph(self, mound):

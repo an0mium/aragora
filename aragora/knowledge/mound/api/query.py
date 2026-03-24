@@ -17,6 +17,7 @@ comments suppress mypy warnings that are expected for this mixin pattern.
 
 from __future__ import annotations
 
+import aiohttp
 import asyncio
 import logging
 import time
@@ -526,7 +527,7 @@ class QueryOperationsMixin(_QueryMixinBase):
                     if node:
                         items.append(node)
                 return items
-            except (RuntimeError, ValueError, OSError) as e:
+            except (RuntimeError, ValueError, OSError, aiohttp.ClientError) as e:
                 logger.warning("Semantic store search failed: %s, falling back", e)
 
         if not allow_fallback:
