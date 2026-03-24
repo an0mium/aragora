@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '@/utils/logger';
 import { API_BASE_URL } from '@/config';
@@ -159,6 +160,73 @@ function normalizeKnowledgeStats(stats: StoreMoundStats | Record<string, unknown
       (typeof rawStats.totalRelationships === 'number' ? rawStats.totalRelationships : undefined) ||
       0,
   };
+}
+
+function getDebateHref(debateId: string): string {
+  return `/debate/${encodeURIComponent(debateId)}`;
+}
+
+function formatDebateId(debateId: string): string {
+  if (debateId.length <= 18) {
+    return debateId;
+  }
+
+  return `${debateId.slice(0, 14)}...`;
+}
+
+function DebatePrecedent({
+  debateId,
+  confidence,
+  showFallback,
+}: {
+  debateId?: string;
+  confidence: number;
+  showFallback?: boolean;
+}) {
+  if (!debateId && !showFallback) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-acid-cyan/20 bg-acid-cyan/5 px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-mono uppercase tracking-wide text-text-muted">
+            Debate Precedent
+          </div>
+          {debateId ? (
+            <div className="mt-1 flex items-center gap-2">
+              <span
+                title={debateId}
+                className="truncate font-mono text-xs text-acid-cyan"
+              >
+                {formatDebateId(debateId)}
+              </span>
+              <span className={`text-xs font-mono ${getConfidenceColor(confidence)}`}>
+                {Math.round(confidence * 100)}%
+              </span>
+            </div>
+          ) : (
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-xs text-text-muted">No linked source debate</span>
+              <span className={`text-xs font-mono ${getConfidenceColor(confidence)}`}>
+                {Math.round(confidence * 100)}%
+              </span>
+            </div>
+          )}
+        </div>
+        {debateId && (
+          <Link
+            href={getDebateHref(debateId)}
+            onClick={(event) => event.stopPropagation()}
+            className="shrink-0 text-xs font-mono text-acid-cyan hover:text-acid-green hover:underline"
+          >
+            Open debate
+          </Link>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function KnowledgeMoundPage() {
@@ -1008,6 +1076,12 @@ export default function KnowledgeMoundPage() {
                         <span>{formatRelativeDate(node.createdAt)}</span>
                       </div>
 
+                      <DebatePrecedent
+                        debateId={node.debateId}
+                        confidence={node.confidence}
+                        showFallback={isSearching}
+                      />
+
                       {node.topics && node.topics.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {node.topics.slice(0, 3).map((topic) => (
@@ -1158,7 +1232,12 @@ export default function KnowledgeMoundPage() {
                     {selectedNode.debateId && (
                       <div className="flex items-center gap-2">
                         <span className="text-text-muted">Debate:</span>
-                        <span className="font-mono text-acid-cyan">{selectedNode.debateId}</span>
+                        <Link
+                          href={getDebateHref(selectedNode.debateId)}
+                          className="font-mono text-acid-cyan hover:text-acid-green hover:underline"
+                        >
+                          {selectedNode.debateId}
+                        </Link>
                       </div>
                     )}
                     {selectedNode.documentId && (
