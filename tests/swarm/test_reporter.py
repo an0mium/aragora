@@ -11,6 +11,8 @@ import pytest
 from aragora.swarm.reporter import SwarmReport, SwarmReporter, build_integrator_view
 from aragora.swarm.spec import SwarmSpec
 
+UTC = timezone.utc
+
 
 @dataclass
 class MockAssignment:
