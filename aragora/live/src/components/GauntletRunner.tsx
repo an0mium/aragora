@@ -512,7 +512,17 @@ function ReceiptView({ receipt }: { receipt: GauntletReceipt }) {
     approved: 'bg-green-600 text-white',
     rejected: 'bg-red-600 text-white',
     needs_review: 'bg-yellow-600 text-black',
+    pass: 'bg-green-600 text-white',
+    conditional: 'bg-yellow-600 text-black',
+    fail: 'bg-red-600 text-white',
   };
+  const verdictKey = String(receipt.verdict || '').toLowerCase();
+  const verdictClass =
+    verdictColors[verdictKey as keyof typeof verdictColors] || 'bg-slate-700 text-white';
+  const summaryText = receipt.input_summary || receipt.decision || 'Receipt summary unavailable.';
+  const riskFactors = receipt.risk_factors || [];
+  const signatures = receipt.signatures || [];
+  const agentResponses = receipt.agent_responses || [];
 
   return (
     <div className="space-y-4">
@@ -520,14 +530,12 @@ function ReceiptView({ receipt }: { receipt: GauntletReceipt }) {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-white">Decision Receipt</h3>
           <span
-            className={`px-3 py-1 rounded font-medium ${
-              verdictColors[receipt.verdict]
-            }`}
+            className={`px-3 py-1 rounded font-medium ${verdictClass}`}
           >
-            {receipt.verdict.replace('_', ' ').toUpperCase()}
+            {String(receipt.verdict || 'unknown').replace('_', ' ').toUpperCase()}
           </span>
         </div>
-        <p className="text-slate-300">{receipt.decision}</p>
+        <p className="text-slate-300">{summaryText}</p>
         <div className="mt-4">
           <span className="text-slate-400">Confidence:</span>
           <span className="text-white ml-2 font-semibold">
@@ -536,39 +544,68 @@ function ReceiptView({ receipt }: { receipt: GauntletReceipt }) {
         </div>
       </div>
 
-      <div className="bg-slate-800 rounded-lg p-4">
-        <h4 className="text-sm font-medium text-slate-300 mb-3">Risk Factors</h4>
-        <div className="space-y-2">
-          {receipt.risk_factors.map((factor, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between p-2 bg-slate-900 rounded"
-            >
-              <div>
-                <p className="text-white text-sm">{factor.factor}</p>
-                <p className="text-xs text-slate-400">{factor.assessment}</p>
+      {riskFactors.length > 0 && (
+        <div className="bg-slate-800 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-slate-300 mb-3">Risk Factors</h4>
+          <div className="space-y-2">
+            {riskFactors.map((factor, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between p-2 bg-slate-900 rounded"
+              >
+                <div>
+                  <p className="text-white text-sm">{factor.factor}</p>
+                  <p className="text-xs text-slate-400">{factor.assessment}</p>
+                </div>
+                <span className="text-sm text-slate-300">
+                  Weight: {(factor.weight * 100).toFixed(0)}%
+                </span>
               </div>
-              <span className="text-sm text-slate-300">
-                Weight: {(factor.weight * 100).toFixed(0)}%
-              </span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="bg-slate-800 rounded-lg p-4">
-        <h4 className="text-sm font-medium text-slate-300 mb-2">Signatures</h4>
-        <div className="flex flex-wrap gap-2">
-          {receipt.signatures.map((sig, i) => (
-            <span
-              key={i}
-              className="px-2 py-1 bg-slate-700 rounded text-xs font-mono text-slate-300"
-            >
-              {sig}
-            </span>
-          ))}
+      {agentResponses.length > 0 && (
+        <div className="bg-slate-800 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-slate-300 mb-3">Agent Responses</h4>
+          <div className="space-y-3">
+            {agentResponses.map((response, i) => (
+              <div key={i} className="p-3 bg-slate-900 rounded border border-slate-700">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-white">{response.agent}</span>
+                  {response.llm_label && (
+                    <span className="text-xs font-mono text-cyan-300">{response.llm_label}</span>
+                  )}
+                  {response.role && (
+                    <span className="text-xs text-slate-400 uppercase">{response.role}</span>
+                  )}
+                  {response.round ? (
+                    <span className="text-xs text-slate-500">Round {response.round}</span>
+                  ) : null}
+                </div>
+                <p className="text-sm text-slate-300 whitespace-pre-wrap">{response.response}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {signatures.length > 0 && (
+        <div className="bg-slate-800 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-slate-300 mb-2">Signatures</h4>
+          <div className="flex flex-wrap gap-2">
+            {signatures.map((sig, i) => (
+              <span
+                key={i}
+                className="px-2 py-1 bg-slate-700 rounded text-xs font-mono text-slate-300"
+              >
+                {sig}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

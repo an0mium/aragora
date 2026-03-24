@@ -75,6 +75,32 @@ class ConsensusProof:
 
 
 @dataclass
+class AgentResponseRecord:
+    """A single agent response annotated with the producing LLM."""
+
+    agent: str
+    response: str
+    role: str = ""
+    round: int = 0
+    provider: str = ""
+    provider_display: str = ""
+    model: str = ""
+    llm_label: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "agent": self.agent,
+            "response": self.response,
+            "role": self.role,
+            "round": self.round,
+            "provider": self.provider,
+            "provider_display": self.provider_display,
+            "model": self.model,
+            "llm_label": self.llm_label,
+        }
+
+
+@dataclass
 class DecisionReceipt:
     """
     Audit-ready receipt for a Gauntlet validation.
@@ -116,6 +142,7 @@ class DecisionReceipt:
     dissenting_views: list[str] = field(default_factory=list)
     consensus_proof: ConsensusProof | None = None
     provenance_chain: list[ProvenanceRecord] = field(default_factory=list)
+    agent_responses: list[AgentResponseRecord] = field(default_factory=list)
 
     # Explainability (why the decision was made)
     explainability: dict[str, Any] | None = None  # Decision explanation from ExplanationBuilder
@@ -304,6 +331,296 @@ class DecisionReceipt:
     </div>
 """
 
+    @staticmethod
+    def _coerce_int(value: Any, default: int = 0) -> int:
+        """Best-effort integer coercion for receipt metadata."""
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _provider_display_name(provider: str | None) -> str:
+        """Convert provider keys into a user-facing display name."""
+        raw = str(provider or "").strip()
+        if not raw:
+            return ""
+        key = raw.lower()
+        if "/" in key:
+            key = key.split("/", 1)[0]
+        aliases = {
+            "anthropic": "Anthropic",
+            "anthropic-api": "Anthropic",
+            "claude": "Anthropic",
+            "openai": "OpenAI",
+            "openai-api": "OpenAI",
+            "codex": "OpenAI",
+            "google": "Google",
+            "gemini": "Google",
+            "gemini-cli": "Google",
+            "xai": "xAI",
+            "grok": "xAI",
+            "grok-cli": "xAI",
+            "mistral": "Mistral",
+            "mistral-api": "Mistral",
+            "codestral": "Mistral",
+            "deepseek": "DeepSeek",
+            "deepseek-cli": "DeepSeek",
+            "openrouter": "OpenRouter",
+            "qwen": "Qwen",
+            "qwen-cli": "Qwen",
+            "ollama": "Ollama",
+            "lm-studio": "LM Studio",
+            "kimi": "Moonshot",
+            "kimi-thinking": "Moonshot",
+            "kilocode": "KiloCode",
+            "demo": "Demo",
+        }
+        if key in aliases:
+            return aliases[key]
+        if key.endswith("-api"):
+            key = key[:-4]
+        return " ".join(part.capitalize() for part in key.replace("_", "-").split("-") if part)
+
+    @staticmethod
+    def _detect_provider(model: str | None) -> str:
+        """Infer a provider from a model identifier when not explicitly recorded."""
+        candidate = str(model or "").strip()
+        if not candidate:
+            return ""
+        if "/" in candidate:
+            return candidate.split("/", 1)[0]
+        try:
+            from aragora.debate.provider_diversity import detect_provider
+
+            detected = detect_provider(candidate)
+        except ImportError:
+            detected = "unknown"
+        return "" if detected == "unknown" else detected
+
+    @classmethod
+    def _format_llm_label(cls, model: str | None, provider: str | None) -> str:
+        """Create the receipt label shown next to an agent response."""
+        model_name = str(model or "").strip()
+        provider_display = cls._provider_display_name(provider)
+        if model_name and provider_display:
+            return f"{model_name} via {provider_display}"
+        if model_name:
+            return model_name
+        return provider_display
+
+    @classmethod
+    def _normalize_agent_model_entry(cls, entry: Any) -> dict[str, str]:
+        """Normalize agent/provider metadata from a variety of upstream shapes."""
+        provider = ""
+        provider_display = ""
+        model = ""
+        llm_label = ""
+
+        if isinstance(entry, str):
+            raw = entry.strip()
+            if "/" in raw:
+                provider, model = raw.split("/", 1)
+            else:
+                model = raw
+        elif isinstance(entry, dict):
+            provider = str(entry.get("provider") or entry.get("provider_name") or "").strip()
+            provider_display = str(entry.get("provider_display") or "").strip()
+            model = str(entry.get("model") or entry.get("model_name") or "").strip()
+            llm_label = str(entry.get("llm_label") or entry.get("label") or "").strip()
+
+        if not provider and model:
+            provider = cls._detect_provider(model)
+        provider_display = provider_display or cls._provider_display_name(provider)
+        llm_label = llm_label or cls._format_llm_label(model, provider)
+
+        return {
+            "provider": provider,
+            "provider_display": provider_display,
+            "model": model,
+            "llm_label": llm_label,
+        }
+
+    @classmethod
+    def _agent_metadata_from_cost_summary(
+        cls,
+        cost_summary: dict[str, Any] | None,
+    ) -> dict[str, dict[str, str]]:
+        """Extract per-agent provider/model metadata from a debate cost summary."""
+        if not isinstance(cost_summary, dict):
+            return {}
+
+        providers_by_model: dict[str, str] = {}
+        for model_data in (cost_summary.get("model_usage") or {}).values():
+            if not isinstance(model_data, dict):
+                continue
+            model_name = str(model_data.get("model") or "").strip()
+            provider = str(model_data.get("provider") or "").strip()
+            if model_name and provider and model_name not in providers_by_model:
+                providers_by_model[model_name] = provider
+
+        agent_metadata: dict[str, dict[str, str]] = {}
+        for agent_name, agent_data in (cost_summary.get("per_agent") or {}).items():
+            if not isinstance(agent_data, dict):
+                continue
+            normalized_name = str(agent_data.get("agent_name") or agent_name).strip()
+            if not normalized_name:
+                continue
+            models_used = agent_data.get("models_used") or {}
+            selected_model = ""
+            if isinstance(models_used, dict) and models_used:
+                selected_model = max(
+                    ((str(name), cls._coerce_int(count, 0)) for name, count in models_used.items()),
+                    key=lambda item: item[1],
+                )[0]
+            normalized = cls._normalize_agent_model_entry(
+                {
+                    "provider": providers_by_model.get(selected_model, ""),
+                    "model": selected_model,
+                }
+            )
+            if normalized["provider"] or normalized["model"]:
+                agent_metadata[normalized_name] = normalized
+
+        return agent_metadata
+
+    @classmethod
+    def _collect_agent_metadata(
+        cls,
+        result: Any,
+        cost_summary: dict[str, Any] | None = None,
+    ) -> dict[str, dict[str, str]]:
+        """Gather best-effort agent provider/model metadata from the result."""
+        collected: dict[str, dict[str, str]] = {}
+
+        metadata = getattr(result, "metadata", None)
+        if isinstance(metadata, dict):
+            raw_agent_models = metadata.get("agent_models")
+            if isinstance(raw_agent_models, dict):
+                for agent_name, entry in raw_agent_models.items():
+                    normalized_name = str(agent_name).strip()
+                    if normalized_name:
+                        collected[normalized_name] = cls._normalize_agent_model_entry(entry)
+
+            provider_routing = metadata.get("provider_routing")
+            if isinstance(provider_routing, dict):
+                provider_matches = provider_routing.get("provider_matches")
+                if isinstance(provider_matches, dict):
+                    for agent_name, entry in provider_matches.items():
+                        normalized_name = str(agent_name).strip()
+                        if normalized_name and normalized_name not in collected:
+                            collected[normalized_name] = cls._normalize_agent_model_entry(entry)
+
+                provider_names = provider_routing.get("provider_names")
+                participants = list(getattr(result, "participants", []))
+                if (
+                    isinstance(provider_names, list)
+                    and participants
+                    and len(provider_names) == len(participants)
+                ):
+                    for agent_name, entry in zip(participants, provider_names, strict=False):
+                        normalized_name = str(agent_name).strip()
+                        if normalized_name and normalized_name not in collected:
+                            collected[normalized_name] = cls._normalize_agent_model_entry(entry)
+
+        for agent_name, entry in cls._agent_metadata_from_cost_summary(cost_summary).items():
+            if agent_name not in collected:
+                collected[agent_name] = entry
+
+        return collected
+
+    @classmethod
+    def _build_agent_responses(
+        cls,
+        result: Any,
+        cost_summary: dict[str, Any] | None = None,
+    ) -> list[AgentResponseRecord]:
+        """Build per-response records annotated with provider/model metadata."""
+        agent_metadata = cls._collect_agent_metadata(result, cost_summary=cost_summary)
+        responses: list[AgentResponseRecord] = []
+
+        messages = list(getattr(result, "messages", []) or [])
+        for msg in messages:
+            agent_name = str(getattr(msg, "agent", "") or "").strip()
+            response_text = str(getattr(msg, "content", "") or "").strip()
+            if not agent_name or not response_text:
+                continue
+            model_meta = agent_metadata.get(agent_name, {})
+            responses.append(
+                AgentResponseRecord(
+                    agent=agent_name,
+                    response=response_text,
+                    role=str(getattr(msg, "role", "") or ""),
+                    round=cls._coerce_int(getattr(msg, "round", 0), 0),
+                    provider=model_meta.get("provider", ""),
+                    provider_display=model_meta.get("provider_display", ""),
+                    model=model_meta.get("model", ""),
+                    llm_label=model_meta.get("llm_label", ""),
+                )
+            )
+        if responses:
+            return responses
+
+        proposals = getattr(result, "proposals", None)
+        if isinstance(proposals, dict):
+            for agent_name, proposal in proposals.items():
+                normalized_name = str(agent_name).strip()
+                response_text = str(proposal or "").strip()
+                if not normalized_name or not response_text:
+                    continue
+                model_meta = agent_metadata.get(normalized_name, {})
+                responses.append(
+                    AgentResponseRecord(
+                        agent=normalized_name,
+                        response=response_text,
+                        role="proposal",
+                        provider=model_meta.get("provider", ""),
+                        provider_display=model_meta.get("provider_display", ""),
+                        model=model_meta.get("model", ""),
+                        llm_label=model_meta.get("llm_label", ""),
+                    )
+                )
+        if responses:
+            return responses
+
+        raw_responses = getattr(result, "agent_responses", None)
+        if isinstance(raw_responses, dict):
+            iterable = [
+                {"agent": agent_name, "response": response}
+                for agent_name, response in raw_responses.items()
+            ]
+        elif isinstance(raw_responses, list):
+            iterable = raw_responses
+        else:
+            iterable = []
+
+        for item in iterable:
+            if not isinstance(item, dict):
+                continue
+            agent_name = str(item.get("agent") or item.get("name") or "").strip()
+            response_text = str(item.get("response") or item.get("content") or "").strip()
+            if not agent_name or not response_text:
+                continue
+            merged_meta = cls._normalize_agent_model_entry(item)
+            if agent_name in agent_metadata:
+                for key, value in agent_metadata[agent_name].items():
+                    if not merged_meta.get(key):
+                        merged_meta[key] = value
+            responses.append(
+                AgentResponseRecord(
+                    agent=agent_name,
+                    response=response_text,
+                    role=str(item.get("role") or item.get("message_type") or ""),
+                    round=cls._coerce_int(item.get("round") or item.get("round_number"), 0),
+                    provider=merged_meta.get("provider", ""),
+                    provider_display=merged_meta.get("provider_display", ""),
+                    model=merged_meta.get("model", ""),
+                    llm_label=merged_meta.get("llm_label", ""),
+                )
+            )
+
+        return responses
+
     @classmethod
     def from_result(cls, result: GauntletResult) -> DecisionReceipt:
         """Create receipt from GauntletResult."""
@@ -374,6 +691,7 @@ class DecisionReceipt:
             dissenting_views=result.dissenting_views,
             consensus_proof=consensus,
             provenance_chain=provenance,
+            agent_responses=cls._build_agent_responses(result),
             config_used=result.config_used,
         )
 
@@ -468,6 +786,19 @@ class DecisionReceipt:
             if f.severity_level in ("CRITICAL", "HIGH")
         ]
 
+        config_used = getattr(result, "config_used", None)
+        if not isinstance(config_used, dict):
+            config_used = {}
+        result_config = getattr(result, "config", None)
+        if not config_used and result_config is not None and hasattr(result_config, "to_dict"):
+            try:
+                config_used = result_config.to_dict()
+            except (AttributeError, TypeError, ValueError):
+                config_used = {}
+
+        raw_cost_summary = getattr(result, "cost_summary", None)
+        cost_summary = raw_cost_summary if isinstance(raw_cost_summary, dict) else None
+
         return cls(
             receipt_id=receipt_id,
             gauntlet_id=result.gauntlet_id,
@@ -495,6 +826,9 @@ class DecisionReceipt:
             dissenting_views=dissenting,
             consensus_proof=consensus,
             provenance_chain=provenance,
+            agent_responses=cls._build_agent_responses(result, cost_summary=cost_summary),
+            cost_summary=cost_summary,
+            config_used=config_used,
         )
 
     @classmethod
@@ -719,6 +1053,8 @@ class DecisionReceipt:
 
         verdict_reasoning = ". ".join(reasoning_parts)
 
+        agent_responses = cls._build_agent_responses(result, cost_summary=cost_summary)
+
         return cls(
             receipt_id=receipt_id,
             gauntlet_id=debate_id,  # Use debate_id for gauntlet_id field
@@ -744,6 +1080,7 @@ class DecisionReceipt:
             dissenting_views=dissenting_views,
             consensus_proof=consensus,
             provenance_chain=provenance,
+            agent_responses=agent_responses,
             cost_summary=cost_summary,
             settlement_metadata=settlement_metadata,
             config_used={
@@ -1271,6 +1608,7 @@ class DecisionReceipt:
             "dissenting_views": self.dissenting_views,
             "consensus_proof": self.consensus_proof.to_dict() if self.consensus_proof else None,
             "provenance_chain": [p.to_dict() for p in self.provenance_chain],
+            "agent_responses": [response.to_dict() for response in self.agent_responses],
             "cost_summary": self.cost_summary,
             "settlement_metadata": self.settlement_metadata,
             "settlement_status": self.settlement_status,
@@ -1297,6 +1635,11 @@ class DecisionReceipt:
             ProvenanceRecord(**record) if isinstance(record, dict) else record
             for record in provenance_data
         ]
+        agent_response_data = data.get("agent_responses") or []
+        agent_responses = [
+            AgentResponseRecord(**record) if isinstance(record, dict) else record
+            for record in agent_response_data
+        ]
 
         return cls(
             receipt_id=data.get("receipt_id", ""),
@@ -1317,6 +1660,7 @@ class DecisionReceipt:
             dissenting_views=data.get("dissenting_views", []) or [],
             consensus_proof=consensus,
             provenance_chain=provenance,
+            agent_responses=agent_responses,
             schema_version=data.get("schema_version", "1.0"),
             artifact_hash=data.get("artifact_hash", ""),
             cost_summary=data.get("cost_summary"),

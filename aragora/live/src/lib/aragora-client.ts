@@ -1722,15 +1722,26 @@ export interface GauntletResult {
 
 export interface GauntletReceipt {
   gauntlet_id: string;
-  decision: string;
-  verdict: 'approved' | 'rejected' | 'needs_review';
+  decision?: string;
+  input_summary?: string;
+  verdict: 'approved' | 'rejected' | 'needs_review' | 'PASS' | 'CONDITIONAL' | 'FAIL' | string;
   confidence: number;
-  risk_factors: Array<{
+  risk_factors?: Array<{
     factor: string;
     weight: number;
     assessment: string;
   }>;
-  signatures: string[];
+  signatures?: string[];
+  agent_responses?: Array<{
+    agent: string;
+    response: string;
+    role?: string;
+    round?: number;
+    provider?: string;
+    provider_display?: string;
+    model?: string;
+    llm_label?: string;
+  }>;
 }
 
 export interface GauntletHeatmap {

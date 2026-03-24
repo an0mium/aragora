@@ -20,6 +20,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.core_types import DebateResult, Message
+from aragora.gauntlet.receipt_models import DecisionReceipt
 from aragora.server.handlers.gauntlet.receipts import GauntletReceiptsMixin
 from aragora.server.handlers.gauntlet.storage import get_gauntlet_runs
 from aragora.server.handlers.utils.responses import HandlerResult
@@ -81,6 +83,7 @@ class FakeReceipt:
     signature_key_id: str | None = None
     signed_at: str | None = None
     vulnerability_details: list = field(default_factory=list)
+    agent_responses: list = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -98,6 +101,7 @@ class FakeReceipt:
             "confidence": self.confidence,
             "robustness_score": self.robustness_score,
             "artifact_hash": self.artifact_hash,
+            "agent_responses": self.agent_responses,
         }
 
     def sign(self, signer=None):
@@ -270,6 +274,16 @@ class TestGetReceiptJSON:
     @pytest.mark.asyncio
     async def test_returns_receipt_from_memory_completed(self, mixin, mock_receipt):
         """In-memory completed run returns receipt JSON."""
+        mock_receipt.agent_responses = [
+            {
+                "agent": "claude",
+                "response": "Use Redis for coordination.",
+                "provider": "anthropic",
+                "provider_display": "Anthropic",
+                "model": "claude-sonnet-4",
+                "llm_label": "claude-sonnet-4 via Anthropic",
+            }
+        ]
         runs = get_gauntlet_runs()
         runs["g-001"] = {
             "status": "completed",
@@ -286,6 +300,7 @@ class TestGetReceiptJSON:
         assert _status(result) == 200
         data = _parse(result)
         assert data["receipt_id"] == "receipt-abc123"
+        assert data["agent_responses"][0]["llm_label"] == "claude-sonnet-4 via Anthropic"
 
     @pytest.mark.asyncio
     async def test_returns_receipt_with_result_obj(self, mixin, mock_receipt):
@@ -678,6 +693,87 @@ class TestGetReceiptConstruction:
         assert captured["input_summary"] == "Stored decision"
         assert captured["input_hash"] == "stored-hash"
         assert captured["verdict"] == "PASS"
+
+    @pytest.mark.asyncio
+    async def test_receipt_from_storage_preserves_agent_responses(self, mixin, mock_storage):
+        """Stored provider/model labels are preserved in the JSON receipt."""
+        mock_storage.get.return_value = {
+            "total_findings": 1,
+            "verdict": "pass",
+            "confidence": 0.95,
+            "robustness_score": 0.9,
+            "input_summary": "Stored decision",
+            "input_hash": "stored-hash",
+            "agent_responses": [
+                {
+                    "agent": "claude",
+                    "response": "Use Redis for coordination.",
+                    "provider": "anthropic",
+                    "provider_display": "Anthropic",
+                    "model": "claude-sonnet-4",
+                    "llm_label": "claude-sonnet-4 via Anthropic",
+                }
+            ],
+        }
+
+        captured = {}
+
+        def fake_init(**kwargs):
+            captured.update(kwargs)
+            return FakeReceipt(**{k: v for k, v in kwargs.items() if hasattr(FakeReceipt, k)})
+
+        with patch(_DR, side_effect=fake_init):
+            result = await mixin._get_receipt("g-stored", {"signed": "false"})
+
+        assert _status(result) == 200
+        assert captured["agent_responses"][0]["llm_label"] == "claude-sonnet-4 via Anthropic"
+
+
+class TestDecisionReceiptAgentResponses:
+    """Tests for provider/model labels in canonical decision receipts."""
+
+    def test_from_debate_result_includes_llm_labels(self):
+        debate_result = DebateResult(
+            debate_id="debate-123",
+            task="Pick a database",
+            final_answer="Use Postgres.",
+            confidence=0.92,
+            consensus_reached=True,
+            rounds_used=1,
+            participants=["claude", "gpt"],
+            messages=[
+                Message(
+                    role="proposer",
+                    agent="claude",
+                    content="Use Postgres with read replicas.",
+                    round=1,
+                ),
+                Message(
+                    role="critic",
+                    agent="gpt",
+                    content="Postgres fits if we shard later.",
+                    round=1,
+                ),
+            ],
+            metadata={
+                "agent_models": {
+                    "claude": {
+                        "provider": "anthropic",
+                        "model": "claude-sonnet-4",
+                    },
+                    "gpt": {
+                        "provider": "openai",
+                        "model": "gpt-4.1",
+                    },
+                }
+            },
+        )
+
+        receipt = DecisionReceipt.from_debate_result(debate_result)
+
+        assert [response.agent for response in receipt.agent_responses] == ["claude", "gpt"]
+        assert receipt.agent_responses[0].llm_label == "claude-sonnet-4 via Anthropic"
+        assert receipt.agent_responses[1].llm_label == "gpt-4.1 via OpenAI"
 
     @pytest.mark.asyncio
     async def test_receipt_defaults_for_missing_fields(self, mixin, mock_storage):

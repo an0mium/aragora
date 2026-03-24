@@ -229,6 +229,11 @@ class GauntletReceiptsMixin:
                 verdict=result.get("verdict", "UNKNOWN").upper(),
                 confidence=result.get("confidence", 0),
                 robustness_score=result.get("robustness_score", 0),
+                agent_responses=result.get("agent_responses", [])
+                if isinstance(result, dict)
+                else [],
+                cost_summary=result.get("cost_summary") if isinstance(result, dict) else None,
+                config_used=result.get("config_used", {}) if isinstance(result, dict) else {},
             )
 
         # Return format based on query param

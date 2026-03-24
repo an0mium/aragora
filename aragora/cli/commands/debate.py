@@ -423,6 +423,104 @@ def _maybe_add_vertical_specialist_local(
     return agents
 
 
+def _provider_display_name(provider: str | None) -> str:
+    """Convert provider keys into a stable user-facing label."""
+    raw = str(provider or "").strip()
+    if not raw:
+        return ""
+    key = raw.lower()
+    if "/" in key:
+        key = key.split("/", 1)[0]
+    aliases = {
+        "anthropic": "Anthropic",
+        "anthropic-api": "Anthropic",
+        "claude": "Anthropic",
+        "openai": "OpenAI",
+        "openai-api": "OpenAI",
+        "codex": "OpenAI",
+        "google": "Google",
+        "gemini": "Google",
+        "gemini-cli": "Google",
+        "xai": "xAI",
+        "grok": "xAI",
+        "grok-cli": "xAI",
+        "mistral": "Mistral",
+        "mistral-api": "Mistral",
+        "codestral": "Mistral",
+        "deepseek": "DeepSeek",
+        "deepseek-cli": "DeepSeek",
+        "openrouter": "OpenRouter",
+        "qwen": "Qwen",
+        "qwen-cli": "Qwen",
+        "ollama": "Ollama",
+        "lm-studio": "LM Studio",
+        "kimi": "Moonshot",
+        "kimi-thinking": "Moonshot",
+        "kilocode": "KiloCode",
+        "demo": "Demo",
+    }
+    if key in aliases:
+        return aliases[key]
+    if key.endswith("-api"):
+        key = key[:-4]
+    return " ".join(part.capitalize() for part in key.replace("_", "-").split("-") if part)
+
+
+def _detect_provider(model: str | None) -> str:
+    """Infer a provider from a model string when the agent doesn't expose one."""
+    candidate = str(model or "").strip()
+    if not candidate:
+        return ""
+    if "/" in candidate:
+        return candidate.split("/", 1)[0]
+    try:
+        from aragora.debate.provider_diversity import detect_provider
+
+        detected = detect_provider(candidate)
+    except ImportError:
+        detected = "unknown"
+    return "" if detected == "unknown" else detected
+
+
+def _format_llm_label(model: str | None, provider: str | None) -> str:
+    """Create the receipt label shown next to an agent response."""
+    model_name = str(model or "").strip()
+    provider_display = _provider_display_name(provider)
+    if model_name and provider_display:
+        return f"{model_name} via {provider_display}"
+    if model_name:
+        return model_name
+    return provider_display
+
+
+def _attach_agent_models_to_result(result: Any, agents: list[Any]) -> None:
+    """Persist agent provider/model metadata onto the debate result."""
+    metadata = getattr(result, "metadata", None)
+    if not isinstance(metadata, dict):
+        metadata = {}
+        setattr(result, "metadata", metadata)
+
+    agent_models = metadata.get("agent_models")
+    if not isinstance(agent_models, dict):
+        agent_models = {}
+        metadata["agent_models"] = agent_models
+
+    for agent in agents:
+        agent_name = str(getattr(agent, "name", "") or "").strip()
+        if not agent_name:
+            continue
+        provider = str(getattr(agent, "provider", "") or "").strip()
+        model = str(getattr(agent, "model", "") or "").strip()
+        if not provider and model:
+            provider = _detect_provider(model)
+        agent_models[agent_name] = {
+            "provider": provider,
+            "provider_display": _provider_display_name(provider),
+            "model": model,
+            "llm_label": _format_llm_label(model, provider),
+        }
+
+
 def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
     """Generate and persist a debate receipt to ~/.aragora/receipts/.
 
@@ -440,6 +538,28 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
         consensus_reached = getattr(result, "consensus_reached", False)
         confidence = getattr(result, "confidence", 0.0)
         final_answer = getattr(result, "final_answer", "") or ""
+        metadata = getattr(result, "metadata", None)
+        agent_models = metadata.get("agent_models", {}) if isinstance(metadata, dict) else {}
+        messages = list(getattr(result, "messages", []) or [])
+        agent_responses = []
+        for msg in messages[:40]:
+            agent_name = str(getattr(msg, "agent", "") or "").strip()
+            content = str(getattr(msg, "content", "") or "").strip()
+            if not agent_name or not content:
+                continue
+            model_meta = agent_models.get(agent_name, {}) if isinstance(agent_models, dict) else {}
+            agent_responses.append(
+                {
+                    "agent": agent_name,
+                    "role": str(getattr(msg, "role", "") or ""),
+                    "round": int(getattr(msg, "round", 0) or 0),
+                    "response": content[:2000],
+                    "provider": str(model_meta.get("provider", "") or ""),
+                    "provider_display": str(model_meta.get("provider_display", "") or ""),
+                    "model": str(model_meta.get("model", "") or ""),
+                    "llm_label": str(model_meta.get("llm_label", "") or ""),
+                }
+            )
 
         receipt = {
             "debate_id": debate_id,
@@ -448,9 +568,8 @@ def _persist_debate_receipt(result: Any, verbose: bool = False) -> str | None:
             "confidence": round(confidence, 4) if confidence else 0.0,
             "final_answer": final_answer[:2000],
             "rounds_used": getattr(result, "rounds_used", 0),
-            "agents": [
-                getattr(m, "agent", "unknown") for m in (getattr(result, "messages", []) or [])[:20]
-            ],
+            "agents": list(dict.fromkeys(response["agent"] for response in agent_responses)),
+            "agent_responses": agent_responses,
             "dissenting_views": [
                 str(v)[:500] for v in (getattr(result, "dissenting_views", []) or [])
             ],
@@ -1059,6 +1178,7 @@ async def run_debate(
         arena.extensions.auto_explain = True
 
     result = await arena.run()
+    _attach_agent_models_to_result(result, agents)
 
     # Store result
     if memory:

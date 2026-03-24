@@ -114,6 +114,38 @@ def receipt_to_markdown(
     if receipt.cost_summary:
         lines.extend(_render_cost_summary_markdown(receipt.cost_summary))
 
+    if receipt.agent_responses:
+        lines.extend(
+            [
+                "---",
+                "",
+                "## Agent Responses",
+                "",
+            ]
+        )
+        for response in receipt.agent_responses[:12]:
+            label = (
+                response.llm_label or response.model or response.provider_display or "Unknown LLM"
+            )
+            lines.append(f"### {response.agent}")
+            meta_parts = [f"**LLM:** {label}"]
+            if response.role:
+                meta_parts.append(f"**Role:** {response.role}")
+            if response.round:
+                meta_parts.append(f"**Round:** {response.round}")
+            lines.append(" | ".join(meta_parts))
+            lines.append("")
+            text = response.response[:800]
+            if len(response.response) > 800:
+                text += "..."
+            lines.append(text)
+            lines.append("")
+        if len(receipt.agent_responses) > 12:
+            lines.append(
+                f"_Showing first 12 of {len(receipt.agent_responses)} recorded responses._"
+            )
+            lines.append("")
+
     if receipt.vulnerability_details:
         lines.append("---")
         lines.append("")
@@ -246,6 +278,33 @@ def receipt_to_html(
     findings_html = "".join(findings_parts)
 
     risk_summary = receipt.risk_summary or {}
+    agent_responses_html = ""
+    if receipt.agent_responses:
+        response_parts = ['<div class="section"><h2>Agent Responses</h2>']
+        for response in receipt.agent_responses[:12]:
+            label = (
+                response.llm_label or response.model or response.provider_display or "Unknown LLM"
+            )
+            role = escape(response.role) if response.role else "response"
+            round_label = (
+                f' <span class="meta">Round {response.round}</span>' if response.round else ""
+            )
+            response_text = escape(response.response[:1200])
+            if len(response.response) > 1200:
+                response_text += "..."
+            response_parts.append(
+                '<div class="finding">'
+                f"<strong>{escape(response.agent)}</strong>"
+                f' <span class="meta">{escape(label)} · {role}</span>{round_label}'
+                f"<p>{response_text}</p>"
+                "</div>"
+            )
+        if len(receipt.agent_responses) > 12:
+            response_parts.append(
+                f'<p class="meta">Showing first 12 of {len(receipt.agent_responses)} recorded responses.</p>'
+            )
+        response_parts.append("</div>")
+        agent_responses_html = "".join(response_parts)
 
     return f"""<!DOCTYPE html>
 <html>
@@ -318,6 +377,8 @@ def receipt_to_html(
     </div>
 
     {_render_cost_summary_html(receipt.cost_summary)}
+
+    {agent_responses_html}
 
     <div class="section">
         <h2>Findings</h2>
