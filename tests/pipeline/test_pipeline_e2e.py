@@ -220,26 +220,43 @@ class TestOrchestrationExecution:
 
         with patch.object(handler, "_get_canvas_manager"):
             with patch.object(handler, "_run_async") as mock_run:
-                canvas_mock = MagicMock()
-                task_node = MagicMock()
-                task_node.to_dict.return_value = {
-                    "id": "task-1",
-                    "type": "agent_task",
-                    "data": {"label": "Implement unified DAG workbench"},
-                }
-                canvas_mock.nodes = {"task-1": task_node}
-                canvas_mock.edges = {}
-                mock_run.return_value = canvas_mock
+                with patch(
+                    "aragora.pipeline.canonical_execution.queue_plan_execution"
+                ) as mock_queue_plan_execution:
+                    with patch(
+                        "aragora.pipeline.canonical_execution.schedule_coroutine"
+                    ) as mock_schedule_coroutine:
+                        mock_queue_plan_execution.return_value = {
+                            "plan_id": "plan-1",
+                            "execution_id": "exec-1",
+                            "correlation_id": "corr-1",
+                            "execution_mode": "workflow",
+                            "status": "queued",
+                            "scheduled_at": "2026-03-23T00:00:00+00:00",
+                        }
+                        mock_schedule_coroutine.side_effect = lambda coro, *, name: coro.close()
 
-                ctx = SimpleNamespace(user_id="u1")
-                result = handler._execute_pipeline(ctx, "orch-1", {}, "u1")
-                assert result is not None
+                        task_node = MagicMock()
+                        task_node.to_dict.return_value = {
+                            "id": "task-1",
+                            "type": "agent_task",
+                            "data": {"label": "Implement unified DAG workbench"},
+                        }
 
-                body = _parse_result(result)
-                assert body.get("stage") == "orchestration"
-                assert body.get("canvas_id") == "orch-1"
-                assert "execution_id" in body
-                assert body.get("status") == "queued"
+                        canvas_mock = MagicMock()
+                        canvas_mock.nodes = {"task-1": task_node}
+                        canvas_mock.edges = {}
+                        mock_run.return_value = canvas_mock
+
+                        ctx = SimpleNamespace(user_id="u1")
+                        result = handler._execute_pipeline(ctx, "orch-1", {}, "u1")
+                        assert result is not None
+
+                        body = _parse_result(result)
+                        assert body.get("stage") == "orchestration"
+                        assert body.get("canvas_id") == "orch-1"
+                        assert "execution_id" in body
+                        assert body.get("status") == "queued"
 
 
 # ---------------------------------------------------------------------------
