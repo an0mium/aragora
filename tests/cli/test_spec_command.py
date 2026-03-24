@@ -11,32 +11,72 @@ from aragora.cli.commands.spec import _run_spec_pipeline, cmd_spec
 from aragora.cli.parser import build_parser
 
 
-class _FakeSpecConductor:
+class _FakeConductorConfig:
+    last_profile: str | None = None
+
+    def __init__(self) -> None:
+        self.interrogation_depth = None
+        self.skip_research = False
+        self.skip_interrogation = False
+
+    @classmethod
+    def from_profile(cls, profile: str):
+        cls.last_profile = profile
+        return cls()
+
+
+class _FakeOpenAIAPIAgent:
+    last_run: dict[str, object] | None = None
+
+    def __init__(self, *, name, model, role) -> None:
+        type(self).last_run = {
+            "name": name,
+            "model": model,
+            "role": role,
+        }
+
+
+class _FakeRecord:
+    def __init__(self, **data) -> None:
+        self._data = data
+        for key, value in data.items():
+            setattr(self, key, value)
+
+    def to_dict(self) -> dict[str, object]:
+        return dict(self._data)
+
+
+class _FakePromptConductor:
     last_init: dict[str, object] | None = None
     last_run: dict[str, object] | None = None
 
-    def __init__(self, *, interrogation_depth, user_profile) -> None:
+    def __init__(self, *, config, agent) -> None:
         type(self).last_init = {
-            "interrogation_depth": interrogation_depth,
-            "user_profile": user_profile,
+            "interrogation_depth": config.interrogation_depth,
+            "skip_research": config.skip_research,
+            "skip_interrogation": config.skip_interrogation,
+            "agent": agent,
         }
 
-    async def run(self, prompt: str, *, skip_research: bool, skip_interrogation: bool):
+    async def run(self, prompt: str):
         type(self).last_run = {
             "prompt": prompt,
-            "skip_research": skip_research,
-            "skip_interrogation": skip_interrogation,
         }
-        return {
-            "specification": {
-                "problem_statement": "Need a better onboarding flow.",
-                "proposed_solution": "Add a guided setup sequence.",
-                "success_criteria": [{"description": "Users finish setup faster."}],
-                "risks": [{"description": "Higher implementation complexity."}],
-                "estimated_effort": "medium",
-                "confidence": 0.8,
-            }
-        }
+        return _FakeRecord(
+            specification=_FakeRecord(
+                problem_statement="Need a better onboarding flow.",
+                proposed_solution="Add a guided setup sequence.",
+                success_criteria=[_FakeRecord(description="Users finish setup faster.")],
+                risks=[_FakeRecord(description="Higher implementation complexity.")],
+                estimated_effort="medium",
+                confidence=0.8,
+            ),
+            intent=_FakeRecord(intent_type="feature", scope_estimate="medium"),
+            research=_FakeRecord(evidence_links=["km://onboarding"]),
+            questions=[_FakeRecord(question="What should improve first?")],
+            stages_completed=["decompose", "specify"],
+            auto_approved=False,
+        )
 
 
 class TestSpecParser:
@@ -94,7 +134,11 @@ class TestRunSpecPipeline:
             "sys.modules",
             {
                 "aragora.prompt_engine.conductor": SimpleNamespace(
-                    SpecConductor=_FakeSpecConductor
+                    ConductorConfig=_FakeConductorConfig,
+                    PromptConductor=_FakePromptConductor,
+                ),
+                "aragora.agents.api_agents.openai": SimpleNamespace(
+                    OpenAIAPIAgent=_FakeOpenAIAPIAgent
                 ),
                 "aragora.prompt_engine.types": fake_types,
             },
@@ -107,16 +151,25 @@ class TestRunSpecPipeline:
                 profile="cto",
             )
 
-        assert _FakeSpecConductor.last_init == {
+        assert _FakeConductorConfig.last_profile == "cto"
+        assert _FakePromptConductor.last_init == {
             "interrogation_depth": "thorough-depth",
-            "user_profile": "cto-profile",
-        }
-        assert _FakeSpecConductor.last_run == {
-            "prompt": "Design a better onboarding flow",
             "skip_research": True,
             "skip_interrogation": True,
+            "agent": _FakePromptConductor.last_init["agent"],
         }
-        assert "specification" in result
+        assert _FakeOpenAIAPIAgent.last_run == {
+            "name": "spec-agent",
+            "model": "gpt-4o-mini",
+            "role": "proposer",
+        }
+        assert _FakePromptConductor.last_run == {
+            "prompt": "Design a better onboarding flow",
+        }
+        assert result["intent"]["intent_type"] == "feature"
+        assert result["specification"]["problem_statement"] == "Need a better onboarding flow."
+        assert result["questions"] == [{"question": "What should improve first?"}]
+        assert result["stages_completed"] == ["decompose", "specify"]
 
 
 class TestCmdSpec:

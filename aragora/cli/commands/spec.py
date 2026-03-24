@@ -31,32 +31,43 @@ async def _run_spec_pipeline(
     output_format: str = "text",
 ) -> dict[str, Any]:
     """Run the prompt-to-spec pipeline and return the result."""
-    from aragora.prompt_engine.conductor import SpecConductor
-    from aragora.prompt_engine.types import InterrogationDepth, UserProfile
+    from aragora.prompt_engine.conductor import ConductorConfig, PromptConductor
+    from aragora.prompt_engine.types import InterrogationDepth
 
     depth_map = {
         "quick": InterrogationDepth.QUICK,
         "thorough": InterrogationDepth.THOROUGH,
         "exhaustive": InterrogationDepth.EXHAUSTIVE,
     }
-    profile_map = {
-        "founder": UserProfile.FOUNDER,
-        "cto": UserProfile.CTO,
-        "business": UserProfile.BUSINESS,
-        "team": UserProfile.TEAM,
+
+    config = ConductorConfig.from_profile(profile)
+    config.interrogation_depth = depth_map.get(depth, InterrogationDepth.QUICK)
+    config.skip_research = skip_research
+    config.skip_interrogation = skip_interrogation
+
+    # Use a fast agent for CLI to keep latency bounded
+    try:
+        from aragora.agents.api_agents.openai import OpenAIAPIAgent
+
+        agent = OpenAIAPIAgent(name="spec-agent", model="gpt-4o-mini", role="proposer")
+    except (ImportError, RuntimeError, ValueError):
+        agent = None
+
+    conductor = PromptConductor(config=config, agent=agent)
+    result = await conductor.run(prompt)
+
+    return {
+        "specification": result.specification.to_dict()
+        if hasattr(result.specification, "to_dict")
+        else result.specification,
+        "intent": result.intent.to_dict() if hasattr(result.intent, "to_dict") else result.intent,
+        "research": result.research.to_dict()
+        if result.research and hasattr(result.research, "to_dict")
+        else result.research,
+        "questions": [q.to_dict() if hasattr(q, "to_dict") else q for q in result.questions],
+        "stages_completed": result.stages_completed,
+        "auto_approved": result.auto_approved,
     }
-
-    conductor = SpecConductor(
-        interrogation_depth=depth_map.get(depth, InterrogationDepth.QUICK),
-        user_profile=profile_map.get(profile, UserProfile.FOUNDER),
-    )
-
-    result = await conductor.run(
-        prompt,
-        skip_research=skip_research,
-        skip_interrogation=skip_interrogation,
-    )
-    return result
 
 
 def _print_spec_result(result: dict[str, Any], output_format: str = "text") -> None:
