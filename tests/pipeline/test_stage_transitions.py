@@ -7,9 +7,20 @@ import pytest
 from aragora.canvas.stages import PipelineStage, StageEdgeType
 from aragora.pipeline.stage_transitions import (
     actions_to_orchestration,
+    approve_generated_node,
+    approve_transition,
+    generate_goals_to_actions_questions,
+    generate_ideas_to_goals_questions,
     goals_to_actions,
     ideas_to_goals,
+    interactive_goals_to_actions,
+    interactive_ideas_to_goals,
+    merge_generated_nodes,
     promote_node,
+    reject_generated_node,
+    revise_generated_node,
+    split_generated_node,
+    submit_approved_actions_to_swarm,
 )
 from aragora.pipeline.universal_node import (
     UniversalEdge,
@@ -334,3 +345,260 @@ class TestFullPipelinePromotion:
         actions = goals_to_actions(graph, [goal.id])
         action = actions[0]
         assert action.previous_hash == goal.content_hash
+
+
+class TestInteractiveTransitions:
+    def test_generates_targeted_questions_from_idea_gaps(self):
+        graph = UniversalGraph(id="interactive-ideas", name="Interactive Ideas")
+        graph.add_node(
+            UniversalNode(
+                id="idea-a",
+                stage=PipelineStage.IDEAS,
+                node_subtype="concept",
+                label="Improve onboarding",
+                description="",
+                confidence=0.6,
+            )
+        )
+        graph.add_node(
+            UniversalNode(
+                id="idea-b",
+                stage=PipelineStage.IDEAS,
+                node_subtype="question",
+                label="Which user segment first?",
+                description="",
+                confidence=0.5,
+            )
+        )
+
+        questions = generate_ideas_to_goals_questions(graph, ["idea-a", "idea-b"], max_questions=3)
+
+        question_ids = {question.id for question in questions}
+        assert "primary_outcome" in question_ids
+        assert "non_negotiable_constraints" in question_ids
+        assert "success_signal" in question_ids
+
+    def test_interactive_ideas_to_goals_creates_editable_semantic_nodes(self):
+        graph = UniversalGraph(id="interactive-goals", name="Interactive Goals")
+        graph.add_node(
+            UniversalNode(
+                id="idea-1",
+                stage=PipelineStage.IDEAS,
+                node_subtype="concept",
+                label="Interactive stage transitions",
+                description="Turn vague work into executable graphs",
+                confidence=0.7,
+            )
+        )
+        graph.add_node(
+            UniversalNode(
+                id="idea-2",
+                stage=PipelineStage.IDEAS,
+                node_subtype="constraint",
+                label="Stay inside the workbench",
+                description="No context switching to a separate tool",
+                confidence=0.8,
+            )
+        )
+
+        result = interactive_ideas_to_goals(
+            graph,
+            ["idea-1", "idea-2"],
+            answers={
+                "primary_outcome": "Produce approved goal and principle DAGs",
+                "success_signal": "A reviewer can approve nodes without rewriting them",
+            },
+        )
+
+        assert len(result.generated_nodes) == 2
+        semantic_types = {node.data["semantic_type"] for node in result.generated_nodes}
+        assert semantic_types == {"goal", "constraint"}
+        for node in result.generated_nodes:
+            assert node.approval_status == "pending"
+            assert node.data["editable"] is True
+            assert node.metadata["generated_by_transition_id"] == result.transition.id
+
+        assert result.transition.generated_node_ids == [node.id for node in result.generated_nodes]
+        assert (
+            result.transition.answers["primary_outcome"]
+            == "Produce approved goal and principle DAGs"
+        )
+        assert any(edge.edge_type == StageEdgeType.CONSTRAINS for edge in graph.edges.values())
+
+    def test_interactive_goals_to_actions_creates_tasks_specs_and_dependencies(self):
+        graph = UniversalGraph(id="interactive-actions", name="Interactive Actions")
+        goal = UniversalNode(
+            id="goal-1",
+            stage=PipelineStage.GOALS,
+            node_subtype="goal",
+            label="Goal: Ship stage transitions",
+            description="Deliver the interactive transition flow",
+            confidence=0.75,
+            data={"semantic_type": "goal", "priority": "high"},
+        )
+        constraint = UniversalNode(
+            id="goal-2",
+            stage=PipelineStage.GOALS,
+            node_subtype="principle",
+            label="Constraint: Preserve provenance",
+            description="Every edit and approval must keep upstream lineage visible",
+            confidence=0.8,
+            data={"semantic_type": "constraint", "priority": "high"},
+        )
+        graph.add_node(goal)
+        graph.add_node(constraint)
+        graph.add_edge(
+            UniversalEdge(
+                id="goal-edge",
+                source_id="goal-2",
+                target_id="goal-1",
+                edge_type=StageEdgeType.CONSTRAINS,
+                label="constrains",
+            )
+        )
+
+        questions = generate_goals_to_actions_questions(graph, ["goal-1", "goal-2"])
+        assert {question.id for question in questions} == {
+            "done_definition",
+            "execution_order",
+            "delivery_constraints",
+        }
+
+        result = interactive_goals_to_actions(
+            graph,
+            ["goal-1", "goal-2"],
+            answers={
+                "done_definition": "Tasks have explicit acceptance criteria and can be submitted to swarm",
+                "delivery_constraints": ["Keep verification fast"],
+            },
+        )
+
+        assert len(result.generated_nodes) == 2
+        semantic_types = {node.data["semantic_type"] for node in result.generated_nodes}
+        assert semantic_types == {"task", "spec"}
+        task_node = next(
+            node for node in result.generated_nodes if node.data["semantic_type"] == "task"
+        )
+        spec_node = next(
+            node for node in result.generated_nodes if node.data["semantic_type"] == "spec"
+        )
+        assert task_node.data["acceptance_criteria"]
+        assert "Keep verification fast" in task_node.data["constraints"]
+        assert spec_node.id in task_node.data["dependency_ids"]
+        assert result.transition.questions
+        assert result.transition.generated_node_ids == [node.id for node in result.generated_nodes]
+
+    def test_inline_revision_split_merge_and_reject_preserve_lineage(self):
+        graph = UniversalGraph(id="interactive-edits", name="Interactive Edits")
+        graph.add_node(
+            UniversalNode(
+                id="idea-1",
+                stage=PipelineStage.IDEAS,
+                node_subtype="concept",
+                label="Upgrade vague ideas",
+                description="",
+                confidence=0.6,
+            )
+        )
+        transition_result = interactive_ideas_to_goals(graph, ["idea-1"])
+        generated = transition_result.generated_nodes[0]
+
+        revised = revise_generated_node(
+            graph,
+            generated.id,
+            label="Goal: Upgrade vague ideas into editable DAGs",
+            description="Keep questioning and editing in the same workbench.",
+            data_updates={"acceptance_signal": "Nodes are editable inline"},
+        )
+        assert revised.approval_status == "revised"
+        assert revised.previous_hash is not None
+        assert transition_result.transition.status == "revised"
+
+        split_nodes = split_generated_node(
+            graph,
+            revised.id,
+            splits=[
+                {"label": "Goal: Ask clarifying questions"},
+                {"label": "Goal: Generate editable nodes"},
+            ],
+        )
+        assert len(split_nodes) == 2
+        assert revised.status == "archived"
+        assert all(revised.id in node.parent_ids for node in split_nodes)
+
+        merged = merge_generated_nodes(
+            graph,
+            [node.id for node in split_nodes],
+            label="Goal: Interactive transition workbench",
+            description="Merged workstream for question asking and node editing",
+        )
+        assert set(merged.metadata["merged_from"]) == {node.id for node in split_nodes}
+        rejected = reject_generated_node(graph, merged.id, reviewer_id="user-7", reason="Too broad")
+        assert rejected.approval_status == "rejected"
+        assert rejected.metadata["rejection"]["reason"] == "Too broad"
+
+    def test_approvals_and_swarm_submission_update_transition_and_nodes(self, monkeypatch):
+        graph = UniversalGraph(id="interactive-submit", name="Interactive Submit")
+        goal = UniversalNode(
+            id="goal-ship",
+            stage=PipelineStage.GOALS,
+            node_subtype="goal",
+            label="Goal: Ship the workbench",
+            description="Land the interactive transition system",
+            confidence=0.82,
+            data={
+                "semantic_type": "goal",
+                "allowed_write_scope": ["aragora/pipeline/**"],
+                "verification_commands": [
+                    "python3 -m pytest tests/pipeline/test_stage_transitions.py -q"
+                ],
+            },
+        )
+        principle = UniversalNode(
+            id="goal-principle",
+            stage=PipelineStage.GOALS,
+            node_subtype="principle",
+            label="Principle: Keep provenance intact",
+            description="Every task should carry its lineage and review state",
+            confidence=0.78,
+            data={"semantic_type": "principle"},
+        )
+        graph.add_node(goal)
+        graph.add_node(principle)
+
+        action_result = interactive_goals_to_actions(
+            graph,
+            ["goal-ship", "goal-principle"],
+            answers={"done_definition": "Approved nodes can be handed directly to swarm"},
+        )
+
+        for node in action_result.generated_nodes:
+            approve_generated_node(graph, node.id, approver_id="reviewer-1", notes="Looks good")
+
+        assert action_result.transition.status == "approved"
+
+        approve_transition(
+            graph,
+            action_result.transition.id,
+            approver_id="reviewer-1",
+            notes="Ready for execution",
+        )
+        assert action_result.transition.reviewed_at is not None
+
+        captured: dict[str, object] = {}
+
+        def fake_submit(bundle, **kwargs):
+            captured["bundle"] = bundle
+            captured["kwargs"] = kwargs
+            return {"manifest_id": "tranche-demo", "submission_status": "ready_to_prepare"}
+
+        monkeypatch.setattr("aragora.swarm.tranche_submit.submit_intake_bundle", fake_submit)
+
+        result = submit_approved_actions_to_swarm(graph, repo_root=".")
+
+        assert result["submitted_node_ids"]
+        assert captured["bundle"]["candidate_lanes"]
+        for node in action_result.generated_nodes:
+            assert node.execution_status == "submitted"
+            assert node.metadata["swarm_submission"]["manifest_id"] == "tranche-demo"
+        assert action_result.transition.submission["manifest_id"] == "tranche-demo"

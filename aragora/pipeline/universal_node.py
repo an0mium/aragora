@@ -72,6 +72,7 @@ class UniversalNode:
     source_stage: PipelineStage | None = None
     # Status
     status: str = "active"  # active, completed, archived, rejected
+    approval_status: str = "pending"  # pending, approved, rejected, revised
     execution_status: str | None = None  # pending, in_progress, succeeded, failed, partial
     confidence: float = 0.0
     # Data
@@ -105,6 +106,8 @@ class UniversalNode:
                 "stage": self.stage.value,
                 "subtype": self.node_subtype,
                 "status": self.status,
+                "approvalStatus": self.approval_status,
+                "approval_status": self.approval_status,
                 "executionStatus": self.execution_status,
                 "execution_status": self.execution_status,
                 "confidence": self.confidence,
@@ -138,6 +141,7 @@ class UniversalNode:
             "parent_ids": self.parent_ids,
             "source_stage": self.source_stage.value if self.source_stage else None,
             "status": self.status,
+            "approval_status": self.approval_status,
             "execution_status": self.execution_status,
             "confidence": self.confidence,
             "data": self.data,
@@ -165,6 +169,7 @@ class UniversalNode:
             parent_ids=data.get("parent_ids", []),
             source_stage=PipelineStage(source_stage) if source_stage else None,
             status=data.get("status", "active"),
+            approval_status=data.get("approval_status", "pending"),
             execution_status=data.get("execution_status", data.get("executionStatus")),
             confidence=float(data.get("confidence", 0)),
             data=data.get("data", {}),
@@ -414,6 +419,10 @@ class UniversalGraph:
                     confidence=td.get("confidence", 0),
                     ai_rationale=td.get("ai_rationale", ""),
                     human_notes=td.get("human_notes", ""),
+                    generated_node_ids=td.get("generated_node_ids", []),
+                    questions=td.get("questions", []),
+                    answers=td.get("answers", {}),
+                    submission=td.get("submission", {}),
                     created_at=td.get("created_at", 0),
                     reviewed_at=td.get("reviewed_at"),
                 )

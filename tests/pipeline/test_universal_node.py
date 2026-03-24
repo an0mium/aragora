@@ -72,6 +72,7 @@ class TestUniversalNode:
         assert node.parent_ids == []
         assert node.source_stage is None
         assert node.status == "active"
+        assert node.approval_status == "pending"
         assert node.confidence == 0.0
         assert node.data == {}
         assert node.style == {}
@@ -189,9 +190,11 @@ class TestUniversalNode:
             stage=PipelineStage.ORCHESTRATION,
             node_subtype="agent_task",
             label="Run tests",
+            approval_status="approved",
             execution_status="in_progress",
         )
         restored = UniversalNode.from_dict(node.to_dict())
+        assert restored.approval_status == "approved"
         assert restored.execution_status == "in_progress"
 
     def test_to_dict_content_hash_preserved(self):
@@ -232,10 +235,13 @@ class TestUniversalNode:
             stage=PipelineStage.ORCHESTRATION,
             node_subtype="agent_task",
             label="Execute",
+            approval_status="revised",
             execution_status="awaiting_human",
             metadata={"lane": "review"},
         )
         rf = node.to_react_flow_node()
+        assert rf["data"]["approval_status"] == "revised"
+        assert rf["data"]["approvalStatus"] == "revised"
         assert rf["data"]["execution_status"] == "awaiting_human"
         assert rf["data"]["executionStatus"] == "awaiting_human"
         assert rf["data"]["metadata"] == {"lane": "review"}
@@ -959,6 +965,10 @@ class TestUniversalGraph:
                 id="t1",
                 from_stage=PipelineStage.IDEAS,
                 to_stage=PipelineStage.GOALS,
+                generated_node_ids=["n2"],
+                questions=[{"id": "q1", "text": "Clarify scope"}],
+                answers={"q1": "Answer"},
+                submission={"manifest_id": "tranche-1"},
             )
         )
         d = graph.to_dict()
@@ -968,6 +978,10 @@ class TestUniversalGraph:
         assert len(restored.edges) == 1
         assert len(restored.transitions) == 1
         assert restored.transitions[0].from_stage == PipelineStage.IDEAS
+        assert restored.transitions[0].generated_node_ids == ["n2"]
+        assert restored.transitions[0].questions == [{"id": "q1", "text": "Clarify scope"}]
+        assert restored.transitions[0].answers == {"q1": "Answer"}
+        assert restored.transitions[0].submission == {"manifest_id": "tranche-1"}
 
     def test_to_dict_roundtrip_preserves_metadata(self):
         graph = UniversalGraph(

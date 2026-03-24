@@ -164,6 +164,10 @@ class StageTransition:
     confidence: float = 0.0
     ai_rationale: str = ""
     human_notes: str = ""
+    generated_node_ids: list[str] = field(default_factory=list)
+    questions: list[dict[str, Any]] = field(default_factory=list)
+    answers: dict[str, Any] = field(default_factory=dict)
+    submission: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     reviewed_at: float | None = None
 
@@ -177,6 +181,10 @@ class StageTransition:
             "confidence": self.confidence,
             "ai_rationale": self.ai_rationale,
             "human_notes": self.human_notes,
+            "generated_node_ids": list(self.generated_node_ids),
+            "questions": list(self.questions),
+            "answers": dict(self.answers),
+            "submission": dict(self.submission),
             "created_at": self.created_at,
             "reviewed_at": self.reviewed_at,
         }

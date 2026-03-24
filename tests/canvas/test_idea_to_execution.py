@@ -267,11 +267,19 @@ class TestPipelineStages:
             status="approved",
             confidence=0.85,
             ai_rationale="Extracted 3 goals from 5 ideas",
+            generated_node_ids=["goal-1"],
+            questions=[{"id": "primary_outcome", "text": "What matters most?"}],
+            answers={"primary_outcome": "Ship the workbench"},
+            submission={"manifest_id": "tranche-1"},
         )
         d = trans.to_dict()
         assert d["from_stage"] == "ideas"
         assert d["to_stage"] == "goals"
         assert d["confidence"] == 0.85
+        assert d["generated_node_ids"] == ["goal-1"]
+        assert d["questions"] == [{"id": "primary_outcome", "text": "What matters most?"}]
+        assert d["answers"] == {"primary_outcome": "Ship the workbench"}
+        assert d["submission"] == {"manifest_id": "tranche-1"}
 
     def test_node_type_colors_coverage(self):
         """Every node type should have a color."""
