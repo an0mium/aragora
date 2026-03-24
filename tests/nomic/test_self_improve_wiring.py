@@ -31,6 +31,10 @@ from aragora.nomic.hardened_orchestrator import (
 )
 from aragora.nomic.task_decomposer import SubTask
 
+_IDEA_TO_EXECUTION_PATH = (
+    Path(__file__).resolve().parents[2] / "aragora" / "pipeline" / "idea_to_execution.py"
+)
+
 
 # ---------------------------------------------------------------------------
 # Fixtures & helpers
@@ -593,22 +597,15 @@ class TestIdeaToExecutionPipelineWiring:
         # This tests that the StrategicMemoryStore import exists in from_ideas
         # (line 484). It's used for goal enrichment, not for pipeline outcome
         # recording. The feedback loop is closed by PipelineKMBridge instead.
-        import ast
+        source = _IDEA_TO_EXECUTION_PATH.read_text()
 
-        with open("/Users/armand/Development/aragora/aragora/pipeline/idea_to_execution.py") as f:
-            source = f.read()
-
-        tree = ast.parse(source)
         # Check that StrategicMemoryStore is imported somewhere in the file
         # (it's used for enrichment in from_ideas and _advance_to_goals)
         assert "StrategicMemoryStore" in source
 
     def test_pipeline_km_bridge_used_for_feedback_loop(self):
         """PipelineKMBridge is used (not StrategicMemoryStore) for pipeline result storage."""
-        import ast
-
-        with open("/Users/armand/Development/aragora/aragora/pipeline/idea_to_execution.py") as f:
-            source = f.read()
+        source = _IDEA_TO_EXECUTION_PATH.read_text()
 
         # PipelineKMBridge.store_pipeline_result should be called
         assert "bridge.store_pipeline_result(result)" in source
