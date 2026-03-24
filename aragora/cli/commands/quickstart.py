@@ -31,13 +31,35 @@ from typing import Any, cast
 logger = logging.getLogger(__name__)
 
 _DEFAULT_QUESTION = "Should we adopt microservices or keep our monolith?"
+_DEMO_DEFAULT_ROUNDS = 2
+_LIVE_DEFAULT_ROUNDS = 1
 _LIVE_PRECHECK_TIMEOUT_SECONDS = 3.0
-_LIVE_DEBATE_TIMEOUT_SECONDS = 75.0
+_LIVE_DEBATE_TIMEOUT_SECONDS = 120.0
 _LIVE_ROLES: tuple[tuple[str, str], ...] = (
     ("proposer", "proposer"),
     ("critic", "critic"),
     ("synthesizer", "synthesizer"),
 )
+_LIVE_PROVIDER_PRIORITY: tuple[str, ...] = (
+    "openai-api",
+    "gemini",
+    "anthropic-api",
+    "mistral",
+    "grok",
+    "deepseek",
+)
+_LIVE_ARENA_KWARGS: dict[str, Any] = {
+    "knowledge_mound": None,
+    "auto_create_knowledge_mound": False,
+    "enable_knowledge_retrieval": False,
+    "enable_knowledge_ingestion": False,
+    "enable_cross_debate_memory": False,
+    "use_rlm_limiter": False,
+    "enable_ml_delegation": False,
+    "enable_quality_gates": False,
+    "enable_consensus_estimation": False,
+    "disable_post_debate_pipeline": True,
+}
 _PROVIDER_TLS_HOSTS: dict[str, str] = {
     "anthropic-api": "api.anthropic.com",
     "openai-api": "api.openai.com",
@@ -49,17 +71,17 @@ _PROVIDER_TLS_HOSTS: dict[str, str] = {
 _PROVIDER_SPECS: dict[str, dict[str, Any]] = {
     "anthropic": {
         "agent_type": "anthropic-api",
-        "model": "claude-sonnet-4-5-20250929",
+        "model": "claude-haiku-4-5-20251001",
         "env_vars": ("ANTHROPIC_API_KEY",),
     },
     "openai": {
         "agent_type": "openai-api",
-        "model": "gpt-4o",
+        "model": "gpt-4o-mini",
         "env_vars": ("OPENAI_API_KEY",),
     },
     "gemini": {
         "agent_type": "gemini",
-        "model": None,
+        "model": "gemini-2.0-flash",
         "env_vars": ("GEMINI_API_KEY",),
     },
     "mistral": {
@@ -92,10 +114,10 @@ def add_quickstart_parser(subparsers: Any) -> None:
         "quickstart",
         help="Guided zero-to-receipt first debate (new user onboarding)",
         description="""
-Run your first adversarial debate in under 60 seconds.
+Run your first adversarial debate with a bounded live onboarding path.
 
 Automatically detects available API keys, picks agents, runs a fast
-2-round debate, and opens the decision receipt in your browser.
+live debate, and opens the decision receipt in your browser.
 No configuration needed.
 
 Examples:
@@ -142,8 +164,8 @@ Examples:
         "--rounds",
         "-r",
         type=int,
-        default=2,
-        help="Number of debate rounds (default: 2)",
+        default=None,
+        help="Number of debate rounds (default: 2 for demo, 1 for live quickstart)",
     )
     qs_parser.add_argument(
         "--format",
@@ -267,6 +289,13 @@ def _get_question(args: argparse.Namespace) -> str | None:
         return None
 
 
+def _resolve_rounds(requested_rounds: int | None, *, use_demo: bool) -> int:
+    """Resolve quickstart rounds with mode-specific defaults."""
+    if requested_rounds is not None:
+        return requested_rounds
+    return _DEMO_DEFAULT_ROUNDS if use_demo else _LIVE_DEFAULT_ROUNDS
+
+
 def _default_receipt_path(mode: str, fmt: str) -> Path:
     """Return the default saved artifact path for quickstart results."""
     receipts_dir = Path.cwd() / ".aragora" / "receipts"
@@ -388,7 +417,17 @@ async def _run_live_debate(
         raise RuntimeError("No live debate team could be assembled for quickstart")
 
     env = Environment(task=question)
-    protocol = DebateProtocol(rounds=rounds, consensus="majority")
+    protocol = DebateProtocol(
+        rounds=rounds,
+        consensus="majority",
+        convergence_detection=False,
+        vote_grouping=False,
+        enable_trickster=False,
+        enable_research=False,
+        enable_trending_injection=False,
+        enable_llm_question_classification=False,
+        enable_llm_synthesis=False,
+    )
     store = CritiqueStore()
 
     agents = []
@@ -405,7 +444,9 @@ async def _run_live_debate(
         agents.append(agent)
         agent_names.append(agent.name)
 
-    arena = Arena(env, agents, protocol, insight_store=store)
+    # Quickstart is a bounded onboarding lane, not the full debate control plane.
+    arena = Arena(env, agents, protocol, insight_store=store, **_LIVE_ARENA_KWARGS)
+    arena.enable_introspection = False
     try:
         result = await asyncio.wait_for(arena.run(), timeout=_LIVE_DEBATE_TIMEOUT_SECONDS)
     except TimeoutError as exc:
@@ -445,8 +486,22 @@ def _build_live_team(
             }
         )
     else:
-        for agent_type, model in agents_list[:4]:
-            provider_configs.append({"provider": agent_type, "model": model, "api_key": None})
+        selected_provider = next(
+            (
+                (agent_type, model)
+                for preferred in _LIVE_PROVIDER_PRIORITY
+                for agent_type, model in agents_list[:4]
+                if agent_type == preferred
+            ),
+            agents_list[0],
+        )
+        provider_configs.append(
+            {
+                "provider": selected_provider[0],
+                "model": selected_provider[1],
+                "api_key": None,
+            }
+        )
 
     team: list[dict[str, Any]] = []
     for index, (role, role_label) in enumerate(_LIVE_ROLES):
@@ -702,7 +757,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
 
     # Step 3: Detect agents
     use_demo = getattr(args, "demo", False)
-    rounds = getattr(args, "rounds", 2)
+    rounds = _resolve_rounds(getattr(args, "rounds", None), use_demo=use_demo)
     provider = getattr(args, "provider", None)
     inline_api_key = getattr(args, "api_key", None)
     try:
@@ -737,7 +792,12 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             print("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
             use_demo = True
         else:
-            providers = [p for p, _ in detected[:4]]
+            preview_team = _build_live_team(
+                detected[:4],
+                provider=normalized_provider,
+                api_key=inline_api_key,
+            )
+            providers = list(dict.fromkeys(str(member["provider"]) for member in preview_team))
             print("\n[+] Run mode: live")
             print(f"    Agents: {', '.join(providers)}")
 

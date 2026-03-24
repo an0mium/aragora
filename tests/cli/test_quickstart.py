@@ -23,6 +23,7 @@ from aragora.cli.commands.quickstart import (
     _load_dotenv,
     _normalize_provider,
     _open_receipt_in_browser,
+    _resolve_rounds,
     _run_live_debate,
     _save_receipt,
     add_quickstart_parser,
@@ -142,7 +143,7 @@ class TestDetectAgents:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
         agents = _detect_agents("openai")
-        assert agents == [("openai-api", "gpt-4o")]
+        assert agents == [("openai-api", "gpt-4o-mini")]
 
     def test_invalid_preferred_provider_raises(self):
         with pytest.raises(ValueError, match="Unsupported provider"):
@@ -206,6 +207,17 @@ class TestGetQuestion:
         monkeypatch.setattr("builtins.input", lambda _: "")
         args = argparse.Namespace(question=None, demo=False)
         assert _get_question(args) is None
+
+
+class TestResolveRounds:
+    def test_demo_defaults_to_two_rounds(self):
+        assert _resolve_rounds(None, use_demo=True) == 2
+
+    def test_live_defaults_to_one_round(self):
+        assert _resolve_rounds(None, use_demo=False) == 1
+
+    def test_explicit_rounds_win(self):
+        assert _resolve_rounds(4, use_demo=False) == 4
 
 
 # =============================================================================
@@ -346,6 +358,17 @@ class TestLiveQuickstartHelpers:
         assert [agent["provider"] for agent in team] == ["openai-api"] * 3
         assert [agent["api_key"] for agent in team] == ["sk-inline"] * 3
 
+    def test_build_live_team_defaults_to_single_preferred_provider(self):
+        team = _build_live_team(
+            [
+                ("anthropic-api", "claude-sonnet-4-5-20250929"),
+                ("openai-api", "gpt-4o"),
+                ("gemini", None),
+            ]
+        )
+
+        assert [agent["provider"] for agent in team] == ["openai-api"] * 3
+
     def test_build_live_receipt_surfaces_consensus_dissent_and_receipt(self):
         from aragora.gauntlet.receipt_models import DecisionReceipt
 
@@ -453,6 +476,59 @@ class TestCmdQuickstart:
                 )
 
     @pytest.mark.asyncio
+    async def test_run_live_debate_uses_bounded_quickstart_profile(self):
+        """Live quickstart should disable heavyweight debate subsystems by default."""
+        mock_agent = MagicMock()
+        mock_agent.name = "openai-api"
+        mock_result = argparse.Namespace()
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._filter_reachable_live_agents",
+                return_value=[("openai-api", "gpt-4o")],
+            ),
+            patch("aragora.agents.base.create_agent", return_value=mock_agent),
+            patch(
+                "aragora.cli.commands.quickstart._build_live_receipt",
+                return_value={"mode": "live", "rounds": 1},
+            ),
+            patch("aragora.debate.orchestrator.Arena") as mock_arena_cls,
+        ):
+            mock_arena = MagicMock()
+            mock_arena.run = AsyncMock(return_value=mock_result)
+            mock_arena_cls.return_value = mock_arena
+
+            await _run_live_debate(
+                "Should we ship the quickstart path?",
+                [("openai-api", "gpt-4o")],
+                rounds=1,
+            )
+
+        protocol = mock_arena_cls.call_args.args[2]
+        assert protocol.rounds == 1
+        assert protocol.consensus == "majority"
+        assert protocol.convergence_detection is False
+        assert protocol.vote_grouping is False
+        assert protocol.enable_trickster is False
+        assert protocol.enable_research is False
+        assert protocol.enable_trending_injection is False
+        assert protocol.enable_llm_question_classification is False
+        assert protocol.enable_llm_synthesis is False
+
+        arena_kwargs = mock_arena_cls.call_args.kwargs
+        assert arena_kwargs["knowledge_mound"] is None
+        assert arena_kwargs["auto_create_knowledge_mound"] is False
+        assert arena_kwargs["enable_knowledge_retrieval"] is False
+        assert arena_kwargs["enable_knowledge_ingestion"] is False
+        assert arena_kwargs["enable_cross_debate_memory"] is False
+        assert arena_kwargs["use_rlm_limiter"] is False
+        assert arena_kwargs["enable_ml_delegation"] is False
+        assert arena_kwargs["enable_quality_gates"] is False
+        assert arena_kwargs["enable_consensus_estimation"] is False
+        assert arena_kwargs["disable_post_debate_pipeline"] is True
+        assert mock_arena.enable_introspection is False
+
+    @pytest.mark.asyncio
     async def test_filter_reachable_live_agents_raises_clean_tls_error(self):
         """Quickstart should stop before debate startup when TLS verification fails."""
         with patch(
@@ -513,6 +589,72 @@ class TestCmdQuickstart:
         output = capsys.readouterr().out
         assert "QUICKSTART" in output
         assert "consensus" in output.lower()
+
+    def test_live_mode_defaults_to_one_round_when_unspecified(self, capsys):
+        args = argparse.Namespace(
+            question="Should we use the live default?",
+            demo=False,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            rounds=None,
+            no_browser=True,
+        )
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[("openai-api", "gpt-4o")],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_live_debate",
+                return_value={
+                    "question": "Should we use the live default?",
+                    "verdict": "approve",
+                    "confidence": 0.8,
+                    "rounds": 1,
+                    "agents": ["openai-api"],
+                    "summary": "Use the bounded live default.",
+                    "dissent": [],
+                    "mode": "live",
+                },
+            ) as run_live_debate,
+        ):
+            cmd_quickstart(args)
+
+        assert run_live_debate.call_args.args[2] == 1
+
+    def test_demo_mode_defaults_to_two_rounds_when_unspecified(self, capsys):
+        args = argparse.Namespace(
+            question="Should we use the demo default?",
+            demo=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            rounds=None,
+            no_browser=True,
+        )
+
+        with patch(
+            "aragora.cli.commands.quickstart._run_demo_debate",
+            return_value={
+                "question": "Should we use the demo default?",
+                "verdict": "consensus",
+                "confidence": 0.85,
+                "rounds": 2,
+                "agents": ["analyst", "critic", "synthesizer"],
+                "summary": "Keep demo defaults stable.",
+                "dissent": [],
+                "mode": "demo",
+            },
+        ) as run_demo_debate:
+            cmd_quickstart(args)
+
+        assert run_demo_debate.call_args.args[1] == 2
 
     def test_no_question_exits(self):
         """Test that missing question causes exit."""
@@ -608,6 +750,7 @@ class TestCmdQuickstart:
 
         output = capsys.readouterr().out
         assert "Run mode: live" in output
+        assert "Agents: openai-api" in output
         assert "Mode:       Live" in output
         assert str(artifact_path.resolve()) in output
 
