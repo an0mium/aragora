@@ -14,6 +14,7 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
+from aragora.receipts.provenance import emit_operational_receipt
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -46,6 +47,27 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def _linked_action_details(
+    *,
+    action_type: str,
+    session_id: str,
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    """Extract stable receipt and approval linkage for audit records."""
+    details: dict[str, Any] = {
+        "action_type": action_type,
+        "session_id": session_id,
+    }
+    decision_receipt_id = metadata.get("decision_receipt_id") or metadata.get("receipt_id")
+    if decision_receipt_id is not None:
+        details["decision_receipt_id"] = decision_receipt_id
+    for key in ("approval_id", "credential_ids", "policy_rule_ids"):
+        value = metadata.get(key)
+        if value is not None:
+            details[key] = value
+    return details
 
 
 def _normalize_metadata(value: Any) -> dict[str, Any]:
@@ -97,6 +119,9 @@ def _build_runtime_metadata(
     approval_id: str | None = None,
     audit_result: str | None = None,
     execution_time_ms: int = 0,
+    decision_receipt_id: str | None = None,
+    operational_receipt_id: str | None = None,
+    transition_error: str | None = None,
 ) -> dict[str, Any]:
     metadata = _normalize_metadata(getattr(action, "metadata", {}))
     runtime_metadata = _normalize_metadata(metadata.get("runtime"))
@@ -113,6 +138,12 @@ def _build_runtime_metadata(
         runtime_metadata["approval_status"] = "pending"
     elif runtime_metadata.get("approval_status") == "pending":
         runtime_metadata["approval_status"] = status.value
+    if decision_receipt_id:
+        runtime_metadata["decision_receipt_id"] = decision_receipt_id
+    if operational_receipt_id:
+        runtime_metadata["operational_receipt_id"] = operational_receipt_id
+    if transition_error:
+        runtime_metadata["decision_receipt_transition_error"] = transition_error
     metadata["runtime"] = runtime_metadata
     return metadata
 
@@ -383,6 +414,8 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
         try:
             store = _get_store()
             user_id = self._get_user_id(handler)
+            receipt_enforcement_enabled = False
+            receipt_transition: Any | None = None
 
             # Validate required fields
             session_id = body.get("session_id")
@@ -437,7 +470,8 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
                     transition_receipt_executed,
                 )
 
-                if is_receipt_enforcement_enabled("openclaw"):
+                receipt_enforcement_enabled = is_receipt_enforcement_enabled("openclaw")
+                if receipt_enforcement_enabled:
                     require_receipt_gate(
                         action_domain="openclaw",
                         action_type="execute_action",
@@ -445,6 +479,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
                         resource_id=session_id,
                         receipt_id=receipt_id,
                     )
+                    receipt_transition = transition_receipt_executed
             except ReceiptEnforcementError as re_err:
                 logger.warning("Receipt enforcement denied openclaw action: %s", re_err)
                 return error_response("Receipt required for this action", 428)
@@ -456,6 +491,7 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
             stored_metadata = _normalize_metadata(metadata)
             if receipt_id:
                 stored_metadata["receipt_id"] = receipt_id
+                stored_metadata["decision_receipt_id"] = receipt_id
 
             # Create action with sanitized input
             action = store.create_action(
@@ -470,6 +506,54 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
 
             runtime = get_openclaw_execution_runtime()
             dispatch_result = runtime.dispatch_action(session, action)
+            transition_error: str | None = None
+            operational_receipt_id: str | None = None
+
+            if dispatch_result.executed:
+                if (
+                    receipt_id
+                    and receipt_enforcement_enabled
+                    and receipt_transition is not None
+                    and dispatch_result.status == ActionStatus.COMPLETED
+                ):
+                    try:
+                        receipt_transition(receipt_id)
+                    except RuntimeError as exc:
+                        transition_error = str(exc)
+                        logger.warning(
+                            "OpenClaw action %s executed but receipt transition failed: %s",
+                            action.id,
+                            exc,
+                        )
+
+                operational_receipt_id = emit_operational_receipt(
+                    source="openclaw",
+                    action="execute_action",
+                    actor=user_id,
+                    inputs={
+                        "session_id": session_id,
+                        "action_id": action.id,
+                        "action_type": action_type,
+                        "input": sanitized_input,
+                    },
+                    outputs={
+                        "status": dispatch_result.status.value,
+                        "result": dispatch_result.output_data,
+                        "error": dispatch_result.error,
+                    },
+                    verdict=(
+                        "success" if dispatch_result.status == ActionStatus.COMPLETED else "failure"
+                    ),
+                    duration_seconds=max(dispatch_result.execution_time_ms, 0) / 1000,
+                    metadata={
+                        "session_id": session_id,
+                        "control_plane_action_id": action.id,
+                        "decision_receipt_id": receipt_id,
+                        "approval_id": dispatch_result.approval_id,
+                        "credential_ids": stored_metadata.get("credential_ids"),
+                        "policy_rule_ids": stored_metadata.get("policy_rule_ids"),
+                    },
+                )
 
             runtime_metadata = _build_runtime_metadata(
                 action,
@@ -477,6 +561,9 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
                 approval_id=dispatch_result.approval_id,
                 audit_result=dispatch_result.audit_result,
                 execution_time_ms=dispatch_result.execution_time_ms,
+                decision_receipt_id=receipt_id,
+                operational_receipt_id=operational_receipt_id,
+                transition_error=transition_error,
             )
 
             if dispatch_result.executed:
@@ -505,24 +592,19 @@ class SessionOrchestrationMixin(OpenClawMixinBase):
                 resource_id=action.id,
                 result=dispatch_result.audit_result,
                 details={
-                    "action_type": action_type,
-                    "session_id": session_id,
+                    **_linked_action_details(
+                        action_type=action_type,
+                        session_id=session_id,
+                        metadata=stored_metadata,
+                    ),
                     **dispatch_result.audit_details,
+                    **(
+                        {"operational_receipt_id": operational_receipt_id}
+                        if operational_receipt_id
+                        else {}
+                    ),
                 },
             )
-
-            # Transition receipt only after a real runtime attempt.
-            if receipt_id and dispatch_result.executed:
-                try:
-                    from aragora.pipeline.receipt_enforcement import (
-                        is_receipt_enforcement_enabled,
-                        transition_receipt_executed,
-                    )
-
-                    if is_receipt_enforcement_enabled("openclaw"):
-                        transition_receipt_executed(receipt_id)
-                except ImportError:
-                    pass
 
             logger.info(
                 "Dispatched action %s (type: %s) in session %s with status %s",
