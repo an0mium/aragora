@@ -11,6 +11,7 @@ Verifies the full flow programmatically:
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch, AsyncMock
 from typing import Any
 
@@ -230,7 +231,7 @@ class TestOrchestrationExecution:
                 canvas_mock.edges = {}
                 mock_run.return_value = canvas_mock
 
-                ctx = MagicMock()
+                ctx = SimpleNamespace(user_id="u1")
                 result = handler._execute_pipeline(ctx, "orch-1", {}, "u1")
                 assert result is not None
 
