@@ -984,6 +984,22 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     artifact_format = saved_artifact.suffix.lstrip(".") or fmt
     print(f"\nResult artifact ({result.get('mode', 'demo')}/{artifact_format}): {saved_artifact}")
 
+    # Persist to receipt store so API/dashboard/CLI-list can serve it
+    try:
+        from aragora.storage.receipt_store import get_receipt_store
+
+        store = get_receipt_store()
+        receipt_nested = result.get("receipt", {}) or {}
+        store_payload = dict(result)
+        store_payload.setdefault("receipt_id", receipt_nested.get("id", ""))
+        store_payload.setdefault("debate_id", result.get("receipt_id", ""))
+        store_payload.setdefault("verdict", result.get("verdict", ""))
+        store_payload.setdefault("checksum", result.get("artifact_hash", ""))
+        store.save(store_payload)
+        logger.info("receipt_persisted id=%s", store_payload.get("receipt_id", ""))
+    except Exception:  # noqa: BLE001 - best-effort, local file is primary
+        logger.debug("receipt_store_persist_skipped", exc_info=True)
+
     # Step 6b: Report KM ingestion status truthfully
     if result.get("mode") == "live":
         km_ingested = result.get("km_ingested", False)
