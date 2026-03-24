@@ -17,6 +17,7 @@ Migration Notes:
 
 from __future__ import annotations
 
+import inspect
 import logging
 from typing import Any
 
@@ -128,6 +129,26 @@ AUTH_NO_CACHE_HEADERS = {
 }
 
 
+async def _call_store_method(
+    user_store: Any,
+    async_name: str,
+    sync_name: str,
+    *args: Any,
+) -> Any:
+    """Prefer async user-store methods inside FastAPI request handlers."""
+    async_method = getattr(user_store, async_name, None)
+    if callable(async_method):
+        result = async_method(*args)
+        if inspect.isawaitable(result):
+            return await result
+        return result
+
+    sync_method = getattr(user_store, sync_name, None)
+    if callable(sync_method):
+        return sync_method(*args)
+    return None
+
+
 @router.post("/login", response_model=LoginResponse)
 async def login(
     body: LoginRequest,
@@ -173,7 +194,12 @@ async def login(
         lockout_tracker = None
 
     # Find user
-    user = user_store.get_user_by_email(email)
+    user = await _call_store_method(
+        user_store,
+        "get_user_by_email_async",
+        "get_user_by_email",
+        email,
+    )
     if not user:
         if lockout_tracker:
             lockout_tracker.record_failure(email=email, ip=client_ip)
@@ -223,7 +249,12 @@ async def login(
     org_membership: list[dict[str, Any]] = []
     if user.org_id:
         try:
-            org = user_store.get_organization_by_id(user.org_id)
+            org = await _call_store_method(
+                user_store,
+                "get_organization_by_id_async",
+                "get_organization_by_id",
+                user.org_id,
+            )
             if org:
                 org_data = org.to_dict()
                 joined_at = getattr(user, "created_at", None)
@@ -397,8 +428,12 @@ async def refresh_token(
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
     # Get user to ensure they still exist and are active
-    get_user_by_id = getattr(user_store, "get_user_by_id", None)
-    user = get_user_by_id(payload.user_id) if callable(get_user_by_id) else None
+    user = await _call_store_method(
+        user_store,
+        "get_user_by_id_async",
+        "get_user_by_id",
+        payload.user_id,
+    )
 
     if not user:
         raise HTTPException(status_code=401, detail="User not found")

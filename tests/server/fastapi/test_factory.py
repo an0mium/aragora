@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -19,6 +19,12 @@ def _patched_startup_dependencies():
         mocked["storage"] = stack.enter_context(patch("aragora.server.storage.DebateStorage"))
         mocked["get_user_store"] = stack.enter_context(
             patch("aragora.storage.user_store.get_user_store", return_value=MagicMock())
+        )
+        mocked["init_postgres_pool"] = stack.enter_context(
+            patch("aragora.server.startup.database.init_postgres_pool", new_callable=AsyncMock)
+        )
+        mocked["close_postgres_pool"] = stack.enter_context(
+            patch("aragora.server.startup.database.close_postgres_pool", new_callable=AsyncMock)
         )
         stack.enter_context(patch("aragora.ranking.elo.EloSystem", return_value=MagicMock()))
         stack.enter_context(
@@ -65,6 +71,8 @@ def test_create_app_lifespan_starts_with_fastapi_context(tmp_path: Path, monkeyp
 
     assert response.status_code == 200
     mocked["storage"].assert_called_once_with(str(tmp_path / "debates.db"))
+    mocked["init_postgres_pool"].assert_awaited_once()
+    mocked["close_postgres_pool"].assert_awaited_once()
 
 
 def test_build_server_context_defers_postgres_user_store_in_async_context(tmp_path: Path):

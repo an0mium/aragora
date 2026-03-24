@@ -225,6 +225,15 @@ async def lifespan(app: FastAPI):
     """
     logger.info("FastAPI server starting up...")
 
+    # Initialize shared PostgreSQL pool on the running event loop before
+    # any stores attempt backend selection.
+    try:
+        from aragora.server.startup.database import init_postgres_pool
+
+        await init_postgres_pool()
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
+        logger.debug("PostgreSQL pool startup unavailable: %s", e)
+
     # Initialize server context
     nomic_dir = Path(os.environ.get("ARAGORA_NOMIC_DIR", "."))
     ctx = _build_server_context(nomic_dir)
@@ -258,6 +267,13 @@ async def lifespan(app: FastAPI):
             storage.close()
         except (OSError, RuntimeError) as e:
             logger.debug("Error closing storage during shutdown: %s", e)
+
+    try:
+        from aragora.server.startup.database import close_postgres_pool
+
+        await close_postgres_pool()
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
+        logger.debug("PostgreSQL pool shutdown unavailable: %s", e)
 
 
 def create_app(
