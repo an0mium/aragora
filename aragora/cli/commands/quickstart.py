@@ -41,11 +41,11 @@ _LIVE_ROLES: tuple[tuple[str, str], ...] = (
     ("synthesizer", "synthesizer"),
 )
 _LIVE_PROVIDER_PRIORITY: tuple[str, ...] = (
-    "openai-api",
     "gemini",
+    "openai-api",
     "anthropic-api",
-    "mistral",
     "grok",
+    "mistral",
     "deepseek",
 )
 _LIVE_ARENA_KWARGS: dict[str, Any] = {

@@ -372,8 +372,8 @@ class TestLiveQuickstartHelpers:
         )
 
         providers = [agent["provider"] for agent in team]
-        assert providers[0] == "openai-api"
-        assert providers == ["openai-api"] * 3
+        assert providers[0] == "gemini"
+        assert providers == ["gemini"] * 3
 
     def test_build_live_receipt_surfaces_consensus_dissent_and_receipt(self):
         from aragora.gauntlet.receipt_models import DecisionReceipt
