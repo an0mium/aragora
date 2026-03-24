@@ -515,14 +515,27 @@ class KMOutcomeBridge:
 
         try:
             km: Any = self._knowledge_mound  # Cast to Any for duck-typed access
+            rich_update = getattr(type(km), "update", None)
             # Try different update patterns
-            if hasattr(km, "update_confidence"):
-                return await km.update_confidence(item_id, new_confidence, validation_metadata)
-            elif hasattr(km, "update"):
-                # update(node_id, updates: dict) - pass updates as a dict
+            if validation_metadata and rich_update is not None:
+                existing_item = await self._get_km_item(item_id)
+                existing_metadata = self._item_get(existing_item, "metadata", {})
+                if not isinstance(existing_metadata, dict):
+                    existing_metadata = {}
+
                 result = await km.update(
-                    item_id, {"confidence": new_confidence, "metadata": validation_metadata}
+                    item_id,
+                    {
+                        "confidence": new_confidence,
+                        "metadata": {**existing_metadata, **validation_metadata},
+                    },
                 )
+                return result is not None
+            elif hasattr(km, "update_confidence"):
+                return await km.update_confidence(item_id, new_confidence)
+            elif rich_update is not None:
+                # update(node_id, updates: dict) - pass updates as a dict
+                result = await km.update(item_id, {"confidence": new_confidence})
                 return result is not None
             else:
                 # Log success for testing even without real KM
