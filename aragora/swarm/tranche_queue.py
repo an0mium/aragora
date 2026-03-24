@@ -1037,6 +1037,72 @@ def _artifact_blocking_question(artifact: Any) -> str | None:
     return None
 
 
+def _artifact_worker_branch(artifact: Any) -> str | None:
+    metadata = getattr(artifact, "metadata", {})
+    if not isinstance(metadata, dict):
+        return None
+    deliverable = metadata.get("deliverable", {})
+    if not isinstance(deliverable, dict):
+        deliverable = {}
+    return _optional_text(deliverable.get("branch")) or _optional_text(metadata.get("branch"))
+
+
+def _queue_item_lane_ids(item_state: TrancheQueueItemRunState) -> tuple[str | None, list[str]]:
+    if item_state.manifest_path:
+        try:
+            current = load_tranche_run_state(item_state.manifest_path)
+        except (OSError, ValueError):
+            current = None
+        if current is not None:
+            return (
+                _optional_text(getattr(current, "manifest_id", None)) or item_state.manifest_id,
+                [
+                    str(lane_id).strip()
+                    for lane_id in getattr(current, "lane_states", {})
+                    if str(lane_id).strip()
+                ],
+            )
+    tranche_result = item_state.result.get("tranche", {})
+    if isinstance(tranche_result, dict):
+        lane_states = tranche_result.get("lane_states", {})
+        if isinstance(lane_states, dict):
+            return (
+                item_state.manifest_id,
+                [str(lane_id).strip() for lane_id in lane_states if str(lane_id).strip()],
+            )
+    return item_state.manifest_id, []
+
+
+def _queue_item_worker_branches(
+    item_state: TrancheQueueItemRunState,
+    *,
+    artifact_store: TrancheArtifactStore,
+) -> list[str]:
+    manifest_id, lane_ids = _queue_item_lane_ids(item_state)
+    if not manifest_id:
+        return []
+    branches: list[str] = []
+    for lane_id in lane_ids:
+        artifact = TrancheQueueExecutor._load_artifact_for_lane(
+            artifact_store, manifest_id, lane_id
+        )
+        branch = _artifact_worker_branch(artifact) if artifact is not None else None
+        if branch:
+            branches.append(branch)
+    return list(dict.fromkeys(branches))
+
+
+def _queue_item_elapsed_seconds(
+    item_state: TrancheQueueItemRunState,
+    *,
+    now: datetime,
+) -> float | None:
+    if item_state.started_at is None:
+        return None
+    end_time = item_state.finished_at or item_state.updated_at or now
+    return max(0.0, (end_time - item_state.started_at).total_seconds())
+
+
 def _design_review_blocking_question(payload: dict[str, Any]) -> str:
     unresolved = _string_list(payload.get("unresolved_assumptions"))
     if not unresolved and isinstance(payload.get("record"), dict):
@@ -2218,6 +2284,59 @@ async def run_tranche_queue(
         max_parallel_lanes=max_parallel_lanes,
     )
     return await executor.run()
+
+
+def tranche_queue_status(
+    *,
+    queue_path: str | Path,
+    repo_root: str | Path,
+) -> dict[str, Any]:
+    resolved_queue_path = Path(queue_path).resolve()
+    resolved_repo_root = Path(repo_root).resolve()
+    manifest = TrancheQueueManifest.load(resolved_queue_path)
+    state_path = queue_state_path_for_queue(resolved_queue_path)
+    state = TrancheQueueRunState.load(state_path, manifest=manifest)
+    artifact_store = TrancheArtifactStore(repo_root=resolved_repo_root)
+    now = _utcnow()
+
+    counts: dict[str, int] = {}
+    items: list[dict[str, Any]] = []
+    for item in manifest.items:
+        item_state = state.item_states[item.item_id]
+        counts[item_state.status] = counts.get(item_state.status, 0) + 1
+        pr_urls = list(dict.fromkeys(item_state.pr_urls))
+        worker_branches = _queue_item_worker_branches(item_state, artifact_store=artifact_store)
+        items.append(
+            {
+                "item_id": item.item_id,
+                "status": item_state.status,
+                "pr_url": pr_urls[0] if pr_urls else None,
+                "pr_urls": pr_urls,
+                "worker_branch": worker_branches[0] if len(worker_branches) == 1 else None,
+                "worker_branches": worker_branches,
+                "elapsed_seconds": _queue_item_elapsed_seconds(item_state, now=now),
+                "started_at": item_state.started_at.isoformat() if item_state.started_at else None,
+                "finished_at": item_state.finished_at.isoformat()
+                if item_state.finished_at
+                else None,
+            }
+        )
+
+    return {
+        "mode": "tranche-queue-status",
+        "queue_id": manifest.queue_id,
+        "queue_path": str(resolved_queue_path),
+        "state_path": str(state_path),
+        "status": state.status,
+        "stop_reason": state.stop_reason,
+        "current_item_id": state.current_item_id,
+        "created_at": state.created_at.isoformat(),
+        "started_at": state.started_at.isoformat() if state.started_at else None,
+        "updated_at": state.updated_at.isoformat(),
+        "finished_at": state.finished_at.isoformat() if state.finished_at else None,
+        "counts": counts,
+        "items": items,
+    }
 
 
 def reconcile_tranche_queue(

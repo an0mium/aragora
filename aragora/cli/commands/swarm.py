@@ -49,6 +49,75 @@ def _optional_text(value: object) -> str | None:
     return text or None
 
 
+def _format_elapsed_seconds(value: object) -> str:
+    if value is None:
+        return "-"
+    seconds = max(0.0, float(value))
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    if seconds < 3600:
+        minutes = int(seconds // 60)
+        remainder = int(seconds % 60)
+        return f"{minutes}m {remainder}s"
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    return f"{hours}h {minutes}m"
+
+
+def _print_table(
+    headers: list[tuple[str, str]],
+    rows: list[dict[str, object]],
+) -> None:
+    if not rows:
+        print("(no items)")
+        return
+    widths = {
+        key: max(len(label), *(len(str(row.get(key, "") or "")) for row in rows))
+        for key, label in headers
+    }
+    print("  ".join(label.ljust(widths[key]) for key, label in headers))
+    print("  ".join("-" * widths[key] for key, _label in headers))
+    for row in rows:
+        print("  ".join(str(row.get(key, "") or "").ljust(widths[key]) for key, _label in headers))
+
+
+def _render_tranche_queue_status(payload: dict[str, object]) -> None:
+    print(
+        "queue_id={queue_id} status={status} current_item_id={current_item_id}".format(
+            queue_id=payload.get("queue_id", ""),
+            status=payload.get("status", ""),
+            current_item_id=payload.get("current_item_id", "") or "none",
+        )
+    )
+    rows: list[dict[str, object]] = []
+    for item in [entry for entry in payload.get("items", []) if isinstance(entry, dict)]:
+        worker_branches = [
+            str(branch).strip() for branch in item.get("worker_branches", []) if str(branch).strip()
+        ]
+        rows.append(
+            {
+                "item_id": str(item.get("item_id", "")).strip(),
+                "status": str(item.get("status", "")).strip(),
+                "pr_url": str(item.get("pr_url", "")).strip() or "-",
+                "worker_branch": (
+                    str(item.get("worker_branch", "")).strip() or ", ".join(worker_branches) or "-"
+                ),
+                "elapsed": _format_elapsed_seconds(item.get("elapsed_seconds")),
+            }
+        )
+    print()
+    _print_table(
+        [
+            ("item_id", "item_id"),
+            ("status", "status"),
+            ("pr_url", "pr_url"),
+            ("worker_branch", "worker_branch"),
+            ("elapsed", "elapsed"),
+        ],
+        rows,
+    )
+
+
 def _print_supervisor_run(run: dict[str, object]) -> None:
     work_orders = (
         list(run.get("work_orders", [])) if isinstance(run.get("work_orders"), list) else []
@@ -872,6 +941,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             harvest_tranche_queue,
             reconcile_tranche_queue,
             run_tranche_queue,
+            tranche_queue_status,
         )
         from aragora.swarm.tranche_review import review_lane, select_review_tier
         from aragora.swarm.tranche_submit import submit_intake_bundle
@@ -944,6 +1014,24 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 print(json.dumps(payload, indent=2))
             else:
                 print(json.dumps(payload, indent=2))
+            return
+        if subaction == "status":
+            queue_arg = str(getattr(args, "queue", "") or "").strip()
+            if not queue_arg:
+                raise ValueError("tranche status requires --queue <path>")
+            queue_path = Path(queue_arg).resolve()
+            if not queue_path.exists():
+                raise ValueError(f"tranche queue manifest not found: {queue_path}")
+            payload = tranche_queue_status(
+                queue_path=queue_path,
+                repo_root=repo_root,
+            )
+            payload["action"] = subaction
+            payload["queue_path"] = str(queue_path)
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                _render_tranche_queue_status(payload)
             return
         if subaction in {"run-queue", "reconcile-queue", "harvest-queue"}:
             queue_arg = str(getattr(args, "queue", "") or "").strip()
@@ -1404,7 +1492,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             )
         else:
             raise ValueError(
-                "tranche action must be one of: submit, plan, inspect, watch, list, design-review, review, integrate, prepare, run, compile-queue, run-queue, reconcile-queue, harvest-queue"
+                "tranche action must be one of: submit, plan, inspect, watch, list, design-review, review, integrate, prepare, run, status, compile-queue, run-queue, reconcile-queue, harvest-queue"
             )
         payload["action"] = subaction
         payload["manifest_path"] = str(manifest_path)

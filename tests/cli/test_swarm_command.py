@@ -361,6 +361,26 @@ class TestSwarmParser:
         assert args.swarm_goal == "list"
         assert args.json is True
 
+    def test_swarm_tranche_status_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "tranche",
+                "status",
+                "--queue",
+                "docs/examples/overnight-queue.yaml",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "tranche"
+        assert args.swarm_goal == "status"
+        assert args.queue == "docs/examples/overnight-queue.yaml"
+        assert args.json is True
+
     def test_swarm_tranche_run_queue_parser(self):
         from aragora.cli.parser import build_parser
 
@@ -903,6 +923,48 @@ class TestSwarmCommand:
         assert '"action": "run-queue"' in out
         mock_run_queue.assert_awaited_once()
         assert mock_run_queue.await_args.kwargs["max_parallel_lanes"] == 2
+
+    def test_cmd_swarm_tranche_status_text(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="status",
+            queue="/tmp/overnight-queue.yaml",
+            json=False,
+        )
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch("aragora.swarm.tranche_queue.tranche_queue_status") as mock_status,
+        ):
+            mock_status.return_value = {
+                "mode": "tranche-queue-status",
+                "queue_id": "overnight",
+                "status": "running",
+                "current_item_id": "issue-1046",
+                "items": [
+                    {
+                        "item_id": "issue-1046",
+                        "status": "running",
+                        "pr_url": "https://github.com/org/repo/pull/42",
+                        "worker_branch": "codex/issue-1046",
+                        "worker_branches": ["codex/issue-1046"],
+                        "elapsed_seconds": 300.0,
+                    }
+                ],
+            }
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert "queue_id=overnight status=running current_item_id=issue-1046" in out
+        assert "item_id" in out
+        assert "worker_branch" in out
+        assert "https://github.com/org/repo/pull/42" in out
+        assert "codex/issue-1046" in out
+        assert "5m 0s" in out
+        mock_status.assert_called_once_with(
+            queue_path=Path("/tmp/overnight-queue.yaml").resolve(),
+            repo_root=Path("/tmp/repo"),
+        )
 
     def test_cmd_swarm_tranche_reconcile_queue_json(self, capsys):
         args = _swarm_args(

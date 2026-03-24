@@ -29,6 +29,7 @@ from aragora.swarm.tranche_queue import (
     _resolve_queue_autonomy_mode,
     queue_state_path_for_queue,
     reconcile_tranche_queue,
+    tranche_queue_status,
 )
 from aragora.swarm.tranche import TrancheLaneArtifact
 from aragora.swarm.tranche_state import (
@@ -326,6 +327,70 @@ def test_render_harvest_queue_summary_table_prints_counts(
         "needs_human": "1",
         "failed": "1",
     }
+
+
+def test_tranche_queue_status_reads_pr_url_branch_and_elapsed(tmp_path: Path) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    manifest = _write_queue(queue_path)
+    manifest_path = tmp_path / "tranche.yaml"
+    manifest_path.write_text("manifest_id: tranche-test\n", encoding="utf-8")
+
+    started_at = datetime(2026, 3, 20, 12, 0, tzinfo=timezone.utc)
+    finished_at = started_at + timedelta(minutes=5)
+    state = TrancheQueueRunState(
+        queue_id=manifest.queue_id,
+        status=QUEUE_STATUS_RUNNING,
+        started_at=started_at,
+        updated_at=finished_at,
+    )
+    state.ensure_manifest(manifest)
+    state.item_states["issue-1046"] = TrancheQueueItemRunState(
+        item_id="issue-1046",
+        status=QUEUE_ITEM_STATUS_COMPLETED,
+        manifest_id="tranche-test",
+        manifest_path=str(manifest_path),
+        pr_urls=["https://github.com/org/repo/pull/42"],
+        started_at=started_at,
+        updated_at=finished_at,
+        finished_at=finished_at,
+    )
+    state.save(queue_state_path_for_queue(queue_path))
+
+    TrancheRunState(
+        manifest_id="tranche-test",
+        status="completed",
+        autonomy_mode="adaptive",
+        lane_states={
+            "lane-a": LaneRunState(
+                lane_id="lane-a",
+                status="completed",
+                pr_url="https://github.com/org/repo/pull/42",
+            )
+        },
+    ).save(manifest_path.with_name("run_state.yaml"))
+    TrancheArtifactStore(repo_root=tmp_path).save(
+        "tranche-test",
+        TrancheLaneArtifact(
+            lane_id="lane-a",
+            source_ref="issue-1046",
+            status="completed",
+            metadata={"branch": "codex/issue-1046"},
+        ),
+    )
+
+    payload = tranche_queue_status(queue_path=queue_path, repo_root=tmp_path)
+
+    assert payload["mode"] == "tranche-queue-status"
+    assert payload["status"] == QUEUE_STATUS_RUNNING
+    assert payload["counts"] == {
+        "completed": 1,
+        "pending": 2,
+    }
+    issue = next(item for item in payload["items"] if item["item_id"] == "issue-1046")
+    assert issue["pr_url"] == "https://github.com/org/repo/pull/42"
+    assert issue["worker_branch"] == "codex/issue-1046"
+    assert issue["worker_branches"] == ["codex/issue-1046"]
+    assert issue["elapsed_seconds"] == 300.0
 
 
 def test_compile_queue_records_proposal_for_synthesize_doc_source(tmp_path: Path) -> None:
