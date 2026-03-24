@@ -122,7 +122,29 @@ class TestConnectivityGate:
             with patch("aragora.server.degraded_mode.set_degraded") as mock_degrade:
                 result = initializer._check_connectivity_gate(phase1)
                 assert result is False
-                mock_degrade.assert_called_once()
+                mock_degrade.assert_called_once_with(
+                    "Required backend(s) failed: postgres_pool: refused",
+                    error_code="DATABASE_UNAVAILABLE",
+                    recovery_hint="Check database/Redis connectivity and restart.",
+                )
+
+    def test_gate_sets_redis_error_code_when_only_redis_failed(self, initializer):
+        """Redis-only failures should expose a Redis-specific degraded code."""
+        phase1 = FakePhaseResult(
+            tasks=[
+                FakeInitTask(name="postgres_pool"),
+                FakeInitTask(name="redis", error=ConnectionError("refused")),
+            ]
+        )
+        with patch.dict("os.environ", {"ARAGORA_REQUIRE_REDIS": "true"}, clear=True):
+            with patch("aragora.server.degraded_mode.set_degraded") as mock_degrade:
+                result = initializer._check_connectivity_gate(phase1)
+                assert result is False
+                mock_degrade.assert_called_once_with(
+                    "Required backend(s) failed: redis: refused",
+                    error_code="REDIS_UNAVAILABLE",
+                    recovery_hint="Check database/Redis connectivity and restart.",
+                )
 
     def test_strict_mode_raises_on_failure(self):
         """When graceful_degradation=False, parallel init returns failure."""

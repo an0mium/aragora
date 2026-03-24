@@ -46,6 +46,19 @@ def _openrouter_fallback_configured() -> bool:
         return True
 
 
+def _redis_backend_configured() -> bool:
+    """Return True when any supported Redis runtime configuration is present."""
+    import os
+
+    if os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL"):
+        return True
+    if os.environ.get("ARAGORA_REDIS_SENTINEL_HOSTS"):
+        return True
+    if os.environ.get("ARAGORA_REDIS_CLUSTER_NODES"):
+        return True
+    return os.environ.get("ARAGORA_REDIS_MODE", "").lower() in {"sentinel", "cluster"}
+
+
 def check_connector_dependencies() -> list[str]:
     """Check if connector dependencies are available.
 
@@ -249,11 +262,12 @@ def check_production_requirements() -> list[str]:
 
         # Distributed state mode requires Redis
         if distributed_state_required:
-            if not os.environ.get("REDIS_URL"):
+            if not _redis_backend_configured():
                 missing.append(
-                    "REDIS_URL required for distributed state (multi-instance or production). "
-                    "Redis is needed for: session store, control-plane leader election, "
-                    "debate origins, and distributed caching. "
+                    "Redis configuration (REDIS_URL/ARAGORA_REDIS_URL or Sentinel/Cluster settings) "
+                    "required for distributed state (multi-instance or production). Redis is "
+                    "needed for: session store, control-plane leader election, debate origins, "
+                    "and distributed caching. "
                     "Set ARAGORA_SINGLE_INSTANCE=true if running single-node."
                 )
 
@@ -271,10 +285,10 @@ def check_production_requirements() -> list[str]:
         # =====================================================================
 
         # Redis recommended for durable state
-        if not distributed_state_required and not os.environ.get("REDIS_URL"):
+        if not distributed_state_required and not _redis_backend_configured():
             warnings.append(
-                "REDIS_URL not set - using in-memory state for sessions, "
-                "debate origins, and control plane. Data will be lost on restart. "
+                "Redis configuration not set - using in-memory state for sessions, debate "
+                "origins, and control plane. Data will be lost on restart. "
                 "Set ARAGORA_MULTI_INSTANCE=true to make Redis mandatory."
             )
 
@@ -373,6 +387,25 @@ async def validate_redis_connectivity(timeout_seconds: float = 5.0) -> tuple[boo
         Tuple of (success: bool, message: str)
     """
     import os
+
+    sentinel_hosts = os.environ.get("ARAGORA_REDIS_SENTINEL_HOSTS", "").strip()
+    cluster_nodes = os.environ.get("ARAGORA_REDIS_CLUSTER_NODES", "").strip()
+    redis_mode = os.environ.get("ARAGORA_REDIS_MODE", "").strip().lower()
+
+    if sentinel_hosts or cluster_nodes or redis_mode in {"sentinel", "cluster"}:
+        try:
+            from aragora.storage.redis_ha import RedisHAConfig, check_async_redis_health
+
+            health = await check_async_redis_health(RedisHAConfig.from_env())
+            if health.get("healthy"):
+                info = health.get("info", {})
+                redis_version = info.get("redis_version", "unknown")
+                mode = health.get("mode", redis_mode or "redis")
+                return True, f"Redis connected via {mode} (version {redis_version})"
+            error = health.get("error") or "Redis health check failed"
+            return False, f"Redis connection failed: {error}"
+        except ImportError:
+            return False, "redis package not installed - run: pip install redis"
 
     redis_url = os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL")
     if not redis_url:

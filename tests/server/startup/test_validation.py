@@ -328,6 +328,26 @@ class TestCheckProductionRequirements:
                 missing = check_production_requirements()
                 assert any("REDIS_URL" in m for m in missing)
 
+    def test_production_distributed_accepts_sentinel_config(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "ARAGORA_ENV": "production",
+                "ARAGORA_ENCRYPTION_KEY": "0" * 64,
+                "ARAGORA_REDIS_MODE": "sentinel",
+                "ARAGORA_REDIS_SENTINEL_HOSTS": "sentinel-1:26379,sentinel-2:26379",
+                "ARAGORA_REDIS_SENTINEL_MASTER": "mymaster",
+                "ARAGORA_SECRETS_STRICT": "false",
+            },
+            clear=True,
+        ):
+            with patch(
+                "aragora.control_plane.leader.is_distributed_state_required",
+                return_value=True,
+            ):
+                missing = check_production_requirements()
+                assert not any("REDIS_URL" in m for m in missing)
+
     def test_production_require_database_missing(self):
         with patch.dict(
             "os.environ",
@@ -385,6 +405,54 @@ class TestValidateRedisConnectivity:
             success, message = await validate_redis_connectivity()
             assert success is True
             assert "not configured" in message
+
+    async def test_uses_sentinel_health_check_when_configured(self):
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "ARAGORA_REDIS_MODE": "sentinel",
+                    "ARAGORA_REDIS_SENTINEL_HOSTS": "sentinel-1:26379,sentinel-2:26379",
+                    "ARAGORA_REDIS_SENTINEL_MASTER": "mymaster",
+                },
+                clear=True,
+            ),
+            patch(
+                "aragora.storage.redis_ha.check_async_redis_health",
+                return_value={
+                    "healthy": True,
+                    "mode": "sentinel",
+                    "info": {"redis_version": "7.2.13"},
+                },
+            ),
+        ):
+            success, message = await validate_redis_connectivity()
+            assert success is True
+            assert "via sentinel" in message
+
+    async def test_surfaces_sentinel_health_failure(self):
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "ARAGORA_REDIS_MODE": "sentinel",
+                    "ARAGORA_REDIS_SENTINEL_HOSTS": "sentinel-1:26379,sentinel-2:26379",
+                    "ARAGORA_REDIS_SENTINEL_MASTER": "mymaster",
+                },
+                clear=True,
+            ),
+            patch(
+                "aragora.storage.redis_ha.check_async_redis_health",
+                return_value={
+                    "healthy": False,
+                    "mode": "sentinel",
+                    "error": "Sentinel unavailable",
+                },
+            ),
+        ):
+            success, message = await validate_redis_connectivity()
+            assert success is False
+            assert "Sentinel unavailable" in message
 
     @pytest.mark.integration
     async def test_handles_connection_attempt(self):

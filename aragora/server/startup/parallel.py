@@ -345,9 +345,15 @@ class ParallelInitializer:
                 try:
                     from aragora.server.degraded_mode import DegradedErrorCode, set_degraded
 
+                    error_code = DegradedErrorCode.BACKEND_CONNECTIVITY
+                    if failed and all(item.startswith("redis:") for item in failed):
+                        error_code = DegradedErrorCode.REDIS_UNAVAILABLE
+                    elif failed and all(item.startswith("postgres_pool:") for item in failed):
+                        error_code = DegradedErrorCode.DATABASE_UNAVAILABLE
+
                     set_degraded(
-                        DegradedErrorCode.BACKEND_CONNECTIVITY,
                         f"Required backend(s) failed: {msg}",
+                        error_code=error_code,
                         recovery_hint="Check database/Redis connectivity and restart.",
                     )
                 except ImportError:

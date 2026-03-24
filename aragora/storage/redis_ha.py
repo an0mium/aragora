@@ -79,6 +79,11 @@ class RedisMode(str, Enum):
     CLUSTER = "cluster"
 
 
+def _resolve_sentinel_password(config: "RedisHAConfig") -> str | None:
+    """Use an explicit sentinel password when configured, else fall back to Redis auth."""
+    return config.sentinel_password or config.password
+
+
 @dataclass
 class RedisHAConfig:
     """
@@ -448,8 +453,9 @@ def _create_sentinel_client(config: RedisHAConfig) -> Any:
         "encoding": config.encoding,
     }
 
-    if config.sentinel_password:
-        sentinel_kwargs["password"] = config.sentinel_password
+    sentinel_password = _resolve_sentinel_password(config)
+    if sentinel_password:
+        sentinel_kwargs["password"] = sentinel_password
 
     # Build connection kwargs for master/replica connections
     connection_kwargs = {
@@ -651,8 +657,9 @@ async def _create_async_sentinel_client(config: RedisHAConfig) -> Any:
         "encoding": config.encoding,
     }
 
-    if config.sentinel_password:
-        sentinel_kwargs["password"] = config.sentinel_password
+    sentinel_password = _resolve_sentinel_password(config)
+    if sentinel_password:
+        sentinel_kwargs["password"] = sentinel_password
 
     # Build connection kwargs for master/replica connections
     connection_kwargs = {

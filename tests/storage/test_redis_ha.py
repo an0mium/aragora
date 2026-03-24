@@ -21,6 +21,8 @@ import pytest
 from aragora.storage.redis_ha import (
     RedisHAConfig,
     RedisMode,
+    _create_async_sentinel_client,
+    _create_sentinel_client,
     _parse_host_port,
     _parse_redis_url,
     check_redis_health,
@@ -182,6 +184,20 @@ class TestRedisHAConfig:
         assert config.sentinel_master == "mymaster"
         assert config.sentinel_password == "sentinel-secret"
         assert config.password == "redis-secret"
+
+    def test_from_env_sentinel_keeps_redis_password_when_sentinel_password_missing(
+        self, clean_env: None
+    ) -> None:
+        """Sentinel deployments can reuse the main Redis password for sentinel auth."""
+        os.environ["ARAGORA_REDIS_MODE"] = "sentinel"
+        os.environ["ARAGORA_REDIS_SENTINEL_HOSTS"] = "sentinel1:26379,sentinel2:26379"
+        os.environ["ARAGORA_REDIS_SENTINEL_MASTER"] = "mymaster"
+        os.environ["ARAGORA_REDIS_PASSWORD"] = "redis-secret"
+
+        config = RedisHAConfig.from_env()
+
+        assert config.password == "redis-secret"
+        assert config.sentinel_password is None
 
     def test_from_env_cluster(self, clean_env: None) -> None:
         """Test configuration from environment for cluster mode."""
@@ -443,6 +459,53 @@ class TestGetAsyncRedisClient:
             client = await get_async_redis_client(config)
 
             assert client is None
+
+
+class TestSentinelAuthFallback:
+    """Tests for sentinel auth fallback behavior."""
+
+    def test_sync_sentinel_uses_redis_password_when_sentinel_password_missing(self) -> None:
+        mock_master = MagicMock()
+        mock_master.ping.return_value = True
+        mock_sentinel = MagicMock()
+        mock_sentinel.master_for.return_value = mock_master
+
+        config = RedisHAConfig(
+            mode=RedisMode.SENTINEL,
+            sentinel_hosts=["sentinel1:26379"],
+            sentinel_master="mymaster",
+            password="redis-secret",
+            sentinel_password=None,
+        )
+
+        with patch("redis.sentinel.Sentinel", return_value=mock_sentinel) as mock_cls:
+            client = _create_sentinel_client(config)
+
+        assert client is mock_master
+        _, kwargs = mock_cls.call_args
+        assert kwargs["sentinel_kwargs"]["password"] == "redis-secret"
+
+    @pytest.mark.asyncio
+    async def test_async_sentinel_uses_redis_password_when_sentinel_password_missing(self) -> None:
+        mock_master = AsyncMock()
+        mock_master.ping = AsyncMock(return_value=True)
+        mock_sentinel = MagicMock()
+        mock_sentinel.master_for.return_value = mock_master
+
+        config = RedisHAConfig(
+            mode=RedisMode.SENTINEL,
+            sentinel_hosts=["sentinel1:26379"],
+            sentinel_master="mymaster",
+            password="redis-secret",
+            sentinel_password=None,
+        )
+
+        with patch("redis.asyncio.sentinel.Sentinel", return_value=mock_sentinel) as mock_cls:
+            client = await _create_async_sentinel_client(config)
+
+        assert client is mock_master
+        _, kwargs = mock_cls.call_args
+        assert kwargs["sentinel_kwargs"]["password"] == "redis-secret"
 
 
 # =============================================================================
