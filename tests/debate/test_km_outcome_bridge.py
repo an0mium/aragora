@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from dataclasses import dataclass
+from datetime import datetime
 
 from aragora.debate.km_outcome_bridge import (
     KMOutcomeBridge,
@@ -17,6 +18,7 @@ from aragora.debate.km_outcome_bridge import (
     OutcomeValidation,
     PropagationResult,
 )
+from aragora.knowledge.mound.types import ConfidenceLevel, KnowledgeItem, KnowledgeSource
 
 
 @dataclass
@@ -264,6 +266,42 @@ class TestKMOutcomeBridgeValidation:
         assert len(validations) == 1
         assert 0.13 <= validations[0].confidence_adjustment <= 0.14
 
+    @pytest.mark.asyncio
+    async def test_validate_accepts_knowledge_item_objects(self):
+        """Validation should accept KnowledgeItem objects from live KM queries."""
+        mock_mound = MagicMock()
+        mock_mound.get = AsyncMock(
+            return_value=KnowledgeItem(
+                id="km_123",
+                content="Test content",
+                source=KnowledgeSource.FACT,
+                source_id="src_123",
+                confidence=ConfidenceLevel.HIGH,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                metadata={"workspace_id": "default"},
+            )
+        )
+        mock_mound.update_confidence = AsyncMock(return_value=True)
+        mock_mound.get_relationships = AsyncMock(return_value=[])
+
+        bridge = KMOutcomeBridge(knowledge_mound=mock_mound)
+        bridge.record_km_usage("debate_1", ["km_123"])
+
+        outcome = MockConsensusOutcome(
+            debate_id="debate_1",
+            consensus_text="Test",
+            consensus_confidence=0.85,
+            implementation_attempted=True,
+            implementation_succeeded=True,
+        )
+
+        validations = await bridge.validate_knowledge_from_outcome(outcome)
+
+        assert len(validations) == 1
+        assert validations[0].original_confidence == 0.8
+        mock_mound.update_confidence.assert_awaited_once()
+
 
 class TestKMOutcomeBridgePropagation:
     """Tests for validation propagation."""
@@ -353,6 +391,48 @@ class TestKMOutcomeBridgePropagation:
         for v in result.validations:
             # At depth 1, adjustment should be 0.1 * 0.5 = 0.05
             assert abs(v.confidence_adjustment) <= abs(validation.confidence_adjustment)
+
+    @pytest.mark.asyncio
+    async def test_propagate_validation_accepts_knowledge_item_objects(self):
+        """Propagation should accept KnowledgeItem objects from live KM queries."""
+
+        class MockMound:
+            def __init__(self) -> None:
+                self.update_confidence = AsyncMock(return_value=True)
+
+            async def get(self, _item_id: str) -> KnowledgeItem:
+                return KnowledgeItem(
+                    id="km_related",
+                    content="Related content",
+                    source=KnowledgeSource.FACT,
+                    source_id="src_related",
+                    confidence=ConfidenceLevel.MEDIUM,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now(),
+                    metadata={},
+                )
+
+            async def get_relationships(self, _item_id: str) -> list[dict[str, str]]:
+                return [{"target_id": "km_related"}]
+
+        mock_mound = MockMound()
+        bridge = KMOutcomeBridge(knowledge_mound=mock_mound)
+        validation = OutcomeValidation(
+            km_item_id="km_root",
+            debate_id="debate_1",
+            was_successful=True,
+            confidence_adjustment=0.1,
+            validation_reason="test",
+        )
+
+        result = await bridge.propagate_validation(
+            km_item_id="km_root",
+            validation=validation,
+            depth=1,
+        )
+
+        assert result.items_updated == 1
+        assert result.validations[0].original_confidence == 0.6
 
 
 class TestKMOutcomeBridgeStats:

@@ -180,6 +180,54 @@ class KMOutcomeBridge:
         """Get KM items used in a debate."""
         return self._debate_km_usage.get(debate_id, [])
 
+    @staticmethod
+    def _item_get(item: Any, key: str, default: Any = None) -> Any:
+        """Read a field from KM items that may be dicts or dataclass-like objects."""
+        if isinstance(item, dict):
+            return item.get(key, default)
+
+        if hasattr(item, key):
+            return getattr(item, key)
+
+        if hasattr(item, "to_dict"):
+            try:
+                data = item.to_dict()
+            except Exception:  # pragma: no cover - defensive against third-party types
+                data = None
+            if isinstance(data, dict):
+                return data.get(key, default)
+
+        metadata = getattr(item, "metadata", None)
+        if isinstance(metadata, dict) and key in metadata:
+            return metadata.get(key, default)
+
+        return default
+
+    @staticmethod
+    def _coerce_confidence(raw_confidence: Any) -> float:
+        """Normalize confidence values from dicts, enums, or strings to floats."""
+        if raw_confidence is None:
+            return 0.5
+
+        if isinstance(raw_confidence, (int, float)):
+            return float(raw_confidence)
+
+        enum_value = getattr(raw_confidence, "value", None)
+        if isinstance(enum_value, str):
+            raw_confidence = enum_value
+
+        if isinstance(raw_confidence, str):
+            confidence_map = {
+                "verified": 0.95,
+                "high": 0.8,
+                "medium": 0.6,
+                "low": 0.4,
+                "unverified": 0.2,
+            }
+            return confidence_map.get(raw_confidence.lower(), 0.5)
+
+        return 0.5
+
     async def validate_knowledge_from_outcome(
         self,
         outcome: ConsensusOutcome,
@@ -283,17 +331,7 @@ class KMOutcomeBridge:
             logger.warning("KM item not found for validation: %s", item_id)
             return None
 
-        original_confidence = item.get("confidence", 0.5)
-        if isinstance(original_confidence, str):
-            # Convert confidence level to float if needed
-            confidence_map = {
-                "verified": 0.95,
-                "high": 0.8,
-                "medium": 0.6,
-                "low": 0.4,
-                "unverified": 0.2,
-            }
-            original_confidence = confidence_map.get(original_confidence.lower(), 0.5)
+        original_confidence = self._coerce_confidence(self._item_get(item, "confidence", 0.5))
 
         # Calculate adjustment based on outcome
         if was_successful:
@@ -377,16 +415,7 @@ class KMOutcomeBridge:
                     result.items_skipped += 1
                     continue
 
-                original_conf = item.get("confidence", 0.5)
-                if isinstance(original_conf, str):
-                    confidence_map = {
-                        "verified": 0.95,
-                        "high": 0.8,
-                        "medium": 0.6,
-                        "low": 0.4,
-                        "unverified": 0.2,
-                    }
-                    original_conf = confidence_map.get(original_conf.lower(), 0.5)
+                original_conf = self._coerce_confidence(self._item_get(item, "confidence", 0.5))
 
                 new_confidence = max(0.0, min(1.0, original_conf + decayed_adjustment))
 
