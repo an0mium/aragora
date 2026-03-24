@@ -38,8 +38,10 @@ Migration Notes:
 
 from __future__ import annotations
 
+import inspect
 import logging
 import re
+import secrets
 from datetime import datetime, timezone
 from typing import Any
 
@@ -343,7 +345,7 @@ def _get_user_store(request: Request) -> Any:
 
     # Try module-level singleton
     try:
-        from aragora.auth.store import get_user_store
+        from aragora.storage.user_store import get_user_store
 
         return get_user_store()
     except (ImportError, RuntimeError, AttributeError) as e:
@@ -464,6 +466,31 @@ def _sanitize_user_dict(user_dict: dict[str, Any]) -> dict[str, Any]:
         return {k: v for k, v in user_dict.items() if k not in sensitive_keys}
 
 
+async def _call_user_store_method(
+    user_store: Any,
+    async_name: str,
+    sync_name: str,
+    *args: Any,
+    required: bool = False,
+    **kwargs: Any,
+) -> Any:
+    """Prefer async user-store methods inside FastAPI request handlers."""
+    async_method = getattr(user_store, async_name, None)
+    if callable(async_method):
+        result = async_method(*args, **kwargs)
+        if inspect.isawaitable(result):
+            return await result
+        return result
+
+    sync_method = getattr(user_store, sync_name, None)
+    if callable(sync_method):
+        return sync_method(*args, **kwargs)
+
+    if required:
+        raise AttributeError(f"User store does not implement {async_name} or {sync_name}")
+    return None
+
+
 # =============================================================================
 # Endpoints — System Health & Metrics
 # =============================================================================
@@ -482,7 +509,12 @@ async def get_admin_stats(
     Requires `admin:stats:read` permission.
     """
     try:
-        stats = user_store.get_admin_stats()
+        stats = await _call_user_store_method(
+            user_store,
+            "get_admin_stats_async",
+            "get_admin_stats",
+            required=True,
+        )
         return SystemStatsResponse(stats=stats)
     except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
         logger.exception("Error getting admin stats: %s", e)
@@ -508,7 +540,12 @@ async def get_system_metrics(
 
         # User stats
         try:
-            metrics["users"] = user_store.get_admin_stats()
+            metrics["users"] = await _call_user_store_method(
+                user_store,
+                "get_admin_stats_async",
+                "get_admin_stats",
+                required=True,
+            )
         except (KeyError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.warning("Failed to get user stats: %s", e)
             metrics["users"] = {"error": "unavailable"}
@@ -574,7 +611,12 @@ async def get_revenue_stats(
     permission.
     """
     try:
-        stats = user_store.get_admin_stats()
+        stats = await _call_user_store_method(
+            user_store,
+            "get_admin_stats_async",
+            "get_admin_stats",
+            required=True,
+        )
         tier_distribution = stats.get("tier_distribution", {})
 
         # Calculate MRR from tier pricing
@@ -636,10 +678,14 @@ async def list_organizations(
     Supports optional tier filtering. Requires `admin:organizations:read` permission.
     """
     try:
-        organizations, total = user_store.list_all_organizations(
+        organizations, total = await _call_user_store_method(
+            user_store,
+            "list_all_organizations_async",
+            "list_all_organizations",
             limit=limit,
             offset=offset,
             tier_filter=tier,
+            required=True,
         )
 
         return OrganizationListResponse(
@@ -679,12 +725,16 @@ async def list_users(
     response. Requires `admin:users:read` permission.
     """
     try:
-        users, total = user_store.list_all_users(
+        users, total = await _call_user_store_method(
+            user_store,
+            "list_all_users_async",
+            "list_all_users",
             limit=limit,
             offset=offset,
             org_id_filter=org_id,
             role_filter=role,
             active_only=active_only,
+            required=True,
         )
 
         user_dicts = [_sanitize_user_dict(user.to_dict()) for user in users]
@@ -718,23 +768,35 @@ async def create_user(
     """
     try:
         # Check for existing user
-        existing = None
-        if hasattr(user_store, "get_user_by_email"):
-            existing = user_store.get_user_by_email(body.email)
+        existing = await _call_user_store_method(
+            user_store,
+            "get_user_by_email_async",
+            "get_user_by_email",
+            body.email,
+        )
         if existing:
             raise HTTPException(status_code=409, detail="A user with this email already exists")
 
+        from aragora.billing.models import hash_password
+
+        password_hash, password_salt = hash_password(body.password or secrets.token_urlsafe(32))
         user_data: dict[str, Any] = {
             "email": body.email,
             "name": body.name,
             "role": body.role,
+            "password_hash": password_hash,
+            "password_salt": password_salt,
         }
         if body.org_id:
             user_data["org_id"] = body.org_id
-        if body.password:
-            user_data["password"] = body.password
 
-        user = user_store.create_user(**user_data)
+        user = await _call_user_store_method(
+            user_store,
+            "create_user_async",
+            "create_user",
+            required=True,
+            **user_data,
+        )
         user_id = getattr(user, "id", str(user)) if user else ""
 
         logger.info("Admin %s created user %s (%s)", auth.user_id, user_id, body.email)
@@ -782,11 +844,23 @@ async def deactivate_user(
         if user_id == auth.user_id:
             raise HTTPException(status_code=400, detail="Cannot deactivate yourself")
 
-        target_user = user_store.get_user_by_id(user_id)
+        target_user = await _call_user_store_method(
+            user_store,
+            "get_user_by_id_async",
+            "get_user_by_id",
+            user_id,
+        )
         if not target_user:
             raise NotFoundError(f"User {user_id} not found")
 
-        user_store.update_user(user_id, is_active=False)
+        await _call_user_store_method(
+            user_store,
+            "update_user_async",
+            "update_user",
+            user_id,
+            is_active=False,
+            required=True,
+        )
 
         logger.info("Admin %s deactivated user %s", auth.user_id, user_id)
 
@@ -833,11 +907,23 @@ async def activate_user(
     _validate_user_id(user_id)
 
     try:
-        target_user = user_store.get_user_by_id(user_id)
+        target_user = await _call_user_store_method(
+            user_store,
+            "get_user_by_id_async",
+            "get_user_by_id",
+            user_id,
+        )
         if not target_user:
             raise NotFoundError(f"User {user_id} not found")
 
-        user_store.update_user(user_id, is_active=True)
+        await _call_user_store_method(
+            user_store,
+            "update_user_async",
+            "update_user",
+            user_id,
+            is_active=True,
+            required=True,
+        )
 
         logger.info("Admin %s activated user %s", auth.user_id, user_id)
 
@@ -885,7 +971,12 @@ async def unlock_user(
     _validate_user_id(user_id)
 
     try:
-        target_user = user_store.get_user_by_id(user_id)
+        target_user = await _call_user_store_method(
+            user_store,
+            "get_user_by_id_async",
+            "get_user_by_id",
+            user_id,
+        )
         if not target_user:
             raise NotFoundError(f"User {user_id} not found")
 
@@ -903,8 +994,14 @@ async def unlock_user(
             logger.warning("Lockout tracker not available: %s", e)
 
         # Clear database lockout state
-        if hasattr(user_store, "reset_failed_login_attempts"):
-            db_cleared = user_store.reset_failed_login_attempts(email)
+        db_cleared = bool(
+            await _call_user_store_method(
+                user_store,
+                "reset_failed_login_attempts_async",
+                "reset_failed_login_attempts",
+                email,
+            )
+        )
 
         logger.info(
             "Admin %s unlocked user %s (tracker=%s, db=%s)",
@@ -960,7 +1057,12 @@ async def impersonate_user(
     _validate_user_id(user_id)
 
     try:
-        target_user = user_store.get_user_by_id(user_id)
+        target_user = await _call_user_store_method(
+            user_store,
+            "get_user_by_id_async",
+            "get_user_by_id",
+            user_id,
+        )
         if not target_user:
             raise NotFoundError(f"User {user_id} not found")
 
