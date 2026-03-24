@@ -325,6 +325,15 @@ def _default_receipt_path(mode: str, fmt: str) -> Path:
     return receipts_dir / f"quickstart-{normalized_mode}-receipt{suffix}"
 
 
+def _clamp_confidence(raw_confidence: Any) -> float:
+    """Normalize confidence values into the expected [0.0, 1.0] range."""
+    try:
+        confidence = float(raw_confidence or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, min(1.0, confidence))
+
+
 def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
     """Save receipt to file in the specified format."""
     output_path = Path(path)
@@ -404,7 +413,7 @@ async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
         else str(result.verdict)
         if hasattr(result, "verdict")
         else "consensus",
-        "confidence": result.confidence if hasattr(result, "confidence") else 0.85,
+        "confidence": _clamp_confidence(getattr(result, "confidence", 0.85)),
         "rounds": rounds,
         "agents": [a.name for a in agents],
         "summary": result.receipt.to_markdown() if hasattr(result, "receipt") else str(result),
@@ -575,7 +584,7 @@ def _build_live_receipt(
         participants = [str(agent["name"]) for agent in team]
 
     final_answer = str(getattr(result, "final_answer", "") or "")
-    confidence = float(getattr(result, "confidence", 0.0) or 0.0)
+    confidence = _clamp_confidence(getattr(result, "confidence", 0.0))
     consensus_reached = bool(getattr(result, "consensus_reached", False))
     verdict = (
         "PASS"

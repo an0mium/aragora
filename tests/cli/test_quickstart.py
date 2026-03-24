@@ -418,6 +418,30 @@ class TestLiveQuickstartHelpers:
         assert receipt["receipt"]["artifact_hash"] == receipt["artifact_hash"]
         assert DecisionReceipt.from_dict(receipt).verify_integrity() is True
 
+    def test_build_live_receipt_clamps_confidence_into_unit_interval(self):
+        result = argparse.Namespace(
+            debate_id="debate-123",
+            participants=["alpha"],
+            final_answer="Ship it",
+            confidence=1.2,
+            consensus_reached=True,
+            rounds_used=1,
+            dissenting_views=[],
+            proposals={},
+            votes=[],
+        )
+
+        receipt = _build_live_receipt(
+            result,
+            "Should we ship?",
+            1,
+            [{"name": "alpha", "provider": "openai-api"}],
+        )
+
+        assert receipt["confidence"] == 1.0
+        assert receipt["receipt"]["confidence"] == 1.0
+        assert receipt["consensus_proof"]["confidence"] == 1.0
+
     @pytest.mark.asyncio
     async def test_can_reach_provider_tls_normalizes_wrapped_cert_errors(self):
         with patch(
