@@ -406,6 +406,10 @@ ALLOWED_WITHOUT_RBAC = frozenset(
         "features/speech",
         # Public demo endpoint (no auth by design)
         "playground",
+        "debates/public_viewer",
+        "mcp_tools_handler",
+        "openclaw/runtime",
+        "pipeline_telemetry",
         # Read-only analytics/informational endpoints (no mutations)
         "agents/recommendations",
         "debate_stats",

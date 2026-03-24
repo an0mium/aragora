@@ -384,7 +384,8 @@ class TestContractGuidedDefault:
         prompt = gen._build_synthesis_prompt(ctx)
 
         # Contract-guided prompt markers (from _build_contract_guided_prompt)
-        assert "OUTPUT FORMAT REQUIREMENTS (MANDATORY)" in prompt
+        assert "CRITICAL OUTPUT FORMAT" in prompt
+        assert "NON-NEGOTIABLE" in prompt
         assert "Ranked High-Level Tasks" in prompt
         assert "Gate Criteria" in prompt
         assert "JSON Payload" in prompt
@@ -412,7 +413,8 @@ class TestContractGuidedDefault:
 
         assert "Custom Section A" in prompt
         assert "Custom Section B" in prompt
-        assert "OUTPUT FORMAT REQUIREMENTS (MANDATORY)" in prompt
+        assert "CRITICAL OUTPUT FORMAT" in prompt
+        assert "NON-NEGOTIABLE" in prompt
 
     def test_default_output_contract_content(self):
         """The default output contract contains the expected required sections."""

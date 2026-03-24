@@ -587,7 +587,7 @@ class DeepSeekReasonerAgent(OpenRouterAgent):
         self,
         name: str = "deepseek-r1",
         role: AgentRole = "analyst",
-        model: str = "deepseek/deepseek-chat-v3-0324",
+        model: str = "deepseek/deepseek-r1",
         system_prompt: str | None = None,
     ):
         super().__init__(

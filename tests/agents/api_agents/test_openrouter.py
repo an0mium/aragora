@@ -460,7 +460,7 @@ class TestDeepSeekReasonerAgent:
         agent = DeepSeekReasonerAgent()
 
         assert agent.name == "deepseek-r1"
-        assert "reasoner" in agent.model
+        assert agent.model == "deepseek/deepseek-r1"
         assert agent.agent_type == "deepseek-r1"
 
 

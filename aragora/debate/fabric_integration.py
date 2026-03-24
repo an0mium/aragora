@@ -53,6 +53,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+FABRIC_DEFAULT_MAX_AGENTS = 10
+
 
 @dataclass
 class FabricDebateConfig:
@@ -64,7 +66,7 @@ class FabricDebateConfig:
     priority: Priority = Priority.NORMAL  # Task priority for scheduling
     timeout_seconds: float = 600.0  # Maximum debate duration
     min_agents: int = DEBATE_DEFAULTS.min_agents_per_debate
-    max_agents: int = DEBATE_DEFAULTS.max_agents_per_debate
+    max_agents: int = FABRIC_DEFAULT_MAX_AGENTS
 
     # Policy settings
     require_policy_check: bool = True  # Check policy before starting
@@ -476,7 +478,7 @@ class FabricDebateRunner:
 
 def create_debate_policy(
     name: str = "default-debate-policy",
-    max_agents: int = 10,
+    max_agents: int = FABRIC_DEFAULT_MAX_AGENTS,
     max_cost_per_debate: float = 10.0,
     allowed_models: list[str] | None = None,
 ) -> Policy:
