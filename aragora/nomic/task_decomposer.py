@@ -1520,7 +1520,10 @@ class TaskDecomposer:
         - Empty file_scope → backfilled from hints
         - Non-overlapping file_scope → overridden with hints
         - Overlapping file_scope → preserved (decomposer correctly narrowed)
+        - Empty hints → no changes (nothing to constrain against)
         """
+        if not hints:
+            return subtasks
         for subtask in subtasks:
             if not subtask.file_scope:
                 subtask.file_scope = list(hints)
