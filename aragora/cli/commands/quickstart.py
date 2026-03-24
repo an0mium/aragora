@@ -575,6 +575,28 @@ def _extract_thinking_traces(result: Any) -> dict[str, str] | None:
     return None
 
 
+def _clean_summary(text: str) -> str:
+    """Strip LLM chain-of-thought preamble from the summary for clean CLI output."""
+    import re
+
+    # Strip common LLM preamble patterns (both at start and after markdown headers)
+    preamble_patterns = [
+        r"Okay,\s+I\s+will\s+.*?\n+",
+        r"Here'?s?\s+(?:the|my)\s+(?:revised\s+)?.*?\n+",
+        r"Let\s+me\s+.*?\n+",
+        r"Sure[,!.].*?\n+",
+        r"I'?ll\s+.*?\n+",
+    ]
+    cleaned = text.strip()
+    for pattern in preamble_patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE | re.MULTILINE)
+
+    # Collapse multiple blank lines
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+
+    return cleaned.strip() or text.strip()
+
+
 def _summarize_dissenting_views(
     dissenting_views: list[str], participants: list[str]
 ) -> list[dict[str, str]]:
@@ -931,9 +953,8 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         print(f"  Artifact:   {str(result['artifact_hash'])[:16]}...")
 
     if result.get("summary"):
-        summary_text = result["summary"]
+        summary_text = _clean_summary(result["summary"])
         if len(summary_text) > 800:
-            # Truncate at sentence boundary to avoid mid-sentence clipping
             cutoff = summary_text[:800].rfind(".")
             if cutoff > 200:
                 summary_text = summary_text[: cutoff + 1] + "\n  [... truncated]"
