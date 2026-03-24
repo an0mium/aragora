@@ -301,6 +301,92 @@ def test_cmd_cleanup_reports_failed_branch_deletions(
     assert saved_state["sessions"] == []
 
 
+def test_cmd_ensure_refreshes_active_paths_for_new_worktree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    created_path = tmp_path / "managed" / "session-1"
+    created_path.mkdir(parents=True)
+    state = {"sessions": []}
+    saved_state: dict[str, object] = {}
+
+    entries_iter = iter(
+        [
+            [],
+            [mod.WorktreeEntry(path=created_path, branch="codex/session-1")],
+        ]
+    )
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(mod, "_get_worktree_entries", lambda _repo: next(entries_iter))
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(
+        mod,
+        "_create_managed_worktree",
+        lambda *_args, **_kwargs: {
+            "session_id": "session-1",
+            "agent": "codex",
+            "branch": "codex/session-1",
+            "path": str(created_path),
+            "base_branch": "main",
+            "created_at": "2026-03-24T00:00:00+00:00",
+            "last_seen_at": "2026-03-24T00:00:00+00:00",
+        },
+    )
+    monkeypatch.setattr(mod, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(
+        mod,
+        "_lease_snapshot",
+        lambda _repo_root, _path: {
+            "lease_id": None,
+            "lease_status": None,
+            "last_heartbeat_at": None,
+            "lease_expires_at": None,
+            "owner_agent": None,
+            "owner_session_id": None,
+            "branch": None,
+            "title": None,
+            "has_live_lease": False,
+            "lookup_failed": False,
+        },
+    )
+    monkeypatch.setattr(
+        mod,
+        "_worktree_status",
+        lambda *_args, **_kwargs: {"dirty": False, "ahead": 0, "behind": 0},
+    )
+    monkeypatch.setattr(mod, "_branch_ahead_count", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        agent="codex",
+        base="main",
+        session_id=None,
+        force_new=True,
+        reconcile=True,
+        strategy="ff-only",
+        print_path=False,
+        json=True,
+    )
+    rc = mod.cmd_ensure(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["created"] is True
+    assert payload["session"]["tracked_worktree"] is True
+    assert payload["session"]["lifecycle_state"] == "grace"
+    assert saved_state["sessions"][0]["tracked_worktree"] is True
+    assert saved_state["sessions"][0]["lifecycle_state"] == "grace"
+
+
 def test_cmd_cleanup_skips_worktree_with_active_lease(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

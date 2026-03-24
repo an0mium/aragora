@@ -640,6 +640,8 @@ def cmd_ensure(args: argparse.Namespace) -> int:
             session_id=args.session_id,
         )
         created = True
+        entries = _get_worktree_entries(repo_root)
+        active_paths = _active_path_set(entries)
     else:
         session["last_seen_at"] = _utc_now().isoformat()
         if args.reconcile:
@@ -673,6 +675,8 @@ def cmd_ensure(args: argparse.Namespace) -> int:
                     session_id=None,
                 )
                 created = True
+                entries = _get_worktree_entries(repo_root)
+                active_paths = _active_path_set(entries)
 
     _annotate_session(
         repo_root,
