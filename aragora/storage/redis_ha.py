@@ -80,8 +80,8 @@ class RedisMode(str, Enum):
 
 
 def _resolve_sentinel_password(config: "RedisHAConfig") -> str | None:
-    """Use an explicit sentinel password when configured, else fall back to Redis auth."""
-    return config.sentinel_password or config.password
+    """Use only explicit Sentinel auth when configured."""
+    return config.sentinel_password
 
 
 @dataclass
