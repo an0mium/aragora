@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { ProviderPreferencesTab } from '@/components/settings/ProviderPreferencesTab';
 import { useSWRFetch, invalidateCachePattern } from '@/hooks/useSWRFetch';
 import { API_BASE_URL } from '@/config';
 
@@ -567,7 +568,7 @@ function RolesList({ roles, onEdit, onDelete }: { roles: Role[]; onEdit: (role: 
 // Page
 // ---------------------------------------------------------------------------
 
-type ActiveTab = 'preferences' | 'roles' | 'permissions' | 'hierarchy';
+type ActiveTab = 'preferences' | 'providers' | 'roles' | 'permissions' | 'hierarchy';
 
 interface PermissionsResponse {
   permissions?: Permission[];
@@ -625,10 +626,12 @@ export default function SettingsPage() {
 
   const tabs: { key: ActiveTab; label: string }[] = [
     { key: 'preferences', label: 'PREFERENCES' },
+    { key: 'providers', label: 'PROVIDER PREFERENCES' },
     { key: 'roles', label: 'ROLES' },
     { key: 'permissions', label: 'PERMISSION MATRIX' },
     { key: 'hierarchy', label: 'HIERARCHY' },
   ];
+  const showRbacSummary = activeTab !== 'preferences' && activeTab !== 'providers';
 
   return (
     <ProtectedRoute>
@@ -644,7 +647,7 @@ export default function SettingsPage() {
               {'>'} SETTINGS & RBAC
             </h1>
             <p className="text-[var(--text-muted)] font-mono text-sm">
-              Configure preferences, manage roles, and review the permission matrix.
+              Configure preferences, inspect provider availability, and manage roles.
             </p>
           </div>
 
@@ -666,7 +669,7 @@ export default function SettingsPage() {
           </div>
 
           {/* RBAC Summary Stats */}
-          {activeTab !== 'preferences' && (
+          {showRbacSummary && (
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
                 <div className="text-2xl font-mono text-[var(--acid-green)]">
@@ -692,7 +695,7 @@ export default function SettingsPage() {
           )}
 
           {/* Error State for RBAC */}
-          {rbacError && activeTab !== 'preferences' && (
+          {rbacError && showRbacSummary && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-sm">
               Failed to load RBAC data. The backend may be unavailable.
             </div>
@@ -702,6 +705,12 @@ export default function SettingsPage() {
           {activeTab === 'preferences' && (
             <PanelErrorBoundary panelName="Settings">
               <SettingsPanel />
+            </PanelErrorBoundary>
+          )}
+
+          {activeTab === 'providers' && (
+            <PanelErrorBoundary panelName="Provider Preferences">
+              <ProviderPreferencesTab />
             </PanelErrorBoundary>
           )}
 

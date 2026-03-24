@@ -25,3 +25,4 @@ export {
 // Components
 export { ToggleSwitch } from './ToggleSwitch';
 export { FeaturesTab } from './FeaturesTab';
+export { ProviderPreferencesTab } from './ProviderPreferencesTab';
