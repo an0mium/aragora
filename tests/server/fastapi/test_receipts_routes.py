@@ -16,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from aragora.server.fastapi import create_app
+from aragora.storage.receipt_store import StoredReceipt
 
 
 @pytest.fixture
@@ -95,6 +96,25 @@ def sample_receipt_dict():
     }
 
 
+@pytest.fixture
+def sample_stored_receipt(sample_receipt_dict):
+    """StoredReceipt carrying the rich payload persisted by quickstart."""
+    return StoredReceipt(
+        receipt_id=sample_receipt_dict["receipt_id"],
+        gauntlet_id=sample_receipt_dict["gauntlet_id"],
+        debate_id="debate-123",
+        created_at=1740000000.0,
+        expires_at=None,
+        verdict=sample_receipt_dict["verdict"],
+        confidence=sample_receipt_dict["confidence"],
+        risk_level=sample_receipt_dict["risk_level"],
+        risk_score=sample_receipt_dict["risk_score"],
+        checksum=sample_receipt_dict["checksum"],
+        audit_trail_id=sample_receipt_dict["audit_trail_id"],
+        data=sample_receipt_dict,
+    )
+
+
 class TestListReceipts:
     """Tests for GET /api/v2/receipts."""
 
@@ -133,6 +153,33 @@ class TestListReceipts:
         assert data["receipts"][0]["receipt_id"] == "rcpt_test123"
         assert data["receipts"][0]["verdict"] == "APPROVED"
         assert data["total"] == 1
+
+    def test_list_receipts_with_storage_store_objects(self, app, sample_stored_receipt):
+        """List receipts should support the durable store's list(...) API."""
+
+        class StorageBackedStore:
+            def list(self, **kwargs):
+                return [sample_stored_receipt]
+
+            def count(self, **kwargs):
+                return 1
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "receipt_store": StorageBackedStore(),
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/receipts")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["receipts"][0]["receipt_id"] == "rcpt_test123"
+        assert data["receipts"][0]["findings_count"] == 1
 
     def test_list_receipts_validation_limit_bounds(self, client):
         """Pagination limit must be between 1 and 100."""
@@ -173,6 +220,20 @@ class TestGetReceipt:
         assert response.status_code == 200
         data = response.json()
         assert data["receipt_id"] == "rcpt_test123"
+
+    def test_get_receipt_from_stored_receipt_uses_full_payload(
+        self, client, mock_receipt_store, sample_stored_receipt
+    ):
+        """StoredReceipt objects should expose their rich data payload."""
+        mock_receipt_store.get.return_value = sample_stored_receipt
+
+        response = client.get("/api/v2/receipts/rcpt_test123")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["input_summary"] == "Test input content"
+        assert data["timestamp"] == "2026-02-11T12:00:00"
+        assert len(data["findings"]) == 1
+        assert data["agents_involved"] == ["claude", "codex"]
 
 
 class TestVerifyReceipt:
@@ -263,6 +324,22 @@ class TestExportReceipt:
 
         sarif = json.loads(data["content"])
         assert sarif["version"] == "2.1.0"
+
+    def test_export_receipt_from_stored_receipt_uses_full_payload(
+        self, client, mock_receipt_store, sample_stored_receipt
+    ):
+        """StoredReceipt exports should reconstruct from the full stored data."""
+        mock_receipt_store.get.return_value = sample_stored_receipt
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=json")
+        assert response.status_code == 200
+        data = response.json()
+        import json
+
+        exported = json.loads(data["content"])
+        assert exported["input_summary"] == "Test input content"
+        assert exported["agents_involved"] == ["claude", "codex"]
+        assert data["format"] == "json"
 
     def test_export_receipt_default_format_is_json(
         self, client, mock_receipt_store, sample_receipt_dict

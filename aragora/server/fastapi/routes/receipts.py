@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from enum import Enum
+from inspect import signature
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -228,19 +229,19 @@ async def get_receipt_store(request: Request):
 
 def _to_receipt_summary(r: Any) -> ReceiptSummary:
     """Convert a receipt dict or object to a ReceiptSummary."""
-    if isinstance(r, dict):
-        data = r.get("data", r)
+    data = _extract_receipt_payload(r)
+    if data:
         return ReceiptSummary(
-            receipt_id=data.get("receipt_id", r.get("receipt_id", "")),
-            gauntlet_id=data.get("gauntlet_id", r.get("gauntlet_id", "")),
-            timestamp=data.get("timestamp", r.get("timestamp")),
-            verdict=data.get("verdict", r.get("verdict", "")),
-            confidence=data.get("confidence", r.get("confidence", 0.0)),
-            risk_level=data.get("risk_level", r.get("risk_level", "MEDIUM")),
-            risk_score=data.get("risk_score", r.get("risk_score", 0.0)),
-            robustness_score=data.get("robustness_score", r.get("robustness_score", 0.0)),
-            findings_count=len(data.get("findings", r.get("findings", []))),
-            checksum=data.get("checksum", r.get("checksum", "")),
+            receipt_id=data.get("receipt_id", ""),
+            gauntlet_id=data.get("gauntlet_id", ""),
+            timestamp=data.get("timestamp"),
+            verdict=data.get("verdict", ""),
+            confidence=data.get("confidence", 0.0),
+            risk_level=data.get("risk_level", "MEDIUM"),
+            risk_score=data.get("risk_score", 0.0),
+            robustness_score=data.get("robustness_score", 0.0),
+            findings_count=len(data.get("findings", [])),
+            checksum=data.get("checksum", ""),
         )
     return ReceiptSummary(
         receipt_id=getattr(r, "receipt_id", ""),
@@ -254,6 +255,91 @@ def _to_receipt_summary(r: Any) -> ReceiptSummary:
         findings_count=len(getattr(r, "findings", [])),
         checksum=getattr(r, "checksum", ""),
     )
+
+
+def _extract_receipt_payload(receipt: Any) -> dict[str, Any]:
+    """Normalize receipt payloads from dict, StoredReceipt, or legacy objects."""
+    if isinstance(receipt, dict):
+        payload = dict(receipt)
+        nested = receipt.get("data")
+        if isinstance(nested, dict):
+            payload.update(nested)
+        return payload
+
+    if hasattr(receipt, "to_full_dict"):
+        full_payload = receipt.to_full_dict()
+        if isinstance(full_payload, dict):
+            return full_payload
+
+    payload: dict[str, Any] = {}
+    nested = getattr(receipt, "data", None)
+    if isinstance(nested, dict):
+        payload.update(nested)
+
+    for field in (
+        "receipt_id",
+        "gauntlet_id",
+        "debate_id",
+        "created_at",
+        "expires_at",
+        "verdict",
+        "confidence",
+        "risk_level",
+        "risk_score",
+        "audit_trail_id",
+        "checksum",
+    ):
+        if field not in payload and hasattr(receipt, field):
+            payload[field] = getattr(receipt, field)
+
+    if payload:
+        return payload
+
+    if hasattr(receipt, "to_dict"):
+        plain = receipt.to_dict()
+        if isinstance(plain, dict):
+            return plain
+
+    return {}
+
+
+def _extract_decision_receipt_payload(receipt: Any) -> dict[str, Any]:
+    """Extract only the original decision-receipt payload used for reconstruction."""
+    if isinstance(receipt, dict):
+        nested = receipt.get("data")
+        if isinstance(nested, dict):
+            payload = dict(nested)
+        else:
+            payload = dict(receipt)
+    else:
+        nested = getattr(receipt, "data", None)
+        if isinstance(nested, dict):
+            payload = dict(nested)
+        elif hasattr(receipt, "to_dict"):
+            plain = receipt.to_dict()
+            if isinstance(plain, dict):
+                payload = plain
+            else:
+                payload = _extract_receipt_payload(receipt)
+        else:
+            payload = _extract_receipt_payload(receipt)
+
+    if not payload:
+        return {}
+
+    if hasattr(receipt, "to_dict"):
+        plain = receipt.to_dict()
+        if isinstance(plain, dict):
+            for key in ("receipt_id", "gauntlet_id", "timestamp", "checksum"):
+                payload.setdefault(key, plain.get(key))
+
+    try:
+        from aragora.export.decision_receipt import DecisionReceipt
+
+        allowed_fields = signature(DecisionReceipt).parameters
+        return {key: value for key, value in payload.items() if key in allowed_fields}
+    except (ImportError, ValueError, TypeError):
+        return payload
 
 
 # =============================================================================
@@ -271,8 +357,14 @@ async def list_receipts(
 ) -> ReceiptListResponse:
     """List all receipts with pagination."""
     try:
+        filter_kwargs: dict[str, Any] = {}
+        if verdict:
+            filter_kwargs["verdict"] = verdict
+
         if hasattr(store, "list_recent"):
             results = store.list_recent(limit=limit, offset=offset, verdict=verdict)
+        elif hasattr(store, "list"):
+            results = store.list(limit=limit, offset=offset, **filter_kwargs)
         elif hasattr(store, "list_all"):
             all_receipts = store.list_all()
             if verdict:
@@ -569,80 +661,37 @@ async def get_receipt(
         if not receipt_data:
             raise NotFoundError(f"Receipt {receipt_id} not found")
 
-        if isinstance(receipt_data, dict):
-            data = receipt_data.get("data", receipt_data)
-            return ReceiptDetail(
-                receipt_id=data.get("receipt_id", receipt_id),
-                gauntlet_id=data.get("gauntlet_id", ""),
-                timestamp=data.get("timestamp"),
-                input_summary=data.get("input_summary", ""),
-                input_type=data.get("input_type", "spec"),
-                schema_version=data.get("schema_version", "1.0"),
-                verdict=data.get("verdict", ""),
-                confidence=data.get("confidence", 0.0),
-                risk_level=data.get("risk_level", "MEDIUM"),
-                risk_score=data.get("risk_score", 0.0),
-                robustness_score=data.get("robustness_score", 0.0),
-                coverage_score=data.get("coverage_score", 0.0),
-                verification_coverage=data.get("verification_coverage", 0.0),
-                findings=data.get("findings", []),
-                critical_count=data.get("critical_count", 0),
-                high_count=data.get("high_count", 0),
-                medium_count=data.get("medium_count", 0),
-                low_count=data.get("low_count", 0),
-                mitigations=data.get("mitigations", []),
-                dissenting_views=data.get("dissenting_views", []),
-                unresolved_tensions=data.get("unresolved_tensions", []),
-                verified_claims=data.get("verified_claims", []),
-                unverified_claims=data.get("unverified_claims", []),
-                agents_involved=data.get("agents_involved", []),
-                rounds_completed=data.get("rounds_completed", 0),
-                duration_seconds=data.get("duration_seconds", 0.0),
-                audit_trail_id=data.get("audit_trail_id"),
-                checksum=data.get("checksum", ""),
-            )
-        else:
-            return ReceiptDetail(
-                receipt_id=getattr(receipt_data, "receipt_id", receipt_id),
-                gauntlet_id=getattr(receipt_data, "gauntlet_id", ""),
-                timestamp=str(getattr(receipt_data, "timestamp", ""))
-                if hasattr(receipt_data, "timestamp")
-                else None,
-                input_summary=getattr(receipt_data, "input_summary", ""),
-                input_type=getattr(receipt_data, "input_type", "spec"),
-                schema_version=getattr(receipt_data, "schema_version", "1.0"),
-                verdict=getattr(receipt_data, "verdict", ""),
-                confidence=getattr(receipt_data, "confidence", 0.0),
-                risk_level=getattr(receipt_data, "risk_level", "MEDIUM"),
-                risk_score=getattr(receipt_data, "risk_score", 0.0),
-                robustness_score=getattr(receipt_data, "robustness_score", 0.0),
-                coverage_score=getattr(receipt_data, "coverage_score", 0.0),
-                verification_coverage=getattr(receipt_data, "verification_coverage", 0.0),
-                findings=[
-                    f if isinstance(f, dict) else f.__dict__
-                    for f in getattr(receipt_data, "findings", [])
-                ],
-                critical_count=getattr(receipt_data, "critical_count", 0),
-                high_count=getattr(receipt_data, "high_count", 0),
-                medium_count=getattr(receipt_data, "medium_count", 0),
-                low_count=getattr(receipt_data, "low_count", 0),
-                mitigations=getattr(receipt_data, "mitigations", []),
-                dissenting_views=[
-                    d if isinstance(d, dict) else d.__dict__
-                    for d in getattr(receipt_data, "dissenting_views", [])
-                ],
-                unresolved_tensions=getattr(receipt_data, "unresolved_tensions", []),
-                verified_claims=[
-                    v if isinstance(v, dict) else v.__dict__
-                    for v in getattr(receipt_data, "verified_claims", [])
-                ],
-                unverified_claims=getattr(receipt_data, "unverified_claims", []),
-                agents_involved=getattr(receipt_data, "agents_involved", []),
-                rounds_completed=getattr(receipt_data, "rounds_completed", 0),
-                duration_seconds=getattr(receipt_data, "duration_seconds", 0.0),
-                audit_trail_id=getattr(receipt_data, "audit_trail_id", None),
-                checksum=getattr(receipt_data, "checksum", ""),
-            )
+        data = _extract_receipt_payload(receipt_data)
+        return ReceiptDetail(
+            receipt_id=data.get("receipt_id", receipt_id),
+            gauntlet_id=data.get("gauntlet_id", ""),
+            timestamp=data.get("timestamp"),
+            input_summary=data.get("input_summary", ""),
+            input_type=data.get("input_type", "spec"),
+            schema_version=data.get("schema_version", "1.0"),
+            verdict=data.get("verdict", ""),
+            confidence=data.get("confidence", 0.0),
+            risk_level=data.get("risk_level", "MEDIUM"),
+            risk_score=data.get("risk_score", 0.0),
+            robustness_score=data.get("robustness_score", 0.0),
+            coverage_score=data.get("coverage_score", 0.0),
+            verification_coverage=data.get("verification_coverage", 0.0),
+            findings=data.get("findings", []),
+            critical_count=data.get("critical_count", 0),
+            high_count=data.get("high_count", 0),
+            medium_count=data.get("medium_count", 0),
+            low_count=data.get("low_count", 0),
+            mitigations=data.get("mitigations", []),
+            dissenting_views=data.get("dissenting_views", []),
+            unresolved_tensions=data.get("unresolved_tensions", []),
+            verified_claims=data.get("verified_claims", []),
+            unverified_claims=data.get("unverified_claims", []),
+            agents_involved=data.get("agents_involved", []),
+            rounds_completed=data.get("rounds_completed", 0),
+            duration_seconds=data.get("duration_seconds", 0.0),
+            audit_trail_id=data.get("audit_trail_id"),
+            checksum=data.get("checksum", ""),
+        )
 
     except NotFoundError:
         raise
@@ -680,11 +729,9 @@ async def verify_receipt(
         try:
             from aragora.export.decision_receipt import DecisionReceipt
 
-            if isinstance(receipt_data, dict):
-                data = receipt_data.get("data", receipt_data)
+            data = _extract_decision_receipt_payload(receipt_data)
+            if data:
                 receipt = DecisionReceipt.from_dict(data)
-            elif hasattr(receipt_data, "to_dict"):
-                receipt = DecisionReceipt.from_dict(receipt_data.to_dict())
             else:
                 return VerifyResponse(
                     receipt_id=receipt_id,
@@ -753,11 +800,9 @@ async def export_receipt(
         try:
             from aragora.export.decision_receipt import DecisionReceipt
 
-            if isinstance(receipt_data, dict):
-                data = receipt_data.get("data", receipt_data)
+            data = _extract_decision_receipt_payload(receipt_data)
+            if data:
                 receipt = DecisionReceipt.from_dict(data)
-            elif hasattr(receipt_data, "to_dict"):
-                receipt = DecisionReceipt.from_dict(receipt_data.to_dict())
             else:
                 raise ValueError("Cannot reconstruct receipt for export")
 
