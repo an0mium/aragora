@@ -85,6 +85,7 @@ _UNIFIED_INBOX_DYNAMIC_ROUTES = (
     re.compile(r"^/api/v1/inbox/messages/[^/]+$"),
     re.compile(r"^/api/v1/inbox/messages/[^/]+/debate$"),
 )
+_UNIFIED_INBOX_RESERVED_MESSAGE_SEGMENTS = frozenset({"batch", "send"})
 
 
 class UnifiedInboxHandler(BaseHandler):
@@ -112,7 +113,15 @@ class UnifiedInboxHandler(BaseHandler):
         del method
         if path in self.ROUTES:
             return True
-        return any(pattern.fullmatch(path) for pattern in _UNIFIED_INBOX_DYNAMIC_ROUTES)
+        if not any(pattern.fullmatch(path) for pattern in _UNIFIED_INBOX_DYNAMIC_ROUTES):
+            return False
+
+        if path.startswith("/api/v1/inbox/messages/"):
+            suffix = path.removeprefix("/api/v1/inbox/messages/")
+            message_segment = suffix.split("/", 1)[0]
+            return message_segment not in _UNIFIED_INBOX_RESERVED_MESSAGE_SEGMENTS
+
+        return True
 
     @require_permission("inbox:read")
     async def handle_request(self, request: Any, path: str, method: str) -> HandlerResult:
