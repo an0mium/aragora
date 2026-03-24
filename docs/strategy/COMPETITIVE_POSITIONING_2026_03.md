@@ -114,6 +114,21 @@ Why this works:
 - receipts and blocker truthfulness are valuable immediately
 - the repo now contains real evidence from queue-produced work, not just demos
 
+## Competitor Map
+
+| Dimension | Aragora | LangGraph/CrewAI | OpenCode/Pi |
+|-----------|---------|------------------|-------------|
+| Multi-model routing | yes | yes | yes |
+| Adversarial debate | yes, core primitive | mostly cooperative | no |
+| Decision receipts | yes, explicit output | logging-first | no |
+| Calibration tracking | yes | limited | no |
+| Truthful blocker handling | yes | uneven | uneven |
+| Worker-runtime breadth | secondary | strong | strong |
+| Primary moat | control-plane truthfulness | orchestration ecosystem | lightweight execution |
+
+Aragora should not compete on generic orchestration breadth. It should compete
+on decision quality, provenance, and accountable execution.
+
 ## ERC-8004 And Cryptoeconomic Accountability
 
 This is not a sideshow, but it is not the beachhead.
@@ -151,6 +166,37 @@ So the correct sequence is:
 
 - unify the full idea-to-execution workbench
 - turn upstream ideas/goals/actions into the default shell around the control plane
+
+## 90-Day Execution Stack
+
+### Weeks 1-4
+
+- make `aragora review` feel like a complete product path
+- keep unattended execution and merge gating truthful
+- tighten receipt, review, and blocker summaries for operators
+
+### Weeks 5-8
+
+- get 3-5 external users through real review and execution flows
+- measure single-model vs multi-model quality deltas on real work
+- publish concrete case studies with findings and receipts
+
+### Weeks 9-12
+
+- package compliance-ready artifacts around the real review path
+- prepare pentest and audit work only after the beachhead flow is repeatedly used
+- treat cryptoeconomic accountability as follow-on leverage, not the first sale
+
+## Key Metrics To Track
+
+| Metric | Why it matters |
+|--------|----------------|
+| External users running `aragora review` | proves the beachhead is real |
+| Receipts generated per week | measures decision volume and provenance capture |
+| Live multi-model debates per week | measures real usage, not surface clicks |
+| Bug/finding catch-rate delta vs single model | proves the epistemic wedge |
+| Time from install to first useful result | shows whether the path is productized |
+| Outcome-labeled calibration samples by domain | determines whether long-term accountability is becoming real |
 
 ## What This Means For Development
 
