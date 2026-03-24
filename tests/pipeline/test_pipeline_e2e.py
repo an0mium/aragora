@@ -220,7 +220,13 @@ class TestOrchestrationExecution:
         with patch.object(handler, "_get_canvas_manager"):
             with patch.object(handler, "_run_async") as mock_run:
                 canvas_mock = MagicMock()
-                canvas_mock.nodes = {}
+                task_node = MagicMock()
+                task_node.to_dict.return_value = {
+                    "id": "task-1",
+                    "type": "agent_task",
+                    "data": {"label": "Implement unified DAG workbench"},
+                }
+                canvas_mock.nodes = {"task-1": task_node}
                 canvas_mock.edges = {}
                 mock_run.return_value = canvas_mock
 
