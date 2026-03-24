@@ -565,6 +565,16 @@ def _build_live_team(
     return team
 
 
+def _extract_thinking_traces(result: Any) -> dict[str, str] | None:
+    """Extract extended thinking traces from debate result metadata."""
+    metadata = getattr(result, "metadata", None)
+    if isinstance(metadata, dict):
+        traces = metadata.get("thinking_traces")
+        if isinstance(traces, dict) and traces:
+            return traces
+    return None
+
+
 def _summarize_dissenting_views(
     dissenting_views: list[str], participants: list[str]
 ) -> list[dict[str, str]]:
@@ -685,6 +695,7 @@ def _build_live_receipt(
             "cost_usd": float(getattr(result, "total_cost_usd", 0.0) or 0.0),
             "tokens_used": int(getattr(result, "total_tokens", 0) or 0),
         },
+        thinking_traces=_extract_thinking_traces(result),
         config_used={
             "mode": "quickstart-live",
             "rounds": rounds_used,
@@ -934,6 +945,10 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
         print("\n  Dissent:")
         for d in result["dissent"]:
             print(f"    - {d.get('agent', '?')}: {d.get('reason', 'N/A')}")
+
+    thinking = result.get("thinking_traces")
+    if thinking:
+        print(f"\n  Thinking: {len(thinking)} agent(s) provided extended reasoning traces")
 
     print("\n" + "=" * 60)
 
