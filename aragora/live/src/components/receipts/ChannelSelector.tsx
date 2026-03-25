@@ -32,6 +32,36 @@ export interface ChannelSelectorProps {
   loading?: boolean;
 }
 
+const MANUAL_DESTINATION_CONFIG: Record<
+  ChannelType,
+  { label: string; placeholder: string; type: 'text' | 'email'; helper: string }
+> = {
+  slack: {
+    label: 'Slack Channel',
+    placeholder: '#security-alerts or C01234567',
+    type: 'text',
+    helper: 'Enter a Slack channel name or channel ID.',
+  },
+  teams: {
+    label: 'Teams Channel',
+    placeholder: 'Channel ID or channel name',
+    type: 'text',
+    helper: 'Enter the Teams channel identifier or display name.',
+  },
+  discord: {
+    label: 'Discord Channel',
+    placeholder: '123456789012345678',
+    type: 'text',
+    helper: 'Enter the Discord channel ID.',
+  },
+  email: {
+    label: 'Recipient Email',
+    placeholder: 'recipient@example.com',
+    type: 'email',
+    helper: 'Enter the email address that should receive the receipt.',
+  },
+};
+
 /**
  * Channel selector for receipt delivery.
  */
@@ -53,10 +83,21 @@ export function ChannelSelector({
   const handleChannelClick = (channel: ChannelOption) => {
     if (!channel.configured) return;
     onChannelSelect(channel.type);
-    if (channel.destinations && channel.destinations.length > 0) {
-      setShowDestinations(true);
-    }
+    setShowDestinations(Boolean(channel.destinations && channel.destinations.length > 0));
   };
+
+  const manualDestinationConfig = selectedChannel
+    ? MANUAL_DESTINATION_CONFIG[selectedChannel]
+    : null;
+  const hasDestinations = Boolean(
+    selectedChannelData?.destinations && selectedChannelData.destinations.length > 0
+  );
+  const showManualDestinationInput = Boolean(
+    selectedChannelData &&
+      selectedChannel === selectedChannelData.type &&
+      selectedChannelData.configured &&
+      !hasDestinations
+  );
 
   if (loading) {
     return (
@@ -136,19 +177,25 @@ export function ChannelSelector({
         </div>
       )}
 
-      {/* Email Input (for email channel) */}
-      {selectedChannel === 'email' && (
+      {/* Manual Destination Input */}
+      {showManualDestinationInput && manualDestinationConfig && (
         <div className="p-4 bg-surface rounded-lg border border-border">
-          <label className="block text-sm font-mono font-medium mb-2">
-            Recipient Email
+          <label
+            htmlFor="manual-destination-input"
+            className="block text-sm font-mono font-medium mb-2"
+          >
+            {manualDestinationConfig.label}
           </label>
           <input
-            type="email"
-            placeholder="recipient@example.com"
+            id="manual-destination-input"
+            type={manualDestinationConfig.type}
+            value={selectedDestination ?? ''}
+            placeholder={manualDestinationConfig.placeholder}
             onChange={(e) => onDestinationSelect(e.target.value)}
             className="w-full px-3 py-2 text-sm bg-bg border border-border rounded
                        focus:border-acid-green focus:outline-none font-mono"
           />
+          <p className="mt-2 text-xs text-text-muted">{manualDestinationConfig.helper}</p>
         </div>
       )}
     </div>

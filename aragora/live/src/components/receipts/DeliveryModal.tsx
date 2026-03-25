@@ -40,11 +40,7 @@ const DEFAULT_CHANNELS: ChannelOption[] = [
     icon: '?',
     description: 'Send to Slack channel',
     configured: true,
-    destinations: [
-      { id: 'C01234567', name: 'security-alerts', type: 'channel' },
-      { id: 'C01234568', name: 'compliance', type: 'channel' },
-      { id: 'C01234569', name: 'general', type: 'channel' },
-    ],
+    destinations: [],
   },
   {
     type: 'teams',
@@ -52,10 +48,7 @@ const DEFAULT_CHANNELS: ChannelOption[] = [
     icon: '?',
     description: 'Send to Teams channel',
     configured: true,
-    destinations: [
-      { id: 'T01234567', name: 'Security Team', type: 'channel' },
-      { id: 'T01234568', name: 'Compliance', type: 'channel' },
-    ],
+    destinations: [],
   },
   {
     type: 'discord',
@@ -74,6 +67,23 @@ const DEFAULT_CHANNELS: ChannelOption[] = [
     destinations: [],
   },
 ];
+
+function mergeChannelHealth(
+  defaults: ChannelOption[],
+  channels: Record<string, { status?: string }> | undefined
+): ChannelOption[] {
+  if (!channels) {
+    return defaults;
+  }
+
+  return defaults.map((channel) => {
+    const status = channels[channel.type]?.status;
+    return {
+      ...channel,
+      configured: status ? status !== 'unconfigured' : channel.configured,
+    };
+  });
+}
 
 /**
  * Modal for delivering receipts to communication channels.
@@ -102,7 +112,7 @@ export function DeliveryModal({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Fetch available channels on mount
+  // Fetch available channel health whenever the modal opens.
   useEffect(() => {
     const fetchChannels = async () => {
       setChannelsLoading(true);
@@ -111,12 +121,10 @@ export function DeliveryModal({
         if (tokens?.access_token) {
           headers['Authorization'] = `Bearer ${tokens.access_token}`;
         }
-        const response = await fetch(`${apiUrl}/api/channels`, { headers });
+        const response = await fetch(`${apiUrl}/api/v1/channels/health`, { headers });
         if (response.ok) {
           const data = await response.json();
-          if (data.channels) {
-            setChannels(data.channels);
-          }
+          setChannels(mergeChannelHealth(DEFAULT_CHANNELS, data.channels));
         }
       } catch {
         // Use defaults on error
@@ -136,7 +144,9 @@ export function DeliveryModal({
   }, [isOpen, apiUrl, tokens?.access_token]);
 
   const handleDeliver = useCallback(async () => {
-    if (!selectedChannel || !selectedDestination) {
+    const destination = selectedDestination?.trim();
+
+    if (!selectedChannel || !destination) {
       setError('Please select a channel and destination');
       return;
     }
@@ -154,7 +164,7 @@ export function DeliveryModal({
         headers,
         body: JSON.stringify({
           channel_type: selectedChannel,
-          destination: selectedDestination,
+          destination,
           options,
         }),
       });
@@ -165,7 +175,7 @@ export function DeliveryModal({
       }
 
       setSuccess(true);
-      onDeliverySuccess?.(selectedChannel, selectedDestination);
+      onDeliverySuccess?.(selectedChannel, destination);
 
       // Close after brief success message
       setTimeout(() => {
@@ -240,7 +250,10 @@ export function DeliveryModal({
                   channels={channels}
                   selectedChannel={selectedChannel}
                   selectedDestination={selectedDestination}
-                  onChannelSelect={setSelectedChannel}
+                  onChannelSelect={(channel) => {
+                    setSelectedChannel(channel);
+                    setSelectedDestination(null);
+                  }}
                   onDestinationSelect={setSelectedDestination}
                   loading={channelsLoading}
                 />
@@ -330,7 +343,7 @@ export function DeliveryModal({
             </button>
             <button
               onClick={handleDeliver}
-              disabled={loading || !selectedChannel || !selectedDestination}
+              disabled={loading || !selectedChannel || !selectedDestination?.trim()}
               className="px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded
                          hover:bg-acid-green/80 transition-colors
                          disabled:opacity-50 disabled:cursor-not-allowed"
