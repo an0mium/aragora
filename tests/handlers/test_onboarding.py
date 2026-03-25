@@ -17,8 +17,10 @@ Covers all routes and behavior of the OnboardingHandler class:
 
 from __future__ import annotations
 
+import io
 import json
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -151,6 +153,24 @@ def _make_flow(
     return flow
 
 
+def _mock_http_request(
+    path: str,
+    body: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+) -> SimpleNamespace:
+    """Create a minimal HTTP handler mock for BaseHandler-style entrypoints."""
+    payload = json.dumps(body or {}).encode() if body is not None else b""
+    merged_headers = {
+        "Content-Length": str(len(payload)),
+        **(headers or {}),
+    }
+    return SimpleNamespace(
+        path=path,
+        headers=merged_headers,
+        rfile=io.BytesIO(payload),
+    )
+
+
 # ============================================================================
 # can_handle routing
 # ============================================================================
@@ -194,6 +214,51 @@ class TestCanHandle:
 
     def test_rejects_root_api(self, handler):
         assert handler.can_handle("/api/v1/") is False
+
+
+class TestLiveHandlerInterface:
+    """Verify the handler works through the modular GET/POST/PUT entrypoints."""
+
+    @pytest.mark.asyncio
+    async def test_handle_get_templates_via_registry_signature(self, handler):
+        request = _mock_http_request("/api/v1/onboarding/templates")
+
+        result = await handler.handle("/api/v1/onboarding/templates", {}, request)
+
+        assert _status(result) == 200
+        data = _data(result)
+        assert data["total"] >= 1
+        assert len(data["templates"]) >= 1
+
+    @pytest.mark.asyncio
+    async def test_handle_post_flow_via_http_handler(self, handler):
+        request = _mock_http_request(
+            "/api/v1/onboarding/flow",
+            body={"use_case": "general"},
+            headers={"Content-Type": "application/json"},
+        )
+
+        result = await handler.handle_post("/api/v1/onboarding/flow", {}, request)
+
+        assert _status(result) == 200
+        data = _data(result)
+        assert "flow_id" in data
+        assert data["use_case"] == "general"
+
+    @pytest.mark.asyncio
+    async def test_handle_put_step_via_http_handler(self, handler):
+        flow = _make_flow(user_id="default")
+        request = _mock_http_request(
+            "/api/v1/onboarding/flow/step",
+            body={"flow_id": flow.id, "next_step": "use_case"},
+            headers={"Content-Type": "application/json"},
+        )
+
+        result = await handler.handle_put("/api/v1/onboarding/flow/step", {}, request)
+
+        assert _status(result) == 200
+        data = _data(result)
+        assert data["current_step"] == "use_case"
 
 
 # ============================================================================

@@ -29,6 +29,7 @@ from enum import Enum
 from typing import Any
 
 from aragora.server.handlers.base import (
+    BaseHandler,
     HandlerResult,
     error_response,
     success_response,
@@ -1509,7 +1510,7 @@ def get_onboarding_handlers() -> dict[str, Any]:
     }
 
 
-class OnboardingHandler:
+class OnboardingHandler(BaseHandler):
     """Handler class for onboarding endpoints (for handler registry)."""
 
     ROUTES = [
@@ -1525,34 +1526,114 @@ class OnboardingHandler:
 
     def __init__(self, ctx: dict[str, Any] | None = None):
         """Initialize handler with server context."""
-        self.ctx = ctx or {}
+        super().__init__(ctx or {})
+
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        """Normalize v1/v2 onboarding paths to the shared /api form."""
+        if path.startswith("/api/v1/"):
+            return "/api/" + path[8:]
+        if path.startswith("/api/v2/"):
+            return "/api/" + path[8:]
+        return path
+
+    def _resolve_request_identity(self, handler: Any | None) -> tuple[str, str | None]:
+        """Best-effort user/org resolution for live HTTP dispatch."""
+        if handler is None:
+            return "default", None
+
+        auth_ctx = getattr(handler, "_auth_context", None)
+        if auth_ctx is not None and getattr(auth_ctx, "user_id", None):
+            return auth_ctx.user_id, getattr(auth_ctx, "org_id", None)
+
+        try:
+            from aragora.billing.jwt_auth import extract_user_from_request
+
+            user_store = getattr(handler, "user_store", None) or self.ctx.get("user_store")
+            user_ctx = extract_user_from_request(handler, user_store)
+            if user_ctx and getattr(user_ctx, "is_authenticated", False) and user_ctx.user_id:
+                return user_ctx.user_id, getattr(user_ctx, "org_id", None)
+        except (ImportError, AttributeError, KeyError, ValueError, TypeError):
+            pass
+
+        return "default", None
+
+    async def handle_get(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        """Handle GET requests from the modular handler registry."""
+        self.set_request_context(handler, query_params)
+        user_id, organization_id = self._resolve_request_identity(handler)
+        return await self.handle(
+            path,
+            method="GET",
+            query_params=query_params,
+            user_id=user_id,
+            organization_id=organization_id,
+        )
+
+    async def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        """Handle POST requests from the modular handler registry."""
+        self.set_request_context(handler, query_params)
+        data, error = self.read_json_body_validated(handler)
+        if error is not None:
+            return error
+        user_id, organization_id = self._resolve_request_identity(handler)
+        return await self.handle(
+            path,
+            method="POST",
+            data=data or {},
+            query_params=query_params,
+            user_id=user_id,
+            organization_id=organization_id,
+        )
+
+    async def handle_put(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult:
+        """Handle PUT requests from the modular handler registry."""
+        self.set_request_context(handler, query_params)
+        data, error = self.read_json_body_validated(handler)
+        if error is not None:
+            return error
+        user_id, organization_id = self._resolve_request_identity(handler)
+        return await self.handle(
+            path,
+            method="PUT",
+            data=data or {},
+            query_params=query_params,
+            user_id=user_id,
+            organization_id=organization_id,
+        )
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        # Strip version prefix if present
-        normalized = path
-        if path.startswith("/api/v1/"):
-            normalized = "/api/" + path[8:]
-        elif path.startswith("/api/v2/"):
-            normalized = "/api/" + path[8:]
+        normalized = self._normalize_path(path)
         return normalized.startswith("/api/onboarding/")
 
     async def handle(
         self,
         path: str,
-        method: str,
+        method: str | dict[str, Any],
         data: dict[str, Any] | None = None,
         query_params: dict[str, Any] | None = None,
         user_id: str = "default",
         organization_id: str | None = None,
     ) -> HandlerResult:
         """Route request to appropriate handler function."""
-        # Normalize path
-        normalized = path
-        if path.startswith("/api/v1/"):
-            normalized = "/api/" + path[8:]
-        elif path.startswith("/api/v2/"):
-            normalized = "/api/" + path[8:]
+        request_handler = None
+        if isinstance(method, dict):
+            request_handler = data if data is not None and hasattr(data, "headers") else None
+            query_params = method
+            if request_handler is not None:
+                self.set_request_context(request_handler, query_params)
+                user_id, organization_id = self._resolve_request_identity(request_handler)
+            method = "GET"
+
+        normalized = self._normalize_path(path)
+        method = str(method).upper()
 
         data = data or {}
         query_params = query_params or {}
