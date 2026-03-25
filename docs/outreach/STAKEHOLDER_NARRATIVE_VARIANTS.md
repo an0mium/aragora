@@ -120,9 +120,9 @@ condition, then make Aragora the review and receipt layer for that path.
 
 Security teams should be skeptical of any agent platform that claims autonomy
 without showing its control surfaces. Aragora's value is that it does not ask
-you to trust a model. It gives you explicit review stages, provenance, cryptic
-receipts, bounded delegation, and truthful stopping behavior when the evidence
-is weak or the state is ambiguous.
+you to trust a model. It gives you explicit review stages, provenance,
+cryptographic receipts, bounded delegation, and truthful stopping behavior when
+the evidence is weak or the state is ambiguous.
 
 The system is strongest when presented as a control plane above worker runtimes,
 not as an unbounded autonomous actor. It preserves who said what, what evidence
