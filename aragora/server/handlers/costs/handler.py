@@ -7,13 +7,16 @@ tracking, budgets, alerts, recommendations, forecasting, and exports.
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Any
 from aiohttp import web
 
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
+from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.api_decorators import api_endpoint
@@ -94,6 +97,255 @@ class CostHandler:
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
+
+    def can_handle(self, path: str) -> bool:
+        """Return whether this handler owns the given cost path."""
+        return (
+            self._resolve_registry_target(path, "GET") is not None
+            or self._resolve_registry_target(path, "POST") is not None
+        )
+
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+        """Route GET requests through the aiohttp-style handlers used by direct routes."""
+        return self._run_async(self._dispatch_registry_request("GET", path, query_params, handler))
+
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        """Route POST requests through the aiohttp-style handlers used by direct routes."""
+        return self._run_async(self._dispatch_registry_request("POST", path, query_params, handler))
+
+    @staticmethod
+    def _run_async(coro: Any) -> HandlerResult | None:
+        """Synchronously resolve async route helpers inside modular dispatch."""
+        from aragora.server.handler_registry.core import _run_handler_coroutine
+
+        return _run_handler_coroutine(coro)
+
+    @staticmethod
+    def _read_request_body(handler: Any) -> bytes:
+        """Read the raw request body from the HTTP handler when needed."""
+        try:
+            content_length = int((getattr(handler, "headers", {}) or {}).get("Content-Length", "0"))
+        except (TypeError, ValueError, AttributeError):
+            content_length = 0
+        if content_length <= 0 or not hasattr(handler, "rfile"):
+            return b""
+        body = handler.rfile.read(content_length)
+        if isinstance(body, bytes):
+            return body
+        if isinstance(body, bytearray):
+            return bytes(body)
+        return b""
+
+    @staticmethod
+    def _match_dynamic(
+        path: str,
+        *,
+        prefix: str,
+        suffix: str = "",
+        param_name: str,
+    ) -> tuple[dict[str, str], ...] | None:
+        """Match a single path-segment dynamic route and return extracted params."""
+        if not path.startswith(prefix):
+            return None
+        remainder = path[len(prefix) :]
+        if suffix:
+            if not remainder.endswith(suffix):
+                return None
+            remainder = remainder[: -len(suffix)]
+        token = remainder.strip("/")
+        if not token or "/" in token:
+            return None
+        return ({param_name: token},)
+
+    @classmethod
+    def _resolve_registry_target(cls, path: str, method: str) -> tuple[str, dict[str, str]] | None:
+        """Resolve a modular-dispatch path to the underlying aiohttp handler method."""
+        get_routes = {
+            "/api/v1/costs": "handle_get_costs",
+            "/api/costs": "handle_get_costs",
+            "/api/v1/costs/breakdown": "handle_get_breakdown",
+            "/api/costs/breakdown": "handle_get_breakdown",
+            "/api/v1/costs/timeline": "handle_get_timeline",
+            "/api/costs/timeline": "handle_get_timeline",
+            "/api/v1/costs/alerts": "handle_get_alerts",
+            "/api/costs/alerts": "handle_get_alerts",
+            "/api/v1/costs/recommendations": "handle_get_recommendations",
+            "/api/costs/recommendations": "handle_get_recommendations",
+            "/api/v1/costs/recommendations/detailed": "handle_get_recommendations_detailed",
+            "/api/costs/recommendations/detailed": "handle_get_recommendations_detailed",
+            "/api/v1/costs/export": "handle_export",
+            "/api/costs/export": "handle_export",
+            "/api/v1/costs/efficiency": "handle_get_efficiency",
+            "/api/costs/efficiency": "handle_get_efficiency",
+            "/api/v1/costs/forecast": "handle_get_forecast",
+            "/api/costs/forecast": "handle_get_forecast",
+            "/api/v1/costs/forecast/detailed": "handle_get_forecast_detailed",
+            "/api/costs/forecast/detailed": "handle_get_forecast_detailed",
+            "/api/v1/costs/usage": "handle_get_usage",
+            "/api/costs/usage": "handle_get_usage",
+            "/api/v1/costs/budgets": "handle_list_budgets",
+            "/api/costs/budgets": "handle_list_budgets",
+            "/api/v1/costs/analytics/trend": "handle_get_spend_trend",
+            "/api/costs/analytics/trend": "handle_get_spend_trend",
+            "/api/v1/costs/analytics/by-agent": "handle_get_spend_by_agent",
+            "/api/costs/analytics/by-agent": "handle_get_spend_by_agent",
+            "/api/v1/costs/analytics/by-model": "handle_get_spend_by_model",
+            "/api/costs/analytics/by-model": "handle_get_spend_by_model",
+            "/api/v1/costs/analytics/by-debate": "handle_get_spend_by_debate",
+            "/api/costs/analytics/by-debate": "handle_get_spend_by_debate",
+            "/api/v1/costs/analytics/budget-utilization": "handle_get_budget_utilization",
+            "/api/costs/analytics/budget-utilization": "handle_get_budget_utilization",
+        }
+        post_routes = {
+            "/api/v1/costs/budget": "handle_set_budget",
+            "/api/costs/budget": "handle_set_budget",
+            "/api/v1/costs/forecast/simulate": "handle_simulate_forecast",
+            "/api/costs/forecast/simulate": "handle_simulate_forecast",
+            "/api/v1/costs/budgets": "handle_create_budget",
+            "/api/costs/budgets": "handle_create_budget",
+            "/api/v1/costs/constraints/check": "handle_check_constraints",
+            "/api/costs/constraints/check": "handle_check_constraints",
+            "/api/v1/costs/estimate": "handle_estimate_cost",
+            "/api/costs/estimate": "handle_estimate_cost",
+            "/api/v1/costs/alerts": "handle_create_alert",
+            "/api/costs/alerts": "handle_create_alert",
+        }
+        dynamic_routes = {
+            "GET": [
+                (
+                    "/api/v1/costs/recommendations/",
+                    "",
+                    "recommendation_id",
+                    "handle_get_recommendation",
+                ),
+                (
+                    "/api/costs/recommendations/",
+                    "",
+                    "recommendation_id",
+                    "handle_get_recommendation",
+                ),
+            ],
+            "POST": [
+                ("/api/v1/costs/alerts/", "/dismiss", "alert_id", "handle_dismiss_alert"),
+                ("/api/costs/alerts/", "/dismiss", "alert_id", "handle_dismiss_alert"),
+                (
+                    "/api/v1/costs/recommendations/",
+                    "/apply",
+                    "recommendation_id",
+                    "handle_apply_recommendation",
+                ),
+                (
+                    "/api/costs/recommendations/",
+                    "/apply",
+                    "recommendation_id",
+                    "handle_apply_recommendation",
+                ),
+                (
+                    "/api/v1/costs/recommendations/",
+                    "/dismiss",
+                    "recommendation_id",
+                    "handle_dismiss_recommendation",
+                ),
+                (
+                    "/api/costs/recommendations/",
+                    "/dismiss",
+                    "recommendation_id",
+                    "handle_dismiss_recommendation",
+                ),
+            ],
+        }
+
+        route_map = get_routes if method == "GET" else post_routes if method == "POST" else {}
+        handler_name = route_map.get(path)
+        if handler_name is not None:
+            return handler_name, {}
+
+        for prefix, suffix, param_name, dynamic_handler in dynamic_routes.get(method, []):
+            match = cls._match_dynamic(path, prefix=prefix, suffix=suffix, param_name=param_name)
+            if match is not None:
+                return dynamic_handler, match[0]
+        return None
+
+    @staticmethod
+    def _build_registry_request(
+        handler: Any,
+        *,
+        query_params: dict[str, Any],
+        match_info: dict[str, str],
+        body: bytes,
+    ) -> Any:
+        """Build the minimal aiohttp-like request object expected by the cost routes."""
+
+        class _RequestAdapter:
+            def __init__(self) -> None:
+                self.query = query_params
+                self.match_info = match_info
+                self.headers = getattr(handler, "headers", {}) or {}
+                self.method = getattr(handler, "command", "GET")
+                self._auth_context = getattr(handler, "_auth_context", None)
+                self.content_length = len(body) if body else None
+                self._body = body
+
+            async def json(self) -> dict[str, Any]:
+                return json.loads(self._body.decode("utf-8")) if self._body else {}
+
+            async def read(self) -> bytes:
+                return self._body
+
+        return _RequestAdapter()
+
+    @staticmethod
+    def _to_handler_result(response: Any) -> HandlerResult:
+        """Normalize aiohttp and handler responses to the modular HandlerResult type."""
+        if isinstance(response, HandlerResult):
+            return response
+        body = getattr(response, "body", b"")
+        if isinstance(body, bytearray):
+            body = bytes(body)
+        elif body is None:
+            text = getattr(response, "text", "") or ""
+            body = text.encode("utf-8")
+        content_type = getattr(response, "content_type", "application/json")
+        if not content_type:
+            content_type = "application/json"
+        headers = dict(getattr(response, "headers", {}) or {})
+        status_code = getattr(response, "status_code", None)
+        if status_code is None:
+            status_code = getattr(response, "status", 200)
+        return HandlerResult(
+            status_code=int(status_code),
+            content_type=str(content_type),
+            body=body if isinstance(body, bytes) else bytes(body),
+            headers=headers,
+        )
+
+    async def _dispatch_registry_request(
+        self,
+        method: str,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult:
+        """Adapt modular-dispatch calls to the aiohttp-style route handlers."""
+        resolved = self._resolve_registry_target(path, method)
+        if resolved is None:
+            return HandlerResult(
+                status_code=404,
+                content_type="application/json",
+                body=json.dumps({"error": "Not found"}).encode("utf-8"),
+                headers={},
+            )
+        handler_name, match_info = resolved
+        route_handler = getattr(self, handler_name)
+        request = self._build_registry_request(
+            handler,
+            query_params=query_params,
+            match_info=match_info,
+            body=self._read_request_body(handler) if method == "POST" else b"",
+        )
+        return self._to_handler_result(await route_handler(request))
 
     @api_endpoint(
         method="GET",

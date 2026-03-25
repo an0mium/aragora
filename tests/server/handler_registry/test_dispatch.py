@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.server.handlers.costs import CostHandler, CostSummary
 from aragora.server.handler_registry import (
     HANDLER_REGISTRY,
     HANDLERS_AVAILABLE,
@@ -315,6 +316,85 @@ class TestTryModularHandler:
         body = instance.wfile.getvalue()
         data = json.loads(body)
         assert data["code"] == "handler_error"
+
+    @patch("aragora.server.auth.auth_config.enabled", False)
+    @patch("aragora.server.handler_registry.HANDLERS_AVAILABLE", True)
+    @patch("aragora.server.handler_registry.get_route_index")
+    @patch("aragora.server.handler_registry.extract_version", return_value=("v1", False))
+    @patch("aragora.server.handler_registry.strip_version_prefix", side_effect=lambda p: p)
+    @patch("aragora.server.handler_registry.normalize_path_version", side_effect=lambda p, v: p)
+    @patch("aragora.server.handler_registry.version_response_headers", return_value={})
+    def test_dispatch_get_costs_handler_uses_modular_contract(
+        self, mock_vrh, mock_npv, mock_svp, mock_ev, mock_gri
+    ) -> None:
+        handler = CostHandler()
+        instance = _make_mixin_instance(handler=handler, handler_attr="_cost_handler", method="GET")
+        mock_index = MagicMock()
+        mock_index.get_handler = MagicMock(return_value=("_cost_handler", handler))
+        mock_gri.return_value = mock_index
+
+        summary = CostSummary(
+            total_cost=42.5,
+            budget=100.0,
+            tokens_used=1234,
+            api_calls=12,
+            last_updated=None,
+        )
+        instance.path = "/api/v1/costs?range=30d"
+
+        with (
+            patch(
+                "aragora.server.middleware.rate_limit.should_apply_default_rate_limit",
+                return_value=False,
+            ),
+            patch(
+                "aragora.server.handlers.costs.handler._models.get_cost_summary",
+                autospec=True,
+                return_value=summary,
+            ),
+        ):
+            result = instance._try_modular_handler("/api/v1/costs", {"range": ["30d"]})
+
+        assert result is True
+        instance.send_response.assert_called_once_with(200)
+        payload = json.loads(instance.wfile.getvalue())
+        assert payload["data"]["total_cost_usd"] == 42.5
+        assert payload["data"]["budget_usd"] == 100.0
+
+    @patch("aragora.server.auth.auth_config.enabled", False)
+    @patch("aragora.server.handler_registry.HANDLERS_AVAILABLE", True)
+    @patch("aragora.server.handler_registry.get_route_index")
+    @patch("aragora.server.handler_registry.extract_version", return_value=("v1", False))
+    @patch("aragora.server.handler_registry.strip_version_prefix", side_effect=lambda p: p)
+    @patch("aragora.server.handler_registry.normalize_path_version", side_effect=lambda p, v: p)
+    @patch("aragora.server.handler_registry.version_response_headers", return_value={})
+    def test_dispatch_post_cost_budget_uses_modular_contract(
+        self, mock_vrh, mock_npv, mock_svp, mock_ev, mock_gri
+    ) -> None:
+        handler = CostHandler()
+        instance = _make_mixin_instance(
+            handler=handler, handler_attr="_cost_handler", method="POST"
+        )
+        mock_index = MagicMock()
+        mock_index.get_handler = MagicMock(return_value=("_cost_handler", handler))
+        mock_gri.return_value = mock_index
+
+        body = json.dumps({"budget": 250.0, "workspace_id": "default"}).encode("utf-8")
+        instance.path = "/api/v1/costs/budget"
+        instance.headers = {"Content-Length": str(len(body)), "Content-Type": "application/json"}
+        instance.rfile = io.BytesIO(body)
+
+        with patch(
+            "aragora.server.middleware.rate_limit.should_apply_default_rate_limit",
+            return_value=False,
+        ):
+            result = instance._try_modular_handler("/api/v1/costs/budget", {})
+
+        assert result is True
+        instance.send_response.assert_called_once_with(200)
+        payload = json.loads(instance.wfile.getvalue())
+        assert payload["success"] is True
+        assert payload["budget"] == 250.0
 
     @patch("aragora.server.handler_registry.HANDLERS_AVAILABLE", True)
     @patch("aragora.server.handler_registry.get_route_index")
