@@ -1,5 +1,6 @@
 import { renderWithProviders, screen, waitFor } from '@/test-utils';
 import { DebateViewerWrapper } from '../[[...id]]/DebateViewerWrapper';
+import { fetchDebateClient } from '../[[...id]]/fetchDebate';
 
 // Mock next/link
 jest.mock('next/link', () => {
@@ -48,6 +49,10 @@ jest.mock('@/components/debate-viewer', () => ({
       Debate Viewer
     </div>
   ),
+}));
+
+jest.mock('../[[...id]]/fetchDebate', () => ({
+  fetchDebateClient: jest.fn(),
 }));
 
 // Mock analysis panel components
@@ -124,6 +129,7 @@ jest.mock('@/hooks/useDebateWebSocketStore', () => ({
 // Mock fetch globally
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+const mockFetchDebateClient = fetchDebateClient as jest.MockedFunction<typeof fetchDebateClient>;
 
 // Helper to set the mocked pathname for usePathname()
 function setMockPathname(pathname: string) {
@@ -134,6 +140,7 @@ describe('DebateViewerPage (via DebateViewerWrapper)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setMockPathname('/debate');
+    mockFetchDebateClient.mockResolvedValue(null);
     mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({}),
@@ -199,6 +206,7 @@ describe('DebateViewerWrapper', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setMockPathname('/debate');
+    mockFetchDebateClient.mockResolvedValue(null);
     mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({}),
@@ -308,6 +316,37 @@ describe('DebateViewerWrapper', () => {
         const viewer = screen.getByTestId('debate-viewer');
         expect(viewer).toHaveAttribute('data-ws-url', 'ws://localhost:8080/ws');
       });
+    });
+
+    it('recovers a public permalink client-side before falling back to archived loader', async () => {
+      setMockPathname('/debate/abcdef1234567890');
+      mockFetchDebateClient.mockResolvedValue({
+        id: 'abcdef1234567890',
+        topic: 'Should we publish the public demo permalink?',
+        status: 'completed',
+        consensus_reached: true,
+        confidence: 0.91,
+        verdict: 'Yes',
+        duration_seconds: 8.2,
+        participants: ['analyst', 'critic'],
+        proposals: {
+          analyst: 'Make the permalink public.',
+          critic: 'Validate the permalink path first.',
+        },
+        critiques: [],
+        votes: [],
+        final_answer: 'Publish the permalink after validating the viewer path.',
+        receipt_hash: 'sha256:test',
+      });
+
+      renderWithProviders(<DebateViewerWrapper />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Should we publish the public demo permalink?'),
+        ).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('debate-viewer')).not.toBeInTheDocument();
     });
 
     it('shows analysis toggle button for archived debates', async () => {

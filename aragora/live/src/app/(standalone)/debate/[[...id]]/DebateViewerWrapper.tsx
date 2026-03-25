@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { DebateViewer } from '@/components/debate-viewer';
 import { CruxPanel } from '@/components/CruxPanel';
@@ -26,7 +26,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBackend } from '@/components/BackendSelector';
 import { useDebateWebSocketStore } from '@/hooks/useDebateWebSocketStore';
 import { DEFAULT_AGENTS } from '@/config';
-import type { SavedDebate } from './fetchDebate';
+import { fetchDebateClient, type SavedDebate } from './fetchDebate';
 
 // ---------------------------------------------------------------------------
 // Agent color palette — rotates through neon accents per agent
@@ -330,6 +330,10 @@ export function DebateViewerWrapper({
   const pathname = usePathname();
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showDeepAnalysis, setShowDeepAnalysis] = useState(false);
+  const [resolvedSavedDebate, setResolvedSavedDebate] = useState<SavedDebate | null>(
+    savedDebate ?? null,
+  );
+  const [isResolvingSavedDebate, setIsResolvingSavedDebate] = useState(false);
   const { config } = useBackend();
 
   // Extract debate ID from pathname: /debate/abc123 -> abc123
@@ -362,6 +366,36 @@ export function DebateViewerWrapper({
   // Live debates start with 'adhoc_' - hide analysis during streaming for better UX
   const isLiveDebate = debateId?.startsWith('adhoc_') ?? false;
 
+  useEffect(() => {
+    if (savedDebate) {
+      setResolvedSavedDebate(savedDebate);
+      return;
+    }
+
+    if (!debateId || isLiveDebate) {
+      setResolvedSavedDebate(null);
+      setIsResolvingSavedDebate(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsResolvingSavedDebate(true);
+
+    const resolveSavedDebate = async () => {
+      const debate = await fetchDebateClient(debateId);
+      if (!cancelled) {
+        setResolvedSavedDebate(debate);
+        setIsResolvingSavedDebate(false);
+      }
+    };
+
+    void resolveSavedDebate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debateId, isLiveDebate, savedDebate]);
+
   // Get WebSocket actions for voice input integration
   // Note: This creates a separate connection for voice suggestions
   // DebateViewer has its own connection for main debate events
@@ -373,8 +407,8 @@ export function DebateViewerWrapper({
   });
 
   // ---- Saved (read-only) debate from server-side fetch ----
-  if (savedDebate) {
-    return <SavedDebateView debate={savedDebate} />;
+  if (resolvedSavedDebate) {
+    return <SavedDebateView debate={resolvedSavedDebate} />;
   }
 
   // No ID provided - show CTA to start a debate
@@ -410,6 +444,30 @@ export function DebateViewerWrapper({
               >
                 BACK TO ARAGORA
               </Link>
+            </div>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  if (isResolvingSavedDebate && !isLiveDebate) {
+    return (
+      <>
+        <Scanlines opacity={0.02} />
+        <CRTVignette />
+        <main className="min-h-screen bg-bg text-text relative z-10">
+          <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+              <Link href="/landing/">
+                <AsciiBannerCompact connected={true} />
+              </Link>
+              <ThemeToggle />
+            </div>
+          </header>
+          <div className="container mx-auto px-4 py-20 text-center max-w-lg">
+            <div className="text-acid-green font-mono animate-pulse">
+              {'>'} LOADING DEBATE...
             </div>
           </div>
         </main>
