@@ -176,6 +176,10 @@ class OAuthHandler(
         _cs = impl.create_span
         _asa = impl.add_span_attributes
 
+        # Normalize path once so routing and limiter exemptions stay aligned
+        # across /api/v1 and /api aliases.
+        normalized = path.replace("/api/v1/", "/api/")
+
         with _cs(f"oauth.{provider}", {"oauth.provider": provider, "oauth.path": path}) as span:
             # Get client IP for rate limiting
             client_ip = get_client_ip(handler)
@@ -184,12 +188,13 @@ class OAuthHandler(
             # - "token": Token exchange endpoints (POST /callback API, link/unlink)
             # - "callback": OAuth callback handlers (GET /callback from providers)
             # - "auth_start": Auth redirect endpoints (GET /google, /github, etc.)
-            is_callback = "/callback" in path
+            is_callback = "/callback" in normalized
             is_token_endpoint = (
-                path.endswith("/link")
-                or path.endswith("/unlink")
+                normalized.endswith("/link")
+                or normalized.endswith("/unlink")
                 or (is_callback and method == "POST")
             )
+            is_provider_catalog = normalized == "/api/auth/oauth/providers"
 
             if is_token_endpoint:
                 endpoint_type = "token"
@@ -198,9 +203,12 @@ class OAuthHandler(
             else:
                 endpoint_type = "auth_start"
 
-            # Rate limit check using the wrapper in _impl (backward compatible)
-            # The wrapper uses the new OAuthRateLimiter with exponential backoff
-            if not impl._oauth_limiter.is_allowed(client_ip, endpoint_type):
+            # The provider catalog powers the public login/signup UI and is already
+            # auth-exempt higher up in the stack. Treating it as an auth attempt
+            # makes the page hide social login options after a few refreshes.
+            if not is_provider_catalog and not impl._oauth_limiter.is_allowed(
+                client_ip, endpoint_type
+            ):
                 logger.warning(
                     "OAuth rate limit exceeded: ip=%s, endpoint=%s, provider=%s",
                     client_ip,
@@ -218,9 +226,6 @@ class OAuthHandler(
 
             # Add method to span
             _asa(span, {"oauth.method": method})
-
-            # Normalize path - support both /api/v1/ and /api/ prefixes
-            normalized = path.replace("/api/v1/", "/api/")
 
             # Determine if this is a callback (more important to trace)
             is_callback = "/callback" in normalized

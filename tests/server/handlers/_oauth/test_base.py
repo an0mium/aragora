@@ -257,6 +257,33 @@ class TestOAuthRateLimiting:
     @patch("aragora.server.handlers._oauth_impl._oauth_limiter")
     @patch("aragora.server.handlers._oauth_impl.create_span")
     @patch("aragora.server.handlers._oauth_impl.add_span_attributes")
+    def test_provider_catalog_bypasses_rate_limit(
+        self, mock_add_span, mock_create_span, mock_limiter, oauth_handler, mock_request_handler
+    ):
+        """Provider catalog should stay available even when auth starts are rate-limited."""
+        mock_span = MagicMock()
+        mock_create_span.return_value.__enter__ = MagicMock(return_value=mock_span)
+        mock_create_span.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_limiter.is_allowed.return_value = False
+
+        with patch.object(oauth_handler, "_handle_list_providers") as mock_method:
+            mock_method.return_value = MagicMock(status_code=200, body=b"{}")
+            result = oauth_handler.handle(
+                "/api/v1/auth/oauth/providers",
+                {},
+                mock_request_handler,
+                "GET",
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        mock_method.assert_called_once()
+        mock_limiter.is_allowed.assert_not_called()
+
+    @patch("aragora.server.handlers._oauth_impl._oauth_limiter")
+    @patch("aragora.server.handlers._oauth_impl.create_span")
+    @patch("aragora.server.handlers._oauth_impl.add_span_attributes")
     @patch("aragora.server.handlers._oauth_impl._get_google_client_id")
     def test_rate_limit_allowed_proceeds(
         self,
