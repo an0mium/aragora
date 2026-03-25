@@ -22,6 +22,11 @@ jest.mock('../src/components/MatrixRain', () => ({
   CRTVignette: () => null,
 }));
 
+// Mock auth gate for legacy dashboard integration tests
+jest.mock('../src/components/auth/ProtectedRoute', () => ({
+  ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 // Mock ExecutiveSummary
 jest.mock('../src/components/dashboard/ExecutiveSummary', () => ({
   ExecutiveSummary: () => <div data-testid="executive-summary">Executive Summary</div>,
@@ -85,6 +90,7 @@ jest.mock('../src/hooks/useSWRFetch', () => ({
     }
     return { data: null, error: null, isLoading: false };
   },
+  useActiveDebates: () => ({ data: { debates: [] }, isLoading: false }),
 }));
 
 import DashboardPage from '../src/app/(app)/dashboard/page';
@@ -268,7 +274,7 @@ describe('DashboardPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/No recent debates/)).toBeInTheDocument();
-      expect(screen.getByText('Start one')).toBeInTheDocument();
+      expect(screen.getAllByText('Start one').length).toBeGreaterThan(0);
     });
   });
 

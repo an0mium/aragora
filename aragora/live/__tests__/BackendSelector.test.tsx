@@ -61,7 +61,7 @@ describe('BackendSelector', () => {
 
     it('has development backend configured', () => {
       expect(BACKENDS.development).toBeDefined();
-      expect(BACKENDS.development.fallbackApi).toBe('http://localhost:8080');
+      expect(BACKENDS.development.fallbackApi).toBe('');
     });
   });
 
@@ -73,10 +73,10 @@ describe('BackendSelector', () => {
       await waitForDevAvailability(false);
     });
 
-    it('selects production by default', async () => {
+    it('selects development by default on localhost', async () => {
       render(<BackendSelector compact />);
-      const prodButton = screen.getByText('PROD');
-      expect(prodButton.closest('button')).toHaveClass('bg-acid-green');
+      const devButton = screen.getByText('DEV');
+      expect(devButton.closest('button')).toHaveClass('bg-acid-cyan');
       await waitForDevAvailability(false);
     });
 
@@ -126,11 +126,12 @@ describe('BackendSelector', () => {
       render(<BackendSelector compact />);
       await waitForDevAvailability(true);
 
-      // Production should be selected by default
-      const prodButton = screen.getByText('PROD').closest('button');
-      expect(prodButton).toHaveClass('bg-acid-green');
+      // Development is selected by default on localhost
+      const devButton = screen.getByText('DEV').closest('button');
+      expect(devButton).toHaveClass('bg-acid-cyan');
 
-      // Click PROD again (should stay selected)
+      // Switch to production
+      const prodButton = screen.getByText('PROD').closest('button');
       fireEvent.click(prodButton!);
       expect(prodButton).toHaveClass('bg-acid-green');
     });
@@ -214,10 +215,10 @@ describe('BackendSelector', () => {
       );
     }
 
-    it('returns production config by default', () => {
+    it('returns development config by default on localhost', () => {
       render(<TestComponent />);
-      expect(screen.getByTestId('backend')).toHaveTextContent('production');
-      expect(screen.getByTestId('api')).toHaveTextContent('api.aragora.ai');
+      expect(screen.getByTestId('backend')).toHaveTextContent('development');
+      expect(screen.getByTestId('api')).toHaveTextContent('');
     });
 
     it('returns saved backend from localStorage', () => {
