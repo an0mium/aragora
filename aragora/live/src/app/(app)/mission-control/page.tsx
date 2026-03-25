@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { useBackend } from '@/components/BackendSelector';
 import { useToastContext } from '@/context/ToastContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   useSystemHealth,
   useCircuitBreakers,
@@ -43,6 +45,14 @@ interface QueueStats {
   running: number;
   completed_today: number;
   failed_today: number;
+}
+
+interface HistoryEvent {
+  id: string;
+  event_type: string;
+  agent: string | null;
+  timestamp: string;
+  event_data?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -87,6 +97,56 @@ function timeAgo(timestamp: string): string {
 
 function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`;
+}
+
+function getOptionalString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function humanizeEventType(eventType: string): string {
+  return eventType
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function inferEventSeverity(eventType: string, eventData: Record<string, unknown>): SystemEvent['severity'] {
+  const explicitSeverity = getOptionalString(eventData.severity);
+  if (explicitSeverity === 'critical' || explicitSeverity === 'error' || explicitSeverity === 'warning' || explicitSeverity === 'info') {
+    return explicitSeverity;
+  }
+
+  const normalized = eventType.toLowerCase();
+  if (normalized.includes('critical')) return 'critical';
+  if (normalized.includes('error') || normalized.includes('fail') || normalized.includes('abort')) return 'error';
+  if (normalized.includes('warning') || normalized.includes('retry') || normalized.includes('degraded')) return 'warning';
+  return 'info';
+}
+
+function mapHistoryEvent(event: HistoryEvent): SystemEvent {
+  const eventData = event.event_data ?? {};
+  const source =
+    event.agent ||
+    getOptionalString(eventData.source) ||
+    getOptionalString(eventData.agent) ||
+    humanizeEventType(event.event_type);
+  const message =
+    getOptionalString(eventData.message) ||
+    getOptionalString(eventData.summary) ||
+    getOptionalString(eventData.title) ||
+    getOptionalString(eventData.task) ||
+    humanizeEventType(event.event_type);
+
+  return {
+    id: event.id,
+    type: event.event_type,
+    source,
+    message,
+    severity: inferEventSeverity(event.event_type, eventData),
+    timestamp: event.timestamp,
+    metadata: eventData,
+  };
 }
 
 // ============================================================================
@@ -332,8 +392,10 @@ function DebateQueuePanel({
 // ============================================================================
 
 export default function MissionControlPage() {
+  const router = useRouter();
   const { config: backendConfig } = useBackend();
   const { showToast } = useToastContext();
+  const { tokens } = useAuth();
 
   // ---- Data hooks ----
   const { health } = useSystemHealth();
@@ -352,19 +414,19 @@ export default function MissionControlPage() {
   );
 
   // Queue stats
-  const { data: queueData } = useSWRFetch<{ data: QueueStats }>(
-    '/api/scheduler/stats',
+  const { data: queueData } = useSWRFetch<QueueStats>(
+    '/api/control-plane/queue/metrics',
     { refreshInterval: 10000 },
   );
-  const queueStats = (queueData?.data ?? null) as QueueStats | null;
+  const queueStats = queueData ?? null;
 
   // Recent events
-  const { data: eventsData } = useSWRFetch<{ data: { events: SystemEvent[] } }>(
-    '/api/events/recent?limit=10',
+  const { data: eventsData } = useSWRFetch<{ events: HistoryEvent[] }>(
+    '/api/history/events?limit=10',
     { refreshInterval: 15000 },
   );
   const recentEvents = useMemo(
-    () => (eventsData?.data?.events ?? []) as SystemEvent[],
+    () => (eventsData?.events ?? []).map(mapHistoryEvent) as SystemEvent[],
     [eventsData],
   );
 
@@ -372,17 +434,40 @@ export default function MissionControlPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const executeAction = useCallback(
-    async (action: string, endpoint: string, method = 'POST') => {
+    async (
+      action: string,
+      endpoint: string,
+      method = 'POST',
+      body?: Record<string, unknown>,
+    ) => {
       setActionLoading(action);
       try {
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (tokens?.access_token) {
+          headers.Authorization = `Bearer ${tokens.access_token}`;
+        }
         const res = await fetch(`${backendConfig.api}${endpoint}`, {
           method,
-          headers: { 'Content-Type': 'application/json' },
+          headers,
+          ...(body ? { body: JSON.stringify(body) } : {}),
         });
         if (res.ok) {
           showToast(`${action} initiated successfully`, 'success');
         } else {
-          showToast(`Failed to initiate ${action}`, 'error');
+          const errorText =
+            await res
+              .json()
+              .then((data: unknown) => {
+                if (data && typeof data === 'object') {
+                  const message =
+                    getOptionalString((data as Record<string, unknown>).error) ||
+                    getOptionalString((data as Record<string, unknown>).message);
+                  if (message) return message;
+                }
+                return null;
+              })
+              .catch(() => null);
+          showToast(errorText || `Failed to initiate ${action}`, 'error');
         }
       } catch (err) {
         logger.error(`Quick action ${action} failed:`, err);
@@ -391,8 +476,19 @@ export default function MissionControlPage() {
         setActionLoading(null);
       }
     },
-    [backendConfig.api, showToast],
+    [backendConfig.api, showToast, tokens?.access_token],
   );
+
+  const navigateTo = useCallback((href: string) => {
+    router.push(href);
+  }, [router]);
+
+  const handleResetBreakers = useCallback(async () => {
+    if (typeof window !== 'undefined' && !window.confirm('Reset all Nomic circuit breakers?')) {
+      return;
+    }
+    await executeAction('Circuit breaker reset', '/api/v1/admin/nomic/circuit-breakers/reset', 'POST');
+  }, [executeAction]);
 
   // ---- Derived state ----
   const overallStatus = health?.overall_status ?? 'healthy';
@@ -499,28 +595,28 @@ export default function MissionControlPage() {
                   <QuickActionButton
                     label="[START DEBATE]"
                     icon="$"
-                    onClick={() => executeAction('Debate', '/api/debates', 'POST')}
+                    onClick={() => navigateTo('/arena')}
                     loading={actionLoading === 'Debate'}
                     variant="primary"
                   />
                   <QuickActionButton
                     label="[RUN GAUNTLET]"
                     icon="#"
-                    onClick={() => executeAction('Gauntlet', '/api/gauntlet/run', 'POST')}
+                    onClick={() => navigateTo('/gauntlet')}
                     loading={actionLoading === 'Gauntlet'}
                     variant="secondary"
                   />
                   <QuickActionButton
                     label="[SELF-IMPROVE SCAN]"
                     icon="@"
-                    onClick={() => executeAction('Self-improvement', '/api/nomic/scan', 'POST')}
+                    onClick={() => navigateTo('/self-improve')}
                     loading={actionLoading === 'Self-improvement'}
                     variant="secondary"
                   />
                   <QuickActionButton
                     label="[RESET BREAKERS]"
                     icon="!"
-                    onClick={() => executeAction('Circuit breaker reset', '/api/admin/circuit-breakers/reset', 'POST')}
+                    onClick={handleResetBreakers}
                     loading={actionLoading === 'Circuit breaker reset'}
                     variant="danger"
                   />
