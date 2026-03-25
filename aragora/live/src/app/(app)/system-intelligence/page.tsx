@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { AsciiBannerCompact } from '@/components/AsciiBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { BackendSelector, useBackend } from '@/components/BackendSelector';
+import { BackendSelector } from '@/components/BackendSelector';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import {
   useSystemIntelligence,
@@ -64,6 +64,83 @@ interface DebateQueueInfo {
   avg_duration_ms: number;
 }
 
+interface MonitoringAnomalyRecord {
+  id?: string;
+  severity?: string;
+  description?: string;
+  message?: string;
+  metric_name?: string;
+  source?: string;
+  timestamp?: string;
+  resolved?: boolean;
+}
+
+interface MonitoringAnomalyResponse {
+  anomalies?: MonitoringAnomalyRecord[];
+}
+
+interface HistoryEventRecord {
+  id?: string;
+  event_type?: string;
+  type?: string;
+  message?: string;
+  source?: string;
+  agent?: string;
+  timestamp?: string;
+  event_data?: {
+    message?: string;
+    summary?: string;
+  } | null;
+}
+
+interface HistoryEventsResponse {
+  events?: HistoryEventRecord[];
+}
+
+interface SuccessEnvelope<T> {
+  success?: boolean;
+  data?: T;
+}
+
+interface KMHealthPayload {
+  status?: string;
+  checks?: Record<string, boolean>;
+  timestamp?: string | null;
+}
+
+interface KMAdaptersPayload {
+  total?: number;
+  enabled?: number;
+  last_sync?: string | null;
+  adapters?: Array<{
+    name?: string;
+    enabled?: boolean;
+  }>;
+}
+
+interface NomicStatePayload {
+  state?: string;
+  status?: string;
+  active?: boolean;
+  running?: boolean;
+  cycle?: number;
+  current_cycle?: number;
+  phase?: string;
+  current_phase?: string;
+  success_rate?: number;
+  total_cycles?: number;
+  last_completed_at?: string | null;
+  last_update?: string | null;
+  updated_at?: string | null;
+}
+
+interface QueueMetricsPayload {
+  pending?: number;
+  running?: number;
+  completed_today?: number;
+  avg_execution_time_ms?: number;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -113,6 +190,91 @@ function getPhaseLabel(phase: string) {
   }
 }
 
+function normalizeAnomalies(data?: MonitoringAnomalyResponse | null): AnomalyAlert[] {
+  return (data?.anomalies ?? []).map((anomaly, index) => ({
+    id: anomaly.id ?? `anomaly-${index}`,
+    severity:
+      anomaly.severity === 'critical' || anomaly.severity === 'warning' || anomaly.severity === 'info'
+        ? anomaly.severity
+        : 'warning',
+    message: anomaly.description ?? anomaly.message ?? 'Anomaly detected',
+    source: anomaly.metric_name ?? anomaly.source ?? 'autonomous-monitoring',
+    timestamp: anomaly.timestamp ?? '',
+    resolved: anomaly.resolved ?? false,
+  }));
+}
+
+function normalizeSystemEvents(data?: HistoryEventsResponse | null): SystemEvent[] {
+  return (data?.events ?? []).map((event, index) => ({
+    id: event.id ?? `event-${index}`,
+    type: event.event_type ?? event.type ?? 'system_event',
+    message: event.message ?? event.event_data?.message ?? event.event_data?.summary ?? 'System event',
+    timestamp: event.timestamp ?? '',
+    source: event.agent ?? event.source ?? 'system',
+  }));
+}
+
+function normalizeKMSyncStatus(
+  healthEnvelope?: SuccessEnvelope<KMHealthPayload> | null,
+  adaptersEnvelope?: SuccessEnvelope<KMAdaptersPayload> | null
+): KMSyncStatus | null {
+  const health = healthEnvelope?.data;
+  const adapters = adaptersEnvelope?.data;
+
+  if (!health && !adapters) return null;
+
+  const adaptersTotal = adapters?.total ?? adapters?.adapters?.length ?? 0;
+  const derivedEnabledAdapters = adapters?.adapters?.filter((adapter) => adapter.enabled).length ?? 0;
+  const adaptersActive =
+    adapters?.enabled ?? derivedEnabledAdapters;
+  const syncHealthy =
+    typeof health?.checks?.adapters === 'boolean'
+      ? health.checks.adapters
+      : (health?.status ?? 'healthy') === 'healthy';
+
+  return {
+    last_sync: adapters?.last_sync ?? health?.timestamp ?? null,
+    pending_items: 0,
+    adapters_active: adaptersActive,
+    adapters_total: adaptersTotal,
+    sync_healthy: syncHealthy,
+  };
+}
+
+function normalizeNomicCycleStatus(
+  state: NomicStatePayload | null | undefined,
+  overview: SystemOverview | null
+): NomicCycleStatus | null {
+  if (!state && !overview) return null;
+
+  const stateLabel = (state?.state ?? state?.status ?? '').toLowerCase();
+  const active =
+    state?.active ??
+    state?.running ??
+    !['not_running', 'idle', 'stopped', 'complete', 'completed'].includes(stateLabel);
+  const currentCycle = state?.current_cycle ?? state?.cycle ?? overview?.totalCycles ?? 0;
+
+  return {
+    active,
+    current_cycle: currentCycle,
+    current_phase: state?.current_phase ?? state?.phase ?? (active ? 'debate' : 'complete'),
+    last_completed_at: state?.last_completed_at ?? state?.last_update ?? state?.updated_at ?? null,
+    success_rate: state?.success_rate ?? overview?.successRate ?? 0,
+    total_cycles: state?.total_cycles ?? overview?.totalCycles ?? currentCycle,
+  };
+}
+
+function normalizeDebateQueueInfo(data?: QueueMetricsPayload | null): DebateQueueInfo | null {
+  if (!data) return null;
+
+  return {
+    active_debates: data.running ?? 0,
+    queued_debates: data.pending ?? 0,
+    completed_today: data.completed_today ?? 0,
+    avg_duration_ms: data.avg_execution_time_ms ?? 0,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -120,7 +282,6 @@ function getPhaseLabel(phase: string) {
 type Section = 'overview' | 'agents' | 'knowledge' | 'queue';
 
 export default function SystemIntelligencePage() {
-  const { config: _config } = useBackend();
   const [activeSection, setActiveSection] = useState<Section>('overview');
 
   // --- Core hooks ---
@@ -134,36 +295,40 @@ export default function SystemIntelligencePage() {
   const { agents: poolAgents, total: poolTotal, active: poolActive, available: poolAvailable } = useAgentPoolHealth();
 
   // --- Additional data from backend ---
-  const { data: anomalyData } = useSWRFetch<{ data: { alerts: AnomalyAlert[] } }>(
-    '/api/v1/system-intelligence/anomalies',
+  const { data: anomalyData } = useSWRFetch<MonitoringAnomalyResponse>(
+    '/api/v1/autonomous/monitoring/anomalies?hours=24',
     { refreshInterval: 15000 }
   );
-  const anomalies = anomalyData?.data?.alerts ?? [];
+  const anomalies = normalizeAnomalies(anomalyData);
   const unresolvedAnomalies = anomalies.filter(a => !a.resolved);
 
-  const { data: eventsData } = useSWRFetch<{ data: { events: SystemEvent[] } }>(
-    '/api/v1/system-intelligence/events?limit=30',
+  const { data: eventsData } = useSWRFetch<HistoryEventsResponse>(
+    '/api/history/events?limit=30',
     { refreshInterval: 10000 }
   );
-  const systemEvents = eventsData?.data?.events ?? [];
+  const systemEvents = normalizeSystemEvents(eventsData);
 
-  const { data: kmSyncData } = useSWRFetch<{ data: KMSyncStatus }>(
-    '/api/v1/system-intelligence/km-sync',
+  const { data: kmHealthData } = useSWRFetch<SuccessEnvelope<KMHealthPayload>>(
+    '/api/v1/knowledge/mound/dashboard/health',
     { refreshInterval: 30000 }
   );
-  const kmSync = kmSyncData?.data ?? null;
+  const { data: kmAdaptersData } = useSWRFetch<SuccessEnvelope<KMAdaptersPayload>>(
+    '/api/v1/knowledge/mound/dashboard/adapters',
+    { refreshInterval: 30000 }
+  );
+  const kmSync = normalizeKMSyncStatus(kmHealthData, kmAdaptersData);
 
-  const { data: nomicData } = useSWRFetch<{ data: NomicCycleStatus }>(
-    '/api/v1/system-intelligence/nomic-status',
+  const { data: nomicData } = useSWRFetch<NomicStatePayload>(
+    '/api/v1/nomic/state',
     { refreshInterval: 15000 }
   );
-  const nomicStatus = nomicData?.data ?? null;
+  const nomicStatus = normalizeNomicCycleStatus(nomicData, overview);
 
-  const { data: debateQueueData } = useSWRFetch<{ data: DebateQueueInfo }>(
-    '/api/v1/system-intelligence/debate-queue',
+  const { data: debateQueueData } = useSWRFetch<QueueMetricsPayload>(
+    '/api/control-plane/queue/metrics',
     { refreshInterval: 10000 }
   );
-  const debateQueue = debateQueueData?.data ?? null;
+  const debateQueue = normalizeDebateQueueInfo(debateQueueData);
 
   // --- New goal form ---
   const [newGoal, setNewGoal] = useState('');
