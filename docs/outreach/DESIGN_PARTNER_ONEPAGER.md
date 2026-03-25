@@ -1,6 +1,10 @@
 # Aragora: Design Partner Brief
 
-**Stop shipping decisions you can't explain.**
+**Stop shipping AI-assisted decisions you can't explain.**
+
+Aragora governs consequential AI-assisted work with multi-model review,
+decision receipts, and truthful gates, so teams can move faster without losing
+provenance or human control.
 
 Last updated: 2026-03-24
 
@@ -25,19 +29,23 @@ to any channel.
 Your input -> multi-agent debate -> consensus + receipt -> KM feedback -> Slack / GitHub / API
 ```
 
-**What makes it different:**
+## Core Proof Points
 
-1. **Multi-agent consensus.** Claude, GPT-4, Mistral, Gemini, Grok debate each decision.
-   Disagreements surface blind spots before they become incidents.
+1. **Disagreement becomes useful evidence.** Multiple models challenge each
+   other before work advances, so dissent shows exactly where human judgment is
+   still needed.
 
-2. **Cryptographic receipts.** Every decision produces a SHA-256 signed receipt
-   with agent votes, agreement scores, and provenance chains.
+2. **Every consequential action has a receipt.** Aragora produces
+   audit-ready decision receipts with provenance, votes, confidence, and the
+   explicit next action.
 
-3. **Self-improving knowledge loop.** Debate outcomes feed back into a Knowledge Mound
-   (42 adapters), so the platform learns from every decision it vets.
+3. **Execution is bounded and truthful.** Approval gates, lease-based
+   coordination, and explicit blocker handling are first-class parts of the
+   system, not afterthoughts.
 
-4. **Autonomous bounded execution.** Supervisor-backed work orders with receipt gates,
-   lease-based coordination, and explicit merge policy -- not unguarded autonomy.
+4. **It fits above the tools you already use.** Aragora complements GitHub,
+   Slack, the terminal, and existing worker runtimes instead of forcing a stack
+   replacement.
 
 ## What Works End-to-End Today (March 23, 2026)
 
@@ -80,6 +88,24 @@ Zero operator intervention on the validated benchmark path.
 **3. Inbox Trust Wedge.** Gmail -> adversarial debate -> signed receipt -> CLI approval
 -> action (archive/star/label). Receipt-before-action is non-negotiable.
 
+## Common Objections
+
+**"Why not just use Codex, Claude Code, or OpenCode?"**
+Those tools are worker runtimes. Aragora governs the layer above them: review,
+receipts, provenance, dissent, and truthful stopping behavior.
+
+**"Won't this be slower than a single model?"**
+Yes, and that is the point. Use the simplest layer that preserves the needed
+truthfulness. Aragora is for consequential work, not every autocomplete.
+
+**"Are receipts just logs?"**
+No. A receipt explains who said what, what evidence was used, why the system
+advanced or stopped, and what the next human action is.
+
+**"Do we have to replace our current tools?"**
+No. Aragora sits above the tools your team already uses and adds governance
+only where the risk justifies it.
+
 ## What Partners Get
 
 - A self-improving platform that learns from every decision it vets
@@ -120,7 +146,15 @@ founder-led teams with painful inbox triage, AI-native teams frustrated by singl
 
 ## Next Step
 
-**Interested?** Reply to this email or book a 15-minute call:
+**Primary CTA:** Book a 15-minute workflow scoping call.
+
+**Secondary CTA:** Send one bounded artifact or recurring workflow and we will
+show what the receipt path looks like.
+
+**Tertiary CTA:** Reply with the team's current review bottleneck if you are
+not ready for a call yet.
+
+Contact options:
 
 - Email: [your-email]
 - Calendar: [booking-link]

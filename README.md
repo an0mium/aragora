@@ -1,10 +1,10 @@
 # Aragora
 
-Aragora is an auditable execution control plane for AI-assisted work. It uses
-structured multi-model debate, review, receipts, and truthful gates to govern
-consequential decisions and execution flows.
+Aragora is an auditable execution control plane for AI-assisted work. It
+governs consequential decisions and execution with multi-model review,
+receipts, provenance, and truthful gates.
 
-### Auditable Execution Control Plane
+### Govern AI-Assisted Work With Receipts, Review, and Truthful Gates
 
 [![PyPI](https://img.shields.io/pypi/v/aragora)](https://pypi.org/project/aragora/)
 [![Tests](https://github.com/an0mium/aragora/actions/workflows/test.yml/badge.svg)](https://github.com/an0mium/aragora/actions/workflows/test.yml)
@@ -14,7 +14,13 @@ consequential decisions and execution flows.
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll have a working debate in under a minute. For a deeper overview, see [Start Here](docs/START_HERE.md). For strategic framing, see [Competitive Positioning (March 2026)](docs/strategy/COMPETITIVE_POSITIONING_2026_03.md) and [When To Use Aragora Vs Execution Substrates](docs/strategy/WHEN_TO_USE_ARAGORA_VS_EXECUTION_SUBSTRATES.md).
+**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll
+have a working debate in under a minute. For a deeper overview, see [Start
+Here](docs/START_HERE.md). For strategic framing, see [Message Architecture
+(March 2026)](docs/strategy/MESSAGE_ARCHITECTURE_2026_03.md), [Competitive
+Positioning (March 2026)](docs/strategy/COMPETITIVE_POSITIONING_2026_03.md),
+and [When To Use Aragora Vs Execution
+Substrates](docs/strategy/WHEN_TO_USE_ARAGORA_VS_EXECUTION_SUBSTRATES.md).
 
 | I want to... | Install |
 |--------------|---------|
@@ -22,9 +28,21 @@ consequential decisions and execution flows.
 | Call the Aragora API from Python | `pip install aragora-sdk` |
 | Self-host the full platform | `docker compose -f deploy/demo/docker-compose.yml up` |
 
-**Individual LLMs are unreliable. Their personas shift with context, their confidence does not correlate with accuracy, and they often optimize for plausible agreement instead of truth.**
+**Individual LLMs are unreliable. Their personas shift with context, their
+confidence does not correlate with accuracy, and they often optimize for
+plausible agreement instead of truth.**
 
-Aragora treats that as a systems problem. It coordinates heterogeneous models through structured debate and review, preserves receipts and provenance, and stops truthfully when evidence is insufficient. The goal is not just faster AI output, but governed AI-assisted execution you can actually inspect.
+Aragora treats that as a systems problem. It coordinates heterogeneous models
+through structured debate and review, preserves receipts and provenance, and
+stops truthfully when evidence is insufficient. The goal is not just faster AI
+output, but governed AI-assisted execution you can actually inspect.
+
+Why teams adopt Aragora:
+
+- **Disagreement becomes useful evidence.** Models challenge each other before work advances.
+- **Every consequential action has a receipt.** Review, provenance, confidence, and next steps stay inspectable.
+- **Execution is bounded and truthful.** Approval gates and blocker handling are explicit.
+- **It fits above existing tools.** Use Aragora when review and governance matter; keep direct runtimes when raw speed is enough.
 
 ## Try It Now
 
