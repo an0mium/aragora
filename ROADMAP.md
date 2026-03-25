@@ -54,7 +54,8 @@ Aragora has shipped the closed-loop backbone (CLB) infrastructure, the 14/14 iss
 
 **Remaining tracked priority work:**
 - Dogfood the inbox trust wedge on a real Gmail inbox (CLI is ready)
-- Prepare for design partner outreach with repeatable live demo
+- Clear the design-partner onboarding readiness checklist for the live founder loop (`docs/plans/2026-03-25-design-partner-onboarding-readiness-checklist.md`)
+- Prepare for design partner outreach with repeatable live demo and evidence pack
 - Keep pentest / SOC 2 preparation warm, after design partner validation ([#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509))
 
 **EU AI Act enforcement date: August 2, 2026** — the compliance CLI and audit trail infrastructure
@@ -228,6 +229,7 @@ The March 2026 product cohesion assessment found ~25% effective feature complete
 - [x] Phase 2 truth-seeking: Prover-Estimator, cross-verification, truth ratio vote weights wired
 - [x] Inbox trust wedge CLI ready (`aragora triage auth`, `--dry-run`)
 - [ ] Dogfood the inbox trust wedge on a real Gmail inbox
+- [ ] Clear the design-partner onboarding readiness checklist before the next live founder-loop invite
 - [x] Agent-first beta: OpenClaw fleet deployed on 3 machines, running `aragora review` on real PRs via REST API
 - [x] GitHub Actions pre-merge gate (`aragora-review-gate.yml` shipped)
 - [x] Public demo at aragora.ai/demo (PR #705; standalone demo page live)
