@@ -29,9 +29,9 @@ where models agree, where they disagree, and why a workflow moved forward.
 ## 30-Second Version
 
 I started Aragora after seeing the same pattern over and over: teams were using
- AI to write code, review plans, and triage work, but when something looked
- wrong there was no reliable answer to "why did the system do that?" A single
- model can be useful, but it is a weak foundation for consequential decisions.
+AI to write code, review plans, and triage work, but when something looked
+wrong there was no reliable answer to "why did the system do that?" A single
+model can be useful, but it is a weak foundation for consequential decisions.
 
 Aragora is our answer to that. We run structured review across multiple agents,
 capture the dissent and provenance, and produce a decision receipt before the
