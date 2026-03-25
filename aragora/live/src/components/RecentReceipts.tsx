@@ -6,16 +6,13 @@ import { apiFetch } from '@/lib/api';
 import { DebateThisButton } from './DebateThisButton';
 
 interface ReceiptSummary {
-  id: string;
-  receipt_id?: string;
-  run_id?: string;
-  verdict: 'PASS' | 'FAIL' | 'WARN' | 'CONDITIONAL';
-  created_at: string;
-  artifact_hash: string;
-  findings_count: number;
+  receipt_id: string;
+  gauntlet_id?: string;
+  timestamp?: string;
   input_summary?: string;
+  verdict: string;
+  findings_count: number;
   confidence?: number;
-  metadata?: Record<string, unknown>;
 }
 
 interface RecentReceiptsProps {
@@ -29,6 +26,23 @@ const VERDICT_STYLES: Record<string, string> = {
   CONDITIONAL: 'text-[var(--acid-yellow)] border-[var(--acid-yellow)]/30 bg-[var(--acid-yellow)]/10',
 };
 
+function normalizeVerdict(verdict: string): 'PASS' | 'FAIL' | 'WARN' | 'CONDITIONAL' {
+  switch (verdict.toUpperCase()) {
+    case 'PASS':
+    case 'APPROVED':
+      return 'PASS';
+    case 'FAIL':
+    case 'REJECTED':
+      return 'FAIL';
+    case 'CONDITIONAL':
+    case 'WARNING':
+    case 'WARN':
+      return 'CONDITIONAL';
+    default:
+      return 'WARN';
+  }
+}
+
 export function RecentReceipts({ limit = 5 }: RecentReceiptsProps) {
   const [receipts, setReceipts] = useState<ReceiptSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +51,7 @@ export function RecentReceipts({ limit = 5 }: RecentReceiptsProps) {
   const fetchReceipts = useCallback(async () => {
     try {
       const data = await apiFetch<{ receipts: ReceiptSummary[] }>(
-        `/api/gauntlet/receipts?limit=${limit}`
+        `/api/v2/receipts?limit=${limit}`
       );
       setReceipts(data.receipts || []);
     } catch (err) {
@@ -90,17 +104,17 @@ export function RecentReceipts({ limit = 5 }: RecentReceiptsProps) {
       <div className="space-y-2">
         {receipts.map((receipt) => (
           <Link
-            key={receipt.id}
-            href={`/receipts?id=${receipt.id}`}
+            key={receipt.receipt_id}
+            href={`/receipts?id=${receipt.receipt_id}`}
             className="block border border-[var(--border)] p-3 hover:border-[var(--acid-green)]/40 transition-colors"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
-                <span className={`px-1.5 py-0.5 text-[10px] font-mono font-bold border ${VERDICT_STYLES[receipt.verdict] || VERDICT_STYLES.WARN}`}>
-                  {receipt.verdict}
+                <span className={`px-1.5 py-0.5 text-[10px] font-mono font-bold border ${VERDICT_STYLES[normalizeVerdict(receipt.verdict)] || VERDICT_STYLES.WARN}`}>
+                  {normalizeVerdict(receipt.verdict)}
                 </span>
                 <span className="text-xs font-mono text-[var(--text)] truncate">
-                  {receipt.input_summary || `Receipt ${(receipt.receipt_id || receipt.id).slice(0, 8)}`}
+                  {receipt.input_summary || `Receipt ${receipt.receipt_id.slice(0, 8)}`}
                 </span>
               </div>
               <div className="flex items-center gap-3 shrink-0">
@@ -110,10 +124,10 @@ export function RecentReceipts({ limit = 5 }: RecentReceiptsProps) {
                   </span>
                 )}
                 <span className="text-[10px] font-mono text-[var(--text-muted)]">
-                  {new Date(receipt.created_at).toLocaleDateString()}
+                  {receipt.timestamp ? new Date(receipt.timestamp).toLocaleDateString() : 'Unknown'}
                 </span>
                 <DebateThisButton
-                  question={receipt.input_summary || `Re-examine receipt ${(receipt.receipt_id || receipt.id).slice(0, 8)}`}
+                  question={receipt.input_summary || `Re-examine receipt ${receipt.receipt_id.slice(0, 8)}`}
                   source="receipt"
                   variant="icon"
                 />

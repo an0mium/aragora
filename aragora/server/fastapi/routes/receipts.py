@@ -49,6 +49,7 @@ class ReceiptSummary(BaseModel):
     receipt_id: str
     gauntlet_id: str
     timestamp: str | None = None
+    input_summary: str = ""
     verdict: str = ""
     confidence: float = 0.0
     risk_level: str = "MEDIUM"
@@ -235,6 +236,7 @@ def _to_receipt_summary(r: Any) -> ReceiptSummary:
             receipt_id=data.get("receipt_id", ""),
             gauntlet_id=data.get("gauntlet_id", ""),
             timestamp=data.get("timestamp"),
+            input_summary=data.get("input_summary", ""),
             verdict=data.get("verdict", ""),
             confidence=data.get("confidence", 0.0),
             risk_level=data.get("risk_level", "MEDIUM"),
@@ -247,6 +249,7 @@ def _to_receipt_summary(r: Any) -> ReceiptSummary:
         receipt_id=getattr(r, "receipt_id", ""),
         gauntlet_id=getattr(r, "gauntlet_id", ""),
         timestamp=str(getattr(r, "timestamp", "")) if hasattr(r, "timestamp") else None,
+        input_summary=getattr(r, "input_summary", ""),
         verdict=getattr(r, "verdict", ""),
         confidence=getattr(r, "confidence", 0.0),
         risk_level=getattr(r, "risk_level", "MEDIUM"),

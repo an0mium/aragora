@@ -151,6 +151,7 @@ class TestListReceipts:
         data = response.json()
         assert len(data["receipts"]) == 1
         assert data["receipts"][0]["receipt_id"] == "rcpt_test123"
+        assert data["receipts"][0]["input_summary"] == "Test input content"
         assert data["receipts"][0]["verdict"] == "APPROVED"
         assert data["total"] == 1
 
@@ -179,6 +180,7 @@ class TestListReceipts:
         data = response.json()
         assert data["total"] == 1
         assert data["receipts"][0]["receipt_id"] == "rcpt_test123"
+        assert data["receipts"][0]["input_summary"] == "Test input content"
         assert data["receipts"][0]["findings_count"] == 1
 
     def test_list_receipts_validation_limit_bounds(self, client):
